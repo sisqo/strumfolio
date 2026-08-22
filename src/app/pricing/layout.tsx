@@ -10,7 +10,7 @@ export default function PricingLayout({ children }: { children: React.ReactNode 
   return (
     <>
       {/* 70rem, matching this page's own `<main className="... max-w-[70rem] ...">`. */}
-      <PublicHeader width="70rem" />
+      <PublicHeader width="70rem" cta={{ href: '/login', label: 'Sign in' }} />
       {children}
     </>
   )

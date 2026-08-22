@@ -1372,6 +1372,29 @@
   }
 
   /*
+   * One FAQ group's own questions: a single column on a phone, two side by side from
+   * `lg` up — the redesign's own call, replacing `.card-stack`'s single column at every
+   * width. `align-items: start` rather than grid's own default `stretch`: a `<details>`
+   * opened in the left column would otherwise stretch its right-hand neighbour to match,
+   * which reads as a layout bug rather than as one answer being longer than another. A
+   * group with an odd number of questions, or exactly one, simply leaves the second
+   * column's last row empty — the same thing `.plan-columns` already does at three
+   * against four.
+   */
+  .faq-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 1024px) {
+    .faq-grid {
+      grid-template-columns: repeat(2, 1fr);
+      align-items: start;
+    }
+  }
+
+  /*
    * One FAQ entry: closed by default, its question always visible, its answer shown
    * only once tapped. `<details>` rather than a button and a piece of state, the same
    * choice `.editor-data` already makes for the song-data drawer: nothing here needs

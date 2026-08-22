@@ -605,17 +605,15 @@ export default async function LoginPage({ searchParams }: Props) {
         * screen reader's own sense of "expanded" for free — the same choice
         * `.editor-data` already makes for the song-data drawer elsewhere in the app.
         */}
-      <section className="mt-11 w-full max-w-2xl lg:mt-16">
-        <div className="text-center">
-          <h2 className="landing-feature-title">Frequently asked questions</h2>
-        </div>
+      <section className="landing-width mt-11 lg:mt-16">
+        <h2 className="landing-feature-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
 
         <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-8">
           {FAQ.map((group) => (
             <div key={group.title}>
               <span className="group-label">{group.title}</span>
 
-              <div className="card-stack mt-2.5">
+              <div className="faq-grid mt-2.5">
                 {group.items.map((item) => (
                   <details key={item.q} className="card faq-item">
                     <summary>

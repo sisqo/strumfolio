@@ -34,8 +34,22 @@ import { APP_NAME } from '@/lib/brand'
  * lockup needs that control exactly as much as any other. Those pages also lose nothing by
  * it: `/login` *is* home for a reader who is not signed in, and the other four each say
  * "Sign in" in their own copy.
+ *
+ * `cta` is the one thing that differs between call sites (the redesign that added it):
+ * `/login` points it at `/pricing` and `/pricing` points it back at `/login`, each page
+ * sending a visitor to the one thing it does not itself say. Optional and absent by
+ * default, since the legal pages, `/changelog`, `/brand` and the other auth screens have
+ * no such pair to offer — a reader there is already exactly where they mean to be.
  */
-export function PublicHeader({ width, brand = true }: { width: string; brand?: boolean }) {
+export function PublicHeader({
+  width,
+  brand = true,
+  cta,
+}: {
+  width: string
+  brand?: boolean
+  cta?: { href: string; label: string }
+}) {
   return (
     <header className="top-bar">
       <div className="top-bar-inner" style={{ '--top-bar-width': width } as React.CSSProperties}>
@@ -53,6 +67,12 @@ export function PublicHeader({ width, brand = true }: { width: string; brand?: b
         <span className="flex-1" />
 
         <ThemeToggle />
+
+        {cta !== undefined && (
+          <Link href={cta.href} className="btn btn-primary btn-sm">
+            {cta.label}
+          </Link>
+        )}
       </div>
     </header>
   )

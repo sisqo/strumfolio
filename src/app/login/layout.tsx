@@ -12,7 +12,7 @@ export default function LoginLayout({ children }: { children: React.ReactNode })
   return (
     <>
       {/* No mark in the bar: the hero badge a few pixels below prints the same lockup. */}
-      <PublicHeader width="70rem" brand={false} />
+      <PublicHeader width="70rem" brand={false} cta={{ href: '/pricing', label: 'Pricing' }} />
       {children}
     </>
   )

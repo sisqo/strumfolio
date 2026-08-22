@@ -289,6 +289,10 @@ function deviceCell(devices: number): string | null {
   return devices === 0 ? null : String(devices)
 }
 
+/** A feature named on this page before the gate that would enforce it exists — see the two
+ * "Printed booklet …" theme rows below for the one place this table says so out loud. */
+const COMING_SOON = 'Coming soon'
+
 /**
  * The comparison, one row per thing a reader is choosing between — every number read from
  * `PLANS`, never typed here, so this table and the gates cannot drift.
@@ -298,15 +302,20 @@ function deviceCell(devices: number): string | null {
  * the same sentence said three times. So each row header is two lines — the label, then what
  * living without it is like — and the cells stay bare values, "Included", or nothing.
  *
- * Two things are deliberately absent, and both would be easy to "complete" later. There is no
- * customizable-booklet row (see `bookletCell`). And there is no smart-capo row, although
- * `PLANS.free.smartCapo === false` says free does not have it: `Entitlements.refused` has six
- * fields and `smartCapo` is not one of them, and `PlanLimits` says out loud that no call site
- * reads the field and that no gate may be invented for it. So the free plan gets the smart capo
- * suggestion today and would still get it the day `SONGBOOK_PLANS` is switched on — a row here
- * would sell Standard for something Free already delivers, which is the customizable booklet
- * pointing the other way and taking money for it. The row goes in the day the gate exists, and
- * not before.
+ * One thing is deliberately still absent, for the reason that would make it easy to
+ * "complete": there is no smart-capo row, although `PLANS.free.smartCapo === false` says free
+ * does not have it. `Entitlements.refused` has six fields and `smartCapo` is not one of them,
+ * and `PlanLimits` says out loud that no call site reads the field and that no gate may be
+ * invented for it. So the free plan gets the smart capo suggestion today and would still get
+ * it the day `SONGBOOK_PLANS` is switched on — a row here would sell Standard for something
+ * Free already delivers.
+ *
+ * The customizable booklet is no longer in that same boat. `bookletCell`'s own comment still
+ * holds — `custom` behaves exactly like `plain` today, and no cell above may claim otherwise —
+ * but the two "Printed booklet …" rows below name it anyway, worded `COMING_SOON` rather than
+ * as something these plans already do. That is a deliberate roadmap commitment on a public
+ * page, confirmed rather than assumed: a reader on Plus or Premium is being told a themed
+ * booklet is coming, not that it is here.
  */
 const ROWS: ComparisonRow[] = [
   {
@@ -371,16 +380,6 @@ const ROWS: ComparisonRow[] = [
     ),
   },
   {
-    label: 'Printed booklet',
-    note: 'A PDF ready to print: cover, index, one song a page.',
-    cells: [
-      bookletCell(PLANS.free.booklet),
-      bookletCell(PLANS.standard.booklet),
-      bookletCell(PLANS.plus.booklet),
-      bookletCell(PLANS.premium.booklet),
-    ],
-  },
-  {
     label: '«Sing Together» session',
     /*
      * The design's own note names the guest's experience, not the cells' own subject (who may
@@ -411,6 +410,37 @@ const ROWS: ComparisonRow[] = [
        */
       'Unlimited',
     ],
+  },
+  {
+    label: 'Printed booklet',
+    note: 'A PDF ready to print: cover, index, one song a page.',
+    cells: [
+      bookletCell(PLANS.free.booklet),
+      bookletCell(PLANS.standard.booklet),
+      bookletCell(PLANS.plus.booklet),
+      bookletCell(PLANS.premium.booklet),
+    ],
+  },
+  /*
+   * The redesign's own two new rows, immediately under "Printed booklet" rather than at the
+   * table's foot: both are about that same PDF, and a reader comparing what it looks like
+   * should find the claim beside the feature it modifies, not after "Sing Together" or
+   * "Feature requests" have already changed the subject.
+   */
+  {
+    label: 'Printed booklet themes',
+    note: 'Choose a visual style for the printed booklet.',
+    /* Standard already has a booklet (`branded`, above) but no theme to pick for it — this
+       row is about a choice, not about whether a PDF exists at all. */
+    cells: [null, null, COMING_SOON, COMING_SOON],
+  },
+  {
+    label: 'Printed booklet custom themes',
+    note: 'Design your own theme for the printed booklet.',
+    /* Plus and Premium both carry `custom` in `bookletCell`'s own sense — identical today —
+       but only Premium gets this row's promise: the roadmap draws the line one row up from
+       where the code currently does. */
+    cells: [null, null, null, COMING_SOON],
   },
   {
     label: 'Feature requests',
