@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { IconBooks, IconCheck, IconReceipt } from '@/components/icons'
+import { IconBooks, IconBroadcast, IconCheck, IconPrint, IconReceipt } from '@/components/icons'
 import { loadPurchaseSummary, loadThanksPreview, type MockSubscriptionState } from '@/lib/plans/checkout'
-import { PLAN_LABEL, PLAN_VALUES, readPlan } from '@/lib/plans/types'
+import { PLAN_LABEL, PLANS, PLAN_VALUES, readPlan, thanksCapacitySentence, thanksDevicesCaption, thanksSongsCaption } from '@/lib/plans/types'
 import type { Plan } from '@/lib/plans/types'
 
 type Status =
@@ -130,74 +130,166 @@ export function ThanksScreen() {
   /*
    * Nothing was bought — somebody typed the URL, or is looking at an account that never
    * purchased. Said plainly rather than dressed up as a thank-you: the whole reason this reads
-   * the live plan is so that this branch exists.
+   * the live plan is so that this branch exists. The hero and the three-step list below still
+   * run: a reader on Free gets the same shape of page as one who just paid, only in the
+   * neutral tint `.thanks-hero:not(.is-paid)` and `.thanks-step.is-upsell` draw, and worded as
+   * what the paid plans would add rather than what just happened.
    */
   if (current.plan === 'free') {
     return (
       <>
         {previewBar}
-        <header className="mb-[1.125rem]">
-          <h1 className="screen-title">Nothing bought yet</h1>
-          <p className="mt-2 text-sm leading-[1.45] text-muted">
-            This account is on Free. Have a look at what the paid plans add.
-          </p>
-        </header>
 
-        <Link href="/pricing" className="btn btn-primary">
-          See the plans
-        </Link>
+        <div className="thanks-hero card">
+          <div className="thanks-hero-inner">
+            <span className="thanks-hero-icon">
+              <IconReceipt size={26} />
+            </span>
+            <h1 className="thanks-hero-title">
+              Still on Free.
+              <br />
+              Here&apos;s what&apos;s next.
+            </h1>
+            <p className="thanks-hero-text text-muted">
+              {PLANS.free.songbooks} songbook, {PLANS.free.songs} songs, no card and no end date.
+              Whenever you want more room, to sing together, or a printed booklet, the paid plans
+              are right there.
+            </p>
+          </div>
+        </div>
+
+        <div className="thanks-timeline">
+          <div className="thanks-step is-upsell">
+            <div className="thanks-step-rail">
+              <span className="thanks-step-icon">
+                <IconBooks size={17} />
+              </span>
+              <span className="thanks-step-line" />
+            </div>
+            <div className="thanks-step-body">
+              <p className="thanks-step-title">More songbooks &amp; songs</p>
+              <p className="thanks-step-caption">More room from Standard up, no cap at all from Plus.</p>
+            </div>
+          </div>
+
+          <div className="thanks-step is-upsell">
+            <div className="thanks-step-rail">
+              <span className="thanks-step-icon">
+                <IconBroadcast size={17} />
+              </span>
+              <span className="thanks-step-line" />
+            </div>
+            <div className="thanks-step-body">
+              <p className="thanks-step-title">&quot;Sing Together&quot; sessions</p>
+              <p className="thanks-step-caption">Everyone on their own screen, on your line.</p>
+            </div>
+          </div>
+
+          <div className="thanks-step is-upsell">
+            <div className="thanks-step-rail">
+              <span className="thanks-step-icon">
+                <IconPrint size={17} />
+              </span>
+            </div>
+            <div className="thanks-step-body">
+              <p className="thanks-step-title">A printed booklet</p>
+              <p className="thanks-step-caption">Cover, index, one song a page, ready to print.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-2.5">
+          <Link href="/pricing" className="btn btn-primary">
+            See the plans
+          </Link>
+          <Link href="/" className="btn">
+            Continue with Free
+          </Link>
+        </div>
       </>
     )
   }
 
-  const label = PLAN_LABEL[current.plan]
+  const plan = current.plan
+  const label = PLAN_LABEL[plan]
 
   return (
     <>
       {previewBar}
-      <header className="mb-[1.125rem]">
-        <p className="flex items-center gap-1.5 text-sm text-accent">
-          <IconCheck size={15} />
-          Payment received
-        </p>
-        <h1 className="screen-title mt-1.5">Thanks — you&apos;re on {label}</h1>
-        <p className="mt-2 text-sm leading-[1.45] text-muted">
-          {label} is active on this account right now.{' '}
-          {current.expiresAt === null
-            ? 'There is nothing to renew — it stays yours.'
-            : `It renews on ${dayOf(current.expiresAt)}, and you can change or cancel it any time before then.`}
-        </p>
-      </header>
 
-      {/*
-        * The one thing worth doing next, and the reason this page exists rather than a line of
-        * text on the checkout: a plan on its own does nothing for a musician until there is a
-        * songbook with their songs in it. Home is where that starts — there is no deeper link
-        * to give, because creating a songbook is a control on that screen.
-        */}
-      <div className="card card-lead p-4 sm:p-5">
-        <h2 className="section-title">Start your songbook</h2>
-        <p className="mt-1.5 text-sm leading-[1.45] text-muted">
-          Make a songbook, put your first songs in it, and take it with you — on stage, in
-          rehearsal, even with no signal.
-        </p>
-        <Link href="/" className="btn btn-primary mt-3.5">
+      <div className="thanks-hero is-paid">
+        <div className="thanks-hero-decor" aria-hidden />
+        <div className="thanks-hero-inner">
+          <span className="thanks-hero-icon">
+            <IconCheck size={26} />
+          </span>
+          <h1 className="thanks-hero-title">
+            You&apos;re in.
+            <br />
+            Welcome to {label}.
+          </h1>
+          <p className="thanks-hero-text">
+            {current.expiresAt === null ? 'No renewal — this is yours for good' : `Renews ${dayOf(current.expiresAt)}`}
+            {' — '}
+            {thanksCapacitySentence(plan)}
+          </p>
+        </div>
+      </div>
+
+      <div className="thanks-timeline is-paid">
+        <div className="thanks-step is-done">
+          <div className="thanks-step-rail">
+            <span className="thanks-step-icon">
+              <IconReceipt size={17} />
+            </span>
+            <span className="thanks-step-line" />
+          </div>
+          <div className="thanks-step-body">
+            <p className="thanks-step-title">Payment received</p>
+            <p className="thanks-step-caption">A receipt is on its way to your inbox.</p>
+          </div>
+        </div>
+
+        <div className="thanks-step is-included">
+          <div className="thanks-step-rail">
+            <span className="thanks-step-icon">
+              <IconBooks size={17} />
+            </span>
+            <span className="thanks-step-line" />
+          </div>
+          <div className="thanks-step-body">
+            <p className="thanks-step-title">Build your songbook</p>
+            <p className="thanks-step-caption">{thanksSongsCaption(plan)}</p>
+          </div>
+        </div>
+
+        <div className="thanks-step is-included">
+          <div className="thanks-step-rail">
+            <span className="thanks-step-icon">
+              <IconBroadcast size={17} />
+            </span>
+          </div>
+          <div className="thanks-step-body">
+            <p className="thanks-step-title">Bring the whole room</p>
+            <p className="thanks-step-caption">{thanksDevicesCaption(plan)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-9 flex flex-wrap items-center justify-center gap-2.5">
+        <Link href="/" className="btn btn-primary">
           <IconBooks size={16} />
           Go to my songbooks
         </Link>
-      </div>
-
-      <p className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
-        <Link href="/billing" className="flex items-center gap-1.5 text-accent hover:underline">
+        <Link href="/billing" className="btn">
           <IconReceipt size={15} />
-          Manage this plan, or see the payment history
+          Payment history
         </Link>
-        <Link href="/help" className="text-accent hover:underline">
+        <Link href="/help" className="btn">
           How the editor works
         </Link>
-      </p>
-
-      <p className="mt-6 text-sm text-muted">A confirmation is on its way to your inbox.</p>
+      </div>
+      <p className="mt-4 text-center text-sm text-muted">A confirmation is on its way to your inbox.</p>
     </>
   )
 }

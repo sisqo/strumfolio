@@ -2281,6 +2281,193 @@
     color: var(--accent);
   }
 
+  /* ---- Thanks (/thanks) ------------------------------------------------ */
+
+  /*
+   * The hero panel `ThanksScreen` opens with, in either of its two states. `.card` carries the
+   * free state's own surface — white fill, a real edge, `--shadow-1` — the same ladder rung
+   * every other card in the app sits on; `.is-paid` below overrides that for the state that
+   * has something to celebrate. Sized by hand rather than reused from `.card-lead` or the
+   * feature grid: this is the one card on the page big enough to read from across a room, and
+   * every other card class in this file is sized for a row of controls, not a headline.
+   */
+  .thanks-hero {
+    position: relative;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    padding: 2.25rem 1.5rem 2rem;
+    border-radius: var(--r-2xl);
+    text-align: center;
+  }
+
+  @media (min-width: 640px) {
+    .thanks-hero {
+      padding: 3rem 2.5rem 2.5rem;
+    }
+  }
+
+  /*
+   * The state that has something to celebrate: solid `--accent`, same idiom as
+   * `.feature-spotlight` on the public page — and the same reason for it. `color-mix` against
+   * `--on-accent` rather than the mock's literal `rgb(255 250 244 / 82%)`: that value assumes
+   * light mode's near-white `--on-accent`, and in dark mode `--on-accent` is near-black, so a
+   * hand-copied white-with-alpha would print near-invisible dark-grey text on the same fill.
+   */
+  .thanks-hero.is-paid {
+    background: var(--accent);
+    color: color-mix(in srgb, var(--on-accent) 82%, transparent);
+  }
+
+  /* The decorative wash behind the paid hero's copy — `.feature-spotlight-mark`'s own idiom,
+     two radial gradients instead of one so the mock's own asymmetry (bloom top-left, glint
+     top-right) survives the swap to a theme-safe color. */
+  .thanks-hero-decor {
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+    background:
+      radial-gradient(60% 90% at 30% -10%, color-mix(in srgb, var(--on-accent) 35%, transparent), transparent 60%),
+      radial-gradient(50% 70% at 90% 10%, color-mix(in srgb, var(--on-accent) 18%, transparent), transparent 60%);
+  }
+
+  .thanks-hero-inner {
+    position: relative;
+  }
+
+  /* The badge above the headline: a plain check for the paid state, a muted glyph (never real
+     text, so `--faint` is allowed here — see that variable's own comment) for the free one. */
+  .thanks-hero-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: 50%;
+  }
+
+  .thanks-hero.is-paid .thanks-hero-icon {
+    background: var(--on-accent);
+    color: var(--accent);
+  }
+
+  .thanks-hero:not(.is-paid) .thanks-hero-icon {
+    background: var(--surface-3);
+    color: var(--faint);
+  }
+
+  /*
+   * The headline. Not `.screen-title` plus a size utility — that class is 1.875rem/500 and
+   * this needs to read louder than any screen name in the app, so it gets its own rule rather
+   * than risking which of a Tailwind utility and a `@layer components` class the cascade keeps
+   * (the same coin flip `.landing-title`'s own comment already warns about).
+   */
+  .thanks-hero-title {
+    margin: 1.25rem 0 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  @media (min-width: 640px) {
+    .thanks-hero-title {
+      font-size: 2rem;
+    }
+  }
+
+  .thanks-hero-text {
+    margin: 0.75rem auto 0;
+    max-width: 30rem;
+    font-size: 0.96875rem;
+    line-height: 1.55;
+  }
+
+  /*
+   * The three-step list under the hero, paid and free alike. Each step draws its own rail
+   * segment from its icon down to the next one (`.thanks-step-line`, a flex child that
+   * stretches to fill whatever height the row's caption ends up wrapping to) rather than one
+   * absolutely-positioned bar spanning the whole list with hand-measured insets — the mock's
+   * own `top: 34px; bottom: 66px` assumes a caption that never wraps past one line, which is
+   * true at the mock's 1280px frame and false on the phone this app is actually read on.
+   */
+  .thanks-timeline {
+    margin-top: 2rem;
+  }
+
+  .thanks-step {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .thanks-step:not(:last-child) {
+    padding-bottom: 1.5rem;
+  }
+
+  /* The icon and the rail beneath it, stretched by the row (`.thanks-step`'s default
+     `align-items: stretch`) to exactly the height that row's own caption needs. */
+  .thanks-step-rail {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .thanks-step-icon {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.375rem;
+    height: 2.375rem;
+    border-radius: 50%;
+  }
+
+  .thanks-step-line {
+    flex: 1;
+    width: 2px;
+    margin-top: 0.25rem;
+    background: var(--line);
+  }
+
+  /* Paid: the first step is already done, solid `--accent`; the two after it are informational,
+     the same tint `.plan-card.is-paid` uses for "this is included" rather than "this happened". */
+  .thanks-step.is-done .thanks-step-icon {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .thanks-step.is-included .thanks-step-icon {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--edge));
+    color: var(--accent);
+  }
+
+  .thanks-timeline.is-paid .thanks-step-line {
+    background: color-mix(in srgb, var(--accent) 30%, var(--line));
+  }
+
+  /* Free: every step is a plain upsell, none of them done — one neutral tint throughout. */
+  .thanks-step.is-upsell .thanks-step-icon {
+    background: var(--surface-3);
+    color: var(--faint);
+  }
+
+  .thanks-step-body {
+    padding-top: 0.25rem;
+  }
+
+  .thanks-step-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .thanks-step-caption {
+    margin: 0.1875rem 0 0;
+    color: var(--muted);
+    font-size: 0.84375rem;
+  }
+
   /* ---- Brand page (/brand) -------------------------------------------- */
 
   /*

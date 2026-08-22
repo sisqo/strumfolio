@@ -17,6 +17,9 @@ import {
   PLAN_VALUES,
   readPlan,
   readPlanStatus,
+  thanksCapacitySentence,
+  thanksDevicesCaption,
+  thanksSongsCaption,
 } from './types'
 import type { LimitFacts, LimitReason } from './types'
 
@@ -379,5 +382,47 @@ describe('audienceIsFull', () => {
     assert.equal(audienceIsFull(100, PLANS.premium.devices), false)
     assert.equal(audienceIsFull(100, PLANS.lifetime.devices), false)
     assert.equal(audienceIsFull(100, UNGATED.limits.devices), false)
+  })
+})
+
+describe('thanksSongsCaption', () => {
+  it('names the real cap for a plan that has one', () => {
+    assert.equal(thanksSongsCaption('standard'), '300 songs across 3 songbooks.')
+  })
+
+  it('drops every number for a plan with no cap', () => {
+    assert.equal(thanksSongsCaption('plus'), 'Unlimited songs, organized your way.')
+    assert.equal(thanksSongsCaption('premium'), 'Unlimited songs, organized your way.')
+    assert.equal(thanksSongsCaption('lifetime'), 'Unlimited songs, organized your way.')
+  })
+})
+
+describe('thanksDevicesCaption', () => {
+  it('spells out the singular for a cap of one', () => {
+    assert.equal(thanksDevicesCaption('standard'), 'Start a Sing Together session, one device following.')
+  })
+
+  it('names the real cap for plus', () => {
+    assert.equal(thanksDevicesCaption('plus'), 'Start a Sing Together session, up to 3 devices following.')
+  })
+
+  it('calls premium and lifetime unlimited, never the bare number 100', () => {
+    assert.equal(thanksDevicesCaption('premium'), 'Start a Sing Together session, unlimited devices.')
+    assert.equal(thanksDevicesCaption('lifetime'), 'Start a Sing Together session, unlimited devices.')
+  })
+})
+
+describe('thanksCapacitySentence', () => {
+  it('joins the capped songs clause and the capped devices clause for standard', () => {
+    assert.equal(thanksCapacitySentence('standard'), '3 songbooks, 300 songs, one screen following along.')
+  })
+
+  it('joins the uncapped songs clause and the capped devices clause for plus', () => {
+    assert.equal(thanksCapacitySentence('plus'), 'every songbook, every song, up to 3 screens following along.')
+  })
+
+  it('joins the uncapped songs clause and the unlimited devices clause for premium and lifetime', () => {
+    assert.equal(thanksCapacitySentence('premium'), 'every songbook, every song, the whole room following along.')
+    assert.equal(thanksCapacitySentence('lifetime'), 'every songbook, every song, the whole room following along.')
   })
 })

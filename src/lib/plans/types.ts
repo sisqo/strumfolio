@@ -423,3 +423,62 @@ export function audienceSentence(following: number, devices: number): string {
 
   return `${following} of ${devices} ${devices === 1 ? 'device' : 'devices'} following`
 }
+
+/**
+ * `ThanksScreen`'s three sentences about a plan just bought: the storage half, the Sing
+ * Together half, and the two combined into the hero's own single line. Kept here rather than
+ * written once in the component for the reason `audienceSentence` gives for existing — a
+ * plan's real numbers, worded once beside the table they read from, instead of redrafted by
+ * hand for Standard, Plus, Premium and Lifetime and left to drift the day a cap changes.
+ *
+ * All three take a bare `Plan` rather than `CheckoutPlan` (`lib/plans/prices.ts`) — which is
+ * every plan besides `free` these are actually meant to describe — because `PLANS` itself is
+ * a `Record<Plan, …>` and importing `CheckoutPlan` back from `prices.ts` here would close a
+ * cycle (`prices.ts` already imports `Plan` from this file). `ThanksScreen` never calls these
+ * with `free`; that branch is worded on its own, since a reader who has not paid gets no
+ * numbers named at them at all.
+ */
+
+/**
+ * The storage half: what a plan lets a reader keep, worded as the timeline step under "Build
+ * your songbook" reads it. `null` is genuinely unlimited (see `PlanLimits.songs`'s own
+ * comment), which is why this names no number at all rather than printing one — Plus and
+ * Premium share this exact sentence, and that agreement is the point, not a coincidence to
+ * tidy away.
+ */
+export function thanksSongsCaption(plan: Plan): string {
+  const { songs, songbooks } = PLANS[plan]
+  if (songs === null) return 'Unlimited songs, organized your way.'
+  return `${songs} songs across ${songbooks} ${songbooks === 1 ? 'songbook' : 'songbooks'}.`
+}
+
+/**
+ * The Sing Together half: how many other devices may follow a broadcast this plan starts,
+ * worded as the timeline step under "Bring the whole room" reads it. Mirrors
+ * `audienceSentence`'s own three-way split on `PLANS.premium.devices` — 100 is the technical
+ * cap the rest of the app already calls unlimited, not a number this sentence may print bare.
+ */
+export function thanksDevicesCaption(plan: Plan): string {
+  const { devices } = PLANS[plan]
+  if (devices >= PLANS.premium.devices) return 'Start a Sing Together session, unlimited devices.'
+  if (devices === 1) return 'Start a Sing Together session, one device following.'
+  return `Start a Sing Together session, up to ${devices} devices following.`
+}
+
+/**
+ * Both halves, joined into the one sentence the hero prints after the renewal clause — the
+ * same two facts as the pair above, worded the way the hero's single line needs them rather
+ * than as two separate steps.
+ */
+export function thanksCapacitySentence(plan: Plan): string {
+  const { songs, songbooks, devices } = PLANS[plan]
+  const songsClause =
+    songs === null ? 'every songbook, every song' : `${songbooks} ${songbooks === 1 ? 'songbook' : 'songbooks'}, ${songs} songs`
+  const devicesClause =
+    devices >= PLANS.premium.devices
+      ? 'the whole room following along'
+      : devices === 1
+        ? 'one screen following along'
+        : `up to ${devices} screens following along`
+  return `${songsClause}, ${devicesClause}.`
+}
