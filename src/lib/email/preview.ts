@@ -64,19 +64,20 @@ function sampleUrl(origin: string, path: '/verify' | '/reset-password'): string 
 }
 
 /**
- * `planChangeEmail`'s own placeholders, and **one preview for its three shapes** rather than
- * three tabs of one email. The scheduled cancellation is the shape shown because it is the one
+ * `planChangeEmail`'s own placeholders, and **one preview for its four shapes** rather than
+ * four tabs of one email. The scheduled cancellation is the shape shown because it is the one
  * with every clause in it — the date, the reassurance, and the way to call it off; the immediate
- * cancellation drops the date and the undo, and a scheduled downgrade to a paid plan differs in
- * one clause. Those two are pinned by `templates.test.ts` instead, which is where a rule with no
- * new wording to look at belongs.
+ * cancellation drops the date and the undo, a scheduled downgrade to a paid plan differs in one
+ * clause, and the dateless scheduled shape (a `grace` row) differs in one more. Those three are
+ * pinned by `templates.test.ts` instead, which is where a rule with no new wording to look at
+ * belongs.
  *
  * The same fixed date as `SAMPLE_PURCHASE` above, for the reason stated there.
  */
 const SAMPLE_PLAN_CHANGE = {
   fromLabel: 'Premium',
   toLabel: 'Free',
-  endsOn: '22 September 2027',
+  effect: { day: '22 September 2027' },
 }
 
 export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemplate> {

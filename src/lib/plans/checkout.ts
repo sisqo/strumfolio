@@ -58,7 +58,7 @@ import { planChangeEmail, purchaseEmail } from '@/lib/email/templates'
    `/thanks` — imported here rather than kept as this file's own fourth copy of the same
    `toLocaleDateString('en-GB', …)` call. No cycle: `subscriptionCopy.ts` reaches back into
    this module for a *type* only, which erases. */
-import { formatPlanDate } from './subscriptionCopy'
+import { formatPlanDate, scheduledChangeDay } from './subscriptionCopy'
 
 export type MockCheckoutFailure =
   | 'disabled'
@@ -502,16 +502,22 @@ export async function mockPurchase(
      * The Telegram line above goes to the operator, and `/checkout`'s own inline sentence is
      * gone the moment the tab is closed.
      *
-     * `currentLive` is non-null here by the `isUpgradeOrSame` test above (a null one is an
-     * immediate purchase), and `resolved.expiresAt` is non-null by `nothingPaidThrough` — the
-     * conditional is what tells the compiler so, and it costs nothing to state.
+     * `currentLive` is non-null here by the `isUpgradeOrSame` test above — a null one is an
+     * immediate purchase and never reaches this branch.
+     *
+     * `scheduledChangeDay`, never `formatPlanDate` on the column: this row's `expiresAt` is
+     * non-null by `nothingPaidThrough`, but non-null is not the same as *nameable*. A `grace`
+     * row keeps its own date through `resolveSubscription`'s early return and that date is
+     * virtually always already in the past, so naming it here would tell a customer whose card
+     * is retrying that their downgrade lands on a day that has gone. Answering `null` puts the
+     * email on its dateless scheduled sentence instead, which is true in both cases.
      */
     await sendEmail({
       to: user.accountOwnerEmail,
       ...planChangeEmail({
         fromLabel: PLAN_LABEL[currentLive ?? 'free'],
         toLabel: PLAN_LABEL[plan],
-        endsOn: resolved.expiresAt === null ? null : formatPlanDate(resolved.expiresAt),
+        effect: { day: scheduledChangeDay(resolved.status, resolved.expiresAt) },
       }),
     })
 
@@ -599,16 +605,19 @@ export async function mockCancel(): Promise<
 
     /*
      * The written trace a cancellation never had. Same template as the scheduled downgrade
-     * above, with `toLabel` of «Free» being the whole of what makes it read as a cancellation
-     * — and `endsOn` of null being the immediate branch, where there was no period left to
-     * wait for and the account is already back on Free.
+     * above, with `toLabel` of «Free» being the whole of what makes it read as a cancellation.
+     *
+     * `effect` is read off the same `immediate` this function already decided its *write* with,
+     * so the email and the row can never describe two different things — and the scheduled side
+     * asks `scheduledChangeDay` rather than formatting the column, for the `grace` reason given
+     * at the foot of `mockPurchase`.
      */
     await sendEmail({
       to: user.accountOwnerEmail,
       ...planChangeEmail({
         fromLabel: PLAN_LABEL[currentLive],
         toLabel: PLAN_LABEL.free,
-        endsOn: resolved.expiresAt === null ? null : formatPlanDate(resolved.expiresAt),
+        effect: immediate ? 'now' : { day: scheduledChangeDay(resolved.status, resolved.expiresAt) },
       }),
     })
 

@@ -90,6 +90,16 @@ export function BillingScreen() {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [confirmingCancel, setConfirmingCancel] = useState(false)
+  /**
+   * Whether this visit arrived asking to cancel (`?cancel=1`), kept apart from
+   * `confirmingCancel` because it has to survive the case that one cannot represent: the ask
+   * being **refusable**. `canCancel` is false for an account whose cancellation is already
+   * scheduled, and /pricing's Free card links here whenever the subscription is a paid one — so
+   * that reader tapped "Switch to Free", landed here, and met a screen where nothing at all
+   * responded to the tap. Something has to answer, and this is what remembers that a question
+   * was asked.
+   */
+  const [cancelAsked, setCancelAsked] = useState(false)
 
   const refresh = () => {
     void Promise.all([loadCheckoutStatus(), loadMyPaymentHistory(), loadFreezeState()]).then(
@@ -136,7 +146,10 @@ export function BillingScreen() {
      * reading `ThanksScreen` does of `?preview=` and for the same reason: the hook would force
      * this screen into a Suspense boundary for a param most of its visitors never carry.
      */
-    if (new URLSearchParams(window.location.search).get('cancel') !== null) setConfirmingCancel(true)
+    if (new URLSearchParams(window.location.search).get('cancel') !== null) {
+      setConfirmingCancel(true)
+      setCancelAsked(true)
+    }
   }, [])
 
   /*
@@ -166,8 +179,11 @@ export function BillingScreen() {
     } finally {
       setBusy(false)
       /* Whatever happened, the question has been answered: collapse the confirmation rather
-         than leave a second «Cancel it» under a line reporting the first one. */
+         than leave a second «Cancel it» under a line reporting the first one. `cancelAsked`
+         goes with it, or a cancellation that has just gone through would be met by the "already
+         set to end" line below, directly under the `done` line saying so. */
       setConfirmingCancel(false)
+      setCancelAsked(false)
     }
   }
 
@@ -304,6 +320,29 @@ export function BillingScreen() {
                   </button>
                 ))}
             </div>
+
+            {/*
+              * The answer to a tap that would otherwise land on nothing. /pricing's Free card
+              * links here with `?cancel=1` whenever the subscription is a paid plan, and
+              * `canCancel` says no in states that card cannot see — chiefly a cancellation
+              * *already* scheduled, which is reachable in production: press "Switch to Free"
+              * twice, from two different tabs, or come back to the page a day later. Without
+              * this the second press produced a navigation and then silence.
+              *
+              * Two sentences, not one per refusal. The first names the one state a reader
+              * actually arrives in and points at the button that undoes it, which is the only
+              * useful thing to say. The second defers to `subscriptionStatusLine` two lines up
+              * rather than guessing which of the remaining cases this is — lapsed, expired,
+              * lifetime, already free — because that sentence is already correct for every one
+              * of them, and a second attempt at it here is a second chance to get it wrong.
+              */}
+            {cancelAsked && !canCancel(status.current, status.live) && (
+              <p className="notice mt-3" role="status">
+                {status.current.pendingPlan === 'free'
+                  ? `This plan is already set to end, so there is nothing left to cancel — «Keep ${PLAN_LABEL[status.current.plan]}» above calls it off.`
+                  : 'There is nothing to cancel on this account — the line above says where this plan stands.'}
+              </p>
+            )}
 
           </div>
 

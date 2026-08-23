@@ -1,8 +1,9 @@
 /**
- * The four emails Resend sends: verification, welcome and password reset (PLAN.md, v3.2
- * point 8), and the purchase thank-you added with the checkout's own flow. Each returns
- * `{ subject, html, text }` — plain data, no `sendEmail` call inside — so the flows that own
- * the actual send (registration, verification, password recovery, `mockPurchase`) decide the
+ * The five emails Resend sends: verification, welcome and password reset (PLAN.md, v3.2
+ * point 8), the purchase thank-you added with the checkout's own flow, and the plan-change
+ * notice that is its counterpart for a plan going away. Each returns `{ subject, html, text }`
+ * — plain data, no `sendEmail` call inside — so the flows that own the actual send
+ * (registration, verification, password recovery, `mockPurchase`, `mockCancel`) decide the
  * recipient themselves.
  *
  * Colors are the light half of `globals.css`'s palette, copied as hex rather than
@@ -240,49 +241,77 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * clause and agree in every other — the same argument `subscriptionStatusLine` makes for
  * being one function on three screens.
  *
- * `endsOn` is the day the plan already paid for runs out, as a plain day, and `null` means
- * there was no such day to wait for — `mockCancel`'s own immediate branch, a row with no
- * `planExpiresAt`. It is never a promise of a charge, for the reason `purchaseEmail`'s
- * `endsOn` was renamed from `renewsOn`: nothing in this repository renews anything.
- *
  * `toLabel` of «Free» is what makes this a cancellation rather than a move; both other
  * sentences read the same either way, which is why there is no separate `kind` parameter to
  * get out of step with the labels.
+ *
+ * **Three shapes and not two, which is the whole reason `effect` is a union.** This took
+ * `endsOn: string | null` at first, and that could not tell apart the two things a missing day
+ * means: a change that has *already happened* (`mockCancel`'s immediate branch, a row with no
+ * `planExpiresAt` to wait for) and one that is scheduled for a period end nobody may name — a
+ * `grace` row, whose `planExpiresAt` is virtually always already in the past, because that
+ * status is defined to ignore dates so a retrying card is not read as a lapse. Collapsed into
+ * one `null`, whichever sentence was chosen was false for the other: «has been cancelled, back
+ * on Free from now» over a plan still in force, or a past day named as the future. Naming the
+ * past day was the version that shipped for one commit — the v3.12 bug in the one artifact a
+ * reload cannot correct. `scheduledChangeDay` (`plans/subscriptionCopy.ts`) is where the rule
+ * that decides `day` lives, stated once for this and for `cancelQuestion` alike.
+ *
+ * No shape is ever a promise of a charge, for the reason `purchaseEmail`'s `endsOn` was renamed
+ * from `renewsOn`: nothing in this repository renews anything.
  */
 export function planChangeEmail(input: {
   /** The plan in force right now — `PLAN_LABEL`'s spelling, resolved by the caller. */
   fromLabel: string
   /** What the account becomes: «Free» for a cancellation, a plan name for a downgrade. */
   toLabel: string
-  /** The last day of the period already paid for, or null when there was none to wait for. */
-  endsOn: string | null
+  /**
+   * When it takes effect. `'now'` is done and already true of the account; `{ day }` is
+   * scheduled for the end of a period already paid for, with `day: null` for the one scheduled
+   * case that has no day worth naming — see the header.
+   */
+  effect: 'now' | { day: string | null }
 }): EmailTemplate {
-  const { fromLabel, toLabel, endsOn } = input
+  const { fromLabel, toLabel, effect } = input
   const cancelling = toLabel === 'Free'
+  /* `'now'` first, so `day` is only ever read on a change that has not happened yet. */
+  const day = effect === 'now' ? null : effect.day
 
   const subject =
-    endsOn === null
+    effect === 'now'
       ? `Your ${fromLabel} plan has been cancelled`
-      : cancelling
-        ? `Your ${fromLabel} plan ends on ${endsOn}`
-        : `Your plan moves to ${toLabel} on ${endsOn}`
+      : day === null
+        ? cancelling
+          ? `Your ${fromLabel} plan is set to end`
+          : `Your plan is set to move to ${toLabel}`
+        : cancelling
+          ? `Your ${fromLabel} plan ends on ${day}`
+          : `Your plan moves to ${toLabel} on ${day}`
 
+  /* The dateless scheduled sentence is `CheckoutScreen`'s own, word for word — that screen
+     already had to word this exact state before its button, and two wordings of "the period you
+     have been billed for, whenever that ends" is two wordings too many. */
   const what =
-    endsOn === null
+    effect === 'now'
       ? `${fromLabel} has been cancelled, and this account is back on Free from now.`
-      : cancelling
-        ? `${fromLabel} stays in force until ${endsOn}. On that day this account goes back to Free.`
-        : `${fromLabel} stays in force until ${endsOn}. On that day this account moves to ${toLabel}.`
+      : day === null
+        ? `${fromLabel} stays in force until the period it has already been billed for ends. ` +
+          (cancelling ? 'This account goes back to Free then.' : `This account moves to ${toLabel} then.`)
+        : cancelling
+          ? `${fromLabel} stays in force until ${day}. On that day this account goes back to Free.`
+          : `${fromLabel} stays in force until ${day}. On that day this account moves to ${toLabel}.`
 
   /* The one reassurance worth repeating from /pricing's own trust note, because this is the
      moment a musician wonders about it: nothing they put in is deleted by a plan ending. */
   const kept =
     'Nothing you have put in is deleted: your songs stay readable, printable and exportable.'
 
+  /* «before then» rather than «before that day», so the one sentence serves the named-day shape
+     and the dateless one alike — after «ends on 22 September 2027» it reads the same. */
   const undo =
-    endsOn === null
+    effect === 'now'
       ? 'You can start a plan again whenever you want.'
-      : `Changed your mind? «Keep ${fromLabel}» in Billing calls this off, any time before that day.`
+      : `Changed your mind? «Keep ${fromLabel}» in Billing calls this off, any time before then.`
 
   const billingUrl = `https://${SITE_URL}/billing`
 

@@ -10,7 +10,7 @@
  */
 
 import { PLAN_LABEL } from './types'
-import type { Plan } from './types'
+import type { Plan, PlanStatus } from './types'
 import { euro } from './prices'
 import type { MockSubscriptionState } from './checkout'
 import type { PaymentHistoryLine } from './history'
@@ -143,9 +143,40 @@ export function lastPaymentLine(
  * `mockCancel` drops that row on the spot rather than scheduling anything.
  */
 export function cancelQuestion(current: MockSubscriptionState): string {
+  const day = scheduledChangeDay(current.status, current.expiresAt)
   const label = PLAN_LABEL[current.plan]
 
-  if (current.status === 'grace' || current.expiresAt === null) return `Cancel ${label}?`
+  if (day === null) return `Cancel ${label}?`
 
-  return `Cancel ${label} at the end of the period already paid for, on ${formatPlanDate(current.expiresAt)}?`
+  return `Cancel ${label} at the end of the period already paid for, on ${day}?`
+}
+
+/**
+ * The day a change scheduled for period end actually lands, or `null` when there is no day
+ * worth naming — the grace rule, extracted from `cancelQuestion` above so that it has one
+ * statement in the code instead of one per place that words a scheduled change.
+ *
+ * Extracted for the second such place: `planChangeEmail`. That email says out loud which day a
+ * cancellation or a downgrade takes effect, and it is the one artifact in this feature a reload
+ * cannot correct — so it is the last place that should have been left to re-derive the rule
+ * `subscriptionStatusLine` and `cancelQuestion` both state. Written without it, it greeted a
+ * `grace` account with «Premium stays in force until 3 May 2026», a day already gone, named as
+ * a future event: the v3.12 bug in the one place it cannot be taken back.
+ *
+ * Two ways there is no day, and they mean different things to a caller — which is why this
+ * answers `null` for both and lets the caller decide, rather than pretending to. `grace` has a
+ * `planExpiresAt` virtually always already in the past, because that status is defined to
+ * ignore dates precisely so a retrying card is not read as a lapse; a null `expiresAt` has no
+ * date at all, which for `mockCancel` means the cancellation applies at once and for
+ * `cancelQuestion` means there is no period to name. A caller that has to tell the two apart —
+ * `mockCancel` does — asks `expiresAt` itself, which is the question it is actually about.
+ *
+ * `status`/`expiresAt` as two arguments rather than a `MockSubscriptionState`, so the resolved
+ * `SubscriptionColumns` that `checkout.ts` holds can be passed without being reshaped into a
+ * type it does not have.
+ */
+export function scheduledChangeDay(status: PlanStatus, expiresAt: Date | null): string | null {
+  if (status === 'grace' || expiresAt === null) return null
+
+  return formatPlanDate(expiresAt)
 }
