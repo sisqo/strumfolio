@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { AuthError } from 'next-auth'
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -518,6 +519,36 @@ export default async function LoginPage({ searchParams }: Props) {
           </div>
 
           <LandingCounters />
+        </div>
+      </section>
+
+      {/*
+        * Cross-device, ahead of Sing Together: the mockup is what makes "every screen"
+        * a claim a visitor can see rather than take on faith, and it is the one section
+        * on this page that leans on an image rather than an icon and a sentence.
+        */}
+      <section className="landing-width mt-11 lg:mt-14">
+        <div className="device-tour-grid">
+          <div>
+            <span className="text-[0.78125rem] font-semibold uppercase tracking-wide text-accent">
+              No install, anywhere
+            </span>
+            <h2 className="landing-feature-title mt-2.5">Every screen you own is ready to play.</h2>
+            <p className="mt-2.5 text-sm leading-[1.5] text-muted">
+              Organise your songbooks at the desk on Windows or Mac, then open the same library on
+              whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
+              playing if there is no signal.
+            </p>
+          </div>
+
+          <Image
+            src="/brand/device-mockup.webp"
+            alt="Strumfolio open on a laptop, tablet and phone"
+            width={2400}
+            height={1668}
+            sizes="(min-width: 1024px) 55vw, 90vw"
+            className="h-auto w-full"
+          />
         </div>
       </section>
 

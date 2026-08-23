@@ -1781,6 +1781,26 @@
     }
   }
 
+  /*
+   * The cross-device section, right after the hero (`/login`): text above the mockup on a
+   * phone — there is no room to sit them side by side yet — and a fixed-width text column
+   * beside the flexible image from `lg` up, the same 300px the design draws it at. Unlike
+   * `.landing-hero-grid` this needs no named areas: two children, always in the same order,
+   * never reshuffled between the two layouts.
+   */
+  .device-tour-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 1024px) {
+    .device-tour-grid {
+      grid-template-columns: 300px 1fr;
+      align-items: center;
+    }
+  }
+
   /* ---- Pricing (/pricing) --------------------------------------------- */
 
   /*
@@ -2266,18 +2286,26 @@
     line-height: 1.1;
   }
 
+  /*
+   * A rounded rectangle rather than `.pricing-eyebrow`'s own full pill: this badge now sits
+   * beside the price (`mt-1 flex … justify-end` in the JSX) rather than alone on its own
+   * line, and its four words wrap to two — a pill shape only reads as one the moment its
+   * label wraps, where the rounded ends stop meaning anything.
+   */
   .lifetime-pill {
     display: inline-flex;
     align-items: center;
-    height: 1.5rem;
-    margin-top: 0.375rem;
-    padding: 0 0.75rem;
-    border-radius: var(--r-pill);
+    justify-content: center;
+    max-width: 9.5rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--r-sm);
     background: color-mix(in srgb, var(--on-accent) 18%, transparent);
     color: var(--on-accent);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.03em;
+    line-height: 1.35;
+    text-align: center;
     text-transform: uppercase;
   }
 
