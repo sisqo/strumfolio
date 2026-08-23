@@ -1146,17 +1146,15 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
    repertorio attivo per primo, l'archivio in fondo) va aggiunta una colonna `position` e un
    riordino a trascinamento, come già hanno i brani dentro un canzoniere. Ora che la home è
    l'elenco dei canzonieri, la domanda pesa più di prima.
-10. ~~**Canzonieri condivisi o per utente**~~ — risolta dalla v3.0 (*Account*): ogni account
-    ha i propri canzonieri, non più struttura condivisa fra tutti gli ammessi.
+10. ~~**Canzonieri condivisi o per utente**~~ — risolta dalla v3.0: ogni account ha i propri
+    canzonieri, non più struttura condivisa fra tutti gli ammessi.
 11. **Rinominare uno slug di brano** — non previsto nemmeno dall'import: lo slug si genera
     dal titolo alla creazione e poi resta. Cambiarlo orfanerebbe le preferenze salvate di
     quel brano, quindi servirebbe una tabella di alias.
-12. ~~**Come si produce l'archivio dell'export**~~ — risolta: `fflate` (piccola, senza
-    dipendenze), un `.chopro` per brano, zip piatto — questo è anche il percorso di
-    ripristino, quindi resta senza cartelle né numeri. La domanda che ne era rimasta aperta,
-    un export pensato per essere sfogliato piuttosto che ripristinato, è risolta a parte in
-    *Export organizzato* (Decisioni), con due modalità (per canzone, per sezione), cartelle
-    per canzoniere e sezione, e numerazione — non ancora implementata.
+12. ~~**Come si produce l'archivio dell'export**~~ — risolta: `fflate`, un `.chopro` per
+    brano, zip piatto, senza cartelle né numeri (è anche il percorso di ripristino).
+    L'export "organizzato" per sfogliare è risolto a parte in *Export organizzato*
+    (Decisioni), non ancora costruito.
 13. **Qualità della conversione** — l'euristica «accordi sopra il testo» fallirà su sorgenti
     con tabulazioni, etichette di sezione in mezzo, o accordi e testo sulla stessa riga. La
     preview e il corpo modificabile sono la mitigazione; se in pratica sbaglia troppo spesso
@@ -1164,22 +1162,18 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 14. **Brani in attesa non leggibili** — prima della pubblicazione un brano si vede solo nella
     preview dell'import. Se capiterà di volerlo provare a suonare subito, l'alternativa è una
     pagina di lettura dinamica per i soli brani in attesa, fuori dal precache.
-15. ~~**Chi prende in carico il repertorio esistente (v3.0)**~~ — risolta: **f.limberti@gmail.com**.
-    L'altro proprietario globale, f.limberti@3nd.it, riceve il proprio account personale
-    (vuoto, con il solo Example) al prossimo login, come chiunque altro.
-16. ~~**Contenuto del canzoniere Example (v3.0)**~~ — risolta in due tempi: prima con un
-    unico brano segnaposto ("Example Song"), aggiunto proprio per verificare la clonazione
-    end-to-end (confermata contro il database reale: un secondo account provisionato ha
-    ricevuto `example-2` con la sua sezione e il suo brano, slug tutti nuovi); poi (v3.2)
-    riscrivendone il corpo perché mostri, con commenti visibili nel testo, ogni direttiva
-    che `chordpro.ts` riconosce — restano fuori solo gli alias, che sono la stessa direttiva
-    scritta in un altro modo. Un account già provisionato prima di questa modifica tiene la
-    propria copia clonata col vecchio testo: la clonazione avviene una volta sola alla
-    creazione dell'account, non si ripete quando il template cambia.
+15. ~~**Chi prende in carico il repertorio esistente (v3.0)**~~ — risolta:
+    f.limberti@gmail.com; l'altro proprietario globale riceve il proprio account vuoto al
+    prossimo login, come chiunque altro.
+16. ~~**Contenuto del canzoniere Example (v3.0)**~~ — risolta in due tempi: un brano
+    segnaposto per verificare la clonazione end-to-end, poi (v3.2) riscritto perché mostri,
+    con commenti visibili nel testo, ogni direttiva che `chordpro.ts` riconosce. Un account
+    già provisionato prima di questa modifica tiene la propria copia col vecchio testo: la
+    clonazione avviene una volta sola alla creazione, non si ripete quando il template
+    cambia.
 17. ~~**Precache offline per account multipli (v3.0)**~~ — risolta: nessun precache
-    d'installazione per i brani. Un salvataggio è live subito (pagine dinamiche), e la
-    copertura offline arriva da un warm-up per-lettore che copre solo gli account a cui chi
-    legge ha accesso — mai "tutti" indiscriminatamente.
+    d'installazione per i brani; la copertura offline arriva da un warm-up per-lettore che
+    copre solo gli account a cui chi legge ha accesso.
 18. **Cosa succede a un account se il suo proprietario esce da `ALLOWED_EMAILS` (v3.0)** —
     oggi non esiste alcun flusso di rimozione per un proprietario (è impossibile per
     costruzione, v2.0/v2.1). Se in futuro ne comparisse uno, resterebbe da decidere se il suo
@@ -1207,14 +1201,10 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
     avvisarli prima, è un messaggio da mandare fuori dall'app, non una funzionalità da
     costruire per questo.
 21. ~~**`setPasswordFor`/`removePasswordFor` autorizzano su `asAdmin()`, non su
-    `isOwner` (v3.1)**~~ — risolta due volte. Prima consegna: cancellate come codice morto,
-    perché `MemberManager` — il loro unico chiamante — era sparito e nessuna nuova
-    interfaccia le richiamava ancora. Si è rivelato il ramo sbagliato: creare un account
-    dalla pagina Accounts non basta a farci entrare chi lo riceve, se quell'indirizzo non
-    ha un account Google corrispondente e l'app non manda inviti via email. Reintrodotte in
-    `auth/actions.ts`, questa volta autorizzate su `isOwner` diretto (non su `asAdmin()`,
-    che varrebbe per il proprietario di un account qualsiasi) e richiamate da un nuovo
-    `AccountPasswordButton` nella pagina Accounts.
+    `isOwner` (v3.1)**~~ — risolta due volte: cancellate come codice morto nella prima
+    consegna, poi reintrodotte (creare un account da Accounts non basta a farci entrare chi
+    non ha un account Google corrispondente) autorizzate su `isOwner` diretto, richiamate
+    da `AccountPasswordButton`.
 22. **Nessuna moderazione oltre la cancellazione (v3.2)** — un proprietario globale può solo
     cancellare un account (v3.1), non bloccarlo in modo permanente: lo stesso indirizzo può
     ri-registrarsi subito dopo. Se con la registrazione aperta emerge un bisogno reale di
@@ -1233,14 +1223,10 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
     modelli semplici nella stessa tavolozza dell'app) è deciso, il testo esatto no: resta
     da scrivere e rivedere quando i modelli sono pronti da vedere.
 26. ~~**Verifica DNS del dominio d'invio su Resend (v3.2)**~~ — risolta, e poi spostata due
-    volte col dominio: non più `sisqo.dev`, il dominio verificato su Resend è ora
-    `strumfolio.com`, con la verifica DKIM/SPF sul sottodominio dedicato che Resend stesso
-    richiede (`send.strumfolio.com`, non la radice — vedi `CLAUDE.md`), e `RESEND_FROM`
-    punta a `no-reply@strumfolio.com` (`lib/email/send.ts`). ImprovMX (inoltro di
-    `info@strumfolio.com`) coesiste sugli stessi MX/TXT a livello di radice senza conflitto,
-    perché risponde a una domanda diversa (dove va la posta *in arrivo*, non chi può
-    spedire *come* il dominio) — dettagli e il resto dei sei sistemi da toccare a ogni
-    cambio di dominio sono in `CLAUDE.md`, non ripetuti qui.
+    volte col dominio: il dominio verificato su Resend è ora `strumfolio.com`, con
+    DKIM/SPF sul sottodominio dedicato `send.strumfolio.com` (non la radice), e
+    `RESEND_FROM` punta a `no-reply@strumfolio.com`. Dettagli e il resto dei sei sistemi da
+    toccare a ogni cambio di dominio sono in `CLAUDE.md`, non ripetuti qui.
 27. **Simulare un pagamento fallito, `grace`, end-to-end (v3.6)** — rimandato: nessuna
     schermata lato lettore mostra oggi quello stato per nessun account, reale o finto (solo
     la riga admin lo nomina). Da riprendere se emerge il bisogno di provare anche quel
@@ -1251,13 +1237,10 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
     al prossimo tocco dell'account (`mockPurchase`, un futuro webhook) potrebbe riallineare
     `plan`/`planExpiresAt` col risultato risolto invece di lasciarli indietro a tempo
     indefinito.
-29. ~~**Nome esatto delle funzioni server `clearPendingChange`/`forceExpireNow`/
-    `paymentHistoryFor` (v3.6)**~~ — risolta: costruite con questi nomi esatti, confermato
-    leggendo `lib/plans/checkout.ts` e `lib/plans/history.ts`.
-30. ~~**Palette esatta dei sei colori di piano in `/accounts` (v3.7)**~~ — risolta:
-    `DESIGN.md` porta la palette completa (`plan-standard`/`plan-plus`/`plan-premium`/
-    `plan-lifetime`, ciascuno con la coppia `-soft`/`-night`/`-night-soft`) sotto "Plan
-    Badges — a declared exception to the Chord-First Rule".
+29. ~~**Nome esatto delle funzioni server (v3.6)**~~ — risolta: `clearPendingChange`,
+    `forceExpireNow`, `paymentHistoryFor`, costruite con questi nomi esatti.
+30. ~~**Palette esatta dei sei colori di piano (v3.7)**~~ — risolta: `DESIGN.md` porta la
+    palette completa sotto "Plan Badges — a declared exception to the Chord-First Rule".
 31. ~~**Copy esatta della schermata di attesa dopo la registrazione (v3.7)**~~ — risolta
-    lasciando che il contesto parli da solo: nessuna frase aggiunta su `/pricing`, solo
-    l'etichetta del pulsante che cambia ("Continue with Free" invece di "Start free").
+    lasciando che il contesto parli da solo: solo l'etichetta del pulsante cambia
+    ("Continue with Free" invece di "Start free").
