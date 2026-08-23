@@ -282,445 +282,91 @@ debounced (2s) via server action.
 
 ### v1 — lettura
 
-1. Neon + Drizzle + schema e migrazioni
-2. Auth.js Google + allowlist + middleware + pagina di login
-3. Parser ChordPro → AST, con test sulle grafie enarmoniche e sui suffissi
-4. `scripts/seed.ts` + primi brani reali in `content/`
-5. Pagine statiche: lista, brano, scaletta
-6. Rendering accordi sopra il testo, con wrapping corretto
-7. Barra controlli: zoom, trasposizione, notazione
-8. Auto-scroll + wake lock
-9. Preferenze su DB + coda offline
-10. Ricerca client-side
-11. PWA: manifest, icone, Serwist, precache
-12. `PRODUCT.md` e `DESIGN.md` secondo la convenzione dei progetti fratelli
-
-Consegnata e in produzione.
+Fondazione: Neon + Drizzle, Auth.js con Google e un'allowlist, parser ChordPro → AST,
+pagine statiche (lista, brano, scaletta) con accordi renderizzati sopra il testo, barra
+controlli (zoom, trasposizione, notazione), auto-scroll con wake lock, preferenze su DB con
+coda offline, ricerca client-side, PWA con Serwist. Consegnata e in produzione.
 
 ### v1.1 — canzonieri
 
-Consegnata. La prima scrittura dall'app, deliberatamente su una superficie minima: nomi e
-appartenenza, non i brani.
-
-1. Migrazione: tabella `canzonieri`, colonna `songs.canzoniere_slug` con
-   `on delete restrict`. La colonna nasce nullable, così il backfill è il seed stesso; una
-   migrazione successiva la stringe a `not null` quando è tutto popolato
-2. Direttiva `{canzoniere: …}` nel parser, con test
-3. Seed: applica la direttiva su insert **o quando la colonna è vuota**, la ignora in
-   aggiornamento, crea i canzonieri mancanti, **non fa pruning** dei canzonieri
-4. Direttive nei quattro file esistenti e rimozione dei tag ora promossi a canzoniere
-5. Strato mutabile: server action di lettura + cache locale, sul modello delle preferenze
-6. Filtro a chip nella lista, con `?c=` e `c` in `ignoreURLParametersMatching`
-7. `/canzonieri`: crea, rinomina, rimuovi con spostamento obbligato se non vuoto
-8. Selettore di canzoniere nella testata del brano
-9. Disabilitazione dei controlli di gestione quando offline
-
-La garanzia centrale è verificata end to end e non assunta: una rinomina e uno spostamento
-applicati al database sono sopravvissuti a un `npm run seed` che rileggeva file che ancora
-nominavano il vecchio canzoniere.
+Consegnata. La prima scrittura dall'app, su una superficie minima: nomi e appartenenza, non
+i brani. Migrazione additiva (`canzonieri`, `songs.canzoniere_slug` nullable poi stretta a
+`not null`), direttiva `{canzoniere:}` nel parser, seed che non fa mai pruning dei
+canzonieri, gestione da `/canzonieri` con spostamento obbligato prima di rimuovere. Una
+rinomina e uno spostamento applicati al database sono verificati sopravvivere a un
+`npm run seed` che rileggeva ancora file col vecchio nome.
 
 ### v1.2 — import e modifica
 
-Consegnata. Il cambio di regime: il database diventa il padrone dei brani.
-
-1. Tabella `builds` e timbro scritto dal build, per sapere cosa è in attesa
-2. Seed a solo inserimento: nessun pruning, nessun aggiornamento dei brani
-3. Convertitore «accordi sopra il testo» → ChordPro, con test sui casi che sbagliano
-4. Riconoscimento del formato incollato e stima della tonalità dagli accordi
-5. `/importa`: campo di testo, form dedotto, preview dello spartito, salvataggio
-6. Rilevamento duplicati con sostituisci / aggiungi comunque / annulla
-7. Modifica e cancellazione di un brano esistente, dallo stesso form
-8. Elenco «in attesa» e azione Pubblica via deploy hook
-9. Export «Scarica tutto» e ripristino documentato tramite seed
-10. Rimozione dei quattro file segnaposto quando entra il repertorio vero *(in attesa
-    del repertorio: i segnaposto sono ancora l'unico contenuto)*
-
-Verificato end to end e non assunto: una correzione applicata al database e un brano
-esistente solo lì sono sopravvissuti a `npm run seed`; l'elenco «in attesa» è vuoto
-subito dopo un build e nomina esattamente il brano toccato dopo.
+Consegnata. Il cambio di regime: il database diventa il padrone dei brani. Tabella `builds`
+per il timbro di "in attesa"; seed a solo inserimento; convertitore «accordi sopra il
+testo» → ChordPro; `/importa` con preview e salvataggio; rilevamento duplicati; modifica e
+cancellazione; export «Scarica tutto» col seed come via di ripristino.
 
 ### v1.3 — le modifiche si vedono subito
 
-Consegnata, in risposta a un bug: salvare non cambiava niente sullo schermo e riaprire la
-modifica mostrava le parole vecchie, mentre il pulsante Pubblica lasciava la lista immobile.
-
-1. `songs.updated_at` esposto nel dominio: è la versione con cui la pagina è stata generata
-2. `saveSong` restituisce la riga scritta — canzoniere risolto e data del database compresi
-3. Regola di sovrapposizione pura e testata: vince solo ciò che è più recente della pagina
-4. Provider della canzone letta: pagina → cache locale → database, e il salvataggio applicato
-   subito
-5. Elenco sovrapposto a runtime: brano nuovo, brano rinominato, brano cancellato
-6. `revalidatePath()` dopo ogni scrittura, per chi non ha il service worker
-7. Pubblica attende che il build prenda in carico i brani, e dice solo quello che sa
-
-Verificato su un build di produzione con il service worker installato, non in sviluppo: la
-pagina in precache è ancora quella vecchia — controllato leggendo la Cache API — e sullo
-schermo c'è la correzione. Poi ricarica, riapertura del form, elenco, cancellazione. La
-prova che serviva era proprio questa: battere il precache, non evitarlo per caso.
+Consegnata, in risposta a un bug reale: salvare non cambiava nulla a schermo, e riaprire la
+modifica mostrava ancora le parole vecchie. Soluzione a una sola regola, pura e testata:
+confrontare `songs.updated_at` con la versione con cui la pagina è stata generata, mai un
+timbro o un orologio del browser — un salvataggio restituisce la riga scritta, non l'input
+passato. Verificato **battendo il precache di produzione**, non evitandolo: con il service
+worker installato, la pagina in cache mostra ancora la versione vecchia mentre lo schermo
+già mostra la correzione.
 
 ### v1.4 — editor e icone
 
-Consegnata.
+Consegnata. L'editor esce dalla pagina del brano e diventa una pagina sua
+(`/canzoni/<slug>/modifica`), non statica e non precachata, con tre modalità sopra
+un'unica sorgente a blocchi (uno per riga del file, con `toSource(fromSource(x)) === x` per
+garanzia di round-trip — nessuna riga ignorata dal lettore, come `{new_song}`, va persa al
+salvataggio): **Grafico**, **Sorgente**, **Anteprima**.
 
-L'editor esce dalla pagina del brano e diventa una pagina sua, `/canzoni/<slug>/modifica`,
-con tre modalità sopra un'unica sorgente: **Grafico**, **Sorgente**, **Anteprima**.
-
-1. Modello a blocchi, uno per riga del file, con `toSource(fromSource(x)) === x`
-2. Operazioni pure e testate: testo, accordi, taglia e unisci riga, commento, sezioni
-3. Grafico: le parole sono `input` veri, gli accordi appesi a una copia nascosta delle parole
-4. Sorgente: il ChordPro, con gli stessi comandi
-5. Anteprima: lo spartito e la barra dei controlli veri
-6. Rotta dinamica, esclusa dal precache anche a runtime
-7. Accordi: si mettono toccando la riga sopra la sillaba, si spostano con due frecce
-8. Annulla, con la scrittura raggruppata in un passo per raffica
-9. Guardia sull'uscita con modifiche non salvate, header e menù compresi
-10. Set di icone generato da uno script, con favicon vero al posto di quello di Next
-
-**La copia nascosta.** Gli accordi devono stare sopra la sillaba giusta, ma le parole sono
-dentro un `input`, e dentro un input non ci sono nodi di testo su cui appendere qualcosa. La
-soluzione non misura niente: sotto la riga di accordi c'è una copia invisibile delle stesse
-parole, nello stesso font, e ogni accordo è appeso a un'ancora di larghezza zero fra le sue
-lettere. È il browser a fare la misura, quindi non si sposta nulla quando il font finisce di
-caricare o cambia il tema. Verificato con un righello indipendente — un canvas col font
-dell'input — su ogni accordo: **scarto 0,0 px**.
-
-**Il round trip è la rete di sicurezza.** Il parser del lettore butta via quello che non gli
-serve: `{new_song}` — che sta in due dei tre brani veri — sparirebbe al primo salvataggio.
-Quindi il modello dell'editor tiene ogni riga, comprese quelle che il lettore ignora, gli
-spazi in coda (diciannove righe ne hanno) e le interruzioni di riga di Windows. Provato sui
-brani veri, non su fixture inventate: identici byte per byte.
-
-**Perché questa pagina non è statica.** Tutto il resto lo è, per sopravvivere senza rete.
-Un editor precachato invece mostrerebbe le parole dell'ultimo deploy e poi non riuscirebbe a
-salvare quelle nuove: peggio di una pagina che si rifiuta di aprirsi. Serve anche una regola
-nel service worker, perché le regole di default se lo prendevano comunque — trovato nella
-cache `others`, non immaginato.
-
-**Dal punto alla lettera.** Mettere un accordo *posizionandolo* non richiede misure — la
-copia nascosta fa tutto. La direzione opposta, da un tocco alla lettera sotto il dito, non
-ha lo stesso trucco: lì si misura con un canvas impostato sul font del campo. Che sia la
-stessa cosa che fa il browser è verificato, non sperato — `caretPositionFromPoint` dà la
-stessa lettera dello stesso punto — e un accordo finito una lettera più in là si sposta con
-le frecce accanto al nome, che tengono il campo aperto perché perdere il fuoco chiuderebbe
-proprio la cosa che si sta spostando. Spostarne uno oltre un altro cambia quale dei due
-viene prima, quindi l'operazione restituisce anche il nuovo indice: senza, il campo aperto
-si troverebbe a modificare l'accordo sbagliato.
-
-**Le pastiglie che sembravano etichette.** Tre segnalazioni di fila — «non posso mettere un
-accordo», «non posso eliminare uno stacco», «posso spostare il brano solo dall'editor» — e
-tutte e tre riguardavano cose che si potevano già fare, con un comando che non si vedeva. Il
-selettore del canzoniere nella testata era un `select` nudo, testo attenuato, in mezzo a
-un'altra riga di testo attenuato: leggeva come un'etichetta. È diventata una pastiglia con
-l'icona e il chevron — e poi, col ridisegno, è uscita dalla testata del brano: spostare un
-brano si fa dall'editor. La lezione resta, ed è quella che conta: un controllo che sta in
-mezzo al testo va disegnato come un controllo, non come il testo che lo circonda.
-
-**Le righe che non sono testo.** Stacchi, marcature e direttive si potevano già eliminare —
-click sulla riga, poi *Elimina riga* — ma nessuno lo trovava, e una funzione che non si trova
-è una funzione che non c'è. Ora ognuna porta il suo ×.
-
-**La guardia sull'uscita.** `beforeunload` copre solo l'uscita dal sito. Ogni link
-dell'header è una navigazione interna e non fa scattare niente: con mezzo verso scritto,
-toccare il menù lo buttava via in silenzio. I click vengono quindi intercettati in fase di
-cattura, prima che il router li veda, così valgono il marchio, il menù, le frecce e
-qualunque cosa venga aggiunta all'header dopo.
-
-Il prezzo, detto: la vecchia modifica in pagina si apriva anche senza rete, e questa no. Non
-salvava neanche prima, ma potevi almeno guardare il form.
-
-Resta fuori l'import: un brano nuovo si crea ancora dal form di `/importa`, e le tre modalità
-valgono per i brani che esistono.
+**La copia nascosta**, la soluzione più notevole: gli accordi devono stare sopra la
+sillaba giusta dentro un `input` (che non ha nodi di testo su cui appendere niente), quindi
+sotto la riga di accordi c'è una copia invisibile delle stesse parole nello stesso font, e
+il browser stesso fa la misura — verificato con un righello indipendente, scarto **0,0 px**
+su ogni accordo. La stessa idea vale al contrario (da un tocco alla lettera sotto il dito)
+misurando con un canvas nello stesso font.
 
 ### v1.5 — l'header sempre uguale, e l'import di più brani
 
-Consegnata.
-
-1. Il marchio non lascia più l'header: entrando in un brano restavano solo un `‹` e un
-   testo attenuato
-2. `/importa` chiede **per prima cosa** in quale canzoniere, e lì se ne può creare uno
-3. Un testo con più brani diventa più brani, uno per riga, controllabili prima di salvare
-
-**Il marchio se ne andava proprio dove serve.** L'header sostituiva icona e nome con il link
-di ritorno, per stare su una riga sola: sulla pagina del brano lo spazio verticale è il
-prodotto. Ma quella è anche la pagina dove si sta più tempo, in standalone, senza nessuna
-cornice del browser attorno: l'unica cosa che dice quale app sia questa spariva esattamente
-lì. Ora il marchio c'è sempre e il link di ritorno è qualcosa che l'header *aggiunge* — e
-solo quando porta altrove: per un brano letto da solo il marchio va già alla lista, quindi
-un «‹ Tutte le canzoni» accanto sarebbe lo stesso posto scritto due volte.
-
-Misurato a 320, 360 e 430 px su cinque pagine: niente straborda, e il nome resta intero.
-Ma la misura ha anche mostrato il prezzo — dentro una scaletta la pastiglia veniva tagliata
-a «Sabato in canti…», e quello che si perdeva era il `· 1 di 12`, cioè l'unica informazione
-che serve mentre si suona. La posizione è quindi scesa sotto il titolo, dove non viene
-abbreviata, e siccome lì accanto c'è già il canzoniere si dice per intero di cosa è la
-posizione: «1 di 2 in Sabato in cantina».
-
-**La destinazione prima del testo.** Il canzoniere era il quarto campo di un form che
-compariva *dopo* l'analisi: un momento strano per chiedere dove stai mettendo una cosa, e
-impossibile da rispondere una volta per venti brani. Ora è il primo campo, vale per tutta
-la pasta, e vince su un eventuale `{songbook: …}` nel testo — che la riga segnala, perché
-reimportare un export significa portarsi dietro la vecchia archiviazione e sovrascriverla in
-silenzio sarebbe una sorpresa. Nel form del brano singolo il campo è sparito: due controlli
-per una decisione, senza sapere quale vince, è il problema di prima al contrario.
-
-Questo valeva anche per `{division: …}`, finché non si è rivelato il problema sbagliato da
-risolvere per la sezione: a differenza del canzoniere, che si sceglie una volta per tutta la
-pasta, incollare più brani insieme non offre alcun modo di scegliere una sezione diversa per
-ciascuno — quindi ignorare la dichiarazione di ognuno significava non poter mai ricostituire
-la sezione originale di un export a più brani, non solo nel caso raro del reimport. La
-sezione dichiarata nel testo ora vince, riga per riga, creando la sezione se il canzoniere
-non ce l'ha ancora; il campo scelto in alto resta il destino di chi non dichiara nulla, e
-una scelta fatta o creata a mano — sia nel form del brano singolo sia con «Nuova sezione» —
-vince comunque, sempre, sulla dichiarazione. Il `{songbook: …}` resta ignorato come prima:
-qui il problema che l'aveva reso tale — sovrascrivere in silenzio un canzoniere scelto
-apposta — c'è ancora, perché quello lo si sceglie una volta sola, non per ogni brano.
-
-L'elenco delle destinazioni arriva dal database e non dal build, per lo stesso motivo per cui
-ci arrivano le parole di un brano: un canzoniere creato un minuto prima esiste, e una
-schermata che non lo offre è una schermata vecchia. Crearne uno da qui lo rende subito la
-destinazione — farlo qui significa volerci importare dentro.
-
-**Dove tagliare, e dove no.** Dividere una pasta in più brani si fa solo su segni messi da
-una persona: una riga di `---`, il `{ns}` di ChordPro, un secondo `{title:}`, un salto
-pagina. L'euristica allettante — riga vuota e poi una riga che sembra un titolo — è
-esattamente sbagliata su questo materiale: le canzoni sono piene di righe vuote fra le
-strofe, e la prima riga di una strofa somiglia a un titolo quanto un titolo. Sbagliare lì
-spezza un brano in cinque, e chi incolla non lo vede finché non sono salvati. Senza segni è
-un brano solo: è il modo giusto di sbagliare, perché uno in meno è una ripetuta e uno in più
-è da ripulire.
-
-**La lista è il punto, non il salvataggio.** Tre guessi in fila — dove tagliare, cosa sono
-accordi, quali righe sono un'intestazione — e l'unica difesa vera per un'euristica non è
-avere ragione sempre, è **essere visibile quando sbaglia**. Quindi ogni brano arriva con
-titolo e artista modificabili, il testo a un tocco, e niente scritto finché non lo chiedi.
-
-**Uno alla volta, e ognuno dice come è finito.** I salvataggi sono in sequenza: lo slug si
-ricava leggendo quelli già presi, e due scritture in parallelo lo leggerebbero entrambe
-prima che l'altra abbia scritto, chiedendo lo stesso. In cambio ogni riga può dire cos'è
-successo a sé, che è ciò che rende un fallimento parziale — quattro salvati, uno già
-presente, uno rifiutato — una cosa su cui agire invece di una riga di riassunto. Ripremere
-non riscrive quelli riusciti, e le righe già scritte smettono di accettare modifiche: la
-canzone esiste, e da quel momento si cambia nell'editor.
-
-Verificato contro il database, non contro l'avviso a schermo: tre brani da una pasta in un
-canzoniere creato sul momento, l'artista corretto a mano che arriva nella riga giusta, e
-la seconda passata che riconosce i due identici. Il terzo, di cui avevo cambiato l'artista,
-viene salvato di nuovo — ed è giusto: stesso titolo con artista diverso è una cover.
+Consegnata. Il marchio torna a comparire sempre nell'header (spariva proprio sulla pagina
+del brano, quella usata più a lungo, in standalone senza cornice del browser). In
+`/importa`, il canzoniere di destinazione diventa il primo campo — non l'ultimo dopo
+l'analisi — e vale per tutta la pasta incollata; un testo con più brani (divisi solo su
+segni espliciti: `---`, `{new_song}`, un secondo `{title:}`, mai una riga vuota) diventa una
+riga per brano, modificabile e salvata in sequenza, ognuna col proprio esito.
 
 ### v1.6 — una via sola per il brano accanto, e l'ordine in mano
 
-Consegnata.
-
-1. Le due card «Precedente / Successiva» in fondo allo spartito non ci sono più: le frecce
-   nell'header portano negli stessi due posti e sono sempre a portata
-2. `songs.position`, nullable, e un trascinamento che la scrive
-3. Riordino dal canzoniere aperto in home, col dito o con le frecce della tastiera
-
-**Due volte la stessa strada.** In fondo al brano c'erano due card coi titoli dei vicini, e
-nell'header due frecce che portano esattamente là. La copia in fondo costava anche due query
-in più per pagina al build — servivano solo a leggere quei due titoli — e per raggiungerla
-bisognava scorrere tutta la canzone, cioè arrivava tardi proprio quando serve: mentre suoni.
-Restano le frecce, e `SetlistContext` non porta più titoli, solo slug.
-
-**Perché `null` e non `0`.** La colonna è nullable senza default, e Postgres mette i null in
-fondo a un ordinamento crescente: così la migrazione è additiva davvero — ogni riga esistente
-resta null, l'ordine resta alfabetico finché nessuno tocca niente, e un brano importato in un
-canzoniere già sistemato si accoda invece di comparire in testa. Un default `0` avrebbe fatto
-l'opposto (il nuovo arrivato primo) e avrebbe richiesto un `position = 0 → in fondo` scritto
-a mano in ogni query. Al primo trascinamento il canzoniere viene rinumerato tutto da 1 a N,
-così buchi e pari merito — due brani il cui ordine reciproco non è definito — sono impossibili
-per costruzione.
-
-**Il trascinamento, con gli eventi puntatore.** L'API drag-and-drop di HTML non esiste su un
-touchscreen, e il touchscreen è dove questa app si usa. Quindi `pointerdown/move/up` con
-`setPointerCapture` sulla maniglia, e `touch-action: none` su di essa — senza quello il
-browser si prende il gesto verticale per lo scroll e gli eventi smettono di arrivare a metà
-strada.
-
-Le bande verticali delle righe si misurano **una volta**, all'inizio del trascinamento, e non
-si rimisurano mentre le righe si spostano: rimisurare sposterebbe i confini contro cui si
-confronta il dito, e la lista oscillerebbe fra due ordini col dito fermo. Le righe non sono
-tutte alte uguale — un brano con artista è più alto di uno senza — quindi si cammina sulle
-bande invece di dividere per un'altezza.
-
-**Anche da tastiera.** La maniglia è un `button`: a fuoco risponde a ↑ e ↓. Senza, questo
-sarebbe stato l'unico comando dell'app che una tastiera non può dare. I salvataggi sono
-accodati su una promessa, così cinque pressioni rapide finiscono nel database nell'ordine in
-cui sono state fatte e non in quello in cui la rete risponde.
-
-**Quello che il riordino non è.** Non è una modifica ai brani: `updated_at` non viene toccato,
-quindi venti righe trascinate non finiscono nella lista «in attesa di pubblicazione», dove non
-avrebbero niente da pubblicare. Le frecce dentro il brano però vengono dal build, quindi
-seguono l'ordine nuovo alla ricostruzione successiva — ed è *Ricostruisci ora* che serve, la
-stessa asimmetria già vera per una rinomina.
-
-**La ricerca è tornata alfabetica di proposito.** Ordinare la lista per `(position, title)`
-serve alle frecce, ma la stessa lista alimenta i risultati di ricerca: fra canzonieri diversi
-le posizioni sono 1..N ciascuna, quindi i risultati sarebbero arrivati come tutti i «primi»,
-poi tutti i «secondi». La ricerca ordina per titolo per conto suo.
-
-**Il costo, detto.** Il riordino richiede la rete (il pulsante non compare offline), e con
-`touch-action: none` un canzoniere più lungo dello schermo non si può scorrere mentre si
-trascina: si arriva in fondo con le frecce della tastiera, oppure in due mosse. L'ordine non
-entra nell'export `.chopro` — non è un fatto del brano, e inventare una direttiva non standard
-renderebbe quei file meno leggibili altrove.
+Consegnata. Le due card "brano precedente/successivo" in fondo allo spartito spariscono (le
+frecce nell'header portavano già agli stessi due posti, senza il costo di due query in più
+per pagina). Nuova colonna `songs.position`, nullable e senza default — Postgres mette i
+null in fondo a un ordinamento crescente, quindi la migrazione non sposta nulla finché
+nessuno trascina — riordinabile dal canzoniere aperto in home, col dito (eventi puntatore,
+l'unica API che funziona su un touchscreen) o da tastiera.
 
 ### v1.7 — i comandi fermi, l'ordine dell'import, l'ukulele
 
-Consegnata.
-
-1. I comandi dell'editor non scorrono più con la pagina
-2. I brani importati restano nell'ordine in cui sono stati incollati
-3. Chitarra o ukulele, dal menù: cambia la forma che il diagramma disegna
-
-**Un blocco fermo, e corto.** I comandi dell'editor stavano in fondo a una pagina che
-scorre, cioè più lontani proprio quando la canzone è lunga — il caso in cui si scorre. Ora
-le due righe stanno in un unico elemento sticky: uno e non due sovrapposti, perché l'altezza
-della prima cambia con la larghezza dello schermo e un secondo offset dovrebbe indovinarla.
-L'offset è quello dell'header, **misurato** a 64 px, non dedotto da un commento.
-
-Farli stare lì ha richiesto di accorciare il blocco: su un telefono da 360 px la sola riga
-delle modalità ne occupava tre, 146 px di controlli prima di un comando. Quindi il link di
-ritorno è il suo chevron (l'etichetta resta per chi legge con la voce), la scritta «non
-salvato» è sparita perché un pulsante *Salva* attivo dice già quello, e «riga 3» è sparita
-perché la riga su cui agiscono i comandi è quella col bordo accento accanto. I comandi
-scorrono in orizzontale invece di andare a capo, con *Annulla* fuori dalla striscia: un
-comando che si cerca dopo un errore non deve essere anche da trovare. 102 px a ogni
-larghezza.
-
-**Perché l'import numera il canzoniere.** Incollare venti brani in un ordine e ritrovarli
-alfabetizzati non è quello che significa incollarli in un ordine. Ma un posto in mezzo a
-brani senza posto non vuol dire niente: i null stanno in fondo, quindi un brano nuovo *con*
-un numero salterebbe in testa a un canzoniere che nessuno ha ordinato. Da qui le due
-strade — se il canzoniere è già 1..N i nuovi continuano da N, altrimenti viene numerato
-prima, nell'ordine in cui è in quel momento. In entrambi i casi ciò che era a schermo
-mantiene il suo ordine e i nuovi finiscono sotto.
-
-Il resto sono conseguenze della stessa regola: un brano *spostato* in un altro canzoniere
-resta senza numero (arriva in coda: il numero che aveva era un posto fra altri brani, e
-quelli non sono questi), e sostituire il testo di un brano che sta già lì non lo muove.
-
-**Chitarra o ukulele.** Un Do è un Do su qualsiasi strumento: cambia la *forma*, non
-l'accordo, quindi sullo spartito non si muove niente e cambia solo il diagramma che si apre
-toccando un accordo. Lo strumento è una preferenza globale accanto alla notazione —
-sincronizzata sul database, non locale come il tema, perché è una preferenza su chi legge e
-non sullo schermo che ha davanti.
-
-La tabella dell'ukulele **non è scritta a mano**: una ricerca prova le combinazioni in una
-finestra di quattro tasti e tiene solo quelle che il test già sa giudicare — nessuna nota
-estranea, tutte quelle indispensabili — ordinate per corde mute, posizione, estensione e
-dita. L'ordine di quei quattro criteri è tutta la differenza fra un diagramma riconoscibile e
-uno no: mettendo l'estensione prima della posizione la ricerca risponde Fa con 5555, quattro
-dita in fila al quinto tasto, valido e non quello che suona nessuno. Con la posizione prima,
-le forme dei manuali escono da sole — Do 0003, Fa 2010, Sol 0232, La- 2000 — e sono ventuno
-casi nel test, nessuno dei quali è scritto nel codice.
-
-Su quattro corde e senza corde da smorzare una combinazione su 216 non ha voicing entro il
-dodicesimo tasto (`G#m9`, che chiede quattro note distinte): lì `shapeFor` risponde null e la
-finestra mostra le note, che è più utile di una forma al quattordicesimo tasto di uno
-strumento che ne ha dodici. Il test quindi non pretende più «una forma per ogni famiglia» ma
-verifica quanto ciascuno strumento copre.
-
-Il diagramma è passato a essere dimensionato in **altezza**: a larghezza fissa una cassa da
-quattro corde veniva stirata — stessi tasti, più distanti, il manico di uno strumento che non
-esiste — mentre così ognuno resta nelle sue proporzioni e la chitarra non cambia di un pixel.
-
-**Il costo, detto.** Una preferenza in più nell'header significa che il menù ora legge le
-preferenze, quindi le tre pagine che avevano solo la barra — canzonieri, scalette, la singola
-scaletta — hanno anche loro il `PrefsProvider`. Il conto è una query in più su quelle pagine.
+Consegnata. I comandi dell'editor diventano un blocco sticky invece di scorrere con la
+pagina; i brani importati in una pasta restano nell'ordine in cui sono stati incollati
+invece di alfabetizzarsi; un nuovo strumento (chitarra/ukulele, preferenza globale) cambia
+solo la *forma* del diagramma, mai l'accordo sullo spartito — la tabella dell'ukulele è
+generata da una ricerca verificata contro le note di ogni accordo, non scritta a mano.
 
 ### v1.8 — capotasto
 
-Consegnata.
-
-1. `user_song_prefs.capo`, e uno spartito che mostra le forme da fare invece degli
-   accordi che suonano
-2. Una pastiglia sotto il titolo che dichiara il capotasto e la tonalità che suona
-3. Un suggerimento: quale tasto rende aperti più accordi del brano
-
-**Due spostamenti che non sono lo stesso spostamento.** Trasporre muove il suono;
-il capotasto muove la mano e lascia il suono dov'è. Insieme: `letto = scritto + semitoni
-− capotasto`, `sonante = scritto + semitoni`. È una sottrazione, e per questo sta in un
-modulo con i test invece che dentro un componente: sbagliata di segno resta plausibile a
-schermo, e l'unico caso che la smaschera è **+2 semitoni con il capotasto al 2**, dove le
-lettere devono tornare quelle scritte *e* il brano deve suonare un tono sopra. Una delle
-due cose da sola non basta: con un segno invertito una delle due continua a tornare.
-
-**Perché la pastiglia sotto il titolo.** Il pannello di lettura è chiuso quasi sempre —
-è una scelta di design già dichiarata: «col pannello chiuso la barra non dice più in che
-tonalità stai leggendo» — e un capotasto ricordato da ieri rinomina *ogni* accordo della
-pagina. Senza una riga fissa, aprire un brano mostrerebbe Do dove c'era Re e niente
-spiegherebbe perché: la sorpresa silenziosa che questa app evita altrove. La pastiglia
-c'è solo col capotasto inserito, perché a zero non c'è niente da spiegare.
-
-**Il suggerimento, e la definizione che ha dovuto cambiare.** Il criterio parte da una
-domanda semplice: quali accordi sono aperti. La prima versione lo chiedeva alla tabella
-delle posizioni aperte — sembrava di principio ed era sbagliata: il La aperto arriva allo
-spartito attraverso una forma mobile che capita di cadere al capotasto, quindi la tabella
-non ha una voce per lui e il suggerimento contava il La fra i difficili. Il test l'ha
-trovato subito. La definizione buona è **almeno una corda libera, e niente oltre il terzo
-tasto**: una corda libera è esattamente quello che un barré toglie, quindi dice «senza
-barré» senza dover riconoscere un barré — cosa che nessuna euristica fa bene, perché tre
-dita in fila al secondo tasto sono indistinguibili da un barré e sono un La aperto. E vale
-identica sui due strumenti, dove prima servivano due regole diverse.
-
-Il suggerimento **non si applica da sé** e si confronta col capotasto già messo, non con
-un manico nudo: a chi ha già scelto il secondo tasto, sentirsi dire che il secondo tasto
-andrebbe bene è rumore. Il test della proprietà — su cinque brani, otto tasti e due
-strumenti — verifica che quando parla sia sempre un miglioramento vero.
-
-**Il diagramma non si rinumera.** Col capotasto al 2 la forma di Do *è* la forma di Do:
-il capotasto è il nuovo tasto zero. Cambia solo la barra, colorata e col numero accanto,
-perché altrimenti una forma aperta e la stessa forma dietro un capotasto sarebbero lo
-stesso disegno.
-
-**Cosa ha detto il tipo.** Aggiungere `capo` a `SongPrefs` ha fatto fallire la
-compilazione in tre punti: la server action, la cache locale e le fixture del test della
-coda — cioè esattamente i tre posti che costruiscono le preferenze campo per campo
-invece di passarle intere. È la stessa classe di bug evitata due volte in v1.7 (il
-confronto di uguaglianza in `updateGlobal`, poi in `updateSong`), e stavolta l'ha trovata
-il compilatore invece di me.
-
-**Il costo, detto.** Il capotasto è una preferenza del brano, quindi lo segue anche dentro
-una scaletta: se in una serata lo stesso brano va fatto in due modi diversi, questo
-modello non lo permette. E non entra nell'export `.chopro`, come non ci entrano
-trasposizione e ordine: quel file è il brano come è scritto, non come lo leggi.
+Consegnata. `user_song_prefs.capo`: lo spartito mostra le forme da fare, non gli accordi
+che suonano davvero (`letto = scritto + semitoni − capotasto`, `sonante = scritto +
+semitoni` — una sottrazione testata a parte, perché sbagliata di segno resta plausibile a
+schermo). Un suggerimento propone il tasto che rende aperti più accordi del brano, mai
+applicato da sé.
 
 ### v1.9 — la modifica ridisegnata
 
-Consegnata. Viene da un handoff di Claude Design: *Turno 5* del documento
-`Songs Grafica`, che completa il ridisegno già fatto per lettura, elenchi e barra.
-
-1. La testata dell'editor: il titolo del brano, *Annulla* e *Salva* su una riga
-2. Le tre modalità come icone — matita, parentesi, occhio — invece di tre parole
-3. I comandi come icone, con la sola *Accordo* che tiene la sua parola
-4. *Dati del brano* con il suo chevron, *Elimina* come unico controllo scuro dell'app
-
-**Cosa il mockup non poteva sapere.** È stato disegnato prima che i comandi diventassero
-fissi (v1.7, la stessa giornata): lì stanno nel flusso della pagina, con la card dei dati
-in mezzo fra la riga del titolo e le modalità. Fissa, quella card renderebbe il blocco
-alto quattrocento pixel appena la si apre. Quindi l'ordine è quello del mockup tranne la
-card, che scende sotto il blocco fisso — l'unico scostamento, e la ragione è una
-richiesta esplicita dello stesso giorno.
-
-**Le icone hanno pagato il titolo.** Tre parole per le modalità riempivano la riga da
-sole; a icone (66 px l'una) ne resta abbastanza per il nome del brano in alto, che prima
-non c'era da nessuna parte: l'header dice «songs», e in modalità grafica le parole sullo
-schermo sono la canzone, non il suo titolo. Ogni icona conserva il nome in `title` e in
-`aria-label` — la lezione delle pastiglie che sembravano etichette valeva anche al
-contrario.
-
-**Una cosa rotta trovata implementando.** La prima riga di un brano con intro —
-`[re] [la] [re] [sol]` — sovrapponeva tutti gli accordi in una macchia: le sue "parole"
-sono spazi singoli, quattro pixel, e un nome di accordo ne occupa venti. Il lettore non
-ha il problema perché lì è l'accordo a decidere la larghezza della parola sotto; qui le
-parole sono un `input` vero e la copia nascosta sopra deve corrispondergli lettera per
-lettera, quindi allargarla è esattamente ciò che non si può fare. Una riga senza parole
-non ha sillabe a cui appendere niente: gli accordi diventano una riga di accordi.
-
-Resta il caso di due accordi a due lettere di distanza su una riga *con* parole, che si
-sovrappongono ancora: si separano con le frecce, e risolverlo davvero richiede di
-misurare. Era così anche prima.
+Consegnata, da un handoff di Claude Design che completa il ridisegno già fatto per lettura,
+elenchi e barra: testata dell'editor su una riga, le tre modalità e i comandi come icone
+(con `title`/`aria-label` a portare il nome), *Elimina* come unico controllo scuro dell'app.
 
 ### v2.0 — utenti, e tre cose in meno
 
