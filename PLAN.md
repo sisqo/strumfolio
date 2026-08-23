@@ -1525,6 +1525,27 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Numerazione e riordino | Accettato che i numeri di un export invecchino a ogni trascinamento | È una fotografia dell'ordine attuale, non un archivio da confrontare nel tempo — stesso spirito del backup senza token |
 | Punto d'accesso | Due pulsanti distinti nel pannello Export, non un selettore | Chiaro a colpo d'occhio, zero scelte da fare prima di scaricare |
 
+### Canzoniere di esempio per i nuovi account (pianificato, non ancora costruito)
+
+Un bottone nell'empty-state della home per riempire con un click il primo canzoniere di un
+account con canzoni vere, libere da copyright — non il canzoniere Example della v3.0
+(clonato automaticamente a ogni sign-in, poi rimosso quando sono arrivati i piani perché
+sprecava l'unico canzoniere del piano free su contenuto non richiesto: il commento rimasto
+in `provisionAccount`, `src/lib/accounts/provision.ts`, motiva così la rimozione). La
+differenza che rende ragionevole riproporlo: qui è una scelta esplicita di chi ha un account
+vuoto, non un'imposizione automatica su chiunque si registri.
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Rapporto con i limiti del piano | Il canzoniere creato conta come un canzoniere normale del piano | Per un account nuovo e vuoto è comunque il suo primo (e unico, sul piano free) canzoniere: arriva già popolato invece che vuoto, resta modificabile ed eliminabile come qualunque altro. Non è uno slot "in più" come lo era il vecchio Example — è quello slot |
+| Punto d'accesso e ricomparsa | Bottone nell'empty-state di `HomeScreen.tsx` ("No songbook yet…") | Riusa la condizione già esistente (zero canzonieri) invece di introdurre un concetto separato di "account nuovo"; ricompare da solo se l'account torna a zero canzonieri più avanti, senza bisogno di un flag persistito |
+| Sorgente del contenuto | Fixture ChordPro in una nuova sottocartella di `content/`, non un "account modello" nel DB con `isExampleTemplate` | Nessuna dipendenza da un account live che qualcuno potrebbe modificare o cancellare per errore. Una sottocartella non è raggiunta dal `readdir` non ricorsivo di `readSongFiles`/`scripts/seed.ts`, quindi non si mescola con il fallback locale senza `DATABASE_URL`. Il flag `isExampleTemplate` resta dormiente, non riattivato per questa funzione |
+| Formato del file fornito | Un unico file ChordPro con più canzoni | Separate con `{new_song}`/`{title}` ripetuto/riga di regola — esattamente ciò che `splitSongs` (`src/lib/import/split.ts`) già sa tagliare per l'import da incolla-multiplo |
+| Quando avviene lo split | Una volta, alla ricezione del file, non a ogni click | Il file va diviso con `splitSongs`/`prepareSongs` in singoli `.chopro` (stesso schema dei 4 placeholder già in `content/`) come passo di conversione unico; l'azione che risponde al click legge quei file già pronti, senza rifare lo split a runtime |
+| Quante canzoni entrano | Tutte quelle del file, tagliate solo se superano lo spazio residuo | Per un account nuovo lo spazio residuo coincide col tetto pieno del piano (30 brani sul free); se il file ne contenesse di più si prendono le prime N nell'ordine del file |
+| Licenza delle canzoni | Pubblico dominio / brani tradizionali | Formula legale più semplice: nessun autore da accreditare per nome né link a una licenza specifica, solo la dichiarazione di pubblico dominio |
+| Dove va l'attribuzione | Solo su Content & Copyright Notice (`src/app/(legal)/content-copyright-notice/page.tsx`), non nella UI di lettura | Aggiunge un paragrafo alla sezione 1 ("No built-in song library"), che oggi dichiara letteralmente "the Service ships empty" — falso a partire da questa funzione, va corretto nello stesso cambiamento, non in un secondo tempo |
+
 ## Domande aperte
 
 1. **Capotasto** — escluso dalla v1 (lo stepper a semitoni copre il bisogno principale).
@@ -1658,3 +1679,13 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 31. ~~**Copy esatta della schermata di attesa dopo la registrazione (v3.7)**~~ — risolta
     lasciando che il contesto parli da solo: solo l'etichetta del pulsante cambia
     ("Continue with Free" invece di "Start free").
+32. **Contenuto esatto del file per il canzoniere di esempio** — non è ancora arrivato:
+    titoli, eventuali sezioni via `{division}` e ordine dei brani si sapranno solo
+    guardando il file vero. Lo split userà `splitSongs`/`prepareSongs` così come sono,
+    senza modifiche.
+33. **Testo esatto dell'attribuzione sulla Content & Copyright Notice** — la formula
+    "pubblico dominio" è decisa, ma il paragrafo preciso (quali brani, quanti, con quale
+    frase) resta da scrivere quando arrivano i metadati veri delle canzoni.
+34. **Nome del canzoniere creato dal click** — un'etichetta placeholder ragionevole (es.
+    "Example songbook") basta per partire: è testo che l'utente può rinominare in ogni
+    momento come qualunque altro canzoniere, quindi a basso rischio.
