@@ -104,17 +104,34 @@ ${APP_NAME} — ${APP_PAYOFF}`
   return { subject, html, text }
 }
 
+/**
+ * `planClause` only while `SONGBOOK_PLANS=on` — the mandatory plan-choice gate
+ * (`(home)/page.tsx`, PLAN.md v3.7) only actually redirects anyone when that flag is on, so a
+ * reader who signs up while it is off would open the app straight to their songbooks and find
+ * this email had promised a screen that never came. Read fresh per send rather than baked in
+ * at build time, the same reason every other plan-aware reader of this flag is.
+ *
+ * Checked directly against `process.env` rather than by importing `plansEnforced` from
+ * `lib/plans/resolve` — that module also value-imports `lib/db/client`, and this file is
+ * reachable from `EmailPreview.tsx` (`'use client'`, via `lib/email/preview.ts`), so pulling
+ * in the database driver here would break that client bundle.
+ */
 export function welcomeEmail(): EmailTemplate {
   const subject = `Welcome to ${APP_NAME}`
 
+  const planClause =
+    process.env.SONGBOOK_PLANS === 'on'
+      ? " Before you get to them, we'll ask you to pick a plan — Free, with no card and no end date, is one of the choices."
+      : ''
+
   const html = layout(`
     ${heading(`Welcome to ${APP_NAME}`)}
-    ${paragraph('Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.')}
+    ${paragraph(`Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.${planClause}`)}
   `)
 
   const text = `Welcome to ${APP_NAME}
 
-Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.
+Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.${planClause}
 
 ${APP_NAME} — ${APP_PAYOFF}`
 

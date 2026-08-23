@@ -15,7 +15,7 @@
  *
  * There is no history kept: the row carries who wrote it last and when, and nothing more. A
  * ledger of every flip would be `paddle_events`' shape, and that table exists because money
- * needs one — four notification switches do not, and inventing the table now would be building
+ * needs one — a handful of notification switches do not, and inventing the table now would be building
  * for a question nobody has asked. The `console.warn` is the deployment log's copy, in the same
  * voice `checkout.ts` logs its own mutations.
  */

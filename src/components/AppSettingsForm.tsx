@@ -17,7 +17,7 @@ const FAILURE_MESSAGE: Record<string, string> = {
 }
 
 /**
- * The four notification switches.
+ * The notification switches, one per `NOTIFY_EVENTS`.
  *
  * Only `@/lib/settings/types` is value-imported here, never `read.ts` or `actions.ts`'s
  * neighbours that touch the database — that module is kept free of any `@/lib/db` import for

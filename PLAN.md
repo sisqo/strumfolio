@@ -866,6 +866,80 @@ modelli in `lib/email/templates.ts` (verifica registrazione, benvenuto, reset pa
 
 Nessuna migrazione.
 
+### v3.10 — ricontrollo generale dei piani
+
+Nessuna funzionalità nuova: un giro esplicito su tutto ciò che la v3.6/v3.7/v3.9 avevano
+lasciato scollegato o incoerente, dopo un audit a più agenti sull'intera esperienza dei
+piani (enforcement, cambio ciclo, admin, email/notifiche). Deciso per intero via domande a
+scelta multipla, riportate in "Decisioni" più sotto.
+
+1. **Cambio di ciclo senza cambio di piano, finalmente raggiungibile.** La v3.6 (punto 4)
+   aveva già scritto la semantica — rango pari è un piccolo upgrade immediato, si esprime
+   comprando di nuovo lo stesso piano — ma non esisteva alcun pulsante per farlo: la card
+   del piano attivo su `/pricing` (`PricingPlans.tsx`) mostrava solo "Your plan · Manage"
+   verso `/billing`. Aggiunto un link secondario sulla card stessa, `Change billing cycle`,
+   verso `/checkout/[plan]?cycle=...` — un'azione minore sulla card attiva, non un modale
+   o una sezione a parte.
+2. **`subscriptionStatusLine`/`formatPlanDate`** (`lib/plans/subscriptionCopy.ts`, nuovo
+   modulo) sostituiscono tre implementazioni indipendenti della stessa frase — "come sta
+   questo abbonamento in una riga" — che avevano preso strade diverse: `BillingScreen` non
+   gestiva affatto lo stato `grace`, `CheckoutScreen` aveva una terza formulazione, e le
+   date non erano formattate allo stesso modo nei tre punti (`/billing`, `/checkout/[plan]`,
+   `/thanks`). Una sola funzione pura, condivisa, invece di tre frasi da tenere in sync a
+   mano.
+3. **`/pricing` e `/login` allineati sul numero vero di dispositivi Premium.** La tabella
+   "«Sing Together» devices" su `/pricing` diceva "Unlimited" per Premium; la FAQ "Is
+   Strumfolio free to use?" su `/login` diceva già "100" in chiaro. Deciso di far vincere il
+   numero reale ovunque (non "Unlimited" ovunque): `deviceCell(PLANS.premium.devices)`
+   invece di un valore scritto a mano.
+4. **`/login` non dice più che i piani "non sono ancora in vendita"** quando lo sono
+   davvero: `PLAN_HOLD` ora controlla anche `mockCheckoutEnabled()`, non solo
+   `plansEnforced()`, e con entrambi accesi (lo stato reale di produzione oggi) dice che i
+   piani sono acquistabili da `/pricing`, non che arriveranno.
+5. **Maiuscole dei nomi di piano coerenti sulle schermate admin.** `lib/accounts/planText.ts`
+   (`planDetail`, `subscriptionLine`, `giftLine`, `inForceLine`) interpolava il valore
+   grezzo minuscolo (`'plus'`) invece di `PLAN_LABEL['plus']` ("Plus") — disallineato dal
+   badge colorato sulla stessa riga, che è sempre stato maiuscolo. Stessa correzione sul
+   `<select>` di `GiftForm.tsx`, che elencava i piani con lo stesso valore grezzo.
+6. **Le registrazioni email/password non mandavano l'avviso Telegram "nuova registrazione"**
+   — solo quelle Google lo facevano, perché passano dal callback `signIn` di NextAuth,
+   mentre l'altra strada (`verify/actions.ts`, `issueSessionCookie`) lo scavalca del tutto.
+   Aggiunta la stessa chiamata `notifyTelegram('registration', ...)`, stessa formulazione di
+   `auth.ts`. Aggiunto anche un evento nuovo, `kept_current` (`NOTIFY_EVENTS`, quinto valore):
+   avvisa quando qualcuno annulla un downgrade/disdetta programmati restando sul piano
+   attuale (`clearPendingChange`) — prima quell'azione non generava alcun segnale, a
+   differenza di ogni altra scrittura di `checkout.ts`.
+7. **Un piano che rifiuta un salvataggio ora offre sempre un passo successivo.**
+   `SongForm.tsx` (modifica di un brano singolo) non intercettava affatto un `SaveRefusal`
+   di tipo limite-piano: l'utente vedeva un messaggio d'errore generico, senza collegamento
+   a `/pricing`. Aggiunto lo stesso `PlanUpgradeModal` che `SongbookSongs.tsx` già apriva.
+   `ImportBatch.tsx` (incolla multiplo) non diceva nulla affatto quando alcuni brani
+   venivano rifiutati per limite di piano — contati insieme ai successi senza distinzione.
+   Aggiunto un avviso unico a fine lotto ("N songs weren't allowed by your plan · See
+   plans"), non un modale per riga: un incolla multiplo può rifiutarne molti insieme, e un
+   modale per ciascuno sarebbe stato inutilizzabile.
+8. **Un proprietario globale "switchato" dentro un altro account ora lo vede scritto.**
+   Prima, `UserMenu` mostrava la propria email accanto al piano e al repertorio di un
+   account che non era il proprio, senza alcuna indicazione di quale account fosse
+   davvero in vista. Aggiunta `ViewingAsPill` (nuovo componente, `'use client'`) nel
+   `TopBar`, che legge `accountOwnerEmail` da `useRole()` — esteso fino a `loadIdentity()`
+   — e mostra "Viewing: ‹email›" solo quando differisce dalla propria. Deliberatamente non
+   un `auth()`/`cookies()` letto dentro `TopBar` stesso: l'avrebbe reso dinamico, portando
+   con sé `/billing`, `/help`, `/thanks`, `/export` — tutte ancora `○` oggi apposta.
+9. **L'email di benvenuto non diceva che il prossimo accesso porta su una scelta di
+   piano** (`(home)/page.tsx`, il redirect obbligatorio della v3.7) quando quel redirect è
+   davvero attivo. Aggiunta una riga breve, condizionata su `SONGBOOK_PLANS=on` letto
+   direttamente da `process.env` in `templates.ts` — non importando `plansEnforced` da
+   `lib/plans/resolve`, che value-importa `lib/db/client`: quel modulo è raggiungibile dal
+   bundle client di `EmailPreview.tsx` (`'use client'`, via `lib/email/preview.ts`), e
+   portarsi dietro il driver Postgres lì avrebbe rotto la build (scoperto da una build
+   isolata di verifica, non da `tsc`, che non vede l'errore di bundling lato client).
+10. **"Confirmation" ovunque, non più "receipt" su `/thanks`** — la stessa email di
+    acquisto era già descritta come "confirmation" altrove; unificato sul termine che non
+    implica un documento fiscale.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1095,6 +1169,18 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Voce di menù | Propria (`/emails`), non una sezione in fondo a `/accounts` | I tre modelli non appartengono a un account specifico |
 | Destinatario del test | Sempre `session.user.email`, mai l'account selezionato dal cambio-account | Nessuno dei tre modelli appartiene a un account |
 | Rendering HTML | In `<iframe srcDoc>` isolato | Gli stili inline dell'email non devono convivere con quelli dell'app che li ospita |
+
+### Ricontrollo generale dei piani (v3.10)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Cambio di ciclo senza cambio di piano | Azione secondaria sulla card attiva (`Change billing cycle`) | Non un modale o una sezione a parte: la card del piano corrente è già dove si guarda |
+| Devices Premium su `/pricing` | Numero reale (100), non "Unlimited" | `/login` diceva già "100" in chiaro nella FAQ; fatto vincere il numero vero invece di generalizzare a "Unlimited" ovunque |
+| Avviso di limite-piano in `ImportBatch` | Un avviso unico per l'intero lotto | Un incolla multiplo può rifiutare molti brani insieme; un modale per riga sarebbe inutilizzabile |
+| Wording dell'email di acquisto/`/thanks` | "Confirmation" ovunque | Non implica un documento fiscale come "receipt" |
+| Prossimo passo dopo l'email di benvenuto | Una riga breve sul redirect a `/pricing` | Solo quando `SONGBOOK_PLANS=on` è davvero attivo, letto da `process.env` diretto per non portarsi dietro `lib/db/client` nel bundle di `EmailPreview.tsx` |
+| Proprietario globale switchato su un altro account | Etichetta nel `TopBar` (`ViewingAsPill`) | Prima l'account in vista non era scritto da nessuna parte sullo schermo |
+| Aggiornare questo piano ora o rimandarlo | Aggiornato subito | Accettato il rischio di collisione con un'eventuale riscrittura parallela di `PLAN.md` in un'altra sessione, piuttosto che lasciare il piano indietro rispetto al codice |
 
 ### Export organizzato (pianificato, non ancora costruito)
 

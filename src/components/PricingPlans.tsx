@@ -282,9 +282,23 @@ export function PricingPlans({
                     Sign up
                   </Link>
                 ) : isCurrent ? (
-                  <p className="plan-current w-full">
-                    Your plan · <Link href="/billing">Manage</Link>
-                  </p>
+                  <>
+                    <p className="plan-current w-full">
+                      Your plan · <Link href="/billing">Manage</Link>
+                    </p>
+                    {/*
+                      * The one action this card still needs: re-buying the plan already held
+                      * is how a billing-cycle change has always worked (`mockPurchase`'s own
+                      * comment — equal rank applies immediately, like a small upgrade) and
+                      * there is nowhere else in the app to do it, since the active cycle
+                      * itself is not even a stored column. Worded apart from "Upgrade"/
+                      * "Switch" below, which both change *which* plan this is — this changes
+                      * nothing about the plan, only how often it bills.
+                      */}
+                    <Link href={`/checkout/${column.checkoutPlan}?cycle=${period}`} className="plan-cycle-link">
+                      Change billing cycle
+                    </Link>
+                  </>
                 ) : (
                   <Link
                     href={`/checkout/${column.checkoutPlan}?cycle=${period}`}

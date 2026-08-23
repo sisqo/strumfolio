@@ -24,7 +24,7 @@ import {
 } from '@/components/icons'
 import { LandingCounters } from '@/components/LandingCounters'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
-import { plansEnforced } from '@/lib/plans/resolve'
+import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 
 const TITLE = `${APP_NAME} — ${APP_PAYOFF}`
@@ -131,13 +131,25 @@ interface FaqGroup {
  * The one hedge about whether the limits below are real, said once and read by the single FAQ
  * answer that carries it ("Is Strumfolio free to use?") — see that answer's own comment on why
  * it is not repeated five times. Reads `plansEnforced()` rather than assuming it is always
- * off, and for the same reason /pricing's `NO_CHECKOUT` does: the two public pages must flip
- * together the day this changes, never one of them left saying the limits aren't real.
+ * off, for the reason `resolve.ts`'s own comment on `plansEnforced` states directly: this and
+ * `/pricing` must never disagree about whether the limits are real.
+ *
+ * The enforced branch used to say "they are not on sale yet" unconditionally — true the day
+ * this was written, false since `mockCheckoutEnabled()` went live and `/pricing` started
+ * showing working "Choose Standard/Plus/Premium" buttons. `/pricing`'s own comment on why it
+ * dropped this exact sentence (`NO_CHECKOUT`, no longer in that file) is the bug reappearing
+ * here, on the one page it warns must "flip together" — so this now reads `mockCheckoutEnabled()`
+ * too, inside the enforced branch, rather than assuming checkout is always off the way the rest
+ * of this sentence still can while limits are not even enforced.
  */
 const PLAN_HOLD = plansEnforced()
-  ? 'They are not on sale yet, but the limits themselves are already live: your account is held to ' +
-    'what is listed above starting today. Already over one? Nothing of yours is deleted — you can ' +
-    'only delete until you are back under it, the same as if a paid plan lapses.'
+  ? mockCheckoutEnabled()
+    ? "The paid plans are live — pick one on the pricing page whenever you're ready. Already over a " +
+      'limit? Nothing of yours is deleted — you can only delete until you are back under it, the ' +
+      'same as if a paid plan lapses.'
+    : 'They are not on sale yet, but the limits themselves are already live: your account is held to ' +
+      'what is listed above starting today. Already over one? Nothing of yours is deleted — you can ' +
+      'only delete until you are back under it, the same as if a paid plan lapses.'
   : 'They are not on sale yet, and no account is being held to those limits until they open — if ' +
     'you already have more than that, nothing changes for you today. If a paid plan lapses, nothing ' +
     'is deleted.'

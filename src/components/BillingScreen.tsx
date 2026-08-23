@@ -13,25 +13,13 @@ import {
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
+import { subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 
 type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
   | { state: 'ready'; current: MockSubscriptionState; history: PaymentHistoryLine[] }
-
-/** The plan in a sentence, resolved — never a raw column past its own date, see `resolveSubscription`. */
-function statusLine(current: MockSubscriptionState): string {
-  if (current.plan === 'free') return 'Free — nothing bought yet.'
-  if (current.plan === 'lifetime') return 'Lifetime — bought once, nothing to renew or cancel.'
-  if (current.status === 'expired') return `${PLAN_LABEL[current.plan]}, expired.`
-  if (current.expiresAt === null) return `${PLAN_LABEL[current.plan]}, no end.`
-
-  const until = current.expiresAt.toISOString().slice(0, 10)
-  return current.pendingPlan !== null
-    ? `${PLAN_LABEL[current.plan]} until ${until}, then ${PLAN_LABEL[current.pendingPlan]}.`
-    : `${PLAN_LABEL[current.plan]}, active until ${until}.`
-}
 
 function canCancel(current: MockSubscriptionState): boolean {
   return current.plan !== 'free' && current.plan !== 'lifetime' && current.status !== 'expired' && current.pendingPlan === null
@@ -133,7 +121,7 @@ export function BillingScreen() {
 
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">This account&apos;s plan</h2>
-            <p className="mt-1.5 text-sm text-muted">{statusLine(status.current)}</p>
+            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current)}</p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {status.current.pendingPlan !== null && (

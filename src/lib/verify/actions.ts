@@ -21,6 +21,7 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { credentials, pendingRegistrations } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { welcomeEmail } from '@/lib/email/templates'
+import { notifyTelegram } from '@/lib/telegram/notify'
 
 /**
  * Bound with `email` and `token` from the page's own searchParams (`action={verifyEmail
@@ -101,7 +102,14 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
   // could fail and be caught inside `provisionAccount`. Either way `created` is false, and
   // there is nothing to welcome anyone to (PLAN.md point 7: never on an idempotent or
   // failed call).
-  if (created) await sendEmail({ to: normalized, ...welcomeEmail() })
+  if (created) {
+    await sendEmail({ to: normalized, ...welcomeEmail() })
+    // `auth.ts`'s own `signIn` callback fires this same event for a Google admission — this
+    // path never runs through that callback at all (it signs in with `issueSessionCookie`
+    // below, not `signIn`), so without this line every email/password registration was
+    // invisible to "New registration" alerts while every Google one was not.
+    await notifyTelegram('registration', `🆕 Nuova registrazione: ${normalized}`)
+  }
 
   /*
    * Signs the person in immediately rather than sending them back to `/login` to retype

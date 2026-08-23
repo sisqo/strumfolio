@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react'
 
+import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { SongFields, type SongFieldValues } from '@/components/SongFields'
 import { SongSheet } from '@/components/SongSheet'
 import { IconTrash } from '@/components/icons'
 import { parseChordPro } from '@/lib/chordpro'
 import type { Songbook, Section } from '@/lib/data/types'
-import { saveMessage, type Decision, type DuplicateOf, type SaveResult, type SongInput } from '@/lib/import/types'
+import { saveMessage, type Decision, type DuplicateOf, type SaveRefusal, type SaveResult, type SongInput } from '@/lib/import/types'
+import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 
 export interface FormValues extends SongFieldValues {
   body: string
@@ -44,6 +46,11 @@ export function SongForm({
   const [error, setError] = useState<string | null>(null)
   const [duplicate, setDuplicate] = useState<DuplicateOf | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** A plan refusal (the song cap, or a frozen repertoire) gets the same dialog
+      `SongbookSongs`' own "Create" button already opens — a bare inline sentence with no
+      link to `/pricing` was the one thing this path did differently for the identical
+      refusal `saveSong` can return either way. */
+  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
 
   const parsed = useMemo(() => parseChordPro(values.body), [values.body])
 
@@ -78,6 +85,14 @@ export function SongForm({
       }
       if (result.reason === 'duplicate') {
         setDuplicate(result.existing)
+        return
+      }
+      if (Object.hasOwn(LIMIT_MESSAGE, result.reason)) {
+        // Guarded by the membership check above, same reasoning as `SongbookSongs`' own
+        // cast: `duplicate` is not a key of `LIMIT_MESSAGE`, so `result` here is always the
+        // `SaveRefusal` branch of the union.
+        const refusal = result as SaveRefusal
+        setPlanNotice({ reason: refusal.reason as LimitReason, limit: refusal.limit })
         return
       }
       setError(saveMessage(result))
@@ -199,6 +214,8 @@ export function SongForm({
           </>
         )}
       </div>
+
+      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
     </div>
   )
 }

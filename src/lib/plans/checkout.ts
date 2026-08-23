@@ -482,6 +482,11 @@ export async function clearPendingChange(): Promise<{ ok: true } | { ok: false; 
       plan: readPlan(updated[0].plan),
       cycle: null,
     })
+    console.warn(`mock checkout: ${user.accountOwnerEmail} => kept ${readPlan(updated[0].plan)}`)
+    // The one write in this file that used to notify nobody: an operator would see a
+    // scheduled downgrade or cancellation come in and never learn if the customer reversed
+    // it — the same event name as the `paddle_events` row just logged above.
+    await notifyTelegram('kept_current', `↩️ Piano confermato: ${user.accountOwnerEmail} resta su ${readPlan(updated[0].plan)}`)
   } catch (error) {
     console.error('clearPendingChange failed', error)
     return { ok: false, reason: 'failed' }

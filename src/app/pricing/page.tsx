@@ -292,9 +292,9 @@ function bookletCell(tier: BookletTier): string | null {
  * the software, and so does a 0 in a table. Free cannot lead a session at all, so this row is
  * simply not part of that plan.
  *
- * Premium's own cell is written by hand in `ROWS` rather than through this function — see the
- * row itself for why "Unlimited" is the v3.4 redesign's deliberate call there, over the "100"
- * this function would otherwise print.
+ * Premium's cell used to be hand-written as "Unlimited" (the v3.4 redesign's own call) rather
+ * than through this function — reversed for the reason the row's own comment gives: it
+ * disagreed with `/login`'s FAQ, which already states the same 100 literally.
  */
 function deviceCell(devices: number): string | null {
   return devices === 0 ? null : String(devices)
@@ -410,18 +410,20 @@ const ROWS: ComparisonRow[] = [
   {
     label: '«Sing Together» devices',
     note: 'Maximum number of devices following a «Sing Together» session.',
+    /*
+     * `deviceCell(PLANS.premium.devices)` prints the honest "100" here rather than the v3.4
+     * redesign's own "Unlimited" — reversed because `/login`'s FAQ ("How many people can join
+     * a Sing Together session?") already states the same 100 literally, with its own comment
+     * explicitly rejecting "as many as you like" as false; the two public pages naming the
+     * same real cap two different ways was the actual bug, and this table is the one that
+     * moved. No change to what `admits` enforces in `singAlong/devices.ts` either way — a
+     * 101st guest was and still is refused.
+     */
     cells: [
       deviceCell(PLANS.free.devices),
       deviceCell(PLANS.standard.devices),
       deviceCell(PLANS.plus.devices),
-      /*
-       * "Unlimited", the v3.4 design's own call, over the honest "100" `deviceCell` would
-       * otherwise print (`PLANS.premium.devices` really is 100, not null — see its own comment
-       * in `types.ts` on why that stays a real number for the *gate*). This is a labelling
-       * choice on this one table cell, not a change to what `admits` actually enforces in
-       * `singAlong/devices.ts`: a 101st guest is still refused, this cell just no longer says so.
-       */
-      'Unlimited',
+      deviceCell(PLANS.premium.devices),
     ],
   },
   {

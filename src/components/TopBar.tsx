@@ -5,6 +5,7 @@ import { NavMenu } from '@/components/NavMenu'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
+import { ViewingAsPill } from '@/components/ViewingAsPill'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { APP_NAME } from '@/lib/brand'
 
@@ -46,6 +47,13 @@ export type Section =
  * signed in — and the same component `PublicHeader` renders on every screen this
  * bar does not reach, so a reader who signs in mid-visit meets the identical
  * switch rather than a second one that happens to look the same.
+ *
+ * Stays a plain, synchronous function on purpose — `ViewingAsPill` is the one child that
+ * needs to know who is looking, and it is `'use client'`, reading `useRole()` the same way
+ * `AdminMenu`/`UserMenu` already do. `TopBar` itself calling `auth()`/`cookies()` to answer
+ * that question directly would opt every page that renders it out of static generation —
+ * `/billing`, `/help`, `/thanks` and `/export` all render this bar and are all still `○`
+ * (prerendered) today, exactly because nothing server-side here has ever read a dynamic API.
  */
 export function TopBar({
   current,
@@ -73,6 +81,8 @@ export function TopBar({
           {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see comment above */}
           <img src="/brand/lockup-horizontal-white.svg" alt="" className="lockup-dark" />
         </Link>
+
+        <ViewingAsPill />
 
         {back !== undefined && (
           <Link href={back.href} className="back-link min-w-0">

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { IconBooks, IconBroadcast, IconCheck, IconPrint, IconReceipt } from '@/components/icons'
 import { loadPurchaseSummary, loadThanksPreview, type MockSubscriptionState } from '@/lib/plans/checkout'
+import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, PLANS, PLAN_VALUES, readPlan, thanksCapacitySentence, thanksDevicesCaption, thanksSongsCaption } from '@/lib/plans/types'
 import type { Plan } from '@/lib/plans/types'
 
@@ -12,11 +13,6 @@ type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
   | { state: 'ready'; current: MockSubscriptionState }
-
-/** The renewal date as a reader would write it — «22 September 2026», the same form the thank-you email uses. */
-function dayOf(value: Date): string {
-  return value.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-}
 
 /**
  * Where a purchase lands: what is now active, and the one thing worth doing next.
@@ -229,7 +225,7 @@ export function ThanksScreen() {
             Welcome to {label}.
           </h1>
           <p className="thanks-hero-text">
-            {current.expiresAt === null ? 'No renewal — this is yours for good' : `Renews ${dayOf(current.expiresAt)}`}
+            {current.expiresAt === null ? 'No renewal — this is yours for good' : `Renews ${formatPlanDate(current.expiresAt)}`}
             {' — '}
             {thanksCapacitySentence(plan)}
           </p>
@@ -246,7 +242,7 @@ export function ThanksScreen() {
           </div>
           <div className="thanks-step-body">
             <p className="thanks-step-title">Payment received</p>
-            <p className="thanks-step-caption">A receipt is on its way to your inbox.</p>
+            <p className="thanks-step-caption">A confirmation is on its way to your inbox.</p>
           </div>
         </div>
 

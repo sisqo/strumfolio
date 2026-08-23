@@ -8,7 +8,7 @@ import { setGrant } from '@/lib/accounts/actions'
 import { GRANT_MESSAGE, MAX_GRANT_NOTE } from '@/lib/accounts/types'
 import type { AccountPlanLine } from '@/lib/accounts/read'
 import type { GrantResult } from '@/lib/accounts/types'
-import { PLAN_VALUES } from '@/lib/plans/types'
+import { PLAN_LABEL, PLAN_VALUES } from '@/lib/plans/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -103,7 +103,7 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
           <select value={giving} onChange={(event) => setGiving(event.target.value)} className="picker-select">
             {GIVEABLE.map((name) => (
               <option key={name} value={name}>
-                {name}
+                {PLAN_LABEL[name]}
               </option>
             ))}
           </select>

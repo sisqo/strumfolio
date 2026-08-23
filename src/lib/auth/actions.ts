@@ -27,7 +27,7 @@ import type { Role } from '@/lib/roles'
 
 /**
  * The signed-in reader's address, role, plan and plan-choice state, or null when there is
- * nobody or nobody allowed — one `currentUser()` call for all four, for `RoleProvider`, which
+ * nobody or nobody allowed — one `currentUser()` call for all five, for `RoleProvider`, which
  * needs the address too now (v3.3, the user menu) and would otherwise ask twice on every page.
  *
  * `plan` and `planChosen` are both resolved for `accountOwnerEmail`, not for `email` itself,
@@ -38,9 +38,15 @@ import type { Role } from '@/lib/roles'
  * (PLAN.md, v3.7) — the mandatory-choice gate itself lives server-side in
  * `(home)/page.tsx`, not here; this is cosmetic, deciding which of that card's own states
  * shows, never what the server allows.
+ *
+ * `accountOwnerEmail` travels back too (`ViewingAsPill`, `TopBar.tsx`) — the same field
+ * `plan`/`planChosen` already read, just handed to the client as well now instead of only
+ * used here. It equals `email` except for a global owner switched into another account
+ * (`mayAccess`, `accounts/current.ts`); nobody else can make the two differ.
  */
 export async function loadIdentity(): Promise<{
   email: string
+  accountOwnerEmail: string
   role: Role
   plan: Plan | null
   planChosen: boolean
@@ -53,7 +59,7 @@ export async function loadIdentity(): Promise<{
     hasChosenPlan(user.accountOwnerEmail),
   ])
 
-  return { email: user.email, role: user.role, plan, planChosen }
+  return { email: user.email, accountOwnerEmail: user.accountOwnerEmail, role: user.role, plan, planChosen }
 }
 
 /**

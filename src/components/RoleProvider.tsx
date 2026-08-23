@@ -9,6 +9,13 @@ import { type Role, canEdit } from '@/lib/roles'
 
 interface RoleContextValue {
   email: string | null
+  /**
+   * Which account is actually on screen — equal to `email` except for a global owner
+   * switched into another account's view (`mayAccess`, `accounts/current.ts`), which is the
+   * one case anything here reads this for at all: `ViewingAsPill` (`TopBar.tsx`) is the sole
+   * reader, comparing the two to decide whether to say anything.
+   */
+  accountOwnerEmail: string | null
   role: Role | null
   /** Whether the server has answered yet. Before that, nothing is offered. */
   known: boolean
@@ -54,6 +61,7 @@ interface RoleContextValue {
 
 const RoleContext = createContext<RoleContextValue>({
   email: null,
+  accountOwnerEmail: null,
   role: null,
   known: false,
   mayEdit: false,
@@ -86,6 +94,7 @@ const RoleContext = createContext<RoleContextValue>({
  */
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null)
+  const [accountOwnerEmail, setAccountOwnerEmail] = useState<string | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [known, setKnown] = useState(false)
   const [switcher, setSwitcher] = useState(false)
@@ -100,6 +109,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         const [identity, showSwitcher] = await Promise.all([loadIdentity(), mayShowAccountSwitcher()])
         if (alive) {
           setEmail(identity?.email ?? null)
+          setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)
           setRole(identity?.role ?? null)
           setSwitcher(showSwitcher)
           setPlan(identity?.plan ?? null)
@@ -132,6 +142,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const value = useMemo<RoleContextValue>(
     () => ({
       email,
+      accountOwnerEmail,
       role,
       known,
       mayEdit: known && canEdit(role),
@@ -139,7 +150,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       plan,
       planChosen,
     }),
-    [email, role, known, switcher, plan, planChosen],
+    [email, accountOwnerEmail, role, known, switcher, plan, planChosen],
   )
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>

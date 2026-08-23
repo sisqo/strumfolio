@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { IconCheck, IconClose, IconInfo, IconPlus } from '@/components/icons'
@@ -267,6 +268,27 @@ export function ImportBatch({
           </span>
         )}
       </div>
+
+      {/*
+        * One notice for the whole batch rather than repeating this on every refused row —
+        * each row already prints its own numbered `saveMessage` (see `run`, above), so this
+        * adds the one thing none of them could: a way to actually see the plans, the same
+        * `/pricing` link `SongbookSongs`' own "Create" button opens as a dialog for the
+        * identical refusal. A dialog per row would be excessive for a paste that can refuse
+        * several at once; one line here says it for all of them.
+        */}
+      {ran && !busy && counted('refused') > 0 && (
+        <p className="notice notice-accent mt-3" role="status">
+          <IconInfo />
+          <span>
+            {counted('refused') === 1 ? "One song wasn't" : `${counted('refused')} songs weren't`} allowed by
+            your plan.{' '}
+            <Link href="/pricing" className="underline">
+              See plans
+            </Link>
+          </span>
+        </p>
+      )}
     </div>
   )
 }

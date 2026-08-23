@@ -54,11 +54,17 @@ describe('the notify switches', () => {
 
   it('keys every switch under its own prefix, so a later setting family cannot collide', () => {
     const keys = NOTIFY_EVENTS.map(notifyKey)
-    assert.deepEqual(keys, ['notify.registration', 'notify.purchase', 'notify.downgrade', 'notify.cancellation'])
+    assert.deepEqual(keys, [
+      'notify.registration',
+      'notify.purchase',
+      'notify.downgrade',
+      'notify.cancellation',
+      'notify.kept_current',
+    ])
     assert.equal(new Set(keys).size, keys.length)
   })
 
-  it('recognises only the four events as form values', () => {
+  it('recognises only the listed events as form values', () => {
     for (const event of NOTIFY_EVENTS) assert.equal(isNotifyEvent(event), true)
     for (const other of ['', 'Registration', 'notify.purchase', 'refund', 'toString']) {
       assert.equal(isNotifyEvent(other), false, other)

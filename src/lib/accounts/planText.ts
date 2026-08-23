@@ -100,7 +100,8 @@ export function planDetail(line: AccountPlanLine): string {
   // Only on the subscription side, and only ahead of its own date: a scheduled downgrade on
   // the subscription while a grant currently wins would not even take effect the day it
   // fires, and naming it here would suggest a change to what the row is showing right now.
-  const pendingClause = side === 'subscription' && line.pendingPlan !== null ? `, then ${line.pendingPlan}` : ''
+  const pendingClause =
+    side === 'subscription' && line.pendingPlan !== null ? `, then ${PLAN_LABEL[line.pendingPlan]}` : ''
   if (line.status === 'grace' && line.source === 'subscription') return 'subscription, payment retrying'
   if (line.untilOn !== null) return `${side} until ${line.untilOn}${pendingClause}`
   return line.source === 'grant' ? 'gift, no end' : `subscription${pendingClause}`
@@ -131,16 +132,17 @@ export const NO_PLAN_LINE =
  * that date, which is exactly when the extra clause belongs.
  */
 export function subscriptionLine(line: AccountPlanLine): string {
-  if (line.status === 'expired') return `Subscription — ${line.plan}, expired`
+  const label = PLAN_LABEL[line.plan]
+  if (line.status === 'expired') return `Subscription — ${label}, expired`
   // `grace` deliberately says nothing about the date: a failing card is virtually always
   // already past period end, which is the whole reason `liveSubscription` ignores dates here.
-  if (line.status === 'grace') return `Subscription — ${line.plan}, payment retrying`
+  if (line.status === 'grace') return `Subscription — ${label}, payment retrying`
 
-  const pendingClause = line.pendingPlan === null ? '' : `, then ${line.pendingPlan}`
+  const pendingClause = line.pendingPlan === null ? '' : `, then ${PLAN_LABEL[line.pendingPlan]}`
   if (line.planExpiresOn === null) {
-    return line.plan === 'free' ? 'Subscription — free' : `Subscription — ${line.plan}, no end`
+    return line.plan === 'free' ? `Subscription — ${label}` : `Subscription — ${label}, no end`
   }
-  return `Subscription — ${line.plan}, until ${line.planExpiresOn}${pendingClause}`
+  return `Subscription — ${label}, until ${line.planExpiresOn}${pendingClause}`
 }
 
 /**
@@ -156,9 +158,10 @@ export function giftLine(line: AccountPlanLine): string {
   if (line.grantedPlan === null) {
     return line.grantedBy === null ? 'No gift.' : 'No gift: the last one was removed.'
   }
-  if (line.grantedUntilOn === null) return `Gift — ${line.grantedPlan}, no end`
-  if (line.grantEnded) return `Gift — ${line.grantedPlan}, ended ${line.grantedUntilOn}`
-  return `Gift — ${line.grantedPlan} until ${line.grantedUntilOn}`
+  const label = PLAN_LABEL[line.grantedPlan]
+  if (line.grantedUntilOn === null) return `Gift — ${label}, no end`
+  if (line.grantEnded) return `Gift — ${label}, ended ${line.grantedUntilOn}`
+  return `Gift — ${label} until ${line.grantedUntilOn}`
 }
 
 /** Who decided, and when — the giving or the taking away, whichever the row last recorded. */
@@ -170,7 +173,7 @@ export function auditLine(line: AccountPlanLine): string | null {
 
 /** Which of the two sides actually decides this account's limits right now. */
 export function inForceLine(line: AccountPlanLine): string {
-  if (line.effectivePlan === 'free') return 'In force: free.'
+  if (line.effectivePlan === 'free') return `In force: ${PLAN_LABEL.free}.`
   const side = line.source === 'grant' ? 'the gift' : 'the subscription'
-  return `In force: ${line.effectivePlan}, from ${side}.`
+  return `In force: ${PLAN_LABEL[line.effectivePlan]}, from ${side}.`
 }

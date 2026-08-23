@@ -36,7 +36,7 @@ export interface LoadedNotifySettings {
 }
 
 /**
- * The four switches as they stand right now, read fresh on every call.
+ * The switches as they stand right now, read fresh on every call.
  *
  * No caching, deliberately, and it costs nothing worth naming: the readers are a sign-in, a
  * purchase and one admin screen — never a page render on the reading path, and never the gate

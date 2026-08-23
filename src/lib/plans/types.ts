@@ -57,12 +57,13 @@ export function readPendingPlan(value: unknown): Plan | null {
 }
 
 /**
- * The name a reader recognizes, for the one place today that names a plan back to the
- * person on it rather than to an operator: the account menu's own plan line. `/pricing`
- * spells the same five names out as literals in its own column data instead of reading
- * this — its copy already has to hand-place each name beside its own price and features,
- * so a shared map would buy it nothing there — but anywhere the app names a plan on its own,
- * with no copy around it, this is the one spelling.
+ * The name a reader recognizes, for anywhere the app names a plan back to a person rather
+ * than to an operator — the account menu's own plan line, `/billing`, `/checkout/[plan]`,
+ * `PaymentHistoryTable`, `/thanks`, and the purchase email. `/pricing`'s cards and table
+ * spell the same five names out as literals in their own column data instead of reading
+ * this — that copy already has to hand-place each name beside its own price and features,
+ * so a shared map would buy it nothing there — but anywhere else the app names a plan on
+ * its own, with no copy around it, this is the one spelling.
  */
 export const PLAN_LABEL: Record<Plan, string> = {
   free: 'Free',

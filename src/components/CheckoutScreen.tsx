@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { loadCheckoutStatus, mockPurchase, type MockSubscriptionState } from '@/lib/plans/checkout'
 import { euro, LIFETIME, PRICES, yearlyTotalOfMonthly } from '@/lib/plans/prices'
 import type { BillingPeriod, CheckoutPlan, PaidPlan } from '@/lib/plans/prices'
+import { subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { ACCEPTED_TEST_CARD, isAcceptedTestCard } from '@/lib/plans/testCard'
 import { PLAN_LABEL } from '@/lib/plans/types'
 
@@ -145,15 +146,7 @@ export function CheckoutScreen({
 
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">This account right now</h2>
-            <p className="mt-1.5 text-sm text-muted">
-              {status.current.plan === 'free'
-                ? 'Free — nothing bought yet.'
-                : `${PLAN_LABEL[status.current.plan]}, ${status.current.status}` +
-                  (status.current.expiresAt !== null
-                    ? `, until ${status.current.expiresAt.toISOString().slice(0, 10)}`
-                    : '') +
-                  (status.current.pendingPlan !== null ? `, then ${PLAN_LABEL[status.current.pendingPlan]}` : '')}
-            </p>
+            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current)}</p>
             {status.current.plan !== 'free' && (
               <p className="mt-1.5 text-sm">
                 <Link href="/billing" className="text-accent hover:underline">

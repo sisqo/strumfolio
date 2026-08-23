@@ -15,11 +15,11 @@
  */
 
 /**
- * The four things worth being told about the moment they happen. Every one of them is a
+ * The five things worth being told about the moment they happen. Every one of them is a
  * notification `notifyTelegram` already sends today — this list adds the ability to stop one,
  * it does not add the notifications themselves.
  */
-export const NOTIFY_EVENTS = ['registration', 'purchase', 'downgrade', 'cancellation'] as const
+export const NOTIFY_EVENTS = ['registration', 'purchase', 'downgrade', 'cancellation', 'kept_current'] as const
 
 export type NotifyEvent = (typeof NOTIFY_EVENTS)[number]
 
@@ -33,6 +33,7 @@ export const NOTIFY_LABEL: Record<NotifyEvent, string> = {
   purchase: 'Purchase',
   downgrade: 'Scheduled downgrade',
   cancellation: 'Scheduled cancellation',
+  kept_current: 'Kept current plan',
 }
 
 export const NOTIFY_NOTE: Record<NotifyEvent, string> = {
@@ -40,6 +41,7 @@ export const NOTIFY_NOTE: Record<NotifyEvent, string> = {
   purchase: 'A plan was bought, upgraded, or re-bought.',
   downgrade: 'Somebody chose a cheaper plan, starting at the end of the period they paid for.',
   cancellation: 'Somebody cancelled, taking effect at the end of the period they paid for.',
+  kept_current: 'Somebody undid a scheduled downgrade or cancellation, staying on their current plan.',
 }
 
 export type NotifySettings = Record<NotifyEvent, boolean>
@@ -55,6 +57,7 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
   purchase: true,
   downgrade: true,
   cancellation: true,
+  kept_current: true,
 }
 
 /**
@@ -78,7 +81,7 @@ export function writeBooleanSetting(value: boolean): string {
   return value ? 'on' : 'off'
 }
 
-/** Whether a string off the wire is one of the four events — a form value cannot be trusted to be. */
+/** Whether a string off the wire is one of `NOTIFY_EVENTS` — a form value cannot be trusted to be. */
 export function isNotifyEvent(value: string): value is NotifyEvent {
   return (NOTIFY_EVENTS as readonly string[]).includes(value)
 }
