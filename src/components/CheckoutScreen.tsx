@@ -82,11 +82,12 @@ function earlierRenewal(
  */
 export function CheckoutScreen({
   plan,
-  initialCycle = 'year',
+  initialCycle = 'month',
 }: {
   plan: CheckoutPlan
   /** Carried over from /pricing's own toggle by the page, so arriving from Monthly there
-      does not land on Yearly here. */
+      does not land on Yearly here. The default matches both /pricing's own opening tab and
+      the page's own fallback for a direct visit — three places that have to agree. */
   initialCycle?: BillingPeriod
 }) {
   const router = useRouter()

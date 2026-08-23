@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { IconInfo } from '@/components/icons'
-import { activatePlanChoice, mockCancel } from '@/lib/plans/checkout'
+import { activatePlanChoice } from '@/lib/plans/checkout'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
@@ -75,9 +75,9 @@ export interface PlanColumn {
    * used to be (`{ href, label }`, back when this rendered one plain link and nothing had to
    * ask who was looking). Free's four states — not signed in, mid the mandatory plan-choice
    * gate, already on Free, or a paid reader downgrading to it — each pick their own wording
-   * and their own action now (`switchToFree`, `startFree`, …), none of which a generic
-   * `href`/`label` pair could have named; every other column's action comes from
-   * `checkoutPlan` below instead, never from this.
+   * and their own action now (`startFree`, a link to `/billing`, a plain indicator), none of
+   * which a generic `href`/`label` pair could have named; every other column's action comes
+   * from `checkoutPlan` below instead, never from this.
    */
   cta?: true
   /**
@@ -221,7 +221,6 @@ export function PricingPlans({
   const { email, mustChoosePlan, plan, subscriptionPlan } = viewer
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
-  const [confirmingFree, setConfirmingFree] = useState(false)
   const signedIn = email !== null
   const pending = signedIn && mustChoosePlan
   /*
@@ -277,44 +276,6 @@ export function PricingPlans({
 
     setFreeBusy(false)
     setFreeError('Something went wrong. Try again.')
-  }
-
-  /*
-   * The Free card's own action for a signed-in reader currently on a paid plan — "downgrade
-   * to Free" is cancellation, and `mockCancel` (the same action `/billing`'s "Cancel my
-   * plan" already calls) is the only path there: `mockPurchase` refuses `'free'` outright,
-   * since it is not one of `CHECKOUT_PLANS`. Always a *scheduled* change, never immediate —
-   * there is no "downgrade to Free right now" — so this redirects to `/billing` rather than
-   * trying to word a "scheduled" state inline here the way `CheckoutScreen` does for a paid
-   * downgrade: `/billing` already reads `pendingPlan` and renders exactly that sentence, and
-   * duplicating it here would be the second copy this file already avoids elsewhere.
-   */
-  const switchToFree = async () => {
-    setFreeBusy(true)
-    setFreeError(null)
-
-    const result = await mockCancel()
-    if (result.ok) {
-      router.push('/billing')
-      return
-    }
-
-    setFreeBusy(false)
-    /* Back to the plain label on a failure: the question has been answered, and leaving the
-       confirmation open invites a second press at the one moment nothing went through. */
-    setConfirmingFree(false)
-    setFreeError(
-      /*
-       * Deliberately not "already on Free": `not-applicable` is `mockCancel`'s answer to three
-       * different situations (nothing live, already Free, on Lifetime), and naming only one of
-       * them is how a Lifetime customer used to be told their paid-for plan was Free. The
-       * Lifetime case no longer reaches this button at all — see `isLifetime` below — so this
-       * wording only has to stay true for the other two, which it does by not guessing.
-       */
-      result.reason === 'not-applicable'
-        ? 'There is no paid plan on this account to cancel.'
-        : "That didn't go through. Try again.",
-    )
   }
 
   return (
@@ -525,56 +486,29 @@ export function PricingPlans({
               )}
 
               {/*
-                * Two presses, not one, and the reason is what this button actually does: it
-                * calls `mockCancel` — the same cancellation `/billing` keeps behind its own
-                * quiet styling — from a price card whose label never says the word. One stray
-                * tap on a listing page ended a paid plan, with the only account of what
-                * happened arriving afterwards, on another screen. The shape is the one this
-                * codebase already uses for a destructive act (`SongForm`'s own delete): a
-                * question, then `btn-danger` beside a way out.
+                * **This card no longer cancels anything.** It used to call `mockCancel`
+                * itself, behind a two-press confirmation added because one stray tap on a
+                * price card ended a paid plan — and that confirmation then had to word, here,
+                * a question `/billing` already words better: `cancelQuestion` names the plan
+                * *and the day it stops*, which is the fact the reader is actually deciding on,
+                * and this card had no way to know that date (`Viewer` carries no expiry, and
+                * giving it one means widening `loadIdentity`, the read `RoleProvider` shares).
+                * So there were two doors into the same destructive act with two different
+                * questions behind them, the weaker one on the more casual surface — and the
+                * reader who came through this one landed on `/billing` with no line saying
+                * what had just happened.
+                *
+                * A link, therefore, and `?cancel=1` so the dated question is already open on
+                * arrival rather than something to hunt for. This is what `switchToFree`'s own
+                * comment was already arguing for one step short of the conclusion:
+                * "duplicating it here would be the second copy this file already avoids
+                * elsewhere". No confirmation needed on a link that only navigates, which is
+                * why the two-press shape goes with the action it was protecting.
                 */}
               {column.cta !== undefined && !pending && signedIn && !isCurrent && !isLifetime && (
-                <>
-                  {confirmingFree ? (
-                    <>
-                      <p className="mt-3 text-xs leading-[1.45] text-muted">
-                        {/* Named, because "switch to Free" is the one phrasing that hides it. */}
-                        Cancel {PLAN_LABEL[currentPlan ?? 'free']} and go back to Free?
-                      </p>
-                      <div className="mt-2 flex w-full gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm flex-1"
-                          onClick={() => void switchToFree()}
-                          disabled={freeBusy}
-                        >
-                          {freeBusy ? 'Switching…' : 'Cancel it'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-quiet btn-sm flex-1"
-                          onClick={() => setConfirmingFree(false)}
-                          disabled={freeBusy}
-                        >
-                          Keep it
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-sm plan-cta w-full"
-                      onClick={() => setConfirmingFree(true)}
-                    >
-                      Switch to Free
-                    </button>
-                  )}
-                  {freeError !== null && (
-                    <p className="notice notice-error mt-2 text-xs" role="alert">
-                      {freeError}
-                    </p>
-                  )}
-                </>
+                <Link href="/billing?cancel=1" className="btn btn-sm plan-cta w-full">
+                  Switch to Free
+                </Link>
               )}
             </article>
           )

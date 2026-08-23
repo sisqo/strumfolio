@@ -12,10 +12,12 @@ import {
   listSongbooksForAccount,
   listSongsForAccount,
 } from '@/lib/data/db'
+import type { RecentSong } from '@/lib/data/db'
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
 import { requirePlanChoice } from '@/lib/plans/gate'
+import { entitlementsOf } from '@/lib/plans/resolve'
 import { toIndexEntry } from '@/lib/search-index'
 
 /**
@@ -61,11 +63,24 @@ export default async function Home() {
   // names; the client refreshes it from the server after mount.
   const initial = snapshot(songs, songbooks, sections)
 
-  // Nothing to have recently played without an account of one's own, and nothing
-  // in `content/`'s own single-repertoire mode either — there is no reader to
-  // scope it to.
-  const recentlyPlayed =
-    user === null ? [] : await listRecentlyOpened(user.accountOwnerEmail, user.email, 6)
+  /*
+   * Nothing to have recently played without an account of one's own, and nothing in
+   * `content/`'s own single-repertoire mode either — there is no reader to scope it to.
+   *
+   * `frozen` beside it, in the same round trip: whether this account's repertoire is over its
+   * plan's caps, which is the state a downgrade or a natural lapse leaves behind and which
+   * until now reached no screen at all — a reader met it only as a refusal, the first time
+   * they tried to save something. `entitlementsOf` rather than a comparison of the counts this
+   * page already holds against `PLANS`: `over()` lives in `entitlementsFor` and the notice has
+   * to agree with the refusal it precedes, which a second copy of the rule could not promise.
+   */
+  const [recentlyPlayed, frozen]: [RecentSong[], boolean] =
+    user === null
+      ? [[], false]
+      : await Promise.all([
+          listRecentlyOpened(user.accountOwnerEmail, user.email, 6),
+          entitlementsOf(user.accountOwnerEmail).then((entitlements) => entitlements.frozen),
+        ])
 
   return (
     <PrefsProvider songSlug={null}>
@@ -85,7 +100,7 @@ export default async function Home() {
             * index is baked in rather than fetched — a search that needs the network is
             * no use on stage.
             */}
-          <HomeScreen songs={songs.map(toIndexEntry)} recentlyPlayed={recentlyPlayed} />
+          <HomeScreen songs={songs.map(toIndexEntry)} recentlyPlayed={recentlyPlayed} frozen={frozen} />
 
           <Footer />
         </main>

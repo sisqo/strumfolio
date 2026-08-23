@@ -1,5 +1,5 @@
 /**
- * The four emails `templates.ts` can build, rendered with placeholder data instead of a
+ * The five emails `templates.ts` can build, rendered with placeholder data instead of a
  * real link — what `/emails` (the global-owner-only preview page) shows.
  *
  * `origin` arrives as a parameter rather than read here with `requestOrigin()`
@@ -11,18 +11,25 @@
 
 import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
 
-import { passwordResetEmail, purchaseEmail, verificationEmail, welcomeEmail } from './templates'
+import { passwordResetEmail, planChangeEmail, purchaseEmail, verificationEmail, welcomeEmail } from './templates'
 import type { EmailTemplate } from './templates'
 
-export type PreviewKey = 'verification' | 'welcome' | 'password-reset' | 'purchase'
+export type PreviewKey = 'verification' | 'welcome' | 'password-reset' | 'purchase' | 'plan-change'
 
-export const PREVIEW_KEYS: PreviewKey[] = ['verification', 'welcome', 'password-reset', 'purchase']
+export const PREVIEW_KEYS: PreviewKey[] = [
+  'verification',
+  'welcome',
+  'password-reset',
+  'purchase',
+  'plan-change',
+]
 
 export const PREVIEW_LABEL: Record<PreviewKey, string> = {
   verification: 'Verify email',
   welcome: 'Welcome',
   'password-reset': 'Reset password',
   purchase: 'Purchase confirmation',
+  'plan-change': 'Plan change',
 }
 
 /**
@@ -56,11 +63,28 @@ function sampleUrl(origin: string, path: '/verify' | '/reset-password'): string 
   return url.toString()
 }
 
+/**
+ * `planChangeEmail`'s own placeholders, and **one preview for its three shapes** rather than
+ * three tabs of one email. The scheduled cancellation is the shape shown because it is the one
+ * with every clause in it — the date, the reassurance, and the way to call it off; the immediate
+ * cancellation drops the date and the undo, and a scheduled downgrade to a paid plan differs in
+ * one clause. Those two are pinned by `templates.test.ts` instead, which is where a rule with no
+ * new wording to look at belongs.
+ *
+ * The same fixed date as `SAMPLE_PURCHASE` above, for the reason stated there.
+ */
+const SAMPLE_PLAN_CHANGE = {
+  fromLabel: 'Premium',
+  toLabel: 'Free',
+  endsOn: '22 September 2027',
+}
+
 export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemplate> {
   return {
     verification: verificationEmail(sampleUrl(origin, '/verify')),
     welcome: welcomeEmail(),
     'password-reset': passwordResetEmail(sampleUrl(origin, '/reset-password')),
     purchase: purchaseEmail(SAMPLE_PURCHASE),
+    'plan-change': planChangeEmail(SAMPLE_PLAN_CHANGE),
   }
 }

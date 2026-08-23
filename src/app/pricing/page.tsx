@@ -671,17 +671,30 @@ export default async function PricingPage() {
       </section>
 
       {/*
-        * The one call to action on the page, and it is a line of text. Four symmetrical
-        * columns with no button in any of them is what keeps the page honest while it cannot
-        * sell; a single link at the foot is what keeps it useful to somebody who has decided.
+        * The closing line, and **only for somebody who has no account yet** — the fourth
+        * place on this page that had to learn who is reading it, after the cards, the
+        * lifetime panel and the layout's own header button (all three fixed in v3.13, this
+        * one missed). It was rendered unconditionally, so every signed-in reader was invited
+        * to create the account they were signed into, and the reader it was worst for is the
+        * one who cannot have arrived here any other way: `requirePlanChoice` redirects an
+        * account that has not chosen a plan *to this page*, and the layout deliberately gives
+        * that reader no button at all precisely because every destination is a bounce — while
+        * this paragraph offered them a registration form.
+        *
+        * The comment that used to stand here argued the line was "the one call to action on
+        * the page" because "four symmetrical columns with no button in any of them" kept the
+        * page honest while it could not sell. Both halves have since stopped being true:
+        * `CHECKOUT_LIVE` is on, and every column carries its own button.
         */}
-      <p className="mt-14 text-center text-sm text-muted">
-        New here?{' '}
-        <Link href="/register" className="text-accent hover:underline">
-          Create an account
-        </Link>
-        .
-      </p>
+      {viewer.email === null && (
+        <p className="mt-14 text-center text-sm text-muted">
+          New here?{' '}
+          <Link href="/register" className="text-accent hover:underline">
+            Create an account
+          </Link>
+          .
+        </p>
+      )}
 
       <Footer />
     </main>

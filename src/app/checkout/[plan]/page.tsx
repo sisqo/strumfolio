@@ -32,8 +32,16 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const { plan } = await params
   if (!isCheckoutPlan(plan)) notFound()
 
+  /*
+   * `'month'` for anything that is not an explicit `year`, which is a change of default and
+   * not a change of parsing: every link into this page from /pricing carries its own
+   * `?cycle=`, so this fallback is only ever read by a direct visit — a typed URL, a
+   * bookmark, a link somebody shared. Those readers used to land on Yearly while /pricing
+   * itself opens on Monthly (the v3.4 redesign's own choice), so the same product had two
+   * different opening prices depending on how you got to it.
+   */
   const { cycle } = await searchParams
-  const initialCycle: BillingPeriod = cycle === 'month' ? 'month' : 'year'
+  const initialCycle: BillingPeriod = cycle === 'year' ? 'year' : 'month'
 
   return (
     <PrefsProvider songSlug={null}>

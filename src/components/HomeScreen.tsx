@@ -14,6 +14,7 @@ import {
   IconChevronRight,
   IconCopy,
   IconGrip,
+  IconInfo,
   IconOffline,
   IconPencil,
   IconPlus,
@@ -47,10 +48,18 @@ import { ArrangeSongbooks } from './ArrangeSongbooks'
 export function HomeScreen({
   songs: baked,
   recentlyPlayed,
+  frozen,
 }: {
   songs: SongIndexEntry[]
   /** This reader's own last-opened songs, most recent first — empty for nobody yet. */
   recentlyPlayed: RecentSong[]
+  /**
+   * Whether this account's repertoire is over its plan's caps, decided by the server (see the
+   * page's own comment). A prop and not a read from here, for the reason `Viewer` is one on
+   * /pricing: a client-side answer is «no» until it resolves, and «no» is the reassuring half
+   * of this particular question.
+   */
+  frozen: boolean
 }) {
   const state = useSongbooks()
   const { songbooks, sections, assignments, nameOf, online } = state
@@ -399,6 +408,32 @@ export function HomeScreen({
           {mayEdit && error !== null && (
             <p className="notice notice-error mt-4" role="alert">
               {error}
+            </p>
+          )}
+
+          {/*
+            * The freeze, said where the songs are rather than only where the plan is. This is
+            * the state a downgrade or a plan lapsing on its own leaves behind — everything
+            * still readable, nothing editable, only deletions accepted — and until now it
+            * reached no screen at all: a reader met it as `PlanUpgradeModal` the first time
+            * they tried to save, which is after the decision they would have made differently.
+            *
+            * Beside the offline notice above it because the two say the same *kind* of thing —
+            * why the icons on every row below are about to refuse — and for the same reason it
+            * sits before the list rather than after it.
+            *
+            * Gated on `mayEdit`, like both notices above: somebody who cannot edit this account
+            * anyway is not being stopped by the freeze, and the sentence would name a limit
+            * that is not the one in their way.
+            *
+            * `LIMIT_MESSAGE.frozen` verbatim and no link to /pricing — the same two rules
+            * `/billing`'s own copy of this notice follows; see it for why buying is the wrong
+            * remedy to offer here.
+            */}
+          {mayEdit && frozen && (
+            <p className="notice notice-accent mt-4" role="status">
+              <IconInfo />
+              <span>{LIMIT_MESSAGE.frozen}</span>
             </p>
           )}
 

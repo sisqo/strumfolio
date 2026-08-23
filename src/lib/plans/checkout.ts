@@ -46,13 +46,19 @@ import type { SubscriptionColumns } from './entitlements'
 import { amountFor, logMockEvent, paymentHistoryFor } from './history'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
-import { mockCheckoutEnabled } from './resolve'
+import { entitlementsOf, mockCheckoutEnabled } from './resolve'
 import { euro, isCheckoutPlan, periodEnd, readPendingCycle } from './prices'
 import type { BillingPeriod } from './prices'
 import { PLAN_LABEL, PLAN_RANK, readPendingPlan, readPlan, readPlanStatus } from './types'
 import type { Plan, PlanStatus } from './types'
 import { sendEmail } from '@/lib/email/send'
-import { purchaseEmail } from '@/lib/email/templates'
+import { planChangeEmail, purchaseEmail } from '@/lib/email/templates'
+
+/* The one spelling of a date for a reader, already shared by `/billing`, `/checkout` and
+   `/thanks` — imported here rather than kept as this file's own fourth copy of the same
+   `toLocaleDateString('en-GB', …)` call. No cycle: `subscriptionCopy.ts` reaches back into
+   this module for a *type* only, which erases. */
+import { formatPlanDate } from './subscriptionCopy'
 
 export type MockCheckoutFailure =
   | 'disabled'
@@ -233,6 +239,43 @@ export async function loadMyPaymentHistory(): Promise<
 }
 
 /**
+ * Whether this account's repertoire is over its plan's limits — the freeze, asked as a
+ * question instead of waiting to be answered by a refusal.
+ *
+ * Until now `frozen` reached no screen at all, in either direction: it was computed inside
+ * `entitlementsFor` for the gates, and a reader met it only as `PlanUpgradeModal`'s «Over your
+ * plan's limit» the moment they tried to save something. Which means the state a downgrade or
+ * a lapse leaves behind — the whole repertoire readable, nothing editable, only deletions
+ * accepted — was invisible until it bit. This is what lets `/billing` and the home screen say
+ * it first.
+ *
+ * `entitlementsOf`, never a second reading of the same rule: `over()` lives in
+ * `entitlementsFor` and the notice has to agree with the refusal that follows it, on the same
+ * counts and the same caps. That costs the row read plus the two counts, which is why this is
+ * its own action rather than a field bolted onto `loadCheckoutStatus` — `/checkout` asks
+ * nothing about the freeze and must not pay for it.
+ *
+ * Deliberately **not** gated on `mockCheckoutEnabled()`, unlike every other function here: a
+ * repertoire over its caps is a fact about the account, not about whether a mock checkout is
+ * open for business. (It is in `checkout.ts` all the same because this is where the reads the
+ * plan screens make already live — the same reason `loadMyPaymentHistory` is here.)
+ *
+ * Its callers all fail *open* on `ok: false`, and that direction is the point: a banner
+ * claiming a freeze that is not there is worse than a freeze discovered a moment later by the
+ * refusal that was always going to explain it.
+ */
+export async function loadFreezeState(): Promise<
+  { ok: true; frozen: boolean } | { ok: false; reason: 'no-session' | 'no-database' }
+> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const user = await currentUser()
+  if (user === null) return { ok: false, reason: 'no-session' }
+
+  return { ok: true, frozen: (await entitlementsOf(user.accountOwnerEmail)).frozen }
+}
+
+/**
  * Marks the mandatory plan-choice step (PLAN.md, v3.7) complete when a reader picks
  * Free — the one plan `mockPurchase` does not sell at all (`CHECKOUT_PLANS` is
  * `PAID_PLANS + lifetime`; `isCheckoutPlan('free')` is false). Choosing Free is not a
@@ -341,7 +384,12 @@ export async function mockPurchase(
      * false there and a failing card's downgrade is still scheduled rather than applied — the
      * rule that status exists for, preserved without a second mention of it here.
      */
-    const nothingPaidThrough = resolveSubscription(raw, now).expiresAt === null
+    /* Resolved once and kept, rather than resolved inline for `nothingPaidThrough` alone: the
+       scheduled branch at the foot of this function needs the same row's own `expiresAt` to
+       tell the customer which day their change lands on, and two calls are two chances for
+       the sentence and the decision to be read off different answers. */
+    const resolved = resolveSubscription(raw, now)
+    const nothingPaidThrough = resolved.expiresAt === null
     const isUpgradeOrSame =
       plan === 'lifetime' || currentLive === null || nothingPaidThrough || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
 
@@ -427,10 +475,7 @@ export async function mockPurchase(
        */
       /* `endsOn`, not `renewsOn` — this is `planExpiresAt`, and nothing in this file or any
          other renews it. See `purchaseEmail`'s own comment on the rename. */
-      const endsOn =
-        expiresAt === null
-          ? null
-          : expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      const endsOn = expiresAt === null ? null : formatPlanDate(expiresAt)
       await sendEmail({
         to: user.accountOwnerEmail,
         ...purchaseEmail({ planLabel: PLAN_LABEL[plan], amount, cycle: billedCycle, endsOn }),
@@ -450,6 +495,26 @@ export async function mockPurchase(
     await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'scheduled_change', plan, cycle })
     console.warn(`mock checkout: ${user.accountOwnerEmail} => ${plan}/${cycle} scheduled`)
     await notifyTelegram('downgrade', `📉 Downgrade programmato: ${user.accountOwnerEmail} → ${plan}/${cycle}`)
+
+    /*
+     * The customer's own copy of what was just arranged — the counterpart of the receipt the
+     * immediate branch sends, for the branch where *nothing* arrives in an inbox until now.
+     * The Telegram line above goes to the operator, and `/checkout`'s own inline sentence is
+     * gone the moment the tab is closed.
+     *
+     * `currentLive` is non-null here by the `isUpgradeOrSame` test above (a null one is an
+     * immediate purchase), and `resolved.expiresAt` is non-null by `nothingPaidThrough` — the
+     * conditional is what tells the compiler so, and it costs nothing to state.
+     */
+    await sendEmail({
+      to: user.accountOwnerEmail,
+      ...planChangeEmail({
+        fromLabel: PLAN_LABEL[currentLive ?? 'free'],
+        toLabel: PLAN_LABEL[plan],
+        endsOn: resolved.expiresAt === null ? null : formatPlanDate(resolved.expiresAt),
+      }),
+    })
+
     return { ok: true, effect: 'scheduled' }
   } catch (error) {
     console.error('mockPurchase failed', error)
@@ -506,7 +571,8 @@ export async function mockCancel(): Promise<
      * resolved view is the one every screen is looking at. `grace` keeps its date and so stays
      * on the scheduled side.
      */
-    const immediate = resolveSubscription(raw, now).expiresAt === null
+    const resolved = resolveSubscription(raw, now)
+    const immediate = resolved.expiresAt === null
 
     const updated = await db()
       .update(accounts)
@@ -530,6 +596,22 @@ export async function mockCancel(): Promise<
       'cancellation',
       `🚫 Cancellazione ${immediate ? 'immediata' : 'programmata'}: ${user.accountOwnerEmail} (era ${currentLive})`,
     )
+
+    /*
+     * The written trace a cancellation never had. Same template as the scheduled downgrade
+     * above, with `toLabel` of «Free» being the whole of what makes it read as a cancellation
+     * — and `endsOn` of null being the immediate branch, where there was no period left to
+     * wait for and the account is already back on Free.
+     */
+    await sendEmail({
+      to: user.accountOwnerEmail,
+      ...planChangeEmail({
+        fromLabel: PLAN_LABEL[currentLive],
+        toLabel: PLAN_LABEL.free,
+        endsOn: resolved.expiresAt === null ? null : formatPlanDate(resolved.expiresAt),
+      }),
+    })
+
     return { ok: true, effect: immediate ? 'immediate' : 'scheduled' }
   } catch (error) {
     console.error('mockCancel failed', error)

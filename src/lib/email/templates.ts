@@ -224,6 +224,91 @@ ${APP_NAME} — ${APP_PAYOFF}`
   return { subject, html, text }
 }
 
+/**
+ * The other half of `purchaseEmail`: what a customer gets when a plan is taken away rather
+ * than started — a cancellation, or a downgrade scheduled for the end of a period already
+ * paid for.
+ *
+ * Until now the only plan email in the installation confirmed a purchase, so the one change a
+ * customer most wants a written trace of left none: the cancellation existed on `/billing`'s
+ * own screen and in the Telegram line the *operator* gets, and nowhere the customer could go
+ * back and read it. Deliberately **not** sent when a scheduled change is undone («Keep
+ * <plan>», `clearPendingChange`): that press takes nothing away, and an inbox does not need a
+ * message per press.
+ *
+ * One template for the three shapes rather than three templates, because they differ in one
+ * clause and agree in every other — the same argument `subscriptionStatusLine` makes for
+ * being one function on three screens.
+ *
+ * `endsOn` is the day the plan already paid for runs out, as a plain day, and `null` means
+ * there was no such day to wait for — `mockCancel`'s own immediate branch, a row with no
+ * `planExpiresAt`. It is never a promise of a charge, for the reason `purchaseEmail`'s
+ * `endsOn` was renamed from `renewsOn`: nothing in this repository renews anything.
+ *
+ * `toLabel` of «Free» is what makes this a cancellation rather than a move; both other
+ * sentences read the same either way, which is why there is no separate `kind` parameter to
+ * get out of step with the labels.
+ */
+export function planChangeEmail(input: {
+  /** The plan in force right now — `PLAN_LABEL`'s spelling, resolved by the caller. */
+  fromLabel: string
+  /** What the account becomes: «Free» for a cancellation, a plan name for a downgrade. */
+  toLabel: string
+  /** The last day of the period already paid for, or null when there was none to wait for. */
+  endsOn: string | null
+}): EmailTemplate {
+  const { fromLabel, toLabel, endsOn } = input
+  const cancelling = toLabel === 'Free'
+
+  const subject =
+    endsOn === null
+      ? `Your ${fromLabel} plan has been cancelled`
+      : cancelling
+        ? `Your ${fromLabel} plan ends on ${endsOn}`
+        : `Your plan moves to ${toLabel} on ${endsOn}`
+
+  const what =
+    endsOn === null
+      ? `${fromLabel} has been cancelled, and this account is back on Free from now.`
+      : cancelling
+        ? `${fromLabel} stays in force until ${endsOn}. On that day this account goes back to Free.`
+        : `${fromLabel} stays in force until ${endsOn}. On that day this account moves to ${toLabel}.`
+
+  /* The one reassurance worth repeating from /pricing's own trust note, because this is the
+     moment a musician wonders about it: nothing they put in is deleted by a plan ending. */
+  const kept =
+    'Nothing you have put in is deleted: your songs stay readable, printable and exportable.'
+
+  const undo =
+    endsOn === null
+      ? 'You can start a plan again whenever you want.'
+      : `Changed your mind? «Keep ${fromLabel}» in Billing calls this off, any time before that day.`
+
+  const billingUrl = `https://${SITE_URL}/billing`
+
+  const html = layout(`
+    ${heading(subject)}
+    ${paragraph(what)}
+    ${paragraph(kept)}
+    ${paragraph(undo)}
+    ${button('Open Billing', billingUrl)}
+  `)
+
+  const text = `${subject}
+
+${what}
+
+${kept}
+
+${undo}
+
+${billingUrl}
+
+${APP_NAME} — ${APP_PAYOFF}`
+
+  return { subject, html, text }
+}
+
 export function passwordResetEmail(url: string): EmailTemplate {
   const subject = `Reset your ${APP_NAME} password`
 

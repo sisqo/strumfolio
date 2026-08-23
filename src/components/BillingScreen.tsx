@@ -3,17 +3,19 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { IconInfo } from '@/components/icons'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import {
   clearPendingChange,
   loadCheckoutStatus,
+  loadFreezeState,
   loadMyPaymentHistory,
   mockCancel,
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
 import { cancelQuestion, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
-import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
+import { LIMIT_MESSAGE, PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 type Status =
   | { state: 'loading' }
@@ -33,6 +35,17 @@ type Status =
        * a fourth state.
        */
       historyFailed: boolean
+      /**
+       * Whether the repertoire is over this plan's limits — `loadFreezeState`'s own answer, and
+       * the one thing on this screen that is about the songs rather than about the money. It
+       * belongs here because this is the screen a downgrade or a lapse sends somebody to, and
+       * the freeze is what a downgrade or a lapse actually *does* to them; up to now it was
+       * discoverable only by trying to save something and being refused.
+       *
+       * `false` when the read failed, deliberately — see `loadFreezeState`'s own comment on
+       * failing open.
+       */
+      frozen: boolean
     }
 
 /**
@@ -79,31 +92,51 @@ export function BillingScreen() {
   const [confirmingCancel, setConfirmingCancel] = useState(false)
 
   const refresh = () => {
-    void Promise.all([loadCheckoutStatus(), loadMyPaymentHistory()]).then(([checkoutResult, historyResult]) => {
-      if (!checkoutResult.ok) {
+    void Promise.all([loadCheckoutStatus(), loadMyPaymentHistory(), loadFreezeState()]).then(
+      ([checkoutResult, historyResult, freezeResult]) => {
+        if (!checkoutResult.ok) {
+          setStatus({
+            state: 'unavailable',
+            reason:
+              checkoutResult.reason === 'disabled'
+                ? 'Billing is not switched on right now.'
+                : checkoutResult.reason === 'no-session'
+                  ? 'Sign in to see your plan.'
+                  : 'No database is configured, so there is nothing to read.',
+          })
+          return
+        }
         setStatus({
-          state: 'unavailable',
-          reason:
-            checkoutResult.reason === 'disabled'
-              ? 'Billing is not switched on right now.'
-              : checkoutResult.reason === 'no-session'
-                ? 'Sign in to see your plan.'
-                : 'No database is configured, so there is nothing to read.',
+          state: 'ready',
+          current: checkoutResult.current,
+          live: checkoutResult.live,
+          history: historyResult.ok ? historyResult.history : [],
+          historyFailed: !historyResult.ok,
+          frozen: freezeResult.ok && freezeResult.frozen,
         })
-        return
-      }
-      setStatus({
-        state: 'ready',
-        current: checkoutResult.current,
-        live: checkoutResult.live,
-        history: historyResult.ok ? historyResult.history : [],
-        historyFailed: !historyResult.ok,
-      })
-    })
+      },
+    )
   }
 
   useEffect(() => {
     refresh()
+
+    /*
+     * `?cancel=1` — the hand-off from /pricing's own Free card, which used to call `mockCancel`
+     * itself behind a second, dateless question of its own (see that card's comment). It links
+     * here instead, and this is what makes the hand-off a single tap rather than a hunt: the
+     * question `cancelQuestion` words, with the day the plan actually stops in it, is already
+     * open on arrival.
+     *
+     * Harmless when it does not apply. The confirmation only renders inside `canCancel`, so a
+     * free account, a lifetime one or a lapsed one that arrives with this param sees exactly
+     * what it would have seen without it.
+     *
+     * `URLSearchParams(window.location.search)` rather than `useSearchParams()`, the same
+     * reading `ThanksScreen` does of `?preview=` and for the same reason: the hook would force
+     * this screen into a Suspense boundary for a param most of its visitors never carry.
+     */
+    if (new URLSearchParams(window.location.search).get('cancel') !== null) setConfirmingCancel(true)
   }, [])
 
   /*
@@ -182,6 +215,28 @@ export function BillingScreen() {
                 on why this comes out of the ledger rather than a column. Absent, rather than
                 hedged, whenever there is no purchase row to quote. */}
             {payment !== null && <p className="mt-1 text-sm text-muted">{payment}</p>}
+
+            {/*
+              * The freeze, said before it bites. Inside the plan card rather than at the top of
+              * the screen because it is a consequence of the plan named two lines above it — a
+              * downgrade or a lapse is what puts an account here — and reading it directly under
+              * that sentence is what makes the two one fact instead of two.
+              *
+              * `LIMIT_MESSAGE.frozen` verbatim, never a second sentence of its own: the modal
+              * that appears when a save is refused says exactly this, and a banner that worded
+              * it differently would leave a reader wondering whether they had two problems.
+              *
+              * **No link to /pricing, deliberately** — the same rule `PlanUpgradeModal` follows
+              * for this one reason among its four (`canUpgrade` is false only here): the way out
+              * of a freeze is a deletion the customer can make for nothing, and pointing them at
+              * a price list would be both the wrong remedy and an expensive one.
+              */}
+            {status.frozen && (
+              <p className="notice notice-accent mt-3" role="status">
+                <IconInfo />
+                <span>{LIMIT_MESSAGE.frozen}</span>
+              </p>
+            )}
 
             <div className="mt-3 flex flex-wrap gap-2">
               {status.current.pendingPlan !== null && (
