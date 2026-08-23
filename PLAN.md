@@ -11,8 +11,9 @@
 > distinta per i contenitori — quindi il resto di questo piano la nomina ancora quando
 > parla di quella, di proposito.
 
-> **Stato:** da v1 a **v3.13 — quarto ricontrollo dei piani** (l'ultima versione numerata in
-> questo documento) sono consegnate e in produzione su https://strumfolio.com. La v1.2 ha cambiato
+> **Stato:** da v1 a **v3.14 — canzoniere di esempio per i nuovi account** (l'ultima versione
+> numerata in questo documento) sono consegnate e in produzione su https://strumfolio.com. La
+> v1.2 ha cambiato
 > chi possiede un brano: il database, non i file — va letta prima di toccare il seed. La
 > v1.3 ha aggiunto lo strato che mostra la versione del database sopra la pagina statica: va
 > letta prima di toccare la lettura. La v1.4 ha portato l'editor in una pagina sua, con la
