@@ -150,7 +150,8 @@ export function PricingPlans({
   const { known, email, planChosen } = useRole()
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
-  const pending = known && email !== null && !planChosen
+  const signedIn = known && email !== null
+  const pending = signedIn && !planChosen
 
   const startFree = async () => {
     setFreeBusy(true)
@@ -207,14 +208,18 @@ export function PricingPlans({
               </p>
               <p className="plan-audience">{column.audience}</p>
 
-              {column.checkoutPlan !== undefined && (
+              {column.checkoutPlan !== undefined && (signedIn ? (
                 <Link
                   href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
                   className="btn btn-primary btn-sm plan-cta w-full"
                 >
                   Choose {column.name}
                 </Link>
-              )}
+              ) : (
+                <Link href="/register" className="btn btn-primary btn-sm plan-cta w-full">
+                  Sign up
+                </Link>
+              ))}
 
               {column.cta !== undefined && pending && (
                 <>
@@ -234,9 +239,16 @@ export function PricingPlans({
                 </>
               )}
 
-              {column.cta !== undefined && !pending && (
-                <Link href={column.cta.href} className="btn btn-sm plan-cta w-full">
-                  {column.cta.label}
+              {/*
+                * Free's third state, beside `pending` above: signed in with a plan already
+                * chosen. "Start free" means nothing to someone who already has a plan, so —
+                * like a paid column with no `checkoutPlan` yet — the card simply ends after
+                * `plan-audience` with no button at all. Not signed in is the only case left
+                * that still renders one.
+                */}
+              {column.cta !== undefined && !pending && !signedIn && (
+                <Link href="/register" className="btn btn-sm plan-cta w-full">
+                  Sign up
                 </Link>
               )}
             </article>
@@ -319,5 +331,37 @@ export function PricingPlans({
         </div>
       </section>
     </div>
+  )
+}
+
+/**
+ * The Lifetime panel's own button — split out from the panel itself, which stays
+ * server-rendered in `pricing/page.tsx` (its title, price and trust note need nothing from
+ * a session). Only the one thing that has to know who is looking moves here, into a
+ * component that already reads `useRole()`, rather than a second `'use client'` boundary
+ * opened just to ask the same question again.
+ *
+ * `href` is `/checkout/lifetime` for a signed-in reader, exactly as before; a reader with
+ * no session yet gets `/register` instead, for the same reason every column above does —
+ * a click on `/checkout/lifetime` with no session redirects through `/login` and loses
+ * which purchase they meant, and Lifetime is not exempt from that just because it renders
+ * outside the four-card grid.
+ */
+export function LifetimeCta({ href }: { href: string }) {
+  const { known, email } = useRole()
+  const signedIn = known && email !== null
+
+  if (!signedIn) {
+    return (
+      <Link href="/register" className="btn btn-primary btn-sm mt-4 w-full sm:w-auto">
+        Sign up
+      </Link>
+    )
+  }
+
+  return (
+    <Link href={href} className="btn btn-primary btn-sm mt-4 w-full sm:w-auto">
+      Choose Lifetime
+    </Link>
   )
 }

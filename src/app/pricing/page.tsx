@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
-import { PricingPlans } from '@/components/PricingPlans'
+import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
 import type { ComparisonRow, PlanColumn } from '@/components/PricingPlans'
 import { APP_NAME } from '@/lib/brand'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
@@ -577,11 +577,7 @@ export default function PricingPage() {
                   <p className="lifetime-price">{euro(LIFETIME.amount)}</p>
                 </div>
 
-                {CHECKOUT_LIVE && (
-                  <Link href="/checkout/lifetime" className="btn btn-primary btn-sm mt-4 w-full sm:w-auto">
-                    Choose Lifetime
-                  </Link>
-                )}
+                {CHECKOUT_LIVE && <LifetimeCta href="/checkout/lifetime" />}
               </div>
             </div>
           </div>
