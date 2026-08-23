@@ -16,6 +16,7 @@ export type Section =
   | 'accounts'
   | 'emails'
   | 'pages'
+  | 'design-system'
   | 'app-settings'
   | 'help'
   | 'checkout'
