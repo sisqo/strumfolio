@@ -2127,8 +2127,17 @@ Nessuna migrazione.
 - **L'ordine di attivazione del database non è indifferente.** Il build genera le pagine dai
   dati che trova: se `DATABASE_URL` arriva su Vercel prima del seed, il build legge una
   tabella vuota e pubblica zero canzoni con una lista di precache vuota — un'app che sembra
-  funzionante e non ha contenuti. La sequenza corretta è in `README.md`: crea Neon, `env
-  pull`, migrate, seed, e **solo dopo** aggiungi la variabile in produzione.
+  funzionante e non ha contenuti. La sequenza corretta, se il database va rifatto da zero:
+  1) crea il database collegandolo **solo a development** (`vercel integration add neon -e
+  development --name songs-db --scope sisqoz`, prima volta con i termini marketplace da
+  accettare nel browser); 2) `npm run db:migrate`; 3) `npm run seed`; 4) verifica che il
+  build dica `Precache routes (database)` e non `(files)`; 5) **solo adesso** aggiungi
+  `DATABASE_URL` a Production e fai un redeploy. Due dettagli che costano tempo se non si
+  sanno: `vercel env pull` sovrascrive `.env.local` e scarica un solo ambiente (le variabili
+  di auth sono anche in `development` proprio per sopravvivere al pull); le migrazioni
+  girano sulla connessione **diretta** (`DATABASE_URL_UNPOOLED`, che `scripts/migrate.ts`
+  preferisce da sé quando esiste), non su quella con PgBouncer che il runtime usa invece con
+  `prepare: false`.
 
 ## Scostamenti dal piano, emersi in implementazione
 

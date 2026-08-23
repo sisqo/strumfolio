@@ -276,7 +276,7 @@ const FAQ: FaqGroup[] = [
 
 /**
  * Nine, not an exhaustive list. Each is something a visitor can picture doing on
- * stage, in one sentence — the README says the rest, for whoever is already inside.
+ * stage, in one sentence — the rest is for whoever is already inside to discover.
  */
 const FEATURES: Feature[] = [
   {
@@ -349,7 +349,7 @@ const FEATURES: Feature[] = [
  * visitors — they are reaching for the thing they came to do. The features are what
  * turn the same screen into an answer for the one visitor who is not: a warm wash, the
  * name, the payoff, and then what the app actually does, in sentences rather than a
- * feature list lifted from the README.
+ * bare feature list.
  *
  * Google first, because it is the way that needs no password kept anywhere. Underneath,
  * an address and a password, for whoever would rather not hand Google another sign-in —

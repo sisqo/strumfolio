@@ -4,8 +4,9 @@
  * scrypt from `node:crypto`, and no dependency. The alternative was a pure-JS bcrypt for
  * one function in an app that has just finished deleting a dependency it no longer used;
  * scrypt is a password KDF in the standard library, deliberately slow, deliberately
- * memory-hungry, and its cost is the only throttle this app has — see the note about rate
- * limiting in the README.
+ * memory-hungry. Originally the only throttle on login attempts this app had; `PLAN.md`
+ * (v3.2, point 10) later added a database-backed rate limit (`rateLimitHits`) on top,
+ * shared with registration and password recovery.
  *
  * The stored string says how it was made:
  *

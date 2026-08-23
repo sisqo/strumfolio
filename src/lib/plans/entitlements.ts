@@ -300,12 +300,13 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
       /*
        * The freeze deliberately does not reach these three. Leading a Sing Together,
        * printing a booklet and picking an instrument are not changes to the repertoire, and
-       * the freeze is a rule about the repertoire — the same line the README draws under
-       * «Cosa non conta come modifica», extended to its end: that passage lists the reader's
-       * five display choices (transposition, capo, scroll speed, text size, notation) and
-       * these three are not in it, but they are the same kind of thing — what one person
-       * does with the songs on their own screen, or on a stage, leaving every row exactly as
-       * it was. So a frozen standard account can still broadcast and still print, and a free
+       * the freeze is a rule about the repertoire — the same line `PLAN.md` (v2.1) draws
+       * under "Le preferenze non sono modifiche", extended to its end: that passage lists
+       * the reader's five display choices (transposition, capo, scroll speed, text size,
+       * notation) and these three are not in it, but they are the same kind of thing — what
+       * one person does with the songs on their own screen, or on a stage, leaving every row
+       * exactly as it was. So a frozen standard account can still broadcast and still print,
+       * and a free
        * account is refused all three by its plan, which is a different sentence with a
        * different remedy.
        */

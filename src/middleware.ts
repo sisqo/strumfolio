@@ -28,7 +28,7 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
  * app would be stuck on an old worker with no way to recover.
  *
  * Every favicon, PWA icon, lockup and OG image lives under `/brand/`
- * (`public/brand/`, see README's "Icone e brand mark") for exactly this reason —
+ * (`public/brand/`) for exactly this reason —
  * one prefix here instead of a line per file, which is what this used to be and
  * which had already been forgotten twice (once for favicon.svg/og-image.png, once
  * for the lockup SVGs) when a new brand asset showed up. `/brand/email/logo.png`
