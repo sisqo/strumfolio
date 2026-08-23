@@ -533,7 +533,7 @@ export default async function LoginPage({ searchParams }: Props) {
             <span className="text-[0.78125rem] font-semibold uppercase tracking-wide text-accent">
               No install, anywhere
             </span>
-            <h2 className="landing-feature-title mt-2.5">Every screen you own is ready to play.</h2>
+            <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
             <p className="mt-2.5 text-sm leading-[1.5] text-muted">
               Organise your songbooks at the desk on Windows or Mac, then open the same library on
               whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
@@ -609,7 +609,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
       <section className="landing-width mt-11 lg:mt-16">
         <div className="text-center">
-          <h2 className="landing-feature-title">Built for playing, not scrolling.</h2>
+          <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
           <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
             Every control is built for a thumb, not a mouse — for a hand already holding
             an instrument.
@@ -637,7 +637,7 @@ export default async function LoginPage({ searchParams }: Props) {
         * `.editor-data` already makes for the song-data drawer elsewhere in the app.
         */}
       <section className="landing-width mt-11 lg:mt-16">
-        <h2 className="landing-feature-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
+        <h2 className="landing-section-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
 
         <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-8">
           {FAQ.map((group) => (

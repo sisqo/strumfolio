@@ -525,13 +525,14 @@ export default function PricingPage() {
   return (
     <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
       <div className="text-center">
-        <span className="pricing-eyebrow">Pricing</span>
         {/*
           * `.landing-title`, not `.screen-title` — the design's own 48px, matching /login's own
           * hero rather than the smaller size every other internal screen's H1 uses. This is the
-          * one other page that opens with a title page rather than a place to read from.
+          * one other page that opens with a title page rather than a place to read from. No
+          * eyebrow above it any more (the redesign's own removal) — `<main>`'s own top padding
+          * is now the only thing separating it from the bar above.
           */}
-        <h1 className="landing-title mt-5">What Strumfolio costs</h1>
+        <h1 className="landing-title">What Strumfolio costs</h1>
         <p className="mx-auto mt-4 max-w-[38rem] text-[1.03125rem] leading-[1.6] text-muted">
           {HERO_SUBTITLE}
         </p>

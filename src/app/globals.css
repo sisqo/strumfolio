@@ -1117,10 +1117,13 @@
   }
 
   /*
-   * The heading over the grid. Not `.section-title`: this page names it at 26px on
-   * a desk and 19px on a phone, and a Tailwind size utility stacked on that shared
-   * class would lose the coin flip described above `.auth-lockup`. A class of its own
-   * costs a few duplicated lines and settles the question instead of risking it.
+   * `/pricing`'s own "What changes between plans", over the comparison table — the one
+   * remaining caller (`PricingPlans.tsx`) since `.landing-section-title` below split off
+   * the three bigger ones on `/login`. Not `.section-title`: a Tailwind size utility
+   * stacked on that shared class would lose the coin flip described above `.auth-lockup`.
+   * Sized to the pricing mock's own 24px rather than `.landing-section-title`'s 34px — the
+   * two headings sit at different weights in the design itself, which is why one class
+   * covering both would have gotten one of them wrong.
    */
   .landing-feature-title {
     font-size: 1.1875rem;
@@ -1131,7 +1134,28 @@
 
   @media (min-width: 1024px) {
     .landing-feature-title {
-      font-size: 1.625rem;
+      font-size: 1.5rem;
+    }
+  }
+
+  /*
+   * The heading over the feature grid, over the FAQ, and over the cross-device section on
+   * `/login` — every secondary title on that page below the hero itself. Matches
+   * `.feature-spotlight-title`'s own scale (22px mobile, 34px from `lg`) rather than
+   * `.landing-feature-title`'s smaller one: every secondary title on the page now reads at
+   * the same weight, `.feature-spotlight-title`'s own heading included, instead of the
+   * fill's heading standing out as the one that was sized up.
+   */
+  .landing-section-title {
+    font-size: 1.375rem;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  @media (min-width: 1024px) {
+    .landing-section-title {
+      font-size: 2.125rem;
     }
   }
 
@@ -1977,11 +2001,20 @@
     font-weight: 600;
   }
 
-  /* Free's own button: an outline with nothing behind it, never `.btn`'s usual raised fill —
-     the one card on the page that is not selling anything. */
+  /*
+   * Free's own button: an outline with nothing behind it, never `.btn`'s usual raised fill —
+   * the one card on the page that is not selling anything. `border-color` has to be named
+   * here rather than left to `.btn`'s own `var(--edge)`: `--edge` is deliberately transparent
+   * in light mode (see its own comment in this file) because every other bordered surface on
+   * that theme reads through `box-shadow` instead — a rule this button just opted out of two
+   * lines above. Without a real border colour to fall back on, light mode drew a button with
+   * no fill, no shadow and no edge: text floating on the card with nothing to say it was a
+   * button at all.
+   */
   .plan-cta:not(.btn-primary) {
     height: 2.5rem;
     background: transparent;
+    border-color: var(--line);
     box-shadow: none;
   }
 
@@ -2096,15 +2129,15 @@
   .plan-table-name {
     display: block;
     color: var(--ink);
-    font-size: 1.0625rem;
+    font-size: 1.25rem;
     font-weight: 500;
   }
 
   .plan-table-price {
     display: block;
-    margin-top: 0.125rem;
+    margin-top: 0.1875rem;
     color: var(--muted);
-    font-size: 0.78125rem;
+    font-size: 0.875rem;
     font-weight: 400;
   }
 
@@ -2199,23 +2232,6 @@
   /* A row this plan simply has no part of. The dash is a glyph; the word is in `.sr-only`. */
   .plan-cell-none {
     color: var(--faint);
-  }
-
-  /* The small uppercase tag above the H1 — "Pricing" — the same recipe `.plan-badge` and
-     `.lifetime-eyebrow` below both vary rather than the wordmark treatment `.hero-badge`
-     already owns for /login: this page names a section, not the app. */
-  .pricing-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    height: 1.75rem;
-    padding: 0 1rem;
-    border-radius: var(--r-pill);
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 0.78125rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   }
 
   /*
