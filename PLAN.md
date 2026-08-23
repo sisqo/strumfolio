@@ -370,303 +370,78 @@ elenchi e barra: testata dell'editor su una riga, le tre modalità e i comandi c
 
 ### v2.0 — utenti, e tre cose in meno
 
-Cinque richieste, e tre sono **rimozioni**. Vale dirlo prima di tutto il resto: la
-maggior parte di questa versione è codice che non c'è più — tre rotte, due tabelle, una
-colonna, una dipendenza, e le funzioni che esistevano solo per servirle.
+Cinque richieste, e tre sono **rimozioni**: la maggior parte di questa versione è codice
+che non c'è più (scalette, la colonna `original_key`, le funzioni che le servivano).
 
-**1. Chi può entrare, dall'app.** Nuova tabella `members` e nuova schermata `/utenti`.
-L'elenco ha due metà che non sono la stessa cosa: i **proprietari** vengono da
-`ALLOWED_EMAILS`, che l'app non può scrivere, e gli **invitati** dalla tabella. È la
-differenza che rende impossibile chiudersi fuori — non c'è nessun gesto, in nessuna
-schermata, che tolga l'accesso all'ultima persona che ce l'ha — e che tiene in piedi
-l'accesso dei proprietari anche con il database irraggiungibile, dato che per loro non
-c'è niente da leggere.
+**Chi può entrare, dall'app** (poi superato, v3.1/v3.2): nuova tabella `members` e
+schermata `/utenti`, con i **proprietari** da `ALLOWED_EMAILS` (l'app non può scriverla,
+quindi non ci si può mai chiudere fuori) e gli **invitati** dalla tabella. Le due metà si
+incontrano in una funzione sola, `isAllowed`, che risponde sia al login sia alla guardia
+davanti a ogni scrittura — una guardia che avesse letto solo la tabella avrebbe lasciato i
+proprietari dentro l'app e incapaci di salvare qualunque cosa, perché non sono righe.
+**Le scalette sono rimosse** (mai diventate scrivibili, due gusci vuoti nel database).
 
-Le due metà si incontrano in `isAllowed(email, env, members)`, che risponde **sia** al
-callback di login **sia** alla guardia davanti a ogni scrittura. Questa è la parte da non
-sbagliare, ed è il primo errore che il revisore ha fermato: una guardia che avesse letto
-solo la tabella avrebbe lasciato i due proprietari — le sole persone con accesso — dentro
-l'app e incapaci di salvare qualunque cosa, perché non sono righe. Verificato attraverso
-l'interfaccia dopo il cambio: una trasposizione salvata da un proprietario arriva al
-server.
+**La tonalità non è più un campo** salvato: si stima dagli accordi, con lo stesso
+estimatore già usato dall'import. Misurato prima di far cadere la colonna: sui ventuno
+brani con una tonalità salvata, la stima ne ha indovinate **ventuno su ventuno**.
 
-Quello che una rimozione **non** fa: chiudere una sessione già aperta. Il cookie dura
-novanta giorni per una ragione (scadere senza rete chiuderebbe fuori dal repertorio in
-scena) e le pagine sono già sul dispositivo di chi le ha scaricate. Smette subito ogni
-scrittura, perché la guardia rilegge l'elenco a ogni azione. La schermata lo dice al
-momento di rimuovere: promettere una porta che si chiude sarebbe falso.
-
-**2. Le scalette non ci sono più.** Due rotte, due tabelle, il tipo, i due metodi del
-repository, i file YAML, la voce di menù, l'icona, la dipendenza `yaml`. Non erano mai
-diventate scrivibili dall'app e nel database erano due gusci vuoti — due righe in
-`setlists`, **zero** in `setlist_songs` — quindi non si è persa nessuna serata. Il
-`SetlistContext` di `SongReader` va con loro, e con esso l'unico caso in cui la pagina di
-un brano poteva stare in due sequenze diverse.
-
-**3. La tonalità non è più un campo.** Via la colonna `original_key`, il campo
-nell'editor, le pastiglie negli elenchi, la direttiva `{key:}` e ogni readout che
-nominasse una tonalità. Ma la tonalità serviva a qualcosa di preciso, e non era mostrarla:
-`transposeChord` sceglie fra `Fa#` e `Solb` **dalla tonalità d'arrivo**. Toglierla senza
-sostituirla avrebbe fatto ripiegare ogni brano su Do maggiore, cioè avrebbe cambiato la
-grafia di brani che nessuno aveva toccato.
-
-Quindi la tonalità si **stima dagli accordi**, con l'estimatore che l'import già usava —
-spostato da `lib/import/key.ts` a `lib/music/key.ts`, perché non è più una cosa
-dell'import. Interna, mai scritta, mai stampata. Misurato **prima** di far cadere la
-colonna, che è l'unico momento in cui si poteva misurare: sui ventuno brani con una
-tonalità salvata la stima ha indovinato **ventuno volte su ventuno**. I tre senza tonalità
-salvata ci guadagnano, perché prima ripiegavano su Do.
-
-Ne segue una potatura che vale la pena nominare: `formatKey`, `keyLabel`, `parseKey` e
-`soundingKey` sono state cancellate. Non erano rotte — erano diventate senza chiamanti,
-perché una tonalità non si scrive più in nessun senso della parola, né dentro né fuori. I
-loro test sono stati riscritti per dire la stessa cosa attraverso ciò che resta.
-
-**4. La home è l'elenco dei canzonieri**, e ogni canzoniere ha la sua pagina. Il perché
-sta in *Il canzoniere ha una rotta propria*: delle due obiezioni storiche una era falsa
-nel nostro schema. La ricerca resta in home; il riordino trasloca nella pagina del
-canzoniere, che è dove ora vive l'elenco che riordina.
-
-**5. Dal brano si torna al canzoniere**, con la pastiglia `‹ Cartoni animati` nell'header.
-Qui c'era una trappola che il revisore ha visto prima di me: `seriesFor` calcolava insieme
-il canzoniere e la posizione nella sequenza, e restituiva `null` per entrambi quando i
-brani erano meno di due. Un canzoniere con un brano solo avrebbe quindi perso **anche** la
-via del ritorno, che non ha niente a che vedere con l'avere dei vicini. Sono due funzioni
-adesso, con due condizioni diverse.
-
-**Le migrazioni sono due, e nell'ordine giusto.** `0006` crea `members` e va applicata
-*prima* del push, perché il login la legge; `0007` lascia cadere la colonna e le due
-tabelle e va applicata *dopo* che il deploy è pronto, perché fino a quel momento il sito
-in produzione è ancora quello vecchio, che quella colonna la seleziona. Al contrario si
-aprirebbe una finestra di qualche minuto in cui salvare un brano sul sito vivo fallisce.
-
-**Cosa è stato misurato, non supposto.** Trentatré controlli attraverso l'interfaccia:
-che le righe della home siano collegamenti e non pieghe, che seguire la pastiglia del
-ritorno *atterri* sul canzoniere che nomina, che togliere il capotasto rimetta esattamente
-gli accordi di prima, che rimuovere un invitato lo faccia sparire dall'elenco. Due
-fallimenti erano miei e non dell'app: un profilo del browser riusato si portava dietro una
-trasposizione in `localStorage`, e un `input` svuotato via DOM non aggiorna lo stato di
-React. Il terzo era vero e istruttivo: un `type="email"` fa rifiutare l'indirizzo
-malformato al browser, prima che l'azione sul server venga chiamata.
+**La home diventa l'elenco dei canzonieri**, ciascuno con la propria pagina; dal brano si
+torna al canzoniere con una pastiglia nell'header. Trentatré controlli attraverso
+l'interfaccia hanno verificato il tutto end-to-end, non solo per lettura di codice.
 
 ### v2.1 — ruoli
 
 Tre ruoli, e la linea fra loro è cosa possono **cambiare**: admin tutto, editor il
-repertorio, viewer niente di condiviso. Quattro decisioni tengono in piedi il resto.
-
-**I proprietari sono admin per definizione, non per una riga.** `ALLOWED_EMAILS` non è
-scrivibile dall'app, quindi chi c'è dentro non si può rimuovere — e la stessa cosa lo
-rende non retrocedibile. Non esiste perciò una sequenza di gesti permessi che lasci
-l'installazione senza nessuno al comando, che è la proprietà da cui dipende tutto il
-resto: le altre regole possono sbagliare senza chiudere fuori nessuno.
-
-**Le preferenze non sono modifiche.** Trasposizione, capotasto, velocità, dimensione e
-notazione restano aperte a ogni ruolo, viewer compresi. Non toccano il repertorio: sono
-come una persona legge sul proprio schermo, e un viewer che non potesse trasporre non
-servirebbe a niente sul palco — l'unico posto dove questa app viene usata. Verificato come
-tale: un viewer alza di un semitono e la riga arriva nel database.
-
-**Il ruolo non entra nel token.** Una sessione dura novanta giorni; un ruolo scritto lì
-dentro terrebbe i poteri di ieri per tre mesi. Le guardie rileggono la tabella a ogni
-azione, quindi retrocedere qualcuno gli toglie i controlli **dalla sua azione successiva**
-— provato spostando un editor a viewer sotto la stessa sessione e vedendo sparire
-*Modifica*.
-
-**L'interfaccia è la spiegazione, il server è la garanzia.** Le pagine sono statiche e
-precachate: sono le stesse per tutti, e nessuna può sapere al render chi la guarda. Quindi
-il ruolo arriva dopo il mount, come le preferenze, e i controlli compaiono solo quando la
-risposta è arrivata e permette — mai il contrario, perché un pulsante che appare e sparisce
-è un pulsante che qualcuno ha già premuto. Offline non arriva affatto, il che va bene:
-tutto ciò che un ruolo sblocca ha comunque bisogno della rete. Il ruolo **non** è messo in
-cache di proposito: un «admin» ricordato disegnerebbe pulsanti che rifiutano.
-
-L'unica pagina che rifiuta da sé è l'editor, l'unica generata su richiesta: a un viewer non
-manda nemmeno i campi.
-
-**Cosa è stato misurato.** Ventisette controlli con tre sessioni vere — un invitato
-temporaneo per ruolo, una sessione firmata per ciascuno, e l'app usata come quella persona:
-i controlli assenti dove devono essere assenti, le tre schermate che spiegano invece di
-offrire, un editor a cui `/utenti` non dice nemmeno chi altro esiste, e una richiesta POST
-sparata diretta a un'azione di scrittura che non cambia niente — perché un pulsante
-nascosto non è una serratura. Le due volte che il controllo ha segnalato un problema era
-il controllo a sbagliare: leggeva `document.body`, che comincia con lo script del tema, e
-cercava le parole del brano in una pagina dove Next le aveva prefetchate legittimamente
-dal link di ritorno.
+repertorio, viewer niente di condiviso (poi ridotti a un solo ruolo, v3.1). I proprietari
+sono admin per definizione (non una riga: `ALLOWED_EMAILS` non è scrivibile dall'app, quindi
+non retrocedibili). Le **preferenze non sono modifiche** — trasposizione, capotasto,
+velocità, notazione restano aperte a ogni ruolo, perché non toccano il repertorio, sono
+come una persona legge sul proprio schermo. Il ruolo **non entra nel token** di sessione
+(90 giorni: lo terrebbe stantio) né va mai in cache — le guardie rileggono la tabella a
+ogni azione, quindi un downgrade toglie i controlli dalla mossa successiva, non dal
+prossimo accesso.
 
 ### v2.2 — email e password
 
-Un secondo modo di entrare, accanto a Google. Quattro decisioni, e la prima spiega la forma
-di tutte le altre.
-
-**Una tabella a parte, `credentials`, non una colonna su `members`.** Il motivo è lo stesso
-fatto che rende i proprietari impossibili da chiudere fuori: un proprietario **non ha riga**
-in `members`, quindi una colonna là non potrebbe mai contenere la sua password. Separandole,
-`members` risponde *se* puoi essere qui e `credentials` soltanto *come dimostri di essere
-quell'indirizzo*. Una riga di password non concede niente: `roleOf` decide come prima e non
-sa che questa tabella esista.
-
-**scrypt dalla libreria standard.** L'alternativa era un bcrypt in puro JS: una dipendenza
-per una funzione, in un'app che ha appena finito di cancellare una dipendenza che non usava
-più. scrypt è un KDF da password nella standard library, lento e affamato di memoria di
-proposito, e il suo costo è l'unico freno ai tentativi che questa app abbia — misurato:
-34 ms per un hash, 30 ms per una verifica, con N=16384, r=8, p=1 e 16 MiB. La stringa
-salvata porta i propri parametri (`scrypt$16384$8$1$sale$hash`), così alzarli domani non
-rompe le righe scritte ieri.
-
-**Il login non distingue mai i suoi rifiuti.** Password sbagliata, indirizzo senza password,
-indirizzo fuori elenco: una frase sola. Il controllo di ammissione sta *dentro* `authorize`
-oltre che in `signIn`, e non è ridondanza — è ciò che fa collassare due esiti diversi in uno
-visto da fuori. Altrimenti indovinare la password di qualcuno che è stato rimosso darebbe un
-errore diverso, e il modulo diventerebbe un oracolo su chi esiste. Il *tempo* di risposta
-direbbe la stessa cosa, e per quello c'è la verifica contro un hash finto quando la riga non
-c'è.
-
-**La password di un proprietario non si imposta da un'altra persona.** L'identità di un
-proprietario la garantisce Google; poter scrivere la sua password sarebbe la strada per
-entrare come qualcuno che non si può né rimuovere né retrocedere — l'unica scalata di
-privilegi che il sistema dei ruoli lasciava aperta. La propria sì, sempre, e per questo la
-regola è «tranne il tuo indirizzo» e non «solo gli invitati».
-
-E una cosa in più di quanto chiesto, da valutare: **`/password`**, dove ognuno cambia la
-propria indicando quella attuale. Una password che solo un admin può cambiare è una password
-che l'admin conosce; con quella schermata l'admin dà la prima e poi non serve più. Ogni ruolo
-ce l'ha, viewer compreso: come entri è affare tuo, e l'unica autorizzazione è che l'indirizzo
-viene dalla sessione e non da un parametro.
-
-**Cosa è stato misurato.** Ventidue controlli, e la prima metà **senza cookie forgiati**: il
-browser compila il modulo e l'app deve restituire una sessione. La password arriva nel
-database solo come hash `scrypt$…`, mai in chiaro; entra con quella giusta e non con quella
-sbagliata; un indirizzo che nessuno conosce ottiene la stessa frase di una password
-sbagliata; l'interessato la cambia da sé e la vecchia smette di funzionare; una password
-attuale sbagliata non cambia niente e lo dice; un admin invitato non si vede offrire la
-password di un proprietario; rimuovere l'utente porta via anche la password, e il modulo
-allora lo rifiuta come qualsiasi estraneo.
-
-**Cosa non è stato provato end-to-end**: il giro completo di Google, perché non si può
-guidare la sua schermata di consenso. Di quello resta verificato che i due provider si
-costruiscono, che `/login` mostra entrambe le strade e che il middleware non è cresciuto —
-`node:crypto` non è finito sull'edge.
-
-Migrazione 0009: crea `credentials`. Solo aggiunta, quindi applicata prima del push.
+Un secondo modo di entrare, accanto a Google. **`credentials` è una tabella a parte**, non
+una colonna su `members`: un proprietario non ha riga lì, quindi una colonna sulla tabella
+degli invitati non potrebbe mai contenere la sua password — la tabella nuova risponde solo
+*come dimostri l'indirizzo*, mai *se puoi essere qui*. **scrypt dalla libreria standard**
+(niente bcrypt in una dipendenza in più): 34 ms per un hash, 30 ms per una verifica,
+parametri incorporati nella stringa salvata. **Il login non distingue mai i suoi rifiuti**
+— password sbagliata, indirizzo senza password, indirizzo fuori elenco danno la stessa
+frase, con verifica a tempo costante anche quando la riga non esiste. La password di un
+proprietario non si può impostare da un'altra persona, sempre la propria sì — da qui anche
+`/password`, dove ognuno la cambia da sé.
 
 ### v2.3 — sezioni
 
-Il canzoniere si divide, e ogni brano sta in una sezione sola. Cinque decisioni tengono su
-il resto.
-
-**La coerenza la garantisce il database, non il codice.** Il canzoniere di un brano resta
-scritto sul brano — è la colonna su cui filtrano le pagine statiche e l'overlay — e la
-sezione dice a sua volta in quale canzoniere sta. Due copie dello stesso fatto: quindi
-`unique (id, canzoniere_slug)` su `sections` e una chiave esterna **composta** su `songs`,
-che rende impossibile la riga sbagliata. Il `on update cascade` che la completa è stato
-misurato prima di scriverlo, su uno schema di prova poi rimosso, perché senza di esso far
-traslocare una sezione è rifiutato in entrambi gli ordini di update.
-
-**Una disposizione sola, in una transazione sola.** `arrangeCanzoniere` sostituisce
-`reorderCanzoniere` e scrive tutto: l'ordine delle sezioni, l'ordine dei brani dentro
-ognuna, e la sezione di ogni brano. Un brano trascinato oltre un'intestazione cambia tre
-cose insieme, e scriverle con due chiamate lascerebbe un momento in cui il brano non sta né
-qua né là. Un controllo di obsolescenza solo, su **entrambi** gli insiemi — sezioni e brani
-— perché il caso vero è qualcuno che importa o rimuove mentre le righe sono aperte.
-
-**Le frecce non si fermano a una sezione.** Il canzoniere resta una sequenza sola, percorsa
-sezione dopo sezione; l'header del brano dice la sezione e conta il canzoniere («Prima
-parte · 3 di 12»), perché il numero e la freccia devono raccontare la stessa storia.
-
-**Il ritorno da un brano porta un frammento, non un parametro.** `#brano-<slug>` è ciò che
-apre la sezione giusta all'arrivo, e un frammento non arriva al service worker: una query
-avrebbe fatto mancare la pagina nel precache, cioè avrebbe rotto il ritorno da un brano
-proprio offline.
-
-**La struttura non timbra `updated_at`.** Disporre non cambia nessun brano, cambia
-l'insieme. La riga che il codice esistente aveva già tracciato viene tenuta: si timbra chi
-**cambia canzoniere** — è su un'altra pagina, quindi va pubblicato — e non chi cambia solo
-posto o sezione. Per allineare frecce e header si usa *Ricostruisci ora*.
-
-Migrazioni 0010 (additiva: la tabella, la colonna nullable, i vincoli, `canzoniere_slug`
-`not null`, e il backfill di una sezione «Brani» per canzoniere scritto a mano sotto il DDL
-generato — la prima migrazione di questo repo che porta dati) e 0011 (contrattiva, dopo il
-deploy: ripete il backfill per la finestra fra le due e mette `section_id` `not null`).
-
-**Cosa è stato misurato.** Sessantasette controlli attraverso l'interfaccia, in quattro
-passate.
-
-*In lettura, sul locale (23):* la divisione di un canzoniere, un brano portato oltre
-l'intestazione con la tastiera, le sezioni chiuse e le due eccezioni, la piega che resta
-dopo un ricarico, l'editor e l'import che chiedono la sezione.
-
-*Ruoli e rifiuti (16):* un nome già preso rifiutato con la sua ragione, un brano portato
-oltre l'intestazione **col dito**, la rimozione di una sezione piena che chiede dove, e la
-*stessa* richiesta di scrittura di un editor ripetuta da un viewer — con l'identificatore
-vero dell'azione, registrato da una chiamata legittima, e la conferma che arriva davvero
-all'azione (200, non un 404 di rotta) — che non cambia niente.
-
-*In produzione (14):* le stesse cose sul dominio vero, più le due che solo lì si vedono —
-l'header del brano che resta fermo al build mentre le schede sotto sono già cambiate, e
-tutto il giro **offline**: il canzoniere che si apre dal precache con le sue sezioni, una
-sezione che si apre comunque perché la piega è locale, e il ritorno da un brano che trova la
-pagina in cache proprio grazie al frammento.
-
-*Il trasloco delle sezioni (14):* l'SQL più intricato della versione e la sola strada che
-potrebbe perdere un brano, quindi provato su canzonieri creati per l'occasione: «Messa»
-diventa una sezione di chi accoglie i brani, la «Brani» omonima non arriva come gemella,
-il brano portato cambia canzoniere **per cascata** senza essere riscritto, chi era già là
-non si muove, i due arrivati risultano da pubblicare e lui no. Nella stessa passata il caso
-che sbaglierebbe in silenzio: nell'editor il menu delle sezioni segue il canzoniere scelto,
-e salvando il brano finisce davvero là.
-
-Un difetto vero trovato dai controlli: un nome duplicato arrivava a schermo come
-«salvataggio non riuscito», perché drizzle incapsula l'errore del driver e il codice `23505`
-sta su `cause`. Tre volte era invece il controllo a sbagliare — misurava le coordinate del
-trascinamento prima di scorrere la pagina, apriva la sessione del viewer nella stessa
-finestra dell'editor portandogli via il cookie, e guardava il database prima che la
-scrittura fosse arrivata (in sviluppo la prima chiamata a un'azione va compilata). Da qui
-le attese sullo *stato* invece che sul tempo.
-
-Due cose sono state corrette rileggendo invece che provando: la sezione da aprire al
-ritorno va **ricavata** dal brano e non fissata quando si legge il frammento, perché gli
-effetti di layout girano prima nei figli che nei genitori e in quell'istante le assegnazioni
-sono ancora quelle del build; e i conteggi appartengono alla lista viva, non
-all'intestazione generata al build, o le due metà dello stesso schermo direbbero due cose
-diverse.
+Il canzoniere si divide, e ogni brano sta in una sezione sola. **La coerenza la garantisce
+il database**: una chiave esterna composta su `songs`, con `on update cascade` — misurato
+su uno schema di prova prima di scriverlo, perché senza quel vincolo far traslocare una
+sezione è rifiutato in entrambi gli ordini di update — rende impossibile un brano in una
+sezione di un altro canzoniere. Una sola azione (`arrangeCanzoniere`) scrive ordine delle
+sezioni, ordine dei brani e sezione di ogni brano in una transazione, mai in due chiamate
+separate. Il ritorno da un brano usa un frammento URL (`#brano-<slug>`), non un parametro,
+perché un frammento non arriva al service worker e non romperebbe il precache. Sessantasette
+controlli attraverso l'interfaccia, in quattro passate, compreso il trasloco di sezioni fra
+canzonieri diversi — l'SQL più delicato della versione.
 
 ### v2.4 — Songbook
 
-Un nome e un payoff, non una funzione: **songs** diventa **Songbook**, con «Where every
-fire needs a melody» accanto al titolo. Deliberatamente non tradotto — un payoff si
-ascolta, non si legge per il significato — su una app che per il resto parla italiano.
-
-Una sola fonte, `lib/brand.ts`, con `APP_NAME` e `APP_PAYOFF`: il nome compariva già in
-quattro posti che non si vedono l'un l'altro — il titolo della pagina, il manifest della
-PWA, il marchio nell'header, e ora la pagina pubblica — e un nome scritto a mano in
-quattro punti è un nome che la prossima modifica dimentica in uno dei quattro.
-
-**`/login` diventa anche la pagina pubblica del progetto**, perché lo era già per
-costruzione: `middleware.ts` manda lì chiunque non ha una sessione, prima di questa
-versione e dopo, quindi non c'è una seconda rotta da inventare. Sotto il nome e il payoff
-resta esattamente il modulo di accesso di prima — Google, poi email e password, entrambi i
-rifiuti in una frase sola — perché chi entra ogni giorno non è un visitatore e non deve
-scorrere una vetrina per arrivarci. Sotto il modulo, una vetrina di sei caratteristiche,
-in una frase ciascuna: canzonieri e sezioni, tonalità e capotasto, la forma di ogni
-accordo, zoom e scorrimento, l'uso offline, i ruoli. Sei fatti verificabili nel codice, non
-un elenco copiato dal README.
-
-Un'icona nuova, `IconOnStage`, per l'unica caratteristica per cui nessuna icona esistente
-andava bene: `IconOffline` esiste già, ma è disegnata come un avviso — un segnale
-attraversato da una riga — e ogni sua chiamata nell'app è dentro un banner che dice che
-qualcosa è disabilitato. Usarla per una caratteristica positiva avrebbe detto il contrario
-di quel che c'entrava.
+Un nome e un payoff, non una funzione: **songs** diventa **Songbook** («Where every fire
+needs a melody», mai tradotto). Una sola fonte per nome e payoff (`lib/brand.ts`), dove
+prima erano scritti a mano in quattro punti diversi. **`/login` diventa anche la pagina
+pubblica del progetto**, perché lo era già per costruzione (`middleware.ts` manda lì chi
+non ha sessione): sotto il modulo di accesso invariato, una vetrina di sei caratteristiche
+verificabili nel codice.
 
 ### v2 — il resto
 
 Restava: scalette modificabili dall'app, allowlist su tabella, ordinamento manuale dei
-canzonieri. La v2.0 ha chiuso le prime due in due modi opposti — l'allowlist è diventata una
-tabella con la sua schermata, le scalette sono state **rimosse** invece di essere finite,
-perché non servivano. Resta l'ordinamento dei canzonieri (vedi *Domande aperte*).
-
-Nota la progressione deliberata: la v1.1 ha aperto il percorso di scrittura su una superficie
-minima — nomi e appartenenza — e la v1.2 lo estende al contenuto. Ogni passo ha portato una
-regola nuova su chi possiede cosa, ed è la parte da rileggere prima di toccare il seed.
+canzonieri. La v2.0 ha chiuso le prime due in due modi opposti — l'allowlist è diventata
+una tabella con la sua schermata, le scalette sono state **rimosse** invece di essere
+finite, perché non servivano. Resta l'ordinamento dei canzonieri (vedi *Domande aperte*).
 
 ### v3.0 — account
 
