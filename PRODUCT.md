@@ -1,17 +1,14 @@
 # Product
 
-## Register
-
-product
-
 ## Users
 
 Musicians — solo players and bands — reading their own repertoire of lyrics and chords
 while performing or rehearsing, on a tablet or phone propped up in front of them. The
 context is physical: hands are on an instrument, eyes glance down between phrases, light
-ranges from a lit rehearsal room to a dark stage. Access is invite-only — owners come from
-the environment config, guests from an allowlist managed inside the app — so there is no
-public audience to design for, only the people already on the list.
+ranges from a lit rehearsal room to a dark stage. Registration is open to anyone with an
+email address; each account is its own private repertoire, with a small set of global
+owners who administer the whole installation. There is no shared or public repertoire to
+design for, only each reader's own.
 
 ## Product Purpose
 

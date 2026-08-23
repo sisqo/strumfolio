@@ -46,7 +46,7 @@ function canForceExpire(current: MockSubscriptionState): boolean {
  * payment history, and the controls to cancel it, undo a scheduled change, or — test only —
  * skip ahead to its end. Choosing a *different* plan is deliberately not answered here: that
  * is `/pricing`'s own comparison table and `/checkout/[plan]`'s buy flow, and reproducing
- * that table here would be the exact duplication `PLAN-pagamenti.md` decided against.
+ * that table here would be the exact duplication `PLAN.md` (v3.6) decided against.
  *
  * Reachable from `UserMenu`'s Settings screen, as a plain link — the same way "Change
  * password" already leaves that panel for its own dedicated page instead of trying to fit

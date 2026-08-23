@@ -2,7 +2,7 @@
 
 /**
  * Reads about accounts as a whole, for the two screens that show more than the reader's
- * own — `/accounts`'s search and `/accounts/[email]`'s detail (PLAN-accounts-admin.md),
+ * own — `/accounts`'s search and `/accounts/[email]`'s detail (PLAN.md, v3.8),
  * both restricted to global owners now that nobody else has more than one account to see
  * — and for `mayShowAccountSwitcher`, called directly from the client (`RoleProvider`),
  * which is why this needs the directive: without it, that call could not cross the
@@ -131,7 +131,7 @@ export interface AccountPlanLine {
   /** The winning side's own column, never the later of the two. */
   untilOn: string | null
   /**
-   * Whether this account has completed the mandatory plan-choice step (PLAN-attivazione.md) —
+   * Whether this account has completed the mandatory plan-choice step (PLAN.md, v3.7) —
    * `accounts.planChosenAt !== null`, read directly rather than through any pending-aware
    * resolver, because there is nothing to resolve: a column that was ever written stays
    * written, with no expiry and no scheduled change. This field exists on `AccountPlanLine`
@@ -203,7 +203,7 @@ interface PlanRow {
 /**
  * Resolves one row's worth of `PLAN_COLUMNS` into the `AccountPlanLine` a screen renders —
  * pulled out of `listAccountPlans`'s own `.map()` so `getAccountDetail` can resolve a single
- * row the exact same way instead of re-deriving the rule (PLAN-accounts-admin.md).
+ * row the exact same way instead of re-deriving the rule (PLAN.md, v3.8).
  *
  * Built exactly as `storedPlanOf` (`plans/resolve.ts`) builds it, `readPlan`/`readPlanStatus`
  * included — these values did come out of the database, which is the one place those readers
@@ -294,7 +294,7 @@ export interface AccountDetail {
  * One account's full detail row, for `/accounts/[email]` — a single-row read, not
  * `listAllAccounts()`/`listAccountPlans()` filtered down to one entry afterwards. The list
  * pays for every account in the installation because it has to show every one of them; a page
- * about exactly one account has no reason to pay that cost too (PLAN-accounts-admin.md).
+ * about exactly one account has no reason to pay that cost too (PLAN.md, v3.8).
  *
  * Two queries, not one combined `select`, for the same reason `listAllAccounts` and
  * `listAccountPlans` are two functions rather than one wider read: the base row

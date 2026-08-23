@@ -11,13 +11,25 @@
 > distinta per i contenitori — quindi il resto di questo piano la nomina ancora quando
 > parla di quella, di proposito.
 
-> **Stato:** v1, **v1.1 — canzonieri**, **v1.2 — import e modifica** e **v1.3 — le
-> modifiche si vedono subito** sono consegnate e in produzione su
-> https://songbook.sisqo.dev. La v1.2 ha cambiato chi possiede un brano: il database, non i
-> file — va letta prima di toccare il seed. La v1.3 ha aggiunto lo strato che mostra la
-> versione del database sopra la pagina statica: va letta prima di toccare la lettura. La
-> v1.4 ha portato l'editor in una pagina sua, con la regola che nessuna modifica può
-> riscrivere il file: va letta prima di toccare il modello a blocchi.
+> **Stato:** da v1 a **v3.9 — anteprima email** (l'ultima versione numerata in questo
+> documento) sono consegnate e in produzione su https://strumfolio.com. La v1.2 ha cambiato
+> chi possiede un brano: il database, non i file — va letta prima di toccare il seed. La
+> v1.3 ha aggiunto lo strato che mostra la versione del database sopra la pagina statica: va
+> letta prima di toccare la lettura. La v1.4 ha portato l'editor in una pagina sua, con la
+> regola che nessuna modifica può riscrivere il file: va letta prima di toccare il modello a
+> blocchi.
+>
+> **Questo numero di versione non è più completo.** Due versioni successive alla v3.3 — un
+> redesign di `/login`/`/pricing` e una correzione di cascata sulle preferenze — sono già in
+> produzione con la propria etichetta (`v3.4`, `v3.5`, citate nei commenti di
+> `PricingPlans.tsx`, `app/pricing/page.tsx`, `db/schema.ts`) ma non hanno mai avuto una voce
+> qui: sono nate direttamente nel codice, senza un documento di piano a parte da cui
+> confluire. Lo stesso vale per il lavoro spedito dopo la v3.9 (`/changelog`, le notifiche
+> Telegram, le launch screen iOS, "Recently played", il redesign di `/thanks` e del menu in
+> alto, `/pages`, e altro ancora — vedi `git log`) — nessuna di quelle versioni ha oggi un
+> numero né una voce in questo file. Il buco è dichiarato, non un errore di questa modifica:
+> colmarlo per intero richiederebbe di ricostruire da zero, leggendo commit e diff, una
+> storia che a differenza di v3.6–v3.9 non parte da nessun documento già scritto.
 
 ## Cosa è
 
@@ -30,15 +42,20 @@ impostazioni in un menù, ma come controlli a portata di pollice.
 Il materiale è organizzato in **canzonieri**: ogni brano appartiene a un canzoniere, come un
 file a una cartella, e la prima schermata è l'elenco dei canzonieri.
 
-Non è un archivio pubblico né un social di accordi: entra solo chi è in elenco — i
-proprietari dall'ambiente, gli invitati da una tabella che si gestisce dall'app.
+Non è un archivio pubblico né un social di accordi, ma da quando la registrazione è aperta
+(v3.2) non è più a cerchia chiusa: chiunque crea da solo il proprio account e ha il proprio
+repertorio privato, senza bisogno che nessuno lo ammetta. Restano, sopra, i proprietari
+globali dall'ambiente (`ALLOWED_EMAILS`), con pieno controllo su ogni account
+dell'installazione.
 
 ## Stato attuale
 
-Il progetto è già in piedi e in produzione: Next.js 15.5.19 (App Router, `src/`),
-TypeScript, Tailwind v3, repo `sisqo/songbook`, deploy automatico su push a `main`,
-dominio `songbook.sisqo.dev`. Contiene una sola pagina hello world. Tutto ciò che segue si
-costruisce da qui.
+**Condizioni di partenza, prima della v1** — non lo stato di oggi. Il progetto era già in
+piedi e in produzione: Next.js 15.5.19 (App Router, `src/`), TypeScript, Tailwind v3, deploy
+automatico su push a `main`. Repo e dominio erano allora `sisqo/songbook` e
+`songbook.sisqo.dev` — vedi la nota in testa a questo file per i due rinomini successivi;
+oggi sono `sisqo/strumfolio` e `strumfolio.com`. Il contenuto era una sola pagina hello
+world. Tutto ciò che segue si costruisce da qui.
 
 ## Architettura
 
@@ -88,28 +105,39 @@ in un `useLayoutEffect` prima del paint.
 
 ### Modello dati
 
+**Istantanea a metà v2.3, non lo schema di oggi** — la parte di dominio (canzonieri,
+sezioni, brani, preferenze) non è cambiata nella sostanza; per la forma esatta e
+aggiornata, comprese le colonne aggiunte dalla v3.0 in poi (`accounts`, `songbooks` con
+`accountOwnerEmail`/`isExampleTemplate`/`position`, e tutto quanto arrivato con account,
+piani e pagamenti), `src/lib/db/schema.ts` è la fonte viva: ogni tabella lì porta ormai lo
+stesso genere di commento che c'è qui sotto, aggiornato a ogni cambiamento, mentre questo
+blocco non lo è. `canzonieri` è stata rinominata `songbooks` (nome inglese) alla v2.4; le
+righe `members` e `builds` sotto sono state rimosse per intero — la prima alla v3.1, la
+seconda alla v3.0 — e restano solo per il loro perché.
+
 ```sql
-canzonieri(slug primary key, name, created_at, updated_at)
+songbooks(slug primary key, name, created_at, updated_at)  -- "canzonieri" nel prosa; rinominata da v2.4
 
 sections(id serial primary key,                                      -- v2.3
-         canzoniere_slug not null references canzonieri(slug) on delete restrict,
+         songbook_slug not null references songbooks(slug) on delete restrict,
          name, position, created_at,
-         unique (canzoniere_slug, name),   -- l'import indirizza per nome
-         unique (id, canzoniere_slug))     -- solo per essere referenziata, sotto
+         unique (songbook_slug, name),      -- l'import indirizza per nome
+         unique (id, songbook_slug))        -- solo per essere referenziata, sotto
 
 songs(slug primary key, title, artist, body, tags[],
-      canzoniere_slug not null references canzonieri(slug) on delete restrict,
+      songbook_slug not null references songbooks(slug) on delete restrict,
       section_id,                                                    -- v2.3, nullable per un deploy
       position,                                                      -- v1.6, nullable
       created_at, updated_at,
-      foreign key (section_id, canzoniere_slug)                      -- v2.3
-        references sections(id, canzoniere_slug)
+      foreign key (section_id, songbook_slug)                        -- v2.3
+        references sections(id, songbook_slug)
         on delete restrict on update cascade)
       -- original_key rimossa in v2.0: la tonalità si stima dagli accordi
 
-members(email primary key, added_by, created_at,
+members(email primary key, added_by, created_at,                     -- RIMOSSA alla v3.1
         role)                                                        -- v2.1: admin|editor|viewer
-      -- solo gli invitati; i proprietari restano in ALLOWED_EMAILS e sono admin per definizione
+      -- solo gli invitati; i proprietari restavano in ALLOWED_EMAILS e admin per definizione.
+      -- Tolta con "niente più ospiti": un account è un indirizzo, nessuno è più ospite altrove.
 
 credentials(email primary key, password_hash, updated_at)            -- v2.2
       -- come si dimostra un indirizzo, non se è ammesso: tabella a parte perché
@@ -120,17 +148,20 @@ user_song_prefs(user_email, song_slug, semitones, scroll_speed,      -- per bran
                 capo,                                                -- v1.8
                 updated_at, primary key (user_email, song_slug))
 
-builds(id primary key default 'last', built_at)                      -- v1.2
+builds(id primary key default 'last', built_at)                      -- v1.2, RIMOSSA alla v3.0
 ```
 
-La riga singola in `builds` viene timbrata dal build. Serve a sapere quali brani
-sono ancora *in attesa di pubblicazione*: sono quelli con `updated_at` più recente
-dell'ultimo build. È l'unico modo onesto di rispondere, perché riflette ciò che il
-build ha effettivamente visto invece di ciò che l'app crede di aver pubblicato.
+**`builds` (rimossa alla v3.0).** La riga singola veniva timbrata dal build, per sapere
+quali brani erano ancora *in attesa di pubblicazione*: quelli con `updated_at` più recente
+dell'ultimo build — l'unico modo onesto di rispondere, perché rifletteva ciò che il build
+aveva effettivamente visto invece di ciò che l'app credeva di aver pubblicato. Sparita
+insieme al pannello che la leggeva quando le pagine sono diventate dinamiche (v3.0): con
+ogni pagina generata per richiesta, un salvataggio è live all'istante, e non c'è più una
+build da aspettare.
 
 `user_email` come chiave: con sessioni JWT non serve una tabella di utenti per
-l'autenticazione. `members` (v2.0) non è quella tabella — dice chi è ammesso, non chi è
-autenticato, e i proprietari non ci compaiono.
+l'autenticazione. `members` (v2.0–v3.0, poi rimossa) non era quella tabella — diceva chi
+era ammesso, non chi era autenticato, e i proprietari non vi comparivano.
 Lo `slug` come chiave naturale al posto di un id surrogato: vedi *Scostamenti*.
 
 **Lo slug di un canzoniere è immutabile.** Si genera una volta dal nome iniziale e non
@@ -1841,6 +1872,249 @@ installazione, e le due azioni che gli erano rimaste addosso.
 Nessuna migrazione: nessuna tabella nuova, nessuna colonna toccata — solo interfaccia e
 il contesto già esistente (`RoleProvider`), esteso con l'indirizzo che gli mancava.
 
+### v3.6 — pagamenti
+
+Fino a qui, piani, prezzi e un checkout finto (`SONGBOOK_MOCK_CHECKOUT`) esistevano già nel
+codice — `accounts.plan`/`planStatus`/`planExpiresAt`, `mockPurchase`/`mockCancel`,
+`entitlements.ts`, `/pricing`, `/checkout/[plan]` — ma erano nati direttamente lì, senza mai
+passare da una voce di questo piano: la v3.4 (redesign di `/pricing`) e tutto ciò che li
+regge risalgono a prima di questa versione. Quello che manca, e che questa versione
+aggiunge, è **cosa succede dopo il primo acquisto**: uno storico dei pagamenti, un modo per
+l'utente di cambiare piano o disdire da solo, e una semantica per farlo che non sia "tutto
+istantaneo" come oggi.
+
+1. **Un piano in sospeso, non solo un piano attivo.** `liveSubscription` (`entitlements.ts`)
+   fa già decadere da sola una sottoscrizione scaduta senza bisogno di alcuna scrittura —
+   basta per una disdetta verso `free`. Ma un downgrade verso un *altro* piano pagante deve
+   diventare quel piano alla scadenza, non semplicemente decadere: servono due colonne
+   nuove — `pending_plan`, `pending_cycle` (migrazione `0026`) — non un booleano
+   `cancelAtPeriodEnd` accanto a un piano pendente: `pending_plan = 'free'` **è** la
+   disdetta, un downgrade come un altro, un solo meccanismo per entrambe.
+2. **`pending_plan` non si legge con `readPlan`.** `readPlan` degrada un valore non
+   riconosciuto a `'free'` — e qui `'free'` in `pending_plan` significa "disdici a fine
+   periodo". Un valore corrotto letto così diventerebbe una disdetta silenziosa, il
+   rovescio esatto dell'asimmetria che `types.ts` dichiara ("un piano illeggibile non deve
+   mai concedere, uno stato illeggibile non deve mai revocare"). Si legge quindi con lo
+   stesso confronto diretto contro `PLAN_VALUES` che già usa `validateGrant`, e un valore
+   non riconosciuto conta come **nessun pending**, la direzione generosa.
+3. **`resolveSubscription(stored, now)`**, pura come `liveSubscription`, accanto ad essa:
+   se lo stato è `grace` o `expiresAt` è `null`, nessuna risoluzione (un pending non scatta
+   mai durante un tentativo di rinnovo in corso, deliberatamente); se `now < expiresAt`,
+   stato grezzo con `pendingPlan`/`pendingCycle` esposti tali e quali (è quello che fa
+   leggere "premium fino al 12/6, poi standard" prima che scatti); se `now >= expiresAt` e
+   c'è un pending, un solo passo — mai una ricorsione — verso `{ plan: pendingPlan, status:
+   'active', expiresAt: null, pendingPlan: null, pendingCycle: null }`. `pendingPlan`/
+   `pendingCycle` diventano campi **obbligatori** su `StoredPlan` stesso, non facoltativi su
+   un parametro: un sito dimenticato smette di compilare invece di divergere solo a
+   runtime. `storedPlanOf` (`resolve.ts`) è l'unico costruttore dietro `entitlementsOf`,
+   `deviceCapOf` **e** `effectivePlanOf` — aggiornare la sua `SELECT` una volta sistema
+   tutt'e tre le chiamanti in un colpo; `listAccountPlans` e `rawSubscriptionOf`
+   (`checkout.ts`) restano letture a parte e vanno aggiornate ciascuna per conto proprio.
+4. **Tre casi limite decisi qui, non lasciati all'implementazione.** `lifetime` non si
+   disdice né si declassa nel mock — non ha una scadenza su cui far scattare nulla, e un
+   cambiamento per un cliente lifetime resta un caso di supporto (`not-applicable`). Il
+   confronto di rango che decide upgrade/downgrade è sempre contro **l'abbonamento dal
+   vivo** (`liveSubscription`), mai contro il piano *effettivo* — un regalo più alto non
+   deve far leggere come downgrade un upgrade reale dell'abbonamento sottostante, per lo
+   stesso motivo per cui `grantedPlan`/`plan` restano due colonne separate. Rango pari
+   (stesso piano, solo cambio di ciclo) è immediato come un piccolo upgrade, e cancella un
+   pending esistente — un ripensamento si esprime comprando di nuovo il piano attuale, non
+   con un pulsante a parte.
+5. **Le funzioni di scrittura** (`lib/plans/checkout.ts`): `mockPurchase` applica subito se
+   il piano è `lifetime`, se non c'è un abbonamento vivo, o se supera o pareggia quello
+   attuale in `PLAN_RANK` — altrimenti scrive solo `pendingPlan`/`pendingCycle`, senza
+   toccare le colonne attive. `mockCancel` scrive `pendingPlan: 'free'` invece di
+   `planStatus: 'expired'` subito. Due funzioni nuove: `clearPendingChange()` ("resta dove
+   sono", azzera il pending), e `forceExpireNow()` — esplicitamente di test, il
+   comportamento che `mockCancel` aveva prima di questa versione — l'unico modo rimasto di
+   esercitare il blocco/freeze senza aspettare una data vera.
+6. **Storico pagamenti in `paddle_events`, non una tabella nuova.** Ogni scrittura di
+   successo logga una riga: `eventId` generato lì (`mock_${randomUUID()}`), `eventType`
+   prefissato `mock.` per restare distinto dai nomi che userà davvero Paddle
+   (`mock.purchase`, `mock.scheduled_change`, `mock.force_expired`), `paddleSubscriptionId`
+   sempre `null` (riservato al webhook vero), `payload` con `{ mock: true, action, plan,
+   cycle, amount }`. Una lettura condivisa, `paymentHistoryFor(accountOwnerEmail)`, usata
+   sia da `/billing` sia dall'admin — non due funzioni sulla stessa tabella.
+7. **`/billing`**, stessa impalcatura di `/checkout/[plan]`: una riga di stato dalla tripla
+   risolta, un pulsante "Resta su {piano}" se c'è un pending, link a `/pricing` per
+   cambiare piano (nessuna seconda copia della tabella di confronto), "Disdici", una
+   sezione di test separata per `forceExpireNow`, e la tabella storico. Punto d'ingresso:
+   `/billing` in Settings (`UserMenu.tsx`), sopra "Delete account" — stesso trattamento
+   riservato alle conseguenze sull'account.
+8. **Admin (`/accounts`): solo lettura sullo storico**, un pulsante "History" in più per
+   riga, nessuna nuova leva di scrittura sull'abbonamento. Chi deve provare un blocco lo fa
+   passando dall'account stesso (Switch, già esistente) e usando `forceExpireNow` nel
+   checkout — una seconda leva diretta duplicherebbe quel percorso.
+
+Migrazione `0026`: `accounts.pending_plan text`, `accounts.pending_cycle text`, entrambe
+nullable, nessun default, nessun backfill.
+
+### v3.7 — attivazione obbligatoria del piano
+
+Un buco lasciato aperto dalla v3.6 e da tutto ciò che viene prima: **nessun account ha mai
+scelto esplicitamente un piano**, nemmeno Free. `accounts.plan` ha `default('free')` a
+livello di colonna, e `provisionAccount` inserisce la riga senza che nessuno lo confermi;
+`/pricing` e `/checkout/[plan]` restano entrambe facoltative, e la seconda non vende
+nemmeno Free (`CHECKOUT_PLANS` è solo `PAID_PLANS + lifetime`). Il risultato: un account
+appena nato è già pienamente operativo su un Free implicito che nessuno ha scelto.
+
+1. **Non nel middleware.** `middleware.ts` gira sull'edge runtime per scelta esplicita
+   (`auth.config.ts`: "must stay free of anything Node-only"); una query lì pagherebbe ogni
+   richiesta che passa dal matcher, non solo la prima dopo il login. Il gate non vive lì.
+2. **Non un redirect generico in `RoleProvider`**, prima ipotesi scartata: sta nel root
+   layout, quindi scatterebbe anche su `/checkout/[plan]` stesso (chi tocca "Choose
+   Standard" verrebbe rimbalzato indietro prima che il checkout possa girare), e il suo
+   contesto resta stantio dopo l'azione che completa la scelta (si aggiorna solo al mount e
+   sull'evento `online`), rilanciando il gate alla navigazione successiva.
+3. **`(home)/page.tsx`, che fa già esattamente questo genere di redirect** — già
+   `force-dynamic`, già chiama `currentUser()`, già ha `if (hasDatabase && user === null)
+   redirect('/login')` con la stessa identica logica. Un secondo controllo, con la stessa
+   forma, dopo quello: se il piano non è ancora stato scelto, `redirect('/pricing')`.
+   Nessuna allowlist di rotte serve (nessun'altra rotta d'ingresso passa da qui), nessuno
+   stato stantio (ogni navigazione verso `/` rilegge il database da zero). **Corretto
+   durante l'implementazione**: la prima stesura escludeva il global owner con
+   `user.role !== 'admin'` — falso dalla v3.1, dove `roleOf` ritorna `admin` per *chiunque*
+   abbia un account, non solo per un proprietario globale. Il controllo giusto è
+   `isOwner(user.email, process.env.ALLOWED_EMAILS)` diretto, sulla persona davvero
+   collegata — così un proprietario globale passato "come" un cliente tramite Switch non
+   viene mai rimbalzato dall'onboarding incompleto di quel cliente.
+4. **Schema — migrazione `0027`**: `accounts.plan_chosen_at timestamp with time zone`,
+   nullable, nessun default. Backfill una tantum: ogni account esistente conta come "già
+   attivato" da `created_at` (non `now()`, che marcherebbe ogni account vecchio come
+   attivato "oggi") — zero interruzione per chi già usa l'app.
+5. **Le regole del gate**: scatta solo se `plansEnforced()` (`SONGBOOK_PLANS=on`); **non**
+   dipende da `mockCheckoutEnabled()` — l'uscita gratuita deve restare percorribile anche a
+   checkout spento, o un account nuovo resterebbe bloccato senza via d'uscita;
+   `SONGBOOK_FORCE_PLAN` scavalca il gate per intero (il suo contratto — "questo account è
+   esattamente questo piano" — sarebbe altrimenti contraddetto dal proprio muro
+   d'attivazione); il global owner è esente, backfillato come ogni account esistente.
+6. **Le due uscite**: Free — `activatePlanChoice()` scrive *solo* `plan_chosen_at = now()`,
+   senza toccare `plan`/`planStatus`/`planExpiresAt` (già corretti dal default) e senza
+   loggare in `paddle_events` — scegliere Free non è un acquisto. A pagamento o Lifetime —
+   `mockPurchase` esteso di una riga: se `plan_chosen_at` è `null`, lo scrive insieme al
+   resto della transazione, così la primissima scelta soddisfa il gate anche se salta Free.
+7. **`/pricing`, un solo pulsante consapevole di chi guarda.** `PricingPlans` legge la
+   stessa identità di `RoleProvider`, estesa con `planChosen: boolean`. Tre stati per
+   "Start free": sconosciuto o sloggato → link a `/register`, invariato; loggato e già
+   attivato → link innocuo, un ri-timbro idempotente; loggato e in attesa → bottone che
+   invoca `activatePlanChoice()`. Nessuna frase aggiunta per spiegare perché la pagina è
+   comparsa dopo la registrazione — il contesto (arrivo diretto dopo il login) parla da
+   solo; il vero cancello resta unicamente in `(home)/page.tsx`, questo è pura cosmetica.
+8. **`/accounts`: il piano guadagna un badge pieno**, spostato fuori dal testo minuto, con
+   **un colore diverso per ciascuno dei cinque piani** più un sesto per "Not activated" —
+   un'eccezione dichiarata alla *Chord-First Rule* di `DESIGN.md` (una schermata operatore
+   senza spartito non compete con un accordo), non una deriva; vedi `DESIGN.md` per la
+   palette e il perché. "Not activated" appare solo quando `planChosen === false` **su una
+   riga che `listAccountPlans` è riuscita a leggere** — le due `null` (lettura fallita vs.
+   non ancora attivato) restano separate: "non sono riuscito a leggere" non deve mai
+   apparire come "non attivato" sulla schermata il cui scopo è essere creduta.
+9. **Non è una security boundary.** L'utente ha chiesto che l'accesso richieda "per forza"
+   un piano; il gate lo ottiene lato UX (un redirect server-side sulla rotta d'ingresso),
+   non lato permessi — chi lo aggirasse a mano continuerebbe a usare l'app sul Free
+   implicito già di oggi, nessun accesso in più. Ogni scrittura reale resta protetta dalle
+   proprie regole indipendentemente da questo gate, coerente con `RoleProvider` ("this is
+   not the permission... every action re-reads the table on the server").
+
+Migrazione `0027`: `accounts.plan_chosen_at`, nullable, nessun default, col backfill sopra.
+
+### v3.8 — da `/accounts` a ricerca paginata con pagina di dettaglio
+
+Tre cambi sulla superficie admin. La sezione **Create sparisce del tutto**: esisteva per
+dare un account a un indirizzo prima del suo primo login (v3.1, *niente più ospiti* — allora
+l'unico canale di ammissione), ma dalla v3.2 la registrazione self-service copre già ogni
+caso reale, e ogni account nasce comunque al primo accesso riuscito con Google o password.
+Verificato con grep prima di deciderlo, non per supposizione: `CreateAccountForm.tsx` e
+`createAccount` non avevano altri chiamanti, e vengono rimossi come codice morto, non solo
+nascosti — insieme ai due casi `AccountFailure` (`'invalid-email'`, `'already-exists'`) che
+il commento del file già documentava come esclusivi della creazione.
+
+**"Every account" diventa una ricerca**, paginata (25 per pagina), con `q` (email,
+sottostringa case-insensitive), `plan` (confrontato contro il piano **risolto**,
+`effectivePlan`, non contro la colonna grezza), `unactivated` (in AND col filtro piano, non
+in alternativa: un regalo non tocca mai `planChosenAt`, un account può essere Premium e
+"Not activated" insieme), `sort`/`dir`, `page` — tutto nell'URL, non in stato client:
+condivisibile, sopravvive al Back, coerente con `force-dynamic`. **Filtro/ordinamento/
+paginazione vivono in memoria, non in SQL**: il piano risolto è una funzione pura
+TypeScript, non un'espressione SQL, e duplicarne la logica in un `WHERE` sarebbe una
+seconda copia della stessa regola di generosità che il resto di questo lavoro ha sempre
+evitato. Corretto alla scala attuale (poche decine di account); da rivedere solo se
+l'installazione crescesse di ordini di grandezza. Se `listAccountPlans()` torna `null`
+(migrazione non ancora applicata), il filtro di piano si disabilita silenziosamente — ogni
+account lo passa, come oggi — invece di segnalarsi come errore.
+
+**La riga si riduce a quattro fatti e un pulsante**: email, badge del piano, stato
+dell'abbonamento, il conteggio sign-in come **cifra nuda** invece della frase (con
+`aria-label`/`title` che porta la frase intera, per chi usa uno screen reader), e un solo
+pulsante — **View**, non più Enter — verso `/accounts/[email]`. `PLAN_BADGE_CLASS`,
+`planDetail()`, `subscriptionLine`, `giftLine`, `auditLine`, `inForceLine` — sei funzioni
+prima sparse fra la pagina e `AccountPlanButton.tsx` — confluiscono in un unico modulo
+condiviso, `src/lib/accounts/planText.ts`, senza direttiva `'use server'`/`'use client'`,
+per non finire con due copie della stessa frase che possono divergere.
+
+**`/accounts/[email]`, con una lezione su come si verifica una rotta dinamica.** Il link
+usa `encodeURIComponent(ownerEmail)`; la pagina fa un `decodeURIComponent` esplicito. La
+prima stesura di questo lavoro affermava che i `params` dell'App Router arrivano già
+decodificati, "verificato leggendo il sorgente di Next.js" — sbagliato: quel percorso di
+codice è del Pages Router, non dei server component dell'App Router. Verificato invece con
+una richiesta reale (una rotta sonda temporanea, interrogata con `curl`):
+`/accounts/a%40b.com` arriva alla pagina come la stringa letterale `a%40b.com`, `%`
+compreso. Senza il decode, `getAccountDetail` non trovava mai la riga e la pagina rispondeva
+`notFound()` su **ogni** account — il bug come si è manifestato in produzione, corretto con
+questo singolo decode (inverso dell'unico encode, e ciò che preserva un indirizzo con un `%`
+letterale). **Lezione da tenere**: leggere il sorgente di una libreria non è una verifica se
+non si è controllato di stare leggendo il percorso di codice davvero in uso — una richiesta
+reale lo è. Stessa guardia della lista (`isOwner` altrimenti `notFound()`), stessa
+indistinguibilità fra "non esiste" e "non è tuo". `getAccountDetail(ownerEmail)`
+(`accounts/read.ts`) legge **una sola riga**, non l'intera lista filtrata a un elemento.
+
+**La pagina di dettaglio: tutto visibile, un'unica eccezione.** Enter, Subscription
+(`GiftForm.tsx`, quel che resta di `AccountPlanButton.tsx` coi form sempre aperti),
+Payment history (caricata subito lato server, `AccountHistoryButton.tsx` rimosso — la sua
+ragione d'essere, non pagare la query per righe mai aperte, non si applica più su una
+pagina che è già la scelta esplicita di guardare quell'account), Password
+(`PasswordForm.tsx`, sempre visibile) sono tutte aperte fin dall'arrivo — aprire un altro
+livello sotto sarebbe un click in più senza motivo. **`DeleteAccountButton` tiene invece il
+proprio click-per-rivelare**: è l'unico caso in cui nascondere qualcosa dietro un click è
+una rete di sicurezza voluta (retype-per-confermare), non un pannello-per-risparmiare-
+spazio come gli altri tre. Cambia una riga: `router.refresh()` diventerebbe qui un
+ricaricare il dettaglio di un account appena cancellato, quindi diventa
+`redirect('/accounts')`.
+
+Nessuna migrazione.
+
+### v3.9 — anteprima e invio di test dei modelli email
+
+Uno strumento per il global owner, non un'appendice a un account specifico: `/emails`,
+visibile solo con lo stesso gate `isOwner` di `/accounts`, con un tab per ciascuno dei tre
+modelli in `lib/email/templates.ts` (verifica registrazione, benvenuto, reset password).
+
+1. **Non una sezione dentro `/accounts`**, perché i tre modelli non si personalizzano su
+   dati di un account (`welcomeEmail()` non prende nemmeno un parametro): è una verifica
+   del "prodotto email" nel suo complesso, con la propria voce di menù (`IconEye`, già
+   esistente, non usata altrove) invece di essere sepolta in fondo a una pagina che parla
+   d'altro.
+2. **Dati fittizi**: `verificationEmail(url)`/`passwordResetEmail(url)` con un `url`
+   costruito come farebbe il flusso vero ma con token di comodo — il link non porta a nulla
+   di funzionante se cliccato, risponde come farebbe un link scaduto, comportamento atteso,
+   stesso spirito del checkout mock.
+3. **Invio di test, non solo anteprima statica** — deciso perché il rendering nel browser
+   non riproduce le stranezze dei client email reali (Gmail in primis): un bottone per
+   modello manda la vera email via lo stesso `sendEmail` della produzione, sempre a
+   `session.user.email` (mai un campo destinatario libero, mai l'account eventualmente
+   selezionato dal cambio-account — nessuno dei tre modelli appartiene a un account),
+   oggetto prefissato `[Anteprima] ` per non confondersi con una reale nella stessa inbox.
+   La server action che spedisce verifica `isOwner` da sé, senza fidarsi del gate della
+   pagina — stessa disciplina di ogni scrittura in `checkout.ts`.
+4. **Oggetto + HTML + testo semplice con un interruttore**, non solo HTML: il testo
+   semplice è quello che arriva a chi ha immagini/HTML disattivati, e merita di essere
+   controllato senza leggere il codice. Il corpo HTML va in un `<iframe srcDoc={html}>`,
+   mai iniettato diretto nella pagina — quegli stili inline sono pensati per un client di
+   posta, non per convivere con Tailwind.
+5. **Rotta piatta `/emails`**, non `/accounts/emails` — coerente con ogni altra rotta
+   dell'app, nessun prefisso "admin" condiviso da inventare apposta.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -2014,6 +2288,54 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Sorgente dell'avatar | L'indirizzo email (iniziali + colore derivati), mai il profilo Google | Un account per email e password non ha nome né foto; due fonti diverse avrebbero fatto sembrare due funzionalità quella che è una sola |
 | Colore dell'avatar nei due temi | Fisso, non ridefinito in dark mode | Un colore per persona non è parte della palette della pagina come `--accent`; non deve cambiare con il tema, come non cambierebbe una foto |
 
+### Pagamenti (v3.6)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Storico pagamenti | In `paddle_events`, non una tabella nuova | Stessa forma che scriverà un giorno il webhook vero; storico utente e admin leggono da un'unica fonte |
+| Upgrade vs. downgrade/disdetta | Upgrade sempre immediato; downgrade e disdetta a fine periodo pagato | Chi paga di più vede il beneficio subito; chi scende o disdice mantiene ciò che ha già pagato fino alla scadenza |
+| Admin sullo storico | Solo lettura, nessuna leva diretta | Un proprietario globale può già agire "come" qualsiasi account da Switch e usare il checkout lì; una seconda leva duplicherebbe quel percorso |
+| Disdetta | Modellata come "downgrade verso `free`", una sola colonna (`pending_plan`) | Meno stato di un piano pendente più un booleano separato, stesso significato |
+| Confronto di rango | Contro l'abbonamento dal vivo, mai contro il piano effettivo (che può includere un regalo) | Altrimenti un regalo più alto farebbe leggere come downgrade un upgrade reale dell'abbonamento sottostante |
+| `lifetime` | Non si disdice né si declassa nel mock | Non ha una scadenza su cui far scattare nulla; un cambiamento per un cliente lifetime resta un caso di supporto |
+
+### Attivazione obbligatoria del piano (v3.7)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Scope | Solo il gate di attivazione, non upgrade/downgrade/disdetta (v3.6, già completi) | Una fase nuova dentro la voce della v3.6 avrebbe confuso "fatto" con "da fare" |
+| Retroattività | Nessuna: ogni account esistente backfillato come "già attivato" (`plan_chosen_at = created_at`) | Zero interruzione per chi già usa l'app, zero sorpresa di supporto |
+| Global owner | Esente dal gate | Non è un cliente, e può già agire "come" qualsiasi account tramite Switch |
+| Dove vive il gate | `(home)/page.tsx`, non middleware né `RoleProvider` | L'unico posto che già fa una verifica server-side, dinamica, per-richiesta, con la stessa forma del redirect verso `/login` già presente lì |
+| `/pricing` | Riusata, un solo pulsante cambia comportamento | Un solo posto per confrontare i piani, sia per chi deve registrarsi sia per chi deve attivarsi |
+| Scegliere Free | Non è un acquisto: timbra solo `plan_chosen_at`, nessuna riga in `paddle_events` | Lo storico pagamenti resta una lista di transazioni vere |
+| Dipendenza dai flag | Il gate dipende da `SONGBOOK_PLANS`, non da `SONGBOOK_MOCK_CHECKOUT`; `SONGBOOK_FORCE_PLAN` lo scavalca | L'uscita gratuita deve restare percorribile a checkout spento; l'override locale non deve finire contro il proprio stesso muro |
+| Badge di piano in `/accounts` | Colori pieni e distinti per piano, solo in questa schermata | Eccezione dichiarata alla Chord-First Rule di `DESIGN.md`: una schermata operatore senza spartito non compete con un accordo |
+
+### Da `/accounts` a ricerca con dettaglio (v3.8)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| "Create" | Rimosso del tutto, codice morto compreso | `/register` più il provisioning automatico coprono già ogni caso reale; verificato con grep che `createAccount` non aveva altri chiamanti |
+| Filtro/ordinamento/paginazione | In memoria, non in SQL | Il piano risolto è una funzione pura TypeScript, non un'espressione SQL; duplicarla in un `WHERE` sarebbe una seconda copia della stessa regola |
+| `listAccountPlans() === null` | Disabilita silenziosamente il filtro di piano | Stessa direzione fail-open del resto di questa parte del codice |
+| Filtro piano e "Not activated" | Indipendenti, in AND | Un regalo non tocca mai `planChosenAt`: un account può essere Premium e non attivato insieme |
+| Sign-in nella lista | Cifra nuda, non più la frase | `aria-label` porta la frase intera per chi usa uno screen reader |
+| Formattazione del piano | Sei funzioni condivise in `lib/accounts/planText.ts` | L'alternativa (due copie fra lista e dettaglio) è il rischio esplicito che divergano |
+| `/accounts/[email]` | `encodeURIComponent` sul link, `decodeURIComponent` nella pagina | L'App Router consegna il segmento ancora percent-encoded — verificato con una richiesta reale dopo un 404 in produzione, non leggendo il sorgente della libreria |
+| Pagina di dettaglio | Tutto visibile; `DeleteAccountButton` tiene il proprio click-per-rivelare | L'unica eccezione è una rete di sicurezza deliberata (retype-per-confermare), non un risparmio di spazio |
+| `AccountHistoryButton` | Rimosso | La sua ragione d'essere (non pagare la query per righe mai aperte) non si applica su una pagina che è già la scelta di guardare quell'account |
+
+### Anteprima email (v3.9)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Bottone "invia copia di test" | Incluso, non solo anteprima statica | Il rendering nel browser non riproduce le stranezze dei client email reali |
+| Oggetto + HTML + testo semplice | Con un interruttore, non solo HTML | Il testo semplice è quello che arriva a chi ha immagini/HTML disattivati |
+| Voce di menù | Propria (`/emails`), non una sezione in fondo a `/accounts` | I tre modelli non appartengono a un account specifico |
+| Destinatario del test | Sempre `session.user.email`, mai l'account selezionato dal cambio-account | Nessuno dei tre modelli appartiene a un account |
+| Rendering HTML | In `<iframe srcDoc>` isolato | Gli stili inline dell'email non devono convivere con quelli dell'app che li ospita |
+
 ### Export organizzato (pianificato, non ancora costruito)
 
 | Decisione | Scelta | Perché |
@@ -2150,11 +2472,32 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 25. **Testo delle email di verifica, benvenuto e reset (v3.2)** — l'impianto (Resend, tre
     modelli semplici nella stessa tavolozza dell'app) è deciso, il testo esatto no: resta
     da scrivere e rivedere quando i modelli sono pronti da vedere.
-26. **Verifica DNS del dominio d'invio su Resend (v3.2)** — un passo di setup fuori
-    dall'app, come già fatto per GitHub, Vercel e Neon: va fatto prima che le email possano
-    davvero partire. `RESEND_API_KEY` è impostata (Vercel, tutti gli ambienti); il dominio
-    verificato su Resend è `sisqo.dev` (la radice, non `songbook.sisqo.dev` — DKIM/SPF non si
-    ereditano ai sottodomini), quindi `RESEND_FROM` punta a `no-reply@sisqo.dev`. I tre
-    record DNS (DKIM, SPF via MX+TXT) sono stati aggiunti su Vercel DNS; la verifica lato
-    Resend resta `not_started` finché la propagazione non completa — si può controllare o
-    forzare da resend.com/domains.
+26. ~~**Verifica DNS del dominio d'invio su Resend (v3.2)**~~ — risolta, e poi spostata due
+    volte col dominio: non più `sisqo.dev`, il dominio verificato su Resend è ora
+    `strumfolio.com`, con la verifica DKIM/SPF sul sottodominio dedicato che Resend stesso
+    richiede (`send.strumfolio.com`, non la radice — vedi `CLAUDE.md`), e `RESEND_FROM`
+    punta a `no-reply@strumfolio.com` (`lib/email/send.ts`). ImprovMX (inoltro di
+    `info@strumfolio.com`) coesiste sugli stessi MX/TXT a livello di radice senza conflitto,
+    perché risponde a una domanda diversa (dove va la posta *in arrivo*, non chi può
+    spedire *come* il dominio) — dettagli e il resto dei sei sistemi da toccare a ogni
+    cambio di dominio sono in `CLAUDE.md`, non ripetuti qui.
+27. **Simulare un pagamento fallito, `grace`, end-to-end (v3.6)** — rimandato: nessuna
+    schermata lato lettore mostra oggi quello stato per nessun account, reale o finto (solo
+    la riga admin lo nomina). Da riprendere se emerge il bisogno di provare anche quel
+    percorso.
+28. **Le colonne grezze di un abbonamento restano "superate ma corrette solo attraverso
+    `resolveSubscription`" indefinitamente (v3.6)** — non serve per la correttezza (ogni
+    lettura passa dalla funzione pura), ma è un'igiene rimasta aperta: una scrittura pigra
+    al prossimo tocco dell'account (`mockPurchase`, un futuro webhook) potrebbe riallineare
+    `plan`/`planExpiresAt` col risultato risolto invece di lasciarli indietro a tempo
+    indefinito.
+29. ~~**Nome esatto delle funzioni server `clearPendingChange`/`forceExpireNow`/
+    `paymentHistoryFor` (v3.6)**~~ — risolta: costruite con questi nomi esatti, confermato
+    leggendo `lib/plans/checkout.ts` e `lib/plans/history.ts`.
+30. ~~**Palette esatta dei sei colori di piano in `/accounts` (v3.7)**~~ — risolta:
+    `DESIGN.md` porta la palette completa (`plan-standard`/`plan-plus`/`plan-premium`/
+    `plan-lifetime`, ciascuno con la coppia `-soft`/`-night`/`-night-soft`) sotto "Plan
+    Badges — a declared exception to the Chord-First Rule".
+31. ~~**Copy esatta della schermata di attesa dopo la registrazione (v3.7)**~~ — risolta
+    lasciando che il contesto parli da solo: nessuna frase aggiunta su `/pricing`, solo
+    l'etichetta del pulsante che cambia ("Continue with Free" invece di "Start free").

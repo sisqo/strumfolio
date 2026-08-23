@@ -3,7 +3,7 @@
 /**
  * Switching which account a signed-in reader is looking at, and — for a global owner
  * only — deleting one, or hand-assigning it a plan on another address's behalf. Creating
- * one by hand is gone (PLAN-accounts-admin.md): self-service registration and automatic
+ * one by hand is gone (PLAN.md, v3.8): self-service registration and automatic
  * provisioning on any first sign-in cover every real case it used to.
  */
 
@@ -236,7 +236,7 @@ export async function setGrant(accountOwnerEmail: string, grant: GrantInput | nu
         grantedAt: now,
         grantedNote: fields.note,
         /*
-         * Giving a gift also satisfies the mandatory plan-choice gate (PLAN-attivazione.md):
+         * Giving a gift also satisfies the mandatory plan-choice gate (PLAN.md, v3.7):
          * `plan_chosen_at` means "this account got a plan, one way or another", and an operator
          * *assigning* one is that just as much as a reader *choosing* one. Without this, a
          * customer handed premium by hand was still bounced to `/pricing` on every visit to

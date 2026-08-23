@@ -8,7 +8,7 @@
  * beside `setGrant`: the client component needs both, and the action's own module cannot
  * export either.
  *
- * No longer names creating an account (PLAN-accounts-admin.md): self-service registration
+ * No longer names creating an account (PLAN.md, v3.8): self-service registration
  * and automatic provisioning on any first sign-in — Google or password — cover every real
  * case an admin-created account used to, and `deleteAccount` never answered `invalid-email`
  * or `already-exists` — this project does not model states a function cannot reach, the

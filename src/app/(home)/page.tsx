@@ -38,7 +38,7 @@ export default async function Home() {
   if (hasDatabase && user === null) redirect('/login')
 
   /*
-   * The mandatory plan-choice gate (PLAN-attivazione.md): an account that has never chosen a
+   * The mandatory plan-choice gate (PLAN.md, v3.7): an account that has never chosen a
    * plan — Free or paid — is sent to `/pricing` before it ever sees its own repertoire. This
    * page is the one place to put it, not `middleware.ts` (edge runtime, deliberately kept free
    * of database access — see `auth.config.ts`) and not a client-side redirect (it would have to

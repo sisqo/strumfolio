@@ -4,16 +4,17 @@
 
 Testi e accordi del proprio repertorio, da leggere su tablet e telefono: zoom,
 scorrimento automatico, cambio di tonalità, capotasto e notazione italiana o
-internazionale. Si entra con Google o con email e password; entra solo chi è in elenco, e
-l'elenco — con i ruoli — si gestisce dall'app. `/login` è anche la pagina pubblica del
-progetto: chiunque non ha una sessione ci arriva, con o senza account.
+internazionale. Ci si registra da soli, con Google o con email e password (v3.2): ogni
+indirizzo ha il proprio account e il proprio repertorio, senza bisogno che nessuno lo
+ammetta. `/login` è anche la pagina pubblica del progetto: chiunque non ha una sessione ci
+arriva, con o senza account.
 
-Il nome mostrato è cambiato in v2.4; repo e dominio sono seguiti in v3.3. La tabella
-`songs` nel database resta `songs` di proposito — è un brano, non un progetto — vedi la
-nota in testa a [PLAN.md](PLAN.md).
+Il nome mostrato è cambiato in v2.4; repo e dominio sono seguiti in v3.3 e di nuovo il
+21 agosto 2026 (vedi la nota in testa a [PLAN.md](PLAN.md)). La tabella `songs` nel
+database resta `songs` di proposito — è un brano, non un progetto — stessa nota.
 
 - Produzione: https://strumfolio.com
-- Repo: https://github.com/sisqo/songbook
+- Repo: https://github.com/sisqo/strumfolio
 - Progetto e decisioni: [PLAN.md](PLAN.md)
 
 ## Sviluppo
@@ -542,39 +543,45 @@ I brani in `content/` sono testi segnaposto originali, non repertorio reale.
 
 ## Chi può entrare
 
-Il repertorio è materiale protetto, quindi un account Google valido non basta: entra solo
-chi è in elenco. L'elenco ha due metà, e la differenza fra loro è il punto.
+Dalla v3.2 la registrazione è aperta: **chiunque, con qualunque indirizzo email**, si crea
+da solo il proprio account, con Google o con email e password — nessun admin deve
+ammetterlo prima. `ALLOWED_EMAILS`, nell'ambiente e mai scrivibile dall'app, non è più il
+cancello d'ingresso: resta solo l'elenco dei **proprietari globali**, che hanno pieno
+controllo su ogni account dell'installazione (pagina `/accounts`, solo per loro) e non si
+possono rimuovere né retrocedere da nessuna schermata — è questo che tiene in piedi il loro
+accesso anche quando il database non risponde.
 
-- I **proprietari** vengono da `ALLOWED_EMAILS`, che sta nell'ambiente e l'app non può
-  scrivere. Non si rimuovono da `/utenti`: è questo che rende impossibile chiudersi fuori
-  dalla propria applicazione, e che tiene in piedi il loro accesso anche quando il
-  database non risponde.
-- Gli **invitati** stanno nella tabella `members` e si aggiungono e si togliono da
-  `/utenti`, voce *Utenti* nel menù. Un invito nuovo vale dal loro primo accesso — non
-  hanno ancora una sessione — mentre ogni cambio a chi è già dentro vale dalla sua azione
-  successiva. In nessun caso serve un deploy o una ricostruzione.
+Ogni altro indirizzo è **admin del proprio account e di nessun altro** (v3.1: "un account è
+un indirizzo email, e un indirizzo email è un account", senza ruoli intermedi — non esiste
+più editor o viewer, né la possibilità di essere invitati nell'account di qualcun altro).
+Chi entra e cosa può fare sono quindi la stessa domanda: superare la registrazione (o il
+login) *è* avere pieno controllo sul proprio repertorio.
 
 ### Due modi per entrare
 
 **Google**, che è il modo che non richiede di custodire niente, e **email e password**, per
 chi preferisce non dare a Google un altro accesso o non ha un account Google. Non sono due
-account: sono due modi di dimostrare lo stesso indirizzo, e l'indirizzo è tutto ciò che
-conta — chi entra e cosa può fare li decide sempre l'elenco.
+account: sono due modi di dimostrare lo stesso indirizzo, e la prima riuscita — con
+l'uno o con l'altro — crea l'account, se non esiste già. Con email e password la creazione
+è in due tempi: `/register` scrive solo una richiesta in sospeso, e l'account vero nasce
+alla verifica del link ricevuto via mail (`/verify`).
 
-Una password si imposta in due posti, e non è un caso che siano due:
+Una password si imposta in due posti:
 
-- **Da `/utenti`**, un Admin la dà a un invitato — è così che qualcuno entra la prima volta
-  senza Google — oppure la sostituisce se è stata dimenticata. Non a un *altro*
-  proprietario: l'identità di un proprietario la garantisce Google, e poter scrivere la sua
-  password sarebbe il modo di entrare come qualcuno che non si può né rimuovere né
-  retrocedere. La propria sì.
+- **Da `/accounts`**, un proprietario globale la dà o la sostituisce per conto di un
+  indirizzo altrui — utile per chi ha un account ma non riesce più a entrarci. Non per un
+  *altro* proprietario globale: la sua identità la garantisce Google, e poter scrivere la
+  sua password sarebbe un modo di entrare come qualcuno che non si può né rimuovere né
+  retrocedere. La propria password un proprietario globale la cambia come chiunque altro.
 - **Da `/password`**, voce *Password* nel menù, ognuno cambia la propria, indicando quella
   attuale se ce l'ha. Serve perché una password che solo un altro può cambiare è una
   password che quell'altro conosce.
 
-Rimuovere una password lascia Google come unica via. Rimuovere un **utente** cancella anche
-la sua password: un hash che sopravvive all'accesso che dimostrava è un segreto tenuto per
-nessuno.
+Rimuovere una password lascia Google come unica via. Eliminare un **account** (dalla pagina
+di dettaglio in `/accounts`, solo un proprietario globale può farlo, su qualunque indirizzo)
+cancella anche la sua password, se dopo la rimozione quell'indirizzo non risulta più
+ammesso in nessun altro modo: un hash che sopravvive all'accesso che dimostrava è un
+segreto tenuto per nessuno.
 
 Come sono conservate: **scrypt** dalla libreria standard di Node, senza dipendenze nuove,
 con un sale per ognuna e i parametri scritti dentro la stringa salvata — così si possono
@@ -583,66 +590,16 @@ calcolare un hash, 30 ms per verificarlo. Il confronto è a tempo costante, e qu
 l'indirizzo non esiste la verifica gira comunque contro un hash finto, perché altrimenti il
 *tempo* di risposta direbbe quali indirizzi esistono.
 
-La pagina di login non distingue mai i suoi rifiuti: password sbagliata, indirizzo senza
-password e indirizzo fuori elenco danno **la stessa frase**. Distinguerli vorrebbe dire
-rispondere alla domanda «questa persona ha un accesso qui», che non è una domanda a cui una
-pagina di login debba rispondere.
+La pagina di login non distingue mai i suoi rifiuti: password sbagliata e indirizzo senza
+password danno **la stessa frase**. Distinguerli vorrebbe dire rispondere alla domanda
+«questo indirizzo esiste qui», che non è una domanda a cui una pagina di login debba
+rispondere — stesso principio dietro la risposta sempre uguale di `/forgot-password` (v3.2).
 
-**Non c'è alcun rate limiting**, e va detto: l'unico freno ai tentativi è il costo di scrypt
-— una trentina di millisecondi qui, probabilmente qualcosa in più su una funzione serverless
-piccola. Per un'app con una manciata di utenti è un compromesso accettato sapendolo, non una
-dimenticanza.
-
-### I ruoli
-
-Tre, e la linea che li separa è **cosa possono cambiare**:
-
-| | Legge tutto | Modifica il repertorio | Decide chi entra |
-|---|---|---|---|
-| **Admin** | sì | sì | sì |
-| **Editor** | sì | sì | no |
-| **Viewer** | sì | no | no |
-
-I proprietari sono **Admin per definizione**, e non è una scorciatoia: la stessa cosa che
-li rende non rimovibili — l'app non può scrivere l'ambiente — li rende non retrocedibili.
-Così non esiste una versione di questa installazione senza nessuno che la comandi. Gli
-invitati hanno il ruolo che gli dai in `/utenti`, **Viewer** appena arrivati perché è il
-meno che possa servire, e si cambia da lì con un menù per riga.
-
-Cosa **non** conta come modifica: la trasposizione, il capotasto, la velocità di
-scorrimento, la dimensione del testo, la notazione. Non cambiano il repertorio, sono il
-modo in cui una persona legge sul proprio schermo — e un Viewer che non potesse trasporre
-non servirebbe a niente sul palco, che è l'unico posto dove l'app viene usata davvero.
-
-Un cambio di ruolo vale **dall'azione successiva**, non dal prossimo accesso: la guardia
-rilegge la tabella ogni volta. È anche il motivo per cui il ruolo non sta nel token della
-sessione, che dura novanta giorni e si porterebbe dietro i poteri di ieri.
-
-Quello che un ruolo non può fare non compare: nessun *Modifica* sotto lo spartito per un
-Viewer, nessun *Riordina*, e nel menù solo le voci che servono. Ma l'interfaccia è la
-**spiegazione**, non la garanzia — le pagine sono statiche e precachate, quindi sono le
-stesse per tutti, e chi arriva digitando l'indirizzo trova una frase che dice quale ruolo
-servirebbe e qual è il suo. La garanzia sta nelle azioni sul server, che rileggono il
-ruolo a ogni chiamata. L'unica pagina che rifiuta da sé è l'editor, perché è l'unica
-generata su richiesta: a un Viewer non manda nemmeno i campi.
-
-Le due metà si incontrano in una funzione sola, `isAllowed`, e da lì rispondono sia al
-callback di login sia alla guardia davanti a ogni scrittura. Due risposte separate alla
-domanda «questa persona può stare qui» sono il modo in cui una delle due finisce
-sbagliata: chi è proprietario, e quindi non è riga della tabella, si troverebbe dentro
-l'app e incapace di salvare qualunque cosa.
-
-Cosa una rimozione **non** fa: chiudere una sessione già aperta. Il cookie dura novanta
-giorni — deve essere lungo, o scadrebbe mentre si legge senza rete — e le pagine sono già
-sul dispositivo di chi le ha scaricate. Quello che smette subito è ogni scrittura, perché
-la guardia rilegge l'elenco a ogni azione. La schermata lo dice al momento di rimuovere,
-invece di lasciar credere a una porta che si chiude.
-
-Se il database non risponde mentre qualcuno entra, la tabella non risponde affatto e
-restano ammessi i soli proprietari. È il verso giusto: un database irraggiungibile non deve
-diventare una porta che si apre. La stessa distinzione vale sullo schermo, all'opposto:
-`/utenti` dice «non è stato possibile leggere chi può entrare», mai «nessuno, per ora» —
-perché quella è una risposta, e una risposta che non si ha non si inventa.
+**Il freno ai tentativi è duplice**: il costo di scrypt (una trentina di millisecondi qui),
+e dalla v3.2 anche un rate limiting nel database (`rateLimitHits`), condiviso da login,
+registrazione, reinvio e recupero password. Registrazione e recupero password sono anche
+dietro un CAPTCHA (Cloudflare Turnstile, v3.2) — le due superfici che, su richiesta di
+chiunque, mandano un'email a un indirizzo scelto da chi la chiede.
 
 ## Il database
 

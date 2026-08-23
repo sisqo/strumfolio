@@ -189,7 +189,7 @@ export const accounts = pgTable(
      */
     pendingCycle: text('pending_cycle'),
     /**
-     * When this account first completed the mandatory plan-choice step (PLAN-attivazione.md)
+     * When this account first completed the mandatory plan-choice step (PLAN.md, v3.7)
      * — Free or paid, either counts. Null means "not yet chosen", the same idiom as
      * `pendingPlan`/`grantedPlan`: a column nobody has written to yet already means the
      * right thing, with no separate boolean needed.

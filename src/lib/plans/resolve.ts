@@ -359,7 +359,7 @@ export async function effectivePlanOf(accountOwnerEmail: string): Promise<Plan |
 }
 
 /**
- * Whether this account has completed the mandatory plan-choice step (PLAN-attivazione.md) —
+ * Whether this account has completed the mandatory plan-choice step (PLAN.md, v3.7) —
  * Free or paid, either counts, read straight off `accounts.planChosenAt` rather than through
  * `storedPlanOf`: this asks a yes/no question `StoredPlan` has no field for, and the other
  * three readers in this file would gain a field they never use.

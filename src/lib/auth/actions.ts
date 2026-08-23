@@ -35,7 +35,7 @@ import type { Role } from '@/lib/roles'
  * global owner looking at an account they switched into sees *that* account's plan (and its
  * choice state) on their own menu, because that is whose limits apply to what they are about
  * to do next. `planChosen` exists only for `PricingPlans`' own "Start free" button
- * (PLAN-attivazione.md) — the mandatory-choice gate itself lives server-side in
+ * (PLAN.md, v3.7) — the mandatory-choice gate itself lives server-side in
  * `(home)/page.tsx`, not here; this is cosmetic, deciding which of two harmless things one
  * button does, never what the server allows.
  */

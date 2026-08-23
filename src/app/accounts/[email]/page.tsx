@@ -64,7 +64,7 @@ function readEmailParam(raw: string): string | null {
 }
 
 /**
- * Switching into this account — moved here from the list row (PLAN-accounts-admin.md), same
+ * Switching into this account — moved here from the list row (PLAN.md, v3.8), same
  * `switchAccount` and the same `redirect('/')` inside it once the cookie is written. Local to
  * this file rather than a shared component: it is used in exactly the one place now that the
  * list only ever links to this page instead of offering it directly.
@@ -86,7 +86,7 @@ function EnterAccountForm({ ownerEmail }: { ownerEmail: string }) {
 
 /**
  * One account's administrative detail — every operation the old `/accounts` row used to
- * squeeze into a strip of buttons, now with a whole page each (PLAN-accounts-admin.md):
+ * squeeze into a strip of buttons, now with a whole page each (PLAN.md, v3.8):
  * entering the account, giving or withdrawing a plan, its payment history, setting or
  * removing a password, and deleting it. Everything here is visible as soon as the page opens
  * except the delete control, which keeps its own click-to-reveal — a deliberate safety net,

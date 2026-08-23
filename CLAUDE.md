@@ -12,7 +12,9 @@ zoom, auto-scroll, transposition, capo, offline. Next.js 15 App Router, React 19
 Tailwind v3, Postgres on Neon via Drizzle ORM, NextAuth v5, Serwist for the service worker.
 Deployed on Vercel (`sisqo` account), production at https://strumfolio.com. Full product
 framing lives in `PRODUCT.md`, the visual language in `DESIGN.md`, and the running log of
-decisions in `PLAN.md` / `PLAN-pagamenti.md` (payments/billing).
+decisions in `PLAN.md` — including plans/pricing/payments (v3.6), the mandatory
+plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), and `/emails` (v3.9). See
+`PLAN.md`'s own top note for the versions after v3.3 it does *not* yet cover.
 
 ## Commands
 

@@ -138,7 +138,7 @@ export function PricingPlans({
   const [period, setPeriod] = useState<BillingPeriod>('month')
 
   /*
-   * The "Start free" CTA (PLAN-attivazione.md): a plain link to `/register` for anyone
+   * The "Start free" CTA (PLAN.md, v3.7): a plain link to `/register` for anyone
    * unknown or signed out, exactly as it has always been, but a real action for a reader
    * who is signed in and has not yet completed the mandatory plan-choice gate — the one
    * button on this page that has to know who is looking. Everything else on this page stays

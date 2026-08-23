@@ -28,7 +28,7 @@
  * live, or cancelling outright, is scheduled for the date the account has already paid
  * through instead: `pendingPlan`/`pendingCycle` record what it becomes, and
  * `resolveSubscription` (`entitlements.ts`) is what makes that date self-enforcing with no
- * cron and no further write — see that function's own comment, and PLAN-pagamenti.md for the
+ * cron and no further write — see that function's own comment, and `PLAN.md` (v3.6) for the
  * whole design.
  */
 
@@ -208,7 +208,7 @@ export async function loadMyPaymentHistory(): Promise<
 }
 
 /**
- * Marks the mandatory plan-choice step (PLAN-attivazione.md) complete when a reader picks
+ * Marks the mandatory plan-choice step (PLAN.md, v3.7) complete when a reader picks
  * Free — the one plan `mockPurchase` does not sell at all (`CHECKOUT_PLANS` is
  * `PAID_PLANS + lifetime`; `isCheckoutPlan('free')` is false). Choosing Free is not a
  * purchase: `plan`/`planStatus` are already `'free'`/`'active'` from the column defaults, so
@@ -321,7 +321,7 @@ export async function mockPurchase(
           /*
            * See `activatePlanChoice`'s own comment on the `coalesce`: a plan bought directly,
            * with no Free step first, still has to satisfy the mandatory-choice gate
-           * (PLAN-attivazione.md) on its own — but never by overwriting a real first-activation
+           * (PLAN.md, v3.7) on its own — but never by overwriting a real first-activation
            * date already sitting on a later upgrade or re-purchase.
            *
            * `now.toISOString()`, never the `Date` itself. Interpolating a JS `Date` into a raw

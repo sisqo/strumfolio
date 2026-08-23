@@ -186,7 +186,7 @@ A warm, restrained palette: one reserved accent, everything else a step on a pap
 
 ### Plan Badges — a declared exception to the Chord-First Rule
 
-`/accounts` (the operator screen, PLAN-attivazione.md) is the one place in the app with five
+`/accounts` (the operator screen, `PLAN.md` v3.7) is the one place in the app with five
 distinct, fully-saturated badge colors — one per plan (`plan-standard`, `plan-plus`,
 `plan-premium`, `plan-lifetime`, each with its own `-soft`/`-night`/`-night-soft` pair, Free
 left uncolored on the neutral ink ramp since there is nothing bought to name), plus the

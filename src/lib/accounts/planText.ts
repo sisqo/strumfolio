@@ -6,7 +6,7 @@
  * server components, import from here directly, and nothing here needs the database or a
  * browser API either.
  *
- * A single module rather than each screen keeping its own copy (PLAN-accounts-admin.md):
+ * A single module rather than each screen keeping its own copy (PLAN.md, v3.8):
  * two spellings of "what does this account's subscription say" are two spellings that a
  * later edit to one and not the other leaves disagreeing — the exact risk this file exists
  * to close off.
@@ -19,7 +19,7 @@ import type { Plan } from '@/lib/plans/types'
 /**
  * Which `.plan-badge-*` modifier (`globals.css`) names a given plan's own color, combined
  * with `.badge` for shape — the badge is what answers «why is this account on premium» at a
- * glance (PLAN-attivazione.md). Free carries no color of its own on purpose: see DESIGN.md's
+ * glance (PLAN.md, v3.7). Free carries no color of its own on purpose: see DESIGN.md's
  * "Plan Badges" section.
  */
 const PLAN_BADGE_CLASS: Record<Plan, string> = {
@@ -37,7 +37,7 @@ const PLAN_BADGE_CLASS: Record<Plan, string> = {
  * `plan` is `notNull().default('free')`, so the column says `'free'` from the instant the row
  * is inserted, before anybody has decided anything. Reading that as "this account is on the
  * Free plan" is the lie this predicate exists to stop: until the mandatory choice is made
- * (PLAN-attivazione.md) there is no plan, which is also exactly why such an account cannot get
+ * (PLAN.md, v3.7) there is no plan, which is also exactly why such an account cannot get
  * into the app at all — it is sent to `/pricing` and kept there.
  *
  * Both halves are required, and the second is not redundant. A gift now stamps

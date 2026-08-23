@@ -75,7 +75,7 @@ interface Props {
  * slug-reached page in this app — "this does not exist" and "this is not yours" should look
  * identical from outside.
  *
- * No longer offers creating an account (PLAN-accounts-admin.md, replacing the old "Create"
+ * No longer offers creating an account (PLAN.md, v3.8, replacing the old "Create"
  * section): self-service registration and automatic provisioning on any first sign-in — Google
  * or password — cover every real case an admin-created account used to.
  *

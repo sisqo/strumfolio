@@ -28,7 +28,7 @@ const GIVEABLE = PLAN_VALUES.filter((plan) => plan !== 'free')
  * audit, in force) are rendered directly by the detail page from `lib/accounts/planText.ts`;
  * this component only ever submits.
  *
- * Always visible, unlike the old `AccountPlanButton` this replaces (PLAN-accounts-admin.md):
+ * Always visible, unlike the old `AccountPlanButton` this replaces (PLAN.md, v3.8):
  * the detail page is already the explicit choice to look at one account, so there is no "most
  * rows are never opened" cost to avoid by hiding this behind a trigger.
  */

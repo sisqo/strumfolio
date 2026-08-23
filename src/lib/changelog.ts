@@ -7,13 +7,15 @@
  * than the repository changes.
  *
  * **The numbering starts fresh at 1.0 and is public.** `PLAN.md` carries its own internal
- * history — v1 through v3.3, twenty-odd entries — and it is deliberately *not* reused here.
- * Two reasons: that scale has a hole in it (plans and pricing were built as their own document,
- * `PLAN-pagamenti.md`, and were never numbered a v3.4), and half of it describes an app with a
+ * history — v1 through v3.9 as of this writing, thirty-odd entries — and it is deliberately
+ * *not* reused here. Two reasons: that scale still has real holes in it (some shipped work —
+ * a `/pricing`/`/login` redesign, a schema cascade fix, everything after v3.9 — landed
+ * straight in the code with no `PLAN.md` entry at all, labeled only in scattered comments or
+ * not labeled at all; see `PLAN.md`'s own top note), and half of it describes an app with a
  * single reader and no accounts, which nobody using Strumfolio today has ever seen. Publishing
- * a numbering with a gap, half of it about a product that was never on sale, would be a worse
- * record than starting one that is true from here on. `package.json`'s `0.1.0` is not that
- * number either and never has been — nothing reads it.
+ * a numbering with holes in it, half of it about a product that was never on sale, would be a
+ * worse record than starting one that is true from here on. `package.json`'s `0.1.0` is not
+ * that number either and never has been — nothing reads it.
  *
  * Newest first, which is the order the page renders and the order `changelog.test.ts` pins.
  */
