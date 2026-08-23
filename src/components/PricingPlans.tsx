@@ -149,6 +149,26 @@ export interface Viewer {
 }
 
 /**
+ * Whether this reader is being *made* to choose — the v3.7 gate actually stopping them, which
+ * is the state that turns every paid card's button into «Choose <plan>» and the Free card's
+ * into «Continue with Free».
+ *
+ * Exported, and that is the whole point of it being a function at all: the page's own `<h1>`
+ * changes with it too («Choose your plan» rather than «What Strumfolio costs»), and a heading
+ * that promises a choice over cards offering an upgrade — or the reverse — is worse than
+ * either wording alone. One statement, read by the page and by the component below, so the
+ * title and the buttons cannot come to disagree the way two copies of `email !== null &&
+ * mustChoosePlan` eventually would.
+ *
+ * Both halves are needed and neither is redundant: `mustChoosePlan` is already the gate's own
+ * question rather than the raw `planChosenAt` (see `Viewer`), but it is answered `false` for a
+ * visitor with no session — who is not being made to do anything, and gets «Sign up».
+ */
+export function mustChooseNow(viewer: Viewer): boolean {
+  return viewer.email !== null && viewer.mustChoosePlan
+}
+
+/**
  * The four price columns and the one control on the page that has state.
  *
  * The only client component /pricing loads, and now holds the comparison table as well as
@@ -218,11 +238,15 @@ export function PricingPlans({
    * read by the one person this page must not mislead.
    */
   const router = useRouter()
-  const { email, mustChoosePlan, plan, subscriptionPlan } = viewer
+  /* No `mustChoosePlan` here: it is read through `mustChooseNow(viewer)` below, which is the
+     one place that decides it, so destructuring it as well would only invite a second answer. */
+  const { email, plan, subscriptionPlan } = viewer
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
   const signedIn = email !== null
-  const pending = signedIn && mustChoosePlan
+  /* `mustChooseNow`, not the comparison written out again: the page's own heading turns on the
+     same answer, and the two must never disagree — see that function's own comment. */
+  const pending = mustChooseNow(viewer)
   /*
    * Every rank question on this page is asked of the **subscription**, never of `plan`'s
    * blend of subscription-and-gift — the invariant `mockPurchase` states for its own

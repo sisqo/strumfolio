@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
-import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
+import { LifetimeCta, mustChooseNow, PricingPlans } from '@/components/PricingPlans'
 import type { ComparisonRow, PlanColumn, Viewer } from '@/components/PricingPlans'
 import { isOwner } from '@/lib/allowlist'
 import { loadIdentity } from '@/lib/auth/actions'
@@ -601,7 +601,24 @@ export default async function PricingPage() {
           * eyebrow above it any more (the redesign's own removal) — `<main>`'s own top padding
           * is now the only thing separating it from the bar above.
           */}
-        <h1 className="landing-title">What Strumfolio costs</h1>
+        {/*
+          * Two headings for the two things this page is. «What Strumfolio costs» is a price
+          * list, which is what a visitor and an existing customer both came for. But a reader
+          * the v3.7 gate has stopped did not come for a price list — they were sent here, and
+          * every card in front of them says «Choose <plan>» rather than «Upgrade»: for them the
+          * page is a step to complete, and the heading now says so.
+          *
+          * `mustChooseNow` and not a second `email !== null && mustChoosePlan` written out here
+          * — that shared function is what keeps this heading and those buttons from ever
+          * describing two different screens; see its own comment in `PricingPlans.tsx`.
+          *
+          * `generateMetadata` deliberately does not follow: the tab title and the share card are
+          * about the page, not about who happens to be reading it, and «Choose your plan» in a
+          * shared link would be an instruction to somebody nobody is gating.
+          */}
+        <h1 className="landing-title">
+          {mustChooseNow(viewer) ? 'Choose your plan' : 'What Strumfolio costs'}
+        </h1>
         <p className="mx-auto mt-4 max-w-[38rem] text-[1.03125rem] leading-[1.6] text-muted">
           {HERO_SUBTITLE}
         </p>
