@@ -10,6 +10,7 @@
  */
 
 import { PLAN_LABEL } from './types'
+import type { Plan } from './types'
 import type { MockSubscriptionState } from './checkout'
 
 /**
@@ -29,12 +30,41 @@ export function formatPlanDate(value: Date): string {
  * read as an already-lapsed plan instead of one still in force while payment retries — the
  * same reasoning `lib/accounts/planText.ts`'s own `subscriptionLine` already applies for the
  * operator screen, mirrored here for the customer-facing one.
+ *
+ * **`live` is a parameter and is never re-derived here**, for the reason this whole module
+ * exists. A subscription stops being in force for two different reasons and only one of them
+ * writes anything down: `planStatus: 'expired'` is a webhook's deliberate act, while a
+ * `planExpiresAt` in the past ends the plan all on its own, with the status column still
+ * reading `active` for ever after. Nothing in this repository renews anything, so the second
+ * case is not an edge — it is where *every* plan bought through the mock eventually lands, and
+ * this sentence used to greet it with "Standard, active until 3 May 2026", a date already gone
+ * by, on the very screen a customer opens to find out where they stand. The rule that decides
+ * it is `liveSubscription`'s, read once per request beside the clock (`loadCheckoutStatus`,
+ * `loadPurchaseSummary`), and this function is handed the answer rather than guessing at it
+ * from the two columns — a second copy of that comparison is the drift this file was written
+ * to end.
+ *
+ * `null` means nothing is running: expired, or lapsed by date. `grace` is never null, which is
+ * what keeps a retrying card on its own sentence instead of being mourned as a dead plan.
+ *
+ * The lifetime branch sits **after** the two status branches, not before them: a lifetime that
+ * a refund or a chargeback has marked `expired` is still a plan that ended, and saying "bought
+ * once, nothing to renew or cancel" over it would describe the purchase rather than the state.
  */
-export function subscriptionStatusLine(current: MockSubscriptionState): string {
+export function subscriptionStatusLine(current: MockSubscriptionState, live: Plan | null): string {
   if (current.plan === 'free') return 'Free — nothing bought yet.'
-  if (current.plan === 'lifetime') return 'Lifetime — bought once, nothing to renew or cancel.'
   if (current.status === 'expired') return `${PLAN_LABEL[current.plan]}, expired.`
   if (current.status === 'grace') return `${PLAN_LABEL[current.plan]}, payment retrying.`
+  if (current.plan === 'lifetime') return 'Lifetime — bought once, nothing to renew or cancel.'
+
+  /* Lapsed by date alone. The date is named because it is the one fact that explains it — and
+     "ended" rather than "expired", which is the word this app reserves for the stored status. */
+  if (live === null) {
+    return current.expiresAt === null
+      ? `${PLAN_LABEL[current.plan]}, ended.`
+      : `${PLAN_LABEL[current.plan]}, ended ${formatPlanDate(current.expiresAt)}.`
+  }
+
   if (current.expiresAt === null) return `${PLAN_LABEL[current.plan]}, no end.`
 
   const until = formatPlanDate(current.expiresAt)

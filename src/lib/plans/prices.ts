@@ -145,6 +145,23 @@ export function euro(amount: string): string {
 }
 
 /**
+ * `from` + one billing period — a calendar month or a calendar year, never a fixed day count.
+ *
+ * Here rather than in `checkout.ts`, where it was born and where it is still the one thing that
+ * decides a purchase's `planExpiresAt`, because a second reader appeared: `/checkout/[plan]`
+ * has to be able to say, *before* the button is pressed, which day this purchase would move the
+ * renewal to — and that sentence is only worth printing if it names the same day the write will
+ * actually store. That file carries `'use server'`, so a synchronous helper cannot live beside
+ * `mockPurchase`; this module is where the rest of the billing-period vocabulary already is.
+ */
+export function periodEnd(cycle: BillingPeriod, from: Date): Date {
+  const until = new Date(from)
+  if (cycle === 'year') until.setFullYear(until.getFullYear() + 1)
+  else until.setMonth(until.getMonth() + 1)
+  return until
+}
+
+/**
  * What twelve months of a monthly plan add up to, as euro.
  *
  * Rendered on the monthly side of the toggle instead of a sentence about savings: the reader

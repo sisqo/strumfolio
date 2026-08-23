@@ -47,7 +47,7 @@ import { amountFor, logMockEvent, paymentHistoryFor } from './history'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
 import { mockCheckoutEnabled } from './resolve'
-import { euro, isCheckoutPlan, readPendingCycle } from './prices'
+import { euro, isCheckoutPlan, periodEnd, readPendingCycle } from './prices'
 import type { BillingPeriod } from './prices'
 import { PLAN_LABEL, PLAN_RANK, readPendingPlan, readPlan, readPlanStatus } from './types'
 import type { Plan, PlanStatus } from './types'
@@ -101,18 +101,27 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
   }
 }
 
-/** now + one billing period — a calendar month or a calendar year, not a fixed day count. */
-function expiryFor(cycle: BillingPeriod, now: Date): Date {
-  const until = new Date(now)
-  if (cycle === 'year') until.setFullYear(until.getFullYear() + 1)
-  else until.setMonth(until.getMonth() + 1)
-  return until
-}
-
-/** What the checkout/billing screen needs on arrival: whether it may show at all, and what this account already holds. */
+/**
+ * What the checkout/billing screen needs on arrival: whether it may show at all, what this
+ * account already holds, and — the part no screen may work out for itself — whether that
+ * holding is still **live**.
+ *
+ * `live` is `liveSubscription`'s own answer at the one instant this read uses, and it exists
+ * because the three screens that render `current` were each deciding "is this plan still on"
+ * from `status` alone. That is not the rule: a row keeps `planStatus: 'active'` for ever, and
+ * nothing in this repository renews anything, so *every* plan bought here eventually sits at
+ * `active` with a `planExpiresAt` in the past while the gates have already dropped the account
+ * to free. `/billing` then said "Standard, active until 3 May 2026", `/thanks` said "You're in"
+ * over the same past date, and "Cancel my plan" offered an action `mockCancel` would refuse.
+ * One answer, computed where the clock and the rule already live — the same reason
+ * `subscriptionCopy.ts` exists for the sentence itself.
+ *
+ * Null means nothing is running: expired, or lapsed by date. `grace` is deliberately non-null
+ * — a failing card is not a lapsed customer, and `liveSubscription` carries that rule.
+ */
 export async function loadCheckoutStatus(): Promise<
   | { ok: false; reason: 'disabled' | 'no-session' | 'no-database' }
-  | { ok: true; current: MockSubscriptionState }
+  | { ok: true; current: MockSubscriptionState; live: Plan | null }
 > {
   if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
@@ -123,10 +132,12 @@ export async function loadCheckoutStatus(): Promise<
   const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
   if (raw === null) return { ok: false, reason: 'no-session' }
 
-  const resolved = resolveSubscription(raw, new Date())
+  const now = new Date()
+  const resolved = resolveSubscription(raw, now)
   return {
     ok: true,
     current: { plan: resolved.plan, status: resolved.status, expiresAt: resolved.expiresAt, pendingPlan: resolved.pendingPlan },
+    live: liveSubscription(raw, now),
   }
 }
 
@@ -142,7 +153,7 @@ export async function loadCheckoutStatus(): Promise<
  * purchase to be thanked for either.
  */
 export async function loadPurchaseSummary(): Promise<
-  { ok: true; current: MockSubscriptionState } | { ok: false; reason: 'no-session' | 'no-database' }
+  { ok: true; current: MockSubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'no-database' }
 > {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
@@ -152,7 +163,8 @@ export async function loadPurchaseSummary(): Promise<
   const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
   if (raw === null) return { ok: false, reason: 'no-session' }
 
-  const resolved = resolveSubscription(raw, new Date())
+  const now = new Date()
+  const resolved = resolveSubscription(raw, now)
   return {
     ok: true,
     current: {
@@ -161,6 +173,9 @@ export async function loadPurchaseSummary(): Promise<
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
     },
+    /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the
+     * thank-you page is the one screen a lapsed plan could still be congratulated on. */
+    live: liveSubscription(raw, now),
   }
 }
 
@@ -183,13 +198,23 @@ export async function loadPurchaseSummary(): Promise<
  */
 export async function loadThanksPreview(
   planParam: unknown,
-): Promise<{ ok: true; current: MockSubscriptionState } | { ok: false; reason: 'no-session' | 'not-owner' }> {
+): Promise<
+  { ok: true; current: MockSubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'not-owner' }
+> {
   const session = await auth()
   const email = session?.user?.email
   if (!email) return { ok: false, reason: 'no-session' }
   if (!isOwner(email, process.env.ALLOWED_EMAILS)) return { ok: false, reason: 'not-owner' }
 
-  return { ok: true, current: buildThanksPreview(readPlan(planParam)) }
+  const current = buildThanksPreview(readPlan(planParam))
+  /*
+   * `current.plan`, deliberately, and never `liveSubscription` over the fabricated row: every
+   * state `buildThanksPreview` builds is a live one by construction, and running the real rule
+   * over `SAMPLE_RENEWAL` would make this preview quietly start rendering "This plan has ended"
+   * the day that fixed sample date goes by — a preview that changes with the calendar is the
+   * one thing `preview.ts` exists to prevent.
+   */
+  return { ok: true, current, live: current.plan }
 }
 
 /**
@@ -292,7 +317,20 @@ export async function mockPurchase(
     const currentLive = liveSubscription(raw, now)
     if (currentLive === 'lifetime') return { ok: false, reason: 'not-applicable' }
 
-    const isUpgradeOrSame = plan === 'lifetime' || currentLive === null || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
+    /*
+     * A downgrade is scheduled for the date the account has already paid through — so a
+     * subscription with **no such date** has nothing to schedule against, and writing
+     * `pendingPlan` on it would be a change that never fires: `resolveSubscription` returns a
+     * null-`expiresAt` row untouched, for ever. That row is reachable, not hypothetical — it is
+     * exactly what a scheduled change leaves behind once it has fired (the new plan is stored
+     * with `expiresAt: null`, since nothing here models renewals), so the *second* downgrade
+     * anybody makes used to be silently inert: the screen said "scheduled", the ledger logged
+     * it, and the date it was waiting for did not exist. With no paid period left to protect,
+     * applying it at once is both the honest answer and the generous one.
+     */
+    const nothingPaidThrough = raw.expiresAt === null
+    const isUpgradeOrSame =
+      plan === 'lifetime' || currentLive === null || nothingPaidThrough || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
 
     if (isUpgradeOrSame) {
       /*
@@ -307,7 +345,7 @@ export async function mockPurchase(
        * the same function `logMockEvent` uses for the `paddle_events` row it writes below.
        */
       const billedCycle = plan === 'lifetime' ? null : cycle
-      const expiresAt = billedCycle === null ? null : expiryFor(billedCycle, now)
+      const expiresAt = billedCycle === null ? null : periodEnd(billedCycle, now)
       const amount = amountFor(plan, billedCycle)
 
       const updated = await db()
@@ -414,11 +452,17 @@ export async function mockPurchase(
  * expired) or when the live plan is `lifetime`, which has no period to cancel at the end of —
  * see `mockPurchase`'s own comment on why lifetime refuses both directions.
  *
+ * The one exception is a live plan carrying **no** `planExpiresAt`, which cancels immediately
+ * rather than at a date that does not exist — `effect` says which of the two happened, so the
+ * screen can word it correctly instead of promising a period end either way.
+ *
  * For a way to end a plan's entitlements *right now* rather than at the paid-until date, see
  * `forceExpireNow` — kept as a distinct, explicitly test-only action, because the freeze path
  * has to stay exercisable without waiting out a real calendar date.
  */
-export async function mockCancel(): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
+export async function mockCancel(): Promise<
+  { ok: true; effect: 'immediate' | 'scheduled' } | { ok: false; reason: MockCheckoutFailure }
+> {
   if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
@@ -435,22 +479,37 @@ export async function mockCancel(): Promise<{ ok: true } | { ok: false; reason: 
       return { ok: false, reason: 'not-applicable' }
     }
 
+    /*
+     * The same hole `mockPurchase`'s own `nothingPaidThrough` closes, on the other exit from a
+     * plan: with no `planExpiresAt` there is no period end for a cancellation to wait for, so
+     * `pendingPlan: 'free'` would sit on the row unread for ever while the screen reported it as
+     * scheduled. Nothing is being taken away early here — a row with no expiry is one nobody has
+     * paid through to any date — so the cancellation simply happens.
+     */
+    const immediate = raw.expiresAt === null
+
     const updated = await db()
       .update(accounts)
-      .set({ pendingPlan: 'free', pendingCycle: null })
+      .set(
+        immediate
+          ? { plan: 'free', planStatus: 'active', planExpiresAt: null, pendingPlan: null, pendingCycle: null }
+          : { pendingPlan: 'free', pendingCycle: null },
+      )
       .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
       .returning({ ownerEmail: accounts.ownerEmail })
     if (updated.length === 0) return { ok: false, reason: 'failed' }
 
     await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'scheduled_change', plan: 'free', cycle: null })
-    console.warn(`mock checkout: ${user.accountOwnerEmail} => cancel scheduled`)
-    await notifyTelegram('cancellation', `🚫 Cancellazione programmata: ${user.accountOwnerEmail} (era ${currentLive})`)
+    console.warn(`mock checkout: ${user.accountOwnerEmail} => cancel ${immediate ? 'now' : 'scheduled'}`)
+    await notifyTelegram(
+      'cancellation',
+      `🚫 Cancellazione ${immediate ? 'immediata' : 'programmata'}: ${user.accountOwnerEmail} (era ${currentLive})`,
+    )
+    return { ok: true, effect: immediate ? 'immediate' : 'scheduled' }
   } catch (error) {
     console.error('mockCancel failed', error)
     return { ok: false, reason: 'failed' }
   }
-
-  return { ok: true }
 }
 
 /**

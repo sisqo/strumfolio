@@ -11,8 +11,8 @@
 > distinta per i contenitori — quindi il resto di questo piano la nomina ancora quando
 > parla di quella, di proposito.
 
-> **Stato:** da v1 a **v3.9 — anteprima email** (l'ultima versione numerata in questo
-> documento) sono consegnate e in produzione su https://strumfolio.com. La v1.2 ha cambiato
+> **Stato:** da v1 a **v3.12 — terzo ricontrollo dei piani** (l'ultima versione numerata in
+> questo documento) sono consegnate e in produzione su https://strumfolio.com. La v1.2 ha cambiato
 > chi possiede un brano: il database, non i file — va letta prima di toccare il seed. La
 > v1.3 ha aggiunto lo strato che mostra la versione del database sopra la pagina statica: va
 > letta prima di toccare la lettura. La v1.4 ha portato l'editor in una pagina sua, con la
@@ -1032,6 +1032,68 @@ l'audit chiedeva.
 
 Nessuna migrazione.
 
+### v3.12 — terzo ricontrollo dei piani
+
+Terzo giro, questa volta percorrendo i passaggi come li percorre un cliente — registrazione,
+gate di scelta, `/pricing`, `/checkout`, `/thanks`, `/billing` — invece che file per file. Il
+risultato più importante è un bug che *tutti* incontrano, non un caso limite.
+
+1. **Ogni piano acquistato finiva per leggersi «active until ‹data passata›».** Niente in questo
+   repository rinnova alcunché: `mockPurchase` scrive `planExpiresAt = adesso + un periodo` e
+   nessun webhook arriva mai a spostarlo. `planStatus` invece resta `'active'` per sempre — solo
+   `forceExpireNow` scrive `'expired'`, e nessuna UI lo chiama più (v3.11). Le tre schermate del
+   cliente decidevano «è ancora vivo?» da `status`, mentre `liveSubscription` lo decide da
+   `status` **e** dalla data. Quindi, passato il periodo: `/billing` diceva «Standard, active
+   until 3 May 2026», `/thanks` faceva «You're in. Welcome to Premium.» sopra la stessa data
+   passata, e «Cancel my plan» offriva un'azione che `mockCancel` poi rifiutava con «Nothing to
+   do here right now.» — mentre i gate avevano già riportato l'account a `free`. Quattro sintomi,
+   una causa. La correzione sta **alla giuntura, non nelle schermate**: `loadCheckoutStatus` e
+   `loadPurchaseSummary` restituiscono ora anche `live` (la risposta di `liveSubscription`, allo
+   stesso istante che leggono già), e `subscriptionStatusLine`, il ramo di `/thanks` e `canCancel`
+   la ricevono invece di ricalcolarla. `grace` resta vivo per definizione, quindi una carta in
+   ritentativo continua ad avere la sua frase e non viene compianta come un piano morto.
+2. **`isCurrent` su `/pricing` era rimasto sul piano effettivo** — la metà che la v3.11 non aveva
+   toccato mentre correggeva `currentRank` nella stessa funzione. Con un regalo Premium sopra uno
+   Standard pagato, la card Premium diceva ancora «Your plan · Manage», e l'unico controllo
+   accanto («Change billing cycle») portava a comprare davvero il piano che era stato regalato —
+   cioè esattamente il bug che il commit precedente dichiarava chiuso. In più rendeva **falsa la
+   riga d'avviso** appena sopra la griglia, che promette che la card marcata è l'abbonamento
+   sotto il regalo. Stessa correzione su `LifetimeCta`, che sbagliava in entrambe le direzioni: a
+   un Lifetime *regalato* diceva «Your plan» mentre le quattro card accanto gli vendevano un
+   upgrade.
+3. **Un downgrade chiedeva la carta e diceva «Complete purchase».** Non si paga nulla quel
+   giorno e non cambia nulla quel giorno: `/checkout/[plan]` ora lo dice *prima* del pulsante,
+   con la data in cui il cambio scatta, nasconde i campi carta (chiederla, e rifiutare un numero
+   sbagliato, per un'operazione che non incassa niente è teatro che inganna) e il pulsante dice
+   cosa fa davvero. `willSchedule` rispecchia il ramo di `mockPurchase` invece di indovinarlo.
+4. **«Change billing cycle» poteva bruciare mesi già pagati senza dirlo.** Dieci mesi dentro un
+   annuale, ricomprare mensile è un acquisto di rango pari — quindi immediato — e `planExpiresAt`
+   diventa fra un mese. Ora, quando la nuova scadenza cadrebbe **prima** di quella già pagata, il
+   checkout la nomina: entrambe le date, e che la differenza non viene riportata. Nessun cambio
+   di semantica: la regola «rango pari applica subito» resta quella di `mockPurchase`.
+5. **Un cambio programmato su una riga senza scadenza non scattava mai.** Riga raggiungibile e
+   non ipotetica: è ciò che *lascia dietro* un cambio già scattato (il piano nuovo viene scritto
+   con `expiresAt: null`, perché qui nessun rinnovo è modellato). Il secondo downgrade era quindi
+   inerte — schermata «scheduled», riga nel ledger, e nessuna data ad aspettarlo. Senza periodo
+   pagato da proteggere, `mockPurchase` e `mockCancel` applicano subito; `mockCancel` restituisce
+   `effect` così `/billing` non promette una fine periodo che non esiste.
+6. **«Cancel my plan» spariva se c'era già un downgrade programmato.** `canCancel` pretendeva
+   `pendingPlan === null`: per uscire davvero bisognava prima premere «Keep Premium», senza che
+   nulla lo dicesse. Ora basta `pendingPlan !== 'free'` — una cancellazione già programmata non
+   ha altro da cancellare, un downgrade sì.
+7. **Rifiniture**: durante il gate obbligatorio le card dicevano «Upgrade to Standard» a chi non
+   ha mai avuto un piano (la riga dice `free` perché è il default della colonna — la stessa
+   lettura che `noPlanYet` rifiuta dal lato operatore), ora dicono «Choose ‹piano›»; `/thanks`
+   non scrive più «Renews ‹data›» quando su quella data il piano *finisce* per un cambio già
+   programmato; e la tabella dei pagamenti su `/billing` usa le date come le scrive la frase un
+   centimetro sopra, tenendo l'ISO per `/accounts`, dove un operatore le confronta e le copia.
+
+Non corretto di proposito: un downgrade programmato durante `grace` resta fermo finché lo stato
+non cambia (`resolveSubscription` esce prima di ogni confronto di data). È la regola dichiarata di
+`grace`, non un effetto collaterale, e il webhook vero è ciò che tira fuori l'account da lì.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1288,6 +1350,22 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Regalo di rango ≤ abbonamento vivo | Avvisa ma permette | È inerte adesso, ma è un pavimento legittimo per quando l'abbonamento scadrà — a differenza di `free`, che non lo è mai |
 | `grace` + pending | Espone il pending, senza mai farlo scattare | Nasconderlo toglieva al cliente con la carta che fallisce l'unico modo di annullare un downgrade, nel momento peggiore |
 | Cast non validato in `history.ts` | Non corretto | Cade nel `default` come «Event», nessun valore fuori posto esiste, un solo produttore nello stesso file: difensivo oltre lo scopo |
+
+### Terzo ricontrollo dei piani (v3.12)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Piano scaduto per data, stato ancora `active` | `live` calcolato dal server e passato alle schermate | Le tre schermate del cliente decidevano da `status`, i gate da `status` **e** data: una sola risposta, letta dove ci sono già l'orologio e la regola, invece di tre copie del confronto |
+| Dove correggerlo | Alla giuntura (`loadCheckoutStatus`/`loadPurchaseSummary`), non nelle schermate | Quattro sintomi (`/billing`, `/thanks`, la riga di stato, «Cancel my plan») venivano da una causa sola; `subscriptionCopy.ts` esiste proprio perché tre schermate non riscrivano la stessa frase |
+| `grace` dentro la nuova regola | Resta vivo, con la sua frase | `liveSubscription` lo tiene non-null di proposito: una carta in ritentativo non è un cliente scaduto |
+| `isCurrent` su `/pricing` | Sull'abbonamento, come già `currentRank` | Era la metà rimasta indietro nella v3.11: la card «Your plan» era il regalo, e l'unico controllo accanto vendeva davvero quel piano |
+| Downgrade su `/checkout` | Detto prima del pulsante, campi carta via | Non incassa nulla e non cambia nulla quel giorno: chiedere una carta e rifiutarne una sbagliata è teatro che inganna |
+| Cambio ciclo che accorcia il periodo | Avvisa con entrambe le date, semantica invariata | «Rango pari applica subito» resta la regola di `mockPurchase`; ciò che mancava era dirlo prima, non cambiarla |
+| Cambio programmato senza `planExpiresAt` | Applicato subito, con `effect` nel risultato | Non c'è data su cui scattare: `resolveSubscription` lascia intatta una riga con `expiresAt: null`, quindi il cambio restava inerte mentre la schermata lo dava per programmato |
+| «Cancel my plan» con un downgrade pendente | Permesso (`pendingPlan !== 'free'`) | Uscire dal piano richiedeva prima «Keep ‹piano›», senza che nulla lo dicesse; una cancellazione già programmata invece non ha altro da cancellare |
+| Copy del gate obbligatorio | «Choose ‹piano›», non «Upgrade to» | Chi non ha mai scelto non ha da cosa fare l'upgrade: la riga dice `free` solo perché è il default della colonna |
+| Date nella tabella pagamenti | `plain` su `/billing`, ISO su `/accounts` | Sotto una frase che scrive «22 September 2026», una riga «2026-08-23» sono due formati a un centimetro di distanza; l'operatore invece le confronta e le copia |
+| Downgrade programmato durante `grace` | Non corretto | È la regola dichiarata di `grace` (nessun confronto di data), e il webhook vero è ciò che tira fuori l'account da lì |
 
 ### Export organizzato (pianificato, non ancora costruito)
 

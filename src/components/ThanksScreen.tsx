@@ -12,7 +12,8 @@ import type { Plan } from '@/lib/plans/types'
 type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
-  | { state: 'ready'; current: MockSubscriptionState }
+  /** `live` is `liveSubscription`'s own answer, read server-side — see `loadPurchaseSummary`. */
+  | { state: 'ready'; current: MockSubscriptionState; live: Plan | null }
 
 /**
  * Where a purchase lands: what is now active, and the one thing worth doing next.
@@ -54,7 +55,7 @@ export function ThanksScreen() {
         })
         return
       }
-      setStatus({ state: 'ready', current: result.current })
+      setStatus({ state: 'ready', current: result.current, live: result.live })
     })
   }
 
@@ -76,7 +77,7 @@ export function ThanksScreen() {
         })
         return
       }
-      setStatus({ state: 'ready', current: result.current })
+      setStatus({ state: 'ready', current: result.current, live: result.live })
     })
     // Read once, on mount, from whatever URL this page happened to load with — the same rule
     // this effect followed before `?preview=` existed.
@@ -121,7 +122,7 @@ export function ThanksScreen() {
     )
   }
 
-  const { current } = status
+  const { current, live } = status
 
   /*
    * Nothing was bought — somebody typed the URL, or is looking at an account that never
@@ -218,8 +219,17 @@ export function ThanksScreen() {
    * line would still congratulate somebody whose plan had lapsed. `subscriptionStatusLine` is
    * the same sentence `/billing` and `/checkout/[plan]` use for these states, which is the point
    * of it being shared — three screens describing a failing card three ways is what it replaced.
+   *
+   * `|| live === null` is the half that was missing, and it is the half that actually happens.
+   * A status of `expired` is only ever written by `forceExpireNow`, which no screen calls any
+   * more — so this branch, as first written, guarded a door nobody could reach, while the door
+   * every customer walks through eventually (a `planExpiresAt` gone by, status still `active`,
+   * because nothing in this repository renews anything) led straight to "You're in. Welcome to
+   * Premium." over a renewal date months in the past. `status !== 'active'` is kept beside it so
+   * a `grace` account still gets its own heading rather than being told its plan has ended:
+   * `live` is deliberately non-null while a card is retrying.
    */
-  if (current.status !== 'active') {
+  if (current.status !== 'active' || live === null) {
     return (
       <>
         {previewBar}
@@ -232,7 +242,7 @@ export function ThanksScreen() {
             <h1 className="thanks-hero-title">
               {current.status === 'grace' ? 'A payment needs attention.' : 'This plan has ended.'}
             </h1>
-            <p className="thanks-hero-text text-muted">{subscriptionStatusLine(current)}</p>
+            <p className="thanks-hero-text text-muted">{subscriptionStatusLine(current, live)}</p>
           </div>
         </div>
 
@@ -266,8 +276,19 @@ export function ThanksScreen() {
             <br />
             Welcome to {label}.
           </h1>
+          {/*
+            * "Renews" is only true while nothing is scheduled to replace this plan. A reader who
+            * comes back to this page after arranging a downgrade — the confirmation email links
+            * into the app, and Back still returns here — was being told the plan renews on the
+            * exact date it is due to end. `pendingPlan` is already resolved by
+            * `loadPurchaseSummary`, so a change whose date has passed never reaches this clause.
+            */}
           <p className="thanks-hero-text">
-            {current.expiresAt === null ? 'No renewal — this is yours for good' : `Renews ${formatPlanDate(current.expiresAt)}`}
+            {current.expiresAt === null
+              ? 'No renewal — this is yours for good'
+              : current.pendingPlan === null
+                ? `Renews ${formatPlanDate(current.expiresAt)}`
+                : `Yours until ${formatPlanDate(current.expiresAt)}, then ${PLAN_LABEL[current.pendingPlan]}`}
             {' — '}
             {thanksCapacitySentence(plan)}
           </p>

@@ -316,7 +316,17 @@ export function PricingPlans({
            * `isCurrent`/`isDowngrade` are meaningless while `!signedIn` and are never read
            * then; `currentRank`'s own comment says why neither needs its own guard for it.
            */
-          const isCurrent = signedIn && column.slug === plan
+          /*
+           * `currentPlan`, never `plan` — the same rule the block above states for `currentRank`
+           * and the same one it was still breaking here. A gifted Premium over a paid Standard
+           * made the *Premium* card read "Your plan · Manage", so the one control beside it
+           * ("Change billing cycle") led to a real purchase of a plan the account had been
+           * given for nothing, while the Standard card the customer actually pays for offered
+           * to "Upgrade" them to it. It also made the notice above this grid untrue in as many
+           * words: it promises that the card marked below is the subscription underneath the
+           * gift, which only became so with this line.
+           */
+          const isCurrent = signedIn && column.slug === currentPlan
           const isDowngrade = currentRank !== null && RANK[column.slug] < currentRank
 
           return (
@@ -371,7 +381,20 @@ export function PricingPlans({
                     href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
                     className="btn btn-primary btn-sm plan-cta w-full"
                   >
-                    {isDowngrade ? `Switch to ${column.name}` : `Upgrade to ${column.name}`}
+                    {/*
+                      * "Upgrade" is a claim about where somebody already is, and during the
+                      * mandatory plan-choice gate (`pending`) it is false for every column: that
+                      * reader has never had a plan at all — the row says `free` because the
+                      * column defaults to it, which is the exact reading `noPlanYet`
+                      * (`accounts/planText.ts`) exists to refuse on the operator's side. The
+                      * first choice is a choice, so it is worded as one; "Switch" is for a
+                      * reader who has something to switch away from.
+                      */}
+                    {pending
+                      ? `Choose ${column.name}`
+                      : isDowngrade
+                        ? `Switch to ${column.name}`
+                        : `Upgrade to ${column.name}`}
                   </Link>
                 )
               )}
@@ -543,7 +566,7 @@ export function PricingPlans({
  * version of the same fact, not a new rule.
  */
 export function LifetimeCta({ href }: { href: string }) {
-  const { known, email, plan } = useRole()
+  const { known, email, plan, subscriptionPlan } = useRole()
   const signedIn = known && email !== null
 
   if (!signedIn) {
@@ -554,7 +577,14 @@ export function LifetimeCta({ href }: { href: string }) {
     )
   }
 
-  if (plan === 'lifetime') {
+  /*
+   * The subscription, exactly as every card above asks it — this panel used to ask `plan`, and
+   * so answered for a *gift* as if it were a purchase. Both directions were wrong on the same
+   * page at the same time: an account gifted Lifetime was told "Your plan" here while all four
+   * cards beside it offered to sell it an upgrade, and an account that had actually bought
+   * Lifetime is a card this panel must never offer to sell again.
+   */
+  if ((plan === null ? null : (subscriptionPlan ?? 'free')) === 'lifetime') {
     return <p className="plan-current mt-4">Your plan</p>
   }
 

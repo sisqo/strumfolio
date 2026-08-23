@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { loadCheckoutStatus, mockPurchase, type MockSubscriptionState } from '@/lib/plans/checkout'
-import { euro, LIFETIME, PRICES, yearlyTotalOfMonthly } from '@/lib/plans/prices'
+import { euro, LIFETIME, periodEnd, PRICES, yearlyTotalOfMonthly } from '@/lib/plans/prices'
 import type { BillingPeriod, CheckoutPlan, PaidPlan } from '@/lib/plans/prices'
-import { subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
+import { formatPlanDate, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { ACCEPTED_TEST_CARD, isAcceptedTestCard } from '@/lib/plans/testCard'
-import { PLAN_LABEL } from '@/lib/plans/types'
+import { PLAN_LABEL, PLAN_RANK } from '@/lib/plans/types'
+import type { Plan } from '@/lib/plans/types'
 
 /**
  * Fake, and never sent anywhere past this component: a real card was never going to reach
@@ -23,7 +24,47 @@ const FAKE_CARD = { name: '', number: ACCEPTED_TEST_CARD, expiry: '12 / 30', cvc
 type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
-  | { state: 'ready'; current: MockSubscriptionState }
+  /** `live` is `liveSubscription`'s own answer, read server-side — see `loadCheckoutStatus`. */
+  | { state: 'ready'; current: MockSubscriptionState; live: Plan | null }
+
+/**
+ * Whether pressing the button would **schedule** this change rather than apply it — the exact
+ * branch `mockPurchase` takes on the server, asked here so the screen can say so beforehand.
+ *
+ * Mirrored deliberately rather than inferred loosely: a plan ranked below the live one is a
+ * downgrade and waits for the period end, *unless* there is no `planExpiresAt` for it to wait
+ * for, in which case the server applies it at once (see `nothingPaidThrough` there). Getting
+ * this wrong in either direction is worse than not saying anything — it would promise a charge
+ * that never happens, or promise a wait that never happens.
+ */
+function willSchedule(plan: CheckoutPlan, current: MockSubscriptionState, live: Plan | null): boolean {
+  return live !== null && current.expiresAt !== null && PLAN_RANK[plan] < PLAN_RANK[live]
+}
+
+/**
+ * The renewal date this purchase would write, when it lands **earlier** than the one already
+ * paid for — otherwise null, and nothing is said.
+ *
+ * The trap this exists for is the one control that looks harmless: "Change billing cycle" on
+ * `/pricing`. An account ten months into a yearly plan that re-buys it monthly is applied
+ * immediately, like every equal-or-higher-ranked purchase, and `planExpiresAt` becomes one
+ * month from today — ten months of paid time gone, with nothing on the screen having hinted at
+ * it. Same arithmetic for an upgrade bought monthly over a long yearly period. The date is
+ * computed with `periodEnd`, the same function the server writes with, so the sentence names
+ * the day the row will actually hold.
+ */
+function earlierRenewal(
+  plan: CheckoutPlan,
+  cycle: BillingPeriod,
+  current: MockSubscriptionState,
+  live: Plan | null,
+): Date | null {
+  if (plan === 'lifetime' || live === null || current.expiresAt === null) return null
+  if (willSchedule(plan, current, live)) return null
+
+  const next = periodEnd(cycle, new Date())
+  return next.getTime() < current.expiresAt.getTime() ? next : null
+}
 
 /**
  * The mock checkout's actual screen — see `lib/plans/checkout.ts`'s own header for what this
@@ -67,7 +108,7 @@ export function CheckoutScreen({
         })
         return
       }
-      setStatus({ state: 'ready', current: result.current })
+      setStatus({ state: 'ready', current: result.current, live: result.live })
     })
   }
 
@@ -75,11 +116,23 @@ export function CheckoutScreen({
     refresh()
   }, [])
 
+  /*
+   * The three facts every sentence below is worded from, derived once. `ready` is the narrowed
+   * status — the JSX cannot narrow a union inside a `&&`, and repeating `status.state ===
+   * 'ready' && …` at each of the four places that need it is how two of them come to disagree.
+   */
+  const ready = status.state === 'ready' ? status : null
+  const scheduling = ready !== null && willSchedule(plan, ready.current, ready.live)
+  const movedRenewal = ready === null ? null : earlierRenewal(plan, cycle, ready.current, ready.live)
+
   const buy = async () => {
     setBusy(true)
     setError(null)
     setDone(null)
-    if (!isAcceptedTestCard(card.number)) {
+    /* No card is asked for on a scheduled change, so none is checked: nothing is charged today
+       — the write only records what this account becomes at the end of the period it has
+       already paid for. */
+    if (!scheduling && !isAcceptedTestCard(card.number)) {
       setError('Card declined. Try 4111 1111 1111 1111.')
       setBusy(false)
       return
@@ -122,8 +175,13 @@ export function CheckoutScreen({
     <>
       <header className="mb-[1.125rem]">
         <h1 className="screen-title">Checkout — {PLAN_LABEL[plan]}</h1>
+        {/* Two sentences for two different acts: a payment that starts a plan, and a change
+            that costs nothing today and takes effect at the end of a period already paid for.
+            Saying "one payment sets up your plan" over the second was the whole trouble. */}
         <p className="mt-2 text-sm leading-[1.45] text-muted">
-          One payment sets up your plan. You can change it or cancel any time from Billing.
+          {scheduling
+            ? 'Nothing is charged today. This only records what this account moves to when the plan it already has runs out.'
+            : 'One payment sets up your plan. You can change it or cancel any time from Billing.'}
         </p>
       </header>
 
@@ -146,7 +204,7 @@ export function CheckoutScreen({
 
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">This account right now</h2>
-            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current)}</p>
+            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current, status.live)}</p>
             {status.current.plan !== 'free' && (
               <p className="mt-1.5 text-sm">
                 <Link href="/billing" className="text-accent hover:underline">
@@ -156,59 +214,41 @@ export function CheckoutScreen({
             )}
           </div>
 
+          {/*
+            * The two things this screen used to leave a reader to discover by pressing the
+            * button. A downgrade is not a purchase: it charges nothing now, changes nothing
+            * now, and takes effect on a date this can name — so it is said before the button,
+            * not in the confirmation after it. And an immediate purchase whose new period ends
+            * *sooner* than the one already paid for gives up the difference; that is a real
+            * decision, and «Change billing cycle» on /pricing is one tap away from it.
+            */}
+          {scheduling && status.current.expiresAt !== null && (
+            <p className="notice notice-accent mt-4" role="status">
+              {PLAN_LABEL[status.current.plan]} stays in force until {formatPlanDate(status.current.expiresAt)}. This
+              account moves to {PLAN_LABEL[plan]} on that day, and nothing is charged today.
+            </p>
+          )}
+
+          {movedRenewal !== null && status.current.expiresAt !== null && (
+            <p className="notice notice-accent mt-4" role="status">
+              This account is already paid for until {formatPlanDate(status.current.expiresAt)}. Buying now replaces
+              that period: the next renewal moves to {formatPlanDate(movedRenewal)}, and the time in between is not
+              carried over.
+            </p>
+          )}
+
           <div className="card p-4 sm:p-5 mt-4">
-            <h2 className="section-title">Pay</h2>
+            <h2 className="section-title">{scheduling ? 'What changes' : 'Pay'}</h2>
 
             {plan === 'lifetime' ? (
               <p className="mt-3 text-2xl font-medium">{euro(LIFETIME.amount)}, once</p>
             ) : (
-              <PaidCheckoutFields plan={plan} cycle={cycle} onCycle={setCycle} />
+              <PaidCheckoutFields plan={plan} cycle={cycle} onCycle={setCycle} scheduling={scheduling} />
             )}
 
-            {/*
-              * Real controlled inputs rather than static text, so the flow feels like a
-              * checkout — but only `number` is ever read, by `buy` above, and only to decide
-              * accept or decline. Name, expiry and CVC stay decorative, the same as before.
-              */}
-            <div className="mt-4 grid gap-2.5">
-              <label className="flex flex-col gap-1">
-                <span className="text-[0.84375rem] text-muted">Name on card</span>
-                <input
-                  value={card.name}
-                  onChange={(event) => setCard({ ...card, name: event.target.value })}
-                  placeholder="As printed on the card"
-                  className="form-field"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[0.84375rem] text-muted">Card number</span>
-                <input
-                  value={card.number}
-                  onChange={(event) => setCard({ ...card, number: event.target.value })}
-                  inputMode="numeric"
-                  className="form-field"
-                />
-              </label>
-              <div className="flex gap-2.5">
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-[0.84375rem] text-muted">Expiry</span>
-                  <input
-                    value={card.expiry}
-                    onChange={(event) => setCard({ ...card, expiry: event.target.value })}
-                    className="form-field"
-                  />
-                </label>
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-[0.84375rem] text-muted">CVC</span>
-                  <input
-                    value={card.cvc}
-                    onChange={(event) => setCard({ ...card, cvc: event.target.value })}
-                    inputMode="numeric"
-                    className="form-field"
-                  />
-                </label>
-              </div>
-            </div>
+            {/* Absent entirely on a scheduled change: asking for a card, and declining a wrong
+                one, for a change that takes no payment at all is theatre that misleads. */}
+            {!scheduling && <FakeCardFields card={card} onCard={setCard} />}
 
             <button
               type="button"
@@ -216,7 +256,7 @@ export function CheckoutScreen({
               disabled={busy}
               onClick={() => void buy()}
             >
-              Complete purchase
+              {scheduling ? `Move to ${PLAN_LABEL[plan]} at the end of the period` : 'Complete purchase'}
             </button>
           </div>
         </>
@@ -231,15 +271,77 @@ export function CheckoutScreen({
   )
 }
 
+/**
+ * The four card inputs — split out of the screen only so the one condition that hides them all
+ * (`scheduling`) is one line at the call site rather than a wrapper around forty.
+ *
+ * Real controlled inputs rather than static text, so the flow feels like a checkout — but only
+ * `number` is ever read, by `buy`, and only to decide accept or decline. Name, expiry and CVC
+ * stay decorative, exactly as they always have.
+ */
+function FakeCardFields({
+  card,
+  onCard,
+}: {
+  card: typeof FAKE_CARD
+  onCard: (value: typeof FAKE_CARD) => void
+}) {
+  return (
+    <div className="mt-4 grid gap-2.5">
+      <label className="flex flex-col gap-1">
+        <span className="text-[0.84375rem] text-muted">Name on card</span>
+        <input
+          value={card.name}
+          onChange={(event) => onCard({ ...card, name: event.target.value })}
+          placeholder="As printed on the card"
+          className="form-field"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-[0.84375rem] text-muted">Card number</span>
+        <input
+          value={card.number}
+          onChange={(event) => onCard({ ...card, number: event.target.value })}
+          inputMode="numeric"
+          className="form-field"
+        />
+      </label>
+      <div className="flex gap-2.5">
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-[0.84375rem] text-muted">Expiry</span>
+          <input
+            value={card.expiry}
+            onChange={(event) => onCard({ ...card, expiry: event.target.value })}
+            className="form-field"
+          />
+        </label>
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-[0.84375rem] text-muted">CVC</span>
+          <input
+            value={card.cvc}
+            onChange={(event) => onCard({ ...card, cvc: event.target.value })}
+            inputMode="numeric"
+            className="form-field"
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 /** The billing-period toggle and the price under it — split out so `plan` narrows to `PaidPlan` here, off the `plan === 'lifetime'` branch at the one call site. */
 function PaidCheckoutFields({
   plan,
   cycle,
   onCycle,
+  scheduling,
 }: {
   plan: PaidPlan
   cycle: BillingPeriod
   onCycle: (value: BillingPeriod) => void
+  /** Whether this change is scheduled rather than bought now — the price is then what this
+      account will be billed *from that date*, not an amount anybody is paying today. */
+  scheduling: boolean
 }) {
   const price = PRICES[plan][cycle]
 
@@ -262,6 +364,7 @@ function PaidCheckoutFields({
       <p className="mt-3 text-2xl font-medium">
         {euro(price.amount)} per {cycle}
       </p>
+      {scheduling && <p className="mt-1 text-sm text-muted">Billed from the day this takes effect, not today.</p>}
       {cycle === 'month' && (
         <p className="mt-1 text-sm text-muted">{yearlyTotalOfMonthly(price.amount)} over a year.</p>
       )}

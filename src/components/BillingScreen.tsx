@@ -13,15 +13,29 @@ import {
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
 import { subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
-import { PLAN_LABEL } from '@/lib/plans/types'
+import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
-  | { state: 'ready'; current: MockSubscriptionState; history: PaymentHistoryLine[] }
+  | { state: 'ready'; current: MockSubscriptionState; live: Plan | null; history: PaymentHistoryLine[] }
 
-function canCancel(current: MockSubscriptionState): boolean {
-  return current.plan !== 'free' && current.plan !== 'lifetime' && current.status !== 'expired' && current.pendingPlan === null
+/**
+ * Whether "Cancel my plan" is worth offering — `mockCancel`'s own three refusals, asked here
+ * one step earlier so the button is absent rather than present and futile.
+ *
+ * Reads `live`, never `status`, for the reason `loadCheckoutStatus` returns it at all: a plan
+ * that lapsed by date still says `active` in its column, and this screen used to hand that
+ * account a Cancel button which answered "Nothing to do here right now."
+ *
+ * `pendingPlan !== 'free'` where this used to demand `pendingPlan === null`: a cancellation
+ * already scheduled has nothing left to cancel, but a *downgrade* already scheduled does — and
+ * making that customer press "Keep Premium" first, with no word saying so, was a two-step path
+ * out of a plan dressed up as a missing button. `mockCancel` overwrites the pending downgrade
+ * with `'free'`, which is exactly what pressing Cancel means.
+ */
+function canCancel(current: MockSubscriptionState, live: Plan | null): boolean {
+  return live !== null && live !== 'free' && live !== 'lifetime' && current.pendingPlan !== 'free'
 }
 
 /**
@@ -65,6 +79,7 @@ export function BillingScreen() {
       setStatus({
         state: 'ready',
         current: checkoutResult.current,
+        live: checkoutResult.live,
         history: historyResult.ok ? historyResult.history : [],
       })
     })
@@ -74,9 +89,16 @@ export function BillingScreen() {
     refresh()
   }, [])
 
+  /*
+   * `said` is a function of the result, not a fixed string: `mockCancel` now reports whether
+   * the cancellation was scheduled for a period end or applied at once (a plan with no
+   * `planExpiresAt` has no period end to wait for), and telling somebody their plan "cancels
+   * once the period already paid for ends" when it has just ended is the kind of small lie this
+   * screen is here to avoid.
+   */
   const run = async (
-    action: () => Promise<{ ok: true } | { ok: false; reason: string }>,
-    said: string,
+    action: () => Promise<{ ok: true; effect?: 'immediate' | 'scheduled' } | { ok: false; reason: string }>,
+    said: (result: { effect?: 'immediate' | 'scheduled' }) => string,
   ) => {
     setBusy(true)
     setError(null)
@@ -87,7 +109,7 @@ export function BillingScreen() {
         setError(result.reason === 'not-applicable' ? 'Nothing to do here right now.' : "That didn't go through. Try again.")
         return
       }
-      setDone(said)
+      setDone(said(result))
       refresh()
     } catch {
       setError("That didn't go through. Try again.")
@@ -123,7 +145,7 @@ export function BillingScreen() {
 
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">This account&apos;s plan</h2>
-            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current)}</p>
+            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current, status.live)}</p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {status.current.pendingPlan !== null && (
@@ -131,7 +153,7 @@ export function BillingScreen() {
                   type="button"
                   className="btn btn-sm"
                   disabled={busy}
-                  onClick={() => void run(clearPendingChange, `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)}
+                  onClick={() => void run(clearPendingChange, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)}
                 >
                   Keep {PLAN_LABEL[status.current.plan]}
                 </button>
@@ -141,12 +163,18 @@ export function BillingScreen() {
                 Change plan
               </Link>
 
-              {canCancel(status.current) && (
+              {canCancel(status.current, status.live) && (
                 <button
                   type="button"
                   className="btn btn-quiet btn-sm"
                   disabled={busy}
-                  onClick={() => void run(mockCancel, 'Scheduled — this plan cancels once the period already paid for ends.')}
+                  onClick={() =>
+                    void run(mockCancel, (result) =>
+                      result.effect === 'immediate'
+                        ? 'Cancelled — this account is back on Free.'
+                        : 'Scheduled — this plan cancels once the period already paid for ends.',
+                    )
+                  }
                 >
                   Cancel my plan
                 </button>
@@ -158,7 +186,7 @@ export function BillingScreen() {
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">Payment history</h2>
             <div className="mt-2">
-              <PaymentHistoryTable lines={status.history} />
+              <PaymentHistoryTable lines={status.history} dates="plain" />
             </div>
           </div>
         </>
