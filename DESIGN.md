@@ -217,6 +217,19 @@ accent, exactly as before.
 ### Named Rules
 **The One Voice Rule.** Outfit, in weight 400 or 500, for everything except tablature. No second display font, no bold (600+) outside chord names and a handful of emphatic labels.
 
+**The one place this rule does not reach: the printed booklet.** `lib/booklet/document.tsx` sets
+its PDF in Standard-14 **Helvetica** and **Courier**, not Outfit and Geist Mono — a standing,
+accepted divergence rather than an oversight, and the only artifact the app ships that is not in
+its own typeface. Two reasons, both about PDFs rather than about design: `react-pdf`'s
+`Font.register` cannot read the woff2 that `next/font` self-hosts, so using Outfit means
+committing a separate `.ttf` and keeping it in step with the screen font; and every size in that
+file is tuned to Helvetica's advance widths, which the booklet's pagination *measures against*
+(`paginateSong` finds page breaks by rendering real PDFs and counting pages), so a font swap
+moves where pages break rather than only how they read. The visible cost, worth knowing before
+anybody compares a print-out with a screen: Standard-14 has only normal and bold, no 500, so a
+booklet's headings are heavier than the same headings here. The file's own header carries the
+full argument.
+
 ## 4. Elevation
 
 A hybrid system, deliberately not carried over between themes by formula. In light mode, elevation is a shadow: `--shadow-1` separates a resting card from the warm page behind it, `--shadow-2` lifts a card that leads somewhere, `--shadow-float` lifts the floating control bar over the song, and `--shadow-panel` lifts a popover above everything else. In dark mode, all four of those collapse to `none` except the two that float — a shadow is invisible against a near-black page, so separation there comes from `--edge`, a hairline border that exists only in dark. The two floating shadows (bar, panel) keep a real shadow in both themes, darkened for dark mode, because something genuinely lifted over the song has to read as lifted regardless of theme.

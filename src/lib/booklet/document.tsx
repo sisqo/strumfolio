@@ -23,15 +23,38 @@
  * (warm off-black ink, terracotta accent, a ladder of greys for rules and
  * captions) is its own, separate from the screen theme in `DESIGN.md`.
  *
- * Helvetica and Courier, not Outfit and Geist Mono: the app's own fonts are
- * `next/font/google` files this page has no path to at the moment a booklet is
- * generated, and fetching them from a CDN on demand would make "download a
- * booklet" the one feature in the app that stops working offline — the thing
- * `PRODUCT.md` names as the one mode this app treats as real, not a fallback.
- * The two PDF-standard fonts need no embedding at all, which is what keeps a
- * booklet buildable with no connection, same as everything else already saved.
- * Standard-14 Helvetica has only normal and bold, not the mockup's medium (500)
- * — every weight below is rounded to whichever of the two reads closer.
+ * Helvetica and Courier, not Outfit and Geist Mono — a standing divergence from
+ * `DESIGN.md`, decided and kept rather than unnoticed, and the reasons below are
+ * the real ones. This paragraph used to argue that embedding the app's own fonts
+ * would cost a booklet its offline build, and that argument was wrong twice
+ * over: `next/font/google` self-hosts, so there is no CDN in the picture at
+ * runtime at all, and a booklet is *already* online-only — `loadBooklet` is a
+ * server action, so with no connection the button never gets as far as this
+ * file. There was nothing offline here to protect. Anybody reweighing this
+ * choice should weigh these two things instead:
+ *
+ * **Format.** What `next/font` self-hosts is woff2, and react-pdf's
+ * `Font.register` does not read it. Using Outfit here means committing a
+ * separate `.ttf` of it to `public/` and keeping that copy in step with
+ * whatever the screen font becomes — a second source of truth for the
+ * typeface, which is the part that makes this more than a one-line change.
+ *
+ * **Metrics.** Every `fontSize` below was tuned against Helvetica's own
+ * advance widths, and the layout does not merely *look* different in another
+ * face: `paginateSong` finds each song's page breaks by rendering real PDFs
+ * and counting their pages (`countPages`), so a different typeface moves where
+ * the pages break, not just how they read. A font swap is therefore a
+ * re-typesetting pass over the whole booklet, not a substitution.
+ *
+ * What the standard fonts buy, and the one thing the old paragraph had right:
+ * Standard-14 needs no embedding at all, so nothing is downloaded, parsed or
+ * carried inside the file.
+ *
+ * The cost, stated plainly because it is visible on every page: Standard-14
+ * Helvetica has only normal and bold, not the 500 the mockup and `DESIGN.md`'s
+ * One Voice Rule both ask for, so every weight below is rounded to whichever of
+ * the two reads closer — which makes a printed booklet's headings heavier than
+ * the same headings on screen.
  *
  * Cover, index, songs — the index has to print a page number next to every
  * song, and there is no way to know those before the songs themselves are

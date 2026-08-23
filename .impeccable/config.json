@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "helvetica",
+        "reason": "PDF booklet only: react-pdf cannot read the woff2 next/font self-hosts, and booklet/document.tsx tunes every fontSize to Helvetica metrics. User confirmed 2026-08-23.",
+        "createdAt": "2026-08-23T20:04:26.434Z"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "courier",
+        "reason": "PDF booklet only: the tablature monospace, same constraint as Helvetica in booklet/document.tsx. User confirmed 2026-08-23.",
+        "createdAt": "2026-08-23T20:04:31.605Z"
+      }
+    ]
+  }
+}
