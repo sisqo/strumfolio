@@ -9,6 +9,8 @@
  * actually knows which request this is.
  */
 
+import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
+
 import { passwordResetEmail, purchaseEmail, verificationEmail, welcomeEmail } from './templates'
 import type { EmailTemplate } from './templates'
 
@@ -22,9 +24,6 @@ export const PREVIEW_LABEL: Record<PreviewKey, string> = {
   'password-reset': 'Reset password',
   purchase: 'Purchase confirmation',
 }
-
-const SAMPLE_EMAIL = 'preview@strumfolio.com'
-const SAMPLE_TOKEN = 'preview-token'
 
 /**
  * The purchase confirmation's own placeholders. A fixed date rather than one derived from
@@ -46,7 +45,9 @@ const SAMPLE_PURCHASE = {
  * A link that looks exactly like a real one — same host, same two query params
  * (`register`/`forgotPassword`'s own `actions.ts` build theirs the same way) — but whose
  * token exists nowhere: opening it lands on the same "expired or invalid link" state a
- * stale real one would, which is expected here and not a bug to fix.
+ * stale real one would, which is expected here and not a bug to fix. The one state this
+ * can never show is the *valid* one — see `/verify` and `/reset-password`'s own
+ * `?preview=1` (`/pages`) for that.
  */
 function sampleUrl(origin: string, path: '/verify' | '/reset-password'): string {
   const url = new URL(path, origin)
