@@ -130,7 +130,7 @@ export default function HelpPage() {
             From <strong>Export</strong> in the menu: <strong>Backup</strong> downloads your entire
             repertoire as a zip, a safety copy that&apos;s yours to keep. <strong>Organized
             export</strong> downloads the same songs sorted into folders by songbook and section,
-            meant for reading or printing outside the app rather than bringing back in.
+            meant for reading outside the app rather than bringing back in.
           </p>
 
           <h2 id="offline">7. Offline and on your phone</h2>

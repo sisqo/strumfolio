@@ -16,6 +16,7 @@ import {
   IconInfo,
   IconMenu,
   IconNote,
+  IconPrint,
   IconTuningFork,
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
@@ -68,9 +69,10 @@ const AUDIENCE_MS = 10_000
  * **Nothing in this panel depends on who is asking any more.** Accounts and Emails were the
  * last two entries that did, offered only to a global owner, and they have moved out to
  * `AdminMenu` — a third opener in the header that is either there or not, which is a plainer
- * thing than a panel with holes in it for one reader. `mayEdit` still gates Export, and that
- * is not the same kind of test: with a single grantable role (v3.1) every signed-in reader is
- * admin on their own account, so it is false only before the answer arrives.
+ * thing than a panel with holes in it for one reader. `mayEdit` still gates the booklet and
+ * Export, and that is not the same kind of test: with a single grantable role (v3.1) every
+ * signed-in reader is admin on their own account, so it is false only before the answer
+ * arrives.
  *
  * Sing Together is a second screen inside this same panel rather than a page of its
  * own: it is reached mid-song, and a real navigation would cost the reader the page
@@ -573,15 +575,29 @@ export function NavMenu({ current }: { current: Section }) {
                 </button>
 
                 {/*
-                  * Hidden until a role arrives that can actually use it: the actions
-                  * behind this page already refuse anyone without edit rights, so there
-                  * is nothing for a viewer to do here.
+                  * Both hidden until a role arrives that can actually use them: the actions
+                  * behind these two pages already refuse anyone without edit rights, so there
+                  * is nothing for a viewer to do on either.
+                  *
+                  * The booklet first, and not only because it was asked for that way: it is the
+                  * one of the two a musician opens for its own sake — a thing to print and hand
+                  * round before a rehearsal — while an export is housekeeping. It used to be the
+                  * third card *inside* `/export`, which put a paid, one-songbook PDF behind a
+                  * heading about backing up an account; the menu is where that mismatch was
+                  * costing it the most, since nothing in the word "Export" suggests it.
                   */}
                 {mayEdit && (
-                  <Link href="/export" className={item('export')} role="menuitem" onClick={close}>
-                    <IconDownload size={17} />
-                    Export
-                  </Link>
+                  <>
+                    <Link href="/booklet" className={item('booklet')} role="menuitem" onClick={close}>
+                      <IconPrint size={17} />
+                      Printable booklet
+                    </Link>
+
+                    <Link href="/export" className={item('export')} role="menuitem" onClick={close}>
+                      <IconDownload size={17} />
+                      Export
+                    </Link>
+                  </>
                 )}
 
                 <div className="menu-divider" />

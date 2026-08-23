@@ -12,6 +12,9 @@ import { APP_NAME } from '@/lib/brand'
 export type Section =
   | 'songs'
   | 'songbooks'
+  /* Before `export`, matching the order the menu draws the two in — they are neighbours there
+     and the booklet is the one people reach for, so it goes first in both places. */
+  | 'booklet'
   | 'export'
   | 'password'
   | 'accounts'
