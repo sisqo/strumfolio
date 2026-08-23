@@ -123,3 +123,29 @@ export function lastPaymentLine(
     ? `${euro(paid.amount)} paid once, on ${when}.`
     : `${euro(paid.amount)} paid on ${when}, for ${paid.cycle === 'year' ? 'a year' : 'a month'}.`
 }
+
+/**
+ * The question «Cancel my plan» asks before it does anything (`/billing`).
+ *
+ * Here, and tested, for one reason: **`grace` must not be given a date**, and this sentence was
+ * written wanting one. It is the same rule `subscriptionStatusLine` above states and checks
+ * ahead of every date branch — a failing card's `planExpiresAt` is virtually always already in
+ * the past, because `grace` is defined to ignore dates precisely so a retry is not read as a
+ * lapse. A confirmation reading «at the end of the period already paid for, on 3 May 2026» to
+ * somebody whose card is retrying would be the v3.12 bug over again, in new copy.
+ *
+ * Grace is the *only* status that can arrive here with a date behind it, which is worth stating
+ * so the guard does not look over-careful: `canCancel` (`BillingScreen`) offers this button only
+ * while `liveSubscription` is non-null, and that function collapses to `null` on any row whose
+ * date has gone by — every one except `grace`, which it keeps alive on purpose.
+ *
+ * The bare form is also what an `expiresAt` of `null` gets: there is no period to name, and
+ * `mockCancel` drops that row on the spot rather than scheduling anything.
+ */
+export function cancelQuestion(current: MockSubscriptionState): string {
+  const label = PLAN_LABEL[current.plan]
+
+  if (current.status === 'grace' || current.expiresAt === null) return `Cancel ${label}?`
+
+  return `Cancel ${label} at the end of the period already paid for, on ${formatPlanDate(current.expiresAt)}?`
+}

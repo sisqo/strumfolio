@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
 import type { ComparisonRow, PlanColumn, Viewer } from '@/components/PricingPlans'
+import { isOwner } from '@/lib/allowlist'
 import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
@@ -572,7 +573,16 @@ export default async function PricingPage() {
   const identity = await loadIdentity()
   const viewer: Viewer = {
     email: identity?.email ?? null,
-    planChosen: identity?.planChosen ?? true,
+    /*
+     * The gate's own question, asked the same way `requirePlanChoice` asks it — `isOwner` and
+     * then the stored fact. `loadIdentity().planChosen` is only the second half: it comes from
+     * `hasChosenPlan`, which has no notion of the exemption a global owner gets, so an owner
+     * whose row has never been stamped comes back "has not chosen" while nothing anywhere is
+     * stopping them. Read raw, this page told its own author «One step left» in front of a
+     * gate they walk straight through.
+     */
+    mustChoosePlan:
+      identity !== null && !isOwner(identity.email, process.env.ALLOWED_EMAILS) && !identity.planChosen,
     plan: identity?.plan ?? null,
     subscriptionPlan: identity?.subscriptionPlan ?? null,
   }

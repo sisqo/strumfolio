@@ -1,4 +1,5 @@
 import { PublicHeader } from '@/components/PublicHeader'
+import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import { hasChosenPlan } from '@/lib/plans/resolve'
 
@@ -21,28 +22,43 @@ import { hasChosenPlan } from '@/lib/plans/resolve'
  * - **Nobody signed in** — «Sign in», unchanged, and the majority case.
  * - **Signed in, plan chosen** — «My songbooks», the thing they actually came from and the
  *   only place this bar can usefully send them.
- * - **Signed in, no plan chosen yet** — nothing at all. This is the reader
- *   `requirePlanChoice` redirected *here*, and every destination is a bounce: `/` sends them
- *   straight back. A button that returns you to the page you are on is worse than no button,
- *   and the notice the page itself now shows is what explains the situation instead.
+ * - **Signed in and actually gated** — nothing at all. This is the reader `requirePlanChoice`
+ *   redirected *here*, and every destination is a bounce: `/` sends them straight back. A
+ *   button that returns you to the page you are on is worse than no button, and the notice the
+ *   page itself now shows is what explains the situation instead. "Actually gated" and not
+ *   "has not chosen": see `gated` below.
  *
  * `currentUser()` costs no query (v3.1 — it resolves a role from the cookie and the
  * environment alone), so the price of all this is the single `hasChosenPlan` read, and only
- * for a reader who turns out to be signed in. The page beside it makes its own, fuller
+ * for a signed-in reader who is not a global owner. The page beside it makes its own, fuller
  * identity read for the cards; the two are deliberately not shared, because plumbing one
  * through would mean either a context or a cache wrapper for a value this bar needs one
  * boolean of.
  */
 export default async function PricingLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser()
-  const chosen = user === null ? false : await hasChosenPlan(user.accountOwnerEmail)
+
+  /*
+   * The gate's own question, not the stored fact — the same distinction `Viewer.mustChoosePlan`
+   * documents on the page beside this. `requirePlanChoice` lets a global owner through without
+   * consulting `hasChosenPlan` at all, so asking that function alone would put an owner whose
+   * row has never been stamped in the third case below and leave them with no button of any
+   * kind: a regression from the wrong-but-clickable «Sign in» this replaced, and on the one
+   * account whoever changes this file is signed into.
+   *
+   * `isOwner` short-circuits, so an owner costs no query here either.
+   */
+  const gated =
+    user !== null &&
+    !isOwner(user.email, process.env.ALLOWED_EMAILS) &&
+    !(await hasChosenPlan(user.accountOwnerEmail))
 
   const cta =
     user === null
       ? { href: '/login', label: 'Sign in' }
-      : chosen
-        ? { href: '/', label: 'My songbooks' }
-        : undefined
+      : gated
+        ? undefined
+        : { href: '/', label: 'My songbooks' }
 
   return (
     <>

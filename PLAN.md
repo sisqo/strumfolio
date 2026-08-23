@@ -1125,6 +1125,15 @@ esce tutto da lì, e riguarda l'unica pagina che serve due pubblici insieme.
    diceva *perché* si era lì: l'unico segnale era l'etichetta dei bottoni, e il marchio in alto
    puntava a `/`, che il gate rimandava indietro.
 
+   Una precisazione che vale per entrambe le metà: la domanda da porre è **quella del gate**, non
+   il dato grezzo. `requirePlanChoice` esenta un proprietario globale prima di consultare
+   `hasChosenPlan`, e quella funzione non sa nulla dell'esenzione — quindi un owner con la riga
+   mai timbrata legge «non ha scelto» mentre nulla lo sta fermando. Letto grezzo, l'avviso
+   diceva «One step left» a chi attraversa il gate senza accorgersene, e l'header non gli dava
+   nessun bottone: una regressione rispetto allo «Sign in» sbagliato-ma-cliccabile, e proprio
+   sull'account da cui si guarda il lavoro. Ora sia `Viewer.mustChoosePlan` sia il `gated` del
+   layout chiedono `isOwner` e poi il dato.
+
    La correzione costa alla pagina il rendering statico, che era una scelta dichiarata nei suoi
    commenti: ora legge `loadIdentity()` e passa un `Viewer` alle card invece di lasciarle
    chiedere a `useRole()`, che prima dell'idratazione non può che rispondere male. Un
@@ -1158,7 +1167,14 @@ esce tutto da lì, e riguarda l'unica pagina che serve due pubblici insieme.
    Free») che non contiene la parola. In entrambi ora c'è il passo che questo codice già usa
    per un atto distruttivo (la cancellazione in `SongForm`): una domanda che nomina il piano —
    e su `/billing` anche il giorno in cui si fermerebbe — poi `btn-danger` accanto a una via
-   d'uscita.
+   d'uscita. La domanda su `/billing` è `cancelQuestion` in `subscriptionCopy.ts`, non una
+   frase in linea, perché ha una regola dentro: **`grace` non prende mai una data.** È la stessa
+   che `subscriptionStatusLine` controlla prima di ogni ramo di data — la scadenza di una carta
+   in ritentativo è quasi sempre già passata — e scritta a mano la conferma chiedeva a chi ha la
+   carta che fallisce di confermare una disdetta «on 3 May 2026», cioè la v3.12 di nuovo, in
+   copy nuova. `grace` è anche l'unico stato che può arrivare lì con una data dietro: `canCancel`
+   offre il pulsante solo con `liveSubscription` non-null, e quella collassa a `null` su ogni
+   riga con la data passata tranne `grace`.
 5. **Un successo non veniva annunciato, un errore sì.** Su `/billing` e `/checkout` gli errori
    hanno `role="alert"` e le conferme non avevano nulla, mentre un cambio programmato non
    cambia schermata: quella riga *è* tutto ciò che si riceve. Ora `role="status"`.
@@ -1479,6 +1495,8 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Ciclo e importo su `/billing` | Derivati dal ledger, nessuna colonna nuova | La riga `purchase` porta già il ciclo, ed è la stessa che la tabella stampa poco sotto: non possono divergere, mentre una colonna aggiornata da una scrittura e non dall'altra sì |
 | Frase su cosa succede dopo | Nessuna, né «si rinnova» né «non si rinnova» | Niente qui rinnova nulla, quindi «renews» promette un addebito che non arriva; «non si rinnova mai» sarebbe un'affermazione sul futuro che Paddle smentirebbe. «active until ‹data›» resta nuda di proposito |
 | Conferma sulla disdetta | Due passi in linea, come la cancellazione in `SongForm` | Già il modo di questo codice per un atto distruttivo; un modale nuovo per la stessa domanda sarebbe un secondo modo di chiederla |
+| Dove vive la frase della conferma | `cancelQuestion` in `subscriptionCopy.ts`, con test | Ha una regola dentro — `grace` senza data — e una regola va dove un test la tiene; scritta in linea chiedeva a una carta in ritentativo di confermare una disdetta su un giorno già passato |
+| Chi decide se il gate ferma davvero | `isOwner` **e poi** il dato, su entrambe le metà | `requirePlanChoice` esenta un proprietario globale prima di consultare `hasChosenPlan`: il dato grezzo diceva «One step left» a chi non è fermato da nulla, e gli toglieva ogni bottone dall'header |
 | Scelta di Free dal gate | Passa da `/thanks` | Il ramo Free di quella schermata era scritto per questo momento e non lo raggiungeva nessuno; era anche l'unico atto dell'app che si confermava atterrando altrove |
 | `role="dialog"` nel modale | Sulla card, non sull'overlay | L'overlay contiene anche il backdrop: dichiarare modale un elemento che ha dentro un `aria-hidden` |
 | Fuoco iniziale nel modale | Sulla card, non sul primo bottone | Il primo è «Close», l'ultima cosa che vuole chi ha appena incontrato un limite; sulla card viene letto il titolo |

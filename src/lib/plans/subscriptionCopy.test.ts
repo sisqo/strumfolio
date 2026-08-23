@@ -5,7 +5,7 @@ import type { MockSubscriptionState } from './checkout'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
 import type { PaymentHistoryLine } from './history'
-import { formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
+import { cancelQuestion, formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
 
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -216,6 +216,38 @@ describe('what was last paid', () => {
     assert.equal(
       lastPaymentLine(state(), [paidRow({ action: 'scheduled_change', amount: null })]),
       null,
+    )
+  })
+})
+
+describe('the cancellation question', () => {
+  it('names the plan and the day the period ends', () => {
+    assert.equal(
+      cancelQuestion(state()),
+      `Cancel Standard at the end of the period already paid for, on ${formatPlanDate(FUTURE)}?`,
+    )
+  })
+
+  /*
+   * The one this function exists for. `canCancel` offers the button during `grace`, and a
+   * grace row's date is virtually always already past — so the sentence that wanted a date
+   * would have asked a customer whose card is retrying to confirm a cancellation "on" a day
+   * that had gone by, which is the v3.12 mistake in new copy.
+   */
+  it('gives grace no date at all, even with one on the row', () => {
+    assert.equal(cancelQuestion(state({ status: 'grace', expiresAt: PAST })), 'Cancel Standard?')
+    assert.equal(cancelQuestion(state({ status: 'grace', expiresAt: FUTURE })), 'Cancel Standard?')
+  })
+
+  /* No date to name, and nothing to wait for: `mockCancel` drops such a row immediately. */
+  it('asks plainly when there is no period to name', () => {
+    assert.equal(cancelQuestion(state({ expiresAt: null })), 'Cancel Standard?')
+  })
+
+  it('names whichever plan is running', () => {
+    assert.equal(
+      cancelQuestion(state({ plan: 'premium' })),
+      `Cancel Premium at the end of the period already paid for, on ${formatPlanDate(FUTURE)}?`,
     )
   })
 })

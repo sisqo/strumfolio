@@ -12,7 +12,7 @@ import {
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
-import { formatPlanDate, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
+import { cancelQuestion, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 type Status =
@@ -211,12 +211,10 @@ export function BillingScreen() {
               {canCancel(status.current, status.live) &&
                 (confirmingCancel ? (
                   <>
-                    <span className="self-center text-sm text-muted">
-                      Cancel {PLAN_LABEL[status.current.plan]}
-                      {status.current.expiresAt === null
-                        ? '?'
-                        : ` at the end of the period already paid for, on ${formatPlanDate(status.current.expiresAt)}?`}
-                    </span>
+                    {/* `cancelQuestion`, not written inline: the sentence has a rule in it — a
+                        `grace` row never gets a date — and a rule belongs somewhere a test can
+                        hold it. See its own comment. */}
+                    <span className="self-center text-sm text-muted">{cancelQuestion(status.current)}</span>
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"

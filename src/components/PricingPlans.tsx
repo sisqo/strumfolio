@@ -132,8 +132,16 @@ const PERIODS: { value: BillingPeriod; label: string }[] = [
 export interface Viewer {
   /** The reader's address, or `null` when nobody is signed in. */
   email: string | null
-  /** False only for an account that has never completed the v3.7 plan-choice step. */
-  planChosen: boolean
+  /**
+   * Whether the v3.7 plan-choice gate would actually stop this reader — **not** the raw
+   * `planChosenAt` fact, and the difference is a real one rather than a rename.
+   * `requirePlanChoice` exempts a global owner outright (`isOwner`, `lib/plans/gate.ts`) while
+   * `hasChosenPlan` knows nothing about that exemption, so an owner whose row has never been
+   * stamped reads as "has not chosen" and is gated by nothing. Told from the raw fact, this
+   * page said «One step left» to somebody nothing was stopping. The page asks the gate's own
+   * question instead — see its `viewer` construction.
+   */
+  mustChoosePlan: boolean
   /** The plan in force, gift included — `null` when there is nobody, or nothing enforced. */
   plan: Plan | null
   /** The subscription underneath any gift: what every rank question here is asked of. */
@@ -210,12 +218,12 @@ export function PricingPlans({
    * read by the one person this page must not mislead.
    */
   const router = useRouter()
-  const { email, planChosen, plan, subscriptionPlan } = viewer
+  const { email, mustChoosePlan, plan, subscriptionPlan } = viewer
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
   const [confirmingFree, setConfirmingFree] = useState(false)
   const signedIn = email !== null
-  const pending = signedIn && !planChosen
+  const pending = signedIn && mustChoosePlan
   /*
    * Every rank question on this page is asked of the **subscription**, never of `plan`'s
    * blend of subscription-and-gift — the invariant `mockPurchase` states for its own
