@@ -607,7 +607,10 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
       </section>
 
-      <section className="landing-width mt-11 lg:mt-16">
+      {/* More top margin than every other section on this page: the solid fill of the
+          Sing Together band above it is a hard edge to sit close to, where the sections
+          on either side of it only have to separate from the plain page. */}
+      <section className="landing-width mt-14 lg:mt-20">
         <div className="text-center">
           <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
           <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
