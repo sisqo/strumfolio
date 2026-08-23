@@ -7,6 +7,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
+import { SampleSongbookModal } from '@/components/SampleSongbookModal'
 import { SongRow } from '@/components/SongRow'
 import {
   IconBooks,
@@ -89,6 +90,8 @@ export function HomeScreen({
    * below, so a fifth `LimitReason` lands here automatically rather than in the notice.
    */
   const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+  /** Slug of the songbook `addSample` (below) just created, while its confirmation modal is open. */
+  const [sampleAdded, setSampleAdded] = useState<string | null>(null)
 
   /*
    * Clearing "Recently played" keeps its own pair rather than borrowing the `busy`/`error`
@@ -194,10 +197,16 @@ export function HomeScreen({
   /**
    * The empty-state "Add example songbook" button: not routed through `run` above,
    * because that helper reports only whether the write succeeded, and this one needs
-   * the new songbook's own slug to go straight there. On success it also re-reads the
-   * live song index — the same fix `SongbookSongs.tsx`'s `refreshRows` applies after a
-   * paste-import — since eight new songs otherwise have no way to patch themselves
-   * into `songs` without a reload.
+   * the new songbook's own slug to name in `SampleSongbookModal`. On success it also
+   * re-reads the live song index — the same fix `SongbookSongs.tsx`'s `refreshRows`
+   * applies after a paste-import — since eight new songs otherwise have no way to
+   * patch themselves into `songs` without a reload.
+   *
+   * Stays on this screen rather than navigating to the new songbook: the list is what
+   * the reader had open, and a redirect away from it the moment it stops being empty
+   * would take over the one screen they were looking at with no way back to it short
+   * of a second navigation. `sampleAdded` opens the modal instead, which leaves that
+   * choice — open it now, or later from the list — to them.
    */
   const addSample = async () => {
     setBusy(true)
@@ -209,9 +218,9 @@ export function HomeScreen({
           const live = await loadSongIndex()
           if (live !== null) setSongs(mergeIndex(baked, live))
         } catch {
-          // Offline or signed out: the new songbook still opens with what it was created with.
+          // Offline or signed out: the new songbook still shows what it was created with.
         }
-        router.push(`/songbooks/${result.slug}`)
+        setSampleAdded(result.slug)
         return
       }
       if (Object.hasOwn(LIMIT_MESSAGE, result.reason)) {
@@ -932,6 +941,10 @@ export function HomeScreen({
 
       {planNotice !== null && (
         <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />
+      )}
+
+      {sampleAdded !== null && (
+        <SampleSongbookModal slug={sampleAdded} onClose={() => setSampleAdded(null)} />
       )}
     </div>
   )

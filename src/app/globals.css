@@ -588,7 +588,10 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---- The plan-upgrade dialog ----------------------------------------- */
+  /* ---- The modal dialog shell ------------------------------------------
+     Built for the plan-upgrade dialog (`PlanUpgradeModal`, v3.13) and reused as-is by
+     `SampleSongbookModal` (v3.14) — one look for every "a card over a dimmed backdrop"
+     dialog in the app, not a style that happens to be named after its first caller. */
 
   /* Same z-index as `.chord-overlay`: the two never show at once, and each is
      meant to sit over everything on the screen it appears on. */
