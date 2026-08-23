@@ -14,6 +14,7 @@ import {
 import { useOnline } from '@/lib/useOnline'
 
 import {
+  addSampleSongbook,
   arrangeSongbooks,
   createSongbook,
   loadSongbooks,
@@ -48,6 +49,8 @@ interface SongbookContextValue extends SongbookState {
   refresh: () => Promise<void>
 
   create: (name: string) => Promise<CreateResult>
+  /** Adds the one-click "Example songbook" — offered only while the account has none. */
+  addSample: () => Promise<CreateResult>
   rename: (slug: string, name: string) => Promise<WriteResult>
   remove: (slug: string, moveTo: string | null) => Promise<WriteResult>
   /** Deletes a songbook and everything in it — its sections and their songs, no move. */
@@ -149,6 +152,7 @@ export function SongbookProvider({
       online,
       refresh,
       create: async (name) => afterWrite(await createSongbook(name)),
+      addSample: async () => afterWrite(await addSampleSongbook()),
       rename: async (slug, name) => afterWrite(await renameSongbook(slug, name)),
       remove: async (slug, moveTo) => afterWrite(await removeSongbook(slug, moveTo)),
       purge: async (slug) => afterWrite(await purgeSongbook(slug)),

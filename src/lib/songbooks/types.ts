@@ -31,6 +31,8 @@ export type WriteFailure =
   | 'no-database'
   /** The songbook still holds songs and no destination was given for them. */
   | 'not-empty'
+  /** Adding the example songbook: this account already has at least one songbook. */
+  | 'account-not-empty'
   | 'not-found'
   | 'invalid-name'
   /** A section of this songbook already carries that name. */
@@ -104,6 +106,7 @@ export const WRITE_MESSAGE: Record<WriteFailure, string> = {
   'not-allowed': 'Your role does not allow editing the repertoire.',
   'no-database': 'No database configured: changes cannot be saved.',
   'not-empty': 'Still contains songs.',
+  'account-not-empty': 'The example songbook is only offered to an account with no songbook yet.',
   'not-found': 'This songbook no longer exists.',
   'invalid-name': 'A name is required.',
   'duplicate-name': 'A section with this name already exists in this songbook.',

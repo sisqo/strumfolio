@@ -160,7 +160,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to create my songs from scratch, or can I import what I already have?',
-        a: "No catalog to start from — Strumfolio isn't a library you browse. You bring your own songs: import what you already have, and your collection is ready to go from day one.",
+        a: "Strumfolio isn't a library you browse — there's no catalog to search. You bring your own songs, imported from what you already have. A brand new account can also start from one optional example songbook of public-domain songs, added with a single click, if you'd rather begin from something than a blank page.",
       },
       {
         q: 'What file formats can I import and export?',
@@ -294,7 +294,7 @@ const FEATURES: Feature[] = [
   {
     icon: <IconImport size={20} />,
     title: 'Bring your own songs',
-    text: "No catalog, no starter library. Import what you already have, edit it your way, export it whenever you like — your repertoire stays yours.",
+    text: "No catalog to browse. Import what you already have, or start from one optional example songbook of public-domain songs — either way, edit it your way, export it whenever you like.",
   },
   {
     icon: <IconOnStage size={20} />,

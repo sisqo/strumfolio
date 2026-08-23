@@ -35,6 +35,7 @@ import { uniqueSlug } from '@/lib/slug'
 
 import { editableSongbook } from './access'
 import { sameMembers } from './order'
+import { SAMPLE_SONGBOOK_NAME, sampleSongs } from './sample'
 import type { SongbookState, CreateResult, WriteResult } from './types'
 
 /**
@@ -146,6 +147,105 @@ export async function createSongbook(name: string): Promise<CreateResult> {
     })
   } catch (error) {
     console.error('createSongbook failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Adds the one-click "Example songbook" — a fixed set of public-domain songs
+ * (`sample.ts`) — to the reader's own, currently empty account.
+ *
+ * Offered only while the account holds no songbook at all, checked here rather
+ * than trusted from the button being shown: with zero songbooks there are zero
+ * songs (`songs.songbook_slug` is a `not null` foreign key onto `songbooks`, so a
+ * song cannot exist without one), which is what lets the trim below use the
+ * plan's song cap directly as "how many of these still fit" — no separate
+ * capacity query, no concept `entitlementsOf` does not already have. That
+ * precondition is exactly what a real account can lose between the button
+ * rendering and this running (a second tab, a double click), so it is re-checked
+ * here rather than only in the UI.
+ *
+ * Deliberately does **not** follow `copySongbook`'s "check for one more, accept
+ * the overshoot" shape below: that gap is about copying a source songbook of
+ * unknown size chosen by an admin, where "how many more fit" cannot be answered
+ * in general. Here the source is a fixed asset this file controls — eight songs
+ * — so trimming it to the real remaining capacity costs nothing and honours the
+ * plan exactly, rather than freezing a brand new account on its very first
+ * action.
+ */
+export async function addSampleSongbook(): Promise<CreateResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+  const editor = await asEditor()
+  if (!editor.ok) return { ok: false, reason: editor.reason }
+
+  const already = await db()
+    .select({ slug: songbooks.slug })
+    .from(songbooks)
+    .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
+    .limit(1)
+  if (already.length > 0) return { ok: false, reason: 'account-not-empty' }
+
+  const refused = editor.entitlements.refused.createSongbook ?? editor.entitlements.refused.createSong
+  if (refused !== null) {
+    return { ok: false, reason: refused, limit: limitFacts(editor.entitlements.limits, refused) }
+  }
+
+  const cap = editor.entitlements.limits.songs
+  const selected = sampleSongs().slice(0, cap ?? undefined)
+
+  try {
+    return await db().transaction(async (tx) => {
+      const takenSongbookSlugs = (await tx.select({ slug: songbooks.slug }).from(songbooks)).map(
+        (row) => row.slug,
+      )
+      const slug = uniqueSlug(SAMPLE_SONGBOOK_NAME, takenSongbookSlugs)
+
+      await tx.insert(songbooks).values({
+        slug,
+        name: SAMPLE_SONGBOOK_NAME,
+        accountOwnerEmail: editor.accountOwnerEmail,
+        // The emptiness check above makes this the account's first songbook.
+        position: 1,
+      })
+
+      const sectionIdByName = new Map<string, number>()
+      const takenSongSlugs = new Set(
+        (await tx.select({ slug: songs.slug }).from(songs)).map((row) => row.slug),
+      )
+
+      for (const song of selected) {
+        const sectionName = song.sectionName ?? DEFAULT_SECTION
+        let sectionId = sectionIdByName.get(sectionName)
+        if (sectionId === undefined) {
+          const [inserted] = await tx
+            .insert(sections)
+            .values({ songbookSlug: slug, name: sectionName, position: sectionIdByName.size + 1 })
+            .returning({ id: sections.id })
+          sectionId = inserted.id
+          sectionIdByName.set(sectionName, sectionId)
+        }
+
+        const songSlug = uniqueSlug(song.title, takenSongSlugs)
+        takenSongSlugs.add(songSlug)
+
+        await tx.insert(songs).values({
+          slug: songSlug,
+          title: song.title,
+          artist: song.artist,
+          tags: song.tags,
+          body: song.body,
+          songbookSlug: slug,
+          sectionId,
+          // Unplaced, like any freshly imported song: it sorts alphabetically
+          // among its section-mates rather than claiming an order nobody chose.
+          position: null,
+        })
+      }
+
+      return { ok: true, slug } as CreateResult
+    })
+  } catch (error) {
+    console.error('addSampleSongbook failed', error)
     return { ok: false, reason: 'failed' }
   }
 }
@@ -521,8 +621,11 @@ export async function purgeSongbook(slug: string): Promise<WriteResult> {
  * the copy mints its own: `uniqueSlug` at both levels, and an old-section-id →
  * new-section-id map, since a section's id is a surrogate a copy cannot reuse. This is the
  * clone `provisionAccount` used to do for every new account's Example songbook, and since
- * that is gone (v3.3, accounts start empty) it is the only copy of a songbook left in the
- * app — which is what the `isExampleTemplate` row is now kept for.
+ * that is gone (v3.3, accounts start empty) this is the only way one *arbitrary* songbook
+ * ever becomes a second one elsewhere — which is what the `isExampleTemplate` row is now
+ * kept for. `addSampleSongbook`, below the plain `createSongbook` above, is a narrower
+ * cousin of this same idea: it always copies the same fixed, small set of songs (never an
+ * admin's choice of source), so it can be self-service rather than an `isOwner` power.
  *
  * Gated by the **destination's** plan, not the caller's, like every other write into an
  * account: a global owner gets the plan of the account they are operating in, because the

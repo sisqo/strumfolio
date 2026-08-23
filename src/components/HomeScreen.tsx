@@ -23,6 +23,8 @@ import {
 } from '@/components/icons'
 import { type AccountSummary, listAllAccounts } from '@/lib/accounts/read'
 import type { RecentSong } from '@/lib/data/db'
+import { loadSongIndex } from '@/lib/library/actions'
+import { mergeIndex } from '@/lib/library/overlay'
 import { useLiveIndex } from '@/lib/library/useLiveSongs'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 import { clearRecentlyOpened } from '@/lib/prefs/actions'
@@ -65,7 +67,7 @@ export function HomeScreen({
   const { songbooks, sections, assignments, nameOf, online } = state
   const { mayEdit, isGlobalOwner } = useRole()
 
-  const [songs] = useLiveIndex(baked)
+  const [songs, setSongs] = useLiveIndex(baked)
   const [query, setQuery] = useState('')
   const deferred = useDeferredValue(query)
   const [mode, setMode] = useState<'list' | 'organizing'>('list')
@@ -184,6 +186,41 @@ export function HomeScreen({
     } catch {
       setError(writeMessage({ reason: 'failed' }))
       return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * The empty-state "Add example songbook" button: not routed through `run` above,
+   * because that helper reports only whether the write succeeded, and this one needs
+   * the new songbook's own slug to go straight there. On success it also re-reads the
+   * live song index — the same fix `SongbookSongs.tsx`'s `refreshRows` applies after a
+   * paste-import — since eight new songs otherwise have no way to patch themselves
+   * into `songs` without a reload.
+   */
+  const addSample = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await state.addSample()
+      if (result.ok) {
+        try {
+          const live = await loadSongIndex()
+          if (live !== null) setSongs(mergeIndex(baked, live))
+        } catch {
+          // Offline or signed out: the new songbook still opens with what it was created with.
+        }
+        router.push(`/songbooks/${result.slug}`)
+        return
+      }
+      if (Object.hasOwn(LIMIT_MESSAGE, result.reason)) {
+        setPlanNotice({ reason: result.reason as LimitReason, limit: result.limit })
+      } else {
+        setError(writeMessage(result))
+      }
+    } catch {
+      setError(writeMessage({ reason: 'failed' }))
     } finally {
       setBusy(false)
     }
@@ -444,12 +481,29 @@ export function HomeScreen({
               * draw would send them hunting for something that is not there — and the
               * action behind it would refuse them anyway. The editor's copy used to point
               * at a menu; now "New songbook" is in the header just above.
+              *
+              * The second option below is offered on exactly this condition — zero
+              * songbooks — rather than on any notion of a "new" account: it is the same
+              * offer, unlocked again, for an account that empties itself out later.
               */
-            <p className="mt-8 text-center text-sm text-muted">
-              {mayEdit
-                ? 'No songbook yet. Create one with "New songbook" above.'
-                : 'No songbook yet. When one arrives, it will appear here.'}
-            </p>
+            <div className="mt-8 text-center">
+              <p className="text-sm text-muted">
+                {mayEdit
+                  ? 'No songbook yet. Create one with "New songbook" above, or start from an example.'
+                  : 'No songbook yet. When one arrives, it will appear here.'}
+              </p>
+              {mayEdit && (
+                <button
+                  type="button"
+                  className="btn btn-sm mt-3"
+                  disabled={busy || !online}
+                  onClick={addSample}
+                >
+                  <IconBooks size={16} />
+                  Add example songbook
+                </button>
+              )}
+            </div>
           ) : (
             <ul className="row-list card mt-4">
               {groups.map((group) => {

@@ -9,7 +9,7 @@ export default function ContentCopyrightNoticePage() {
   return (
     <>
       <h1>Content &amp; Copyright Notice</h1>
-      <p className="legal-updated">Last updated: 22 August 2026</p>
+      <p className="legal-updated">Last updated: 23 August 2026</p>
 
       <p>
         Strumfolio (strumfolio.com) is a tool for managing your own personal song collection, run by an
@@ -20,14 +20,24 @@ export default function ContentCopyrightNoticePage() {
 
       <h2>1. No built-in song library</h2>
       <p>
-        <strong>Strumfolio does not contain any song lyrics or chord charts of its own.</strong> There
-        is no catalog, library, or pre-loaded content of any kind — the Service ships empty. Every
-        song that appears in your collection is content that you have personally typed in or imported
-        from a file on your own device.
+        <strong>Strumfolio does not contain a song catalog or library to browse.</strong> There is
+        nothing pre-loaded into your collection and nothing to search through before you have added
+        anything of your own. Every song that appears in your collection is either content you have
+        personally typed in or imported from a file on your own device, or the one exception below,
+        which you still add yourself with a deliberate action of your own.
+      </p>
+      <p>
+        <strong>The one exception</strong> is the optional “Example songbook”: an account with no
+        songbook yet may add it with a single click, and it brings in a small, fixed set of
+        traditional songs — hymns and folk ballads with no living author and no active copyright
+        anywhere, kept in this app the same way any public-domain text is kept in any other. Nothing
+        else is ever added this way, on this account or any other, and the option itself is only ever
+        offered to an account with no songbook yet.
       </p>
       <p>
         The Service does not search the web, scrape third-party sites, or fetch content from external
-        sources on your behalf. Nothing enters your collection unless you put it there.
+        sources on your behalf. Nothing enters your collection unless you put it there — including the
+        example songbook above, which only ever arrives on your own click, never on its own.
       </p>
 
       <h2>2. What you may keep here</h2>
