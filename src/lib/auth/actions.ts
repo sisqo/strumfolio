@@ -21,7 +21,7 @@ import { hashPassword, isPasswordAcceptable, verifyPassword } from '@/lib/auth/p
 import { currentUser } from '@/lib/auth/session'
 import type { PasswordResult } from '@/lib/auth/types'
 import { hasDatabase } from '@/lib/db/client'
-import { effectivePlanOf, hasChosenPlan } from '@/lib/plans/resolve'
+import { hasChosenPlan, planNamesOf } from '@/lib/plans/resolve'
 import type { Plan } from '@/lib/plans/types'
 import type { Role } from '@/lib/roles'
 
@@ -39,6 +39,12 @@ import type { Role } from '@/lib/roles'
  * `(home)/page.tsx`, not here; this is cosmetic, deciding which of that card's own states
  * shows, never what the server allows.
  *
+ * `plan` and `subscriptionPlan` are the two halves of `planNamesOf` and are deliberately not
+ * interchangeable: `plan` is the *effective* one, gift included, and is what the account
+ * menu's badge names; `subscriptionPlan` is the live subscription alone, and is what
+ * `/pricing` compares ranks against so a gift can never be mistaken for a purchase. See
+ * `planNamesOf`'s own comment for the bug that made the distinction necessary.
+ *
  * `accountOwnerEmail` travels back too (`ViewingAsPill`, `TopBar.tsx`) — the same field
  * `plan`/`planChosen` already read, just handed to the client as well now instead of only
  * used here. It equals `email` except for a global owner switched into another account
@@ -49,17 +55,25 @@ export async function loadIdentity(): Promise<{
   accountOwnerEmail: string
   role: Role
   plan: Plan | null
+  subscriptionPlan: Plan | null
   planChosen: boolean
 } | null> {
   const user = await currentUser()
   if (user === null) return null
 
-  const [plan, planChosen] = await Promise.all([
-    effectivePlanOf(user.accountOwnerEmail),
+  const [names, planChosen] = await Promise.all([
+    planNamesOf(user.accountOwnerEmail),
     hasChosenPlan(user.accountOwnerEmail),
   ])
 
-  return { email: user.email, accountOwnerEmail: user.accountOwnerEmail, role: user.role, plan, planChosen }
+  return {
+    email: user.email,
+    accountOwnerEmail: user.accountOwnerEmail,
+    role: user.role,
+    plan: names.effective,
+    subscriptionPlan: names.subscription,
+    planChosen,
+  }
 }
 
 /**

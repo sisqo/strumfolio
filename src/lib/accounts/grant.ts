@@ -72,6 +72,21 @@ export function validateGrant(
   }
   const plan = input.plan as Plan
 
+  /*
+   * `lifetime` with an end date is refused rather than quietly honoured. The row is perfectly
+   * storable and `liveGrant` would expire it exactly on time — that is the trap: the word means
+   * "never ends" on every screen that renders it, so the honest reading of the stored row
+   * ("Gift — Lifetime until 31 December 2026") contradicts itself. An operator who wants a plan
+   * with an end date wants one of the other four, and one who wants Lifetime wants no date.
+   *
+   * Checked here as well as hidden in `GiftForm`, for the reason that file already gives about
+   * its own `maxLength`: a form is a hint to a browser, not a promise about a server action
+   * anything holding the session cookie can call.
+   */
+  if (plan === 'lifetime' && input.until !== null && input.until !== '') {
+    return { ok: false, reason: 'lifetime-with-date' }
+  }
+
   let until: Date | null = null
   if (input.until !== null && input.until !== '') {
     if (!DAY.test(input.until)) return { ok: false, reason: 'invalid-date' }

@@ -49,6 +49,21 @@ interface RoleContextValue {
    */
   plan: Plan | null
   /**
+   * The **live subscription alone** for the same account — the gift deliberately ignored,
+   * where `plan` above is the blend of the two. Null under the same conditions `plan` is, plus
+   * one more: an account with no live subscription at all (a genuine Free account, or one
+   * whose subscription has lapsed) reports null here while `plan` still says `'free'`.
+   *
+   * `PricingPlans` is the one reader, and reads it for every rank question — which card says
+   * "Your plan", and whether a column is an upgrade or a downgrade. Using `plan` for that let
+   * a gifted Premium show as the customer's own plan on the Premium card, so completing that
+   * card's checkout converted a free gift into a real purchase; `planNamesOf`
+   * (`lib/plans/resolve.ts`) carries the reasoning in full. The badge in `UserMenu` still
+   * reads `plan`, because "what are my limits right now" is the question a gift *should*
+   * answer.
+   */
+  subscriptionPlan: Plan | null
+  /**
    * Whether the account this reader is looking at has completed the mandatory plan-choice
    * step (PLAN.md, v3.7) — `true` while unknown, the safe default that keeps `PricingPlans`'
    * Free card reading as already settled rather than briefly offering "Continue with Free"
@@ -67,6 +82,7 @@ const RoleContext = createContext<RoleContextValue>({
   mayEdit: false,
   isGlobalOwner: false,
   plan: null,
+  subscriptionPlan: null,
   planChosen: true,
 })
 
@@ -99,6 +115,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [known, setKnown] = useState(false)
   const [switcher, setSwitcher] = useState(false)
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [subscriptionPlan, setSubscriptionPlan] = useState<Plan | null>(null)
   const [planChosen, setPlanChosen] = useState(true)
 
   useEffect(() => {
@@ -113,6 +130,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           setRole(identity?.role ?? null)
           setSwitcher(showSwitcher)
           setPlan(identity?.plan ?? null)
+          setSubscriptionPlan(identity?.subscriptionPlan ?? null)
           setPlanChosen(identity?.planChosen ?? true)
           setKnown(true)
         }
@@ -148,9 +166,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       mayEdit: known && canEdit(role),
       isGlobalOwner: known && switcher,
       plan,
+      subscriptionPlan,
       planChosen,
     }),
-    [email, accountOwnerEmail, role, known, switcher, plan, planChosen],
+    [email, accountOwnerEmail, role, known, switcher, plan, subscriptionPlan, planChosen],
   )
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>

@@ -12,6 +12,7 @@ import { songAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
+import { requirePlanChoice } from '@/lib/plans/gate'
 import { seriesOf } from '@/lib/songbooks/series'
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { canEdit } from '@/lib/roles'
@@ -40,6 +41,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EditSongPage({ params }: Props) {
   const { slug } = await params
+
+  /* Gated like the reading page it is reached from — see `requirePlanChoice`. An editor deep
+   * link is rarer than a song one, but it is the same kind of bookmark. */
+  await requirePlanChoice()
 
   const song = await repository.getSong(slug)
   if (song === null) notFound()

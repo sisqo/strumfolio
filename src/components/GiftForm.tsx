@@ -8,7 +8,7 @@ import { setGrant } from '@/lib/accounts/actions'
 import { GRANT_MESSAGE, MAX_GRANT_NOTE } from '@/lib/accounts/types'
 import type { AccountPlanLine } from '@/lib/accounts/read'
 import type { GrantResult } from '@/lib/accounts/types'
-import { PLAN_LABEL, PLAN_VALUES } from '@/lib/plans/types'
+import { PLAN_LABEL, PLAN_RANK, PLAN_VALUES, type Plan } from '@/lib/plans/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -53,6 +53,25 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
 
+  /*
+   * Lifetime means "no end" on every screen that renders it, so it gets no date field at all
+   * rather than one whose value would be honoured and then contradict the word beside it —
+   * `validateGrant` refuses the combination server-side for the same reason. The typed date is
+   * kept in state, not cleared: switching to Lifetime and back should not silently discard what
+   * an operator had already entered.
+   */
+  const endless = giving === 'lifetime'
+
+  /*
+   * A gift only ever does anything when it *outranks* the live subscription — `planStateFor`
+   * gives a rank tie to the subscription, deliberately, so "same plan as they already pay for"
+   * changes nothing. Said out loud here because the save otherwise succeeds in silence and
+   * leaves an operator wondering whether it worked; not refused, because a gift below the
+   * current subscription is a legitimate floor for when that subscription lapses.
+   */
+  const inert =
+    plan.subscriptionPlan !== null && PLAN_RANK[giving as Plan] <= PLAN_RANK[plan.subscriptionPlan]
+
   const run = async (action: () => Promise<GrantResult>, said: string, saved?: () => void) => {
     setBusy(true)
     setError(null)
@@ -93,7 +112,9 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
         onSubmit={(event) => {
           event.preventDefault()
           void run(
-            () => setGrant(ownerEmail, { plan: giving, until: until === '' ? null : until, note }),
+            // `endless` sends no date at all, rather than whatever is still held in state from
+            // before the picker moved to Lifetime — which `validateGrant` would refuse.
+            () => setGrant(ownerEmail, { plan: giving, until: endless || until === '' ? null : until, note }),
             'Gift given.',
           )
         }}
@@ -110,13 +131,15 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
           <IconChevronDown size={14} />
         </label>
 
-        <input
-          type="date"
-          value={until}
-          onChange={(event) => setUntil(event.target.value)}
-          aria-label="Gift ends on"
-          className="form-field"
-        />
+        {!endless && (
+          <input
+            type="date"
+            value={until}
+            onChange={(event) => setUntil(event.target.value)}
+            aria-label="Gift ends on"
+            className="form-field"
+          />
+        )}
 
         <input
           value={note}
@@ -156,7 +179,21 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
         </button>
       </form>
 
-      <p className="mt-2 text-[0.8125rem] text-muted">Leave the date empty for a gift that never ends.</p>
+      {inert && plan.subscriptionPlan !== null && (
+        <p className="notice notice-accent mt-2.5" role="status">
+          <span>
+            This account already pays for {PLAN_LABEL[plan.subscriptionPlan]}, so a gift of{' '}
+            {PLAN_LABEL[giving as Plan]} changes nothing while that subscription is live. It takes over only
+            once the subscription lapses.
+          </span>
+        </p>
+      )}
+
+      <p className="mt-2 text-[0.8125rem] text-muted">
+        {endless
+          ? 'Lifetime never ends, so there is no date to set.'
+          : 'Leave the date empty for a gift that never ends.'}
+      </p>
     </div>
   )
 }

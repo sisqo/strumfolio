@@ -126,12 +126,12 @@ export function welcomeEmail(): EmailTemplate {
 
   const html = layout(`
     ${heading(`Welcome to ${APP_NAME}`)}
-    ${paragraph(`Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.${planClause}`)}
+    ${paragraph(`Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}`)}
   `)
 
   const text = `Welcome to ${APP_NAME}
 
-Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even offline.${planClause}
+Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}
 
 ${APP_NAME} — ${APP_PAYOFF}`
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { IconBooks, IconBroadcast, IconCheck, IconPrint, IconReceipt } from '@/components/icons'
 import { loadPurchaseSummary, loadThanksPreview, type MockSubscriptionState } from '@/lib/plans/checkout'
-import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { formatPlanDate, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, PLANS, PLAN_VALUES, readPlan, thanksCapacitySentence, thanksDevicesCaption, thanksSongsCaption } from '@/lib/plans/types'
 import type { Plan } from '@/lib/plans/types'
 
@@ -200,6 +200,48 @@ export function ThanksScreen() {
           </Link>
           <Link href="/" className="btn">
             Continue with Free
+          </Link>
+        </div>
+      </>
+    )
+  }
+
+  /*
+   * A paid plan that is no longer running. Its own branch because the celebratory version below
+   * is actively wrong here, not merely stale: `loadPurchaseSummary` can return `plan: 'premium',
+   * status: 'expired'` — the raw `plan` column never reverts on expiry — and the paid hero would
+   * then read "You're in. Welcome to Premium." over a renewal date that has already gone by,
+   * with "Payment received" underneath it.
+   *
+   * Checked on `status`, before the paid branch, rather than woven into that branch's own
+   * sentences: the heading is the part that misleads first, so a page that only fixed the date
+   * line would still congratulate somebody whose plan had lapsed. `subscriptionStatusLine` is
+   * the same sentence `/billing` and `/checkout/[plan]` use for these states, which is the point
+   * of it being shared — three screens describing a failing card three ways is what it replaced.
+   */
+  if (current.status !== 'active') {
+    return (
+      <>
+        {previewBar}
+
+        <div className="thanks-hero card">
+          <div className="thanks-hero-inner">
+            <span className="thanks-hero-icon">
+              <IconReceipt size={26} />
+            </span>
+            <h1 className="thanks-hero-title">
+              {current.status === 'grace' ? 'A payment needs attention.' : 'This plan has ended.'}
+            </h1>
+            <p className="thanks-hero-text text-muted">{subscriptionStatusLine(current)}</p>
+          </div>
+        </div>
+
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-2.5">
+          <Link href="/billing" className="btn btn-primary">
+            Go to billing
+          </Link>
+          <Link href="/pricing" className="btn">
+            See the plans
           </Link>
         </div>
       </>

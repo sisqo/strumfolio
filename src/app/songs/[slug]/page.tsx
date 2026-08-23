@@ -6,6 +6,7 @@ import { repository } from '@/lib/data'
 import { accessTo } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { hasDatabase } from '@/lib/db/client'
+import { requirePlanChoice } from '@/lib/plans/gate'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -46,6 +47,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SongPage({ params }: Props) {
   const { slug } = await params
+
+  /* A bookmarked song is one of the two real ways into the app that used to skip the
+   * plan-choice gate — see `requirePlanChoice`'s own comment. Before `permitted`, so an
+   * account with the choice still outstanding is sent to make it rather than paying for a
+   * lookup it is about to be redirected away from. */
+  await requirePlanChoice()
+
   if (!(await permitted(slug))) notFound()
 
   const song = await repository.getSong(slug)

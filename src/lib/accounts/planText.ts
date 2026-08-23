@@ -62,6 +62,21 @@ export function stillAwaitingChoice(line: AccountPlanLine): boolean {
 }
 
 /**
+ * A gift that was given and then taken away — `grantedPlan` back to null while `grantedBy`
+ * still records who cleared it, the second of the two meanings `giftLine` has to tell apart
+ * (`setGrant` writes the caller and the moment on the clear path too).
+ *
+ * A predicate of its own because the *list* could not see this state at all. Such a row ends up
+ * `plan: 'free'`, `planChosen: true` (the gift stamped it and clearing never unstamps), which
+ * `noPlanYet` reads as false and `planDetail` returns `''` for — byte for byte an account that
+ * chose Free deliberately. Only the detail page said otherwise, so the one screen built for
+ * finding accounts was the one screen that could not find these.
+ */
+export function giftWithdrawn(line: AccountPlanLine): boolean {
+  return line.grantedPlan === null && line.grantedBy !== null
+}
+
+/**
  * The badge for one account: its plan's name and colour, or the "No plan" marker when there is
  * no plan to name. One function rather than each screen deciding, so `/accounts` and
  * `/accounts/[email]` cannot come to disagree about what a row *is*.
@@ -133,16 +148,16 @@ export const NO_PLAN_LINE =
  */
 export function subscriptionLine(line: AccountPlanLine): string {
   const label = PLAN_LABEL[line.plan]
-  if (line.status === 'expired') return `Subscription — ${label}, expired`
+  if (line.status === 'expired') return `Subscription — ${label}, expired.`
   // `grace` deliberately says nothing about the date: a failing card is virtually always
   // already past period end, which is the whole reason `liveSubscription` ignores dates here.
-  if (line.status === 'grace') return `Subscription — ${label}, payment retrying`
+  if (line.status === 'grace') return `Subscription — ${label}, payment retrying.`
 
   const pendingClause = line.pendingPlan === null ? '' : `, then ${PLAN_LABEL[line.pendingPlan]}`
   if (line.planExpiresOn === null) {
-    return line.plan === 'free' ? `Subscription — ${label}` : `Subscription — ${label}, no end`
+    return line.plan === 'free' ? `Subscription — ${label}.` : `Subscription — ${label}, no end.`
   }
-  return `Subscription — ${label}, until ${line.planExpiresOn}${pendingClause}`
+  return `Subscription — ${label}, until ${line.planExpiresOn}${pendingClause}.`
 }
 
 /**
@@ -153,15 +168,21 @@ export function subscriptionLine(line: AccountPlanLine): string {
  * `setGrant` records the caller and the moment on the clear path too. `grantEnded` is the
  * third case: a gift that is still written down but whose own date has passed, which must
  * never be printed as "no end".
+ *
+ * Every branch ends in a full stop, as `subscriptionLine`, `auditLine` and `inForceLine` all
+ * now do: the four render as sibling paragraphs in one block on `/accounts/[email]`, and two of
+ * them punctuating their sentences while two did not was visible as a mismatch on that screen
+ * — this function was even inconsistent with itself, its "No gift." branch already carrying the
+ * stop its "Gift — Premium, no end" ones lacked.
  */
 export function giftLine(line: AccountPlanLine): string {
   if (line.grantedPlan === null) {
     return line.grantedBy === null ? 'No gift.' : 'No gift: the last one was removed.'
   }
   const label = PLAN_LABEL[line.grantedPlan]
-  if (line.grantedUntilOn === null) return `Gift — ${label}, no end`
-  if (line.grantEnded) return `Gift — ${label}, ended ${line.grantedUntilOn}`
-  return `Gift — ${label} until ${line.grantedUntilOn}`
+  if (line.grantedUntilOn === null) return `Gift — ${label}, no end.`
+  if (line.grantEnded) return `Gift — ${label}, ended ${line.grantedUntilOn}.`
+  return `Gift — ${label} until ${line.grantedUntilOn}.`
 }
 
 /** Who decided, and when — the giving or the taking away, whichever the row last recorded. */

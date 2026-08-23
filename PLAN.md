@@ -940,6 +940,98 @@ scelta multipla, riportate in "Decisioni" più sotto.
 
 Nessuna migrazione.
 
+### v3.11 — secondo ricontrollo dei piani
+
+Un secondo giro sull'esperienza piani, con cinque audit paralleli (schermate/copy, enforcement,
+admin, email/notifiche/gate, macchina a stati) sul codice *dopo* la v3.10. Ha trovato cose più
+grosse del primo giro, incluse due che erano vive in produzione.
+
+1. **`forceExpireNow` era raggiungibile da ogni cliente pagante.** Stava su `/billing` dietro
+   nient'altro che le parole "test only": `canForceExpire` non controllava `isOwner`, e nemmeno
+   la server action. Con `SONGBOOK_MOCK_CHECKOUT` acceso in produzione, questo metteva «fai
+   scadere il mio piano adesso» davanti a chiunque avesse pagato, sulla schermata che si apre
+   per gestire ciò che si è pagato. **Il pulsante è stato rimosso del tutto** (scelta esplicita
+   fra tre opzioni): l'action resta esportata per script e test, e se un giorno servisse di
+   nuovo un pulsante va dietro `isOwner`, controllato sia dove si rende sia dentro l'action.
+   Un'etichetta non è un permesso.
+2. **`/pricing` confrontava i ranghi col piano *effettivo*, non con l'abbonamento vivo** —
+   violando l'invariante che `mockPurchase` dichiara per il proprio confronto. Con un regalo
+   Premium sopra un abbonamento Standard pagato, la card Premium diceva «Your plan · Manage», e
+   completare quel checkout **trasformava il regalo gratuito in un acquisto reale** che il
+   cliente non aveva chiesto. `effectivePlanOf` diventa `planNamesOf`, che restituisce entrambi
+   i nomi da una sola lettura; `loadIdentity`/`RoleProvider` portano il nuovo
+   `subscriptionPlan` accanto a `plan`, **senza cambiare il significato di `plan`** — il badge
+   in `UserMenu` continua a leggere quello effettivo, perché «quali limiti ho adesso» è la
+   domanda a cui un regalo *deve* rispondere. Aggiunta anche una riga che spiega la differenza
+   quando un regalo sopravanza l'abbonamento, altrimenti le due schermate si contraddicono
+   senza motivo apparente.
+3. **Lifetime è ora uno stato terminale su `/pricing`.** Ogni CTA era un no-op per un Lifetime
+   (`mockPurchase` e `mockCancel` rifiutano entrambi `not-applicable`), e «Switch to Free»
+   rispondeva col messaggio sbagliato fra i tre che quel codice di rifiuto copre: diceva a chi
+   aveva pagato €149 che il suo account «is already on Free». Ora le altre card dicono
+   «Included in Lifetime» e il messaggio d'errore non indovina più quale dei tre casi sia.
+   `BillingScreen` escludeva `lifetime` da sempre; questa è la stessa esclusione, applicata
+   finalmente sulla pagina che *offre* le azioni e non solo su quella che le gestisce.
+4. **Il gate di scelta piano viveva in un solo posto e si scavalcava con un bookmark.**
+   `hasChosenPlan` era controllato solo in `(home)/page.tsx`: un link salvato a un brano o a un
+   canzoniere, o una scorciatoia PWA, entravano nell'app senza vedere la scelta. Nessuna
+   escalation di diritti (una riga nuova è `free`/`active` e `entitlementsOf` non legge mai
+   `planChosenAt`) — il gate semplicemente non chiedeva. Estratto in `requirePlanChoice`
+   (`lib/plans/gate.ts`) e chiamato dalle tre rotte di contenuto. **Chiamato dalle pagine, mai
+   da un layout**: un layout abbastanza ampio coprirebbe anche `/pricing` e `/checkout/[plan]`,
+   e gatare la schermata di scelta dietro la scelta è un loop di redirect. `/export` e
+   `/password` restano fuori **per scelta dichiarata**: sono `○` (prerese e precacheate per
+   l'offline) e un redirect dipendente dalla sessione le renderebbe dinamiche — la stessa
+   invariante che protegge il commento di `TopBar`. Verificato col build: la ripartizione
+   `○`/`ƒ` è identica a prima, pagina per pagina.
+5. **`EditorScreen` (`/songs/[slug]/edit`) era rimasto fuori dalla correzione della v3.10** —
+   `SongForm` e `ImportBatch` avevano ricevuto il `PlanUpgradeModal`, l'editor grafico/sorgente
+   che raggiunge la *stessa* server action no. Un account congelato vedeva testo rosso inline
+   senza alcuna strada verso `/pricing`.
+6. **`/thanks` non guardava mai `PlanStatus`.** `loadPurchaseSummary` può restituire
+   `plan: 'premium', status: 'expired'` (la colonna grezza non torna indietro alla scadenza), e
+   la pagina mostrava «You're in. Welcome to Premium.» sopra una data di rinnovo già passata,
+   con «Payment received» sotto. Il controllo è su `status` e **prima** del ramo pagante, non
+   intrecciato nelle sue frasi: è l'intestazione la parte che inganna per prima, quindi
+   sistemare solo la riga della data avrebbe comunque fatto le congratulazioni a chi era
+   scaduto.
+7. **Un regalo ritirato era invisibile dalla lista.** `setGrant` timbra `planChosenAt` quando
+   regala e non lo togliere mai quando revoca, così la riga resta `free`/`planChosen: true` —
+   byte per byte un account che ha scelto Free davvero. Né il filtro piano né «Without a plan
+   only» potevano trovarla; solo la pagina di dettaglio diceva la verità, cioè l'unica schermata
+   fatta per *cercare* account era l'unica che non li trovava. Aggiunti `giftWithdrawn`, un
+   filtro «Gift withdrawn only» e un marcatore in riga — **nessuna semantica cambiata**, la
+   scelta alternativa (non timbrare `planChosenAt` sul regalo) avrebbe fatto ricomparire il gate
+   a un account appena regalato.
+8. **Due guardie sui regali admin.** `lifetime` con una data di scadenza era scrivibile e
+   `liveGrant` la faceva scadere puntualmente — che è la trappola, non la salvaguardia: la
+   parola significa «non finisce mai» su ogni schermata, quindi la riga si autocontraddiceva
+   («Gift — Lifetime until 31 December 2026»). Ora il campo data spariste per Lifetime **e**
+   `validateGrant` rifiuta la combinazione (`lifetime-with-date`), perché un form è un
+   suggerimento a un browser, non una promessa su una server action. E un regalo di rango pari o
+   inferiore all'abbonamento vivo **avvisa senza rifiutare**: è inerte adesso, ma è un pavimento
+   legittimo per quando l'abbonamento scadrà.
+9. **`grace` scartava il pending, nascondendo l'unico modo di annullarlo.**
+   `resolveSubscription` azzerava `pendingPlan` per ogni stato non-`active`, e `/billing` mostra
+   «Keep ‹piano›» solo quando il pending *risolto* è non-null: un cliente con la carta che
+   fallisce e un downgrade programmato perdeva sia la notizia sia il pulsante, nel momento in
+   cui è più probabile che stia ripensandoci. Ora `grace` continua a non farlo **scattare** mai
+   (l'early return è ciò che lo garantisce, dato che ogni confronto di data sta sotto) ma lo
+   **riporta**; solo `expired` lo scarta. Irraggiungibile oggi — nulla scrive `grace` — quindi è
+   lavoro di preparazione per il webhook vero, non una correzione di qualcosa di visibile.
+10. **Rifiniture**: punteggiatura uniforme fra le quattro righe di `planText.ts` che si rendono
+    come paragrafi fratelli (`giftLine` era incoerente perfino con sé stessa, col punto sul ramo
+    «No gift.» e senza sugli altri); «even with no signal» anche nell'email di benvenuto, la
+    formulazione già usata in `/help`, nel changelog e nell'email d'acquisto; e il commento di
+    `/emails` che diceva ancora «tre email» invece di quattro.
+
+Non corretto di proposito: il cast non validato su `eventType` in `history.ts`. Cade nel
+`default` di `describeEvent` come «Event», nessun `mock.refund` esiste, e aggiungere un array di
+valori per un tipo con un solo produttore nello stesso file è lavoro difensivo oltre quello che
+l'audit chiedeva.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1181,6 +1273,21 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Prossimo passo dopo l'email di benvenuto | Una riga breve sul redirect a `/pricing` | Solo quando `SONGBOOK_PLANS=on` è davvero attivo, letto da `process.env` diretto per non portarsi dietro `lib/db/client` nel bundle di `EmailPreview.tsx` |
 | Proprietario globale switchato su un altro account | Etichetta nel `TopBar` (`ViewingAsPill`) | Prima l'account in vista non era scritto da nessuna parte sullo schermo |
 | Aggiornare questo piano ora o rimandarlo | Aggiornato subito | Accettato il rischio di collisione con un'eventuale riscrittura parallela di `PLAN.md` in un'altra sessione, piuttosto che lasciare il piano indietro rispetto al codice |
+
+### Secondo ricontrollo dei piani (v3.11)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| `forceExpireNow` esposto ai clienti | Via da `/billing` del tutto | L'action resta per script e test; un'etichetta "test only" non è un permesso, e il pulsante era vivo in produzione per chiunque avesse pagato |
+| Rango col piano effettivo invece dell'abbonamento | Rango sull'abbonamento vivo, **più** una riga che spiega il regalo | Corregge l'acquisto involontario *e* la contraddizione fra badge del menu e card marcata «Your plan»; `plan` non cambia significato, così il badge continua a dire quali limiti valgono |
+| Lifetime su `/pricing` | Stato terminale esplicito, nessun CTA | Ogni azione era già un no-op rifiutato; «Switch to Free» indovinava male fra i tre casi di `not-applicable` e diceva a un Lifetime che era su Free |
+| Dove estendere il gate di scelta piano | Helper condiviso sulle tre rotte di contenuto | Non middleware (`hasChosenPlan` legge Postgres, l'edge non regge) e non un layout (coprirebbe `/pricing`: loop di redirect) |
+| `/export` e `/password` nel gate | Lasciate fuori, dichiaratamente | Sono `○`: un redirect dipendente dalla sessione le renderebbe dinamiche e romperebbe il precache offline |
+| Regalo ritirato invisibile in lista | Filtro ed etichetta, nessuna semantica cambiata | Non timbrare `planChosenAt` sul regalo avrebbe rimandato al gate un account appena regalato |
+| `lifetime` con data di scadenza | Bloccato nel form **e** in `validateGrant` | Un form è un suggerimento a un browser, non una promessa su una server action che chiunque abbia il cookie può chiamare |
+| Regalo di rango ≤ abbonamento vivo | Avvisa ma permette | È inerte adesso, ma è un pavimento legittimo per quando l'abbonamento scadrà — a differenza di `free`, che non lo è mai |
+| `grace` + pending | Espone il pending, senza mai farlo scattare | Nasconderlo toglieva al cliente con la carta che fallisce l'unico modo di annullare un downgrade, nel momento peggiore |
+| Cast non validato in `history.ts` | Non corretto | Cade nel `default` come «Event», nessun valore fuori posto esiste, un solo produttore nello stesso file: difensivo oltre lo scopo |
 
 ### Export organizzato (pianificato, non ancora costruito)
 

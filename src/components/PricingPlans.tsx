@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
+import { IconInfo } from '@/components/icons'
 import { activatePlanChoice, mockCancel } from '@/lib/plans/checkout'
 import type { BillingPeriod } from '@/lib/plans/prices'
+import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 /**
  * The same order `PLAN_RANK` (`lib/plans/types.ts`) states, copied rather than imported —
@@ -174,16 +176,43 @@ export function PricingPlans({
    * which sentence a card shows, never what pressing it is allowed to do.
    */
   const router = useRouter()
-  const { known, email, planChosen, plan } = useRole()
+  const { known, email, planChosen, plan, subscriptionPlan } = useRole()
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
   const signedIn = known && email !== null
   const pending = signedIn && !planChosen
+  /*
+   * Every rank question on this page is asked of the **subscription**, never of `plan`'s
+   * blend of subscription-and-gift — the invariant `mockPurchase` states for its own
+   * comparison, which this file used to break. A gifted Premium sitting on top of a paid
+   * Standard made the Premium card say "Your plan", and completing that card's checkout
+   * turned the gift into a real purchase nobody asked for.
+   *
+   * `?? 'free'` because a live subscription of `null` and an effective plan of `'free'` are
+   * the same account — one with nothing paid running — and Free's own card has to keep
+   * reading as current for it. Gated on `plan !== null` rather than on `signedIn` so that
+   * enforcement being off still marks nothing as current, exactly as before.
+   */
+  const currentPlan: Plan | null = plan === null ? null : (subscriptionPlan ?? 'free')
   /* `null` while the role is still loading or nobody is signed in — `RANK[column.slug] <
      null` is always `false` in JS, which is what keeps every column reading as "not a
      downgrade" (never a real claim, since `isDowngrade` is only read once `signedIn` is
      already true) rather than needing its own guard at each call site. */
-  const currentRank = plan === null ? null : RANK[plan]
+  const currentRank = currentPlan === null ? null : RANK[currentPlan]
+  /*
+   * Lifetime is a terminal state, and every CTA on this page is a no-op for it: `mockPurchase`
+   * refuses each paid column with `not-applicable` (nothing left to buy) and `mockCancel`
+   * refuses the Free one for the same reason. `BillingScreen`'s own `canCancel` has always
+   * excluded `lifetime`; this is that same exclusion, finally applied on the page that offers
+   * the actions rather than only on the one that manages them.
+   */
+  const isLifetime = currentPlan === 'lifetime'
+  /*
+   * A gift outranking the subscription underneath it — the one case where the badge in
+   * `UserMenu` and the card marked "Your plan" here name two different plans, which without a
+   * word of explanation reads as one of them being wrong.
+   */
+  const giftedAbove = plan !== null && currentPlan !== null && RANK[plan] > RANK[currentPlan] ? plan : null
 
   const startFree = async () => {
     setFreeBusy(true)
@@ -221,7 +250,16 @@ export function PricingPlans({
 
     setFreeBusy(false)
     setFreeError(
-      result.reason === 'not-applicable' ? 'Nothing to change — this account is already on Free.' : "That didn't go through. Try again.",
+      /*
+       * Deliberately not "already on Free": `not-applicable` is `mockCancel`'s answer to three
+       * different situations (nothing live, already Free, on Lifetime), and naming only one of
+       * them is how a Lifetime customer used to be told their paid-for plan was Free. The
+       * Lifetime case no longer reaches this button at all — see `isLifetime` below — so this
+       * wording only has to stay true for the other two, which it does by not guessing.
+       */
+      result.reason === 'not-applicable'
+        ? 'There is no paid plan on this account to cancel.'
+        : "That didn't go through. Try again.",
     )
   }
 
@@ -244,6 +282,24 @@ export function PricingPlans({
           </button>
         ))}
       </div>
+
+      {/*
+        * Why the badge in the account menu can name a higher plan than the card marked "Your
+        * plan" below. Without this the two look like a contradiction — and the honest answer
+        * is that they are answering different questions: the gift decides the limits in force,
+        * the subscription decides what is being paid for and therefore what an upgrade or a
+        * downgrade is measured from.
+        */}
+      {giftedAbove !== null && (
+        <p className="notice notice-accent mt-6" role="status">
+          <IconInfo />
+          <span>
+            This account has been given {PLAN_LABEL[giftedAbove]} as a gift, so those are the limits in force
+            right now. The plan marked below is the subscription underneath it — what changes if you upgrade,
+            switch or cancel.
+          </span>
+        </p>
+      )}
 
       <div className="plan-columns mt-6">
         {columns.map((column) => {
@@ -295,10 +351,21 @@ export function PricingPlans({
                       * "Switch" below, which both change *which* plan this is — this changes
                       * nothing about the plan, only how often it bills.
                       */}
-                    <Link href={`/checkout/${column.checkoutPlan}?cycle=${period}`} className="plan-cycle-link">
+                    <Link
+                      href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
+                      className="plan-cycle-link"
+                      /* A re-buy of the plan already held also clears a scheduled downgrade,
+                       * by design (`mockPurchase` reads it as changing your mind). The
+                       * checkout screen's own status line spells the pending change out
+                       * before anything is confirmed, so this only has to stop the link
+                       * itself from looking like it touches nothing but the cycle. */
+                      title="Re-bills this plan on the chosen cycle. If a downgrade or cancellation is scheduled, this cancels it."
+                    >
                       Change billing cycle
                     </Link>
                   </>
+                ) : isLifetime ? (
+                  <p className="plan-current w-full">Included in Lifetime</p>
                 ) : (
                   <Link
                     href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
@@ -345,7 +412,18 @@ export function PricingPlans({
                 <p className="plan-current w-full">Your plan</p>
               )}
 
-              {column.cta !== undefined && !pending && signedIn && !isCurrent && (
+              {/*
+                * A Lifetime holder gets no downgrade offer here either: `mockCancel` refuses
+                * it (`not-applicable`, the same answer it gives for "nothing live" and
+                * "already Free"), so the button could only ever report a failure — and it used
+                * to report the *wrong* one, telling someone who had paid €149 that their
+                * account "is already on Free".
+                */}
+              {column.cta !== undefined && !pending && signedIn && !isCurrent && isLifetime && (
+                <p className="plan-current w-full">Included in Lifetime</p>
+              )}
+
+              {column.cta !== undefined && !pending && signedIn && !isCurrent && !isLifetime && (
                 <>
                   <button
                     type="button"

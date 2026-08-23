@@ -16,7 +16,7 @@ import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { listSignIns } from '@/lib/auth/signIns'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
-import { planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
+import { liveSubscription, planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
 import type { StoredPlan } from '@/lib/plans/entitlements'
 import { readPendingCycle } from '@/lib/plans/prices'
 import { readPendingPlan, readPlan, readPlanStatus } from '@/lib/plans/types'
@@ -128,6 +128,17 @@ export interface AccountPlanLine {
   /** From `planStateFor` at read time — never re-derived on the client. */
   effectivePlan: Plan
   source: 'subscription' | 'grant' | 'none'
+  /**
+   * The live subscription **alone**, gift ignored — null when nothing paid is running. From
+   * `liveSubscription` at read time, for the same reason `effectivePlan` is server-computed:
+   * whether a subscription is still live is a date rule this file owns, and the client must not
+   * re-derive it.
+   *
+   * `GiftForm` is the reader. A gift only ever does something when it *outranks* this
+   * (`planStateFor` gives a rank tie to the subscription), so this is what lets the form say
+   * "this gift will change nothing yet" before an operator wonders whether the save worked.
+   */
+  subscriptionPlan: Plan | null
   /** The winning side's own column, never the later of the two. */
   untilOn: string | null
   /**
@@ -243,6 +254,7 @@ function planLineFrom(row: PlanRow, now: Date): AccountPlanLine {
       stored.grantedPlan !== null && stored.grantedUntil !== null && stored.grantedUntil.getTime() <= now.getTime(),
     effectivePlan: state.effectivePlan,
     source: state.source,
+    subscriptionPlan: liveSubscription(stored, now),
     untilOn: dayOf(state.until),
     planChosen: row.planChosenAt !== null,
   }

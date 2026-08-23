@@ -261,7 +261,26 @@ describe('a pending change', () => {
     const row = stored({ plan: 'standard', expiresAt: PAST, status: 'grace', pendingPlan: 'free', pendingCycle: null })
 
     assert.equal(liveSubscription(row, NOW), 'standard')
-    assert.equal(resolveSubscription(row, NOW).pendingPlan, null, 'not shown as pending either — grace never fires it')
+  })
+
+  /*
+   * The other half of the rule above, and the half that changed: grace does not *fire* a
+   * pending change, but it does keep reporting one. `/billing` shows its "Keep <plan>" button
+   * only when the resolved `pendingPlan` is non-null, so dropping it here hid both the
+   * scheduled downgrade and the only way to undo it from the customer whose card is failing.
+   */
+  it('still reports a pending change during grace, so it stays visible and undoable', () => {
+    const row = stored({ plan: 'standard', expiresAt: PAST, status: 'grace', pendingPlan: 'free', pendingCycle: null })
+    const resolved = resolveSubscription(row, NOW)
+
+    assert.equal(resolved.plan, 'standard', 'still the plan they hold — the pending has not fired')
+    assert.equal(resolved.status, 'grace')
+    assert.equal(resolved.pendingPlan, 'free', 'and the scheduled change is still reported')
+  })
+
+  it('drops a pending change once expired — nothing live left to resolve it against', () => {
+    const row = stored({ plan: 'standard', expiresAt: PAST, status: 'expired', pendingPlan: 'free', pendingCycle: null })
+    assert.equal(resolveSubscription(row, NOW).pendingPlan, null)
   })
 
   it('never fires once already expired — nothing left live to resolve', () => {

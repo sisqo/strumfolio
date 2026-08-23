@@ -8,7 +8,7 @@ import { TopBar } from '@/components/TopBar'
 import { auth } from '@/auth'
 import { listAccountPlans, listAllAccounts } from '@/lib/accounts/read'
 import type { AccountSummary } from '@/lib/accounts/read'
-import { noPlanYet, planBadge, planDetail, stillAwaitingChoice } from '@/lib/accounts/planText'
+import { giftWithdrawn, noPlanYet, planBadge, planDetail, stillAwaitingChoice } from '@/lib/accounts/planText'
 import { isOwner } from '@/lib/allowlist'
 import { forcedPlanNotice, plansEnforced } from '@/lib/plans/resolve'
 import { PLAN_LABEL, PLAN_VALUES } from '@/lib/plans/types'
@@ -27,13 +27,28 @@ interface Query {
   q: string
   plan: Plan | null
   unactivated: boolean
+  /**
+   * Accounts whose gift was given and then taken away (`giftWithdrawn`). Its own filter rather
+   * than a value of the plan one, and in AND with it like `unactivated` already is: such a row
+   * reads as an ordinary `free` account on every field the plan filter looks at, so there is no
+   * plan value that could ever have selected it.
+   */
+  withdrawn: boolean
   sort: SortKey
   dir: 'asc' | 'desc'
   page: number
 }
 
-/** Reads the six URL params into a typed, defaulted shape — an unrecognised or absent value always falls back to the least surprising default, never to an error. */
-function readQuery(raw: { q?: string; plan?: string; unactivated?: string; sort?: string; dir?: string; page?: string }): Query {
+/** Reads the seven URL params into a typed, defaulted shape — an unrecognised or absent value always falls back to the least surprising default, never to an error. */
+function readQuery(raw: {
+  q?: string
+  plan?: string
+  unactivated?: string
+  withdrawn?: string
+  sort?: string
+  dir?: string
+  page?: string
+}): Query {
   const plan = PLAN_VALUES.includes(raw.plan as Plan) ? (raw.plan as Plan) : null
   const sort: SortKey = raw.sort === 'createdAt' || raw.sort === 'lastSignInAt' ? raw.sort : 'email'
   const page = Math.max(1, Number.parseInt(raw.page ?? '1', 10) || 1)
@@ -42,6 +57,7 @@ function readQuery(raw: { q?: string; plan?: string; unactivated?: string; sort?
     q: (raw.q ?? '').trim(),
     plan,
     unactivated: raw.unactivated === '1',
+    withdrawn: raw.withdrawn === '1',
     sort,
     dir: raw.dir === 'desc' ? 'desc' : 'asc',
     page,
@@ -55,6 +71,7 @@ function hrefFor(query: Query, overrides: Partial<Query>): string {
   if (merged.q !== '') params.set('q', merged.q)
   if (merged.plan !== null) params.set('plan', merged.plan)
   if (merged.unactivated) params.set('unactivated', '1')
+  if (merged.withdrawn) params.set('withdrawn', '1')
   if (merged.sort !== 'email') params.set('sort', merged.sort)
   if (merged.dir !== 'asc') params.set('dir', merged.dir)
   if (merged.page !== 1) params.set('page', String(merged.page))
@@ -64,7 +81,15 @@ function hrefFor(query: Query, overrides: Partial<Query>): string {
 }
 
 interface Props {
-  searchParams: Promise<{ q?: string; plan?: string; unactivated?: string; sort?: string; dir?: string; page?: string }>
+  searchParams: Promise<{
+    q?: string
+    plan?: string
+    unactivated?: string
+    withdrawn?: string
+    sort?: string
+    dir?: string
+    page?: string
+  }>
 }
 
 /**
@@ -113,7 +138,7 @@ export default async function AccountsPage({ searchParams }: Props) {
    * whole search closed over a filter nobody can currently answer would be strictly worse than
    * showing the unfiltered list `AccountsPage` already fell back to before this feature existed.
    */
-  const filterByPlan = plans !== null && (query.plan !== null || query.unactivated)
+  const filterByPlan = plans !== null && (query.plan !== null || query.unactivated || query.withdrawn)
 
   const filtered = (all ?? []).filter((account) => {
     if (needle !== '' && !account.ownerEmail.toLowerCase().includes(needle)) return false
@@ -129,6 +154,7 @@ export default async function AccountsPage({ searchParams }: Props) {
        */
       if (query.plan === 'free' && noPlanYet(line)) return false
       if (query.unactivated && line.planChosen) return false
+      if (query.withdrawn && !giftWithdrawn(line)) return false
     }
     return true
   })
@@ -201,6 +227,13 @@ export default async function AccountsPage({ searchParams }: Props) {
             <span className="text-[0.8125rem] text-muted">Without a plan only</span>
           </label>
 
+          {/* The only way to reach these rows from here: on every field the plan filter reads,
+              a withdrawn gift is indistinguishable from a deliberate Free — see `giftWithdrawn`. */}
+          <label className="flex items-center gap-1.5 pb-2.5">
+            <input type="checkbox" name="withdrawn" value="1" defaultChecked={query.withdrawn} />
+            <span className="text-[0.8125rem] text-muted">Gift withdrawn only</span>
+          </label>
+
           <label>
             <span className="mb-1 block text-[0.8125rem] text-muted">Sort by</span>
             <select name="sort" defaultValue={query.sort} className="form-field">
@@ -254,6 +287,11 @@ export default async function AccountsPage({ searchParams }: Props) {
                                 passed the gate — see `stillAwaitingChoice`. */}
                             {stillAwaitingChoice(line) && (
                               <span className="badge plan-badge-unchosen">Awaiting choice</span>
+                            )}
+                            {/* Otherwise this row is byte-for-byte a deliberate Free account —
+                                see `giftWithdrawn` on why the badge and the detail cannot say so. */}
+                            {giftWithdrawn(line) && (
+                              <span className="badge plan-badge-unchosen">Gift withdrawn</span>
                             )}
                             {planDetail(line) !== '' && (
                               <span className="text-[0.8125rem] text-muted">{planDetail(line)}</span>

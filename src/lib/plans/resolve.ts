@@ -26,7 +26,7 @@ import { count, eq } from 'drizzle-orm'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, songbooks, songs } from '@/lib/db/schema'
 
-import { UNGATED, entitlementsFor, planStateFor } from './entitlements'
+import { UNGATED, entitlementsFor, liveSubscription, planStateFor } from './entitlements'
 import type { Entitlements, StoredPlan } from './entitlements'
 import { readPendingCycle } from './prices'
 import { PLANS, readPendingPlan, readPlan, readPlanStatus } from './types'
@@ -326,18 +326,34 @@ export async function deviceCapOf(accountOwnerEmail: string): Promise<{ max: num
 }
 
 /**
- * Which plan is in effect for this account right now, or null when there is nothing to
- * report — enforcement off, no database, or an unreadable row, the same fail-open direction
- * `entitlementsOf` and `deviceCapOf` both take. `null` deliberately means the same thing here
- * that it means on `Entitlements.state`: nobody has a plan to report, not "free".
+ * The two names this account's plan goes by, from one read: `effective` is whichever side
+ * wins the generosity rule (a manual grant can outrank the subscription underneath it), and
+ * `subscription` is the live subscription **alone**, with any grant deliberately ignored.
+ * Both null when there is nothing to report — enforcement off, no database, or an unreadable
+ * row, the same fail-open direction `entitlementsOf` and `deviceCapOf` both take. `null`
+ * deliberately means the same thing here that it means on `Entitlements.state`: nobody has a
+ * plan to report, not "free".
  *
  * A third, even lighter entry point beside those two: the account menu's own plan line asks
  * only "what is it called", never a cap or a count, so it costs the one read `deviceCapOf`
  * does rather than the three `entitlementsOf` pays for counts this has no use for.
+ *
+ * **Why both, rather than only `effective`:** these two answer different questions and
+ * `/pricing` needs them apart. "Which badge do I show" is `effective` — the limits actually
+ * in force, gift included. "Which card is *your plan*, and is this column an upgrade or a
+ * downgrade from it" is `subscription`, for the reason `mockPurchase` states about its own
+ * rank comparison: a manual grant must never be mistaken for the subscription it sits beside.
+ * Reading `effective` for that second question let a gifted Premium sit on the Premium card as
+ * "Your plan", so completing that card's checkout turned a free gift into a real purchase the
+ * customer never asked for. One `storedPlanOf` read serves both, so telling them apart costs
+ * no extra query.
  */
-export async function effectivePlanOf(accountOwnerEmail: string): Promise<Plan | null> {
-  if (!plansEnforced()) return null
-  if (!hasDatabase) return null
+export async function planNamesOf(
+  accountOwnerEmail: string,
+): Promise<{ effective: Plan | null; subscription: Plan | null }> {
+  const nothing = { effective: null, subscription: null }
+  if (!plansEnforced()) return nothing
+  if (!hasDatabase) return nothing
 
   try {
     const forced = forcedPlan()
@@ -347,14 +363,15 @@ export async function effectivePlanOf(accountOwnerEmail: string): Promise<Plan |
         : { plan: forced, expiresAt: null, status: 'active', ...NOTHING_PENDING, grantedPlan: null, grantedUntil: null }
 
     if (stored === null) {
-      console.error(`effectivePlanOf found no account row for ${accountOwnerEmail}`)
-      return null
+      console.error(`planNamesOf found no account row for ${accountOwnerEmail}`)
+      return nothing
     }
 
-    return planStateFor(stored, new Date()).effectivePlan
+    const now = new Date()
+    return { effective: planStateFor(stored, now).effectivePlan, subscription: liveSubscription(stored, now) }
   } catch (error) {
-    console.error('effectivePlanOf failed', error)
-    return null
+    console.error('planNamesOf failed', error)
+    return nothing
   }
 }
 

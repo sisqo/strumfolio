@@ -13,12 +13,38 @@ function input(overrides: Partial<GrantInput> = {}): GrantInput {
 }
 
 describe('the plan a grant may name', () => {
-  it('takes the four paid plans', () => {
-    for (const plan of ['standard', 'plus', 'premium', 'lifetime']) {
+  it('takes the three dated paid plans', () => {
+    for (const plan of ['standard', 'plus', 'premium']) {
       const checked = validateGrant(input({ plan }), NOW)
       assert.equal(checked.ok, true, plan)
       assert.equal(checked.ok && checked.plan, plan)
     }
+  })
+
+  it('takes lifetime, but only without an end date', () => {
+    const checked = validateGrant(input({ plan: 'lifetime', until: null }), NOW)
+
+    assert.equal(checked.ok, true)
+    assert.equal(checked.ok && checked.plan, 'lifetime')
+    assert.equal(checked.ok && checked.until, null)
+  })
+
+  /*
+   * The row is storable and `liveGrant` would expire it exactly on time — which is the trap,
+   * not the safeguard: "Lifetime" means never-ends on every screen that renders it, so the
+   * honest reading of the stored row contradicts itself ("Gift — Lifetime until 31 December").
+   */
+  it('refuses lifetime with an end date rather than honouring a contradiction', () => {
+    assert.deepEqual(validateGrant(input({ plan: 'lifetime', until: '2026-12-31' }), NOW), {
+      ok: false,
+      reason: 'lifetime-with-date',
+    })
+  })
+
+  /* An empty string is what a form posts for an untouched date field, and must read as "no end"
+     here exactly as it does for every other plan — not as a date that happens to be blank. */
+  it('takes lifetime with an empty date string, the shape an untouched field posts', () => {
+    assert.equal(validateGrant(input({ plan: 'lifetime', until: '' }), NOW).ok, true)
   })
 
   /*

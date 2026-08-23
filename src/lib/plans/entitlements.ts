@@ -144,9 +144,10 @@ function atCap(cap: number | null, held: number): boolean {
  *
  * Not `active`. `grace` ignores dates entirely for the same reason `liveSubscription` always
  * has — a failing card is virtually always already past period end, and a pending change
- * firing mid-retry would revoke or downgrade the exact customer `grace` exists to protect.
- * `expired` is already the end of the road; a pending change on it would be resolving a
- * subscription that is not live to resolve anything from.
+ * firing mid-retry would revoke or downgrade the exact customer `grace` exists to protect. It
+ * does keep *reporting* the pending change, though, so the screens can still show it and offer
+ * to undo it; only `expired` drops it, being already the end of the road, where a pending
+ * change would be resolving a subscription that is not live to resolve anything from.
  *
  * No `expiresAt`. `free` and `lifetime` both carry a null expiry, which means never — there
  * is no date for a pending change to fire on, so one is never written for either (see
@@ -166,6 +167,23 @@ function atCap(cap: number | null, held: number): boolean {
  * has ever written.
  */
 export function resolveSubscription(stored: SubscriptionColumns, now: Date): SubscriptionColumns {
+  /*
+   * `grace` never *fires* a pending change — that is the whole point of the status, and the
+   * early return here is what guarantees it, since every date comparison lives below this
+   * line. But it does keep reporting one, which `expired` below deliberately does not.
+   *
+   * The difference matters for exactly one screen: `/billing` renders its "Keep <plan>"
+   * button only when the *resolved* `pendingPlan` is non-null, so nulling it here used to hide
+   * both the news of a scheduled downgrade and the only way to undo it, from the customer
+   * whose card is failing — the one moment they are most likely to be reconsidering. The raw
+   * column still held the change the whole time; only the resolved view of it disappeared.
+   *
+   * Unreachable today: nothing in this repo writes `grace` (`mockCancel` schedules, it does
+   * not fail a payment), so this is groundwork for the real webhook rather than a fix for
+   * anything a reader can currently reach.
+   */
+  if (stored.status === 'grace') return stored
+
   if (stored.status !== 'active') {
     return { plan: stored.plan, status: stored.status, expiresAt: stored.expiresAt, pendingPlan: null, pendingCycle: null }
   }

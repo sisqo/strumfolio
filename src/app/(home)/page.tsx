@@ -5,7 +5,6 @@ import { SongbookProvider } from '@/components/SongbookProvider'
 import { HomeScreen } from '@/components/HomeScreen'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import {
   listRecentlyOpened,
@@ -16,7 +15,7 @@ import {
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
-import { hasChosenPlan } from '@/lib/plans/resolve'
+import { requirePlanChoice } from '@/lib/plans/gate'
 import { toIndexEntry } from '@/lib/search-index'
 
 /**
@@ -38,24 +37,12 @@ export default async function Home() {
   if (hasDatabase && user === null) redirect('/login')
 
   /*
-   * The mandatory plan-choice gate (PLAN.md, v3.7): an account that has never chosen a
-   * plan — Free or paid — is sent to `/pricing` before it ever sees its own repertoire. This
-   * page is the one place to put it, not `middleware.ts` (edge runtime, deliberately kept free
-   * of database access — see `auth.config.ts`) and not a client-side redirect (it would have to
-   * know every route the choice screen and its checkout must stay reachable from). `/` is
-   * already the one page every sign-in path lands on — Google via `/login`/`/register`, and the
-   * password flow via `verifyEmail`'s own `redirect('/')` — and it already re-verifies the
-   * account server-side on every request, exactly like the redirect above.
-   *
-   * `isOwner` checked directly on `user.email`, not `user.role`: every account owner is
-   * `'admin'` *on their own account* (`roleOf`), so `role` cannot tell a global owner apart
-   * from an ordinary customer. Checked on the signed-in person, not on `accountOwnerEmail`,
-   * so a global owner switched into a customer's account for support is never bounced away by
-   * that customer's own unfinished onboarding.
+   * The mandatory plan-choice gate (PLAN.md, v3.7). Still checked here — `/` is the page every
+   * sign-in path lands on — but no longer *only* here: `requirePlanChoice` carries the same
+   * check, and the reasoning about layouts and loops, to the deep-link routes that used to skip
+   * it entirely. `user` is passed in because this page has already resolved it.
    */
-  if (hasDatabase && user !== null && !isOwner(user.email, process.env.ALLOWED_EMAILS)) {
-    if (!(await hasChosenPlan(user.accountOwnerEmail))) redirect('/pricing')
-  }
+  await requirePlanChoice(user)
 
   const [songs, songbooks, sections] =
     user === null

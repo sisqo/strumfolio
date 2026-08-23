@@ -8,6 +8,7 @@ import { ControlBar } from '@/components/ControlBar'
 import { SongFields, type SongFieldValues } from '@/components/SongFields'
 import { SongSheet } from '@/components/SongSheet'
 import { useSongbooks } from '@/components/SongbookProvider'
+import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { type Caret, GraphicEditor } from '@/components/editor/GraphicEditor'
 import { UnsavedGuard } from '@/components/editor/UnsavedGuard'
 import {
@@ -32,7 +33,8 @@ import type { Song } from '@/lib/data/types'
 import { type SongDocument, fromSource, readLyricLine, toSource } from '@/lib/editor/document'
 import { addChord, insertTab, removeLine, toggleComment, toggleSection } from '@/lib/editor/edits'
 import { deleteSong, saveSong } from '@/lib/import/actions'
-import { saveMessage } from '@/lib/import/types'
+import { saveMessage, type SaveRefusal } from '@/lib/import/types'
+import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 import { dropEdit, writeEdit } from '@/lib/library/store'
 
 type Mode = 'graphic' | 'source' | 'preview'
@@ -131,6 +133,8 @@ export function EditorScreen({ song }: { song: Song }) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Kept apart from `error` so an unrelated failure cannot overwrite it, same as `SongForm`.
+  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
   const [confirming, setConfirming] = useState(false)
 
   const [history, setHistory] = useState<string[]>([])
@@ -233,6 +237,21 @@ export function EditorScreen({ song }: { song: Song }) {
       })
 
       if (!result.ok) {
+        /*
+         * A plan limit gets the dialog with a way out, not a red line of text — the same
+         * treatment `SongForm` and `SongbookSongs` already give the identical `SaveResult`.
+         * This screen reaches the very same `saveSong`, so it can be refused for the very same
+         * reasons: a frozen account (over the caps after a downgrade) refused every edit here,
+         * and a stale `songbookSlug` can still come back as a numbered songbook limit — a
+         * refusal with a real remedy on `/pricing` that used to be dropped on the floor.
+         */
+        if (Object.hasOwn(LIMIT_MESSAGE, result.reason)) {
+          // Guarded by the membership check above, same cast as the other two call sites:
+          // `duplicate` is not a key of `LIMIT_MESSAGE`, so this is the `SaveRefusal` branch.
+          const refusal = result as SaveRefusal
+          setPlanNotice({ reason: refusal.reason as LimitReason, limit: refusal.limit })
+          return
+        }
         setError(saveMessage(result))
         return
       }
@@ -267,6 +286,8 @@ export function EditorScreen({ song }: { song: Song }) {
     <div>
       {/* Covers the header's links too, which no unload event would catch. */}
       <UnsavedGuard when={dirty} />
+
+      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
 
       <div className="editor-head">
         {/*

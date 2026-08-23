@@ -501,6 +501,13 @@ export async function clearPendingChange(): Promise<{ ok: true } | { ok: false; 
  * started deferring to period end, to exercise the freeze path without waiting out a real
  * calendar date. Clears any scheduled change too: there is nothing left for it to fire into.
  * Refuses `not-applicable` under the same two conditions `mockCancel` does.
+ *
+ * **No UI calls this any more.** It used to sit on `/billing` behind nothing but the words
+ * "test only", which — with `SONGBOOK_MOCK_CHECKOUT` on in production — put "expire my plan
+ * right now" in front of every paying customer, on the screen they open to manage what they
+ * paid for. A label is not a permission. The action stays exported for scripts and tests; if a
+ * button for it is ever wanted again it belongs behind `isOwner`, checked here as well as
+ * wherever it is rendered, the way every other write in this file checks its own caller.
  */
 export async function forceExpireNow(): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
   if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }

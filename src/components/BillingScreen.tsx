@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import {
   clearPendingChange,
-  forceExpireNow,
   loadCheckoutStatus,
   loadMyPaymentHistory,
   mockCancel,
@@ -25,16 +24,19 @@ function canCancel(current: MockSubscriptionState): boolean {
   return current.plan !== 'free' && current.plan !== 'lifetime' && current.status !== 'expired' && current.pendingPlan === null
 }
 
-function canForceExpire(current: MockSubscriptionState): boolean {
-  return current.plan !== 'free' && current.plan !== 'lifetime' && current.status !== 'expired'
-}
-
 /**
  * The one hub for a plan already bought: what it is, what it is about to become, the
- * payment history, and the controls to cancel it, undo a scheduled change, or — test only —
- * skip ahead to its end. Choosing a *different* plan is deliberately not answered here: that
- * is `/pricing`'s own comparison table and `/checkout/[plan]`'s buy flow, and reproducing
- * that table here would be the exact duplication `PLAN.md` (v3.6) decided against.
+ * payment history, and the controls to cancel it or undo a scheduled change. Choosing a
+ * *different* plan is deliberately not answered here: that is `/pricing`'s own comparison
+ * table and `/checkout/[plan]`'s buy flow, and reproducing that table here would be the exact
+ * duplication `PLAN.md` (v3.6) decided against.
+ *
+ * **`forceExpireNow` is deliberately not reachable from this screen**, though the server
+ * action still exists for scripts and tests. It used to sit here behind nothing but the words
+ * "test only" — and with `SONGBOOK_MOCK_CHECKOUT` on in production, that put "expire my plan
+ * right now" in front of every paying customer, on the one screen they visit to manage what
+ * they paid for. A label is not a permission: an owner who needs to exercise the freeze path
+ * calls the action directly instead.
  *
  * Reachable from `UserMenu`'s Settings screen, as a plain link — the same way "Change
  * password" already leaves that panel for its own dedicated page instead of trying to fit
@@ -151,20 +153,6 @@ export function BillingScreen() {
               )}
             </div>
 
-            {canForceExpire(status.current) && (
-              <p className="mt-3 text-[0.8125rem] text-muted">
-                Testing the freeze without waiting for a real date:{' '}
-                <button
-                  type="button"
-                  className="text-accent hover:underline"
-                  disabled={busy}
-                  onClick={() => void run(forceExpireNow, 'Expired now.')}
-                >
-                  force this plan to expire right now
-                </button>
-                .
-              </p>
-            )}
           </div>
 
           <div className="card p-4 sm:p-5 mt-4">

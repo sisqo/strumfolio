@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: 'Emails' }
 export const dynamic = 'force-dynamic'
 
 /**
- * A preview of the three emails `lib/email/templates.ts` can build, for a global owner to
+ * A preview of the four emails `lib/email/templates.ts` can build, for a global owner to
  * check without registering or resetting a password for real. `notFound()` rather than a
  * role notice — same reasoning as every other owner-only page in this app (`/accounts`):
  * "this does not exist" and "this is not yours" should look identical from outside.

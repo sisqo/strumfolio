@@ -96,6 +96,12 @@ export type GrantFailure =
   | 'invalid-plan'
   /** Not a calendar day, or a day already past — which `liveGrant` would make inert on write. */
   | 'invalid-date'
+  /**
+   * `lifetime` with an end date. Storable, and `liveGrant` would faithfully expire it, which is
+   * exactly the problem: every other screen reads "Lifetime" as *never ends*, so the row would
+   * make `giftLine` print the self-contradicting "Gift — Lifetime until 31 December 2026".
+   */
+  | 'lifetime-with-date'
   /** The audit is the whole point of `grantedNote`; an unexplained gift reads as a webhook bug. */
   | 'note-required'
   | 'note-too-long'
@@ -109,6 +115,7 @@ export const GRANT_MESSAGE: Record<GrantFailure, string> = {
   'unknown-account': 'This account no longer exists. Reload the page.',
   'invalid-plan': 'Choose a plan to give.',
   'invalid-date': 'The end date must be in the future, or empty for no end.',
+  'lifetime-with-date': 'Lifetime never ends: leave the date empty, or give a different plan.',
   'note-required': 'Say why this was given: an unexplained gift reads as a bug.',
   'note-too-long': `Keep the reason under ${MAX_GRANT_NOTE} characters.`,
   // Verbatim `ACCOUNT_MESSAGE.failed`: the same sentence for the same event on the same screen.
