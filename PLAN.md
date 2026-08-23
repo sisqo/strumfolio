@@ -67,340 +67,137 @@ world. Tutto ciò che segue si costruisce da qui.
 | Stili | Tailwind v3 (v4 impossibile in locale, vedi *Vincoli d'ambiente*) |
 | Database | Postgres su **Neon via Vercel Marketplace** |
 | Accesso dati | **Drizzle ORM** + `postgres.js` (vedi *Scostamenti*) |
-| Auth | **Auth.js v5** (`next-auth@5`), provider Google, sessioni JWT |
+| Auth | **Auth.js v5** (`next-auth@5`), Google + email/password, sessioni JWT |
 | PWA | **Serwist** (successore mantenuto di `next-pwa`) |
-| Lingua UI | Inglese (cambiata da italiano nel corso del progetto), testi in chiaro nel codice — nessun framework i18n |
+| Lingua UI | Inglese (cambiata da italiano nel corso del progetto) |
 
 ### Flusso dei dati
 
-Il punto chiave è che **il DB non sta davanti alla lettura**: la pagina si legge subito, e la
-domanda al database viene dopo — se ha una risposta più recente, la si mette sopra.
+Il DB non sta davanti alla lettura: la pagina si legge subito (statica, generata al build
+da Neon), e la domanda al database — «questa canzone è cambiata?» — viene fatta dopo, e
+conta solo se ha una risposta più recente (vedi *Pubblicazione*). Sono le scritture, non le
+letture, a pagare l'autosuspend di Neon.
 
 ```
-build      Neon ──SELECT──▶ generateStaticParams ──▶ /canzoni/[slug] statiche
-                        └──▶ /api index di ricerca (JSON statico)
-runtime    lettura  ──▶ pagina statica (o cache del service worker)
-                     └──▶ server action ──▶ Neon  (la versione corrente, dopo il paint)
-           scrittura ──▶ server action ──▶ Neon   (preferenze, canzonieri, brani)
+build      Neon ──SELECT──▶ generateStaticParams ──▶ pagine statiche + indice di ricerca
+runtime    lettura  ──▶ pagina statica (o cache del service worker) ──▶ overlay dal server
+           scrittura ──▶ server action ──▶ Neon
 ```
 
-Le pagine dei brani sono generate al build leggendo Neon, quindi a runtime la lettura non
-paga né latenza di database né cold start: quello che si legge è sullo schermo prima che
-qualsiasi richiesta parta. La domanda «questa canzone è cambiata?» viene fatta dopo, e la
-risposta conta solo se è più recente della pagina — vedi *Pubblicazione*.
-
-Sono le scritture, non le letture, a pagare l'autosuspend di Neon: il primo `+1` dopo un
-periodo di inattività attende il risveglio del database. La coda di scrittura rende
-l'attesa invisibile sullo schermo, ma esiste.
-
-Dopo una modifica ai contenuti serve una rivalidazione: la fa il deploy, e dalla v1.3 anche
-`revalidatePath()` al salvataggio — che però non basta da solo, perché non passa davanti al
-service worker.
-
-**Conseguenza da gestire:** le pagine statiche sono identiche per tutti, quindi non possono
-contenere le preferenze dell'utente. La pagina viene servita nella tonalità originale e le
-preferenze si applicano lato client. Per evitare un lampo di accordi nella tonalità
-sbagliata, gli accordi vivono nel markup come dati strutturati e la trasposizione si applica
-in un `useLayoutEffect` prima del paint.
+**Conseguenza:** le pagine statiche sono identiche per tutti e non possono contenere le
+preferenze dell'utente, che si applicano lato client — gli accordi vivono nel markup come
+dati strutturati e la trasposizione si applica in `useLayoutEffect` prima del paint, per
+evitare un lampo nella tonalità sbagliata.
 
 ### Modello dati
 
-**Istantanea a metà v2.3, non lo schema di oggi** — la parte di dominio (canzonieri,
-sezioni, brani, preferenze) non è cambiata nella sostanza; per la forma esatta e
-aggiornata, comprese le colonne aggiunte dalla v3.0 in poi (`accounts`, `songbooks` con
-`accountOwnerEmail`/`isExampleTemplate`/`position`, e tutto quanto arrivato con account,
-piani e pagamenti), `src/lib/db/schema.ts` è la fonte viva: ogni tabella lì porta ormai lo
-stesso genere di commento che c'è qui sotto, aggiornato a ogni cambiamento, mentre questo
-blocco non lo è. `canzonieri` è stata rinominata `songbooks` (nome inglese) alla v2.4; le
-righe `members` e `builds` sotto sono state rimosse per intero — la prima alla v3.1, la
-seconda alla v3.0 — e restano solo per il loro perché.
+Il modello di dominio (canzonieri/`songbooks`, sezioni, brani, preferenze) non è cambiato
+nella sostanza dalla v2.3; `src/lib/db/schema.ts` è la fonte viva e aggiornata, con lo
+stesso genere di commento di rationale che c'era qui. Punti che restano validi:
 
-```sql
-songbooks(slug primary key, name, created_at, updated_at)  -- "canzonieri" nel prosa; rinominata da v2.4
-
-sections(id serial primary key,                                      -- v2.3
-         songbook_slug not null references songbooks(slug) on delete restrict,
-         name, position, created_at,
-         unique (songbook_slug, name),      -- l'import indirizza per nome
-         unique (id, songbook_slug))        -- solo per essere referenziata, sotto
-
-songs(slug primary key, title, artist, body, tags[],
-      songbook_slug not null references songbooks(slug) on delete restrict,
-      section_id,                                                    -- v2.3, nullable per un deploy
-      position,                                                      -- v1.6, nullable
-      created_at, updated_at,
-      foreign key (section_id, songbook_slug)                        -- v2.3
-        references sections(id, songbook_slug)
-        on delete restrict on update cascade)
-      -- original_key rimossa in v2.0: la tonalità si stima dagli accordi
-
-members(email primary key, added_by, created_at,                     -- RIMOSSA alla v3.1
-        role)                                                        -- v2.1: admin|editor|viewer
-      -- solo gli invitati; i proprietari restavano in ALLOWED_EMAILS e admin per definizione.
-      -- Tolta con "niente più ospiti": un account è un indirizzo, nessuno è più ospite altrove.
-
-credentials(email primary key, password_hash, updated_at)            -- v2.2
-      -- come si dimostra un indirizzo, non se è ammesso: tabella a parte perché
-      -- un proprietario non ha riga in members e deve poter avere una password
-
-user_prefs(user_email primary key, zoom_step, notation)              -- globali
-user_song_prefs(user_email, song_slug, semitones, scroll_speed,      -- per brano
-                capo,                                                -- v1.8
-                updated_at, primary key (user_email, song_slug))
-
-builds(id primary key default 'last', built_at)                      -- v1.2, RIMOSSA alla v3.0
-```
-
-**`builds` (rimossa alla v3.0).** La riga singola veniva timbrata dal build, per sapere
-quali brani erano ancora *in attesa di pubblicazione*: quelli con `updated_at` più recente
-dell'ultimo build — l'unico modo onesto di rispondere, perché rifletteva ciò che il build
-aveva effettivamente visto invece di ciò che l'app credeva di aver pubblicato. Sparita
-insieme al pannello che la leggeva quando le pagine sono diventate dinamiche (v3.0): con
-ogni pagina generata per richiesta, un salvataggio è live all'istante, e non c'è più una
-build da aspettare.
-
-`user_email` come chiave: con sessioni JWT non serve una tabella di utenti per
-l'autenticazione. `members` (v2.0–v3.0, poi rimossa) non era quella tabella — diceva chi
-era ammesso, non chi era autenticato, e i proprietari non vi comparivano.
-Lo `slug` come chiave naturale al posto di un id surrogato: vedi *Scostamenti*.
-
-**Lo slug di un canzoniere è immutabile.** Si genera una volta dal nome iniziale e non
-cambia mai più: rinominare tocca solo `name`. È questo che rende una rinomina gratuita —
-nessuna chiave esterna da aggiornare, nessuna URL che si sposta, nessuna voce di precache
-da rigenerare.
-
-L'`on delete restrict` è la regola "rifiuta se non è vuoto" scritta nel database, non solo
-nella UI: nessun percorso, nemmeno un errore di programmazione, può cancellare un
-canzoniere lasciando brani orfani.
-
-**La chiave esterna composta è ciò che rende impossibile un brano in una sezione di un
-altro canzoniere.** Il canzoniere di un brano è scritto due volte — sul brano e sulla sua
-sezione — e invece di affidare la coerenza al codice la tiene il database. `on update
-cascade` non è decorazione: è l'unica cosa che permette a una sezione di traslocare in un
-altro canzoniere, misurato su uno schema di prova (senza, l'update è rifiutato in
-*entrambi* gli ordini, perché il vincolo si controlla per statement e non per transazione).
-`on delete` resta `restrict`: una sezione che contiene brani non si cancella.
-
-**`songs.position` è nullable e resta null** finché qualcuno non riordina quella sezione o
-non ci importa dentro. Dalla v2.3 conta **dentro una sezione**, non dentro il canzoniere. Non è un dettaglio implementativo: `null` significa «nessuno ha detto»,
-e Postgres lo mette in fondo a un ordinamento crescente, quindi l'ordine alfabetico è il
-comportamento di default senza una riga di codice che lo produca — verificato interrogando
-Postgres, non la tabella. Un riordino, e ogni import, rinumerano l'intero canzoniere da 1 a N.
+- Lo **slug** è la chiave naturale (non un id surrogato) ed è **immutabile** per un
+  canzoniere: una rinomina tocca solo `name`, gratis (nessuna chiave esterna, URL o voce di
+  precache da aggiornare).
+- **`on delete restrict`** impedisce di cancellare un canzoniere non vuoto; la **chiave
+  esterna composta** `(section_id, songbook_slug)` su `songs`, con `on update cascade`,
+  rende impossibile un brano in una sezione di un altro canzoniere — misurato, non dedotto.
+- **`songs.position`** è nullable: `null` = "nessuno ha ordinato ancora", e Postgres lo
+  mette in fondo, quindi l'ordine alfabetico è il default senza codice apposito.
+- Due tabelle rimosse nel tempo: `members` (v2.0→v3.1, l'elenco degli invitati) e `builds`
+  (v1.2→v3.0, il timbro che diceva cosa era "in attesa di pubblicazione").
 
 ### Contenuti e seed
 
-Sorgente di verità in v1: file nel repo, caricati da uno script.
-
-```
-content/
-  certe-notti.chopro
-  bocca-di-rosa.chopro
-scripts/seed.ts             # npm run seed → upsert per slug
-```
-
-Lo script è idempotente (upsert per `slug`), così rilanciarlo dopo una correzione non
-duplica nulla.
-
-**Con la v1.2 questo regime cambia:** il database diventa il padrone dei brani e il seed
-diventa di solo inserimento. Vedi *Import e modifica*.
-
-**Il canzoniere è l'eccezione a questa regola, e va capita bene.** La direttiva
-`{songbook: Repertorio}` in un `.chopro` dice dove il brano *nasce*, e il seed la applica
-soltanto all'inserimento — o quando la colonna è ancora vuota, che è come i brani già
-esistenti ricevono il loro canzoniere senza uno script separato. In aggiornamento la
-direttiva viene **ignorata**: da quel momento comanda il database, altrimenti il primo
-`npm run seed` cancellerebbe ogni rinomina e ogni spostamento fatto dall'app.
-
-Ne segue una seconda eccezione: il seed **non fa pruning dei canzonieri**. Sono creati
-dall'app, quindi esistono legittimamente righe che nessun file ha mai dichiarato. Dalla
-v2.0 la regola "cancella ciò che non ha un file" non vale più per nessuno: era rimasta
-solo per le scalette, e le scalette non ci sono più.
-
-Un file senza la direttiva finisce in **Da ordinare**, un canzoniere creato al bisogno.
-Serve perché ogni brano deve appartenere a uno, e il nome è deliberatamente un promemoria:
-ciò che non è archiviato si vede a colpo d'occhio.
+v1: i brani vivono in `content/*.chopro`, caricati da `scripts/seed.ts` (upsert per slug,
+idempotente). Dalla v1.2 il regime cambia — il database diventa il padrone dei brani e il
+seed diventa di solo inserimento (vedi *Import e modifica*). Il canzoniere resta
+un'eccezione: la direttiva `{songbook: ...}` fissa solo il valore iniziale, poi comanda il
+database; il seed non fa mai pruning dei canzonieri, perché possono esisterne creati
+dall'app senza alcun file.
 
 ### Autenticazione
 
-- Auth.js v5, sessioni JWT (nessun adapter, nessuna tabella di utenti per l'autenticazione).
-- Due provider: **Google** e **credenziali** (email e password, v2.2). Il secondo dimostra
-  *quale indirizzo* sei e non concede niente: `roleOf` decide come sempre, e non sa che la
-  tabella delle password esista.
-- Il callback `signIn` confronta l'email con l'unione di `ALLOWED_EMAILS` (i proprietari,
-  dall'ambiente) e della tabella `members` (gli invitati, gestiti da `/utenti` — v2.0);
-  qualunque altro account Google valido viene respinto con una pagina dedicata.
-- **Ruoli** (v2.1): admin, editor, viewer. Una funzione sola, `roleOf`, risponde sia al
-  login sia alle guardie davanti a ogni scrittura, e i proprietari sono admin per
-  definizione. Il ruolo **non** entra nel token: una sessione dura novanta giorni e si
-  porterebbe dietro i poteri di ieri, mentre così un cambio vale dall'azione successiva.
-- `maxAge` sessione **90 giorni**: una sessione scaduta senza rete significherebbe restare
-  chiusi fuori dal repertorio nel momento peggiore.
-- Middleware a protezione di tutto tranne `/login`, gli asset statici e il manifest.
-- **Da sapere:** con service worker cache-first, i brani già in cache restano leggibili sul
-  dispositivo anche a sessione scaduta e senza rete. È il comportamento desiderato per
-  l'uso dal vivo, ma va detto: la protezione è sull'accesso alla rete, non sul dispositivo.
+Auth.js v5, sessioni JWT, nessuna tabella di utenti per l'autenticazione. Due provider:
+Google e email/password (v2.2, hash `scrypt`) — entrambi dimostrano solo *quale indirizzo*
+sei, mai *cosa puoi fare*. Dalla v3.2 la registrazione è aperta a chiunque; l'unico ruolo
+rimasto è `admin`, sul proprio account (v3.1) o su ogni account per i proprietari globali
+in `ALLOWED_EMAILS` (`roleOf`, mai messo in cache — un «admin» ricordato disegnerebbe
+pulsanti che poi rifiutano). Sessione **90 giorni**: un token scaduto senza rete lascerebbe
+fuori dal repertorio nel momento peggiore. Middleware a protezione di tutto tranne
+`/login`, gli asset statici e il manifest.
 
 ### Offline e PWA
 
-- Serwist con precache degli asset e delle pagine dei brani generate al build:
-  installata sulla home del tablet, l'app apre istantaneamente e a rete assente.
-- **Il punto più fragile di tutto il piano, da verificare prima di dichiarare l'offline
-  funzionante.** Il precache del service worker fa richieste HTTP vere, che passano dal
-  middleware di autenticazione: se il service worker si installa senza una sessione valida,
-  quelle richieste vengono reindirizzate a `/login` e finiscono in cache **sotto gli URL dei
-  brani**. Il risultato è la modalità di errore peggiore possibile, perché la cache sembra
-  piena: offline ogni brano mostra una schermata di login. Va garantito che il precache parta
-  solo dopo l'autenticazione, e va verificato che una pagina precachata renda offline con il
-  cookie di sessione assente. Da controllare anche che venga messo in cache il payload RSC
-  insieme all'HTML: con App Router è la parte che si rompe più facilmente.
-- `manifest.json`, icone, `display: standalone`, tema coerente con la UI.
-- Le preferenze scritte offline finiscono in una **coda in memoria** svuotata all'evento
-  `online`; un indicatore discreto mostra che c'è una modifica non ancora salvata.
-  Il DB resta l'unica fonte di verità: nessun mirror locale, nessuna logica di merge. Il
-  limite accettato: un reload mentre si è ancora offline perde la modifica in coda.
+Serwist precacha asset e pagine dei brani generate al build: installata sulla home,
+l'app apre istantaneamente e a rete assente. **Punto fragile da verificare sempre**: il
+precache fa richieste HTTP vere che passano dal middleware — se parte senza una sessione
+valida, quelle richieste finiscono in cache sotto gli URL dei brani come redirect a
+`/login`, e offline ogni brano mostrerebbe una schermata di login pur con la cache piena.
+Le preferenze scritte offline finiscono in una coda in memoria svuotata online; il DB resta
+l'unica fonte di verità, nessun mirror locale né logica di merge — il limite accettato è
+che un reload mentre si è ancora offline perde la modifica in coda.
 
 ## Formato dei contenuti
 
-ChordPro, con accordi inline tra parentesi quadre. Direttive supportate in v1:
+ChordPro, con accordi inline tra parentesi quadre. Il parser produce un AST (sezioni →
+righe → coppie accordo/testo) riusato da rendering, trasposizione e indice di ricerca; il
+resto dello standard viene ignorato senza errori.
 
 ```
 {title: Certe notti}
 {artist: Ligabue}
-{tags: lento, acustico}
 {songbook: Repertorio}       ← solo il valore iniziale, vedi Contenuti e seed
 {start_of_chorus} … {end_of_chorus}
-{comment: assolo}
 
 [Am]Certe [F]notti la [C]macchina sembra una [G]donna
 ```
 
-Tutto il resto dello standard viene ignorato senza errori. Il parser produce un AST
-(sezioni → righe → coppie accordo/testo) riusato da rendering, trasposizione e indice di
-ricerca.
-
 **Normalizzazione dei suffissi.** Il parser riduce le grafie equivalenti a una forma
-canonica interna prima di qualunque altra cosa: `m` / `min` / `-` → `m`, `maj` / `ma` / `△`
-→ `maj`, `dim` / `°` → `dim`, `aug` / `+` → `aug`. Entrambe le tabelle di notazione
-formattano **a partire da quella forma canonica**, mai dal testo grezzo del file. Senza
-questo passaggio l'affermazione "in internazionale il display coincide col sorgente" vale
-solo per i file scritti in modo coerente: un `Cmin7` scritto a mano finirebbe a schermo
-così com'è e non verrebbe mappato in `Do-7`.
+canonica interna (`m`/`min`/`-` → `m`, `maj`/`ma`/`△` → `maj`, `dim`/`°` → `dim`,
+`aug`/`+` → `aug`) prima di qualunque altra cosa; entrambe le tabelle di notazione
+formattano da quella forma canonica, mai dal testo grezzo — altrimenti un `Cmin7` scritto a
+mano non verrebbe mai mappato in `Do-7`.
 
 ## Motore musicale
 
 ### Trasposizione
 
-Ogni accordo viene scomposto in `{ fondamentale, suffisso, basso }`. La fondamentale
-diventa una classe di altezza 0–11, la trasposizione è `(pc + n) mod 12`, e anche il basso
-degli accordi con slash viene trasposto.
-
-Due regole distinte, non una:
-
-1. **Senza trasposizione la grafia della sorgente si conserva.** Un `Bb` in un brano in Do
-   resta `Bb`: riscriverlo `La#` perché "Do usa i diesis" sarebbe sbagliato, dato che un
-   accordo prestato in bemolle si scrive sempre in bemolle. Questo caso è emerso da un test
-   in implementazione, non era previsto nella prima stesura del piano.
-2. **Trasponendo decide la tonalità d'arrivo**, secondo il circolo delle quinte: tonalità con
-   diesis usano i diesis, con bemolli i bemolli. Alzando quel brano di dieci semitoni si
-   arriva in Sib, dove si legge `Ab` e mai `Sol#`.
-
-La tonalità d'arrivo si calcola dalla tonalità di partenza più i semitoni (e meno il
-capotasto, dalla v1.8). Fino alla v2.0 la partenza era la colonna `original_key`; ora si
-**stima dagli accordi del brano**, che è la stessa risposta senza il campo — vedi *v2.0*.
-
-Il capotasto non è in v1 (vedi *Domande aperte*).
+Ogni accordo si scompone in `{ fondamentale, suffisso, basso }`; la trasposizione è
+`(pc + n) mod 12` su una classe di altezza 0–11. Due regole: **senza trasposizione la
+grafia della sorgente si conserva** (un `Bb` in Do resta `Bb`, mai riscritto `La#`);
+**trasponendo, la tonalità d'arrivo decide** l'enarmonia secondo il circolo delle quinte
+(dieci semitoni sopra arriva in Sib, si legge `Ab` e mai `Sol#`). La tonalità si stima
+dagli accordi del brano, non più un campo salvato dalla v2.0. Il capotasto (v1.8) sottrae
+dalla distanza scritta prima di sonare.
 
 ### Notazione
 
-Il toggle IT/INT cambia **due** cose insieme: alfabeto delle note e stile delle sigle. Due
-tabelle separate, ognuna coerente con le convenzioni del proprio sistema.
-
-| Sorgente | Internazionale | Italiano |
-|---|---|---|
-| `C` | Do → `C` | `Do` |
-| `Cm` | `Cm` | `Do-` |
-| `Cm7` | `Cm7` | `Do-7` |
-| `Cmaj7` | `Cmaj7` | `Do△7` |
-| `Cdim` | `Cdim` | `Do°` |
-| `Caug` | `Caug` | `Do+` |
-| `Cm7b5` | `Cm7b5` | `Do-7b5` |
-| `Csus4` | `Csus4` | `Dosus4` |
-| `Bb` | `Bb` | `Sib` |
-| `C/E` | `C/E` | `Do/Mi` |
-
-Note italiane: Do, Do#, Re, Re#/Mib, Mi, Fa, Fa#, Sol, Sol#/Lab, La, La#/Sib, Si.
-In internazionale il display coincide col sorgente ChordPro; in italiano no, ed è
-intenzionale.
-
-**Rischio da verificare presto:** i glifi `△` e `°` devono esistere nel font scelto e avere
-una larghezza che non rompa l'allineamento sopra il testo. Se il font non li porta, si
-ripiega su `maj7` e `dim` in italiano.
+Il toggle IT/INT cambia insieme alfabeto delle note e stile delle sigle, due tabelle
+separate coerenti ciascuna con la propria convenzione: `Cm7b5` ↔ `Do-7b5`, `Bb` ↔ `Sib`,
+`Cmaj7` ↔ `Do△7`. In internazionale il display coincide col sorgente ChordPro; in italiano
+no, di proposito.
 
 ## Interfaccia di lettura
 
-### Rendering accordi sopra il testo
-
-Ogni coppia accordo/sillaba è un `inline-block` che contiene l'accordo in un blocco sopra il
-testo. Le righe vanno a capo **fra** le unità e mai dentro, così l'allineamento non si perde
-mai su schermo stretto — che è il punto debole classico di questo layout su telefono.
-
-```
-┌ unità ┐┌ unità ┐┌ unità ─┐
-  Am        F        C
-  Certe     notti la macchina
-```
-
-### Barra dei controlli
-
-Barra inferiore fissa e compatta (~56px), sempre visibile, a portata di pollice:
-
-```
-│  Do-      Fa       Sol       │
-│  Certe notti la macchina     │
-├──────────────────────────────┤
-│ ▶ −●●●○○+  A− A+  −1 Re +1 ⋯ │
-└──────────────────────────────┘
-```
-
-Play/pause, velocità e semitoni sono raggiungibili con un tap solo: dal vivo fermare lo
-scroll o alzare di un semitono non può costare la ricerca di un menù. Notazione e altre voci
-stanno nel `⋯`. L'header mostra di quanti semitoni si è mossi, con un tap per tornare al
-punto di partenza: il nome della tonalità è su ogni accordo dello spartito, mentre la
-distanza da casa non sarebbe scritta da nessuna parte. (Nel disegno originale mostrava la
-tonalità corrente accanto all'originale; dalla v2.0 nessun nome di tonalità compare
-nell'interfaccia.)
-
-### Zoom
-
-Stepper `A− / A+` su 6 passi (≈14px → 30px) applicati con una custom property CSS sul
-contenitore di lettura: accordi e testo scalano insieme e il testo **rifluisce**, senza
-scroll orizzontale. Il pinch-zoom nativo del browser non viene disabilitato (nessun
-`user-scalable=no`): è una via d'uscita di accessibilità che non va tolta.
-
-### Auto-scroll
-
-- Loop `requestAnimationFrame` con accumulo frazionario di pixel, per un movimento fluido
-  invece che a scatti.
-- Velocità su 8 passi discreti, regolabile mentre scorre; l'ultima usata per quel brano
-  viene ricordata.
-- Un gesto di scroll manuale mette in pausa (si riprende dal pulsante), così una correzione
-  al volo non combatte con l'animazione.
-- **Wake Lock API** (`navigator.wakeLock`) attivo durante lo scroll, rilasciato in pausa e
-  al cambio di visibilità: senza questo la funzione è inutilizzabile, perché lo schermo si
-  spegne a metà brano. Dove l'API non c'è, si degrada silenziosamente.
-- Rispetta `prefers-reduced-motion` per ogni altra animazione dell'app, non per lo scroll
-  stesso (è la funzione richiesta, non decorazione).
+- **Accordi sopra il testo**: ogni coppia accordo/sillaba è un `inline-block`, e le righe
+  vanno a capo *fra* le unità, mai dentro — l'allineamento non si perde su schermo stretto.
+- **Barra dei controlli**: fissa in fondo, ~56px. Play/pause, velocità e semitoni a un tap;
+  notazione e il resto dietro `⋯`. L'header mostra la distanza da casa in semitoni, mai il
+  nome della tonalità (rimosso in v2.0: è già su ogni accordo dello spartito).
+- **Zoom**: stepper a 6 passi via custom property CSS, testo che rifluisce, pinch-zoom
+  nativo mai disabilitato (via d'uscita di accessibilità).
+- **Auto-scroll**: loop `requestAnimationFrame`, 8 velocità regolabili al volo, **Wake Lock
+  API** attiva durante lo scroll (senza, lo schermo si spegne a metà brano) e rilasciata in
+  pausa; un gesto manuale mette in pausa.
 
 ## Navigazione e ricerca
 
-- **Home**: l'elenco dei canzonieri, uno per riga col numero di brani, e la ricerca sopra.
-  Nessun brano finché non si cerca: la prima domanda è quale canzoniere.
-- **Pagina del canzoniere** (`/canzonieri/<slug>`, v2.0): i suoi brani nell'ordine in cui si
-  suonano, e da qui si riordinano.
-- **Ricerca istantanea** lato client su titolo, artista, tag e testo (accordi esclusi),
-  contro un indice generato al build. Nessuna chiamata di rete mentre si scrive. Vive in
-  home e lavora su **tutti** i brani, perché una ricerca non appartiene a un canzoniere;
-  ogni risultato dice dove abita.
+**Home**: elenco dei canzonieri con numero di brani, e la ricerca sopra — nessun brano
+finché non si cerca, perché la prima domanda è quale canzoniere. **Pagina del canzoniere**
+(`/canzonieri/<slug>`, v2.0): i brani nell'ordine in cui si suonano, e da qui si riordinano.
+**Ricerca istantanea** lato client su titolo, artista, tag e testo, contro un indice
+generato al build — lavora su tutti i brani, perché una ricerca non appartiene a un
+canzoniere.
 
 ## Canzonieri
 
