@@ -202,330 +202,69 @@ canzoniere.
 ## Canzonieri
 
 Un canzoniere è una **libreria**: ogni brano appartiene a uno e uno solo, come un file in
-una cartella. È un concetto diverso dai tag, che restano descrizioni libere e
-sovrapponibili (`lento`, `acustico`).
+una cartella — diverso dai tag, che restano descrizioni libere e sovrapponibili. Si creano,
+rinominano, spostano fra loro e rimuovono dall'app, non dai file.
 
-Si possono **creare, rinominare, spostare brani fra l'uno e l'altro e rimuovere**, e tutto
-questo dall'app, non dai file.
+Diviso in **sezioni** (v2.3): ogni brano sta in una sola, e una sezione è un oggetto del
+canzoniere (nome, ordine proprio, può restare vuota), non un'etichetta sul brano — così ha
+un ordine proprio e un refuso non le crea una gemella. Nella pagina partono chiuse, con due
+eccezioni: una si apre da sé, e tornando da un brano si apre la sua (la piega vive in
+`localStorage`, per canzoniere).
 
-### Le sezioni (v2.3)
+**Rotta propria** (`/canzonieri/<slug>`, v2.0): lo slug è immutabile, quindi una rinomina
+non sposta la rotta — l'obiezione che l'aveva rimandata era falsa in questo schema.
+`/canzonieri` resta la schermata di gestione (crea/rinomina/rimuovi); la rimozione rifiuta
+un canzoniere non vuoto e chiede prima dove spostare i brani. Il riordino dei brani si fa
+dalla card aperta in home (v1.6); niente coda offline per queste scritture, perché i
+canzonieri sono struttura condivisa e un last-write-wins fra dispositivi non sarebbe
+innocuo come su una preferenza personale.
 
-Un canzoniere è diviso in sezioni e ogni brano sta in una e una sola. Una sezione è un
-**oggetto del canzoniere** — nome, ordine proprio, può restare vuota — e non un'etichetta
-scritta sul brano: un'etichetta non ha ordine (e «Prima parte»/«Seconda parte» non sono in
-ordine alfabetico), non può esistere prima dei brani che la riempiranno, e un refuso ne
-creerebbe una gemella.
+**Guscio statico, dato mutabile**: le pagine restano statiche e precachate; nomi dei
+canzonieri e assegnazione dei brani vivono in uno strato runtime letto dopo il mount e
+tenuto in cache locale (poche centinaia di byte), lo stesso meccanismo delle preferenze —
+`revalidatePath()` da solo non basterebbe, perché il service worker serve cache-first.
 
-Identificata da un numero e non da uno slug, perché non ha una pagina: nessuno la indirizza
-per nome, quindi rinominarla è gratis. Il nome è però unico dentro il canzoniere, ed è
-quello che permette all'import di crearne una per nome senza gemelle e al seed di far
-combaciare i file con il database.
-
-Nella pagina del canzoniere partono **chiuse**, con due eccezioni che cedono a qualunque
-scelta di chi legge: una sola sezione si apre da sé, e tornando da un brano si apre la sua.
-La piega sta in `localStorage`, per canzoniere: è un gesto della mano, non una preferenza
-da ritrovare altrove, e deve funzionare senza rete.
-
-### Il canzoniere ha una rotta propria (v2.0)
-
-Per due versioni non l'ha avuta, e le ragioni erano queste:
-
-- un canzoniere **creato dall'app** non esisterebbe fra le rotte generate al build, quindi
-  non sarebbe precachato e offline non esisterebbe fino al deploy successivo;
-- una **rinomina** sposterebbe la rotta, se lo slug seguisse il nome — e se non lo segue, la
-  URL resta legata a un nome vecchio, che è peggio.
-
-La seconda si è rivelata **falsa nel nostro schema**: lo slug si genera una volta dal nome
-iniziale e non cambia più, quindi una rinomina tocca `name` e nient'altro. La prima è vera,
-ed è lo stesso patto che ogni brano importato accetta da sempre: visibile subito, offline
-alla pubblicazione successiva.
-
-Dall'altra parte della bilancia c'era il costo di non averla: aprire un canzoniere doveva
-succedere **dentro la home**, come una piega, perché non c'era altro posto dove potesse
-succedere. Con la rotta, la home è l'elenco dei canzonieri, `/canzonieri/<slug>` è il
-canzoniere, e la pagina di un brano ha una via di ritorno che vuol dire qualcosa.
-
-Storicamente la vista era la lista filtrata su `/?c=repertorio`, poi la card che si apriva.
-Non c'è più nulla che produca quel parametro, ma `c` resta in
-`ignoreURLParametersMatching` di Serwist perché un vecchio segnalibro continui a trovare la
-home in cache anche offline.
-
-Resta **`/canzonieri`** come schermata di gestione: creare, rinominare, rimuovere. Leggere e
-gestire sono due gesti diversi, e solo il primo sta sulla strada di chi suona.
-
-### Guscio statico, dato mutabile
-
-Le pagine restano statiche e precachate. Nomi dei canzonieri e assegnazione dei brani sono
-invece dati che cambiano a runtime, quindi vivono in uno strato separato che l'app legge
-dopo il mount e conserva in cache locale — lo stesso meccanismo già usato per le
-preferenze, non uno nuovo:
-
-```
-statico (build)   brani, titoli, testi, accordi, indice di ricerca
-runtime (server)  { canzonieri: [{slug, name, count}],
-                    assegnazioni: { songSlug → canzoniereSlug } }
-                  ↓ cache locale
-```
-
-Una rinomina si vede subito; offline si vede l'ultimo stato conosciuto. Il payload è
-minuscolo, dell'ordine di poche centinaia di byte per canzoniere.
-
-`revalidatePath()` sarebbe la risposta standard di Next e **da sola qui non basterebbe**: il
-service worker serve quelle pagine cache-first, quindi una rigenerazione lato server
-resterebbe invisibile al dispositivo che ha installato l'app fino al build successivo. Viene
-comunque chiamata dopo ogni scrittura, ma per l'altro tipo di visita — un browser senza
-service worker — che altrimenti riceverebbe la pagina vecchia dalla cache del server.
-
-### Gestione
-
-`/canzonieri` elenca i canzonieri con il conteggio dei brani e permette di crearne,
-rinominarne e rimuoverne. Lo spostamento di un singolo brano si fa dall'editor del brano, e
-uno nuovo si crea anche in `/importa`, dove serve. **L'ordine dei brani dentro un canzoniere**
-si sistema invece dove i brani si vedono: nella card aperta in home, con *Riordina* (v1.6).
-
-La rimozione **rifiuta** un canzoniere non vuoto e propone prima dove spostare i brani:
-
-```
-[ Rimuovi "Da imparare" ]
-→ contiene 2 brani
-  Sposta in: [ Repertorio ▾ ]
-  [ Sposta e rimuovi ]   [ Annulla ]
-```
-
-Ne segue che l'ultimo canzoniere non è rimovibile finché esistono brani, che è corretto dato
-il vincolo di appartenenza. L'ordinamento è alfabetico.
-
-Le scritture passano da server action che richiedono una sessione autorizzata, come le
-preferenze. A differenza delle preferenze, però, **non c'è coda offline**: senza rete i
-pulsanti di gestione si disabilitano con una spiegazione. La ragione è che i canzonieri sono
-una struttura condivisa fra gli account in allowlist, dove un last-write-wins fra dispositivi
-non è innocuo come su una trasposizione personale — e rinominare un canzoniere non è
-qualcosa che si fa sul palco senza segnale.
-
-### Stato iniziale
-
-I canzonieri di partenza si ricavano dai tag già usati, che contenevano di fatto questa
-categorizzazione. Le direttive vengono scritte nei quattro file, così un database ricreato da
-zero riproduce lo stesso risultato senza script una tantum:
-
-| Brano | Canzoniere | Tag residui |
-|---|---|---|
-| `ferma-il-tram` | Repertorio | `veloce` |
-| `le-luci-di-via-ostiense` | Repertorio | `lento` |
-| `novembre-in-cortile` | Da imparare | `lento` |
-| `quasi-domenica` | Da imparare | — |
-
-I tag `repertorio` e `da imparare` vengono rimossi: ora sono canzonieri, e tenerli in
-entrambi i posti creerebbe due verità sulla stessa cosa. `lento` e `veloce` restano tag,
-che è il loro ruolo giusto.
+I canzonieri di partenza sono stati ricavati dai tag già in uso (`repertorio`, `da
+imparare`), scritti come direttive nei file così un database ricreato da zero dà lo stesso
+risultato.
 
 ## Import e modifica
 
-Una sezione per far entrare brani nuovi incollando testo, più la possibilità di correggerli
-e rimuoverli. È il passo che sostituisce l'editor `/admin` immaginato per la v2, ristretto a
-ciò che serve davvero.
+Una schermata per incollare testo e farne un brano, più modifica e cancellazione — al posto
+dell'editor `/admin` immaginato per la v2. Dalla v1.2 **il database è il padrone** dei
+brani (non più i file): il seed diventa di solo inserimento, non può più aggiornare né fare
+pruning, e la cancellazione deve esistere nell'app perché non c'è più un file da eliminare.
 
-### Cambio di regime: il database diventa il padrone
+**Cosa si incolla**: prima il canzoniere di destinazione (vince su un `{songbook:}` nel
+testo), poi un campo di testo che riconosce da sé il formato — ChordPro passa così com'è,
+altrimenti si tenta la conversione da «accordi sopra il testo» (euristica: una riga conta
+come accordi solo se *tutti* i suoi token lo sono). Sbaglierà su qualche sorgente, per
+questo il salvataggio è sempre dietro una preview con il corpo ChordPro modificabile a
+mano.
 
-Fino alla v1.1 i file in `content/` erano la sorgente di verità dei brani e il seed li
-imponeva al database. Dalla v1.2 non è più così: un brano importato nasce nel database e non
-ha alcun file. Tre conseguenze, tutte obbligate:
+**Più brani in una pasta**: divisi solo su segni espliciti (`---`, `{new_song}`, un secondo
+`{title:}`, mai una riga vuota) — trovati più brani, ognuno arriva come riga modificabile e
+si salva in sequenza, con esito proprio per riga (salvato / già in archivio / errore).
+**Duplicati** (stesso titolo e artista): sostituisci (conserva lo slug, quindi le
+preferenze salvate), aggiungi comunque, o annulla.
 
-1. **Il seed non può più fare pruning dei brani.** Cancellava le righe senza file: quelle
-   sono ora esattamente i brani importati.
-2. **Il seed non può più aggiornare i brani.** Sovrascriverebbe con la versione del file una
-   correzione fatta dall'app.
-3. **La cancellazione deve esistere nell'app.** Senza un file da eliminare, un brano
-   importato per errore non avrebbe altrimenti nessun modo di andarsene.
+**Pubblicazione** (v1.3, in risposta a un bug reale: salvare non cambiava nulla a schermo).
+Le pagine restano statiche, con uno strato runtime sopra che confronta `songs.updated_at`
+del database con la versione con cui la pagina è stata generata — niente timbri né orologi
+del browser, e un salvataggio restituisce sempre la riga scritta, non l'input passato. Lo
+stato «in attesa» è quel confronto, non una colonna: un deploy per altri motivi pubblica
+comunque i brani in attesa.
 
-Il seed diventa dunque di **solo inserimento** (`on conflict do nothing`): carica ciò che
-manca e non tocca ciò che c'è. Perde il ruolo di padrone e ne acquista uno nuovo — è la via
-di ripristino dell'export (vedi sotto).
+**Export**: «Scarica tutto» produce un archivio `.chopro` (nessun token, copia a carico di
+chi se ne ricorda); il ripristino è lo stesso seed di solo inserimento. Un secondo export
+"organizzato" — per canzone o per sezione, cartelle numerate — resta distinto e non tocca
+il primo, perché quello è anche il percorso di ripristino (vedi *Export organizzato* in
+Decisioni; non ancora costruito).
 
-### Cosa si incolla
-
-Prima **dove**, poi **cosa**: il canzoniere di destinazione è il primo campo della
-schermata, vale per tutto ciò che si incolla, e vince su un `{songbook: …}` nel testo. Poi
-un solo campo di testo, e il formato viene riconosciuto:
-
-- se il testo contiene accordi fra parentesi quadre è già ChordPro e passa così com'è;
-- altrimenti si tenta la conversione da **accordi sopra il testo**, che è la forma in cui gli
-  accordi si trovano quasi sempre in giro.
-
-```
-INCOLLATO                    CONVERTITO
-Am        F                  [Am]Certe [F]notti la
-Certe notti la               [C]macchina...
-```
-
-La conversione riconosce una riga di accordi quando **tutti** i suoi token si leggono come
-accordi, riusando `parseChord` — che già rifiuta le parole normali e le annotazioni, quindi
-una riga come `Ritornello` o `x2` non viene confusa. Gli accordi si abbinano poi alla riga
-di testo successiva per posizione di colonna.
-
-È un'euristica e sbaglierà su qualche sorgente. Per questo il salvataggio avviene **dopo una
-preview** dello spartito reso, e il corpo ChordPro resta modificabile a mano nello stesso
-form: la via d'uscita è sempre visibile.
-
-### Più brani in una pasta
-
-Lo stesso campo accetta **più brani**, divisi solo su segni espliciti: una riga di `---`
-(o `===`, `***`, `___`), il `{ns}`/`{new_song}` di ChordPro, un secondo `{title:}`, un salto
-pagina. Una riga vuota non divide niente — fra le strofe ce ne sono a decine. Senza segni è
-un brano solo.
-
-Trovati più brani, al posto del form arriva una riga per brano: titolo e artista
-modificabili e formato in chiaro, il testo dentro un `details`. Si scrive solo
-premendo *Importa*, in sequenza, e ogni riga dice come è finita — salvato, già in archivio,
-oppure l'errore. Ripremere riprova solo ciò che manca.
-
-```
-3 brani in questo testo                      incolla altro
-┌───────────────────────────────────────────────────────┐
-│ ① [ Certe notti        ] [ Ligabue      ]           × │
-│   accordi sopra il testo, convertiti                  │
-│   ▸ Testo e accordi                                   │
-├───────────────────────────────────────────────────────┤
-│ ② [ Albachiara         ] [ Vasco Rossi  ]  ✓ salvato  │
-└───────────────────────────────────────────────────────┘
-Se un brano è già in archivio [ salta quelli già presenti ▾ ]
-[ Importa 3 brani ]
-```
-
-### Il form
-
-Per un brano solo. Titolo e artista si deducono dalle direttive se ci sono, altrimenti dalle
-prime righe. La tonalità **non è fra i campi** dalla v2.0: si stima dagli accordi ogni volta
-che serve, e serve solo per la grafia enarmonica. Il canzoniere non è fra i campi: l'ha già chiesto la schermata, sopra. Lo slug si genera dal titolo con
-`uniqueSlug`, lo stesso già usato per i canzonieri.
-
-```
-Titolo   [ Certe notti          ]
-Artista  [ Ligabue              ]
-┌─ corpo ChordPro ─┬─ preview ────┐
-│ [Am]Certe notti  │  Do      Fa  │
-│ ...              │  Certe notti │
-└──────────────────┴──────────────┘
-```
-
-### Duplicati
-
-Se titolo e artista coincidono con un brano esistente, l'import lo dice prima di salvare e
-offre tre strade: **sostituire** il corpo di quello esistente, **aggiungere comunque** come
-brano separato con slug numerato, o annullare. Sostituire è spesso l'intento reale — hai
-trovato una versione migliore — e conserva lo slug, quindi le preferenze salvate di quel
-brano sopravvivono.
-
-### Pubblicazione
-
-**v1.3.** Il modello «si vede dopo il build» era sbagliato, e sbagliato in un modo che
-sembrava una perdita di dati: correggevi un verso, salvavi, lo spartito non cambiava, e
-riaprendo la modifica ritrovavi le parole vecchie — perché il form era riempito dalla pagina,
-non dal database. La modifica era salva, ma nessuna schermata lo mostrava.
-
-Quindi le pagine restano statiche e precachate, ma sopra ci va uno strato di runtime, lo
-stesso già usato per preferenze e canzonieri:
-
-```
-statico (build)   brani, titoli, testi, accordi, indice di ricerca
-runtime (server)  la canzone aperta, per intero
-                  l'elenco senza i corpi
-                  ↓ cache locale (solo le canzoni, non l'elenco)
-```
-
-La regola che tiene insieme il tutto è **una sola**: si confrontano le versioni,
-`songs.updated_at` del database contro quello con cui la pagina è stata generata. Niente
-timbri, niente orologi del browser. Il timbro in `builds` viene scritto *prima* del build,
-quindi qualsiasi cosa derivata da lui è falsa per tutta la durata di un deploy; e una data
-generata nel browser sarebbe una supposizione su un valore che appartiene al database — e
-vincerebbe per sempre, dato che viene messa in cache. Per questo un salvataggio restituisce
-la riga scritta, non l'input che gli era stato passato.
-
-Ne segue il comportamento giusto senza casi speciali: la copia fresca resta al suo posto per
-tutta la durata del build che la sta incorporando, e si fa da parte da sola quando arriva la
-pagina che la contiene.
-
-La pubblicazione resta, con un compito più stretto: **rendere le modifiche disponibili
-offline**, incorporandole nelle pagine e nel precache. Un solo deploy per cinque import,
-come prima.
-
-Lo stato «in attesa» non è una colonna: è il confronto fra `songs.updated_at` e il timbro in
-`builds`. Ne segue che un deploy fatto per altri motivi, per esempio un push di codice,
-pubblica anche i brani in attesa. E ne segue anche cosa può dire il pulsante: dopo aver
-chiamato il hook, la schermata **aspetta** che la lista si svuoti, che è il momento in cui il
-build che sta girando ha timbrato il database e quindi contiene quei brani. Non dice «è
-online», perché saperlo richiederebbe l'API di Vercel. Prima non aspettava affatto, e la
-lista restava lì immobile: il secondo sintomo del bug.
-
-Cosa resta fuori dallo strato, dalla v2.0: solo **le frecce** nell'header di un brano.
-Portano ad altre pagine statiche, generate con la stessa lista di questa, e leggere qui
-l'assegnazione viva le farebbe puntare a brani le cui pagine credono ancora di stare
-altrove. Le righe della pagina di un canzoniere, invece, sono aggiornate come l'elenco in
-home: sono una lista di titoli, e un titolo vecchio in una lista è esattamente il bug che
-questo strato esiste per evitare.
-
-L'elenco in home non viene messo in cache. Una riga lì è la promessa che toccandola si apre
-qualcosa, e un brano importato dopo l'ultimo build non ha una pagina nel precache da aprire
-(online sì: la rotta non è fra quelle generate e Next la genera su richiesta). Quando il
-server non risponde, l'elenco resta quello del build, dove ogni riga porta da qualche parte.
-
-### Export e ripristino
-
-I file non sono più la rete di sicurezza, quindi ne serve un'altra: un pulsante **Scarica
-tutto** produce un archivio dei `.chopro`, direttive `{songbook:}` comprese, da conservare
-dove si vuole. Nessun token e nessuna infrastruttura; la copia dipende da chi se ne ricorda,
-ed è un compromesso accettato consapevolmente.
-
-Il ripristino è il seed di solo inserimento: si rimettono i file in `content/`, si lancia
-`npm run seed`, e torna tutto ciò che manca senza toccare ciò che c'è.
-
-### Export organizzato
-
-Un secondo export, distinto da «Scarica tutto» e senza toccarlo: quello resta piatto, uno
-slug a file, perché è anche il percorso di ripristino — `npm run seed` rilegge `content/` con
-`readdir` non ricorsivo e ricava lo slug dal nome del file stesso, quindi cartelle o nomi
-numerati lì dentro lo romperebbero. L'export organizzato è pensato per un uso diverso:
-sfogliare, stampare, portarsi il canzoniere fuori dall'app — non per tornare nel database.
-
-Due pulsanti, accanto a «Scarica tutto» nel pannello Export:
-
-- **Esporta per canzone** — un `.chopro` a canzone, dentro `<Canzoniere>/<NN - Sezione>/<NN -
-  Canzone>.chopro`. Una cartella per canzoniere (solo il nome, senza numero: a numerare sono
-  le canzoni e le sezioni, non i canzonieri), una sottocartella per sezione.
-- **Esporta per sezione** — un `.chopro` a sezione, `<Canzoniere>/<NN - Sezione>.chopro`, con
-  tutte le canzoni di quella sezione incollate in sequenza e separate da `{new_song}` — la
-  stessa direttiva ChordPro standard che l'import sa già dividere da un incolla-multiplo, così
-  lo stesso file si taglierebbe di nuovo giusto se mai rientrasse da quella porta. Ogni canzone
-  mantiene tutte le proprie direttive, `{songbook:}`/`{division:}` comprese, come nell'export
-  attuale: sono ripetute su ogni canzone dello stesso file, ma restano ciò che rende una singola
-  canzone leggibile da sola se mai finisse fuori dal file o dalla cartella che oggi le tiene.
-
-La numerazione (`NN - `, due cifre, sempre presente) segue l'ordinamento già in mano
-all'utente — `sections.position` entro il canzoniere, `songs.position` entro la sezione,
-alfabetico dov'è ancora `null` — non un nuovo criterio. Il nome del file è il titolo così com'è
-scritto, ripulito solo dei caratteri che un filesystem non accetta: è pensato per essere letto,
-non per essere uno slug. Una sezione o un canzoniere vuoti non producono un file o una
-cartella vuoti.
-
-È una fotografia dell'ordine di adesso, non un archivio da confrontare nel tempo: la stessa
-sessione ha appena aggiunto il trascinamento a tutti e tre i livelli, quindi i numeri di un
-export di ieri e uno di oggi possono non coincidere più — accettato consapevolmente, per lo
-stesso motivo per cui il backup non ha un token: è uno strumento per il momento in cui serve,
-non un sistema da tenere sincronizzato.
-
-### Ciò che può risorgere
-
-Un effetto da conoscere, non un difetto da correggere: se cancelli un brano dall'app e il suo
-file è ancora in `content/`, il prossimo `npm run seed` lo **reinserisce**. È il comportamento
-giusto per un comando che significa «carica ciò che manca», ma va saputo. In pratica: quando
-entrerà il repertorio vero, i quattro file segnaposto vanno rimossi dal repo, altrimenti
-resteranno a risorgere a ogni ripristino.
-
-### Accesso
-
-Le scritture passano da server action con sessione autorizzata, come per i canzonieri. Senza
-rete la sezione è disabilitata: salvare richiede il database e pubblicare richiede un deploy,
-quindi non c'è nulla che possa funzionare offline e nulla da mettere in coda.
+Un effetto da conoscere: se cancelli un brano dall'app e il suo file è ancora in
+`content/`, il prossimo `npm run seed` lo **reinserisce** — comportamento corretto per un
+comando che significa «carica ciò che manca», ma i quattro file segnaposto andranno
+rimossi dal repo quando entra il repertorio vero, o risorgeranno a ogni ripristino.
 
 ## Preferenze
 
@@ -536,8 +275,8 @@ quindi non c'è nulla che possa funzionare offline e nulla da mettere in coda.
 | Zoom | globale | `user_prefs` |
 | Notazione IT/INT | globale | `user_prefs` |
 
-Tutte sul DB, sincronizzate fra telefono, tablet e computer, con la coda offline descritta
-sopra. Scritture debounced (2s) via server action per non generare una query a ogni tap.
+Tutte sul DB, sincronizzate fra dispositivi, con la coda offline descritta sopra. Scritture
+debounced (2s) via server action.
 
 ## Fasi
 
