@@ -4,7 +4,8 @@ import { describe, it } from 'node:test'
 import type { MockSubscriptionState } from './checkout'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
-import { formatPlanDate, subscriptionStatusLine } from './subscriptionCopy'
+import type { PaymentHistoryLine } from './history'
+import { formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
 
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -125,5 +126,96 @@ describe('a billing period', () => {
      moves the renewal *earlier*, giving up the difference. */
   it('lands before a yearly period bought earlier', () => {
     assert.ok(periodEnd('month', NOW).getTime() < FUTURE.getTime())
+  })
+})
+
+/**
+ * The ledger row `lastPaymentLine` reads, in the shape `loadMyPaymentHistory` returns —
+ * newest first, which is the ordering that function's own comment relies on.
+ */
+function paidRow(over: Partial<PaymentHistoryLine> = {}): PaymentHistoryLine {
+  return {
+    id: '1',
+    occurredAt: PAST,
+    action: 'purchase',
+    plan: 'standard',
+    cycle: 'year',
+    amount: '19',
+    ...over,
+  }
+}
+
+describe('what was last paid', () => {
+  it('names the amount, the day and the period', () => {
+    assert.equal(
+      lastPaymentLine(state(), [paidRow()]),
+      `€19 paid on ${formatPlanDate(PAST)}, for a year.`,
+    )
+  })
+
+  it('says a month when the purchase was monthly', () => {
+    assert.equal(
+      lastPaymentLine(state(), [paidRow({ cycle: 'month', amount: '2.49' })]),
+      `€2.49 paid on ${formatPlanDate(PAST)}, for a month.`,
+    )
+  })
+
+  /* No cycle is `lifetime`'s own shape, not a gap — so the sentence must not invent a period. */
+  it('says once for a lifetime purchase', () => {
+    assert.equal(
+      lastPaymentLine(state({ plan: 'lifetime', expiresAt: null }), [
+        paidRow({ plan: 'lifetime', cycle: null, amount: '149' }),
+      ]),
+      `€149 paid once, on ${formatPlanDate(PAST)}.`,
+    )
+  })
+
+  /*
+   * The reason the match is on the plan and not only on the action. An upgrade leaves both
+   * rows in the ledger, and quoting the older one would print the cheaper plan's price beside
+   * the name of the plan actually running.
+   */
+  it('quotes the purchase of the plan running now, not an older one', () => {
+    assert.equal(
+      lastPaymentLine(state({ plan: 'premium' }), [
+        paidRow({ id: '2', plan: 'premium', amount: '99' }),
+        paidRow({ id: '1', plan: 'standard', amount: '19' }),
+      ]),
+      `€99 paid on ${formatPlanDate(PAST)}, for a year.`,
+    )
+  })
+
+  it('takes the most recent of two purchases of the same plan', () => {
+    assert.equal(
+      lastPaymentLine(state(), [
+        paidRow({ id: '2', occurredAt: NOW, cycle: 'month', amount: '2.49' }),
+        paidRow({ id: '1', occurredAt: PAST }),
+      ]),
+      `€2.49 paid on ${formatPlanDate(NOW)}, for a month.`,
+    )
+  })
+
+  /* Silence, not a hedge — see the function's own comment on why `null` is the answer to all
+     three of these rather than a sentence with a hole in it. */
+  it('says nothing for a free account', () => {
+    assert.equal(lastPaymentLine(state({ plan: 'free' }), [paidRow()]), null)
+  })
+
+  it('says nothing when no purchase of this plan is on record', () => {
+    assert.equal(lastPaymentLine(state({ plan: 'plus' }), [paidRow()]), null)
+    assert.equal(lastPaymentLine(state(), []), null)
+  })
+
+  it('says nothing when the row carries no amount', () => {
+    assert.equal(lastPaymentLine(state(), [paidRow({ amount: null })]), null)
+  })
+
+  /* A scheduled change is not a payment: it is logged with a plan and a cycle and no money,
+     and reading it as one would date the purchase to the day the downgrade was booked. */
+  it('ignores a scheduled change even when it names this plan', () => {
+    assert.equal(
+      lastPaymentLine(state(), [paidRow({ action: 'scheduled_change', amount: null })]),
+      null,
+    )
   })
 })

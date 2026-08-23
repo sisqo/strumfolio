@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { useRole } from '@/components/RoleProvider'
 import { IconInfo } from '@/components/icons'
 import { activatePlanChoice, mockCancel } from '@/lib/plans/checkout'
 import type { BillingPeriod } from '@/lib/plans/prices'
@@ -112,6 +111,36 @@ const PERIODS: { value: BillingPeriod; label: string }[] = [
 ]
 
 /**
+ * Who is reading this page, answered by the server and handed down as a prop.
+ *
+ * The four fields `useRole()` used to supply here, and the same values from the same read
+ * (`loadIdentity`) — what changed is *when* they arrive. `RoleProvider` fills its context from
+ * an effect, so until that resolves every consumer is told `known: false`, and this page's own
+ * reading of that default was "nobody is signed in": three paid cards offering «Sign up» to
+ * /register, plus the Lifetime block doing the same. Correct for a visitor, and exactly wrong
+ * for the one reader who cannot have arrived any other way — `requirePlanChoice`
+ * (`lib/plans/gate.ts`) redirects an account that has not chosen a plan *here*, so the person
+ * most likely to be looking at this page is signed in, and was being invited to register.
+ *
+ * A prop cannot be wrong for a moment first, which is why this is the shape it is. It costs
+ * /pricing its static rendering — the page reads cookies now, so Next serves it per request —
+ * and that trade was made deliberately (see the page's own comment) rather than worked around
+ * with a placeholder, because a placeholder still means a page that cannot say anything true
+ * until JavaScript runs. `LIFETIME_OPEN` stops being frozen at build time as a side effect,
+ * which is a duty removed rather than a new one.
+ */
+export interface Viewer {
+  /** The reader's address, or `null` when nobody is signed in. */
+  email: string | null
+  /** False only for an account that has never completed the v3.7 plan-choice step. */
+  planChosen: boolean
+  /** The plan in force, gift included — `null` when there is nobody, or nothing enforced. */
+  plan: Plan | null
+  /** The subscription underneath any gift: what every rank question here is asked of. */
+  subscriptionPlan: Plan | null
+}
+
+/**
  * The four price columns and the one control on the page that has state.
  *
  * The only client component /pricing loads, and now holds the comparison table as well as
@@ -154,32 +183,38 @@ export function PricingPlans({
   columns,
   rows,
   tableTitle,
+  viewer,
 }: {
   columns: PlanColumn[]
   /** The comparison table's own rows, rendered below the cards. */
   rows: ComparisonRow[]
   /** The table's own heading — plain text, not a slot, since it is never anything but one line. */
   tableTitle: string
+  /** Who is reading, decided by the server before this renders — see `Viewer`. */
+  viewer: Viewer
 }) {
   const [period, setPeriod] = useState<BillingPeriod>('month')
 
   /*
-   * `useRole()` is what makes this the one page that also serves an existing customer
-   * changing plans, not only a visitor choosing one for the first time — every card reads
-   * `known`/`email`/`plan`/`planChosen` now, not only Free's own (PLAN.md, v3.7) mandatory
-   * plan-choice gate that used to be the sole reason this file read a role at all. None of
-   * it gates anything server-side, here or in `(home)/page.tsx`'s own gate: a reader who
+   * The reader's own state is what makes this the one page that also serves an existing
+   * customer changing plans, not only a visitor choosing one for the first time — every card
+   * reads it now, not only Free's own (PLAN.md, v3.7) mandatory plan-choice gate that used to
+   * be the sole reason this file needed it at all. None of it gates anything: a reader who
    * turns out signed out after clicking "Upgrade to Plus" is stopped by the middleware on
    * `/checkout/plus`, not by this component second-guessing what it already decided to
-   * show — the same trust every other page in this app already puts in a role read on the
-   * client, and the reason `signedIn`/`isCurrent`/`isDowngrade` below only ever change
-   * which sentence a card shows, never what pressing it is allowed to do.
+   * show — which is why everything below only ever changes which sentence a card shows,
+   * never what pressing it is allowed to do.
+   *
+   * **A prop, not `useRole()`, since v3.13** — the reason is in `Viewer`'s own comment: the
+   * hook cannot answer before hydration, and the wrong answer it gives until then was being
+   * read by the one person this page must not mislead.
    */
   const router = useRouter()
-  const { known, email, planChosen, plan, subscriptionPlan } = useRole()
+  const { email, planChosen, plan, subscriptionPlan } = viewer
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
-  const signedIn = known && email !== null
+  const [confirmingFree, setConfirmingFree] = useState(false)
+  const signedIn = email !== null
   const pending = signedIn && !planChosen
   /*
    * Every rank question on this page is asked of the **subscription**, never of `plan`'s
@@ -220,7 +255,15 @@ export function PricingPlans({
 
     const result = await activatePlanChoice()
     if (result.ok) {
-      router.push('/')
+      /*
+       * `/thanks`, not `/` — the screen that answers "what did I just do" already has a Free
+       * branch written for exactly this moment («Still on Free. Here's what's next.», three
+       * steps and a way on to the songbooks), and until now nothing reached it: a global owner
+       * with `?preview=free` was the only reader who ever saw it. Choosing Free out of the
+       * mandatory gate was the one act in this app that confirmed itself by silently landing
+       * somewhere else, while every paid choice got a thank-you page.
+       */
+      router.push('/thanks')
       return
     }
 
@@ -249,6 +292,9 @@ export function PricingPlans({
     }
 
     setFreeBusy(false)
+    /* Back to the plain label on a failure: the question has been answered, and leaving the
+       confirmation open invites a second press at the one moment nothing went through. */
+    setConfirmingFree(false)
     setFreeError(
       /*
        * Deliberately not "already on Free": `not-applicable` is `mockCancel`'s answer to three
@@ -290,6 +336,30 @@ export function PricingPlans({
         * the subscription decides what is being paid for and therefore what an upgrade or a
         * downgrade is measured from.
         */}
+      {/*
+        * Why this reader is on a pricing page they never asked for.
+        *
+        * `requirePlanChoice` sends an account that has not chosen a plan here, and until now the
+        * only trace of that was the wording on the buttons — «Choose Standard», «Continue with
+        * Free» — which says what to press, never why pressing something is unavoidable. Read
+        * without it the page is what it looks like: marketing, arrived at by accident, with a
+        * brand mark at the top that leads to `/` and bounces straight back. The one thing worth
+        * saying out loud is that the choice is not a commitment, because the reader who thinks
+        * it is stops here.
+        *
+        * Above the gift notice, not below: this one explains the whole screen, that one explains
+        * which card is marked.
+        */}
+      {pending && (
+        <p className="notice notice-accent mt-6" role="status">
+          <IconInfo />
+          <span>
+            One step left: pick the plan to start on. Free is a real plan with no end date, not a trial — and
+            whichever you pick, you can change or cancel it any time from Billing.
+          </span>
+        </p>
+      )}
+
       {giftedAbove !== null && (
         <p className="notice notice-accent mt-6" role="status">
           <IconInfo />
@@ -446,16 +516,51 @@ export function PricingPlans({
                 <p className="plan-current w-full">Included in Lifetime</p>
               )}
 
+              {/*
+                * Two presses, not one, and the reason is what this button actually does: it
+                * calls `mockCancel` — the same cancellation `/billing` keeps behind its own
+                * quiet styling — from a price card whose label never says the word. One stray
+                * tap on a listing page ended a paid plan, with the only account of what
+                * happened arriving afterwards, on another screen. The shape is the one this
+                * codebase already uses for a destructive act (`SongForm`'s own delete): a
+                * question, then `btn-danger` beside a way out.
+                */}
               {column.cta !== undefined && !pending && signedIn && !isCurrent && !isLifetime && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-sm plan-cta w-full"
-                    onClick={() => void switchToFree()}
-                    disabled={freeBusy}
-                  >
-                    {freeBusy ? 'Switching…' : 'Switch to Free'}
-                  </button>
+                  {confirmingFree ? (
+                    <>
+                      <p className="mt-3 text-xs leading-[1.45] text-muted">
+                        {/* Named, because "switch to Free" is the one phrasing that hides it. */}
+                        Cancel {PLAN_LABEL[currentPlan ?? 'free']} and go back to Free?
+                      </p>
+                      <div className="mt-2 flex w-full gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm flex-1"
+                          onClick={() => void switchToFree()}
+                          disabled={freeBusy}
+                        >
+                          {freeBusy ? 'Switching…' : 'Cancel it'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-quiet btn-sm flex-1"
+                          onClick={() => setConfirmingFree(false)}
+                          disabled={freeBusy}
+                        >
+                          Keep it
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm plan-cta w-full"
+                      onClick={() => setConfirmingFree(true)}
+                    >
+                      Switch to Free
+                    </button>
+                  )}
                   {freeError !== null && (
                     <p className="notice notice-error mt-2 text-xs" role="alert">
                       {freeError}
@@ -565,9 +670,11 @@ export function PricingPlans({
  * already on Lifetime — there is nothing left to buy."), so this is the one-step-earlier
  * version of the same fact, not a new rule.
  */
-export function LifetimeCta({ href }: { href: string }) {
-  const { known, email, plan, subscriptionPlan } = useRole()
-  const signedIn = known && email !== null
+export function LifetimeCta({ href, viewer }: { href: string; viewer: Viewer }) {
+  /* Handed the same server-decided `Viewer` the cards get, for the same reason — this panel
+     was the fourth «Sign up» a signed-in reader saw before hydration. */
+  const { email, plan, subscriptionPlan } = viewer
+  const signedIn = email !== null
 
   if (!signedIn) {
     return (

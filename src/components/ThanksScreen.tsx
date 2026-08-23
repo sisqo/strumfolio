@@ -335,6 +335,10 @@ export function ThanksScreen() {
         </div>
       </div>
 
+      {/* No sentence under these buttons any more: «A confirmation is on its way to your
+          inbox» stood here *and* as the caption of the «Payment received» step above, the same
+          words twice on one short screen. The caption is the one that keeps it, because up
+          there it says which step it belongs to. */}
       <div className="mt-9 flex flex-wrap items-center justify-center gap-2.5">
         <Link href="/" className="btn btn-primary">
           <IconBooks size={16} />
@@ -348,7 +352,6 @@ export function ThanksScreen() {
           How the editor works
         </Link>
       </div>
-      <p className="mt-4 text-center text-sm text-muted">A confirmation is on its way to your inbox.</p>
     </>
   )
 }

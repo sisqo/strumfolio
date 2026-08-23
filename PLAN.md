@@ -11,7 +11,7 @@
 > distinta per i contenitori — quindi il resto di questo piano la nomina ancora quando
 > parla di quella, di proposito.
 
-> **Stato:** da v1 a **v3.12 — terzo ricontrollo dei piani** (l'ultima versione numerata in
+> **Stato:** da v1 a **v3.13 — quarto ricontrollo dei piani** (l'ultima versione numerata in
 > questo documento) sono consegnate e in produzione su https://strumfolio.com. La v1.2 ha cambiato
 > chi possiede un brano: il database, non i file — va letta prima di toccare il seed. La
 > v1.3 ha aggiunto lo strato che mostra la versione del database sopra la pagina statica: va
@@ -1109,6 +1109,95 @@ non cambia (`resolveSubscription` esce prima di ogni confronto di data). È la r
 
 Nessuna migrazione.
 
+### v3.13 — quarto ricontrollo dei piani: la revisione UX
+
+Quarto giro, e il taglio è diverso dai tre precedenti — non file per file (v3.10, v3.11) né
+percorrendo i passaggi (v3.12), ma **chi guarda e in quale stato**: non loggato,
+loggato-ma-fermato-dal-gate, ancora in caricamento, caricamento fallito. Il gruppo principale
+esce tutto da lì, e riguarda l'unica pagina che serve due pubblici insieme.
+
+1. **`/pricing` diceva le cose sbagliate proprio a chi il gate ci aveva mandato.** Tre difetti
+   che si sommavano nello stesso istante. L'header (`pricing/layout.tsx`) offriva «Sign in» a
+   chi era già dentro — fisso, non un lampo: `PublicHeader` non ha nozione di sessione e non
+   deve averla, sei altri layout lo montano davanti a una. E le card, servite staticamente,
+   dicevano a tutti la stessa cosa al primo pixel — «nessuno è loggato» — cioè tre «Sign up» a
+   /register più il pannello Lifetime, a un account che esisteva già. Nessuna frase, infine,
+   diceva *perché* si era lì: l'unico segnale era l'etichetta dei bottoni, e il marchio in alto
+   puntava a `/`, che il gate rimandava indietro.
+
+   La correzione costa alla pagina il rendering statico, che era una scelta dichiarata nei suoi
+   commenti: ora legge `loadIdentity()` e passa un `Viewer` alle card invece di lasciarle
+   chiedere a `useRole()`, che prima dell'idratazione non può che rispondere male. Un
+   segnaposto avrebbe nascosto la risposta sbagliata senza produrne una giusta, e avrebbe
+   togliuto i bottoni dall'HTML statico proprio ai visitatori per cui la staticità c'era.
+   Due conseguenze, entrambi miglioramenti: `lifetimeOpen()` legge l'orologio del lettore
+   invece di quello del build — l'offerta chiude il giorno che dice, e il promemoria umano
+   accanto a `closesOn` non serve più — e `generateMetadata` chiude la clausola lifetime lo
+   stesso giorno in cui la chiude il blocco sullo schermo.
+2. **L'email d'acquisto era l'ultimo posto che promettava un rinnovo.** `renewsOn` era
+   `planExpiresAt`, cioè il giorno in cui il piano **finisce**: la v3.12 ha corretto le tre
+   schermate su questa stessa causa e l'email è rimasta indietro, a dire «It renews on 3 May
+   2027, and you can change or cancel it any time before then» dove nessun cron, nessun webhook
+   e nessuna scrittura programmata esistono. Ora il campo si chiama `endsOn` e la frase dice
+   «It runs until ‹data›». Nient'altro del modello è stato toccato: resta scritto come una
+   conferma di pagamento vera, di proposito e per le ragioni già nel suo header — «si rinnova»
+   non faceva parte di quella finzione, era un'affermazione su una data, e sbagliata.
+3. **`/billing` non diceva mai quanto era stato pagato, né per quale periodo.** Una schermata
+   di fatturazione esiste per rispondere a quello, e rispondeva a nessuna delle due: nessuna
+   colonna conserva il ciclo corrente (`pendingCycle` è l'unica, ed è nulla se non c'è un
+   cambio programmato). La risposta era già nel ledger, sulla riga che ha registrato
+   l'acquisto — la stessa che `PaymentHistoryTable` stampa due card più sotto, quindi le due non
+   possono divergere come avrebbero potuto con una colonna nuova aggiornata da una scrittura e
+   non dall'altra. `lastPaymentLine` (`subscriptionCopy.ts`, nove test) la scrive, e tace del
+   tutto — nessuna frase, invece di una vaga — quando non c'è una riga d'acquisto da citare.
+   Deliberatamente non dice nulla su cosa succede dopo: quello è «active until ‹data›», e resta
+   nudo per la ragione del punto 2.
+4. **Si disdiceva con un clic solo, in due posti.** «Cancel my plan» su `/billing` chiamava
+   `mockCancel` immediatamente, con `btn-quiet` come sola protezione; e la card Free su
+   `/pricing` chiamava lo stesso `mockCancel`, da un listino, con un'etichetta («Switch to
+   Free») che non contiene la parola. In entrambi ora c'è il passo che questo codice già usa
+   per un atto distruttivo (la cancellazione in `SongForm`): una domanda che nomina il piano —
+   e su `/billing` anche il giorno in cui si fermerebbe — poi `btn-danger` accanto a una via
+   d'uscita.
+5. **Un successo non veniva annunciato, un errore sì.** Su `/billing` e `/checkout` gli errori
+   hanno `role="alert"` e le conferme non avevano nulla, mentre un cambio programmato non
+   cambia schermata: quella riga *è* tutto ciò che si riceve. Ora `role="status"`.
+6. **`PlanUpgradeModal` non manteneva mai la promessa di `aria-modal`.** Il fuoco restava sul
+   pulsante appena premuto, dietro il backdrop: a chi legge da tastiera veniva annunciato un
+   dialogo e poi negato l'ingresso, con Tab che girava la pagina sotto — i cui controlli sono
+   esattamente quelli che il piano aveva appena rifiutato. Ora il fuoco entra sulla card
+   (`tabIndex={-1}`, così viene letto il titolo e non «Close»), Tab è intrappolato, e alla
+   chiusura torna da dove veniva. `role="dialog"` si è spostato dall'overlay alla card: la
+   prima conteneva anche il backdrop, cioè un `aria-hidden` dentro ciò che si dichiara modale.
+7. **Uno storico che non si carica sembrava uno storico vuoto.** `historyResult.ok ? … : []`, e
+   `PaymentHistoryTable` con zero righe scrive «Nothing yet.»: sulla pagina che è la prova di
+   cosa è stato addebitato, una lettura fallita era indistinguibile da un cliente che non ha mai
+   pagato. Ora è un `historyFailed` sulla pagina pronta — la metà abbonamento decide se la
+   pagina si disegna affatto, quindi non è un quarto stato.
+8. **Rifiniture**: scegliere Free dal gate obbligatorio ora passa da `/thanks`, dove il ramo
+   Free («Still on Free. Here's what's next.») era scritto per questo momento e non lo
+   raggiungeva nessuno — `startFree` mandava su `/`, e l'unico lettore che l'aveva mai visto era
+   un proprietario globale con `?preview=free`; `/thanks` non dice più due volte la stessa frase
+   («A confirmation is on its way to your inbox», didascalia del passo *e* riga di chiusura);
+   e «Sign in to continue.» su `/checkout` ha un pulsante, per la sessione che finisce mentre lo
+   schermo è aperto — non per una visita da URL, che il middleware redirige prima.
+
+Non corretto, per scelta esplicita in sessione: il checkout finto continua a presentarsi come un
+pagamento vero (prezzi reali, form carta, «Complete purchase», «Payment received», e un'email che
+dice «We've received your payment of €9.49»), senza una riga da nessuna parte che dica che nulla è
+stato incassato. Il commento sopra `purchaseEmail` motiva la scelta con «the app is neither
+advertised nor linked from anywhere, and so there is nobody this can mislead» — premessa oggi più
+debole di quanto dica, perché la registrazione è aperta dalla v3.2, `/pricing` è pubblica e
+condivisibile, non esiste `robots.txt` né alcun `noindex`, ed entrambi i flag sono `on` in
+produzione su un dominio reale. Rischio riconosciuto e accettato, non un difetto sfuggito.
+
+Non corretto, stessa sessione: `/pricing` apre ancora su Monthly e non dice da nessuna parte che
+l'annuale conviene (€19 contro €29.88 su Standard, −36%; `yearlyTotalOfMonthly` esiste ma si vede
+solo a checkout, cioè a scelta già fatta), e `/checkout` continua a partire da `'year'` mentre
+`/pricing` parte da `'month'`.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1378,6 +1467,25 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Cambio ciclo che accorcia il periodo | Avvisa con entrambe le date, semantica invariata | «Rango pari applica subito» resta la regola di `mockPurchase`; ciò che mancava era dirlo prima, non cambiarla |
 | Cambio programmato senza `planExpiresAt` | Applicato subito, con `effect` nel risultato | Non c'è data su cui scattare: `resolveSubscription` lascia intatta una riga con `expiresAt: null`, quindi il cambio restava inerte mentre la schermata lo dava per programmato |
 | Su quale riga decidere programmato/immediato | Sulla riga **risolta**, su entrambi i lati | La colonna grezza e la vista risolta divergono proprio dove serve (cambio già scattato): lo schermo prometteva un acquisto e otteneva un cambio programmato, che scattava comunque al caricamento dopo — senza ricevuta. `grace` tiene la sua data e resta programmato |
+
+### Quarto ricontrollo dei piani (v3.13)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| `/pricing` statica o dinamica | Dinamica, `loadIdentity()` letto dal server | Il contenuto è una costante, *chi legge* no: una pagina statica dice a tutti «nessuno è loggato» al primo pixel, e il gate manda lì proprio chi è loggato. Costo accettato: un decode del cookie e due query per lettura |
+| Come evitare il lampo, alternativa scartata | Non un segnaposto fino all'idratazione | Nasconde la risposta sbagliata senza produrne una giusta, e toglie i bottoni dall'HTML statico ai visitatori per cui la staticità esisteva |
+| Chi decide il bottone dell'header | Il layout di `/pricing`, non `PublicHeader` | Sei altri layout lo montano davanti a una pagina senza sessione, dove «Sign in» è giusto; la decisione appartiene all'unica pagina che serve due pubblici |
+| Header per chi è nel gate | Nessun bottone | Ogni destinazione è un rimbalzo: `/` lo rimanda indietro. Un bottone che riporta alla pagina in cui sei è peggio di nessun bottone, e ora la spiegazione la dà la pagina |
+| Ciclo e importo su `/billing` | Derivati dal ledger, nessuna colonna nuova | La riga `purchase` porta già il ciclo, ed è la stessa che la tabella stampa poco sotto: non possono divergere, mentre una colonna aggiornata da una scrittura e non dall'altra sì |
+| Frase su cosa succede dopo | Nessuna, né «si rinnova» né «non si rinnova» | Niente qui rinnova nulla, quindi «renews» promette un addebito che non arriva; «non si rinnova mai» sarebbe un'affermazione sul futuro che Paddle smentirebbe. «active until ‹data›» resta nuda di proposito |
+| Conferma sulla disdetta | Due passi in linea, come la cancellazione in `SongForm` | Già il modo di questo codice per un atto distruttivo; un modale nuovo per la stessa domanda sarebbe un secondo modo di chiederla |
+| Scelta di Free dal gate | Passa da `/thanks` | Il ramo Free di quella schermata era scritto per questo momento e non lo raggiungeva nessuno; era anche l'unico atto dell'app che si confermava atterrando altrove |
+| `role="dialog"` nel modale | Sulla card, non sull'overlay | L'overlay contiene anche il backdrop: dichiarare modale un elemento che ha dentro un `aria-hidden` |
+| Fuoco iniziale nel modale | Sulla card, non sul primo bottone | Il primo è «Close», l'ultima cosa che vuole chi ha appena incontrato un limite; sulla card viene letto il titolo |
+| Trappola del Tab e ripristino del fuoco | Effetto separato, dipendenze vuote | L'handler di Escape dipende da `onClose`, che ogni chiamante passa come arrow nuova: uniti, un re-render del genitore avrebbe restituito il fuoco alla pagina dietro mentre il dialogo era ancora aperto |
+| Lettura fallita dello storico | Flag su una pagina pronta, non un quarto stato | La metà abbonamento decide se la pagina si disegna affatto; solo lo storico può fallire da solo |
+| Checkout finto che sembra reale | Lasciato com'è, deciso in sessione | Rischio riconosciuto: registrazione aperta, `/pricing` pubblica, nessun `noindex`, flag `on` in produzione. Accettato, non sfuggito |
+| Default annuale e badge di risparmio su `/pricing` | Lasciati com'è, deciso in sessione | Resta Monthly di default e resta il disallineamento con `/checkout`, che parte da `'year'` |
 | Cancellazione immediata nel ledger | Voce nuova `cancelled_now` | `scheduled_change` con `plan: 'free'` dice «a fine periodo»: era la riga sotto una conferma che diceva l'opposto |
 | «Cancel my plan» con un downgrade pendente | Permesso (`pendingPlan !== 'free'`) | Uscire dal piano richiedeva prima «Keep ‹piano›», senza che nulla lo dicesse; una cancellazione già programmata invece non ha altro da cancellare |
 | Copy del gate obbligatorio | «Choose ‹piano›», non «Upgrade to» | Chi non ha mai scelto non ha da cosa fare l'upgrade: la riga dice `free` solo perché è il default della colonna |

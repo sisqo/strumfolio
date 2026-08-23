@@ -19,6 +19,9 @@ import type { Plan } from '@/lib/plans/types'
  * `isAcceptedTestCard`'s own comment. Prefilled with the number that succeeds, so trying the
  * flow needs no typing; typing over it is how a tester tries the decline path instead.
  */
+/** The one `unavailable` reason a reader can actually do something about — see the JSX below. */
+const SIGN_IN_REASON = 'Sign in to continue.'
+
 const FAKE_CARD = { name: '', number: ACCEPTED_TEST_CARD, expiry: '12 / 30', cvc: '123' }
 
 type Status =
@@ -103,7 +106,7 @@ export function CheckoutScreen({
             result.reason === 'disabled'
               ? 'Checkout is not available right now.'
               : result.reason === 'no-session'
-                ? 'Sign in to continue.'
+                ? SIGN_IN_REASON
                 : 'No database is configured, so there is nothing to write to.',
         })
         return
@@ -198,14 +201,41 @@ export function CheckoutScreen({
       {status.state === 'loading' && <p className="mt-4 text-sm text-muted">One moment…</p>}
 
       {status.state === 'unavailable' && (
-        <p className="notice notice-error mt-4" role="alert">
-          {status.reason}
-        </p>
+        <>
+          <p className="notice notice-error mt-4" role="alert">
+            {status.reason}
+          </p>
+          {/* «Sign in to continue.» used to be the whole of this screen, with nothing to press
+              but «Back to plans» at the very bottom — not where anybody looks after being told
+              to sign in. Worth knowing how a reader gets here, since it is *not* by opening the
+              URL signed out: the middleware matches every route and redirects that visit to
+              /login before this component renders. What reaches this branch is a session that
+              ended while the screen was open — the tab left overnight, the ninety-day JWT
+              expiring, an account removed — so the reader is looking at a checkout they were
+              legitimately on. Only for this one reason: the other two ("checkout is off", "no
+              database") are not things a reader can act on, and a button would imply they
+              were. */}
+          {status.reason === SIGN_IN_REASON && (
+            <p className="mt-3">
+              <Link href="/login" className="btn btn-primary btn-sm">
+                Sign in
+              </Link>
+            </p>
+          )}
+        </>
       )}
 
       {status.state === 'ready' && (
         <>
-          {done !== null && <p className="notice mt-4">{done}</p>}
+          {/* `role="status"`, like the error below it (v3.13). This line is the *only* thing a
+              scheduled change produces — the screen does not navigate away and nothing else on
+              it moves — so leaving it unannounced meant a reader who cannot see it was told
+              when a purchase failed and never when one was recorded. */}
+          {done !== null && (
+            <p className="notice mt-4" role="status">
+              {done}
+            </p>
+          )}
           {error !== null && (
             <p className="notice notice-error mt-4" role="alert">
               {error}

@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
-import type { ComparisonRow, PlanColumn } from '@/components/PricingPlans'
+import type { ComparisonRow, PlanColumn, Viewer } from '@/components/PricingPlans'
+import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { PaidPlan } from '@/lib/plans/prices'
@@ -16,24 +17,29 @@ const SHARE_TITLE = `${APP_NAME} — Plans and pricing`
 
 /*
  * Whether the lifetime offer is still in the catalogue — the comparison `LIFETIME.closesOn`
- * was created for and, until now, the one nothing performed.
+ * was created for.
  *
- * **Read when the page is built, not when it is read.** This page is statically generated
- * (see the page's own comment below), so `new Date()` freezes at build time: the block does
- * not vanish at midnight on the closing day, it vanishes on the first build after it. That is
- * the trade taken deliberately over `export const revalidate`, which would give the one page
- * in this app whose content is a constant a cache lifetime, and would do it for a date known
- * months in advance. What the comparison buys even frozen is that no deploy can ship the
- * closed offer — today a deploy in 2027 would still print it, date and all. The remaining
- * duty is a human one and is written beside `closesOn`: take the block out on that day.
+ * **Read when the page is read, since v3.13** — a function rather than the module-scope
+ * constant this was, and the change is worth the paragraph it costs. While the page was
+ * statically generated `new Date()` froze at build time: the block did not vanish at midnight
+ * on the closing day, it vanished on the first deploy after it, and the standing duty beside
+ * `closesOn` was for a human to remember. The page now reads the session (see the page's own
+ * comment below), so it is rendered per request anyway; the reader's own clock comes free with
+ * that, and the offer closes on the day it says it closes. A duty removed rather than moved.
+ *
+ * A function and not a constant precisely so it cannot drift back: a `const` here would be
+ * evaluated once per server process, which on a long-lived instance is a subtler version of
+ * the same bug — right for the first reader of the day and wrong for the last.
  *
  * A string comparison, not `Date` arithmetic: `closesOn` is stored ISO precisely so that a
  * comparison is a comparison and not a parse of prose, and `<=` keeps the closing day itself
  * open, which is what "in the catalogue until" says. UTC on both sides, which for a date that
  * matters to the day and not to the hour is the only reading that does not depend on where
- * the build ran.
+ * the server happens to be.
  */
-const LIFETIME_OPEN = new Date().toISOString().slice(0, 10) <= LIFETIME.closesOn
+function lifetimeOpen(): boolean {
+  return new Date().toISOString().slice(0, 10) <= LIFETIME.closesOn
+}
 
 /*
  * Every number in this sentence is interpolated, like every number on the page below it:
@@ -44,19 +50,26 @@ const LIFETIME_OPEN = new Date().toISOString().slice(0, 10) <= LIFETIME.closesOn
  * thing this page says is that there is no trial — the free plan has no end date. That
  * distinction is the same one `DESCRIPTION` on /login now makes.
  *
- * The lifetime clause is gated on `LIFETIME_OPEN` for the same reason the block itself is,
+ * The lifetime clause is gated on `lifetimeOpen()` for the same reason the block itself is,
  * and this is the half that is easy to miss: a meta description is the one place a closed
  * offer would keep being advertised with nothing on the screen to show it. This sentence is
  * what a shared link renders as a card, so leaving it ungated would put "€149 once, until 31
  * December 2026" in front of readers who cannot buy it, in the place nobody thinks to look.
+ *
+ * A function, and `generateMetadata` below rather than a `metadata` constant, for the reason
+ * `lifetimeOpen` is a function: this sentence and the block on the screen have to close on the
+ * same day, and a constant evaluated at module load cannot.
  */
-const DESCRIPTION =
-  `Four plans, priced in euro with tax included: a free plan with no end date, then ` +
-  `${euro(PRICES.standard.year.amount)}, ${euro(PRICES.plus.year.amount)} or ` +
-  `${euro(PRICES.premium.year.amount)} a year` +
-  (LIFETIME_OPEN
-    ? ` — or ${euro(LIFETIME.amount)} once for Premium for life, until ${LIFETIME.closesOnLabel}.`
-    : `.`)
+function describe(): string {
+  return (
+    `Four plans, priced in euro with tax included: a free plan with no end date, then ` +
+    `${euro(PRICES.standard.year.amount)}, ${euro(PRICES.plus.year.amount)} or ` +
+    `${euro(PRICES.premium.year.amount)} a year` +
+    (lifetimeOpen()
+      ? ` — or ${euro(LIFETIME.amount)} once for Premium for life, until ${LIFETIME.closesOnLabel}.`
+      : `.`)
+  )
+}
 
 /*
  * `title: 'Pricing'` through the root layout's `%s · Strumfolio` template, so a shared link
@@ -71,22 +84,26 @@ const DESCRIPTION =
  * layout's own `openGraph.images` does not carry over once a page declares its own
  * `openGraph` object — Next replaces the block wholesale rather than merging into it.
  */
-export const metadata: Metadata = {
-  title: 'Pricing',
-  description: DESCRIPTION,
-  openGraph: {
-    title: SHARE_TITLE,
-    description: DESCRIPTION,
-    locale: 'en_US',
-    type: 'website',
-    images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: SHARE_TITLE,
-    description: DESCRIPTION,
-    images: ['/brand/og-image.png'],
-  },
+export function generateMetadata(): Metadata {
+  const description = describe()
+
+  return {
+    title: 'Pricing',
+    description,
+    openGraph: {
+      title: SHARE_TITLE,
+      description,
+      locale: 'en_US',
+      type: 'website',
+      images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: SHARE_TITLE,
+      description,
+      images: ['/brand/og-image.png'],
+    },
+  }
 }
 
 /*
@@ -486,28 +503,42 @@ const ROWS: ComparisonRow[] = [
  * only page in the app that has to be readable by somebody who has never signed in and by a
  * reader who signed in months ago, without knowing which of the two is looking.
  *
- * **This page must stay statically generated.** That is not enforced by anything: it holds
- * only as long as nothing here awaits `searchParams`, calls `cookies()`, `headers()` or
- * `auth()`, and nothing here calls any of the database-touching exports of
- * `@/lib/plans/resolve` — `entitlementsOf`, `deviceCapOf`, `effectivePlanOf` — or anything
- * under `@/lib/data`. `mockCheckoutEnabled`, imported here, is the one exception and not a
- * loophole in that rule: it is a bare, synchronous `process.env` read with no query behind
- * it, so calling it at render time is exactly as static-safe as reading `@/lib/plans/prices`,
- * just resolved at *build* time instead of never — which is the entire point of
- * `CHECKOUT_LIVE` existing at all: a flag flipped in Vercel takes effect on the next build's
- * copy of this page, not before. `@/lib/plans/types` and
- * `@/lib/plans/prices` are both pure and safe. There is no `export const dynamic` here
- * because nothing in this repository uses `force-static` — the four legal pages prerender
- * under this same root layout with no such declaration — and a comment is what a later
- * reader actually reads. The reason it matters: a price list rendered per request would be
- * a database read and a cold start for a page whose content is a constant.
+ * **This page was statically generated until v3.13, and deliberately is not any more.** The
+ * paragraph that used to stand here forbade exactly what the line below now does — `auth()`,
+ * by way of `loadIdentity` — so the reversal is recorded rather than quietly overwritten.
  *
- * `new Date()` at module scope — `LIFETIME_OPEN`, above — is on the permitted side of that
- * list, and is spelled out here so a later reader does not have to guess: reading the clock
- * is not a dynamic API, so it does not opt the page out of prerendering. What it does instead
- * is take the build's value and keep it, which is a consequence rather than a hazard and is
- * documented where the constant is declared. Anything that needs the *reader's* clock, as
- * opposed to the build's, cannot be done here at all without giving up the paragraph above.
+ * What the rule bought was a price list served with no database read and no cold start, for a
+ * page whose content is a constant. What it cost is in `Viewer`'s own comment
+ * (`PricingPlans.tsx`) and is the reason it went: the content is a constant, but *who is
+ * reading* is not, and a static page cannot know. Rendered statically, this page's first paint
+ * told every reader the same thing — nobody is signed in — which is right for a visitor and
+ * wrong for the one reader who cannot have arrived here any other way: `requirePlanChoice`
+ * redirects an account that has not chosen a plan *to this page*, and it was met by three
+ * cards and a lifetime panel inviting it to register for an account it already has, plus a
+ * header offering to sign it in. A placeholder until hydration would have hidden the wrong
+ * answer without producing a right one, and would have taken the buttons out of the static
+ * HTML for the visitors the staticness was for.
+ *
+ * So the cost is now paid on every read: one `auth()` cookie decode, plus the two queries
+ * `loadIdentity` makes (`planNamesOf`, `hasChosenPlan`). For a page nobody loads in a loop,
+ * against the alternative of a page that cannot say anything true until JavaScript runs, that
+ * is the cheaper of the two. Two things follow, and both are improvements rather than
+ * consequences to manage: `lifetimeOpen()` now reads the reader's clock instead of the build's
+ * (see its own comment), and `generateMetadata` closes the lifetime clause on the same day the
+ * block on the screen closes.
+ *
+ * What has *not* changed: nothing here awaits `searchParams`, and nothing here reads any
+ * per-request state beyond the identity above — so the page still renders exactly the same
+ * HTML for every reader in the same state, which is what keeps it reviewable. Still no
+ * `export const dynamic`: reading cookies is what makes a page dynamic in this router, and
+ * the declaration would only restate what `loadIdentity` already forces.
+ *
+ * One thing left at module scope on purpose: `CHECKOUT_LIVE`. It is a synchronous
+ * `process.env` read, so it is evaluated once per server process rather than once per request
+ * — which is the same reach it had when this page was built once per deploy, since flipping
+ * that flag in Vercel redeploys anyway. `lifetimeOpen()` is a function precisely because the
+ * clock is the one thing that does move underneath a long-lived process; a flag in the
+ * environment does not.
  *
  * Not inside the `(legal)` route group, whose layout is documented as the shell shared by
  * the four legal pages and wraps its children in `legal-content` prose at `max-w-2xl` —
@@ -528,7 +559,28 @@ const ROWS: ComparisonRow[] = [
  * The reader's own theme, like every other page now — a comparison table that reads
  * correctly in both themes anyway, drawn entirely in tokens.
  */
-export default function PricingPage() {
+export default async function PricingPage() {
+  /*
+   * The whole reason this page is no longer static. `loadIdentity` is the same read
+   * `RoleProvider` makes from the client, called here instead so that every card, the lifetime
+   * panel and the notice above them are already right in the first byte of HTML — see `Viewer`
+   * in `PricingPlans.tsx` for what the client-side answer got wrong in the meantime.
+   *
+   * `null` for a visitor, which is the majority case and the one the shape of `Viewer` keeps
+   * simple: one object, four fields, no "still loading" third state to word a sentence for.
+   */
+  const identity = await loadIdentity()
+  const viewer: Viewer = {
+    email: identity?.email ?? null,
+    planChosen: identity?.planChosen ?? true,
+    plan: identity?.plan ?? null,
+    subscriptionPlan: identity?.subscriptionPlan ?? null,
+  }
+
+  /* Read once per request, like `CHECKOUT_LIVE` above — both the block and the metadata's own
+     clause have to agree on the same day, and `describe()` asks the same function. */
+  const lifetimeIsOpen = lifetimeOpen()
+
   return (
     <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
       <div className="text-center">
@@ -546,15 +598,15 @@ export default function PricingPage() {
       </div>
 
       <section className="mt-8">
-        <PricingPlans columns={COLUMNS} rows={ROWS} tableTitle="What changes between plans" />
+        <PricingPlans columns={COLUMNS} rows={ROWS} tableTitle="What changes between plans" viewer={viewer} />
       </section>
 
       {/*
-        * Rendered only while the offer is open — see `LIFETIME_OPEN`. The block states its own
+        * Rendered only while the offer is open — see `lifetimeOpen()`. The block states its own
         * closing date, so left ungated it would spend 2027 advertising a price at a price list's
         * full volume and explaining, in the same breath, that the price is gone.
         */}
-      {LIFETIME_OPEN && (
+      {lifetimeIsOpen && (
         <section className="mt-16">
           <div className="lifetime-panel">
             {/*
@@ -584,7 +636,7 @@ export default function PricingPage() {
                   <p className="lifetime-price">{euro(LIFETIME.amount)}</p>
                 </div>
 
-                {CHECKOUT_LIVE && <LifetimeCta href="/checkout/lifetime" />}
+                {CHECKOUT_LIVE && <LifetimeCta href="/checkout/lifetime" viewer={viewer} />}
               </div>
             </div>
           </div>

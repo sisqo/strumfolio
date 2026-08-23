@@ -38,7 +38,7 @@ const SAMPLE_PURCHASE = {
   planLabel: 'Premium',
   amount: '99',
   cycle: 'year' as const,
-  renewsOn: '22 September 2027',
+  endsOn: '22 September 2027',
 }
 
 /**

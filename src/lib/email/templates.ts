@@ -152,6 +152,10 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * comes: nothing in this template needs revisiting, because it already says what a real
  * purchase would say.
  *
+ * The one clause that was *not* covered by that argument, and was corrected in v3.13, is
+ * `endsOn`'s — see its own comment. A processor being a stand-in is why no money moved; it is
+ * not a reason to name a renewal date that no code anywhere will act on.
+ *
  * `amount` is `amountFor`'s own string (`plans/history.ts`), the same figure the ledger row
  * written in the same breath records — never recomputed here, so a receipt cannot disagree with
  * the history it is logged beside.
@@ -163,10 +167,23 @@ export function purchaseEmail(input: {
   amount: string | null
   /** null for `lifetime`, which is bought once and has no cycle. */
   cycle: 'month' | 'year' | null
-  /** The next renewal as a plain day, or null for a plan that never renews. */
-  renewsOn: string | null
+  /**
+   * The day the period just paid for runs out, as a plain day — or null for a plan that has
+   * no such day (`lifetime`).
+   *
+   * **Named for what it is, since v3.13.** This was `renewsOn`, and the sentence it fed said
+   * «It renews on 3 May 2027» — a promise nothing in this repository keeps. `checkout.ts`
+   * passes `planExpiresAt`, and nothing renews it: no cron, no webhook, no scheduled write
+   * exists anywhere here, so when that day comes the entitlement simply stops
+   * (`liveSubscription`, `plans/entitlements.ts`). The three screens were corrected to say so
+   * in v3.12; this email was the last place still telling a customer a charge was coming that
+   * never comes. Note what did *not* change with it: every other sentence here still reads as
+   * a real payment confirmation, deliberately, for the reasons below — saying "it renews"
+   * was not part of that pretence but a plain claim about a date, and the wrong one.
+   */
+  endsOn: string | null
 }): EmailTemplate {
-  const { planLabel, amount, cycle, renewsOn } = input
+  const { planLabel, amount, cycle, endsOn } = input
   const subject = `Your ${planLabel} plan is active — thanks`
 
   /* «€9.49 per month», «€149, once», or nothing at all if there is no figure to name. */
@@ -177,9 +194,9 @@ export function purchaseEmail(input: {
         ? `We've received your payment of ${euro(amount)}.`
         : `We've received your payment of ${euro(amount)} for the first ${cycle}.`
   const renewalClause =
-    renewsOn === null
+    endsOn === null
       ? 'There is nothing to renew — it stays yours, for good.'
-      : `It renews on ${renewsOn}, and you can change or cancel it any time before then.`
+      : `It runs until ${endsOn}, and you can change or cancel it any time from Billing.`
 
   const startUrl = `https://${SITE_URL}/`
   const billingUrl = `https://${SITE_URL}/billing`

@@ -12,13 +12,28 @@ import {
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
-import { subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
+import { formatPlanDate, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
-  | { state: 'ready'; current: MockSubscriptionState; live: Plan | null; history: PaymentHistoryLine[] }
+  | {
+      state: 'ready'
+      current: MockSubscriptionState
+      live: Plan | null
+      history: PaymentHistoryLine[]
+      /*
+       * Whether the *history* read failed on its own, while the subscription read beside it
+       * succeeded — two reads, and until v3.13 only one of them could be reported. A failure
+       * became `history: []`, which `PaymentHistoryTable` prints as «Nothing yet.»: on the one
+       * screen whose job is to be the record of what was charged, a read that did not happen
+       * looked exactly like a customer who had never paid. The subscription half is what
+       * decides whether the page renders at all, so this is a flag on a ready page rather than
+       * a fourth state.
+       */
+      historyFailed: boolean
+    }
 
 /**
  * Whether "Cancel my plan" is worth offering — `mockCancel`'s own three refusals, asked here
@@ -61,6 +76,7 @@ export function BillingScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
 
   const refresh = () => {
     void Promise.all([loadCheckoutStatus(), loadMyPaymentHistory()]).then(([checkoutResult, historyResult]) => {
@@ -81,6 +97,7 @@ export function BillingScreen() {
         current: checkoutResult.current,
         live: checkoutResult.live,
         history: historyResult.ok ? historyResult.history : [],
+        historyFailed: !historyResult.ok,
       })
     })
   }
@@ -115,8 +132,16 @@ export function BillingScreen() {
       setError("That didn't go through. Try again.")
     } finally {
       setBusy(false)
+      /* Whatever happened, the question has been answered: collapse the confirmation rather
+         than leave a second «Cancel it» under a line reporting the first one. */
+      setConfirmingCancel(false)
     }
   }
+
+  /* Narrowed once so the two things read out of a ready status can be computed above the JSX,
+     the same shape `CheckoutScreen` uses. */
+  const ready = status.state === 'ready' ? status : null
+  const payment = ready === null ? null : lastPaymentLine(ready.current, ready.history)
 
   return (
     <>
@@ -136,7 +161,14 @@ export function BillingScreen() {
 
       {status.state === 'ready' && (
         <>
-          {done !== null && <p className="notice mt-4">{done}</p>}
+          {/* `role="status"` beside the error's own `role="alert"`: a scheduled cancellation
+              changes nothing on the screen except this line, so without it the one reader who
+              cannot see it was told when an action failed and never when it worked. */}
+          {done !== null && (
+            <p className="notice mt-4" role="status">
+              {done}
+            </p>
+          )}
           {error !== null && (
             <p className="notice notice-error mt-4" role="alert">
               {error}
@@ -146,6 +178,10 @@ export function BillingScreen() {
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">This account&apos;s plan</h2>
             <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current, status.live)}</p>
+            {/* What was paid and for which period — see `lastPaymentLine`, and its own comment
+                on why this comes out of the ledger rather than a column. Absent, rather than
+                hedged, whenever there is no purchase row to quote. */}
+            {payment !== null && <p className="mt-1 text-sm text-muted">{payment}</p>}
 
             <div className="mt-3 flex flex-wrap gap-2">
               {status.current.pendingPlan !== null && (
@@ -163,22 +199,57 @@ export function BillingScreen() {
                 Change plan
               </Link>
 
-              {canCancel(status.current, status.live) && (
-                <button
-                  type="button"
-                  className="btn btn-quiet btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(mockCancel, (result) =>
-                      result.effect === 'immediate'
-                        ? 'Cancelled — this account is back on Free.'
-                        : 'Scheduled — this plan cancels once the period already paid for ends.',
-                    )
-                  }
-                >
-                  Cancel my plan
-                </button>
-              )}
+              {/*
+                * Two presses since v3.13, and the same shape the Free card on `/pricing` now
+                * uses — `SongForm`'s own delete pattern, which is this codebase's answer to a
+                * destructive act. `btn-quiet` was the whole of the protection before: one press
+                * ended a paid plan, and the only account of what had happened arrived
+                * afterwards, in the `done` line above. The question names the plan and says
+                * *when* it stops, because those are the two things the reader is deciding
+                * between, and the button below could only be pressed before knowing either.
+                */}
+              {canCancel(status.current, status.live) &&
+                (confirmingCancel ? (
+                  <>
+                    <span className="self-center text-sm text-muted">
+                      Cancel {PLAN_LABEL[status.current.plan]}
+                      {status.current.expiresAt === null
+                        ? '?'
+                        : ` at the end of the period already paid for, on ${formatPlanDate(status.current.expiresAt)}?`}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(mockCancel, (result) =>
+                          result.effect === 'immediate'
+                            ? 'Cancelled — this account is back on Free.'
+                            : 'Scheduled — this plan cancels once the period already paid for ends.',
+                        )
+                      }
+                    >
+                      Cancel it
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      disabled={busy}
+                      onClick={() => setConfirmingCancel(false)}
+                    >
+                      Keep it
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-quiet btn-sm"
+                    disabled={busy}
+                    onClick={() => setConfirmingCancel(true)}
+                  >
+                    Cancel my plan
+                  </button>
+                ))}
             </div>
 
           </div>
@@ -186,7 +257,17 @@ export function BillingScreen() {
           <div className="card p-4 sm:p-5 mt-4">
             <h2 className="section-title">Payment history</h2>
             <div className="mt-2">
-              <PaymentHistoryTable lines={status.history} dates="plain" />
+              {/* A read that failed says so. `PaymentHistoryTable`'s own empty state («Nothing
+                  yet.») is a statement about the account, and making a failure borrow it told
+                  a paying customer their payments had never happened. */}
+              {status.historyFailed ? (
+                <p className="notice notice-error text-sm" role="alert">
+                  This account&apos;s payment history could not be read just now. Nothing is wrong with the
+                  plan itself — reload to try again.
+                </p>
+              ) : (
+                <PaymentHistoryTable lines={status.history} dates="plain" />
+              )}
             </div>
           </div>
         </>

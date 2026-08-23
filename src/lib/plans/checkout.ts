@@ -425,13 +425,15 @@ export async function mockPurchase(
        * switched into a customer's account to test a purchase sends that *customer* this email,
        * not themselves.
        */
-      const renewsOn =
+      /* `endsOn`, not `renewsOn` — this is `planExpiresAt`, and nothing in this file or any
+         other renews it. See `purchaseEmail`'s own comment on the rename. */
+      const endsOn =
         expiresAt === null
           ? null
           : expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       await sendEmail({
         to: user.accountOwnerEmail,
-        ...purchaseEmail({ planLabel: PLAN_LABEL[plan], amount, cycle: billedCycle, renewsOn }),
+        ...purchaseEmail({ planLabel: PLAN_LABEL[plan], amount, cycle: billedCycle, endsOn }),
       })
 
       return { ok: true, effect: 'immediate' }

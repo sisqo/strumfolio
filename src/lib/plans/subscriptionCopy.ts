@@ -11,7 +11,9 @@
 
 import { PLAN_LABEL } from './types'
 import type { Plan } from './types'
+import { euro } from './prices'
 import type { MockSubscriptionState } from './checkout'
+import type { PaymentHistoryLine } from './history'
 
 /**
  * A renewal date as a reader would write it — «22 September 2026» — the same form the
@@ -71,4 +73,53 @@ export function subscriptionStatusLine(current: MockSubscriptionState, live: Pla
   return current.pendingPlan !== null
     ? `${PLAN_LABEL[current.plan]} until ${until}, then ${PLAN_LABEL[current.pendingPlan]}.`
     : `${PLAN_LABEL[current.plan]}, active until ${until}.`
+}
+
+/**
+ * What was actually paid, and for how long a period — the two facts `/billing` never said.
+ *
+ * A billing screen exists to answer «what was I charged, and when», and this one answered
+ * neither: `subscriptionStatusLine` above names the plan and the day it runs to, and that was
+ * the whole of it. No amount, and no period — a reader could not tell «Standard, active until
+ * 22 September 2026» on a yearly plan from the same sentence on a monthly one renewed eleven
+ * times.
+ *
+ * **Read out of the ledger, not out of a column, and that is not a shortcut.** No column
+ * anywhere stores the cycle a live subscription is on: `accounts.pendingCycle` is the only one
+ * in the schema and, by its own comment, is null unless a change is already scheduled. The
+ * ledger `logMockEvent` writes does carry it, on the row that recorded the purchase itself —
+ * which is the row this reads, and the same row `PaymentHistoryTable` prints two cards further
+ * down the same screen. The two therefore cannot disagree, which a new column would have made
+ * possible on the day one write updated it and the other did not.
+ *
+ * `history` is expected newest-first, which is how `loadMyPaymentHistory` returns it
+ * (`orderBy(desc(receivedAt))`) — so the first match is the most recent purchase and not merely
+ * some purchase. Matched on `plan` as well as on the action, so an upgrade's own row wins over
+ * the older, cheaper plan's underneath it: the figure named has to be the figure paid for the
+ * plan that is running now.
+ *
+ * `null` — no line at all rather than a hedged one — whenever there is nothing certain to say:
+ * a free account, a plan bought before this ledger existed, or a row with no amount on it. An
+ * absent sentence is read as "not applicable"; a vague one gets read as a fact.
+ *
+ * Deliberately says nothing about what happens next. That is `subscriptionStatusLine`'s
+ * «active until <date>», and it stays as bare as it is on purpose: nothing in this repository
+ * renews anything (see `checkout.ts`'s own header), so a word like "renews" here would promise
+ * a charge that never comes — the mistake the purchase email was making until v3.13.
+ */
+export function lastPaymentLine(
+  current: MockSubscriptionState,
+  history: PaymentHistoryLine[],
+): string | null {
+  if (current.plan === 'free') return null
+
+  const paid = history.find((line) => line.action === 'purchase' && line.plan === current.plan)
+  if (paid === undefined || paid.amount === null) return null
+
+  const when = formatPlanDate(paid.occurredAt)
+
+  /* No cycle is `lifetime`'s own shape, not a missing value — see `PaymentHistoryLine.cycle`. */
+  return paid.cycle === null
+    ? `${euro(paid.amount)} paid once, on ${when}.`
+    : `${euro(paid.amount)} paid on ${when}, for ${paid.cycle === 'year' ? 'a year' : 'a month'}.`
 }
