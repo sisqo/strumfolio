@@ -449,148 +449,46 @@ Finora un solo repertorio condiviso: canzonieri, sezioni e brani sono tabelle gl
 `members`/`ALLOWED_EMAILS` decidono soltanto chi, fra un insieme fisso di persone, può
 vederlo o modificarlo. Questa versione rompe quel presupposto — **ogni persona ammessa
 nell'app ha un proprio spazio**, con i propri canzonieri, e può essere invitata, in più,
-come collaboratrice nello spazio di qualcun altro.
+come collaboratrice nello spazio di qualcun altro (i collaboratori spariranno di nuovo in
+v3.1). Il cancello d'ingresso non cambia; cambia solo cosa trova chi entra.
 
-Il cancello d'ingresso **non cambia**: resta chiuso a chi non è né un proprietario
-(`ALLOWED_EMAILS`) né già invitato da qualcuno che c'è. Cambia solo cosa trova, chi entra:
-non più l'unico repertorio dell'installazione, ma il proprio.
+**Nuova tabella `accounts`** (`ownerEmail` chiave primaria): un account è sempre di una
+persona sola, identificato dal proprietario, e deve poter esistere un istante prima che la
+clonazione del canzoniere Example gli scriva dentro qualcosa. **Lo slug resta globale**, non
+composto con l'account: l'idea originale (chiave `(accountOwnerEmail, slug)`) si è rivelata
+incompatibile con `generateStaticParams`, che genera le pagine a build time senza un account
+di richiesta con cui comporre la chiave — la clonazione dell'Example evita le collisioni
+riusando `uniqueSlug()`. `songbooks` guadagna anche `isExampleTemplate` (indice unico
+parziale: al più un canzoniere in tutta l'installazione lo porta) e `members` diventa
+per-account (`(accountOwnerEmail, memberEmail)` invece di `email` da sola).
 
-Passi, nell'ordine in cui una migrazione reale li richiede:
+**`roleOf` accetta l'account bersaglio**: admin se l'email è proprietaria globale *o*
+proprietaria di quello specifico account (due casi distinti — il primo vede tutti gli
+account, il secondo solo il proprio), altrimenti la riga in `members` per quell'account, che
+non contiene mai `admin` — un grado che nessun account può concedere a un collaboratore.
+La provisione (crea la riga, clona l'Example) gira a ogni sign-in riuscita, idempotente per
+costruzione. L'account corrente vive in un **cookie separato dal token di sessione**,
+sempre riverificato lato server, mai fidato da solo.
 
-1. **Nuova tabella `accounts`** — `ownerEmail` (chiave primaria), `createdAt`. Un account è
-   sempre di una persona sola e non si rinomina: è identificato dal proprietario, non da un
-   nome scelto. Serve come tabella a sé — non basta dedurre "gli account esistenti"
-   dall'elenco dei canzonieri — perché un account deve poter esistere anche un istante
-   prima che la clonazione del canzoniere Example gli scriva dentro qualcosa, e perché dà
-   un bersaglio pulito alle chiavi esterne che seguono.
-2. **`songbooks` guadagna `accountOwnerEmail`**, come colonna semplice — non come parte
-   della chiave primaria. L'idea originale era una chiave composta `(accountOwnerEmail,
-   slug)`, per permettere a due account di clonare lo stesso Example senza scontrarsi sullo
-   slug; si è rivelata incompatibile con `generateStaticParams`, che genera le pagine di
-   `/songs/[slug]` e `/songbooks/[slug]` **a build time**, senza alcun account di richiesta
-   con cui comporre la chiave. Lo slug resta quindi **globale** come oggi — `songbooks.slug`
-   e `songs.slug` restano chiavi primarie semplici, `sections` e `songs` non guadagnano
-   alcuna colonna — e la clonazione dell'Example evita le collisioni riusando `uniqueSlug()`
-   (già esistente) al momento della provisione, mintando uno slug nuovo per il canzoniere
-   clonato e per ciascun brano che contiene. La conseguenza più grande è altrove: uno slug
-   globale raggiungibile da chiunque sia autenticato è un confine di privacy che non regge
-   più da solo, il che è il motivo dei punti 12–14 più sotto.
-3. **`songbooks` guadagna `isExampleTemplate`** (booleano, default `false`), con un indice
-   unico parziale (`UNIQUE (isExampleTemplate) WHERE isExampleTemplate`) che garantisce che
-   al più un canzoniere in tutta l'installazione porti il flag. È quello che la
-   provisione clona per ogni nuovo account; spostarlo su un altro canzoniere in futuro è un
-   `UPDATE`, non un deploy.
-4. **`members` diventa per-account.** Chiave primaria `(accountOwnerEmail, memberEmail)`
-   invece di `email` da sola: la stessa persona può comparire più volte, una riga per ogni
-   account di cui è collaboratrice, con un ruolo — editor o viewer — indipendente in
-   ciascuno. `addedBy`, `role`, `createdAt` restano come sono oggi, solo scope diverso.
-5. **`userSongPrefs` non cambia**, di conseguenza al punto 2: restando `songs.slug` una
-   chiave globale, la chiave esterna verso `songs` e la chiave primaria
-   `(userEmail, songSlug)` restano quelle di oggi, senza bisogno di una colonna
-   `accountOwnerEmail` in più. `userPrefs` (zoom, notazione, strumento) resta comunque
-   **della persona**, non del repertorio che sta leggendo — quello non era mai stato in
-   discussione.
-6. **`singAlongSessions` guadagna `broadcastAccountEmail`.** `ownerEmail` continua a dire
-   *chi* sta trasmettendo (una trasmissione attiva a testa, come oggi); la nuova colonna
-   dice *il repertorio di quale account* sta mostrando — quasi sempre il proprio, ma non
-   necessariamente, se chi trasmette è anche collaboratore altrove (vedi punto 11).
-7. **`roleOf` accetta l'account bersaglio.** Restano tre ruoli — admin, editor, viewer — ma
-   editor/viewer smettono di essere un fatto globale sulla persona e diventano relativi
-   a un account: `roleOf(email, ALLOWED_EMAILS, accountOwnerEmail, members)` risponde
-   `admin` in due casi — l'email è un proprietario globale (ovunque, come oggi: il bypass
-   non cambia), **oppure** l'email è la proprietaria *di quello specifico account*. Il
-   secondo caso non è il primo travestito: un proprietario d'account ha pieno controllo
-   solo lì, non su nessun altro account — vedere ed entrare in *tutti* gli account resta
-   un potere del solo bypass globale, controllato a parte da chi mostra l'elenco (punto
-   10), non da `roleOf`. Solo se nessuno dei due si applica si cerca la riga
-   `(accountOwnerEmail, email)` in `members`, che non contiene mai `admin`: è un grado che
-   nessun account può concedere a un collaboratore, per costruzione — vedi *Account
-   (v3.0)* nella tabella delle Decisioni. `admitted()`, la guardia del login, resta invece
-   un controllo **senza** account di destinazione: esiste se l'email è proprietaria
-   globale **o compare in `members` per almeno un account qualsiasi** — è così che il
-   cancello resta chiuso a chi nessuno ha mai invitato da nessuna parte, senza dover già
-   sapere quale sarà il primo account che vedrà.
-8. **Provisione automatica alla prima sign-in riuscita**, dentro `signIn` in `auth.ts`,
-   accanto a `recordSignIn`: se l'email non ha ancora una riga in `accounts`, se ne crea
-   una e si clona il canzoniere con `isExampleTemplate`, con le sue sezioni e i suoi brani,
-   dentro il nuovo account. Idempotente per costruzione — controlla l'esistenza, non
-   l'occasione — quindi può girare a ogni login senza bisogno di distinguere "il primo".
-   Questo vale per **chiunque** superi `admitted()`, non solo per chi entra come
-   proprietario: un invitato come semplice collaboratore in un account altrui riceve
-   comunque il proprio, come richiesto.
-9. **Account corrente: un cookie, non il token di sessione.** A differenza del ruolo — che
-   resta fuori dal JWT per motivi di sicurezza (v2.1) — quale account si sta guardando è
-   solo una preferenza di navigazione, e può vivere in un cookie semplice, riletto e
-   **sempre riverificato** a ogni richiesta lato server: mai fidarsi del suo contenuto senza
-   ricontrollare che l'email in sessione abbia davvero accesso (admin, proprietà, o riga in
-   `members`) all'account che dice. Un cookie assente, invalido o che punta a un account non
-   più accessibile ricade sempre sul proprio account — che è anche, così, il comportamento
-   di default dopo il login, senza bisogno di un'azione dedicata a "apri il tuo account".
-   Cambiare account è una server action che valida l'accesso e riscrive solo il cookie.
-10. **`/utenti` diventa la gestione collaboratori dell'account corrente**; una nuova
-    schermata (solo per chi ha ruolo admin) elenca tutti gli account dell'installazione,
-    con un'azione "entra" per ciascuno che equivale a cambiare account. Nel menù, chi ha
-    accesso a un solo account (il proprio, il caso comune) non vede alcun selettore — chi
-    ne ha più di uno, perché è collaboratore altrove o perché è admin, sì.
-11. **Sing Together trasmette l'account corrente**, non "il" repertorio: chi avvia una
-    trasmissione deve avere editor o admin sull'account che ha aperto in quel momento — un
-    viewer può seguire un canzoniere, non esporlo pubblicamente con un link. Le letture
-    lato ospite (`guestReads.ts`) si filtrano per `broadcastAccountEmail` invece di leggere
-    tutte le tabelle senza condizione.
-12. **Slug globale + pagine statiche = una fuga di privacy**, scoperta durante
-    l'implementazione e non prevista dall'interview: con lo slug tornato globale (punto 2),
-    `/songs/[slug]` e `/songbooks/[slug]` restano generate a build time da
-    `generateStaticParams`, il che le rende raggiungibili da **chiunque sia autenticato**,
-    non solo da chi ha accesso all'account proprietario — indovinare uno slug altrui bastava.
-    Il precache d'installazione (`scripts/precache-routes.ts`) aggravava la cosa scaricando
-    ogni canzoniere di ogni account su ogni dispositivo, a prescindere da chi lo usa. Due
-    strade erano possibili — accettare la fuga com'è (nessun altro account esiste ancora),
-    o ricostruire il confine di privacy per davvero; la seconda è quella scelta, tutta in
-    un'unica consegna piuttosto che in due tempi.
-13. **Le pagine diventano dinamiche, il confine di privacy si sposta nel controllo
-    d'accesso.** `generateStaticParams` viene rimosso da `/songs/[slug]` e
-    `/songbooks/[slug]` (`export const dynamic = 'force-dynamic'` al suo posto); ogni
-    caricamento risolve l'account proprietario della risorsa (`songAccountOf`/
-    `songbookAccountOf`) e verifica `accessTo(accountOwnerEmail)` **prima** di leggere o
-    restituire qualunque dato, con `notFound()` sia per "non esiste" sia per "esiste ma non
-    è tuo" — indistinguibili di proposito, per non confermare a un estraneo che uno slug
-    indovinato esiste davvero. La stessa distinzione vale ovunque una risorsa si raggiunga
-    per slug/token invece che navigando l'account corrente: pagina di modifica, azioni di
-    salvataggio/spostamento/cancellazione, letture lato ospite di Sing Together. Da qui
-    anche la fine della tabella `builds` e del pannello "in attesa di pubblicazione": con
-    ogni pagina dinamica, un salvataggio è live all'istante, non c'è più una build da
-    aspettare.
-14. **L'offline si ricostruisce senza un precache unico.** Il precache d'installazione si
-    riduce a quattro rotte generiche (`/`, `/utenti`, `/password`, il manifest); la copertura
-    offline per lettore arriva invece da due meccanismi nuovi — il service worker applica lo
-    stesso controllo di sessione già usato per il precache anche alla cache di runtime delle
-    pagine (`authenticatedPageCaching` in `sw.ts`, prima limitato all'installazione), e un
-    warm-up in background (`OfflineSync`) che, una volta online, richiede da sé le pagine dei
-    soli account a cui chi legge ha accesso — mai quelle di un account altrui.
+**Scoperta durante l'implementazione, non prevista dall'interview: slug globale + pagine
+statiche è una fuga di privacy.** Con lo slug globale, `/songs/[slug]` e `/songbooks/[slug]`
+generate a build time restano raggiungibili da chiunque sia autenticato, non solo da chi ha
+accesso all'account proprietario — indovinare uno slug altrui bastava, e il precache
+d'installazione aggravava la cosa scaricando ogni canzoniere di ogni account su ogni
+dispositivo. Risolto ricostruendo il confine per davvero, nella stessa consegna: le pagine
+diventano **dinamiche** (`force-dynamic`), ogni caricamento verifica l'accesso *prima* di
+restituire qualunque dato, con `notFound()` indistinguibile fra "non esiste" ed "esiste ma
+non è tuo". Da qui anche la fine di `builds` e del pannello "in attesa di pubblicazione": con
+pagine dinamiche un salvataggio è live all'istante. L'offline si ricostruisce senza un
+precache unico — il service worker applica lo stesso controllo di sessione alla cache di
+runtime, e un warm-up in background copre solo gli account a cui chi legge ha accesso.
 
-**Migrazione dei dati esistenti, in ordine.** Il repertorio unico di oggi e i suoi
-`members` diventano l'account di **f.limberti@gmail.com** — scelto perché l'altro indirizzo
-di `ALLOWED_EMAILS`, f.limberti@3nd.it, riceve il proprio account personale vuoto al
-prossimo login, come chiunque altro (punto 8), pur restando proprietario globale nel
-frattempo. Concretamente: si crea la sua riga in `accounts`; si scrive `accountOwnerEmail`
-su ogni riga esistente di `songbooks` con quel valore (`sections` e `songs` non hanno
-bisogno di nulla, seguono `songbookSlug`); ogni riga attuale di `members` diventa una riga
-`(accountOwnerEmail: f.limberti@gmail.com, email, role, addedBy, createdAt)` invariata nel
-resto, cosa che preserva l'accesso di chi è già invitato senza bisogno di re-invitarlo;
-`userSongPrefs` non richiede backfill (punto 5). Le eventuali trasmissioni Sing Together
-già aperte al momento della migrazione, se presenti, si scartano piuttosto che collegarle a
-un account: sono trasmissioni interrotte, non repertorio.
-
-Il canzoniere Example esiste (creato durante l'implementazione: un canzoniere dedicato, non
-uno dei segnaposto di `content/`, che restano il repertorio "vero" del primo account), è
-flaggato `isExampleTemplate` e conteneva un brano segnaposto — aggiunto proprio per
-verificare la clonazione end-to-end contro il database reale prima di dichiarare la
-versione conclusa (vedi *Scostamenti dal piano* più sotto). Il contenuto editoriale è stato
-scritto in seguito (v3.2): «Example Song» usa ora ogni direttiva che il visualizzatore
-riconosce — title, artist, tags, canzoniere, sezione, comment, start_of_chorus/end_of_chorus,
-start_of_bridge/end_of_bridge — spiegando ciascuna con un commento visibile nel testo stesso,
-oltre a coprire i casi particolari dell'accordo in riga (a inizio parola, a metà parola, e una
-riga di soli accordi senza testo sotto).
+**Migrazione**: il repertorio unico di oggi diventa l'account di f.limberti@gmail.com (l'altro
+proprietario globale riceve il proprio account vuoto al prossimo login, come chiunque
+altro). Il canzoniere Example, creato per l'occasione e poi riscritto in v3.2 per mostrare,
+con commenti visibili nel testo, ogni direttiva che il visualizzatore riconosce, è stato
+usato per verificare la clonazione end-to-end contro il database reale prima di dichiarare
+la versione conclusa.
 
 ### v3.1 — niente più ospiti
 
@@ -616,83 +514,41 @@ proprietario globale. La sezione "Yours" della pagina, e la funzione che la alim
 `isAdmitted()` oggi ammette un indirizzo se è proprietario globale *o se ha una riga in
 `members`* — che sta per sparire. Senza cambiarla insieme alla rimozione, ogni indirizzo
 ammesso solo tramite un invito perderebbe l'accesso all'app appena questa versione va in
-produzione, e "l'admin crea un account" non avrebbe ancora nessun percorso di codice per
-farlo. Le due cose devono cambiare nello stesso rilascio:
+produzione. Le due cose devono cambiare nello stesso rilascio:
 
 1. **`isAdmitted` guadagna una seconda condizione, al posto di `members`**: l'indirizzo ha
-   già una riga in `accounts` (come proprietario). Il parametro `members` sparisce dalla
-   firma; arriva invece un semplice booleano ("questo indirizzo ha già un account?"), letto
-   una volta da chi chiama (`auth.ts`), come già avveniva per le iscrizioni.
+   già una riga in `accounts` (come proprietario).
 2. **`provisionAccount(email)` non cambia nella sostanza** — resta la stessa funzione
-   idempotente chiamata ad ogni sign-in riuscito, che crea la riga in `accounts` e clona
-   l'Example se non esistono ancora. Diventa, in più, l'azione che gira quando un
-   proprietario globale preme "crea" sulla pagina Accounts: stessa funzione, due modi di
-   invocarla. Un account creato così esiste già, con l'Example dentro, prima ancora che
-   quell'indirizzo faccia il primo login — è così che "quando un utente nuovo si
-   registrerà, il suo account c'è già" diventa vero anche per chi non è mai stato
-   proprietario globale.
-3. **`roleOf` si riduce a un solo ruolo concedibile.** Non esistendo più collaboratori, non
-   esiste più nulla da leggere in una tabella per rispondere alla domanda "che ruolo ha
-   questa persona qui": o è la proprietaria dell'account (o una proprietaria globale), ed è
-   `admin`, oppure non ha alcun accesso, `null`. `ROLES`, `MEMBER_ROLES`, `MemberRole`,
-   `readRole`, `Membership` spariscono; `canManageUsers` sparisce con loro (non c'è più
-   nulla da "gestire" nel senso di persone da invitare). `canEdit(role)` resta, unica
-   domanda di permesso rimasta, anche se ora equivale letteralmente a `role === 'admin'` —
-   tenuta come funzione a sé, non inlineata, perché i punti che la chiamano (`asEditor`,
-   `asEditorOn`) restano più leggibili a dire "posso modificare questo" che "sono admin".
-4. **Tolto per intero**: la tabella `members` (nuova migrazione, solo dopo il deploy che
-   smette di scriverci — stesso schema in due tempi già usato per `builds`, qui però senza
-   una parte additiva: non c'è nulla da aggiungere, solo da togliere);
-   `src/lib/members/{actions,read,types}.ts`; `MemberManager.tsx`; la pagina `/utenti`
-   (`src/app/users/page.tsx`) e la voce corrispondente nel menù; `withPassword` in
-   `auth/credentials.ts` (l'unico chiamante era `loadMembers`); i casi editor/viewer nei
-   test di `roles.test.ts`; il testo su ruoli ed inviti nella pagina di login (FAQ e riquadro
-   funzionalità); il caso `'Editor'` di `RoleNotice`.
-5. **`accounts/current.ts`, `accounts/read.ts`, `accounts/actions.ts` perdono il parametro
-   `memberships`** ovunque compare — non c'è più nulla da leggere lì per rispondere "questo
-   indirizzo può aprire questo account": può, se è il suo, o se è un proprietario globale.
-   `mayShowAccountSwitcher` si riduce a "sei un proprietario globale?" — il ramo "hai più di
-   un account" non può più essere vero per nessun altro, quindi sparisce.
-6. **La pagina Accounts ha un solo pubblico**: i proprietari globali. Non più due sezioni
-   ("Yours" ed "Every account"), ma un solo elenco — ogni account dell'installazione, con
-   *Entra*, e adesso anche *Crea* (un campo email, riusa `provisionAccount`) ed *Elimina*
-   per ciascuna riga. La guardia della pagina passa da "proprietario globale o più di un
-   account" a "proprietario globale", punto.
-7. **Eliminare un account è una cascata immediata**, senza blocco se non è vuoto: canzoniere
-   per canzoniere, sezioni e brani (le preferenze di quei brani seguono da sole, la chiave
-   esterna verso `songs` è già `on delete cascade`), poi le eventuali trasmissioni Sing
-   Together che stanno mostrando il repertorio di quell'account (`broadcastAccountEmail`),
-   infine la riga in `accounts` stessa — tutto dentro una singola transazione, in
-   quest'ordine perché è quello che rispetta i vincoli già presenti nello schema (`restrict`
-   fra canzonieri/sezioni/brani, pensato apposta per impedire cancellazioni accidentali
-   *dagli altri percorsi* — qui l'ordine esplicito li rispetta invece di doverli allentare).
-   Le credenziali (password) dell'indirizzo si cancellano in più, ma solo se dopo la
-   rimozione quell'indirizzo non risulta più ammesso in nessun altro modo (stessa logica già
-   usata da `removeMember` per lo stesso motivo) — un proprietario globale il cui account
-   viene eliminato resta ammesso e ne riceve semplicemente uno nuovo, vuoto, al prossimo
-   login. L'unica rete di sicurezza è nell'interfaccia, non nel database: va ridigitato
-   l'indirizzo dell'account da eliminare prima che il pulsante funzioni davvero — una scelta
-   esplicita, discussa e confermata, di non bloccare la cancellazione di un account non
-   vuoto né quella dell'account di un proprietario globale.
-8. **Sing Together non cambia nel meccanismo.** `broadcastAccountEmail` resta distinto da
-   `ownerEmail` — serve ancora esattamente al caso "un proprietario globale è entrato
-   nell'account di qualcun altro e trasmette il suo repertorio", che questa versione non
-   toglie affatto: un proprietario globale continua ad avere pieno controllo su ogni
-   account, trasmissione compresa. Cambia solo cosa vuol dire poter avviare una
-   trasmissione: non più "editor o admin sull'account aperto", ma "admin sull'account
-   aperto" — che oggi è già vero per chiunque sia entrato nel proprio account o in uno
-   altrui da proprietario globale, quindi nessun brano di codice cambia in `session.ts`, solo
-   il significato di `canEdit` a monte.
-9. **Migrazione dei quattro indirizzi ammessi solo tramite `members`** (lconsegni@yahoo.it,
-   marcomassetti1980@gmail.com, albano.nicola@gmail.com, ing.paolo.guarducci@gmail.com):
-   ciascuno riceve un proprio account — stesso `provisionAccount` di sempre, eseguito da
-   script prima che il nuovo codice sia in produzione, non dopo, perché è `isAdmitted` a
-   decidere chi entra dal momento del deploy in poi, non la tabella `members` (che a quel
-   punto può ancora esistere per un istante, ma non viene più consultata). Nessuno dei
-   quattro vedrà più Cartoni animati: ripartono con un proprio Example, esattamente come un
-   utente mai visto prima — scelta esplicita, discussa e confermata, non un effetto
-   collaterale scoperto dopo. Le credenziali che hanno già impostato restano valide, non
-   sono legate a `members` in alcun modo.
+   idempotente chiamata a ogni sign-in riuscito, ma diventa anche l'azione che gira quando
+   un proprietario globale preme "crea" sulla pagina Accounts: stessa funzione, due modi di
+   invocarla, così un account creato da lì esiste già, con l'Example dentro, prima che
+   quell'indirizzo faccia il primo login.
+3. **`roleOf` si riduce a un solo ruolo concedibile.** O è la proprietaria dell'account (o
+   una proprietaria globale), ed è `admin`, oppure `null`. `canEdit(role)` resta come unica
+   domanda di permesso, anche se ora equivale a `role === 'admin'`.
+4. **Tolto per intero**: la tabella `members`, `src/lib/members/*`, `MemberManager.tsx`, la
+   pagina `/utenti`, i casi editor/viewer nei test, il testo su ruoli e inviti nella pagina
+   di login.
+5. **`accounts/current.ts`, `read.ts`, `actions.ts` perdono il parametro `memberships`**:
+   un indirizzo può aprire un account solo se è il suo o se è proprietario globale.
+   `mayShowAccountSwitcher` si riduce a "sei un proprietario globale?".
+6. **La pagina Accounts ha un solo pubblico**: i proprietari globali, un solo elenco (non
+   più "Yours" ed "Every account"), con *Entra*, *Crea* (riusa `provisionAccount`) ed
+   *Elimina* per riga.
+7. **Eliminare un account è una cascata immediata**, senza blocco se non è vuoto — canzoniere
+   per canzoniere, poi le trasmissioni Sing Together aperte, poi la riga in `accounts` —
+   tutto in una transazione. Le credenziali si cancellano in più, solo se l'indirizzo non
+   risulta più ammesso in nessun altro modo. **L'unica rete di sicurezza è nell'interfaccia,
+   non nel database**: va ridigitato l'indirizzo prima che il pulsante funzioni — scelta
+   esplicita di non bloccare la cancellazione di un account non vuoto.
+8. **Sing Together non cambia nel meccanismo** (`broadcastAccountEmail` resta distinto da
+   `ownerEmail`), ma poter avviare una trasmissione richiede ora "admin sull'account
+   aperto" invece di "editor o admin" — nessun codice cambia in `session.ts`, solo il
+   significato di `canEdit` a monte.
+9. **Migrazione dei quattro indirizzi ammessi solo tramite `members`**: ciascuno riceve un
+   proprio account (stesso `provisionAccount`, eseguito da script prima del deploy).
+   Nessuno dei quattro vedrà più il repertorio condiviso: ripartono con un proprio Example,
+   scelta esplicita e confermata.
 
 ### v3.2 — si entra da soli
 
@@ -710,124 +566,62 @@ sempre stato per il resto: la lista di chi è proprietario globale, con pieno co
 ogni account dell'installazione. Le due cose — poter entrare, e poter amministrare tutto —
 erano già separate; questa versione toglie solo la prima come condizione per la seconda.
 
-1. **Il cancello non serve più.** `admitted()`/`isAdmitted()` esistono per tenere fuori
-   chi non ha diritto — ma con la registrazione aperta, chi bussa ha sempre diritto, se
-   arriva da uno dei due percorsi qui sotto. Vengono ritirate, non semplificate: la
-   callback `signIn` in `auth.ts` chiama `recordSignIn` e `provisionAccount` per chiunque
-   un provider abbia già autenticato con successo — un OAuth Google riuscito, o una
-   password che corrisponde a un `credentials` già verificato — senza più chiedere il
-   permesso a una funzione a parte. Un controllo aggiuntivo, non un cancello: il profilo
-   Google deve dichiarare `email_verified`, così un OAuth provider mal configurato non può
-   mai far entrare un indirizzo che Google stessa non garantisce.
+1. **Il cancello non serve più.** `admitted()`/`isAdmitted()` vengono ritirate, non
+   semplificate: la callback `signIn` chiama `recordSignIn` e `provisionAccount` per
+   chiunque un provider abbia già autenticato con successo, senza più chiedere il permesso
+   a una funzione a parte. Un controllo aggiuntivo resta: il profilo Google deve dichiarare
+   `email_verified`.
 2. **Registrarsi con Google è già registrarsi.** Il protocollo OAuth non distingue "entra"
-   da "iscriviti": Google restituisce sempre la stessa cosa, un'identità verificata. Il
-   pulsante "Sign in with Google" già su `/login` diventa, di fatto, anche il modo per
-   registrarsi — nessun secondo pulsante, nessuna pagina diversa: la prima volta che quel
-   flusso ha successo, `provisionAccount` gli crea l'account, esattamente come oggi accade
-   a un proprietario globale al primo accesso.
+   da "iscriviti": il pulsante "Sign in with Google" già su `/login` diventa anche il modo
+   per registrarsi, nessun secondo pulsante — alla prima riuscita, `provisionAccount` crea
+   l'account.
 3. **Registrarsi con email e password è in due tempi.** Una nuova tabella
-   `pendingRegistrations` (`email` chiave primaria, `passwordHash`,
-   `verificationTokenHash`, `expiresAt`, `createdAt`) tiene una richiesta di registrazione
-   finché non è verificata — **non è un account**: nessuna riga in `accounts` o
-   `credentials`, nessun canzoniere clonato, finché il link nella mail di verifica non
-   viene cliccato. Coerente con come questo progetto tratta già "niente esiste finché non
-   ce n'è un motivo vero" (lo stesso principio dietro il canzoniere Example, o dietro il
-   non bloccare la cancellazione di un account: qui il motivo è il contrario, non creare
-   affatto finché non è provato che l'indirizzo è reale). Registrarsi con un indirizzo che
-   ha già un account vero viene rifiutato con un messaggio chiaro (accedi, o recupera la
-   password); registrarsi di nuovo con un indirizzo ancora in sospeso rinnova semplicemente
-   il token e rimanda la mail, senza errore — è così che "non mi è arrivata l'email"
-   si risolve senza una funzione a parte.
-4. **La pagina `/register`.** Stesso impianto di `/login`: un pulsante Google (il
-   medesimo flusso del punto 2) e un modulo email/password/conferma password, con il
-   CAPTCHA del punto 9. Il successo porta a una schermata "controlla la posta", con un
-   pulsante per rispedire la mail. `/login` guadagna un rimando a `/register`, e perde la
-   frase "Access is limited to approved email addresses", non più vera.
-5. **Verifica: `/verify?token=...`.** Il token si confronta come una password — mai in
-   chiaro nel database, con lo stesso hashing già usato altrove — e se valido e non scaduto:
-   dentro una transazione, nasce la riga `accounts`, la riga `credentials` con l'hash già
-   pronto dalla registrazione, e parte la clonazione dell'Example (`provisionAccount`,
-   identica a ogni altro percorso di ammissione); la riga in `pendingRegistrations` si
-   cancella; parte la mail di benvenuto; chi ha appena verificato entra subito, senza dover
-   ridigitare la password che ha appena scelto. Un token scaduto o già usato mostra un
-   errore con un invito a rispedire, non un vicolo cieco.
-6. **Recupero password: `/forgot-password` e `/reset-password?token=...`.** La
-   prima chiede solo un indirizzo (più CAPTCHA) e risponde sempre allo stesso modo,
-   l'indirizzo esista o no, abbia già una password o no — esistere o meno non deve
-   trapelare da qui, stesso principio della reiezione a tempo costante già scritta in
-   `authorize()` per il login. Se un account vero esiste, nasce una riga in
-   `passwordResetTokens` (`email`, `tokenHash`, `expiresAt`) e parte una mail con il link.
-   La seconda pagina chiede la nuova password (`isPasswordAcceptable`, la stessa regola di
-   sempre) e la scrive con `writePasswordHash` — la stessa chiamata che già serve sia per
-   impostarne una prima volta sia per cambiarla, quindi un indirizzo senza password ancora
-   ne riceve una prima proprio da qui, senza bisogno di un percorso diverso. Il token si
-   cancella dopo l'uso; l'email risulta verificata come effetto collaterale, avendo appena
-   dimostrato di controllare quella casella.
-7. **Mail di benvenuto, una volta sola.** Parte nell'istante esatto in cui un account
-   comincia a esistere davvero — dentro `provisionAccount`, quando crea la riga e non la
-   trova già lì — mai sulle chiamate successive, che sono un no-op idempotente per
-   costruzione. `provisionAccount` deve poter dire al chiamante se ha creato qualcosa o no,
-   cosa che oggi non fa (ritorna `void`); guadagna quel bit di ritorno per questo motivo,
-   non per un altro.
-8. **Un fornitore di email: Resend.** Nuove variabili d'ambiente (`RESEND_API_KEY`,
-   un mittente come `Songbook <no-reply@songbook.sisqo.dev>`), un modulo `lib/email/send.ts`
-   sottile sopra l'SDK, tre modelli semplici (verifica, benvenuto, reset) che riprendono la
-   stessa tavolozza chiara/scura dell'app senza inventarsi un sistema di design a parte.
-   Richiede una verifica del dominio via DNS, un passo fuori dall'app — stessa categoria
-   di setup già fatta per GitHub, Vercel e Neon.
-9. **Un CAPTCHA: Cloudflare Turnstile**, sulla registrazione e sul recupero password — le
-   due superfici che, su richiesta di chiunque, mandano un'email a un indirizzo scelto da
-   chi la chiede, quindi il vettore più ovvio di email-bombing di qualcun altro. Nuove
-   variabili d'ambiente (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` — la
-   prima pubblica per forza, essendo Next.js a richiederlo per esporla al client),
-   verificate lato
-   server prima di scrivere qualunque riga in `pendingRegistrations` o
-   `passwordResetTokens`. Richiede un account Cloudflare gratuito, altro setup fuori
+   `pendingRegistrations` tiene una richiesta finché non è verificata — **non è un
+   account**: nessuna riga in `accounts`/`credentials`, nessun canzoniere clonato, finché
+   il link di verifica non viene cliccato. Un indirizzo già registrato viene rifiutato con
+   un messaggio chiaro; registrarsi di nuovo con un indirizzo in sospeso rinnova il token e
+   rimanda la mail, senza errore.
+4. **La pagina `/register`.** Stesso impianto di `/login`: pulsante Google (punto 2) e un
+   modulo email/password/conferma, col CAPTCHA del punto 9. Il successo porta a "controlla
+   la posta", con un pulsante per rispedire.
+5. **Verifica: `/verify?token=...`.** Il token si confronta come una password, mai in
+   chiaro. Se valido: dentro una transazione nasce la riga `accounts`, la riga
+   `credentials`, parte la clonazione dell'Example e la mail di benvenuto; chi ha appena
+   verificato entra subito, senza ridigitare la password. Un token scaduto o già usato
+   invita a rispedire, non è un vicolo cieco.
+6. **Recupero password: `/forgot-password` e `/reset-password?token=...`.** La prima
+   chiede solo un indirizzo e risponde sempre allo stesso modo, esista o no — stesso
+   principio della reiezione a tempo costante del login. La seconda scrive la password con
+   `writePasswordHash`, la stessa chiamata che serve sia per impostarne una prima volta sia
+   per cambiarla: un indirizzo senza password ne riceve una prima proprio da qui.
+7. **Mail di benvenuto, una volta sola.** Parte dentro `provisionAccount`, solo quando crea
+   la riga e non la trova già lì — mai sulle chiamate successive, no-op idempotenti per
+   costruzione.
+8. **Un fornitore di email: Resend**, con un modulo sottile sopra l'SDK e tre modelli
+   semplici (verifica, benvenuto, reset). Richiede una verifica del dominio via DNS, fuori
    dall'app.
-10. **Un limite di frequenza, nel database, senza un servizio nuovo.** Una tabella
-    `rateLimitHits` (`key` chiave primaria, `windowStart`, `count`) condivisa da
-    registrazione, reinvio, recupero password — e, visto che il meccanismo costa poco una
-    volta che esiste, anche dal login stesso, chiave per indirizzo IP o email a seconda
-    dell'azione. I numeri esatti (una proposta ragionevole: 5 tentativi ogni 10 minuti per
-    chiave) restano da tarare quando ci sarà traffico reale da osservare, non un requisito
-    da azzeccare oggi.
+9. **Un CAPTCHA: Cloudflare Turnstile**, sulla registrazione e sul recupero password — le
+   due superfici che mandano un'email a un indirizzo scelto da chi la chiede, il vettore
+   più ovvio di email-bombing di qualcun altro. Verificato lato server prima di scrivere
+   qualunque riga in `pendingRegistrations` o `passwordResetTokens`.
+10. **Un limite di frequenza, nel database, senza un servizio nuovo.** Tabella
+    `rateLimitHits` condivisa da registrazione, reinvio, recupero password e login, chiave
+    per IP o email a seconda dell'azione. I numeri esatti restano da tarare quando ci sarà
+    traffico reale da osservare.
 
 Nessuna migrazione dei dati esistenti: questa versione è puramente additiva sulla porta
 d'ingresso, non tocca un solo account, canzoniere o membro già presente.
 
 ### v3.3 — il menu utente
 
-Fino ad ora chi era loggato non aveva un modo per vedersi: l'indirizzo con cui si è
-entrati, se si è proprietari globali, e le due azioni che riguardano solo il proprio
-modo di entrare (password, sign out) vivevano sparse — la password dentro Impostazioni,
-il sign out in fondo al menu hamburger, nessuna delle due accanto a un'identità
-visibile. Questa versione aggiunge un secondo pulsante in testata, accanto
-all'hamburger: un monogramma a due lettere, colorato in base all'indirizzo, che apre
-un pannello con l'indirizzo per esteso, l'etichetta "Owner" per chi amministra l'intera
-installazione, e le due azioni che gli erano rimaste addosso.
-
-1. **"Owner" segue `isOwner`, non il ruolo `admin`.** Dalla v3.1 `admin` è l'unico ruolo
-   che esiste, ed è di chiunque abbia un account — mostrarlo per quel controllo avrebbe
-   acceso l'etichetta per ogni singolo utente registrato, senza distinguere nessuno.
-   `isGlobalOwner`, nel contesto (`RoleProvider`), è la stessa domanda già posta da
-   `mayShowAccountSwitcher` per il selettore Account, sotto il nome che questo pannello
-   legge.
-2. **Cambia password e Sign out si spostano, non si duplicano.** Uscivano dal menu
-   hamburger — password dentro Impostazioni, sign out in fondo — per vivere solo qui:
-   un solo posto per le azioni sul proprio account, l'hamburger resta solo navigazione.
-3. **L'avatar legge l'indirizzo, non il profilo Google.** Un account per email e
-   password (v3.2) non ha né nome né foto; usare quelli di Google per chi ha fatto
-   l'accesso così, e un monogramma per tutti gli altri, avrebbe fatto sembrare due
-   funzionalità diverse quella che è una sola. Iniziali e colore sono entrambi derivati
-   dall'indirizzo (`lib/avatar.ts`), deterministici: lo stesso indirizzo disegna sempre
-   lo stesso avatar, su ogni dispositivo.
-4. **Sign-out arriva come `children`, non come import.** È un componente server che
-   avvolge una server action inline; `UserMenu` è un componente client, e Next.js
-   rifiuta di raggrupparli insieme se l'uno importa l'altro direttamente — la stessa
-   ragione per cui `NavMenu` lo prendeva già così, prima che si spostasse qui.
-
-Nessuna migrazione: nessuna tabella nuova, nessuna colonna toccata — solo interfaccia e
-il contesto già esistente (`RoleProvider`), esteso con l'indirizzo che gli mancava.
+Fino ad ora chi era loggato non aveva un modo per vedersi: password e sign out vivevano
+sparse (Impostazioni, fondo del menu hamburger), mai accanto a un'identità visibile.
+Nuovo pulsante in testata — un monogramma colorato in base all'indirizzo — che apre un
+pannello con l'indirizzo per esteso, l'etichetta "Owner" (segue `isOwner`, non il ruolo
+`admin`: dalla v3.1 `admin` è di chiunque abbia un account, non distinguerebbe nessuno), e
+le due azioni ora riunite lì. L'avatar legge l'indirizzo (iniziali e colore derivati,
+deterministici), mai il profilo Google — un account per email e password non ha né nome
+né foto. Nessuna migrazione.
 
 ### v3.6 — pagamenti
 
