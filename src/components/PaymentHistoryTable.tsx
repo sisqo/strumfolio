@@ -13,6 +13,10 @@ function describeEvent(line: PaymentHistoryLine): string {
       return cycleWord === null ? `Purchased ${plan}` : `Purchased ${plan} (${cycleWord})`
     case 'scheduled_change':
       return line.plan === 'free' ? 'Scheduled: cancel at period end' : `Scheduled: move to ${plan} at period end`
+    /* No period was left to wait for — see `MockEventAction`'s own comment on why this is not
+       the same row as a scheduled cancellation with `plan: 'free'`. */
+    case 'cancelled_now':
+      return 'Cancelled — back on Free'
     case 'force_expired':
       return `Expired now (test) — was ${plan}`
     case 'kept_current':

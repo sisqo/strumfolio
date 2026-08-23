@@ -21,8 +21,16 @@ import type { BillingPeriod } from './prices'
 import { readPlan } from './types'
 import type { Plan } from './types'
 
-/** What one mock write actually did — the vocabulary a history line can describe. */
-export type MockEventAction = 'purchase' | 'scheduled_change' | 'force_expired' | 'kept_current'
+/**
+ * What one mock write actually did — the vocabulary a history line can describe.
+ *
+ * `cancelled_now` is not a duplicate of `scheduled_change` with `plan: 'free'`: that one says
+ * "at the end of the period", and `mockCancel` has a branch where there is no period left to
+ * end (a row with no `planExpiresAt` — see its own comment), which drops the plan on the spot.
+ * Logging both the same way put "Scheduled: cancel at period end" in the history directly under
+ * a confirmation saying the account was already back on Free.
+ */
+export type MockEventAction = 'purchase' | 'scheduled_change' | 'cancelled_now' | 'force_expired' | 'kept_current'
 
 /**
  * One row of history, already parsed for a screen to render — never the raw `payload`, which

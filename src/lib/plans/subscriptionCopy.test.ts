@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import type { MockSubscriptionState } from './checkout'
-import { liveSubscription } from './entitlements'
+import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
 import { formatPlanDate, subscriptionStatusLine } from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
@@ -81,6 +81,37 @@ describe('the subscription sentence', () => {
 
     assert.equal(liveFor(settled), 'plus')
     assert.equal(line(settled), 'Plus, no end.')
+  })
+})
+
+/**
+ * The row both sides of the checkout have to read the same way. `/checkout/[plan]` decides
+ * whether to promise a purchase or a scheduled change from the **resolved** row it is handed;
+ * `mockPurchase` and `mockCancel` decide the same thing server-side, and used to ask the raw
+ * column, which on this row still holds the old date the resolved view has already collapsed
+ * away. The screen promised "Complete purchase" and got a scheduled change back.
+ */
+describe('what a fired scheduled change leaves behind', () => {
+  const fired = {
+    plan: 'premium' as Plan,
+    status: 'active' as PlanStatus,
+    expiresAt: PAST,
+    pendingPlan: 'plus' as Plan,
+    pendingCycle: null,
+  }
+
+  it('resolves to the new plan with no date left to schedule against', () => {
+    const resolved = resolveSubscription(fired, NOW)
+
+    assert.equal(resolved.plan, 'plus')
+    assert.equal(resolved.expiresAt, null, 'both sides key on this — a raw read still sees the old, past date')
+    assert.equal(liveSubscription(fired, NOW), 'plus')
+  })
+
+  it('keeps a retrying card on its date, so a downgrade there is still scheduled', () => {
+    const retrying = { ...fired, status: 'grace' as PlanStatus }
+
+    assert.equal(resolveSubscription(retrying, NOW).expiresAt, PAST, 'grace never fires a pending change')
   })
 })
 

@@ -124,6 +124,16 @@ export function CheckoutScreen({
   const ready = status.state === 'ready' ? status : null
   const scheduling = ready !== null && willSchedule(plan, ready.current, ready.live)
   const movedRenewal = ready === null ? null : earlierRenewal(plan, cycle, ready.current, ready.live)
+  /*
+   * The day the scheduled change lands, when it is a day worth naming. A `grace` subscription
+   * is live with a date virtually always already past (`liveSubscription` ignores dates there,
+   * on purpose), so this is the one live plan whose own expiry must not be read out as a future
+   * event — "moves to Standard on 3 May 2026" would be pointing at a day that has gone.
+   */
+  const scheduledFor =
+    ready !== null && scheduling && ready.current.expiresAt !== null && ready.current.expiresAt.getTime() > Date.now()
+      ? ready.current.expiresAt
+      : null
 
   const buy = async () => {
     setBusy(true)
@@ -222,10 +232,11 @@ export function CheckoutScreen({
             * *sooner* than the one already paid for gives up the difference; that is a real
             * decision, and «Change billing cycle» on /pricing is one tap away from it.
             */}
-          {scheduling && status.current.expiresAt !== null && (
+          {scheduling && (
             <p className="notice notice-accent mt-4" role="status">
-              {PLAN_LABEL[status.current.plan]} stays in force until {formatPlanDate(status.current.expiresAt)}. This
-              account moves to {PLAN_LABEL[plan]} on that day, and nothing is charged today.
+              {scheduledFor !== null
+                ? `${PLAN_LABEL[status.current.plan]} stays in force until ${formatPlanDate(scheduledFor)}. This account moves to ${PLAN_LABEL[plan]} on that day, and nothing is charged today.`
+                : `${PLAN_LABEL[status.current.plan]} stays in force until the period it has already been billed for ends. This account moves to ${PLAN_LABEL[plan]} then, and nothing is charged today.`}
             </p>
           )}
 

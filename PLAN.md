@@ -1077,6 +1077,21 @@ risultato più importante è un bug che *tutti* incontrano, non un caso limite.
    inerte — schermata «scheduled», riga nel ledger, e nessuna data ad aspettarlo. Senza periodo
    pagato da proteggere, `mockPurchase` e `mockCancel` applicano subito; `mockCancel` restituisce
    `effect` così `/billing` non promette una fine periodo che non esiste.
+
+   La condizione è **sulla riga risolta, mai sulla colonna grezza**, e la differenza è tutta la
+   correttezza della frase che `/checkout/[plan]` stampa prima del pulsante: quella schermata
+   rispecchia questo ramo a partire da `current`, che è risolto. Proprio sulla riga qui sopra le
+   due letture divergono — la colonna grezza tiene ancora la vecchia data, ormai passata, dove
+   la vista risolta ha già collassato a `null` — quindi lo schermo prometteva «Complete
+   purchase» e si vedeva tornare un cambio programmato, che poi scattava comunque al caricamento
+   successivo: riga `scheduled_change` nel ledger, nessuna riga d'acquisto, nessuna ricevuta.
+   `grace` conserva la sua data attraverso l'early return di `resolveSubscription`, quindi resta
+   dal lato programmato senza bisogno di nominarlo di nuovo.
+
+   E una cancellazione immediata **non si registra più come programmata**: `cancelled_now` è una
+   voce nuova di `MockEventAction`, perché `scheduled_change` con `plan: 'free'` dice «a fine
+   periodo» e metteva quella riga nello storico esattamente sotto una conferma che diceva che
+   l'account era già tornato su Free.
 6. **«Cancel my plan» spariva se c'era già un downgrade programmato.** `canCancel` pretendeva
    `pendingPlan === null`: per uscire davvero bisognava prima premere «Keep Premium», senza che
    nulla lo dicesse. Ora basta `pendingPlan !== 'free'` — una cancellazione già programmata non
@@ -1362,6 +1377,8 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Downgrade su `/checkout` | Detto prima del pulsante, campi carta via | Non incassa nulla e non cambia nulla quel giorno: chiedere una carta e rifiutarne una sbagliata è teatro che inganna |
 | Cambio ciclo che accorcia il periodo | Avvisa con entrambe le date, semantica invariata | «Rango pari applica subito» resta la regola di `mockPurchase`; ciò che mancava era dirlo prima, non cambiarla |
 | Cambio programmato senza `planExpiresAt` | Applicato subito, con `effect` nel risultato | Non c'è data su cui scattare: `resolveSubscription` lascia intatta una riga con `expiresAt: null`, quindi il cambio restava inerte mentre la schermata lo dava per programmato |
+| Su quale riga decidere programmato/immediato | Sulla riga **risolta**, su entrambi i lati | La colonna grezza e la vista risolta divergono proprio dove serve (cambio già scattato): lo schermo prometteva un acquisto e otteneva un cambio programmato, che scattava comunque al caricamento dopo — senza ricevuta. `grace` tiene la sua data e resta programmato |
+| Cancellazione immediata nel ledger | Voce nuova `cancelled_now` | `scheduled_change` con `plan: 'free'` dice «a fine periodo»: era la riga sotto una conferma che diceva l'opposto |
 | «Cancel my plan» con un downgrade pendente | Permesso (`pendingPlan !== 'free'`) | Uscire dal piano richiedeva prima «Keep ‹piano›», senza che nulla lo dicesse; una cancellazione già programmata invece non ha altro da cancellare |
 | Copy del gate obbligatorio | «Choose ‹piano›», non «Upgrade to» | Chi non ha mai scelto non ha da cosa fare l'upgrade: la riga dice `free` solo perché è il default della colonna |
 | Date nella tabella pagamenti | `plain` su `/billing`, ISO su `/accounts` | Sotto una frase che scrive «22 September 2026», una riga «2026-08-23» sono due formati a un centimetro di distanza; l'operatore invece le confronta e le copia |

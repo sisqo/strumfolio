@@ -327,8 +327,21 @@ export async function mockPurchase(
      * anybody makes used to be silently inert: the screen said "scheduled", the ledger logged
      * it, and the date it was waiting for did not exist. With no paid period left to protect,
      * applying it at once is both the honest answer and the generous one.
+     *
+     * **Asked of the resolved row, never of the raw column**, and the difference is the whole
+     * correctness of the sentence `/checkout/[plan]` prints before the button. That screen
+     * mirrors this branch from `loadCheckoutStatus`'s `current`, which is resolved; a raw read
+     * here disagrees with it on precisely the row above — where the raw column still holds the
+     * old, already-past date while the resolved view has collapsed to `null`. The screen would
+     * promise a purchase and get a scheduled change back, and the change would then apply on
+     * the next page load anyway, leaving a `scheduled_change` row and no receipt for what was
+     * in fact an immediate purchase.
+     *
+     * `grace` keeps its date through `resolveSubscription`'s own early return, so this stays
+     * false there and a failing card's downgrade is still scheduled rather than applied — the
+     * rule that status exists for, preserved without a second mention of it here.
      */
-    const nothingPaidThrough = raw.expiresAt === null
+    const nothingPaidThrough = resolveSubscription(raw, now).expiresAt === null
     const isUpgradeOrSame =
       plan === 'lifetime' || currentLive === null || nothingPaidThrough || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
 
@@ -485,8 +498,13 @@ export async function mockCancel(): Promise<
      * `pendingPlan: 'free'` would sit on the row unread for ever while the screen reported it as
      * scheduled. Nothing is being taken away early here — a row with no expiry is one nobody has
      * paid through to any date — so the cancellation simply happens.
+     *
+     * Resolved rather than raw, for the reason spelled out beside `nothingPaidThrough`: the two
+     * exits from a plan must not disagree about what "already paid through" means, and the
+     * resolved view is the one every screen is looking at. `grace` keeps its date and so stays
+     * on the scheduled side.
      */
-    const immediate = raw.expiresAt === null
+    const immediate = resolveSubscription(raw, now).expiresAt === null
 
     const updated = await db()
       .update(accounts)
@@ -499,7 +517,12 @@ export async function mockCancel(): Promise<
       .returning({ ownerEmail: accounts.ownerEmail })
     if (updated.length === 0) return { ok: false, reason: 'failed' }
 
-    await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'scheduled_change', plan: 'free', cycle: null })
+    await logMockEvent({
+      accountOwnerEmail: user.accountOwnerEmail,
+      action: immediate ? 'cancelled_now' : 'scheduled_change',
+      plan: 'free',
+      cycle: null,
+    })
     console.warn(`mock checkout: ${user.accountOwnerEmail} => cancel ${immediate ? 'now' : 'scheduled'}`)
     await notifyTelegram(
       'cancellation',
