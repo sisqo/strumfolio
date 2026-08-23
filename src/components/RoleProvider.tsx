@@ -43,11 +43,11 @@ interface RoleContextValue {
   plan: Plan | null
   /**
    * Whether the account this reader is looking at has completed the mandatory plan-choice
-   * step (PLAN.md, v3.7) — `true` while unknown, the safe default that keeps
-   * `PricingPlans`' "Start free" button a plain link to `/register` until told otherwise,
-   * rather than briefly offering an action to someone who may turn out to be signed out.
-   * The actual gate is a server-side redirect in `(home)/page.tsx`; this only decides what
-   * one button on `/pricing` offers, same as everything else in this context.
+   * step (PLAN.md, v3.7) — `true` while unknown, the safe default that keeps `PricingPlans`'
+   * Free card reading as already settled rather than briefly offering "Continue with Free"
+   * to someone who may turn out to be signed out. The actual gate is a server-side redirect
+   * in `(home)/page.tsx`; this only decides what the Free card on `/pricing` offers, same as
+   * everything else in this context.
    */
   planChosen: boolean
 }

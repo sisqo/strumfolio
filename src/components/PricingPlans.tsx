@@ -5,8 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
-import { activatePlanChoice } from '@/lib/plans/checkout'
+import { activatePlanChoice, mockCancel } from '@/lib/plans/checkout'
 import type { BillingPeriod } from '@/lib/plans/prices'
+
+/**
+ * The same order `PLAN_RANK` (`lib/plans/types.ts`) states, copied rather than imported —
+ * this file's own header explains why that module never crosses into the client bundle.
+ * Read only against `column.slug` and the reader's own `plan`, both bare strings for the
+ * same reason, so a rank comparison never needs the real `Plan` type at all. Five entries,
+ * matching `PLAN_VALUES`: a plan missing here compares as `undefined < number`, which is
+ * always `false` — an upgrade-shaped default for a mistake this codebase tests never
+ * happens, rather than a downgrade sentence for a plan that turns out unranked.
+ */
+const RANK: Record<string, number> = { free: 0, standard: 1, plus: 2, premium: 3, lifetime: 4 }
 
 /**
  * A column's price slot: the number, and the small suffix beside it — never a whole worded
@@ -26,6 +37,15 @@ export interface ColumnPrice {
 
 export interface PlanColumn {
   name: string
+  /**
+   * `'free' | 'standard' | 'plus' | 'premium'` as a bare string, for the same reason
+   * `checkoutPlan` below is one: comparing it against the reader's own plan (`useRole().plan`,
+   * itself typed `Plan | null` only because that flows in from a context this file never
+   * imports from) is what decides whether a card is the one already held, an upgrade, or a
+   * downgrade — see `RANK` above. Every column needs one, including Free, which is why this
+   * is separate from `checkoutPlan` rather than reusing it: Free has no checkout plan at all.
+   */
+  slug: string
   /**
    * Both states, always. Free's two are identical rather than absent, so this component
    * never asks whether a column has a monthly form — a column that opted out of the toggle
@@ -50,11 +70,15 @@ export interface PlanColumn {
    */
   paid?: boolean
   /**
-   * A plain, always-on action — `Start free`, pointed wherever registering happens. Free is
-   * not something `checkout.ts` sells, so it has no `checkoutPlan` and needs this instead;
-   * every other column's button comes from `checkoutPlan` below, never from this.
+   * True on the Free column and nowhere else — a marker rather than a descriptor, unlike it
+   * used to be (`{ href, label }`, back when this rendered one plain link and nothing had to
+   * ask who was looking). Free's four states — not signed in, mid the mandatory plan-choice
+   * gate, already on Free, or a paid reader downgrading to it — each pick their own wording
+   * and their own action now (`switchToFree`, `startFree`, …), none of which a generic
+   * `href`/`label` pair could have named; every other column's action comes from
+   * `checkoutPlan` below instead, never from this.
    */
-  cta?: { href: string; label: string }
+  cta?: true
   /**
    * The route slug for the mock checkout (`lib/plans/checkout.ts`'s `CheckoutPlan`), or
    * absent when there is nothing to buy yet. A bare string rather than that type imported
@@ -138,20 +162,28 @@ export function PricingPlans({
   const [period, setPeriod] = useState<BillingPeriod>('month')
 
   /*
-   * The "Start free" CTA (PLAN.md, v3.7): a plain link to `/register` for anyone
-   * unknown or signed out, exactly as it has always been, but a real action for a reader
-   * who is signed in and has not yet completed the mandatory plan-choice gate — the one
-   * button on this page that has to know who is looking. Everything else on this page stays
-   * static; this is the one place `useRole()` is read, and only to decide between two
-   * harmless things one button does, never to gate anything server-side (see `(home)/page.tsx`
-   * for the actual gate).
+   * `useRole()` is what makes this the one page that also serves an existing customer
+   * changing plans, not only a visitor choosing one for the first time — every card reads
+   * `known`/`email`/`plan`/`planChosen` now, not only Free's own (PLAN.md, v3.7) mandatory
+   * plan-choice gate that used to be the sole reason this file read a role at all. None of
+   * it gates anything server-side, here or in `(home)/page.tsx`'s own gate: a reader who
+   * turns out signed out after clicking "Upgrade to Plus" is stopped by the middleware on
+   * `/checkout/plus`, not by this component second-guessing what it already decided to
+   * show — the same trust every other page in this app already puts in a role read on the
+   * client, and the reason `signedIn`/`isCurrent`/`isDowngrade` below only ever change
+   * which sentence a card shows, never what pressing it is allowed to do.
    */
   const router = useRouter()
-  const { known, email, planChosen } = useRole()
+  const { known, email, planChosen, plan } = useRole()
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
   const signedIn = known && email !== null
   const pending = signedIn && !planChosen
+  /* `null` while the role is still loading or nobody is signed in — `RANK[column.slug] <
+     null` is always `false` in JS, which is what keeps every column reading as "not a
+     downgrade" (never a real claim, since `isDowngrade` is only read once `signedIn` is
+     already true) rather than needing its own guard at each call site. */
+  const currentRank = plan === null ? null : RANK[plan]
 
   const startFree = async () => {
     setFreeBusy(true)
@@ -165,6 +197,32 @@ export function PricingPlans({
 
     setFreeBusy(false)
     setFreeError('Something went wrong. Try again.')
+  }
+
+  /*
+   * The Free card's own action for a signed-in reader currently on a paid plan — "downgrade
+   * to Free" is cancellation, and `mockCancel` (the same action `/billing`'s "Cancel my
+   * plan" already calls) is the only path there: `mockPurchase` refuses `'free'` outright,
+   * since it is not one of `CHECKOUT_PLANS`. Always a *scheduled* change, never immediate —
+   * there is no "downgrade to Free right now" — so this redirects to `/billing` rather than
+   * trying to word a "scheduled" state inline here the way `CheckoutScreen` does for a paid
+   * downgrade: `/billing` already reads `pendingPlan` and renders exactly that sentence, and
+   * duplicating it here would be the second copy this file already avoids elsewhere.
+   */
+  const switchToFree = async () => {
+    setFreeBusy(true)
+    setFreeError(null)
+
+    const result = await mockCancel()
+    if (result.ok) {
+      router.push('/billing')
+      return
+    }
+
+    setFreeBusy(false)
+    setFreeError(
+      result.reason === 'not-applicable' ? 'Nothing to change — this account is already on Free.' : "That didn't go through. Try again.",
+    )
   }
 
   return (
@@ -195,6 +253,16 @@ export function PricingPlans({
               ? 'card plan-card is-paid'
               : 'card plan-card'
 
+          /*
+           * Three ways a signed-in reader's own plan relates to this column — computed once
+           * per column and read by both the `checkoutPlan` block below and the `cta` (Free)
+           * one, since Free is exactly as much a destination as any paid column now.
+           * `isCurrent`/`isDowngrade` are meaningless while `!signedIn` and are never read
+           * then; `currentRank`'s own comment says why neither needs its own guard for it.
+           */
+          const isCurrent = signedIn && column.slug === plan
+          const isDowngrade = currentRank !== null && RANK[column.slug] < currentRank
+
           return (
             <article key={column.name} className={cardClass}>
               {column.featured && <span className="plan-badge">Most popular</span>}
@@ -208,18 +276,24 @@ export function PricingPlans({
               </p>
               <p className="plan-audience">{column.audience}</p>
 
-              {column.checkoutPlan !== undefined && (signedIn ? (
-                <Link
-                  href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
-                  className="btn btn-primary btn-sm plan-cta w-full"
-                >
-                  Choose {column.name}
-                </Link>
-              ) : (
-                <Link href="/register" className="btn btn-primary btn-sm plan-cta w-full">
-                  Sign up
-                </Link>
-              ))}
+              {column.checkoutPlan !== undefined && (
+                !signedIn ? (
+                  <Link href="/register" className="btn btn-primary btn-sm plan-cta w-full">
+                    Sign up
+                  </Link>
+                ) : isCurrent ? (
+                  <p className="plan-current w-full">
+                    Your plan · <Link href="/billing">Manage</Link>
+                  </p>
+                ) : (
+                  <Link
+                    href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
+                    className="btn btn-primary btn-sm plan-cta w-full"
+                  >
+                    {isDowngrade ? `Switch to ${column.name}` : `Upgrade to ${column.name}`}
+                  </Link>
+                )
+              )}
 
               {column.cta !== undefined && pending && (
                 <>
@@ -240,16 +314,39 @@ export function PricingPlans({
               )}
 
               {/*
-                * Free's third state, beside `pending` above: signed in with a plan already
-                * chosen. "Start free" means nothing to someone who already has a plan, so —
-                * like a paid column with no `checkoutPlan` yet — the card simply ends after
-                * `plan-audience` with no button at all. Not signed in is the only case left
-                * that still renders one.
+                * Free's other three states, beside `pending` above: not signed in gets the
+                * same "Sign up" every paid column does; already on Free gets the same "Your
+                * plan" indicator, with no `/billing` link — there is nothing there to manage
+                * on a plan with no payment, no expiry and no history; signed in on a *paid*
+                * plan gets `switchToFree`, the one card whose downgrade cannot go through
+                * `checkoutPlan` at all (see that function's own comment).
                 */}
               {column.cta !== undefined && !pending && !signedIn && (
                 <Link href="/register" className="btn btn-sm plan-cta w-full">
                   Sign up
                 </Link>
+              )}
+
+              {column.cta !== undefined && !pending && signedIn && isCurrent && (
+                <p className="plan-current w-full">Your plan</p>
+              )}
+
+              {column.cta !== undefined && !pending && signedIn && !isCurrent && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-sm plan-cta w-full"
+                    onClick={() => void switchToFree()}
+                    disabled={freeBusy}
+                  >
+                    {freeBusy ? 'Switching…' : 'Switch to Free'}
+                  </button>
+                  {freeError !== null && (
+                    <p className="notice notice-error mt-2 text-xs" role="alert">
+                      {freeError}
+                    </p>
+                  )}
+                </>
               )}
             </article>
           )
@@ -346,9 +443,15 @@ export function PricingPlans({
  * a click on `/checkout/lifetime` with no session redirects through `/login` and loses
  * which purchase they meant, and Lifetime is not exempt from that just because it renders
  * outside the four-card grid.
+ *
+ * Already on Lifetime gets the same "Your plan" indicator the four cards show for their
+ * own current plan, rather than a live "Choose Lifetime" that would only reach checkout to
+ * be refused — `mockPurchase` already answers `not-applicable` there ("This account is
+ * already on Lifetime — there is nothing left to buy."), so this is the one-step-earlier
+ * version of the same fact, not a new rule.
  */
 export function LifetimeCta({ href }: { href: string }) {
-  const { known, email } = useRole()
+  const { known, email, plan } = useRole()
   const signedIn = known && email !== null
 
   if (!signedIn) {
@@ -357,6 +460,10 @@ export function LifetimeCta({ href }: { href: string }) {
         Sign up
       </Link>
     )
+  }
+
+  if (plan === 'lifetime') {
+    return <p className="plan-current mt-4">Your plan</p>
   }
 
   return (

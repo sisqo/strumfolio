@@ -2031,6 +2031,40 @@
   }
 
   /*
+   * What a signed-in reader's own card says instead of a button — no fill, no border,
+   * nothing to press, since pressing it would only re-buy the plan already held. Sized to
+   * `.plan-cta:not(.btn-primary)`'s own height so the card's bottom edge does not shift
+   * between a visitor who has this plan and one who does not. `inline-flex` rather than
+   * `flex`, so the Lifetime panel's own usage (`LifetimeCta`, with no `w-full`) shrinks to
+   * its text and takes its position from that block's `sm:text-right` the same way
+   * `.lifetime-original`'s plain text already does — the four cards add `w-full`
+   * themselves to fill the same width their own button would have.
+   */
+  .plan-current {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .plan-current a {
+    color: var(--accent);
+  }
+
+  .plan-card.is-featured .plan-current {
+    color: color-mix(in srgb, var(--on-accent) 82%, transparent);
+  }
+
+  .plan-card.is-featured .plan-current a {
+    color: var(--on-accent);
+    text-decoration: underline;
+  }
+
+  /*
    * The comparison table scrolls sideways inside this box rather than shrinking to fit:
    * four value columns plus a row-header column that carries a sentence cannot be made to
    * fit a phone, and the alternative — repeating every row inside each of the four cards
@@ -2323,6 +2357,13 @@
     line-height: 1.35;
     text-align: center;
     text-transform: uppercase;
+  }
+
+  /* `.plan-current` (`PricingPlans.tsx`) reads `--muted`/`--accent` by default, right for
+     the light plan cards it was written for — this panel is a solid dark fill instead, so
+     it needs the same `--on-accent` treatment every other line in it already gets. */
+  .lifetime-panel .plan-current {
+    color: color-mix(in srgb, var(--on-accent) 72%, transparent);
   }
 
   /* The trust note under the lifetime block — a checkmark in a circle, on the accent's

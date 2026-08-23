@@ -169,6 +169,10 @@ function paidColumn(name: string, plan: PaidPlan, audience: string): PlanColumn 
 
   return {
     name,
+    /* Always `plan`, unlike `checkoutPlan` below — a reader's own rank comparison against
+       this column has to hold even the day `CHECKOUT_LIVE` is off and there is nothing to
+       buy, or "you are on Standard already" would silently stop being true on this card. */
+    slug: plan,
     /*
      * Just the number and a small suffix, the design's own shape — see `ColumnPrice`'s own
      * comment in `PricingPlans.tsx` for what this replaced: a worded sentence per period,
@@ -191,6 +195,7 @@ function paidColumn(name: string, plan: PaidPlan, audience: string): PlanColumn 
 const COLUMNS: PlanColumn[] = [
   {
     name: 'Free',
+    slug: 'free',
     /* Both states are the same, so the free column does not move under a toggle that has
        nothing to say about it — no suffix either, the same reason. */
     price: {
@@ -206,9 +211,9 @@ const COLUMNS: PlanColumn[] = [
      */
     audience: `Just you and the instrument. ${PLANS.free.songbooks} songbook, ${PLANS.free.songs} songs — ` +
       'no card, no end date, no trial to run out.',
-    /* Free is not sold through `checkout.ts` — it is what an account already is — so it gets
-       the one card button that is never conditional on `CHECKOUT_LIVE`. */
-    cta: { href: '/register', label: 'Start free' },
+    /* Free is not sold through `checkout.ts` — it is what an account already is — so its own
+       card action is never conditional on `CHECKOUT_LIVE`, unlike every paid column's. */
+    cta: true,
   },
   paidColumn(
     'Standard',
