@@ -56,16 +56,16 @@ export function ChordProGuide() {
 
         <h2>The shape of a song</h2>
         <p>A chord sits in square brackets immediately before the syllable it belongs to. Everything else is lyrics, read exactly as typed.</p>
-        <pre className="code-block">{`{title: Certe notti}
-{artist: Ligabue}
-{tags: rock, live}
+        <pre className="code-block">{`{title: Amazing Grace}
+{artist: Traditional (John Newton, 1779)}
+{tags: hymn, gospel}
 
-[Am]Certe notti la [F]macchina
-[C]non vuole [G]saperne di [Am]tornare
+[G]Amazing [G7]grace, how [C]sweet the [G]sound,
+That [G]saved a [Em]wretch like [D]me.
 
 {start_of_chorus}
-[F]Certe notti la strada [C]è un'idea
-[G]e la vita è un'[Am]altra
+[G]I once was [G7]lost, but [C]now am [G]found,
+Was [Em]blind, but [D]now I [G]see.
 {end_of_chorus}`}</pre>
 
         <h2>Metadata, at the top</h2>
@@ -174,8 +174,8 @@ export function ChordProGuide() {
           Chords on their own line, directly above the lyrics and aligned by column — the way most
           chord sites publish a song — convert automatically on import:
         </p>
-        <pre className="code-block">{`Am        F
-Certe notti la macchina`}</pre>
+        <pre className="code-block">{`G                  C
+Amazing grace, how sweet the sound`}</pre>
         <p>
           The result is shown as an editable preview before anything is saved, so a line read wrong
           is something to fix, not something that silently ships.

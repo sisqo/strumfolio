@@ -68,7 +68,7 @@ export default function HelpPage() {
             <li>
               <strong>Write one by hand.</strong> Use <strong>New song</strong> and type directly in
               ChordPro — a chord name in square brackets right before the syllable it belongs to, for
-              example <code>Certe notti la [Am]macchina va [F]da sola</code>. A live preview next to
+              example <code>That [G]saved a [Em]wretch like [D]me</code>. A live preview next to
               the box shows exactly how it will look while you type.
             </li>
           </ul>

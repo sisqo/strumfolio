@@ -258,7 +258,7 @@ export function ImportIntoSongbook({
               onChange={(event) => setPasted(event.target.value)}
               rows={14}
               spellCheck={false}
-              placeholder={'Certe notti\nLigabue\n\nAm        F\nCerte notti la macchina\n\n---\n\nAlbachiara\nVasco Rossi'}
+              placeholder={'Amazing Grace\nTraditional (John Newton, 1779)\n\nG                  C\nAmazing grace, how sweet the sound\n\n---\n\nAuld Lang Syne\nRobert Burns (1788), traditional Scottish air'}
               className="form-field font-mono text-sm"
             />
           </label>
