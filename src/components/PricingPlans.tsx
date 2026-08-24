@@ -8,6 +8,10 @@ import { IconInfo } from '@/components/icons'
 import { activatePlanChoice } from '@/lib/plans/checkout'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
+import { mustChooseNow } from '@/lib/plans/viewer'
+import type { Viewer } from '@/lib/plans/viewer'
+
+export type { Viewer }
 
 /**
  * The same order `PLAN_RANK` (`lib/plans/types.ts`) states, copied rather than imported —
@@ -111,7 +115,13 @@ const PERIODS: { value: BillingPeriod; label: string }[] = [
 ]
 
 /**
- * Who is reading this page, answered by the server and handed down as a prop.
+ * Who is reading this page, answered by the server and handed down as a prop — `Viewer` itself
+ * and `mustChooseNow` both live in `@/lib/plans/viewer` now, a plain module rather than this
+ * one, and that file's own comment says why: this file is `'use client'`, and a Server
+ * Component may only render one of this module's exports as JSX, never call one as a plain
+ * function. `pricing/page.tsx` did exactly that with `mustChooseNow` and crashed in production
+ * on every load. `export type { Viewer }` above re-exports the type for anyone still importing
+ * it from here — type-only re-exports carry no such restriction, only the function did.
  *
  * The four fields `useRole()` used to supply here, and the same values from the same read
  * (`loadIdentity`) — what changed is *when* they arrive. `RoleProvider` fills its context from
@@ -129,44 +139,6 @@ const PERIODS: { value: BillingPeriod; label: string }[] = [
  * until JavaScript runs. `LIFETIME_OPEN` stops being frozen at build time as a side effect,
  * which is a duty removed rather than a new one.
  */
-export interface Viewer {
-  /** The reader's address, or `null` when nobody is signed in. */
-  email: string | null
-  /**
-   * Whether the v3.7 plan-choice gate would actually stop this reader — **not** the raw
-   * `planChosenAt` fact, and the difference is a real one rather than a rename.
-   * `requirePlanChoice` exempts a global owner outright (`isOwner`, `lib/plans/gate.ts`) while
-   * `hasChosenPlan` knows nothing about that exemption, so an owner whose row has never been
-   * stamped reads as "has not chosen" and is gated by nothing. Told from the raw fact, this
-   * page said «One step left» to somebody nothing was stopping. The page asks the gate's own
-   * question instead — see its `viewer` construction.
-   */
-  mustChoosePlan: boolean
-  /** The plan in force, gift included — `null` when there is nobody, or nothing enforced. */
-  plan: Plan | null
-  /** The subscription underneath any gift: what every rank question here is asked of. */
-  subscriptionPlan: Plan | null
-}
-
-/**
- * Whether this reader is being *made* to choose — the v3.7 gate actually stopping them, which
- * is the state that turns every paid card's button into «Choose <plan>» and the Free card's
- * into «Continue with Free».
- *
- * Exported, and that is the whole point of it being a function at all: the page's own `<h1>`
- * changes with it too («Choose your plan» rather than «What Strumfolio costs»), and a heading
- * that promises a choice over cards offering an upgrade — or the reverse — is worse than
- * either wording alone. One statement, read by the page and by the component below, so the
- * title and the buttons cannot come to disagree the way two copies of `email !== null &&
- * mustChoosePlan` eventually would.
- *
- * Both halves are needed and neither is redundant: `mustChoosePlan` is already the gate's own
- * question rather than the raw `planChosenAt` (see `Viewer`), but it is answered `false` for a
- * visitor with no session — who is not being made to do anything, and gets «Sign up».
- */
-export function mustChooseNow(viewer: Viewer): boolean {
-  return viewer.email !== null && viewer.mustChoosePlan
-}
 
 /**
  * The four price columns and the one control on the page that has state.

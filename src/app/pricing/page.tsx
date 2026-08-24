@@ -3,8 +3,8 @@ import Link from 'next/link'
 
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
-import { LifetimeCta, mustChooseNow, PricingPlans } from '@/components/PricingPlans'
-import type { ComparisonRow, PlanColumn, Viewer } from '@/components/PricingPlans'
+import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
+import type { ComparisonRow, PlanColumn } from '@/components/PricingPlans'
 import { isOwner } from '@/lib/allowlist'
 import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
@@ -13,6 +13,8 @@ import type { PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 import type { BookletTier } from '@/lib/plans/types'
+import { mustChooseNow } from '@/lib/plans/viewer'
+import type { Viewer } from '@/lib/plans/viewer'
 
 const SHARE_TITLE = `${APP_NAME} — Plans and pricing`
 
