@@ -43,7 +43,7 @@ import { notifyTelegram } from '@/lib/telegram/notify'
 
 import { liveSubscription, resolveSubscription } from './entitlements'
 import type { SubscriptionColumns } from './entitlements'
-import { amountFor, logMockEvent, paymentHistoryFor } from './history'
+import { amountFor, logMockEvent, mostRecentCycleFor, paymentHistoryFor } from './history'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
 import { entitlementsOf, mockCheckoutEnabled } from './resolve'
@@ -145,6 +145,35 @@ export async function loadCheckoutStatus(): Promise<
     current: { plan: resolved.plan, status: resolved.status, expiresAt: resolved.expiresAt, pendingPlan: resolved.pendingPlan },
     live: liveSubscription(raw, now),
   }
+}
+
+/**
+ * The cycle this account most recently actually bought `plan` on — what "Change billing
+ * cycle" on /pricing needs so it can land on the *other* one, the one there is anything to buy.
+ * `CheckoutScreen` cannot answer that from the URL's own `?cycle=`, which merely carries
+ * whatever /pricing's Monthly/Yearly toggle happened to be showing — a price-comparison control
+ * with no idea what this account is actually paying for — so half the time that link pointed
+ * the reader right back at the cycle they were already on.
+ *
+ * Its own action, deliberately not folded into `loadCheckoutStatus` above even though
+ * `CheckoutScreen` calls both on the same mount: `BillingScreen` calls `loadCheckoutStatus` too,
+ * already alongside its own `loadMyPaymentHistory` for the payment table on the same screen — a
+ * `currentCycle` field bolted onto `loadCheckoutStatus` would have made every /billing load read
+ * this same ledger twice. This function is the one place that pays for it, and only the one
+ * caller with a use for it does.
+ *
+ * `null` when this account never bought `plan` through this ledger at all — a plan reached by
+ * upgrading, downgrading, buying for the first time, or a manual grant, none of which have an
+ * honest "other cycle" to name. `CheckoutScreen` falls back to the URL's own guess then, rather
+ * than showing nothing.
+ */
+export async function loadMostRecentCycleFor(plan: Plan): Promise<BillingPeriod | null> {
+  if (!hasDatabase) return null
+
+  const user = await currentUser()
+  if (user === null) return null
+
+  return mostRecentCycleFor(plan, await paymentHistoryFor(user.accountOwnerEmail))
 }
 
 /**

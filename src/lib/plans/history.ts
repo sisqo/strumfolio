@@ -67,6 +67,22 @@ export function amountFor(plan: Plan, cycle: BillingPeriod | null): string | nul
 }
 
 /**
+ * The cycle the most recent purchase of this exact plan actually paid for — the one fact
+ * `accounts` never stores as a column of its own (see `subscriptionCopy.ts`'s own comment on
+ * `lastPaymentLine`, which reads the same ledger for the same reason). `null` when this plan
+ * was never bought through this ledger at all — a manually granted plan, most likely — and a
+ * caller wanting to offer "the other cycle" has no honest opposite to offer then.
+ *
+ * `history` newest-first, matched on `plan` and not only on the action, for the same reason
+ * `lastPaymentLine` matches on both: an upgrade's own row must win over the cheaper plan
+ * underneath it, or this would answer with the cycle of a plan no longer held.
+ */
+export function mostRecentCycleFor(plan: Plan, history: PaymentHistoryLine[]): BillingPeriod | null {
+  const paid = history.find((line) => line.action === 'purchase' && line.plan === plan)
+  return paid?.cycle ?? null
+}
+
+/**
  * Writes one mock event for an account — the only write this file makes. `paddleSubscriptionId`
  * is always null, deliberately: nothing here has ever minted one, and that column stays
  * reserved for the real webhook to key on (`checkout.ts`'s own header).

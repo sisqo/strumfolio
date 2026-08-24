@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { loadCheckoutStatus, mockPurchase, type MockSubscriptionState } from '@/lib/plans/checkout'
+import { loadCheckoutStatus, loadMostRecentCycleFor, mockPurchase, type MockSubscriptionState } from '@/lib/plans/checkout'
 import { euro, LIFETIME, periodEnd, PRICES, yearlyTotalOfMonthly } from '@/lib/plans/prices'
 import type { BillingPeriod, CheckoutPlan, PaidPlan } from '@/lib/plans/prices'
 import { formatPlanDate, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
@@ -21,6 +21,10 @@ import type { Plan } from '@/lib/plans/types'
  */
 /** The one `unavailable` reason a reader can actually do something about — see the JSX below. */
 const SIGN_IN_REASON = 'Sign in to continue.'
+
+/** The only other cycle there is — used to flip, never to pick, so a third cycle one day
+    cannot silently compile. */
+const OTHER_CYCLE: Record<BillingPeriod, BillingPeriod> = { month: 'year', year: 'month' }
 
 const FAKE_CARD = { name: '', number: ACCEPTED_TEST_CARD, expiry: '12 / 30', cvc: '123' }
 
@@ -87,7 +91,10 @@ export function CheckoutScreen({
   plan: CheckoutPlan
   /** Carried over from /pricing's own toggle by the page, so arriving from Monthly there
       does not land on Yearly here. The default matches both /pricing's own opening tab and
-      the page's own fallback for a direct visit — three places that have to agree. */
+      the page's own fallback for a direct visit — three places that have to agree.
+      Overridden below, once `refresh` resolves, for the one arrival this guess is wrong for:
+      an existing customer re-buying the plan they already hold to change its cycle, where the
+      *right* cycle is never this prop's guess but the ledger's own opposite of it. */
   initialCycle?: BillingPeriod
 }) {
   const router = useRouter()
@@ -98,8 +105,21 @@ export function CheckoutScreen({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
 
-  const refresh = () => {
-    void loadCheckoutStatus().then((result) => {
+  /*
+   * `useCallback`, not a plain function, since the override below started reading `plan` —
+   * the one component-scope value this closure now depends on. Without it, every render made
+   * a new `refresh` the mount effect had no way to declare a dependency on without either
+   * re-running on every render (a plain function reference changes every time) or silencing
+   * the lint rule that exists precisely to catch a stale-closure bug like that.
+   */
+  const refresh = useCallback(() => {
+    /*
+     * Both requests fire together, and both are awaited before either `status` or `cycle`
+     * changes — never `loadCheckoutStatus` first and `loadMostRecentCycleFor` after, which
+     * would show a "Pay" card already open on the URL's guessed cycle for a beat before
+     * silently flipping to the ledger's answer underneath whoever is reading it.
+     */
+    void Promise.all([loadCheckoutStatus(), loadMostRecentCycleFor(plan)]).then(([result, mostRecentCycle]) => {
       if (!result.ok) {
         setStatus({
           state: 'unavailable',
@@ -113,12 +133,28 @@ export function CheckoutScreen({
         return
       }
       setStatus({ state: 'ready', current: result.current, live: result.live })
+      /*
+       * "Change billing cycle" on /pricing always means switch to the other one — but the
+       * `?cycle=` this screen arrived with only carries whatever /pricing's own Monthly/Yearly
+       * toggle happened to be showing, a price-comparison control with no idea what this
+       * account is actually paying for. `mostRecentCycle` is read fresh from the ledger instead
+       * (`loadMostRecentCycleFor`'s own comment), and only overrides the guess for a re-buy of
+       * the plan already held — checked here, against `result.current.plan` from the *same*
+       * mount rather than trusted from the URL, because an upgrade or downgrade to a different
+       * plan has no current cycle of its own to flip and must keep whatever the toggle chose.
+       * Left alone when the ledger has nothing to say (`mostRecentCycle === null`, a plan this
+       * account never actually bought here): the toggle's guess is still the better of two
+       * unknowns.
+       */
+      if (result.current.plan === plan && mostRecentCycle !== null) {
+        setCycle(OTHER_CYCLE[mostRecentCycle])
+      }
     })
-  }
+  }, [plan])
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [refresh])
 
   /*
    * The three facts every sentence below is worded from, derived once. `ready` is the narrowed

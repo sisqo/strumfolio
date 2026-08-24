@@ -395,6 +395,15 @@ export function PricingPlans({
                       * itself is not even a stored column. Worded apart from "Upgrade"/
                       * "Switch" below, which both change *which* plan this is — this changes
                       * nothing about the plan, only how often it bills.
+                      *
+                      * `?cycle=${period}` is only ever this link's opening guess, not its
+                      * destination: `period` is this page's own Monthly/Yearly toggle, a
+                      * price-comparison control with no idea which cycle this account is
+                      * actually paying for, and passing it straight through used to land back
+                      * on the *same* cycle half the time — "change" doing nothing. The screen
+                      * it lands on now overrides this with the ledger's own opposite cycle for
+                      * this exact plan the moment it loads (`CheckoutScreen`'s own comment),
+                      * and only falls back to this guess when the ledger has nothing to say.
                       */}
                     <Link
                       href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
@@ -404,7 +413,7 @@ export function PricingPlans({
                        * checkout screen's own status line spells the pending change out
                        * before anything is confirmed, so this only has to stop the link
                        * itself from looking like it touches nothing but the cycle. */
-                      title="Re-bills this plan on the chosen cycle. If a downgrade or cancellation is scheduled, this cancels it."
+                      title="Switches this plan to the other billing cycle. If a downgrade or cancellation is scheduled, this cancels it."
                     >
                       Change billing cycle
                     </Link>
