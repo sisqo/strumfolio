@@ -94,11 +94,11 @@ export const PRICES: Record<PaidPlan, Record<BillingPeriod, PlanPrice>> = {
   },
   plus: {
     year: { amount: '39', paddleId: '' },
-    month: { amount: '4.49', paddleId: '' },
+    month: { amount: '4.99', paddleId: '' },
   },
   premium: {
-    year: { amount: '99', paddleId: '' },
-    month: { amount: '9.49', paddleId: '' },
+    year: { amount: '69', paddleId: '' },
+    month: { amount: '8.99', paddleId: '' },
   },
 }
 
@@ -125,7 +125,7 @@ export const PRICES: Record<PaidPlan, Record<BillingPeriod, PlanPrice>> = {
  * with it.
  */
 export const LIFETIME = {
-  amount: '149',
+  amount: '189',
   /**
    * The struck-through anchor beside `amount` — never charged, never stored anywhere a
    * purchase touches (`checkout.ts` writes only `plan`/`planStatus`/`planExpiresAt`, the same
