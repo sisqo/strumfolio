@@ -258,7 +258,7 @@ export function ImportIntoSongbook({
               onChange={(event) => setPasted(event.target.value)}
               rows={14}
               spellCheck={false}
-              placeholder={'Amazing Grace\nTraditional (John Newton, 1779)\n\nG                  C\nAmazing grace, how sweet the sound\n\n---\n\nAuld Lang Syne\nRobert Burns (1788), traditional Scottish air'}
+              placeholder={'Amazing Grace\nTraditional (John Newton, 1779)\n\nG                  C\nAmazing grace, how sweet the sound\n\n---\n\nDanny Boy\nTraditional Irish air, lyrics by Frederick Weatherly (1913)'}
               className="form-field font-mono text-sm"
             />
           </label>

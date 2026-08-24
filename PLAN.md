@@ -145,12 +145,12 @@ righe → coppie accordo/testo) riusato da rendering, trasposizione e indice di 
 resto dello standard viene ignorato senza errori.
 
 ```
-{title: Certe notti}
-{artist: Ligabue}
+{title: Amazing Grace}
+{artist: Traditional (John Newton, 1779)}
 {songbook: Repertorio}       ← solo il valore iniziale, vedi Contenuti e seed
 {start_of_chorus} … {end_of_chorus}
 
-[Am]Certe [F]notti la [C]macchina sembra una [G]donna
+[G]Amazing [G7]grace, how [C]sweet the [G]sound
 ```
 
 **Normalizzazione dei suffissi.** Il parser riduce le grafie equivalenti a una forma
