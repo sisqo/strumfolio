@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
-import { IconEye, IconLink, IconSettings, IconShield, IconSliders, IconSwitchAccount } from '@/components/icons'
+import { IconEye, IconLink, IconNote, IconSettings, IconShield, IconSliders, IconSwitchAccount } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
 
 /**
@@ -40,6 +40,9 @@ const ENTRIES: { section: Section; href: string; label: string; icon: typeof Ico
      page's own list and its own comment on what belongs there. */
   { section: 'pages', href: '/pages', label: 'Pages', icon: IconLink },
   { section: 'design-system', href: '/design-system', label: 'Design system', icon: IconSliders },
+  /* The note glyph itself — the actual brand mark, not a generic stand-in — for the one
+     entry that is about the brand mark. */
+  { section: 'brand', href: '/brand', label: 'Brand', icon: IconNote },
   /* A gear, the same glyph the user menu's own Settings carries — which is agreement rather
      than collision: it means "settings" in both places, and which menu you opened is what says
      whose. The route is `/app-settings` and not `/settings` for the same reason. */
