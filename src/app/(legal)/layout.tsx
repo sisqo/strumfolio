@@ -15,10 +15,11 @@ import { PublicHeader } from '@/components/PublicHeader'
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* 42rem, matching this shell's own `<main className="... max-w-2xl ...">` below. */}
-      <PublicHeader width="42rem" />
+      {/* 48rem, matching this shell's own `<main className="... max-w-3xl ...">` below — the
+          one width every non-landing page in the app shares. */}
+      <PublicHeader width="48rem" />
 
-      <main className="mx-auto max-w-2xl px-5 pb-16 pt-8 sm:pt-12">
+      <main className="mx-auto max-w-3xl px-5 pb-16 pt-8 sm:pt-12">
         <article className="legal-content mt-6">{children}</article>
 
         <Footer />

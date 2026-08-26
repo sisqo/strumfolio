@@ -25,6 +25,7 @@ export type Section =
   | 'help'
   | 'checkout'
   | 'billing'
+  | 'brand'
 
 /**
  * The header, on every screen inside the app.

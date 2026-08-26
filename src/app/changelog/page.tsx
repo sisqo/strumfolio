@@ -50,7 +50,7 @@ export const metadata: Metadata = {
  */
 export default function ChangelogPage() {
   return (
-    <main className="mx-auto w-full max-w-[48rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
+    <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
       <header className="mb-10">
         <h1 className="landing-title">Changelog</h1>
         <p className="mt-4 text-[1.03125rem] leading-[1.6] text-muted">

@@ -92,26 +92,21 @@ export default auth((request) => {
    * date on it — see the note about `precache-routes.ts` in `app/pricing/page.tsx` — so the
    * audience the page is written for is the one that must never see a cached one.
    *
-   * `/brand` is here for the permanent reason too, and it is the plainest case of it:
-   * whoever came looking for the logo — a store, a designer, somebody writing about this
-   * app — has no session and never will. Note the difference from `/brand/kit/…` two
-   * functions up: the files are assets and skip this check entirely, while the page that
-   * indexes them is a page, and gets the same treatment as every other public one. It is
-   * on the conditional branch by default rather than by argument: the page's content is a
-   * constant baked at build time, so a signed-in reader's cached copy is no staler than a
-   * fresh one, and there is nothing here that has to be refused a cache.
+   * `/changelog` is here for a similar reason: whoever arrives wanting to know what shipped
+   * may well not be signed in — that is most of the point of publishing release notes — and
+   * its content is a constant in `lib/changelog.ts` baked at build time, so the conditional
+   * branch costs a signed-in reader nothing. Not `/pricing`'s case: a release note that is a
+   * day old is still true, while a price that is a day old may not be.
    *
-   * `/changelog` is the same case as `/brand`, and for the same two halves of it: whoever
-   * arrives wanting to know what shipped may well not be signed in — that is most of the point
-   * of publishing release notes — and its content is a constant in `lib/changelog.ts` baked at
-   * build time, so the conditional branch costs a signed-in reader nothing. Not `/pricing`'s
-   * case: a release note that is a day old is still true, while a price that is a day old may
-   * not be.
+   * `/brand` is deliberately **not** on this list, unlike `/brand/kit/…` two functions up:
+   * that prefix stays a public asset drop (a logo the app itself, an email, or a link-preview
+   * bot needs with no session), but the page that indexes it now falls straight through to
+   * the guard at the bottom like any other page inside the app — it requires a session, the
+   * same as `/help` or `/booklet`.
    */
   if (
     pathname === '/login' ||
     pathname === '/pricing' ||
-    pathname === '/brand' ||
     pathname === '/changelog' ||
     pathname === '/register' ||
     pathname === '/verify' ||

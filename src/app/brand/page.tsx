@@ -3,38 +3,12 @@ import Link from 'next/link'
 
 import { CopyUrl } from '@/components/CopyUrl'
 import { Footer } from '@/components/Footer'
+import { PrefsProvider } from '@/components/PrefsProvider'
+import { TopBar } from '@/components/TopBar'
 import { APP_NAME } from '@/lib/brand'
 import { type KitFile, formatBytes, kitFolders, kitHref, kitUrl } from '@/lib/brandKit'
 
-const DESCRIPTION = `${APP_NAME}'s logo, app icons and palette, with the URL of every file.`
-const SHARE_TITLE = `${APP_NAME} brand assets`
-
-/*
- * Same metadata shape as `/pricing`, and `openGraph.images` is repeated here for the same
- * reason spelled out over there: Next replaces a page's `openGraph` block wholesale rather
- * than merging it into the root layout's, so the card would otherwise lose its image.
- *
- * No `robots` override: this page is meant to be findable. Somebody looking for
- * "Strumfolio logo" is exactly who it is for, and every file it links to is already served
- * from a path the middleware lets through without a session.
- */
-export const metadata: Metadata = {
-  title: 'Brand',
-  description: DESCRIPTION,
-  openGraph: {
-    title: SHARE_TITLE,
-    description: DESCRIPTION,
-    locale: 'en_US',
-    type: 'website',
-    images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: SHARE_TITLE,
-    description: DESCRIPTION,
-    images: ['/brand/og-image.png'],
-  },
-}
+export const metadata: Metadata = { title: 'Brand' }
 
 /** Intrinsic sizes, straight off each file's `viewBox` — see `Shot` for what they are for. */
 const LOCKUP_H = { w: 2336, h: 344 }
@@ -81,7 +55,7 @@ const FAVICONS = [
 ]
 
 /**
- * Everything anyone outside this app ever needs from the brand, at a URL.
+ * Everything anyone signed in ever needs from the brand, at a URL.
  *
  * The page exists because the alternative is a folder: `public/brand/kit/` holds a hundred
  * and forty files, and knowing which of four horizontal lockups to reach for is exactly the
@@ -89,8 +63,9 @@ const FAVICONS = [
  * for, next to the one sentence that says when it is the right file — and then, at the
  * bottom, the whole drop listed without commentary for whoever already knows.
  *
- * Public and indexable on purpose (see `metadata` above and `middleware.ts`), which is also
- * why the copy is written for a stranger rather than for whoever runs this app.
+ * A reserved page like `/help` or `/booklet` (see `middleware.ts`), not a public one: the
+ * files under `/brand/kit/` stay reachable with no session — a store, a designer, an email
+ * client all still need them — but this index of them now requires signing in first.
  */
 export default function BrandPage() {
   const folders = kitFolders()
@@ -99,376 +74,380 @@ export default function BrandPage() {
   )
 
   return (
-    <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
-      <header className="max-w-[42rem]">
-        <h1 className="screen-title">Brand</h1>
+    <PrefsProvider songSlug={null}>
+      <TopBar current="brand" />
 
-        <p className="brand-lede">
-          <Link href="/" className="text-accent hover:underline">
-            {APP_NAME}
-          </Link>
-          ’s logo, app icons and palette, hosted here for anything outside the app that needs
-          them — a store listing, a slide, a signature, someone else’s stylesheet.
-        </p>
+      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
+        <header className="max-w-[42rem]">
+          <h1 className="screen-title">Brand</h1>
 
-        <p className="brand-lede-note">
-          Link straight to a file rather than keeping a copy of it: these URLs stay put, and a
-          copy on someone else’s drive is a copy of whatever the logo used to look like. The
-          whole drop sits under <code className="brand-code">/brand/kit/</code>, and{' '}
-          <a href={kitHref('README.md')} className="text-accent hover:underline">
-            its own README
-          </a>{' '}
-          is the file-by-file index.
-        </p>
-      </header>
+          <p className="brand-lede">
+            <Link href="/" className="text-accent hover:underline">
+              {APP_NAME}
+            </Link>
+            ’s logo, app icons and palette, hosted here for anything outside the app that needs
+            them — a store listing, a slide, a signature, someone else’s stylesheet.
+          </p>
 
-      {folders.length === 0 ? (
-        <p className="brand-empty">
-          The kit is not in this build. <code className="brand-code">public/brand/kit/</code> is
-          where it goes — every path below is read off that folder at build time, so an empty
-          checkout shows an empty page rather than a list of dead links.
-        </p>
-      ) : null}
+          <p className="brand-lede-note">
+            Link straight to a file rather than keeping a copy of it: these URLs stay put, and a
+            copy on someone else’s drive is a copy of whatever the logo used to look like. The
+            whole drop sits under <code className="brand-code">/brand/kit/</code>, and{' '}
+            <a href={kitHref('README.md')} className="text-accent hover:underline">
+              its own README
+            </a>{' '}
+            is the file-by-file index.
+          </p>
+        </header>
 
-      {/* ---- The lockup ------------------------------------------------ */}
+        {folders.length === 0 ? (
+          <p className="brand-empty">
+            The kit is not in this build. <code className="brand-code">public/brand/kit/</code> is
+            where it goes — every path below is read off that folder at build time, so an empty
+            checkout shows an empty page rather than a list of dead links.
+          </p>
+        ) : null}
 
-      <section className="mt-11 sm:mt-14">
-        <h2 className="section-title">The lockup</h2>
-        <p className="brand-text">
-          Two files, never one recoloured: the lettering is black for a light ground and white
-          for a dark one. The mark and the wordmark are one image on purpose — the space
-          between them is part of the drawing, not something to set by hand.
-        </p>
+        {/* ---- The lockup ------------------------------------------------ */}
 
-        <SpecimenPair
-          light="svg/lockup-horizontal-black.svg"
-          dark="svg/lockup-horizontal-white.svg"
-          alt="the Strumfolio horizontal lockup: the note-and-book tile beside the wordmark"
-          size={LOCKUP_H}
-          cap="17rem"
-          byPath={byPath}
-          /* The one specimen above the fold on every width, and this page's largest paint. */
-          eager
-        />
+        <section className="mt-11 sm:mt-14">
+          <h2 className="section-title">The lockup</h2>
+          <p className="brand-text">
+            Two files, never one recoloured: the lettering is black for a light ground and white
+            for a dark one. The mark and the wordmark are one image on purpose — the space
+            between them is part of the drawing, not something to set by hand.
+          </p>
 
-        <p className="brand-text mt-9">
-          Stacked instead of side by side, for a column rather than a row — this is what heads
-          the sign-in pages in this app.
-        </p>
+          <SpecimenPair
+            light="svg/lockup-horizontal-black.svg"
+            dark="svg/lockup-horizontal-white.svg"
+            alt="the Strumfolio horizontal lockup: the note-and-book tile beside the wordmark"
+            size={LOCKUP_H}
+            cap="17rem"
+            byPath={byPath}
+            /* The one specimen above the fold on every width, and this page's largest paint. */
+            eager
+          />
 
-        <SpecimenPair
-          light="svg/lockup-vertical-black.svg"
-          dark="svg/lockup-vertical-white.svg"
-          alt="the Strumfolio vertical lockup: the tile above the wordmark"
-          size={LOCKUP_V}
-          cap="9.5rem"
-          byPath={byPath}
-        />
+          <p className="brand-text mt-9">
+            Stacked instead of side by side, for a column rather than a row — this is what heads
+            the sign-in pages in this app.
+          </p>
 
-        <h3 className="brand-subhead">Two more of each, for two specific jobs</h3>
+          <SpecimenPair
+            light="svg/lockup-vertical-black.svg"
+            dark="svg/lockup-vertical-white.svg"
+            alt="the Strumfolio vertical lockup: the tile above the wordmark"
+            size={LOCKUP_V}
+            cap="9.5rem"
+            byPath={byPath}
+          />
 
-        <div className="brand-pair">
-          <div>
-            <Specimen>
-              <Ground tone="surface">
-                <Shot
-                  file="svg/lockup-horizontal-adaptive.svg"
-                  alt="the horizontal lockup in its adaptive variant"
-                  size={LOCKUP_H}
-                  cap="15rem"
-                />
-              </Ground>
-            </Specimen>
-            <p className="brand-note">
-              <strong>Adaptive.</strong> The switch happens inside the file, off{' '}
-              <code className="brand-code">prefers-color-scheme</code>, so one tag covers both
-              grounds. Reach for it where you cannot ship two files and a CSS rule — a README,
-              someone else’s CMS. Not what this app uses, because what an{' '}
-              <code className="brand-code">&lt;img&gt;</code> is told depends on the browser:
-              Chromium hands the image the page’s own colour scheme, and one that hands it the
-              operating system’s instead paints white lettering onto a white page for a reader
-              who chose light.
-            </p>
-            <AssetLine relative="svg/lockup-horizontal-adaptive.svg" byPath={byPath} />
-            <AssetLine relative="svg/lockup-vertical-adaptive.svg" byPath={byPath} />
-          </div>
+          <h3 className="brand-subhead">Two more of each, for two specific jobs</h3>
 
-          <div>
-            <Specimen>
-              <Ground tone="surface">
-                <Tint
-                  file="svg/lockup-horizontal-mono.svg"
-                  label="the horizontal lockup in one colour"
-                  size={LOCKUP_H}
-                  cap="15rem"
-                />
-              </Ground>
-            </Specimen>
-            <p className="brand-note">
-              <strong>Mono.</strong> Every shape in{' '}
-              <code className="brand-code">currentColor</code>, with the glyph knocked out of
-              the tile rather than painted on it. Inline the SVG, or paint it through a CSS
-              mask the way this specimen does — an <code className="brand-code">&lt;img&gt;</code>{' '}
-              cannot inherit the colour of the text beside it.
-            </p>
-            <AssetLine relative="svg/lockup-horizontal-mono.svg" byPath={byPath} />
-            <AssetLine relative="svg/lockup-vertical-mono.svg" byPath={byPath} />
-          </div>
-        </div>
-      </section>
-
-      {/* ---- Mark, glyph, wordmark ------------------------------------- */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Mark, glyph, wordmark</h2>
-        <p className="brand-text">
-          The three pieces on their own, for the places a full lockup does not fit: an avatar,
-          a favicon, a stamp on a corner.
-        </p>
-
-        <SpecimenPair
-          light="svg/mark.svg"
-          dark="svg/mark-light.svg"
-          alt="the Strumfolio mark: a note over an open book, on a rounded tile"
-          size={MARK}
-          cap="7rem"
-          byPath={byPath}
-        />
-
-        <h3 className="brand-subhead">Without a tile, in your own colour</h3>
-        <p className="brand-text">
-          These three carry no colour of their own: they are{' '}
-          <code className="brand-code">currentColor</code> on a transparent ground, tinted here
-          with this page’s own text colour.
-        </p>
-
-        <div className="tint-row">
-          <Specimen>
-            <Ground tone="surface">
-              <Tint file="svg/glyph.svg" label="the note and open book, without a tile" size={GLYPH} cap="6.5rem" />
-            </Ground>
-          </Specimen>
-          <Specimen>
-            <Ground tone="surface">
-              <Tint file="svg/note.svg" label="the note alone" size={NOTE} cap="2.75rem" />
-            </Ground>
-          </Specimen>
-          <Specimen>
-            <Ground tone="surface">
-              <Tint file="svg/wordmark.svg" label="the Strumfolio wordmark" size={WORDMARK} cap="12rem" />
-            </Ground>
-          </Specimen>
-        </div>
-
-        <div className="brand-lines">
-          <AssetLine relative="svg/glyph.svg" byPath={byPath} note="note and book" />
-          <AssetLine relative="svg/note.svg" byPath={byPath} note="the note alone" />
-          <AssetLine relative="svg/wordmark.svg" byPath={byPath} note="lettering only" />
-          <AssetLine relative="svg/mark-mono.svg" byPath={byPath} note="the badge in one colour" />
-        </div>
-      </section>
-
-      {/* ---- Icons ----------------------------------------------------- */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Icons</h2>
-        <p className="brand-text">
-          Four tiles, one drawing. Which one you want depends entirely on what is going to
-          round the corners, and on how dark the surface behind it is.
-        </p>
-
-        <div className="icon-grid">
-          {APP_ICONS.map((icon) => (
-            <div key={icon.file} className="icon-cell">
+          <div className="brand-pair">
+            <div>
               <Specimen>
-                <Ground tone={icon.name === 'Light' ? 'night' : 'paper'}>
-                  <Shot file={icon.file} alt={`the ${icon.name.toLowerCase()} app icon`} size={SQUARE} cap="4.5rem" />
+                <Ground tone="surface">
+                  <Shot
+                    file="svg/lockup-horizontal-adaptive.svg"
+                    alt="the horizontal lockup in its adaptive variant"
+                    size={LOCKUP_H}
+                    cap="15rem"
+                  />
                 </Ground>
               </Specimen>
-              <h3 className="icon-cell-name">{icon.name}</h3>
-              <p className="brand-note">{icon.use}</p>
-              <AssetLine relative={icon.file} byPath={byPath} />
+              <p className="brand-note">
+                <strong>Adaptive.</strong> The switch happens inside the file, off{' '}
+                <code className="brand-code">prefers-color-scheme</code>, so one tag covers both
+                grounds. Reach for it where you cannot ship two files and a CSS rule — a README,
+                someone else’s CMS. Not what this app uses, because what an{' '}
+                <code className="brand-code">&lt;img&gt;</code> is told depends on the browser:
+                Chromium hands the image the page’s own colour scheme, and one that hands it the
+                operating system’s instead paints white lettering onto a white page for a reader
+                who chose light.
+              </p>
+              <AssetLine relative="svg/lockup-horizontal-adaptive.svg" byPath={byPath} />
+              <AssetLine relative="svg/lockup-vertical-adaptive.svg" byPath={byPath} />
             </div>
-          ))}
-        </div>
 
-        <h3 className="brand-subhead">Favicons, at the size they are actually drawn</h3>
-        <p className="brand-text">
-          Below roughly 48 pixels the open book stops reading as a book and turns into three
-          grey strokes. That is the whole reason the two small favicons are the note alone
-          rather than the same mark scaled down.
-        </p>
-
-        <Specimen>
-          <Ground tone="paper">
-            <div className="favicon-row">
-              {FAVICONS.map((favicon) => (
-                <div key={favicon.file} className="favicon-cell">
-                  <Shot
-                    file={favicon.file}
-                    alt={`the ${favicon.px} pixel favicon`}
-                    size={{ w: favicon.px, h: favicon.px }}
-                    cap={`${favicon.px}px`}
-                    exact
+            <div>
+              <Specimen>
+                <Ground tone="surface">
+                  <Tint
+                    file="svg/lockup-horizontal-mono.svg"
+                    label="the horizontal lockup in one colour"
+                    size={LOCKUP_H}
+                    cap="15rem"
                   />
-                  <span className="favicon-cell-label">
-                    {favicon.px}px
-                    <span className="favicon-cell-note">{favicon.note}</span>
-                  </span>
-                </div>
-              ))}
+                </Ground>
+              </Specimen>
+              <p className="brand-note">
+                <strong>Mono.</strong> Every shape in{' '}
+                <code className="brand-code">currentColor</code>, with the glyph knocked out of
+                the tile rather than painted on it. Inline the SVG, or paint it through a CSS
+                mask the way this specimen does — an <code className="brand-code">&lt;img&gt;</code>{' '}
+                cannot inherit the colour of the text beside it.
+              </p>
+              <AssetLine relative="svg/lockup-horizontal-mono.svg" byPath={byPath} />
+              <AssetLine relative="svg/lockup-vertical-mono.svg" byPath={byPath} />
             </div>
-          </Ground>
-        </Specimen>
-
-        <div className="brand-lines">
-          <AssetLine relative="web/favicon.svg" byPath={byPath} note="what a modern browser picks first" />
-          <AssetLine relative="web/favicon.ico" byPath={byPath} note="16, 32 and 48 in one file, as a fallback" />
-          <AssetLine relative="web/apple-touch-icon.png" byPath={byPath} note="180×180, no transparency — iOS rounds it" />
-          <AssetLine relative="web/icon-192.png" byPath={byPath} note="PWA, purpose any" />
-          <AssetLine relative="web/icon-512.png" byPath={byPath} note="PWA, purpose any" />
-          <AssetLine relative="web/maskable-icon-512.png" byPath={byPath} note="PWA, purpose maskable" />
-          <AssetLine
-            relative="ios/AppIcon.appiconset/Contents.json"
-            byPath={byPath}
-            note="the whole appiconset is in the list below — drag the folder into Assets.xcassets"
-          />
-        </div>
-      </section>
-
-      {/* ---- Social ---------------------------------------------------- */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Link previews and social</h2>
-        <p className="brand-text">
-          Ready-made cards: 1200×630 for a link preview, 1200×1200 for the places that want a
-          square. Three grounds for the wide one, because a card sits on whatever the app
-          showing it decides.
-        </p>
-
-        <div className="card-row">
-          {[
-            { file: 'web/og-image-brand.png', name: 'Brand', note: 'What this site’s own cards use.' },
-            { file: 'web/og-image-light.png', name: 'Light', note: 'Black lettering on white.' },
-            { file: 'web/og-image-dark.png', name: 'Dark', note: 'White lettering on near-black.' },
-          ].map((card) => (
-            <figure key={card.file} className="card-cell">
-              <Shot file={card.file} alt={`the ${card.name.toLowerCase()} link-preview card`} size={{ w: 1200, h: 630 }} cap="100%" framed />
-              <figcaption>
-                <span className="card-cell-name">{card.name}</span>
-                <span className="brand-note">{card.note}</span>
-                <AssetLine relative={card.file} byPath={byPath} />
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-
-        <div className="card-row is-square">
-          {[
-            { file: 'web/social-square-light.png', name: 'Square, light' },
-            { file: 'web/social-square-dark.png', name: 'Square, dark' },
-          ].map((card) => (
-            <figure key={card.file} className="card-cell">
-              <Shot file={card.file} alt={`the ${card.name.toLowerCase()} square`} size={{ w: 1200, h: 1200 }} cap="100%" framed />
-              <figcaption>
-                <span className="card-cell-name">{card.name}</span>
-                <AssetLine relative={card.file} byPath={byPath} />
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
-
-      {/* ---- Palette --------------------------------------------------- */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Palette</h2>
-        <p className="brand-text">
-          Five values, and only the first two are ever a background. Brown and Orange are this
-          app’s own accent in its two themes, to the digit — the colour that marks a chord on a
-          song sheet is the colour of the tile.
-        </p>
-
-        <ul className="swatch-grid">
-          {PALETTE.map((colour) => (
-            <li key={colour.hex} className="swatch">
-              {/* The one place a literal hex is the content rather than a style: this is the value. */}
-              <span className="swatch-chip" style={{ background: colour.hex }} aria-hidden />
-              <span className="swatch-name">{colour.name}</span>
-              <span className="swatch-hex font-mono">{colour.hex}</span>
-              <span className="brand-note">{colour.use}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* ---- Rules ----------------------------------------------------- */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Using it</h2>
-
-        <ul className="rule-list">
-          <li>
-            <strong>Leave it room.</strong> Every <code className="brand-code">viewBox</code> is
-            cropped to the ink, with no padding built in — clear space is yours to add. Half the
-            height of the tile, on all four sides, is enough.
-          </li>
-          <li>
-            <strong>Scale, never stretch.</strong> Set one dimension and let the other follow:
-            2336×344 for the horizontal lockup, 1688×804 for the vertical, 499×344 for the mark.
-          </li>
-          <li>
-            <strong>Pick the file for the ground.</strong> Black lettering on light, white on
-            dark, and neither one recoloured to bridge the gap. On a photograph or a mid-tone,
-            use the mark on its own tile rather than the lockup.
-          </li>
-          <li>
-            <strong>Small means the note.</strong> Under about 48 pixels the book closes up.
-            Below that use <code className="brand-code">note.svg</code> or the 16 and 32 pixel
-            favicons, which are drawn for it.
-          </li>
-          <li>
-            <strong>Don’t rebuild it.</strong> No shadows, outlines, gradients or rotations, and
-            no setting the wordmark next to the mark yourself — the lockup files exist so that
-            spacing is never a decision anyone has to make twice.
-          </li>
-        </ul>
-      </section>
-
-      {/* ---- Every file ------------------------------------------------ */}
-
-      <section className="mt-14 sm:mt-16">
-        <h2 className="section-title">Every file</h2>
-        <p className="brand-text">
-          The drop as delivered, read off the folder itself. There is no archive to download:
-          link to the file you need.
-        </p>
-
-        {folders.map((folder) => (
-          <div key={folder.name} className="kit-folder">
-            <h3 className="kit-folder-name font-mono">{folder.name === '' ? '/' : `${folder.name}/`}</h3>
-            <p className="kit-folder-count">
-              {folder.files.length} {folder.files.length === 1 ? 'file' : 'files'} ·{' '}
-              {formatBytes(folder.files.reduce((total, file) => total + file.bytes, 0))}
-            </p>
-
-            <ul className="kit-file-list">
-              {folder.files.map((file) => (
-                <li key={file.relative} className="kit-file">
-                  <a href={file.href} className="kit-file-name font-mono">
-                    {file.name}
-                  </a>
-                  <span className="kit-file-size">{formatBytes(file.bytes)}</span>
-                  <CopyUrl url={file.url} name={file.name} />
-                </li>
-              ))}
-            </ul>
           </div>
-        ))}
-      </section>
+        </section>
 
-      <Footer />
-    </main>
+        {/* ---- Mark, glyph, wordmark ------------------------------------- */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Mark, glyph, wordmark</h2>
+          <p className="brand-text">
+            The three pieces on their own, for the places a full lockup does not fit: an avatar,
+            a favicon, a stamp on a corner.
+          </p>
+
+          <SpecimenPair
+            light="svg/mark.svg"
+            dark="svg/mark-light.svg"
+            alt="the Strumfolio mark: a note over an open book, on a rounded tile"
+            size={MARK}
+            cap="7rem"
+            byPath={byPath}
+          />
+
+          <h3 className="brand-subhead">Without a tile, in your own colour</h3>
+          <p className="brand-text">
+            These three carry no colour of their own: they are{' '}
+            <code className="brand-code">currentColor</code> on a transparent ground, tinted here
+            with this page’s own text colour.
+          </p>
+
+          <div className="tint-row">
+            <Specimen>
+              <Ground tone="surface">
+                <Tint file="svg/glyph.svg" label="the note and open book, without a tile" size={GLYPH} cap="6.5rem" />
+              </Ground>
+            </Specimen>
+            <Specimen>
+              <Ground tone="surface">
+                <Tint file="svg/note.svg" label="the note alone" size={NOTE} cap="2.75rem" />
+              </Ground>
+            </Specimen>
+            <Specimen>
+              <Ground tone="surface">
+                <Tint file="svg/wordmark.svg" label="the Strumfolio wordmark" size={WORDMARK} cap="12rem" />
+              </Ground>
+            </Specimen>
+          </div>
+
+          <div className="brand-lines">
+            <AssetLine relative="svg/glyph.svg" byPath={byPath} note="note and book" />
+            <AssetLine relative="svg/note.svg" byPath={byPath} note="the note alone" />
+            <AssetLine relative="svg/wordmark.svg" byPath={byPath} note="lettering only" />
+            <AssetLine relative="svg/mark-mono.svg" byPath={byPath} note="the badge in one colour" />
+          </div>
+        </section>
+
+        {/* ---- Icons ----------------------------------------------------- */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Icons</h2>
+          <p className="brand-text">
+            Four tiles, one drawing. Which one you want depends entirely on what is going to
+            round the corners, and on how dark the surface behind it is.
+          </p>
+
+          <div className="icon-grid">
+            {APP_ICONS.map((icon) => (
+              <div key={icon.file} className="icon-cell">
+                <Specimen>
+                  <Ground tone={icon.name === 'Light' ? 'night' : 'paper'}>
+                    <Shot file={icon.file} alt={`the ${icon.name.toLowerCase()} app icon`} size={SQUARE} cap="4.5rem" />
+                  </Ground>
+                </Specimen>
+                <h3 className="icon-cell-name">{icon.name}</h3>
+                <p className="brand-note">{icon.use}</p>
+                <AssetLine relative={icon.file} byPath={byPath} />
+              </div>
+            ))}
+          </div>
+
+          <h3 className="brand-subhead">Favicons, at the size they are actually drawn</h3>
+          <p className="brand-text">
+            Below roughly 48 pixels the open book stops reading as a book and turns into three
+            grey strokes. That is the whole reason the two small favicons are the note alone
+            rather than the same mark scaled down.
+          </p>
+
+          <Specimen>
+            <Ground tone="paper">
+              <div className="favicon-row">
+                {FAVICONS.map((favicon) => (
+                  <div key={favicon.file} className="favicon-cell">
+                    <Shot
+                      file={favicon.file}
+                      alt={`the ${favicon.px} pixel favicon`}
+                      size={{ w: favicon.px, h: favicon.px }}
+                      cap={`${favicon.px}px`}
+                      exact
+                    />
+                    <span className="favicon-cell-label">
+                      {favicon.px}px
+                      <span className="favicon-cell-note">{favicon.note}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Ground>
+          </Specimen>
+
+          <div className="brand-lines">
+            <AssetLine relative="web/favicon.svg" byPath={byPath} note="what a modern browser picks first" />
+            <AssetLine relative="web/favicon.ico" byPath={byPath} note="16, 32 and 48 in one file, as a fallback" />
+            <AssetLine relative="web/apple-touch-icon.png" byPath={byPath} note="180×180, no transparency — iOS rounds it" />
+            <AssetLine relative="web/icon-192.png" byPath={byPath} note="PWA, purpose any" />
+            <AssetLine relative="web/icon-512.png" byPath={byPath} note="PWA, purpose any" />
+            <AssetLine relative="web/maskable-icon-512.png" byPath={byPath} note="PWA, purpose maskable" />
+            <AssetLine
+              relative="ios/AppIcon.appiconset/Contents.json"
+              byPath={byPath}
+              note="the whole appiconset is in the list below — drag the folder into Assets.xcassets"
+            />
+          </div>
+        </section>
+
+        {/* ---- Social ---------------------------------------------------- */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Link previews and social</h2>
+          <p className="brand-text">
+            Ready-made cards: 1200×630 for a link preview, 1200×1200 for the places that want a
+            square. Three grounds for the wide one, because a card sits on whatever the app
+            showing it decides.
+          </p>
+
+          <div className="card-row">
+            {[
+              { file: 'web/og-image-brand.png', name: 'Brand', note: 'What this site’s own cards use.' },
+              { file: 'web/og-image-light.png', name: 'Light', note: 'Black lettering on white.' },
+              { file: 'web/og-image-dark.png', name: 'Dark', note: 'White lettering on near-black.' },
+            ].map((card) => (
+              <figure key={card.file} className="card-cell">
+                <Shot file={card.file} alt={`the ${card.name.toLowerCase()} link-preview card`} size={{ w: 1200, h: 630 }} cap="100%" framed />
+                <figcaption>
+                  <span className="card-cell-name">{card.name}</span>
+                  <span className="brand-note">{card.note}</span>
+                  <AssetLine relative={card.file} byPath={byPath} />
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+
+          <div className="card-row is-square">
+            {[
+              { file: 'web/social-square-light.png', name: 'Square, light' },
+              { file: 'web/social-square-dark.png', name: 'Square, dark' },
+            ].map((card) => (
+              <figure key={card.file} className="card-cell">
+                <Shot file={card.file} alt={`the ${card.name.toLowerCase()} square`} size={{ w: 1200, h: 1200 }} cap="100%" framed />
+                <figcaption>
+                  <span className="card-cell-name">{card.name}</span>
+                  <AssetLine relative={card.file} byPath={byPath} />
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        {/* ---- Palette --------------------------------------------------- */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Palette</h2>
+          <p className="brand-text">
+            Five values, and only the first two are ever a background. Brown and Orange are this
+            app’s own accent in its two themes, to the digit — the colour that marks a chord on a
+            song sheet is the colour of the tile.
+          </p>
+
+          <ul className="swatch-grid">
+            {PALETTE.map((colour) => (
+              <li key={colour.hex} className="swatch">
+                {/* The one place a literal hex is the content rather than a style: this is the value. */}
+                <span className="swatch-chip" style={{ background: colour.hex }} aria-hidden />
+                <span className="swatch-name">{colour.name}</span>
+                <span className="swatch-hex font-mono">{colour.hex}</span>
+                <span className="brand-note">{colour.use}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ---- Rules ----------------------------------------------------- */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Using it</h2>
+
+          <ul className="rule-list">
+            <li>
+              <strong>Leave it room.</strong> Every <code className="brand-code">viewBox</code> is
+              cropped to the ink, with no padding built in — clear space is yours to add. Half the
+              height of the tile, on all four sides, is enough.
+            </li>
+            <li>
+              <strong>Scale, never stretch.</strong> Set one dimension and let the other follow:
+              2336×344 for the horizontal lockup, 1688×804 for the vertical, 499×344 for the mark.
+            </li>
+            <li>
+              <strong>Pick the file for the ground.</strong> Black lettering on light, white on
+              dark, and neither one recoloured to bridge the gap. On a photograph or a mid-tone,
+              use the mark on its own tile rather than the lockup.
+            </li>
+            <li>
+              <strong>Small means the note.</strong> Under about 48 pixels the book closes up.
+              Below that use <code className="brand-code">note.svg</code> or the 16 and 32 pixel
+              favicons, which are drawn for it.
+            </li>
+            <li>
+              <strong>Don’t rebuild it.</strong> No shadows, outlines, gradients or rotations, and
+              no setting the wordmark next to the mark yourself — the lockup files exist so that
+              spacing is never a decision anyone has to make twice.
+            </li>
+          </ul>
+        </section>
+
+        {/* ---- Every file ------------------------------------------------ */}
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Every file</h2>
+          <p className="brand-text">
+            The drop as delivered, read off the folder itself. There is no archive to download:
+            link to the file you need.
+          </p>
+
+          {folders.map((folder) => (
+            <div key={folder.name} className="kit-folder">
+              <h3 className="kit-folder-name font-mono">{folder.name === '' ? '/' : `${folder.name}/`}</h3>
+              <p className="kit-folder-count">
+                {folder.files.length} {folder.files.length === 1 ? 'file' : 'files'} ·{' '}
+                {formatBytes(folder.files.reduce((total, file) => total + file.bytes, 0))}
+              </p>
+
+              <ul className="kit-file-list">
+                {folder.files.map((file) => (
+                  <li key={file.relative} className="kit-file">
+                    <a href={file.href} className="kit-file-name font-mono">
+                      {file.name}
+                    </a>
+                    <span className="kit-file-size">{formatBytes(file.bytes)}</span>
+                    <CopyUrl url={file.url} name={file.name} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+
+        <Footer />
+      </main>
+    </PrefsProvider>
   )
 }
 
