@@ -1,14 +1,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 
 import { CopyUrl } from '@/components/CopyUrl'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
+import { auth } from '@/auth'
+import { isOwner } from '@/lib/allowlist'
 import { APP_NAME } from '@/lib/brand'
 import { type KitFile, formatBytes, kitFolders, kitHref, kitUrl } from '@/lib/brandKit'
 
 export const metadata: Metadata = { title: 'Brand' }
+
+/** The owner check depends on the request session, same as `/design-system` and `/emails`. */
+export const dynamic = 'force-dynamic'
 
 /** Intrinsic sizes, straight off each file's `viewBox` — see `Shot` for what they are for. */
 const LOCKUP_H = { w: 2336, h: 344 }
@@ -55,7 +61,7 @@ const FAVICONS = [
 ]
 
 /**
- * Everything anyone signed in ever needs from the brand, at a URL.
+ * Everything the owner ever needs from the brand, at a URL.
  *
  * The page exists because the alternative is a folder: `public/brand/kit/` holds a hundred
  * and forty files, and knowing which of four horizontal lockups to reach for is exactly the
@@ -63,11 +69,16 @@ const FAVICONS = [
  * for, next to the one sentence that says when it is the right file — and then, at the
  * bottom, the whole drop listed without commentary for whoever already knows.
  *
- * A reserved page like `/help` or `/booklet` (see `middleware.ts`), not a public one: the
- * files under `/brand/kit/` stay reachable with no session — a store, a designer, an email
- * client all still need them — but this index of them now requires signing in first.
+ * Owner-only like `/accounts`, `/emails` and `/design-system` — `notFound()` rather than a
+ * role notice, the same reasoning as those: "this does not exist" and "this is not yours"
+ * should look identical from outside. The files under `/brand/kit/` stay reachable with no
+ * session regardless (`middleware.ts`) — a store, a designer, an email client all still need
+ * them — only this index of them is gated.
  */
-export default function BrandPage() {
+export default async function BrandPage() {
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) notFound()
+
   const folders = kitFolders()
   const byPath = new Map<string, KitFile>(
     folders.flatMap((folder) => folder.files.map((file) => [file.relative, file])),

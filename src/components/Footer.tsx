@@ -44,12 +44,12 @@ export function Footer() {
        * piece of chrome every screen that renders `Footer` already shares — no
        * separate placement to keep in sync with this list as pages come and go.
        *
-       * `/brand` sits at the end of the same row rather than in a second one. It is not a
-       * legal document, which is why the label no longer says so, but it is the same kind
-       * of link: a page nobody needs while they are playing, which still has to be
-       * findable from anywhere without a menu entry of its own.
+       * `/brand` used to close this row too, back when it was a public page reachable with
+       * no session; now that it is owner-only like `/accounts` or `/design-system`
+       * (`middleware.ts`, `src/app/brand/page.tsx`), it no longer belongs beside four links
+       * every one of which — legal documents and the changelog — every visitor must reach.
        */}
-      <nav className="app-footer-legal" aria-label="Legal, brand and changelog">
+      <nav className="app-footer-legal" aria-label="Legal and changelog">
         <Link href="/privacy-policy">Privacy</Link>
         <span aria-hidden>&middot;</span>
         <Link href="/terms-of-service">Terms</Link>
@@ -67,11 +67,8 @@ export function Footer() {
           */}
         <Link href="/content-copyright-notice">Content copyright</Link>
         <span aria-hidden>&middot;</span>
-        <Link href="/brand">Brand</Link>
-        <span aria-hidden>&middot;</span>
-        {/* Same reasoning as `/brand` beside it, and the label's own justification: a reader
-            looking for "what's new" has nowhere else to look, and a release note is worth
-            nothing if only the person who wrote it can find it. */}
+        {/* A reader looking for "what's new" has nowhere else to look, and a release note is
+            worth nothing if only the person who wrote it can find it. */}
         <Link href="/changelog">Changelog</Link>
       </nav>
     </footer>

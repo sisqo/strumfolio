@@ -116,7 +116,7 @@ export default async function DesignSystemPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="design-system" />
 
-      <main className="mx-auto w-full max-w-[70rem] px-4 pb-16 pt-3 sm:px-8">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-3 sm:px-8">
         <header className="max-w-[42rem]">
           <h1 className="screen-title">Design system</h1>
           <p className="brand-lede-note mt-2">
