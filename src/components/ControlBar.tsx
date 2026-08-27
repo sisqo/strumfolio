@@ -186,8 +186,9 @@ export function ControlBar({
     <nav className="control-bar" aria-label="Reading controls">
       {/*
         * Catches the tap that means "never mind", and mutes the song while the panel is
-        * over it. Inside the bar, so it does not count as the manual gesture that pauses
-        * the scroll.
+        * over it. Inside the bar, so it does not count as the gesture that hands the scroll
+        * back to the reader (`useAutoScroll`) — a tap on the overlay dismisses a panel, it
+        * does not mean «I am scrolling now».
         *
         * The veil is `.menu-overlay`'s own now, at every width and for every panel — the
         * phone redesign gave it to this one panel with a class of its own, which made the
