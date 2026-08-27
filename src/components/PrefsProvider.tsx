@@ -72,7 +72,7 @@ export function PrefsProvider({
   /** Null on pages that show no single song, such as the index. */
   songSlug: string | null
   /**
-   * False for Sing Together's guest view: a reader with no account of their own,
+   * False for Strum Together's guest view: a reader with no account of their own,
    * remounted fresh for every song it follows. There is nothing of theirs to load and
    * nothing to remember between songs — and, if the browser showing the link happens to
    * also be signed in, nothing that may end up saved under that real account instead.
@@ -87,7 +87,7 @@ export function PrefsProvider({
 
   /*
    * `song` state alone cannot tell `updateSong` what the *other* fields should be
-   * when two of its callers fire in the same effect flush — Sing Together's guest view
+   * when two of its callers fire in the same effect flush — Strum Together's guest view
    * does exactly that, pushing a new semitones value and resetting capo/scroll speed as
    * two separate effects reacting to the same song change. Both would otherwise read the
    * same pre-flush `song` closure and the second call's spread would erase the first's

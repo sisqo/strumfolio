@@ -2,7 +2,7 @@ import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authConfig } from '@/auth.config'
-import { DEVICE_COOKIE } from '@/lib/singAlong/devices'
+import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
 const { auth } = NextAuth(authConfig)
 
@@ -125,7 +125,7 @@ export default auth((request) => {
   }
 
   /**
-   * A Sing Together link: the one other page a browser with no session may reach.
+   * A Strum Together link: the one other page a browser with no session may reach.
    * Always marked anonymous, signed in or not — the page it shows depends on the
    * token in the URL, never on whoever happens to be looking at it, so it must never
    * be cached as if it belonged to a particular reader.

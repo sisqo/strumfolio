@@ -43,7 +43,7 @@ export const RELEASES: Release[] = [
       'Organise a repertoire into songbooks, and a songbook into sections, in the order you play them.',
       'Bring what you already have in, and take it back out again: ChordPro in, ChordPro out, nothing held hostage.',
       'Tap a chord to see the fingering, for guitar or for ukulele — and from Standard up, the choice follows you to your other devices.',
-      'Sing Together: everyone opens a link on their own phone and reads the same song in your key, following your line.',
+      'Strum Together: everyone opens a link on their own phone and reads the same song in your key, following your line.',
       'A printed booklet as a PDF, ready for the music stand: cover, index, one song a page.',
       'Sign in with Google or with an email and a password, and pick the plan that fits — starting with a free one that has no end date.',
     ],

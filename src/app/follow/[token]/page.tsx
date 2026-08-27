@@ -2,14 +2,14 @@ import type { Metadata } from 'next'
 
 import { FollowSession } from '@/components/FollowSession'
 
-export const metadata: Metadata = { title: 'Sing Together' }
+export const metadata: Metadata = { title: 'Strum Together' }
 
 interface Props {
   params: Promise<{ token: string }>
 }
 
 /**
- * A Sing Together link: the one page in this app a browser with no account may open.
+ * A Strum Together link: the one page in this app a browser with no account may open.
  *
  * The shell here is deliberately thin — no `SongbookProvider`, no `RoleProvider`, no
  * `TopBar`. Every one of those exists to serve a *signed-in* reader: `RoleProvider` asks

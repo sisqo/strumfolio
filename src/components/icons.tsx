@@ -519,7 +519,7 @@ export function IconOnStage(props: IconProps) {
 }
 
 /**
- * Sing together: a signal going out both ways from one centre, so every device can
+ * Strum together: a signal going out both ways from one centre, so every device can
  * follow the same one.
  *
  * Redrawn from an earlier mark that radiated upward from a dot at the foot of

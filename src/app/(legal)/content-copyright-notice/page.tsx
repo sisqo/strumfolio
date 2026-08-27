@@ -69,7 +69,7 @@ export default function ContentCopyrightNoticePage() {
         Here is where each of them falls.
       </p>
       <p>
-        <strong>Sing Together</strong> shows a song, live, on the screens of people who opened your
+        <strong>Strum Together</strong> shows a song, live, on the screens of people who opened your
         link. That is a private performance among people you invited: nobody reaches a session without
         the link you handed them, and what is shown ends when the session does. It is not a broadcast,
         and it is not a publishing or distribution feature — it grants no rights over the underlying

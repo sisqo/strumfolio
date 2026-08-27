@@ -73,8 +73,37 @@ function paragraph(text: string): string {
   return `<p style="margin:0 0 16px;color:${MUTED};font-size:14px;line-height:1.55;">${text}</p>`
 }
 
+/**
+ * A paragraph of somebody else's words, in the ink colour and with their line breaks kept.
+ *
+ * `white-space:pre-wrap` is the whole reason this is not `paragraph`: a feature request is
+ * typed into a textarea, and every blank line the reader put between their thoughts
+ * collapses without it.
+ */
+function quoted(text: string): string {
+  return `<p style="margin:0;color:${INK};font-size:14px;line-height:1.6;white-space:pre-wrap;">${text}</p>`
+}
+
 function button(label: string, url: string): string {
   return `<a href="${url}" style="display:inline-block;margin:4px 0 20px;padding:13px 26px;background:${ACCENT};color:${ON_ACCENT};font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">${label}</a>`
+}
+
+/**
+ * The one thing in this file that ever handles text a person typed.
+ *
+ * Every other template interpolates a URL we minted, a plan name from a closed set or a
+ * price — `featureRequestEmail` is the first to put a reader's own sentences into an HTML
+ * document, and an unescaped `<` in one of them is a malformed email at best. The five
+ * characters are the standard set; `&` first, or it would double-escape the entities the
+ * others introduce.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function fallbackLink(url: string): string {
@@ -333,6 +362,53 @@ ${undo}
 
 ${billingUrl}
 
+${APP_NAME} — ${APP_PAYOFF}`
+
+  return { subject, html, text }
+}
+
+/**
+ * A reader asking for a feature, on its way to the support inbox.
+ *
+ * The only email in this file that goes to *us* rather than to a customer, which changes
+ * what it is for: nobody needs persuading or welcoming, somebody needs to read it, answer
+ * it and know who asked. So the layout is the same and the content is a record — who, on
+ * which plan, and what they said.
+ *
+ * The plan tier is in the subject line, not only in the body, and that is the whole
+ * mechanism behind Premium's «Yes, with priority» on `/pricing`: nothing in this codebase
+ * can enforce an order of answering, so what it can do is make the tier impossible to miss
+ * in a list of subjects. See `FeatureRequestTier` on why that is the honest shape of the
+ * promise rather than a gap in it.
+ *
+ * `replyTo` is the asker's own address, so answering is a reply rather than a copy-paste:
+ * the `from` has to stay the verified sending domain (see `sendEmail`), which means the
+ * address a reader would want to answer is otherwise nowhere a mail client can use it.
+ */
+export function featureRequestEmail(input: {
+  from: string
+  plan: string
+  priority: boolean
+  summary: string
+  detail: string
+}): EmailTemplate {
+  const tag = input.priority ? '[priority] ' : ''
+  const subject = `${tag}Feature request: ${input.summary}`
+
+  const who = `From ${input.from} — ${input.plan}${input.priority ? ', priority' : ''}`
+
+  const html = layout(`
+    ${heading(escapeHtml(input.summary))}
+    ${paragraph(escapeHtml(who))}
+    ${input.detail.length === 0 ? '' : quoted(escapeHtml(input.detail))}
+  `)
+
+  const text = `Feature request
+
+${who}
+
+${input.summary}
+${input.detail.length === 0 ? '' : `\n${input.detail}\n`}
 ${APP_NAME} — ${APP_PAYOFF}`
 
   return { subject, html, text }

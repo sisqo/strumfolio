@@ -106,22 +106,47 @@ export function readPlanStatus(value: unknown): PlanStatus {
  */
 export type BookletTier = 'no' | 'branded' | 'plain' | 'custom'
 
+/**
+ * Whether a plan may ask the dev team for a feature, and how loudly.
+ *
+ * Three values where a boolean would nearly do, because the pricing table sells two
+ * different things here: Plus buys a way in, Premium buys being read first. `priority` is
+ * the only one of the three that nothing enforces — `requestFeature` refuses on `no` and
+ * admits the other two identically — so it travels into the email as a line for whoever
+ * reads the inbox rather than as a gate. That is the honest shape of a promise kept by
+ * people rather than by code: the tier is recorded on the request, and the prioritising
+ * happens where the answering does.
+ */
+export type FeatureRequestTier = 'no' | 'yes' | 'priority'
+
 export interface PlanLimits {
   /** How many songbooks the account may hold. null is unlimited, never a large number. */
   songbooks: number | null
   /** How many songs, across the whole account rather than per songbook. */
   songs: number | null
-  /** Whether the reader may pick the ukulele: `saveGlobalPrefs` is the one server-side control point. */
+  /**
+   * Whether the reader may pick the ukulele.
+   *
+   * Two control points, and neither can be the whole gate on its own. `saveGlobalPrefs`
+   * refuses to *store* the choice, which is what would otherwise carry it across a reload
+   * and to the reader's other devices; `ReadingPanel` refuses the tap in the first place
+   * and offers `/pricing` instead. The client half is the one a reader experiences and the
+   * server half is the one that cannot be bypassed — the shapes themselves are drawn in the
+   * browser from a table that ships with the app, so nothing server-side can stop a
+   * determined reader from seeing them.
+   */
   ukulele: boolean
+  /** Whether the reader may ask for a feature — read by `requestFeature`, and by nothing else. */
+  featureRequests: FeatureRequestTier
   /** Matrix-only in this run: no call site reads it yet. Do not invent a gate for it. */
   smartCapo: boolean
   /** Read by `loadBooklet` (`no` refuses) and by `bookletBrandLine` (`branded` prints the line). */
   booklet: BookletTier
-  /** May start a Sing Together broadcast — read by `startBroadcast`. */
+  /** May start a Strum Together broadcast — read by `startBroadcast`. */
   mayLead: boolean
   /**
-   * How many OTHER devices may follow one Sing Together broadcast at a time — read through
-   * `deviceCapOf` (`resolve.ts`) and compared by `admits` (`singAlong/devices.ts`), and by
+   * How many OTHER devices may follow one Strum Together broadcast at a time — read through
+   * `deviceCapOf` (`resolve.ts`) and compared by `admits` (`strumTogether/devices.ts`), and by
    * nothing else. The leader's own device is never one of them: they are playing inside the
    * app and never open the follow link, which is what makes `standard`'s 1 a duo and `plus`'
    * 3 a quartet. Free's 0 is unreachable rather than harsh — free cannot lead at all.
@@ -142,21 +167,41 @@ export interface PlanLimits {
  * so reading the code and reading the pricing page are the same act.
  */
 export const PLANS: Record<Plan, PlanLimits> = {
-  free: { songbooks: 1, songs: 30, ukulele: false, smartCapo: false, booklet: 'no', mayLead: false, devices: 0 },
+  free: {
+    songbooks: 1,
+    songs: 30,
+    ukulele: false,
+    featureRequests: 'no',
+    smartCapo: false,
+    booklet: 'no',
+    mayLead: false,
+    devices: 0,
+  },
   standard: {
     songbooks: 3,
     songs: 300,
     ukulele: true,
+    featureRequests: 'no',
     smartCapo: true,
     booklet: 'branded',
     mayLead: true,
     devices: 1,
   },
-  plus: { songbooks: null, songs: null, ukulele: true, smartCapo: true, booklet: 'plain', mayLead: true, devices: 3 },
+  plus: {
+    songbooks: null,
+    songs: null,
+    ukulele: true,
+    featureRequests: 'yes',
+    smartCapo: true,
+    booklet: 'plain',
+    mayLead: true,
+    devices: 3,
+  },
   premium: {
     songbooks: null,
     songs: null,
     ukulele: true,
+    featureRequests: 'priority',
     smartCapo: true,
     booklet: 'custom',
     mayLead: true,
@@ -175,6 +220,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
     songbooks: null,
     songs: null,
     ukulele: true,
+    featureRequests: 'priority',
     smartCapo: true,
     booklet: 'custom',
     mayLead: true,
@@ -387,7 +433,7 @@ export function audienceIsFull(following: number, devices: number): boolean {
 }
 
 /**
- * The leader's «2 of 3»: how many devices are following their Sing Together broadcast, and
+ * The leader's «2 of 3»: how many devices are following their Strum Together broadcast, and
  * how many the plan allows.
  *
  * Here beside `limitSentence` for the reason that one gives for itself: one sentence with
@@ -454,16 +500,16 @@ export function thanksSongsCaption(plan: Plan): string {
 }
 
 /**
- * The Sing Together half: how many other devices may follow a broadcast this plan starts,
+ * The Strum Together half: how many other devices may follow a broadcast this plan starts,
  * worded as the timeline step under "Bring the whole room" reads it. Mirrors
  * `audienceSentence`'s own three-way split on `PLANS.premium.devices` — 100 is the technical
  * cap the rest of the app already calls unlimited, not a number this sentence may print bare.
  */
 export function thanksDevicesCaption(plan: Plan): string {
   const { devices } = PLANS[plan]
-  if (devices >= PLANS.premium.devices) return 'Start a Sing Together session, unlimited devices.'
-  if (devices === 1) return 'Start a Sing Together session, one device following.'
-  return `Start a Sing Together session, up to ${devices} devices following.`
+  if (devices >= PLANS.premium.devices) return 'Start a Strum Together session, unlimited devices.'
+  if (devices === 1) return 'Start a Strum Together session, one device following.'
+  return `Start a Strum Together session, up to ${devices} devices following.`
 }
 
 /**

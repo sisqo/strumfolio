@@ -734,7 +734,7 @@
    * The one solid dark control in the app — reserved for the heaviest confirmations,
    * whether or not the action itself is destructive: it read as heavier than a danger
    * fill without shouting in red before anything has happened (the delete confirmation
-   * itself still turns red), and Sing Together's own Stop reuses the same weight for a
+   * itself still turns red), and Strum Together's own Stop reuses the same weight for a
    * different reason — ending a broadcast is final for whoever is watching it, even
    * though nothing about the reader's own data is at stake.
    */
@@ -1235,7 +1235,7 @@
   }
 
   /*
-   * One feature raised above the rest, on the public page: Sing Together gets its own
+   * One feature raised above the rest, on the public page: Strum Together gets its own
    * panel rather than a card among the ones below, because it is the one thing here two
    * people are doing at once rather than one person doing alone. Solid `--accent` now
    * rather than `--accent-soft` (v3.4) — the panel that used to say "worth a second
@@ -3395,7 +3395,7 @@
   }
 
   /*
-   * Sing Together's own view of the menu panel needs more room than a row of
+   * Strum Together's own view of the menu panel needs more room than a row of
    * links does — two explained steps, a QR code and a link — so it grows wider
    * here rather than everywhere `.menu-panel` is used. Capped against the
    * viewport, not just given a bigger fixed width: `inset-inline-end: 0` above
@@ -3407,7 +3407,7 @@
     width: min(19rem, calc(100vw - 2rem));
   }
 
-  /* One step of Sing Together's "how it works", not a real ordered list: the
+  /* One step of Strum Together's "how it works", not a real ordered list: the
      numbering is said with a badge instead of a marker so it can sit beside
      the text rather than indenting it. */
   .sing-steps {
@@ -4044,12 +4044,12 @@
     color: var(--accent);
   }
 
-  /* Sing Together's own toggle, quiet until a broadcast is live — see `.is-live`. */
-  .control-sing {
+  /* Strum Together's own toggle, quiet until a broadcast is live — see `.is-live`. */
+  .control-strum {
     color: var(--faint);
   }
 
-  .control-sing.is-live {
+  .control-strum.is-live {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -4062,7 +4062,7 @@
     color: var(--accent);
   }
 
-  .control-sing-count {
+  .control-strum-count {
     font-size: 0.9375rem;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
@@ -4079,20 +4079,20 @@
       background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
     }
 
-    .control-button.control-sing:hover {
+    .control-button.control-strum:hover {
       background: var(--surface-2);
       color: var(--ink);
     }
 
-    .control-sing.is-live:hover {
+    .control-strum.is-live:hover {
       background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
     }
   }
 
-  /* The condensed Sing Together popover, anchored above the toggle that opens it —
+  /* The condensed Strum Together popover, anchored above the toggle that opens it —
      same shape as `.control-panel`, narrower, and always on the leading edge since
      that is where the toggle sits. */
-  .sing-panel {
+  .strum-panel {
     position: absolute;
     inset-block-end: calc(100% + 0.625rem);
     inset-inline-start: 0;
@@ -4133,7 +4133,7 @@
    * Two shapes now instead of one: `.speed-full`, this same track, shown from `sm`
    * up; and `.speed-compact` below it, a single icon that opens `.speed-popover` —
    * the same value, the same input, just standing on end. Below `sm` there is no
-   * longer room for the full track once the Sing Together toggle and the prev/next
+   * longer room for the full track once the Strum Together toggle and the prev/next
    * capsule both want a place in the same row; see `.control-strip`'s own comment
    * for where that room comes from.
    */
@@ -4375,7 +4375,7 @@
   }
 
   /* A control's own value, badged: the same warm accent-soft the header's Live pill
-     and the reading bar's own Sing Together pill already use for "worth noticing". */
+     and the reading bar's own Strum Together pill already use for "worth noticing". */
   .value-badge {
     display: inline-flex;
     align-items: center;
@@ -4656,6 +4656,28 @@
   }
 
   /* ---- Forms ---------------------------------------------------------- */
+
+  /*
+   * Two labelled controls sharing a row of the reading panel — «Chords as» and
+   * «Instrument», which belong together (see `ReadingPanel`).
+   *
+   * `flex-wrap` with a real basis rather than a two-column grid, and that is the whole
+   * reason this rule exists instead of `grid-cols-2`: the panel is 21.25rem wide but
+   * `max-width: calc(100vw - 1.5rem)` narrows it on a small phone, and two segments in a
+   * grid would keep dividing a width they no longer fit — «Ukulele» spilling out of a
+   * 57px button. With a 8.5rem basis they sit side by side wherever there is room for
+   * both and stack where there is not, which needs no breakpoint to name.
+   */
+  .control-pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .control-pair > * {
+    flex: 1 1 8.5rem;
+    min-width: 0;
+  }
 
   /* The same voice as .group-label, over a field instead of over a cluster. */
   .field-label {

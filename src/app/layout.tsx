@@ -4,7 +4,7 @@ import { Geist_Mono, Outfit } from 'next/font/google'
 
 import { OfflineSync } from '@/components/OfflineSync'
 import { RoleProvider } from '@/components/RoleProvider'
-import { SingAlongProvider } from '@/components/SingAlongProvider'
+import { StrumTogetherProvider } from '@/components/StrumTogetherProvider'
 import { APP_NAME, APP_PAYOFF, SITE_URL } from '@/lib/brand'
 import { LAUNCH_SCREENS, launchMedia, launchUrl } from '@/lib/launchScreens'
 import { STATUS_BAR_ID, THEME_KEY } from '@/lib/theme'
@@ -146,12 +146,12 @@ export default function RootLayout({
           * kept across navigations. It gates what the screens offer, never what the server
           * allows — see RoleProvider.
           *
-          * SingAlongProvider nests inside it for the same reason RoleProvider itself sits
+          * StrumTogetherProvider nests inside it for the same reason RoleProvider itself sits
           * here rather than lower: its two consumers, the menu and the reading bar, share
           * no closer ancestor than this — see its own comment.
           */}
         <RoleProvider>
-          <SingAlongProvider>{children}</SingAlongProvider>
+          <StrumTogetherProvider>{children}</StrumTogetherProvider>
         </RoleProvider>
         {/*
           * Silent and stateless from the outside — see OfflineSync's own doc comment.

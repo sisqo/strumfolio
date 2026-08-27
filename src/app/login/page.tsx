@@ -92,14 +92,14 @@ interface Feature {
   text: string
 }
 
-/** One of the three things `SingTogetherSpotlight` says about the feature below its own headline. */
+/** One of the three things `StrumTogetherSpotlight` says about the feature below its own headline. */
 interface SpotlightPoint {
   icon: React.ReactNode
   title: string
   text: string
 }
 
-const SING_TOGETHER_POINTS: SpotlightPoint[] = [
+const STRUM_TOGETHER_POINTS: SpotlightPoint[] = [
   {
     icon: <IconLeads size={18} />,
     title: 'One leader, no confusion',
@@ -193,15 +193,17 @@ const FAQ: FaqGroup[] = [
       {
         q: 'Does it show chord shapes for both guitar and ukulele?',
         /*
-         * "Guitar on every plan, ukulele on the paid ones" claimed a harder gate than exists, and
-         * the correction matters because it points the wrong way: the shapes are drawn in the
-         * browser from a table that ships with the app, so `saveGlobalPrefs` — the one control
-         * point — can only refuse to *store* the choice, and says so in its own comment. A free
-         * reader who taps Ukulele sees ukulele shapes; what they lose is that the setting sticks
-         * after a reload and on their other devices. /pricing's chord-shapes row now words it the
-         * same way, which is the point: two pages describing one gate must describe the same gate.
+         * This answer has been corrected twice, in opposite directions, and both corrections were
+         * right when made. It first claimed "guitar on every plan, ukulele on the paid ones" while
+         * `saveGlobalPrefs` could only refuse to *store* the choice — a gate harder than the one
+         * that existed. It then said both instruments were free and only the memory of the choice
+         * was paid, which was exactly true of that code. `ReadingPanel` now refuses the tap
+         * itself, so the original sentence is the accurate one again.
+         *
+         * Kept in step with /pricing's chord-shapes row on purpose: two pages describing one gate
+         * must describe the same gate, and this pair is the one that has drifted before.
          */
-        a: 'Yes — tap any chord in a song and see exactly where to place your fingers, guitar or ukulele. The paid plans remember which of the two you picked, so it stays chosen after a reload and on your other devices.',
+        a: 'Yes — tap any chord in a song and see exactly where to place your fingers. Guitar is on every plan, including the free one; the ukulele comes with the paid plans.',
       },
     ],
   },
@@ -223,10 +225,10 @@ const FAQ: FaqGroup[] = [
     ],
   },
   {
-    title: 'Sing Together',
+    title: 'Strum Together',
     items: [
       {
-        q: 'How many people can join a Sing Together session?',
+        q: 'How many people can join a Strum Together session?',
         /*
          * "As many as you like" was false on every plan, premium included: `PLANS.premium.devices`
          * is 100, a real technical ceiling. The leader's own device is deliberately not counted —
@@ -243,8 +245,8 @@ const FAQ: FaqGroup[] = [
         a: 'No — the person who starts the session stays the leader for its whole duration, keeping control simple and unambiguous.',
       },
       {
-        q: 'Does Sing Together work without an internet connection?',
-        a: 'No. Since every device needs to stay in sync in real time, Sing Together requires an active internet connection to work.',
+        q: 'Does Strum Together work without an internet connection?',
+        a: 'No. Since every device needs to stay in sync in real time, Strum Together requires an active internet connection to work.',
       },
     ],
   },
@@ -276,7 +278,7 @@ const FAQ: FaqGroup[] = [
       {
         q: 'Is Strumfolio free to use?',
         /* It must not open with "Yes": a bare yes is now half true — see `PLAN_HOLD`. */
-        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet, the saved ukulele setting and starting a Sing Together session; the pricing page has all four. ${PLAN_HOLD}`,
+        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet, the ukulele and starting a Strum Together session; the pricing page has all four. ${PLAN_HOLD}`,
       },
       {
         q: 'Is my collection private, or can others see it?',
@@ -311,7 +313,7 @@ const FEATURES: Feature[] = [
   },
   {
     icon: <IconBroadcast size={20} />,
-    title: 'Sing together',
+    title: 'Strum together',
     /* "line by line, chord by chord" was carried over from the old wording and is not what the
      * protocol does: `pollBroadcast` sends the song and the transposition, and a follower's
      * viewport is reset to the top on a song change and never touched again. "In the same key" is
@@ -328,7 +330,7 @@ const FEATURES: Feature[] = [
     title: 'Every chord, one tap away',
     /* What is gated is storing the instrument, not drawing it — see the FAQ answer above and
      * `saveGlobalPrefs`, which writes the row back with `guitar` and returns `not-in-plan`. */
-    text: 'Stuck on a chord? Tap it and see the shape — guitar or ukulele, ready to play. The paid plans remember which one you picked.',
+    text: 'Stuck on a chord? Tap it and see the shape, ready to play — guitar on every plan, ukulele on the paid ones.',
   },
   {
     icon: <IconSliders size={20} />,
@@ -535,7 +537,7 @@ export default async function LoginPage({ searchParams }: Props) {
       </section>
 
       {/*
-        * Cross-device, ahead of Sing Together: the mockup is what makes "every screen"
+        * Cross-device, ahead of Strum Together: the mockup is what makes "every screen"
         * a claim a visitor can see rather than take on faith, and it is the one section
         * on this page that leans on an image rather than an icon and a sentence.
         */}
@@ -565,7 +567,7 @@ export default async function LoginPage({ searchParams }: Props) {
       </section>
 
       {/*
-        * Sing Together, raised above the feature tour below rather than folded into
+        * Strum Together, raised above the feature tour below rather than folded into
         * it: it is the one thing on this page two people are doing at once, and the
         * first thing a visitor who is not signing in today should read. See
         * `.feature-spotlight`'s own comment in globals.css for why the fill is what
@@ -594,18 +596,18 @@ export default async function LoginPage({ searchParams }: Props) {
                 <IconBroadcast size={26} />
               </span>
 
-              <h2 className="feature-spotlight-title">Sing Together</h2>
+              <h2 className="feature-spotlight-title">Strum Together</h2>
 
               <p className="feature-spotlight-text">
                 Passing a songbook around, or crowding over one phone — it gets old fast.
-                With Sing Together, everyone follows the same song from their own device,
+                With Strum Together, everyone follows the same song from their own device,
                 automatically — whoever&apos;s playing, however many, and everyone who&apos;s
                 singing along.
               </p>
             </div>
 
             <div className="feature-spotlight-points">
-              {SING_TOGETHER_POINTS.map((point) => (
+              {STRUM_TOGETHER_POINTS.map((point) => (
                 <div key={point.title} className="feature-spotlight-point">
                   <span className="feature-spotlight-point-icon">{point.icon}</span>
                   <div>
@@ -620,7 +622,7 @@ export default async function LoginPage({ searchParams }: Props) {
       </section>
 
       {/* More top margin than every other section on this page: the solid fill of the
-          Sing Together band above it is a hard edge to sit close to, where the sections
+          Strum Together band above it is a hard edge to sit close to, where the sections
           on either side of it only have to separate from the plain page. */}
       <section className="landing-width mt-14 lg:mt-20">
         <div className="text-center">

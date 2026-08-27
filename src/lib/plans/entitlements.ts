@@ -4,7 +4,7 @@
  * This is to the plans what `isAllowed`/`roleOf` is to access, and for the same reason: a
  * write that checked one half of a question and not the other is the failure mode, so
  * there is one place that answers all of it at once. The shape that enforces it is
- * `refused` — six precomputed reasons, one per gate in scope. A gate is then
+ * `refused` — seven precomputed reasons, one per gate in scope. A gate is then
  * `if (ent.refused.createSong !== null) return { ok: false, reason: ent.refused.createSong }`
  * and it *cannot* forget the freeze, because the freeze is already folded into the field it
  * reads. Six predicate functions would have left every call site free to check the cap and
@@ -114,6 +114,7 @@ export interface Entitlements {
     lead: LimitReason | null
     booklet: LimitReason | null
     ukulele: LimitReason | null
+    featureRequest: LimitReason | null
   }
 }
 
@@ -316,7 +317,7 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
       createSong: frozen ? 'frozen' : atCap(limits.songs, counts.songs) ? 'song-limit' : null,
       editRepertoire: frozen ? 'frozen' : null,
       /*
-       * The freeze deliberately does not reach these three. Leading a Sing Together,
+       * The freeze deliberately does not reach these three. Leading a Strum Together,
        * printing a booklet and picking an instrument are not changes to the repertoire, and
        * the freeze is a rule about the repertoire — the same line `PLAN.md` (v2.1) draws
        * under "Le preferenze non sono modifiche", extended to its end: that passage lists
@@ -331,6 +332,13 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
       lead: limits.mayLead ? null : 'plan-required',
       booklet: limits.booklet === 'no' ? 'plan-required' : null,
       ukulele: limits.ukulele ? null : 'plan-required',
+      /*
+       * The fourth of the same kind, and outside the freeze for the same reason: asking
+       * for a feature is not a change to the repertoire. `'no'` is the whole of the
+       * refusal — `yes` and `priority` are admitted identically here, since what separates
+       * them is the order somebody answers in and not whether the request may be sent.
+       */
+      featureRequest: limits.featureRequests === 'no' ? 'plan-required' : null,
     },
   }
 }
@@ -358,6 +366,7 @@ export const UNGATED: Entitlements = {
     songbooks: null,
     songs: null,
     ukulele: true,
+    featureRequests: 'priority',
     smartCapo: true,
     booklet: 'branded',
     mayLead: true,
@@ -371,6 +380,7 @@ export const UNGATED: Entitlements = {
     lead: null,
     booklet: null,
     ukulele: null,
+    featureRequest: null,
   },
 }
 

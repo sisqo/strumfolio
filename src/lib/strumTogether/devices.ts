@@ -1,5 +1,5 @@
 /**
- * The three rules that decide how a Sing Together broadcast counts the devices following
+ * The three rules that decide how a Strum Together broadcast counts the devices following
  * it: how long a device holds its place, how often it may say it is still there, and
  * whether one more is let in.
  *

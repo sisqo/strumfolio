@@ -2,26 +2,30 @@
 
 import { useEffect, useState } from 'react'
 
-import { InstrumentPicker } from '@/components/InstrumentPicker'
 import { ThemePicker } from '@/components/ThemePicker'
 import { IconChevronLeft, IconMenu } from '@/components/icons'
 
 /**
- * The one thing a guest following a Sing Together link may change about how they read:
- * the theme, and which instrument the chord diagrams are drawn for. Neither is about the
- * broadcast or the repertoire — both are how *this one screen* looks, which is exactly
- * why a guest, who has no account and no session, is still allowed to touch them.
+ * The one thing a guest following a Strum Together link may change about how they read:
+ * the theme. It is not about the broadcast or the repertoire — it is how *this one screen*
+ * looks, which is exactly why a guest, who has no account and no session, is still allowed
+ * to touch it.
  *
- * This is not `NavMenu` with items hidden. Home, Accounts, the tuner, Sing Together,
+ * It held the instrument choice too until that moved into the reading panel itself, beside
+ * «Chords as» (`ReadingPanel`) — which a guest gets in full, so nothing was taken from them
+ * by the move; the row here would now be a second door to the same preference. The theme has
+ * no such other door: `ThemeToggle` lives in `PublicHeader`, which a follow page does not
+ * render, so this menu is the only place a guest can ask for a dark screen.
+ *
+ * This is not `NavMenu` with items hidden. Home, Accounts, the tuner, Strum Together,
  * Settings (Password among them), sign-out — every one of them is either meaningless
  * with no session or not this screen's to give, and threading a "guest mode" through a
  * component built for a signed-in reader's menu would mean every future addition to it
- * has to remember this exists too. A menu with exactly two rows is simpler built on
- * its own.
+ * has to remember this exists too. A menu with one row is simpler built on its own.
  *
- * `InstrumentPicker` still needs a `PrefsProvider` above it — see `FollowSession`'s own
- * top-level one, which this shares with whichever song is currently on screen, so a
- * change here shows up there without a round trip.
+ * `ThemePicker` needs no `PrefsProvider` of its own — it writes the theme, not the reading
+ * preferences — but `FollowSession`'s top-level one is still what carries the instrument and
+ * notation the panel below reads.
  */
 export function GuestSettingsMenu() {
   const [open, setOpen] = useState(false)
@@ -73,7 +77,6 @@ export function GuestSettingsMenu() {
 
             <div className="menu-divider" />
 
-            <InstrumentPicker />
             <ThemePicker />
           </div>
         </>

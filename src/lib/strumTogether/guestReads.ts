@@ -1,7 +1,7 @@
 'use server'
 
 /**
- * What a guest may read with only a Sing Together token: the repertoire of the account
+ * What a guest may read with only a Strum Together token: the repertoire of the account
  * that token's broadcast belongs to (v3.0) — not every account in the installation, and
  * not necessarily the broadcaster's own, if a global owner had switched into someone
  * else's account before starting it (v3.1). No writes, no accounts of their own, no role.

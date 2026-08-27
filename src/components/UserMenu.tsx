@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { unstable_rethrow } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { InstrumentPicker } from '@/components/InstrumentPicker'
 import { NotationPicker } from '@/components/NotationPicker'
 import { useRole } from '@/components/RoleProvider'
 import { ThemePicker } from '@/components/ThemePicker'
@@ -184,9 +183,18 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
 
                 {/*
                  * Grouped together because each of these is answered once for the whole
-                 * account rather than per song — instrument, notation and theme all read
-                 * the same way on every sheet until the reader changes them again, same
-                 * reasoning `InstrumentPicker` gives for itself.
+                 * account rather than per song — notation and theme both read the same way
+                 * on every sheet until the reader changes them again.
+                 *
+                 * The instrument used to be the third of them, and on that same reasoning:
+                 * a reader owns one instrument and answers for it once. It has moved into
+                 * the reading panel, beside «Chords as» (`ReadingPanel`), and the reasoning
+                 * that put it here is not what was wrong — it still writes one account-wide
+                 * preference, not a per-song one. What was wrong is that the one place its
+                 * effect is visible is the chord diagram on the sheet, and this panel is two
+                 * taps away from that in the other direction. Notation stays: it reletters
+                 * every chord name on the sheet whether or not a diagram is ever opened, so
+                 * it is not a companion to «Shape» the way the instrument is.
                  *
                  * Theme is here rather than behind a cycling icon in the header: signed
                  * in, that icon was a third opener in a bar that already has two, and a
@@ -197,7 +205,6 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                  * already splits this way (`GuestSettingsMenu`).
                  */}
                 <ThemePicker />
-                <InstrumentPicker />
                 <NotationPicker />
 
                 <div className="menu-divider" />

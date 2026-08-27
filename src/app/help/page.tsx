@@ -35,7 +35,7 @@ export default function HelpPage() {
             <br />
             <a href="#reading">4. Read and play</a>
             <br />
-            <a href="#sing-together">5. Sing Together</a>
+            <a href="#strum-together">5. Strum Together</a>
             <br />
             <a href="#export">6. Backup and export</a>
             <br />
@@ -116,10 +116,10 @@ export default function HelpPage() {
             whichever you&apos;ve set as your instrument in Settings.
           </p>
 
-          <h2 id="sing-together">5. Sing Together</h2>
+          <h2 id="strum-together">5. Strum Together</h2>
           <p>
             Share a song live with people around you, on their own phones — no account needed on
-            their side. Open <strong>Sing together</strong> from the menu and start broadcasting: you
+            their side. Open <strong>Strum together</strong> from the menu and start broadcasting: you
             get a link and a QR code, either one gets someone in. Once they&apos;ve joined, press play
             on whatever song you want everyone to see — it appears on every connected screen, in the
             same key, live.

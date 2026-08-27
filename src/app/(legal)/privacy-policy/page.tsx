@@ -77,7 +77,7 @@ export default function PrivacyPolicyPage() {
         within 24 hours, and only aggregated data is available to us.
       </p>
       <p>
-        <strong>Sing Together sessions.</strong> When you create or join a session, we process the
+        <strong>Strum Together sessions.</strong> When you create or join a session, we process the
         session identifier and the synchronisation data needed to keep devices in step. Participants
         can join a session through a shared link <strong>without creating an account</strong>; for
         those participants we process only the session identifier and the minimum technical data
@@ -106,7 +106,7 @@ export default function PrivacyPolicyPage() {
             <td>Performance of a contract — Art. 6(1)(b)</td>
           </tr>
           <tr>
-            <td>Run Sing Together sessions, including for participants without an account</td>
+            <td>Run Strum Together sessions, including for participants without an account</td>
             <td>
               Performance of a contract — Art. 6(1)(b) — and, for participants without an account, our
               legitimate interest in delivering the session requested by the leader — Art. 6(1)(f)

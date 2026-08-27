@@ -82,6 +82,7 @@ describe('PLANS', () => {
       songbooks: 1,
       songs: 30,
       ukulele: false,
+      featureRequests: 'no',
       smartCapo: false,
       booklet: 'no',
       mayLead: false,
@@ -91,6 +92,7 @@ describe('PLANS', () => {
       songbooks: 3,
       songs: 300,
       ukulele: true,
+      featureRequests: 'no',
       smartCapo: true,
       booklet: 'branded',
       mayLead: true,
@@ -100,6 +102,7 @@ describe('PLANS', () => {
       songbooks: null,
       songs: null,
       ukulele: true,
+      featureRequests: 'yes',
       smartCapo: true,
       booklet: 'plain',
       mayLead: true,
@@ -109,6 +112,7 @@ describe('PLANS', () => {
       songbooks: null,
       songs: null,
       ukulele: true,
+      featureRequests: 'priority',
       smartCapo: true,
       booklet: 'custom',
       mayLead: true,
@@ -399,16 +403,16 @@ describe('thanksSongsCaption', () => {
 
 describe('thanksDevicesCaption', () => {
   it('spells out the singular for a cap of one', () => {
-    assert.equal(thanksDevicesCaption('standard'), 'Start a Sing Together session, one device following.')
+    assert.equal(thanksDevicesCaption('standard'), 'Start a Strum Together session, one device following.')
   })
 
   it('names the real cap for plus', () => {
-    assert.equal(thanksDevicesCaption('plus'), 'Start a Sing Together session, up to 3 devices following.')
+    assert.equal(thanksDevicesCaption('plus'), 'Start a Strum Together session, up to 3 devices following.')
   })
 
   it('calls premium and lifetime unlimited, never the bare number 100', () => {
-    assert.equal(thanksDevicesCaption('premium'), 'Start a Sing Together session, unlimited devices.')
-    assert.equal(thanksDevicesCaption('lifetime'), 'Start a Sing Together session, unlimited devices.')
+    assert.equal(thanksDevicesCaption('premium'), 'Start a Strum Together session, unlimited devices.')
+    assert.equal(thanksDevicesCaption('lifetime'), 'Start a Strum Together session, unlimited devices.')
   })
 })
 

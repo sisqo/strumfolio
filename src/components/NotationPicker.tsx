@@ -14,7 +14,7 @@ import { usePrefs } from '@/components/PrefsProvider'
  * per-song controls.
  *
  * The cost of the move is real and was named, not avoided: an anonymous guest
- * following a Sing Together broadcast has no account and never reaches this menu, so
+ * following a Strum Together broadcast has no account and never reaches this menu, so
  * once notation left the reading panel it left guests with no door to it at all.
  * That was decided anyway — a guest is stuck with whatever notation their own prefs
  * already held, for as long as the session lasts, with nowhere on their screen left

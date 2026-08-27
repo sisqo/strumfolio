@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react'
 
 import { AdminPanel, isAdminSection } from '@/components/AdminPanel'
 import { useRole } from '@/components/RoleProvider'
-import { SingTogetherPanel } from '@/components/SingTogetherPanel'
+import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
 import {
   IconBroadcast,
   IconChevronLeft,
   IconChevronRight,
+  IconComment,
   IconDownload,
   IconExternal,
   IconInfo,
@@ -43,20 +44,20 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * role (v3.1) every signed-in reader is admin on their own account, so it is false only
  * before the answer arrives.
  *
- * Sing Together and Admin are both second screens inside this same panel rather than
- * pages of their own: Sing Together is reached mid-song, where a real navigation would
+ * Strum Together and Admin are both second screens inside this same panel rather than
+ * pages of their own: Strum Together is reached mid-song, where a real navigation would
  * cost the reader the page they were reading to get there and again to get back, and
  * Admin is a list of six links that would otherwise need a screen to hold six links.
  * `view` resets to `main` on every close, so the panel always opens where it left off
  * closing — at the top, not wherever either of them happened to leave it.
- * `SingTogetherPanel` owns its own screen — whether a broadcast is already running, the
+ * `StrumTogetherPanel` owns its own screen — whether a broadcast is already running, the
  * QR, start and stop — shared with the reading bar's own toggle so the two can never
- * disagree about the same broadcast; see `SingAlongProvider`'s own comment for why that
+ * disagree about the same broadcast; see `StrumTogetherProvider`'s own comment for why that
  * state lives above both of them instead of in either.
  */
 export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'main' | 'sing-together' | 'admin'>('main')
+  const [view, setView] = useState<'main' | 'strum-together' | 'admin'>('main')
   const { mayEdit, isGlobalOwner } = useRole()
 
   const close = () => {
@@ -99,8 +100,8 @@ export function NavMenu({ current }: { current: Section }) {
           {/* Catches the tap that means "never mind". */}
           <div className="menu-overlay" onClick={close} aria-hidden />
 
-          <div className={view === 'sing-together' ? 'menu-panel is-wide' : 'menu-panel'} role="menu">
-            {view === 'sing-together' && (
+          <div className={view === 'strum-together' ? 'menu-panel is-wide' : 'menu-panel'} role="menu">
+            {view === 'strum-together' && (
               <>
                 {/*
                   * Its own row rather than a header: on a phone this is still a tap
@@ -116,18 +117,18 @@ export function NavMenu({ current }: { current: Section }) {
                   onClick={() => setView('main')}
                 >
                   <IconChevronLeft size={17} />
-                  Sing together
+                  Strum together
                 </button>
 
                 <div className="menu-divider" />
 
-                <SingTogetherPanel onClose={close} />
+                <StrumTogetherPanel onClose={close} />
               </>
             )}
 
             {view === 'admin' && (
               <>
-                {/* Same back row as Sing Together's, for the same reason — see its comment. */}
+                {/* Same back row as Strum Together's, for the same reason — see its comment. */}
                 <button
                   type="button"
                   className="menu-item w-full"
@@ -192,11 +193,11 @@ export function NavMenu({ current }: { current: Section }) {
                   type="button"
                   className="menu-item w-full"
                   role="menuitem"
-                  aria-label="Sing together, opens the broadcast screen"
-                  onClick={() => setView('sing-together')}
+                  aria-label="Strum together, opens the broadcast screen"
+                  onClick={() => setView('strum-together')}
                 >
                   <IconBroadcast size={17} />
-                  Sing together
+                  Strum together
                   <IconChevronRight size={15} className="ms-auto" />
                 </button>
 
@@ -257,6 +258,28 @@ export function NavMenu({ current }: { current: Section }) {
                 <Link href="/help" className={item('help')} role="menuitem" onClick={close}>
                   <IconInfo size={17} />
                   Help
+                </Link>
+
+                {/*
+                  * Beside Help rather than in the group above, and unconditional like Home.
+                  *
+                  * Both of these are about the app itself rather than about the songs in it —
+                  * one answers what it does, the other asks for what it does not do yet — so
+                  * they belong on the same side of the tuner's divider. Not gated on the plan
+                  * here even though Free and Standard cannot send: the page itself says so and
+                  * offers `/pricing`, which is the arrangement `BookletScreen` argues for at
+                  * length — a menu is not where a plan's contents are argued, and an entry
+                  * missing for two plans out of four teaches those readers the feature does
+                  * not exist rather than that it is not theirs yet.
+                  */}
+                <Link
+                  href="/feature-request"
+                  className={item('feature-request')}
+                  role="menuitem"
+                  onClick={close}
+                >
+                  <IconComment size={17} />
+                  Request a feature
                 </Link>
               </>
             )}

@@ -258,7 +258,7 @@ export async function entitlementsOf(accountOwnerEmail: string): Promise<Entitle
 
 
 /**
- * How many other devices may follow one of this account's Sing Together broadcasts, and
+ * How many other devices may follow one of this account's Strum Together broadcasts, and
  * whether that number is being enforced at all.
  *
  * A second entry point beside `entitlementsOf`, which is not a duplicate of it. Three
@@ -280,7 +280,7 @@ export async function entitlementsOf(accountOwnerEmail: string): Promise<Entitle
  * anybody counting». Those are two answers, which is why `enforced` is its own field rather
  * than something a caller infers from `max`: `UNGATED.limits.devices` is 100, so a bare
  * `held < max` would refuse the 101st guest of an installation that enforces nothing. See
- * `admits` in `singAlong/devices.ts`, which takes both and is the one place they meet.
+ * `admits` in `strumTogether/devices.ts`, which takes both and is the one place they meet.
  *
  * Rejected in the other direction too: reading `accounts.plan` alone would also be one read,
  * but it would re-derive the plan from one column and so ignore expiry, status and the

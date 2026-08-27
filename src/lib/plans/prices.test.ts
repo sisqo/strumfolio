@@ -109,14 +109,19 @@ describe('euro', () => {
 
 /*
  * Not a test about prices, and here rather than in `types.test.ts` because it is the pricing
- * page it protects: /pricing prints one identical booklet cell for plus and premium, on the
- * ground that `custom` behaves exactly like `plain` today. That is a fact about today's code,
- * not a decision — the day anything starts asking whether the tier is `custom`, the identical
- * cell becomes a page that describes two different booklets with one sentence. This fails on
- * that day, next to the numbers the page reads, which is where somebody editing the page will
- * be looking.
+ * page it protects: what it holds is the gap between what that page *promises* about the
+ * booklet and what this code can currently *tell apart*.
+ *
+ * The page used to print one identical booklet cell for plus and premium on the ground that
+ * `custom` behaves exactly like `plain` today. It no longer does — premium's cell now says
+ * «With your custom line», a deliberate roadmap claim alongside the two "Printed booklet
+ * themes" rows, made on request. So the first test below is no longer protecting an identical
+ * cell; it is recording that the code still cannot distinguish the two tiers, which is exactly
+ * what makes that cell a promise rather than a description. It fails the day something starts
+ * gating on `custom` — at which point the promise has been kept and the note beside the cell
+ * should stop calling itself one.
  */
-describe('the booklet the pricing page can honestly describe', () => {
+describe('the booklet the pricing page promises', () => {
   it('cannot tell plus and premium apart', () => {
     const plus = subscribed('plus')
     const premium = subscribed('premium')
@@ -127,15 +132,15 @@ describe('the booklet the pricing page can honestly describe', () => {
     assert.equal(premium.refused.booklet, null, 'both include the booklet')
   })
 
-  it('leaves premium exactly two advantages over plus to describe', () => {
+  it('leaves premium exactly three advantages over plus to describe', () => {
     const differing = Object.keys(PLANS.premium).filter(
       (field) => PLANS.premium[field as keyof typeof PLANS.premium] !== PLANS.plus[field as keyof typeof PLANS.plus],
     )
 
     assert.deepEqual(
       differing.sort(),
-      ['booklet', 'devices'],
-      'premium and plus differ on the device ceiling and on a booklet tier that behaves identically — if a third field appears, /pricing has a column to fill in',
+      ['booklet', 'devices', 'featureRequests'],
+      'premium and plus differ on the device ceiling, on a booklet tier, and on how a feature request is answered — each has a row on /pricing, and a fourth field would be one the page does not fill in',
     )
   })
 })

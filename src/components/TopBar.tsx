@@ -21,6 +21,7 @@ export type Section =
   | 'design-system'
   | 'app-settings'
   | 'help'
+  | 'feature-request'
   | 'checkout'
   | 'billing'
   | 'brand'

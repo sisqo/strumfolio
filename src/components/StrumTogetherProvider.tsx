@@ -8,12 +8,12 @@ import {
   getMyBroadcast,
   startBroadcast,
   stopBroadcast,
-} from '@/lib/singAlong/session'
+} from '@/lib/strumTogether/session'
 
 type StartResult = Awaited<ReturnType<typeof startBroadcast>>
 type StopResult = Awaited<ReturnType<typeof stopBroadcast>>
 
-interface SingAlongContextValue {
+interface StrumTogetherContextValue {
   /** `undefined` until the first read comes back, `null` once it has and nothing is
    *  running, and the row itself once there is — see this provider's own comment,
    *  extracted from `NavMenu`'s original `checkBroadcast`, for why the three states
@@ -34,12 +34,12 @@ interface SingAlongContextValue {
   stop: () => Promise<StopResult>
 }
 
-const SingAlongContext = createContext<SingAlongContextValue | null>(null)
+const StrumTogetherContext = createContext<StrumTogetherContextValue | null>(null)
 
 /**
  * How often the follower count is re-read while a broadcast is actually live.
  *
- * Used to be gated on the menu's own Sing Together view being open, which was right
+ * Used to be gated on the menu's own Strum Together view being open, which was right
  * while that screen was the only place the count showed. It no longer is: the reading
  * bar's follower pill needs the same number for as long as the broadcast runs,
  * not only while a panel happens to be open on top of it. Ten seconds is still chosen
@@ -52,7 +52,7 @@ const AUDIENCE_MS = 10_000
  * The one broadcast a signed-in reader may be leading, shared by every control that
  * shows or changes it.
  *
- * Extracted out of `NavMenu` once the reading bar grew its own Sing Together
+ * Extracted out of `NavMenu` once the reading bar grew its own Strum Together
  * icon and follower pill: two components independently polling `getMyBroadcast` and
  * holding their own copy of "is one running" would agree at first paint and then drift
  * the moment either one started or stopped it from under the other. One provider, one
@@ -67,11 +67,11 @@ const AUDIENCE_MS = 10_000
  * check, the same way `RoleProvider`'s own `loadIdentity` already does on every page.
  *
  * What this does *not* own: the QR code, the "Copied" flash, and any error text — all
- * three live in `SingTogetherPanel` instead, drawn only while that panel is actually
+ * three live in `StrumTogetherPanel` instead, drawn only while that panel is actually
  * open (from the menu or from the bar, whichever the reader tapped), never on every
  * page load for a code nobody is looking at.
  */
-export function SingAlongProvider({ children }: { children: ReactNode }) {
+export function StrumTogetherProvider({ children }: { children: ReactNode }) {
   const [broadcast, setBroadcast] = useState<BroadcastState | null | undefined>(undefined)
   const [askFailed, setAskFailed] = useState(false)
   const [audience, setAudience] = useState<{ following: number; devices: number } | null>(null)
@@ -143,7 +143,7 @@ export function SingAlongProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const value: SingAlongContextValue = {
+  const value: StrumTogetherContextValue = {
     broadcast,
     askFailed,
     audience,
@@ -153,13 +153,13 @@ export function SingAlongProvider({ children }: { children: ReactNode }) {
     stop,
   }
 
-  return <SingAlongContext.Provider value={value}>{children}</SingAlongContext.Provider>
+  return <StrumTogetherContext.Provider value={value}>{children}</StrumTogetherContext.Provider>
 }
 
-export function useSingAlong(): SingAlongContextValue {
-  const context = useContext(SingAlongContext)
+export function useStrumTogether(): StrumTogetherContextValue {
+  const context = useContext(StrumTogetherContext)
   if (context === null) {
-    throw new Error('useSingAlong must be used inside a SingAlongProvider')
+    throw new Error('useStrumTogether must be used inside a StrumTogetherProvider')
   }
   return context
 }

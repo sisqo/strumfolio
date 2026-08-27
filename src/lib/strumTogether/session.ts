@@ -1,7 +1,7 @@
 'use server'
 
 /**
- * "Sing Together": one broadcast per person, and the token that lets someone with no
+ * "Strum Together": one broadcast per person, and the token that lets someone with no
  * account watch it.
  *
  * The row this module owns is `sing_along_sessions` — see its own doc comment in
@@ -180,7 +180,7 @@ export async function getMyBroadcast(): Promise<BroadcastState | null> {
  * a **reason** rather than the bare `{ ok: false }` this used to return, which is why the
  * three guards below are now three branches: told "couldn't start, try again", somebody on
  * free would press it forever, since trying again is the one thing that cannot help. The
- * freeze deliberately does not reach here: leading a Sing Together changes no song, so an
+ * freeze deliberately does not reach here: leading a Strum Together changes no song, so an
  * account over its caps can still start one (see `entitlementsFor`).
  *
  * No device cap is checked here, deliberately: how many may *follow* is a question asked at
@@ -626,7 +626,7 @@ async function seatDevice(
         ),
       )
   } catch (error) {
-    console.error('recording the Sing Together device peak failed', error)
+    console.error('recording the Strum Together device peak failed', error)
   }
 
   return 'seated'

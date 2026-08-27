@@ -17,14 +17,14 @@ export default function TermsOfServicePage() {
         (&ldquo;we&rdquo;, &ldquo;us&rdquo;). Strumfolio offers a free plan with no end date, and paid
         plans with additional limits and features — see our <Link href="/pricing">Pricing</Link> page
         for what each plan includes and costs. By accessing or using Strumfolio, including by joining a
-        Sing Together session through a shared link, you agree to these Terms.
+        Strum Together session through a shared link, you agree to these Terms.
       </p>
 
       <h2>1. The Service</h2>
       <p>
         Strumfolio lets you import, organize, edit and export your own collection of lyrics and
         chords, and
-        offers features such as key/capo transposition and Sing Together, a feature that syncs a song
+        offers features such as key/capo transposition and Strum Together, a feature that syncs a song
         across multiple devices in real time.
       </p>
       <p>
@@ -57,7 +57,7 @@ export default function TermsOfServicePage() {
         You retain full ownership of the songs, lyrics, chords and other content you import into
         Strumfolio (&ldquo;Your Content&rdquo;). We do not claim any ownership of it. You grant us only
         the limited technical permission to store, process and display Your Content as needed to
-        operate the Service for you and for the participants you invite to a Sing Together session.
+        operate the Service for you and for the participants you invite to a Strum Together session.
       </p>
       <p>
         Your Content can be any song you play, whoever wrote it. What the Service is for is personal
@@ -80,9 +80,9 @@ export default function TermsOfServicePage() {
         rightsholder writes to us.
       </p>
 
-      <h2>4. Sing Together</h2>
+      <h2>4. Strum Together</h2>
       <p>
-        When you start a Sing Together session, you act as the session leader and control what is
+        When you start a Strum Together session, you act as the session leader and control what is
         displayed on the devices of participants who join via your shared link.{' '}
         <strong>Anyone holding the link can join without an account</strong> and can view the shared
         content for the duration of the session. A session is a private performance among people you

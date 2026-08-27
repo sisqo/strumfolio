@@ -12,10 +12,10 @@
 import { Resend } from 'resend'
 
 /**
- * An env var, not a bare constant, so the verified sending domain (PLAN.md point 26)
- * can move without a deploy — but the default is the real address, since there is
- * exactly one of these per installation and it costs nothing for local dev or the
- * current deployment to leave unset.
+ * An env var, not a bare constant, so the verified sending domain can move without a
+ * deploy (see CLAUDE.md's domain-move checklist) — but the default is the real address,
+ * since there is exactly one of these per installation and it costs nothing for local dev
+ * or the current deployment to leave unset.
  */
 const FROM_ADDRESS = process.env.RESEND_FROM ?? 'Strumfolio <no-reply@strumfolio.com>'
 
@@ -24,6 +24,16 @@ export interface EmailMessage {
   subject: string
   html: string
   text: string
+  /**
+   * Who a reply should go to, when that is not `FROM_ADDRESS`.
+   *
+   * Unset for the four emails that go *to* a customer: `no-reply@` is the honest sender for
+   * a verification link, and pointing a reply somewhere else would invite an answer nobody
+   * reads. It exists for the one email that travels the other way — a feature request
+   * arriving in the support inbox — where the address worth answering is the reader's own
+   * and cannot be the `from`, since that has to stay the verified sending domain.
+   */
+  replyTo?: string
 }
 
 /**

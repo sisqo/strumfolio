@@ -12,7 +12,7 @@ import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
-import type { BookletTier } from '@/lib/plans/types'
+import type { BookletTier, FeatureRequestTier } from '@/lib/plans/types'
 import { mustChooseNow } from '@/lib/plans/viewer'
 import type { Viewer } from '@/lib/plans/viewer'
 
@@ -284,14 +284,20 @@ function capCell(limit: number | null): string {
 /**
  * What a booklet tier is called in a table cell.
  *
- * `plain` and `custom` return the identical string, and this map is the code-level guard that
- * keeps a customizable booklet off this page: `bookletBrandLine` asks only whether the tier is
- * `branded`, so premium's `custom` behaves exactly like plus' `plain` today and listing a
- * customizable booklet would be selling something that does not exist. A `switch` over the
- * union rather than an `=== 'branded'` test, so the day a fifth tier is added this stops
- * compiling instead of quietly describing it as "without that line" — and so that whoever
- * starts gating on `custom` has to come here and split these two cases apart deliberately.
- * `prices.test.ts` pins the same fact from the other side, next to the numbers.
+ * `plain` and `custom` used to return the identical string, and this map used to be the
+ * code-level guard that kept a customizable booklet off this page: `bookletBrandLine` asks
+ * only whether the tier is `branded`, so premium's `custom` behaves exactly like plus' `plain`
+ * in the code today. The two cases are now split apart on request — premium's cell names the
+ * custom line — which makes this cell a **roadmap claim** rather than a description of what
+ * the PDF currently prints, in the same class as the two "Printed booklet themes" rows below
+ * and unlike every other cell on this page. What premium's booklet does today is exactly what
+ * plus' does; what this cell says is what it will do.
+ *
+ * A `switch` over the union rather than an `=== 'branded'` test, so the day a fifth tier is
+ * added this stops compiling instead of quietly describing it as "without that line".
+ * `prices.test.ts` pins the gap from the other side, next to the numbers: it still asserts
+ * that nothing in the code can tell `plain` and `custom` apart, and fails the day something
+ * can — which is the day this cell stops being a promise.
  */
 function bookletCell(tier: BookletTier): string | null {
   switch (tier) {
@@ -300,8 +306,29 @@ function bookletCell(tier: BookletTier): string | null {
     case 'branded':
       return 'With a «Printed with Strumfolio» line'
     case 'plain':
-    case 'custom':
       return 'Without that line'
+    case 'custom':
+      return 'With your custom line'
+  }
+}
+
+/**
+ * What a feature-request tier is called in a table cell.
+ *
+ * A `switch` over the union rather than two ternaries, for `bookletCell`'s reason: a fourth
+ * tier should stop this compiling rather than quietly fall through to «Yes». `no` is no cell
+ * at all rather than the word "No" — the same choice `deviceCell` makes about free's 0, and
+ * the same one every row on this page makes about a plan that simply does not include
+ * something.
+ */
+function featureRequestCell(tier: FeatureRequestTier): string | null {
+  switch (tier) {
+    case 'no':
+      return null
+    case 'yes':
+      return 'Yes'
+    case 'priority':
+      return 'Yes, with priority'
   }
 }
 
@@ -387,33 +414,28 @@ const ROWS: ComparisonRow[] = [
   {
     label: 'Chord shapes',
     /*
-     * The row that claimed a gate the code does not have. `saveGlobalPrefs` is the one control
-     * point, and its own comment says why it can only be a soft one: the diagrams are drawn in
-     * the browser from a table that ships with the app, so nothing server-side can stop a reader
-     * seeing ukulele shapes. What it refuses is *storing* the choice — the row is written back
-     * with `guitar` and the answer is `not-in-plan`, which `prefs/queue.ts` treats as finished
-     * rather than surfacing. So the free reader who taps Ukulele gets ukulele shapes until the
-     * next reload, and the old note («the instrument stays set to guitar, so a ukulele player
-     * reads guitar shapes») sold Standard for something Free already delivers and told a reader
-     * their own screen was lying. What the paid plans buy is that the choice sticks: across a
-     * reload, and across their other devices. That is true today and stays true the day the
-     * client-side half of the gate lands.
+     * **The client-side half of this gate now exists**, which is what lets this row go back to
+     * naming one instrument for Free. Its history is worth keeping, because the row has been
+     * wrong in both directions: it first claimed a gate the code did not have (Free said
+     * «Guitar» while a free reader could tap Ukulele and read ukulele shapes all session), and
+     * was then corrected to name both instruments in every column, differing only in whether
+     * the choice was «saved» — true at the time, and the honest thing to print while
+     * `saveGlobalPrefs` was the only control point.
+     *
+     * What changed is `ReadingPanel`: tapping Ukulele on a plan without it now opens the
+     * upgrade dialog instead of switching the diagrams, so Free really does read guitar shapes.
+     * `saveGlobalPrefs` is still the half that cannot be bypassed — see `PlanLimits.ukulele`
+     * for why neither half is the whole gate — and it is why this claim survives someone
+     * reaching past the interface: the choice cannot be stored, so it cannot come back on the
+     * next reload or on another device.
      */
-    note: 'Tap any chord to see the fingering. From Standard up, the choice is remembered across devices.',
-    /*
-     * All four cells name both instruments, and the free cell used to say just «Guitar» — which
-     * was the same false gate the old note claimed, in the one place a reader comparing columns
-     * actually looks. What differs between the columns is the four words after the comma, and a
-     * near-identical row is the honest shape here: `PLANS[plan].ukulele` is still what decides,
-     * so the cells cannot drift from the gate, and what the gate really withholds is the memory
-     * of the choice rather than the drawing.
-     */
+    note: 'Tap any chord to see the fingering, on the instrument you play.',
     cells: (['free', 'standard', 'plus', 'premium'] as const).map((plan) =>
-      PLANS[plan].ukulele ? 'Guitar and ukulele, choice saved' : 'Guitar and ukulele',
+      PLANS[plan].ukulele ? 'Guitar and ukulele' : 'Guitar',
     ),
   },
   {
-    label: '«Sing Together» session',
+    label: '«Strum Together» session',
     /*
      * The design's own note names the guest's experience, not the cells' own subject (who may
      * lead) — the same gap the mock itself leaves between this row's note and its cells. Kept
@@ -428,15 +450,15 @@ const ROWS: ComparisonRow[] = [
     ),
   },
   {
-    label: '«Sing Together» devices',
-    note: 'Maximum number of devices following a «Sing Together» session.',
+    label: '«Strum Together» devices',
+    note: 'Maximum number of devices following a «Strum Together» session.',
     /*
      * `deviceCell(PLANS.premium.devices)` prints the honest "100" here rather than the v3.4
      * redesign's own "Unlimited" — reversed because `/login`'s FAQ ("How many people can join
-     * a Sing Together session?") already states the same 100 literally, with its own comment
+     * a Strum Together session?") already states the same 100 literally, with its own comment
      * explicitly rejecting "as many as you like" as false; the two public pages naming the
      * same real cap two different ways was the actual bug, and this table is the one that
-     * moved. No change to what `admits` enforces in `singAlong/devices.ts` either way — a
+     * moved. No change to what `admits` enforces in `strumTogether/devices.ts` either way — a
      * 101st guest was and still is refused.
      */
     cells: [
@@ -459,7 +481,7 @@ const ROWS: ComparisonRow[] = [
   /*
    * The redesign's own two new rows, immediately under "Printed booklet" rather than at the
    * table's foot: both are about that same PDF, and a reader comparing what it looks like
-   * should find the claim beside the feature it modifies, not after "Sing Together" or
+   * should find the claim beside the feature it modifies, not after "Strum Together" or
    * "Feature requests" have already changed the subject.
    */
   {
@@ -491,13 +513,25 @@ const ROWS: ComparisonRow[] = [
   {
     label: 'Feature requests',
     /*
-     * The design's own note, word for word — not what the site's support inbox actually does
-     * today (anybody may write in, on any plan). The v3.4 redesign's own call, confirmed
-     * rather than assumed: only Premium gets a row here, and the note names the plan's own
-     * benefit rather than the other three's absence, matching the design's phrasing exactly.
+     * Two plans now, not one, and the note has to carry both: Plus buys a way in, Premium buys
+     * being read first. The old note named only top prioritization, which was right while
+     * Premium was the only column with a cell and would now describe Plus' cell wrongly.
+     *
+     * Unlike every other row on this page, this one has a **screen** behind it — the hamburger
+     * menu's "Request a feature", refused by `requestFeature` on a plan whose tier is `no`. So
+     * the cells read the tier itself rather than being written here: `featureRequestCell` is a
+     * total map over the union, which is what stops this row and that gate from drifting.
+     *
+     * `priority` is the one claim on this page that no code enforces and none could — what it
+     * buys is the order a person answers in. It is carried into the request email so whoever
+     * reads the inbox can honour it, which is as close to a gate as a promise kept by people
+     * gets. Not marked `COMING_SOON`, because unlike the booklet themes the feature itself is
+     * here: the request really does reach the dev team today.
      */
-    note: 'You can request new features from the dev team with top prioritization.',
-    cells: [null, null, null, 'Yes'],
+    note: 'Ask the dev team for what the app is missing — from Premium, your request is read first.',
+    cells: (['free', 'standard', 'plus', 'premium'] as const).map((plan) =>
+      featureRequestCell(PLANS[plan].featureRequests),
+    ),
   },
 ]
 

@@ -149,7 +149,7 @@ export function ThanksScreen() {
             </h1>
             <p className="thanks-hero-text text-muted">
               {PLANS.free.songbooks} songbook, {PLANS.free.songs} songs, no card and no end date.
-              Whenever you want more room, to sing together, or a printed booklet, the paid plans
+              Whenever you want more room, to strum together, or a printed booklet, the paid plans
               are right there.
             </p>
           </div>
@@ -177,7 +177,7 @@ export function ThanksScreen() {
               <span className="thanks-step-line" />
             </div>
             <div className="thanks-step-body">
-              <p className="thanks-step-title">&quot;Sing Together&quot; sessions</p>
+              <p className="thanks-step-title">&quot;Strum Together&quot; sessions</p>
               <p className="thanks-step-caption">Everyone on their own screen, on your line.</p>
             </div>
           </div>

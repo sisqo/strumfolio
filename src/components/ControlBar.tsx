@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
+import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { usePrefs } from '@/components/PrefsProvider'
-import { useSingAlong } from '@/components/SingAlongProvider'
-import { SingTogetherPanel } from '@/components/SingTogetherPanel'
+import { useRole } from '@/components/RoleProvider'
+import { useStrumTogether } from '@/components/StrumTogetherProvider'
+import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
 import {
   IconBroadcast,
   IconChevronLeft,
@@ -20,8 +22,10 @@ import {
 import { type CapoOption, FRET_PAGE, MAX_CAPO, fretWindowStart, suggestCapo } from '@/lib/music/capo'
 import { estimateKey } from '@/lib/music/key'
 import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
+import { INSTRUMENTS, INSTRUMENT_LABEL, type Instrument } from '@/lib/music/shapes'
+import { PLANS } from '@/lib/plans/types'
 import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
-import { broadcastPlay, broadcastTranspose } from '@/lib/singAlong/session'
+import { broadcastPlay, broadcastTranspose } from '@/lib/strumTogether/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
 /** Where this song sits in the sequence a reader can step through with the bar's own
@@ -44,7 +48,7 @@ type Panel = 'settings' | 'speed' | 'sing' | null
  *
  * Redesigned around the same one-row idea the previous version put in words —
  * "the ones a hand reaches for with a guitar in the other" — but that set has grown by
- * two: Sing Together now has a quick toggle here rather than living only in the header
+ * two: Strum Together now has a quick toggle here rather than living only in the header
  * menu, and stepping to the next song has moved down from the header into a capsule of
  * its own beside this one. On a phone there is no room to also keep the scroll-speed
  * slider spread out full width once those two are added, so it collapses to a single
@@ -66,7 +70,7 @@ export function ControlBar({
   onStepTo,
 }: {
   /**
-   * Which song this bar belongs to — needed only to tell Sing Together which song
+   * Which song this bar belongs to — needed only to tell Strum Together which song
    * just started or was retuned. The ordinary reading flow never looks at it itself;
    * it exists so `broadcastPlay` and `broadcastTranspose` below have something to say
    * that is true even when nobody is broadcasting, in which case they say it to nobody.
@@ -86,13 +90,13 @@ export function ControlBar({
    */
   semitonesLocked?: boolean
   /**
-   * False only for Sing Together's guest view. `broadcastPlay`/`broadcastTranspose`
+   * False only for Strum Together's guest view. `broadcastPlay`/`broadcastTranspose`
    * would otherwise fire under whichever real account happens to be signed into the
    * browser showing the link — not the guest reading it, since a guest has none — and
    * silently retarget that account's own broadcast. A guest's own copy of this bar
    * must never be able to call them, session or not; that is a categorical property of
    * where the bar is mounted, not something to detect from whether a session exists.
-   * The same flag also hides the Sing Together toggle itself, for the same reason: a
+   * The same flag also hides the Strum Together toggle itself, for the same reason: a
    * guest must never be offered a way to start a broadcast of their own.
    */
   broadcastEnabled?: boolean
@@ -124,13 +128,14 @@ export function ControlBar({
     pending,
     setZoomStep,
     setChordDisplay,
+    setInstrument,
     setSemitones,
     setScrollSpeed,
     setCapo,
   } = usePrefs()
   const { running, toggle } = useAutoScroll(song.scrollSpeed)
   const [panel, setPanel] = useState<Panel>(null)
-  const { broadcast } = useSingAlong()
+  const { broadcast } = useStrumTogether()
 
   /*
    * Gated on `broadcastEnabled` as well as on there being a broadcast at all: on the
@@ -199,23 +204,25 @@ export function ControlBar({
             suggestion={suggestion}
             written={written}
             chordDisplay={global.chordDisplay}
+            instrument={global.instrument}
             zoomStep={global.zoomStep}
             broadcasting={broadcasting}
             setSemitones={setSemitonesAndBroadcast}
             setCapo={setCapo}
             setChordDisplay={setChordDisplay}
+            setInstrument={setInstrument}
             setZoomStep={setZoomStep}
           />
         )}
 
         {broadcastEnabled && panel === 'sing' && (
-          <div className="sing-panel">
-            <SingTogetherPanel onClose={() => setPanel(null)} />
+          <div className="strum-panel">
+            <StrumTogetherPanel onClose={() => setPanel(null)} />
           </div>
         )}
 
         <div className="control-dock">
-          {broadcastEnabled && <SingToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
+          {broadcastEnabled && <StrumToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
 
           <button
             type="button"
@@ -422,21 +429,21 @@ function Step({
   )
 }
 
-/** The Sing Together toggle: a quiet icon while nothing is running, a filled pill
+/** The Strum Together toggle: a quiet icon while nothing is running, a filled pill
  *  naming the follower count once something is. Tapping either opens the same
- *  `SingTogetherPanel` the hamburger menu's own entry does. */
-function SingToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { broadcast, audience } = useSingAlong()
+ *  `StrumTogetherPanel` the hamburger menu's own entry does. */
+function StrumToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { broadcast, audience } = useStrumTogether()
   const live = broadcast !== null && broadcast !== undefined
 
   if (!live) {
     return (
       <button
         type="button"
-        className="control-button control-sing"
+        className="control-button control-strum"
         onClick={onToggle}
         aria-expanded={open}
-        aria-label="Sing Together"
+        aria-label="Strum Together"
       >
         <IconBroadcast size={19} />
       </button>
@@ -446,17 +453,17 @@ function SingToggle({ open, onToggle }: { open: boolean; onToggle: () => void })
   return (
     <button
       type="button"
-      className="control-sing is-live"
+      className="control-strum is-live"
       onClick={onToggle}
       aria-expanded={open}
       aria-label={
         audience === null
-          ? 'Sing Together is on'
-          : `Sing Together is on, ${audience.following} following`
+          ? 'Strum Together is on'
+          : `Strum Together is on, ${audience.following} following`
       }
     >
       <IconBroadcast size={19} />
-      {audience !== null && <span className="control-sing-count">{audience.following}</span>}
+      {audience !== null && <span className="control-strum-count">{audience.following}</span>}
     </button>
   )
 }
@@ -502,11 +509,13 @@ function ReadingPanel({
   suggestion,
   written,
   chordDisplay,
+  instrument,
   zoomStep,
   broadcasting,
   setSemitones,
   setCapo,
   setChordDisplay,
+  setInstrument,
   setZoomStep,
 }: {
   semitones: number
@@ -518,6 +527,7 @@ function ReadingPanel({
    *  closed, when nothing needs it. */
   written: Key | null
   chordDisplay: ChordDisplay
+  instrument: Instrument
   zoomStep: number
   /** True only while this reader has a live broadcast of their own, so the Key row can
    *  say that moving it moves every following screen too. Never true on the guest side,
@@ -526,6 +536,7 @@ function ReadingPanel({
   setSemitones: (value: number) => void
   setCapo: (value: number) => void
   setChordDisplay: (value: ChordDisplay) => void
+  setInstrument: (value: Instrument) => void
   setZoomStep: (value: number) => void
 }) {
   const reading = written !== null ? transposeKey(written, semitones) : null
@@ -542,6 +553,21 @@ function ReadingPanel({
   const fretStart = fretWindowStart(fretPage, capo)
   const pagesForward = fretStart + FRET_PAGE <= MAX_CAPO
   const canPage = pagesForward || fretStart > 0
+
+  /*
+   * The ukulele's own gate, and the client-side half of it — see `PlanLimits.ukulele` for
+   * why there are two halves and why neither is sufficient alone.
+   *
+   * Read off `plan` rather than asked of the server, because this panel opens while a
+   * musician is on stage and a round trip per tap is not something to put in that path. It
+   * fails open in the two cases where `plan` is null and both are right: the answer has not
+   * arrived yet, and enforcement is switched off entirely (`RoleContextValue.plan`'s own
+   * comment). A guest following a broadcast lands on the second — they have no account here,
+   * so there is no plan to refuse them with and nobody to sell a plan to.
+   */
+  const { plan } = useRole()
+  const ukuleleRefused = plan !== null && !PLANS[plan].ukulele
+  const [notice, setNotice] = useState<PlanNotice | null>(null)
 
   return (
     <div className="control-panel">
@@ -693,30 +719,84 @@ function ReadingPanel({
 
       <div className="control-divider" />
 
-      <span className="control-name-label">Chords as</span>
+      {/*
+        * Two controls side by side, and the pairing is the point rather than a way to save a
+        * row: Shape is what puts a diagram on the sheet at all, and Instrument is which
+        * instrument that diagram is for. Asked here, next to each other, because the second
+        * question only means anything once the first has been answered — it used to sit in the
+        * account menu's Settings with the notation and the theme, on the reasoning that a
+        * reader owns one instrument and answers for it once. True, and it is still answered
+        * once (this writes the same account-wide preference, not a per-song one); what was
+        * wrong is that it was answered two panels away from the only place its effect is
+        * visible.
+        *
+        * `.control-pair` wraps rather than squeezing — see its own rule in globals.css: on the
+        * narrowest phones the panel is not wide enough for two segments and they stack, which
+        * is better than "Ukulele" spilling out of its button.
+        */}
+      <div className="control-pair">
+        <div>
+          <span className="control-name-label">Chords as</span>
 
-      {/* `w-full` + `flex-1`, the same idiom `ThemePicker`/`NotationPicker` already use
-          for a segment that fills its container rather than hugging its labels. */}
-      <span className="segment mt-2 w-full" role="group" aria-label="Chord display">
-        <button
-          type="button"
-          className={chordDisplay === 'name' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
-          onClick={() => setChordDisplay('name')}
-          aria-pressed={chordDisplay === 'name'}
-        >
-          Name
-        </button>
-        <button
-          type="button"
-          className={chordDisplay === 'shape' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
-          onClick={() => setChordDisplay('shape')}
-          aria-pressed={chordDisplay === 'shape'}
-        >
-          Shape
-        </button>
-      </span>
+          {/* `w-full` + `flex-1`, the same idiom `ThemePicker`/`NotationPicker` already use
+              for a segment that fills its container rather than hugging its labels. */}
+          <span className="segment mt-2 w-full" role="group" aria-label="Chord display">
+            <button
+              type="button"
+              className={chordDisplay === 'name' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
+              onClick={() => setChordDisplay('name')}
+              aria-pressed={chordDisplay === 'name'}
+            >
+              Name
+            </button>
+            <button
+              type="button"
+              className={chordDisplay === 'shape' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
+              onClick={() => setChordDisplay('shape')}
+              aria-pressed={chordDisplay === 'shape'}
+            >
+              Shape
+            </button>
+          </span>
+        </div>
 
-      {/* No second divider: "Chords as" and "Text size" are one step apart, not two
+        <div>
+          <span className="control-name-label">Instrument</span>
+
+          <span className="segment mt-2 w-full" role="group" aria-label="Instrument for chord shapes">
+            {INSTRUMENTS.map((entry) => {
+              /*
+               * Refused, not hidden and not disabled. A disabled button says "not for you" and
+               * stops there; this one still takes the tap and answers it with the dialog that
+               * names the feature and offers `/pricing` — the same shape every other
+               * plan-refusal in the app takes, and the only one that tells a reader what the
+               * ukulele would cost them.
+               */
+              const refused = entry !== 'guitar' && ukuleleRefused
+
+              return (
+                <button
+                  key={entry}
+                  type="button"
+                  className={entry === instrument ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
+                  aria-pressed={entry === instrument}
+                  onClick={() =>
+                    refused
+                      ? setNotice({ reason: 'plan-required', feature: 'The ukulele' })
+                      : setInstrument(entry)
+                  }
+                >
+                  {INSTRUMENT_LABEL[entry]}
+                </button>
+              )
+            })}
+          </span>
+        </div>
+      </div>
+
+      {notice !== null && <PlanUpgradeModal notice={notice} onClose={() => setNotice(null)} />}
+
+      {/* No second divider: the pair above and "Text size" are one step apart, not two
           groups, so the space between them does the separating. */}
       <div className="mt-4 flex items-baseline justify-between">
         <span className="control-name-label">Text size</span>

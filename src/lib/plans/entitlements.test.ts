@@ -586,6 +586,7 @@ describe('the off switch', () => {
       lead: null,
       booklet: null,
       ukulele: null,
+      featureRequest: null,
     })
   })
 

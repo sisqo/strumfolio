@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
-import { useSingAlong } from '@/components/SingAlongProvider'
+import { useStrumTogether } from '@/components/StrumTogetherProvider'
 import { IconBroadcast, IconCheck } from '@/components/icons'
 import { audienceIsFull, audienceSentence } from '@/lib/plans/types'
-import { followUrl } from '@/lib/singAlong/link'
+import { followUrl } from '@/lib/strumTogether/link'
 
 /**
- * The Sing Together screen — the QR, the link, the two steps, start and stop — shared
+ * The Strum Together screen — the QR, the link, the two steps, start and stop — shared
  * between the hamburger menu's own wide panel and the reading bar's own toggle
  * (v3.15): the two must open literally the same panel, not two versions of it that
  * could say different things about the same broadcast. Everything about *showing* it —
@@ -23,8 +23,8 @@ import { followUrl } from '@/lib/singAlong/link'
  * navigation. Every other outcome — success, a session error, a failed stop — leaves
  * this panel open, since there is more here worth reading (the link, the retry).
  */
-export function SingTogetherPanel({ onClose }: { onClose: () => void }) {
-  const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useSingAlong()
+export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
+  const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useStrumTogether()
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -69,7 +69,7 @@ export function SingTogetherPanel({ onClose }: { onClose: () => void }) {
      * second press either.
      */
     if (result.reason === 'plan-required') {
-      setPlanNotice({ reason: 'plan-required', feature: 'Sing Together' })
+      setPlanNotice({ reason: 'plan-required', feature: 'Strum Together' })
       onClose()
     } else if (result.reason === 'no-session') {
       setError('Session expired. Reload the page and sign in again.')

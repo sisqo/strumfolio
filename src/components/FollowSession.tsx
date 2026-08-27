@@ -17,8 +17,8 @@ import {
   guestListSongs,
   guestLoadSong,
   guestSeriesOf,
-} from '@/lib/singAlong/guestReads'
-import { pollBroadcast } from '@/lib/singAlong/session'
+} from '@/lib/strumTogether/guestReads'
+import { pollBroadcast } from '@/lib/strumTogether/session'
 
 /** How often a guest's device asks what the broadcast is showing now. */
 const POLL_MS = 4000
@@ -109,7 +109,7 @@ function isSectionOpen(songbook: OpenSongbook, sectionId: number): boolean {
 }
 
 /**
- * The whole guest side of Sing Together: everything that opens when someone with no
+ * The whole guest side of Strum Together: everything that opens when someone with no
  * account follows a broadcaster's link.
  *
  * Three things a guest can be looking at, and the broadcast can end any of them without
@@ -783,7 +783,7 @@ export function FollowSession({ token }: { token: string }) {
           {banner}
           <div>
             <header className="mb-[1.125rem]">
-              <h1 className="screen-title">Sing Together</h1>
+              <h1 className="screen-title">Strum Together</h1>
               <p className="mt-2 text-sm leading-[1.45] text-muted">
                 Browse the repertoire while you wait. The moment the broadcast plays a
                 song, this screen switches to it, at the same key, on its own.
@@ -915,7 +915,7 @@ function FollowedSong({
    * Read fresh for every song shown, regardless of how it got on screen — browsed to,
    * or swept in by the broadcast, which never populates `songbook` at all (see
    * `reconcile`). Cleared first rather than left showing the previous song's arrows for
-   * a beat, the same reasoning `useSingAlong`'s own audience count uses.
+   * a beat, the same reasoning `useStrumTogether`'s own audience count uses.
    */
   useEffect(() => {
     let cancelled = false

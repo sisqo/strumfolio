@@ -131,7 +131,7 @@ export const accounts = pgTable(
      */
     gclid: text('gclid'),
     /**
-     * The most devices that have ever followed one of this account's Sing Together
+     * The most devices that have ever followed one of this account's Strum Together
      * broadcasts at the same time — the high-water mark, never today's number.
      *
      * Here beside `gclid` rather than with the plan columns above, because it is the same
@@ -539,7 +539,7 @@ export const userSongPrefs = pgTable(
     capo: integer('capo').notNull().default(0),
     /**
      * A reminder to self about this song — "capo 2, watch the bridge" — never sung,
-     * never shown to a Sing Together guest, just for whoever wrote it (v3.5).
+     * never shown to a Strum Together guest, just for whoever wrote it (v3.5).
      * Defaulted to empty rather than nullable, the same reasoning `capo` above gives:
      * every row that exists already answers this, with the answer that changes
      * nothing for a reader who has never touched it.
@@ -559,7 +559,7 @@ export const userSongPrefs = pgTable(
 )
 
 /**
- * A "Sing Together" broadcast: a token a guest can use to read the whole repertoire
+ * A "Strum Together" broadcast: a token a guest can use to read the whole repertoire
  * with no account, and the one song — and its key — its owner is currently showing
  * everyone who followed that link.
  *
@@ -621,7 +621,7 @@ export const singAlongSessions = pgTable(
 )
 
 /**
- * One device following one Sing Together broadcast: the row a plan's device cap counts.
+ * One device following one Strum Together broadcast: the row a plan's device cap counts.
  *
  * A row here is a **following session**, and the cookie in `device_id` is an **identity**.
  * Keeping those two apart is what the composite key is for: the same browser following two
