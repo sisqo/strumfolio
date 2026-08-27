@@ -37,6 +37,7 @@ import type { LimitReason } from '@/lib/plans/types'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { DEVICE_COOKIE, admits, holdsSlot, needsHeartbeat, staleBefore } from './devices'
+import { FOREIGN_KEY_VIOLATION, hasPostgresCode } from './pgError'
 
 /**
  * How long a broadcast survives with nobody at the wheel.
@@ -71,8 +72,8 @@ const IDLE_HOURS = 8
 const PEAK_CEILING = UNGATED.limits.devices
 
 /**
- * How many joins one address may make before its further joins stop being counted at all,
- * and over what window.
+ * How many joins one address may make before its further joins are refused, and over what
+ * window.
  *
  * The number is chosen from the venue, not from the attacker. A hundred phones at a rehearsal
  * reach this server through one wifi's single public address, all inside the first minute —
@@ -84,9 +85,30 @@ const PEAK_CEILING = UNGATED.limits.devices
  * Ten minutes rather than one: `checkRateLimit` is a fixed window, so a short one lets a
  * caller take the whole allowance again the instant it rolls over, and the thing being bounded
  * here is sustained growth rather than a burst.
+ *
+ * «Refused» rather than «stop being counted», which is what this said and did until the cap was
+ * made a boundary: an uncounted join is a join the cap cannot see, so burning this allowance
+ * deliberately used to be the cheapest way past it. See step 0 of `seatDevice`.
  */
 const JOIN_LIMIT = 3 * PLANS.premium.devices
 const JOIN_WINDOW_MS = 10 * 60 * 1000
+
+/**
+ * The first key of the advisory lock `seatDevice` takes on a joining broadcast's token — a
+ * namespace, so that the second key can be a bare `hashtext` of the token without competing
+ * with any other advisory lock this codebase might one day take.
+ *
+ * `pg_advisory_xact_lock(int4, int4)` is the two-key form; the alternative is the one-key
+ * `bigint` form, where a `hashtext` collision with an unrelated future lock would silently
+ * serialise two features against each other with nothing on screen to explain it. There is no
+ * other advisory lock in this repository today, which is exactly when a namespace is free to
+ * introduce and why it is worth doing now rather than after the second one exists.
+ *
+ * The value itself is arbitrary and means nothing beyond «this feature»; it only has to stay
+ * stable, because two deploys disagreeing about it during a rollout would take locks in two
+ * namespaces and serialise nothing. Never derive it from anything that varies per process.
+ */
+const JOIN_LOCK_NAMESPACE = 0x57_47
 
 export interface BroadcastState {
   token: string
@@ -392,179 +414,250 @@ async function sessionWithDevice(token: string, deviceId: string | null) {
 }
 
 /**
- * Postgres' `foreign_key_violation`. Read off the driver's `code` rather than the message,
- * which is localised and reworded between server versions.
+ * Postgres' `foreign_key_violation`, as this file has always asked it — the predicate itself now
+ * lives in `./pgError`, a plain sibling, because it stopped being a one-line property read when
+ * the seat moved inside a transaction and grew a bounded `cause` walk. `'use server'` may only
+ * export async functions, so a synchronous check that needs a test lives next door; see that
+ * file for what the walk is insurance against and why it is bounded.
  */
 function isForeignKeyViolation(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23503'
+  return hasPostgresCode(error, FOREIGN_KEY_VIOLATION)
 }
 
 /**
  * Takes a device's place on a broadcast, refuses it because the plan has no room, or finds the
  * broadcast gone from under it.
  *
- * Five statements in this order, behind one rate limit, and the order is load-bearing:
- * **sweep, count, cap, seat, peak**. Count before sweeping and a device that closed its tab
- * three minutes ago still blocks the slot. Seat before checking and the cap is decided
- * against a table that already contains the device it is deciding about. Peak before seating
- * and the number recorded is one short.
+ * Five statements in this order, and the order is load-bearing: **sweep, count, cap, seat,
+ * peak**. Count before sweeping and a device that closed its tab three minutes ago still
+ * blocks the slot. Seat before checking and the cap is decided against a table that already
+ * contains the device it is deciding about. Peak before seating and the number recorded is
+ * one short.
  *
- * A CAP HERE IS A DETERRENT, NOT A BOUNDARY — the same admission `checkRateLimit` makes
- * about itself, and it needs saying at the one place the refusal happens. Four holes, none
- * of them closable at a price worth paying:
+ * **The cap is a real boundary for every device this server can identify, and a deterrent for
+ * the ones it cannot.** That sentence replaces the flat "A CAP HERE IS A DETERRENT, NOT A
+ * BOUNDARY" this comment used to open with, and the change is a change in the code and not in
+ * the confidence: of the four holes that admission listed, two are now closed and two are
+ * decided to stay open. Which is which is the whole of what a reader needs from this comment.
  *
- * The identity is a cookie handed to an anonymous caller of a public, unauthenticated server
- * action. A private window is a new device and clearing one cookie is a new identity, so this
- * deters casual link-forwarding and stops nobody who is trying.
+ * **Closed — the read-then-write race.** Two devices arriving in the same instant used to both
+ * read "room left" and both be seated, one device over the cap. `count` and `seat` now run
+ * inside one transaction that opens by taking `pg_advisory_xact_lock` on this broadcast's
+ * token, so joins to the *same* broadcast serialise and the count a refusal is decided against
+ * cannot go stale before the insert lands. See the lock's own comment in the body for why a
+ * conditional `INSERT … SELECT … WHERE count < max` was rejected: under READ COMMITTED both
+ * statements still take their own snapshot, which narrows the window without closing it.
  *
- * The count is read and then the row is written, so two devices arriving in the same instant
- * can both read "room left" and both be seated — one device over the cap, `checkRateLimit`'s
- * own documented race in another costume. Acceptable for a deterrent; unacceptable for a
- * boundary.
+ * **Closed — the rate-limit bypass.** Step 0 used to answer `uncounted` when an address had
+ * burnt its allowance, which let the guest follow *invisibly to the cap*: a caller who
+ * deliberately spent their own budget was then admitted without ever being counted, so the cap
+ * stopped applying to that address entirely. It refuses now. `JOIN_LIMIT` is
+ * `3 * PLANS.premium.devices` over ten minutes, so a hundred-guest room makes a hundred joins
+ * against an allowance of three hundred and never reaches it; the cost, accepted knowingly, is
+ * that a phone whose slot went stale behind a shared NAT that *has* burnt the allowance is
+ * refused a rejoin until the window rolls over.
  *
- * A browser that sends no cookie at all is never counted (see `pollBroadcast`), and the cap
- * governs *following*, never *reading*: the token stays a valid read credential, and
- * `guestReads.ts` knows nothing about slots. Nothing but the guest screen's own ordering
- * keeps a refused device from browsing the whole repertoire.
+ * **Open by decision — a browser that sends no cookie at all.** Never counted (see
+ * `pollBroadcast`'s branch (a)), and deliberately still admitted: turning that guest away cuts
+ * a live performance over a browser setting, and minting an id on the poll instead would hand
+ * a browser that cannot persist one a fresh identity fifteen times a minute — a row per poll,
+ * eating a `standard` leader's single slot within seconds. Reviewed and kept in this run.
  *
- * And the leader's own second phone, opened on their own follow link, **is** a device and
- * does take a slot — visible on `standard`, where the cap is 1, so a leader who scans their
- * own QR to check it can lock out the friend the link was made for. There is deliberately no
- * exemption: the follow page is session-free by design, so the server has nothing to tell
- * that phone apart with, and inventing an exemption would mean either trusting a cookie or
- * teaching that page about sessions. A leader who has done it gets their slot back by
- * restarting the broadcast, which releases every slot.
+ * **Open by nature — the identity is a cookie.** This is a public, unauthenticated server
+ * action, so a private window is a new device and clearing one cookie is a new identity. No
+ * amount of care here closes that; only requiring followers to sign in would, and «no account
+ * for anyone following» is a stated promise on /pricing and /login. Reviewed and kept.
  *
- * What that honesty must not become is an invitation, and there is one thing it was quietly
- * short of: a bypassable cap costs the installation one extra guest, while an *unbounded* join
- * path costs it a table that grows for as long as somebody keeps looping and a peak column —
- * the unrecoverable one — reading whatever they liked. Those are the two things step 0 and
- * `PEAK_CEILING` bound, and neither of them is the cap. The cap is still a deterrent.
+ * Two further facts that are not holes in the cap but are read as such if left unsaid. The cap
+ * governs *following*, never *reading*: the token stays a valid read credential and
+ * `guestReads.ts` knows nothing about slots, so nothing but the guest screen's own ordering
+ * keeps a refused device from browsing the repertoire. And the leader's own second phone,
+ * opened on their own follow link, **is** a device and does take a slot — visible on
+ * `standard`, where the cap is 1, so a leader who scans their own QR to check it can lock out
+ * the friend the link was made for. There is deliberately no exemption, reviewed and kept in
+ * this run: the follow page is session-free by design, and a leader who has done it gets the
+ * slot back by restarting the broadcast, which releases every slot.
  */
 async function seatDevice(
   token: string,
   deviceId: string,
   broadcastAccountEmail: string,
   now: Date,
-): Promise<'seated' | 'uncounted' | 'full' | 'closed' | 'gone'> {
+): Promise<'seated' | 'full' | 'closed' | 'gone'> {
   const cutoff = staleBefore(now)
 
   /*
    * 0. The rate limit, and it is the only thing that bounds how often one anonymous caller may
-   * make the five statements below run. Before the sweep deliberately: everything past this
-   * point writes, and the sweep is a DELETE issued before this function has decided anything,
-   * which is precisely what a caller hammering the action would be paying for with somebody
-   * else's compute.
+   * make the statements below run. Before everything deliberately: everything past this point
+   * writes, and the sweep is a DELETE issued before this function has decided anything, which
+   * is precisely what a caller hammering the action would be paying for with somebody else's
+   * compute.
    *
-   * Refusing the join is what it must NOT do, which is why the answer is `uncounted` rather
-   * than `full`: that is branch (a)'s behaviour — the guest keeps following, invisible to the
-   * cap and to the peak — and it is chosen because the address being counted is *shared*. A
-   * venue's wifi is one IP for the whole room, so a limit that refused would turn away the
-   * friend the link was made for while the attack it is aimed at simply moves to mobile data.
-   * Uncounted costs the leader nothing they can see and the measurement one device it never
-   * knew about; refusing would cost somebody their place at a performance.
+   * **It refuses now, where it used to answer `uncounted`.** That old answer let the guest keep
+   * following while being invisible to the cap and to the peak, which made it the cheapest
+   * bypass in the feature: burn your own address's allowance on purpose and you were then
+   * admitted, uncounted, until the window rolled over — the cap simply stopped applying to you.
+   * The argument for it was that the address is *shared*, a venue's wifi being one IP for the
+   * whole room; what that argument missed is the size of the allowance. `JOIN_LIMIT` is
+   * `3 * PLANS.premium.devices` over ten minutes, so the hundred-guest room it was written to
+   * protect makes a hundred joins against three hundred and never comes near it.
+   *
+   * `full` and not `closed`: waiting genuinely does help here, which is exactly what separates
+   * the two answers everywhere else in this function. The window rolls over.
+   *
+   * The cost, accepted rather than discovered: a phone whose slot went stale behind a NAT that
+   * *has* burnt the allowance is refused its rejoin until the window rolls over, and a rejoin
+   * is what a locked screen at a long song produces. That is the price of the cap being a
+   * boundary on this path instead of a suggestion.
    *
    * `ip === null` means no proxy in front (local development), and it is allowed through for
    * the reason `register/actions.ts` allows it: a limit keyed on an address nobody has is a
    * limit on everybody at once.
-   *
-   * One thing this trades away, said out loud so that nobody has to discover it: because the
-   * answer is `uncounted` rather than a refusal, a caller who deliberately burns their
-   * address's allowance is then *let in uncounted* until the window rolls over, so the cap
-   * stops applying to that address. That is a worse bypass than clearing a cookie in effort
-   * only, not in effect, and the cap was already a deterrent. What this bounds is the thing
-   * that was not bounded at all: how many rows and how much compute one address can make this
-   * function spend.
    */
   const ip = await requestIp()
   if (ip !== null && !(await checkRateLimit(`follow:ip:${ip}`, JOIN_LIMIT, JOIN_WINDOW_MS))) {
-    return 'uncounted'
+    return 'full'
   }
 
   /*
-   * 1. Sweep — bounded to this one broadcast's rows, reachable through the primary key's
-   * leading column, and run at joins only. This is the one moment accuracy matters, because
-   * we are about to count; a sweep inside a plain poll would be fifteen DELETEs a minute per
-   * device for an answer nobody asked for. It also releases the joiner's own lapsed row.
-   */
-  await db()
-    .delete(singAlongDevices)
-    .where(and(eq(singAlongDevices.token, token), lt(singAlongDevices.lastSeenAt, cutoff)))
-
-  /*
-   * 2. Count — keeping the freshness predicate even though the sweep has just run. The
-   * predicate IS the rule (a slot is held for `DEVICE_STALE_SECONDS` after the last
-   * heartbeat); the delete is only hygiene, and the two can race with a concurrent join. A
-   * count of `token = $1` alone would be correct exactly as long as nobody edits the sweep.
-   *
-   * And it excludes THIS device, which is why the predicate is not simply the sweep's inverse.
-   * `admits` counts the **other** devices, and the joiner's own row is normally absent or was
-   * just swept — but not always: two polls for the same device id can overlap, and then this
-   * device would be refused because of itself. Concretely, on `standard` (cap 1): a friend taps
-   * the link twice, both tabs poll with the same cookie (see `pollBroadcast`'s last paragraph),
-   * both find no row, and the second one would count the first one's brand-new row as a rival
-   * and answer `full` to a device that is following in the other tab. The exclusion goes here
-   * and nowhere else — the sweep must keep deleting the joiner's own lapsed row, which is what
-   * makes a rejoin work, and the peak below must keep counting this device, which is what
-   * makes it a peak. The genuine race between two *different* devices is untouched and stays
-   * disclosed above.
-   */
-  const counted = await db()
-    .select({ held: count() })
-    .from(singAlongDevices)
-    .where(
-      and(
-        eq(singAlongDevices.token, token),
-        ne(singAlongDevices.deviceId, deviceId),
-        gte(singAlongDevices.lastSeenAt, cutoff),
-      ),
-    )
-  const held = counted[0]?.held ?? 0
-
-  /*
-   * 3. Cap — one read, and `enforced` is not inferred from `max`; see `admits`. Resolved for
+   * 1. Cap — one read, and `enforced` is not inferred from `max`; see `admits`. Resolved for
    * the account **being broadcast**, never for the broadcast's owner: a global owner
    * broadcasting somebody else's account spends that account's plan, exactly as
    * `startBroadcast` spends `editor.accountOwnerEmail`'s. `broadcastAccountForToken` is where
    * that mapping lives, but it is not called here — the poll's select already holds the
    * address, and calling it would be a second round trip for a value in hand.
+   *
+   * **Hoisted out of the transaction below, and this is not a stylistic choice.** `deviceCapOf`
+   * calls `db()` itself, and `db()`'s pool holds a single connection (`max: 1`, `db/client.ts`)
+   * — the transaction already holds the only one there is, so calling this from inside would
+   * not fail, it would hang forever waiting for a connection that transaction never gives back.
+   * The same trap `verify/actions.ts` documents at its own transaction. Nothing inside the
+   * callback below may touch `db()`; it uses `tx` throughout.
+   *
+   * Reading the plan outside the lock is also correct on its own terms: a plan cannot change
+   * in the microseconds a join holds the lock, and if it somehow did, the next join reads the
+   * new one. The lock exists to make the *count* not go stale, which is a different fact.
    */
   const { max, enforced } = await deviceCapOf(broadcastAccountEmail)
-  if (!admits(held, max, enforced)) {
-    /*
-     * Two refusals, not one, and the difference is whether waiting can ever help. A cap of 0
-     * admits nobody at all, so «leave this open, a place will free up» — which is what the
-     * guest's screen says on `full` — is a promise this broadcast cannot keep: no device
-     * closing its link changes 0, and the leader cannot restart to release the slots either,
-     * because `startBroadcast` now refuses the same plan outright.
-     *
-     * `free` is the only plan with 0 today, and it is reachable here for exactly the reason
-     * `pollBroadcast` says nobody is evicted: a broadcast that was already running when the
-     * subscription lapsed keeps playing, and its cap is now free's. So this is the lapsed-plan
-     * case wearing the only shape the door can see it in. Keyed on the number rather than on
-     * the plan name, because this function knows a cap and deliberately not a plan.
-     */
-    return max === 0 ? 'closed' : 'full'
-  }
 
-  /*
-   * 4. Seat — an upsert, because the row may still be there unswept: a stale row rejoining is
-   * the ordinary case, not an exotic one. `joinedAt` is rewritten too, which is why the column
-   * is not called `createdAt`: it means «since when on this broadcast», and a slot that lapsed
-   * and came back has genuinely joined again.
-   */
+  let outcome: 'seated' | 'full' | 'closed'
   try {
-    await db()
-      .insert(singAlongDevices)
-      .values({ token, deviceId })
-      .onConflictDoUpdate({
-        target: [singAlongDevices.token, singAlongDevices.deviceId],
-        set: { lastSeenAt: sql`now()`, joinedAt: sql`now()` },
-      })
+    outcome = await db().transaction(async (tx) => {
+      /*
+       * 2. The lock — what turns the cap from a deterrent into a boundary, and the only
+       * advisory lock in this repository.
+       *
+       * `count` and `seat` are two statements, so without this they are two snapshots: two
+       * devices arriving together both read "room left" and both get seated, one over the cap.
+       * Taking the lock on this broadcast's token serialises joins to the *same* broadcast and
+       * nothing else — two different leaders' sessions never wait on each other, and no poll
+       * that is merely heartbeating reaches this function at all (see `pollBroadcast`'s branch
+       * (b)), so what serialises is one join per device per broadcast.
+       *
+       * `pg_advisory_xact_lock` and never `pg_advisory_lock`: the session-scoped form is
+       * unusable here, because Neon's pooled endpoint runs PgBouncer in transaction mode
+       * (`db/client.ts`) and hands the connection back to the pool at commit, leaving a
+       * session lock held by whoever gets that connection next. The transaction-scoped form is
+       * released by the commit itself, which is exactly the boundary PgBouncer respects.
+       *
+       * Rejected: a conditional `INSERT … SELECT … WHERE (select count(*) …) < max`, which is
+       * one statement and looks like it needs no lock. It does. Under READ COMMITTED each such
+       * statement evaluates its subquery against its own snapshot, so two of them still both
+       * see room and both insert — the window narrows to the width of one statement without
+       * ever closing. The other real option was a `slot` column with `unique (token, slot)`,
+       * making the (N+1)th insert fail on the constraint; it closes the race just as
+       * completely, at the price of a migration and a retry loop, and buys nothing this does
+       * not. Both parameters are cast explicitly because an untyped parameter inside a
+       * function call is the inference failure `staleBefore` warns about in its own comment.
+       */
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(${JOIN_LOCK_NAMESPACE}::int4, hashtext(${token}::text))`,
+      )
+
+      /*
+       * 3. Sweep — bounded to this one broadcast's rows, reachable through the primary key's
+       * leading column, and run at joins only. This is the one moment accuracy matters, because
+       * we are about to count; a sweep inside a plain poll would be fifteen DELETEs a minute per
+       * device for an answer nobody asked for. It also releases the joiner's own lapsed row.
+       */
+      await tx
+        .delete(singAlongDevices)
+        .where(and(eq(singAlongDevices.token, token), lt(singAlongDevices.lastSeenAt, cutoff)))
+
+      /*
+       * 4. Count — keeping the freshness predicate even though the sweep has just run. The
+       * predicate IS the rule (a slot is held for `DEVICE_STALE_SECONDS` after the last
+       * heartbeat); the delete is only hygiene, and a count of `token = $1` alone would be
+       * correct exactly as long as nobody edits the sweep.
+       *
+       * And it excludes THIS device, which is why the predicate is not simply the sweep's
+       * inverse. `admits` counts the **other** devices, and the joiner's own row is normally
+       * absent or was just swept — but not always: two polls for the same device id can
+       * overlap, and then this device would be refused because of itself. Concretely, on
+       * `standard` (cap 1): a friend taps the link twice, both tabs poll with the same cookie
+       * (see `pollBroadcast`'s last paragraph), both find no row, and the second one would
+       * count the first one's brand-new row as a rival and answer `full` to a device that is
+       * following in the other tab. The exclusion goes here and nowhere else — the sweep must
+       * keep deleting the joiner's own lapsed row, which is what makes a rejoin work, and the
+       * peak below must keep counting this device, which is what makes it a peak.
+       *
+       * Under the lock this count is now authoritative for the decision that follows it: no
+       * other join to this broadcast can land between it and the insert.
+       */
+      const counted = await tx
+        .select({ held: count() })
+        .from(singAlongDevices)
+        .where(
+          and(
+            eq(singAlongDevices.token, token),
+            ne(singAlongDevices.deviceId, deviceId),
+            gte(singAlongDevices.lastSeenAt, cutoff),
+          ),
+        )
+      const held = counted[0]?.held ?? 0
+
+      if (!admits(held, max, enforced)) {
+        /*
+         * Two refusals, not one, and the difference is whether waiting can ever help. A cap of
+         * 0 admits nobody at all, so «leave this open, a place will free up» — which is what
+         * the guest's screen says on `full` — is a promise this broadcast cannot keep: no
+         * device closing its link changes 0, and the leader cannot restart to release the slots
+         * either, because `startBroadcast` refuses the same plan outright.
+         *
+         * `free` is the only plan with 0 today, and it is reachable here for exactly the reason
+         * `pollBroadcast` says nobody is evicted: a broadcast that was already running when the
+         * subscription lapsed keeps playing, and its cap is now free's. So this is the
+         * lapsed-plan case wearing the only shape the door can see it in. Keyed on the number
+         * rather than on the plan name, because this function knows a cap and deliberately not
+         * a plan.
+         *
+         * Returning from inside the callback commits rather than rolls back, which is what we
+         * want: the only write above is the sweep, and deleting lapsed rows is right whether
+         * or not this device gets in.
+         */
+        return max === 0 ? 'closed' : 'full'
+      }
+
+      /*
+       * 5. Seat — an upsert, because the row may still be there unswept: a stale row rejoining
+       * is the ordinary case, not an exotic one. `joinedAt` is rewritten too, which is why the
+       * column is not called `createdAt`: it means «since when on this broadcast», and a slot
+       * that lapsed and came back has genuinely joined again.
+       */
+      await tx
+        .insert(singAlongDevices)
+        .values({ token, deviceId })
+        .onConflictDoUpdate({
+          target: [singAlongDevices.token, singAlongDevices.deviceId],
+          set: { lastSeenAt: sql`now()`, joinedAt: sql`now()` },
+        })
+
+      return 'seated'
+    })
   } catch (error) {
     /*
      * The one error path the token foreign key creates, and it is an ordinary event rather
-     * than a fault: between the poll's select and this insert the leader pressed Stop, or
+     * than a fault: between the poll's select and the insert the leader pressed Stop, or
      * restarted — either way the session row this one references is deleted. With a hundred
      * phones each polling every four seconds, "somebody was mid-join when the leader stopped"
      * is a thing that simply happens.
@@ -575,23 +668,35 @@ async function seatDevice(
      * digest for a race the design knowingly allows. Narrow on purpose: anything that is not
      * `foreign_key_violation` is rethrown, because a poll that cannot write must not quietly
      * come to mean "the broadcast ended".
+     *
+     * Around the whole transaction now rather than the insert alone, because that is where the
+     * insert lives — the rollback takes the sweep with it, which costs nothing: a session whose
+     * row is gone has had its devices cascade-deleted anyway.
      */
     if (!isForeignKeyViolation(error)) throw error
     return 'gone'
   }
 
+  if (outcome !== 'seated') return outcome
+
   /*
-   * 5. Peak — one conditional UPDATE, where 0 rows changed is the ordinary case, and it runs
+   * 6. Peak — one conditional UPDATE, where 0 rows changed is the ordinary case, and it runs
    * with the plans unenforced too: counting is measurement, not a limit, and unenforced the
    * peak is free to climb above the cap the plan would have imposed, which is the marketing
    * signal the column exists for.
    *
-   * The count is a subselect evaluated **after** the seat, not the `held + 1` this function
-   * already has in hand. That difference is the rehearsal case: a hundred phones opening the
-   * link within a few seconds all read `held = 0` before any insert lands, so all hundred
-   * would write 1 and the peak would record 1 for a hundred-device session — in exactly the
-   * scenario the measurement exists to capture. Counting inside the statement makes each
-   * writer observe a growing number instead. The hundred UPDATEs do serialise on this one
+   * **Outside the transaction, and after it, on purpose.** Inside, a failed peak write would
+   * roll the seat back with it and cost a guest their place over a measurement — the exact
+   * thing the try/catch below exists to prevent. Out here it runs on a committed seat, so the
+   * worst a failure costs is one unrecorded number. It uses `db()` rather than a `tx` for the
+   * same reason it can: the transaction has already given the single connection back.
+   *
+   * The count is a subselect evaluated **after** the seat, not the `held + 1` the callback had
+   * in hand. That difference is the rehearsal case: a hundred phones opening the link within a
+   * few seconds each read their own `held` before the others' inserts land, so all hundred
+   * would write a number near 1 and the peak would record it for a hundred-device session — in
+   * exactly the scenario the measurement exists to capture. Counting inside the statement makes
+   * each writer observe a growing number instead. The hundred UPDATEs do serialise on this one
    * `accounts` row's lock, each a no-op after the first few; that is the sharp edge of a join
    * stampede, and it self-limits because only joins do this.
    *
@@ -674,10 +779,11 @@ async function seatDevice(
  * query, the join proceeds as if it were not there, the same device id is reused, and the row
  * on the other token lapses on its own. No rebinding, no eviction, no cross-broadcast write.
  *
- * (d) NO ROW ON THIS TOKEN, or one that has lapsed — the join: sweep, count, cap, seat, peak.
- * Two reads and three writes, once per device per broadcast. A join arriving from an address
- * that has already made hundreds of them is answered like (a) instead — see step 0 of
- * `seatDevice`: it follows, uncounted, rather than being turned away over a shared IP.
+ * (d) NO ROW ON THIS TOKEN, or one that has lapsed — the join: lock, sweep, count, cap, seat,
+ * peak. Two reads and three writes, once per device per broadcast, with the middle four inside
+ * one transaction so the count a refusal rests on cannot go stale before the seat lands. A join
+ * arriving from an address that has already made hundreds of them is refused as (e) — see step
+ * 0 of `seatDevice`, which used to let it follow uncounted and no longer does.
  *
  * (e) NO ROOM — `full` or `closed`, with no row written and nobody already following so much
  * as looked at.
@@ -738,11 +844,14 @@ export async function pollBroadcast(
   }
 
   /*
-   * Five answers, because the broadcast can end between the select above and the insert below
+   * Four answers, because the broadcast can end between the select above and the insert below
    * — see `seatDevice`. `gone` is reported as `expired`, which is what it is; the guest's
-   * screen already knows what that means. `uncounted` falls through to the same answer as
-   * `seated` on purpose and is deliberately not a state the guest is told about: it means this
-   * join was not written down, which is a fact about the measurement and not about them.
+   * screen already knows what that means.
+   *
+   * There used to be a fifth, `uncounted`, which fell through to the same answer as `seated`:
+   * a join the cap never saw, handed out once an address had spent its rate-limit allowance.
+   * It is gone with the bypass it was — that path answers `full` now, and «this join was not
+   * written down» is no longer a state this feature has.
    */
   const seat = await seatDevice(token, deviceId, row.broadcastAccountEmail, now)
   if (seat === 'full') return { ok: false, reason: 'full' }

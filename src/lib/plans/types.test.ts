@@ -358,9 +358,12 @@ describe('audienceSentence', () => {
     assert.equal(audienceSentence(0, PLANS.free.devices), '0 devices following')
   })
 
-  it('drops the cap when the count has passed it, from a downgrade or the seating race', () => {
-    // A plus broadcast downgraded to standard mid-performance, and `seatDevice`'s own
-    // documented read-then-write race, both produce a count above the cap.
+  it('drops the cap when the count has passed it, after a downgrade mid-performance', () => {
+    // A plus broadcast downgraded to standard mid-performance produces a count above the cap,
+    // and nothing stops it: a live performance is deliberately never interrupted. `seatDevice`'s
+    // read-then-write race used to be a second way here and is not one any more — `count` and
+    // `seat` share one advisory lock per broadcast — so this sentence now survives exactly one
+    // cause rather than two, and that cause is a decision rather than a gap.
     assert.equal(audienceSentence(2, PLANS.standard.devices), '2 devices following')
     assert.equal(audienceSentence(4, PLANS.plus.devices), '4 devices following')
   })

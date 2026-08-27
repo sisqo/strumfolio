@@ -607,9 +607,20 @@ export function FollowSession({ token }: { token: string }) {
      * why nothing here says «you were disconnected»: nobody is ever evicted.
      *
      * It also must not coach the way around itself. No «try a private window», no «use
-     * another browser», no «clear your cookies» — a deterrent that ships with its own bypass
-     * in the copy is not a deterrent, and the identity behind this refusal is exactly that:
-     * a cookie, deterring casual link-forwarding, not stopping anybody who is trying.
+     * another browser», no «clear your cookies» — a refusal that ships with its own bypass in
+     * the copy refuses nobody. The cap itself is a real boundary now (`seatDevice` seats under
+     * an advisory lock, so the count cannot go stale under it), but the *identity* it counts by
+     * is still a cookie, which deters casual link-forwarding and does not stop somebody who is
+     * trying. Which is precisely why this screen stays silent about it.
+     *
+     * **This screen now also answers a guest who was rate-limited rather than crowded out** —
+     * `seatDevice`'s step 0 refuses as `full` once an address has spent its join allowance,
+     * where it used to wave them through uncounted. The sentence below is not the true reason
+     * for that guest, and reusing this state was the deliberate choice over inventing a fourth:
+     * the remedy is identical (wait, leave it open), the honest alternative would have to say
+     * «too many devices joined from your network», which invites the reader to blame their own
+     * wifi for somebody else's plan, and the case needs a burnt allowance of three hundred
+     * joins in ten minutes to reach at all.
      *
      * And nothing offers to browse the repertoire while waiting, tempting as it is: the
      * token is still a perfectly good read credential, so only this screen's own ordering

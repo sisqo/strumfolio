@@ -416,8 +416,13 @@ export function limitSentence(limit: LimitFacts): string {
  * is working exactly as decided. A plan that lapses or is downgraded **under a live
  * broadcast** does not interrupt it — you do not cut a live performance, see `pollBroadcast` —
  * so a broadcast with two devices on it can find itself holding free's cap of 0 or standard's
- * 1 at the next tick of the leader's panel. And `seatDevice` documents a read-then-write race
- * that can seat one device over the cap, which produces «2 of 1» with no plan change at all.
+ * 1 at the next tick of the leader's panel.
+ *
+ * That is now the *only* way to reach «2 of 1». The second way used to be a read-then-write
+ * race in `seatDevice` that could seat one device over the cap with no plan change at all;
+ * `count` and `seat` run under one advisory lock per broadcast since, so the door no longer
+ * produces an over-count on its own. This sentence still has to survive the case above, which
+ * no lock can prevent and which nothing should — a live performance is not interrupted.
  *
  * Shared with the screens rather than restated in JSX for the reason `audienceSentence` gives
  * for existing: the panel's «a place frees up…» hint is only true when the cap is real *and*
