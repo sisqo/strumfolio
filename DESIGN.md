@@ -240,8 +240,16 @@ A hybrid system, deliberately not carried over between themes by formula. In lig
 - **Floating bar** (`--shadow-float`: `0 8px 30px -8px rgb(22 24 29 / 25%)` light, `0 10px 34px -10px rgb(0 0 0 / 70%)` dark): the reading control bar, which floats over the song in both themes.
 - **Panel** (`--shadow-panel`: `0 12px 34px -10px rgb(22 24 29 / 28%)` light, `0 14px 40px -12px rgb(0 0 0 / 75%)` dark): any popover — menu, reading panel, chord shape.
 
+### Veil Vocabulary
+What goes over the page while something is open on top of it. Two weights of one idea, and the idea is *muting* rather than darkening: a veil takes contrast away from what is behind it so the thing in front reads first.
+
+- **Panel veil** (`--veil`: `rgb(22 24 29 / 22%)` light, `rgb(255 255 255 / 16%)` dark): behind anything that hangs off a control — the hamburger, the account menu, the reading panel, the speed popover.
+- **Dialog dim** (`--dim`: `rgb(10 11 14 / 45%)` light, `rgb(255 255 255 / 34%)` dark): behind anything that interrupts rather than hangs — the upgrade modal, the sample-songbook modal, a chord shape.
+
 ### Named Rules
 **The Shadow-Or-Border Rule.** A surface is never given both a shadow and a visible border for depth. Light separates by shadow with a transparent edge; dark separates by a hairline edge with no shadow, except the two surfaces that genuinely float over content, which keep a (darkened) shadow in both themes.
+
+**The Veil-Inversion Rule.** A veil darkens in light and *lightens* in dark. Muting means moving the ground towards the text, and the text is dark on light and light on dark — so the same veil cannot be the same colour in both themes. It is also the only direction that does anything: dark's page is `#101216`, and the 22% black that mutes a light page is invisible over it. The dark percentages are not the light ones scaled; each pair is picked so the contrast between the page and its own text falls by the same amount in both themes — roughly 16:1 down to 10:1 for a panel, and to 5.5:1 for a dialog. Same shape as the Shadow-Or-Border Rule: one meaning, two mechanisms, neither derived from the other by formula.
 
 ## 5. Components
 
@@ -270,7 +278,9 @@ A hybrid system, deliberately not carried over between themes by formula. In lig
 - **Segmented control:** grouped buttons in one recessed track (`surface-2` background); the active segment gets a solid accent fill, everything else stays flat.
 
 ### The Reading Control Bar (signature component)
-A single floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-area inset, holding only what's touched mid-song (play/pause, speed) with everything set-once-before-playing (key, notation, size) tucked behind one button that opens a popover panel above the dock. One row on any screen width — the prior two-row version that split across a 390px phone is the thing this replaced.
+A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-area inset, holding only what's touched mid-song (play/pause, speed, the Strum Together toggle) with everything set-once-before-playing (key, capo, chord display, instrument, text size) tucked behind one button that opens a panel above the dock.
+
+**One row from `sm` up, two below it** — and the two-row version is not the old one coming back. What was replaced was two rows of small controls stacked at every width, which split awkwardly on a 390px phone; what a phone has now is one panel of two rows sized *up* rather than down: Previous and Next above, the mid-song controls below, nothing under 48px, the ones a hand reaches for at 58px, and a 78px play circle straddling the seam between the rows, cut out of both by a ring in the bar's own colour. Play is the largest thing in the app on purpose — it is the one control that is a destination rather than a nudge. Above `sm` all of it collapses back to the single row, with the two capsules (dock, prev/next) the wider screen has room for.
 
 ## 6. Do's and Don'ts
 

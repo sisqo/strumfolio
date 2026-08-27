@@ -66,6 +66,18 @@ const SHADOW_TOKENS: { name: string; note: string }[] = [
   { name: '--shadow-panel', note: 'A popover: menu, reading panel, chord shape.' },
 ]
 
+/**
+ * Not shadows, and not colours in the palette's sense either: what goes *over* the page
+ * while something is open on top of it. They earn a section of their own here because they
+ * are the one pair of tokens that points in opposite directions in the two themes, which is
+ * a thing to look at rather than to read about — toggle the theme on this page and the
+ * specimens below invert.
+ */
+const VEIL_TOKENS: { name: string; note: string }[] = [
+  { name: '--veil', note: 'Behind a panel that hangs off a control: menu, reading panel, speed popover.' },
+  { name: '--dim', note: 'Behind a dialog that interrupts: upgrade modal, sample songbook, a chord shape.' },
+]
+
 const DO_RULES = [
   'reserve the accent (Chord Terracotta / Chord Amber) for chords first; anything else using it must read quieter than a chord on the sheet.',
   'design light and dark as two independent, hand-tuned surfaces — never assume a dark value by formula from its light counterpart.',
@@ -307,6 +319,50 @@ export default async function DesignSystemPage() {
                 <p className="brand-note">
                   {token.note} <TokenValue name={token.name} />
                 </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ---- Veils ------------------------------------------------------- */}
+
+        {/*
+          * Before Elevation rather than after: both answer "how does one surface separate
+          * from another", and a veil is the answer when the two are a panel and the whole
+          * page rather than a card and the paper under it.
+          */}
+        <section className="mt-14 sm:mt-16">
+          <h2 className="section-title">Veils</h2>
+          <p className="brand-text">
+            A veil mutes what is behind it — it takes contrast away from the page so the thing in front reads
+            first. Which means it darkens in light and <em>lightens</em> in dark: muting is moving the ground
+            towards the text, and the text is dark on light and light on dark. It is also the only direction that
+            does anything, since dark’s page is nearly black and a dark veil over it is invisible. Toggle the
+            theme in the header and these two invert.
+          </p>
+          <div className="icon-grid">
+            {VEIL_TOKENS.map((token) => (
+              <div key={token.name} className="icon-cell">
+                <Well>
+                  {/* The specimen is the veil over a line of type, because what it acts on is
+                      legibility rather than a surface: half the sample is veiled, half is not. */}
+                  <div
+                    className="relative flex h-16 w-24 items-center justify-center overflow-hidden"
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--edge)',
+                      borderRadius: 'var(--r-lg)',
+                    }}
+                  >
+                    <span className="text-sm font-medium">Aa Bb</span>
+                    <span
+                      className="absolute inset-y-0 end-0 w-1/2"
+                      style={{ background: `var(${token.name})` }}
+                    />
+                  </div>
+                </Well>
+                <h3 className="icon-cell-name font-mono">{token.name}</h3>
+                <p className="brand-note">{token.note}</p>
               </div>
             ))}
           </div>

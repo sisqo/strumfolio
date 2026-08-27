@@ -118,6 +118,31 @@
   --shadow-float: 0 8px 30px -8px rgb(22 24 29 / 25%);
   /* A popover: the menu, the reading panel, a chord shape. */
   --shadow-panel: 0 12px 34px -10px rgb(22 24 29 / 28%);
+
+  /*
+   * What goes over the page while something is open on top of it — two weights of the
+   * one idea, and the idea is *muting* rather than darkening: a veil's job is to take
+   * contrast away from what is behind it so the thing in front reads first.
+   *
+   * `--veil` is a panel: the hamburger, the account menu, the reading panel, the speed
+   * popover. `--dim` is a dialog — the upgrade modal, the sample-songbook modal, a chord
+   * shape — which interrupts rather than hangs off a control, and says so by taking more
+   * away. Two steps of one scale, not two unrelated numbers: flattening them would make
+   * one of the two wrong, either an hamburger that blacks out half the screen or an
+   * upgrade dialog that no longer stops the reading.
+   *
+   * **They point in opposite directions in the two themes, and that is the whole point.**
+   * Muting means moving the ground *towards* the text, and the text is dark on light and
+   * light on dark. It is also the only direction that does anything at all here: dark's
+   * `--bg` is `#101216`, so the 22% black that mutes a light page is invisible over it —
+   * which is what «the dark theme dims and nothing happens» was.
+   *
+   * The dark percentages are not the light ones scaled: each pair is picked so the drop
+   * in contrast between the page and its own text is the same in both themes — about
+   * 16:1 down to 10:1 for a veil, and to 5.5:1 for a dialog.
+   */
+  --veil: rgb(22 24 29 / 22%);
+  --dim: rgb(10 11 14 / 45%);
 }
 
 /*
@@ -164,6 +189,11 @@
     --shadow-2: none;
     --shadow-float: 0 10px 34px -10px rgb(0 0 0 / 70%);
     --shadow-panel: 0 14px 40px -12px rgb(0 0 0 / 75%);
+
+    /* Light, where the light theme's are dark — see their own comment on why the
+       direction flips and why black over `#101216` was doing nothing. */
+    --veil: rgb(255 255 255 / 16%);
+    --dim: rgb(255 255 255 / 34%);
   }
 }
 
@@ -200,6 +230,10 @@
   --shadow-2: none;
   --shadow-float: 0 10px 34px -10px rgb(0 0 0 / 70%);
   --shadow-panel: 0 14px 40px -12px rgb(0 0 0 / 75%);
+
+  /* Twin of the block above. */
+  --veil: rgb(255 255 255 / 16%);
+  --dim: rgb(255 255 255 / 34%);
 }
 
 @layer base {
@@ -430,7 +464,7 @@
   .chord-backdrop {
     position: absolute;
     inset: 0;
-    background: rgb(10 11 14 / 45%);
+    background: var(--dim);
   }
 
   .chord-card {
@@ -623,7 +657,7 @@
   .upgrade-backdrop {
     position: absolute;
     inset: 0;
-    background: rgb(10 11 14 / 45%);
+    background: var(--dim);
   }
 
   .upgrade-card {
@@ -3348,13 +3382,28 @@
   }
 
   /*
-   * Covers the page so the next tap anywhere closes the panel. Transparent: the
-   * point is to dismiss, not to dim the song underneath.
+   * Covers the page so the next tap anywhere closes the panel — and mutes it, which it
+   * did not used to do: it was transparent, on the reasoning that the point is to
+   * dismiss rather than to dim. Only the reading panel had a veil, added with the phone
+   * redesign and only there, which left the app saying two different things about what
+   * an open panel does to the page behind it. It says one now: every panel that hangs
+   * off a control gets `--veil`, at every width, whichever theme is on.
+   *
+   * The header's own row is *inside* this overlay's stacking context (`.top-bar` is
+   * `sticky` with a `z-index`, so it is the context; `.menu` is not) and paints under it
+   * — so opening a header menu mutes the bar it hangs from along with the page. The
+   * reading bar is the other way round for a structural reason of its own: its panel is
+   * a child of `.control-strip`, so the strip has to win against the overlay or the
+   * panel would be painted over and swallow every tap (see `.control-bar .menu-overlay`).
+   * Left as it is rather than equalised by portalling the overlay out of both: what the
+   * reader was asking for is one answer about the *page* behind a panel, and both give
+   * it.
    */
   .menu-overlay {
     position: fixed;
     inset: 0;
     z-index: 30;
+    background: var(--veil);
   }
 
   .menu-panel {
@@ -4905,16 +4954,6 @@
       inset-inline-end: 0.5625rem;
       width: 0.5rem;
       height: 0.5rem;
-    }
-
-    /*
-     * The song, put behind the panel. A literal dark rgb rather than a token, the same
-     * choice `.upgrade-backdrop` makes and for the same reason: a scrim has to darken in
-     * both themes, and `--ink` is a *light* colour in dark mode — mixed in at 22% it
-     * would wash the song out instead of pushing it back.
-     */
-    .control-bar .menu-overlay.is-scrim {
-      background: rgb(22 24 29 / 22%);
     }
 
     /*

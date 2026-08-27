@@ -185,22 +185,16 @@ export function ControlBar({
   return (
     <nav className="control-bar" aria-label="Reading controls">
       {/*
-        * Catches the tap that means "never mind". Inside the bar, so it does not count as
-        * the manual gesture that pauses the scroll.
+        * Catches the tap that means "never mind", and mutes the song while the panel is
+        * over it. Inside the bar, so it does not count as the manual gesture that pauses
+        * the scroll.
         *
-        * `is-scrim` only for the reading panel, and only below `sm` (see its rule): on a
-        * phone that panel spans the whole bar and stands over the song, and the mock dims
-        * what is behind it so the song reads as put aside rather than as still available
-        * under a floating card. The speed popover gets no scrim — it is a thumb-sized
-        * thing that dimming the whole screen would badly overstate.
+        * The veil is `.menu-overlay`'s own now, at every width and for every panel — the
+        * phone redesign gave it to this one panel with a class of its own, which made the
+        * reading panel the only thing in the app that put its background aside. See that
+        * rule for why the two themes push in opposite directions.
         */}
-      {panel !== null && (
-        <div
-          className={panel === 'settings' ? 'menu-overlay is-scrim' : 'menu-overlay'}
-          onClick={() => setPanel(null)}
-          aria-hidden
-        />
-      )}
+      {panel !== null && <div className="menu-overlay" onClick={() => setPanel(null)} aria-hidden />}
 
       <div className={steps === null ? 'control-strip' : 'control-strip has-nav'}>
         {/*
