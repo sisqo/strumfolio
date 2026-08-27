@@ -42,7 +42,21 @@ export const RELEASES: Release[] = [
       'Works with no signal. Once a song has been opened it stays readable offline, which is what a rehearsal room in a basement needs.',
       'Organise a repertoire into songbooks, and a songbook into sections, in the order you play them.',
       'Bring what you already have in, and take it back out again: ChordPro in, ChordPro out, nothing held hostage.',
-      'Tap a chord to see the fingering, for guitar or for ukulele — and from Standard up, the choice follows you to your other devices.',
+      /*
+       * **Corrected after the fact rather than left as history**, which is the one entry here
+       * that has been, so it is worth saying why. It read «for guitar or for ukulele — and from
+       * Standard up, the choice follows you to your other devices», which was true of 1.0: the
+       * ukulele was free to pick and what the paid plans bought was the choice sticking. The
+       * ukulele is a paid feature now, and a reader does not read a highlight as a note about
+       * August — they read it as what the app does. A stale sentence about a *gate* is the kind
+       * that costs somebody a decision about paying, and it contradicted /pricing, which is the
+       * page they would check next.
+       *
+       * The rule this bends, and its limit: entries describe releases, and a release that has
+       * shipped is not normally edited. What earns the exception is that the claim is about what
+       * a plan includes today; nothing else in this list is, and nothing else has been touched.
+       */
+      'Tap a chord to see the fingering, ready to play — guitar on every plan, and the ukulele from Standard up.',
       'Strum Together: everyone opens a link on their own phone and reads the same song in your key, following your line.',
       'A printed booklet as a PDF, ready for the music stand: cover, index, one song a page.',
       'Sign in with Google or with an email and a password, and pick the plan that fits — starting with a free one that has no end date.',

@@ -104,16 +104,18 @@ export default function HelpPage() {
           <ul>
             <li><strong>Key</strong> — move the song up or down a semitone at a time, or back to how it was written.</li>
             <li>
-              <strong>Capo</strong> — move it fret by fret, or apply the suggested position, which finds
-              the fret that lets you play the most open chords for the current key.
+              <strong>Capo</strong> — tap the fret you have it on, or apply the suggested position,
+              which finds the fret that lets you play the most open chords for the current key. The
+              arrow at the end of the row reaches the frets above the sixth.
             </li>
-            <li><strong>Notation</strong> — chord names as Do-Re-Mi or as C-D-E, whichever you read faster.</li>
-            <li><strong>Show</strong> — chords as their name, or as a diagram of where to put your fingers.</li>
-            <li><strong>Size</strong> — how big the words are on screen.</li>
+            <li><strong>Chords as</strong> — chords as their name, or as a diagram of where to put your fingers.</li>
+            <li><strong>Instrument</strong> — which instrument those diagrams are for: guitar, or ukulele on a paid plan.</li>
+            <li><strong>Text size</strong> — how big the words are on screen.</li>
           </ul>
           <p>
-            Tap any chord on the sheet to see it up close — the shape for guitar or ukulele,
-            whichever you&apos;ve set as your instrument in Settings.
+            Tap any chord on the sheet to see it up close, drawn for whichever instrument you
+            picked. Chord names as Do-Re-Mi or as C-D-E is not here but in your account menu,
+            under Settings: it is how you read every song rather than something about this one.
           </p>
 
           <h2 id="strum-together">5. Strum Together</h2>
