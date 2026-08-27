@@ -130,6 +130,17 @@ export function ControlBar({
   } = usePrefs()
   const { running, toggle } = useAutoScroll(song.scrollSpeed)
   const [panel, setPanel] = useState<Panel>(null)
+  const { broadcast } = useSingAlong()
+
+  /*
+   * Gated on `broadcastEnabled` as well as on there being a broadcast at all: on the
+   * guest side the provider answers `null` anyway (a follower has no session, so
+   * `getMyBroadcast` finds nothing), but that is a fact about who happens to be signed
+   * into the browser rather than about this bar, and the same reasoning
+   * `broadcastEnabled`'s own comment gives applies — a guest's copy of this bar must
+   * never speak for an account that isn't reading it.
+   */
+  const broadcasting = broadcastEnabled && broadcast !== null && broadcast !== undefined
 
   const setSemitonesAndBroadcast = (value: number) => {
     const clamped = clampSemitones(value)
@@ -189,6 +200,7 @@ export function ControlBar({
             written={written}
             chordDisplay={global.chordDisplay}
             zoomStep={global.zoomStep}
+            broadcasting={broadcasting}
             setSemitones={setSemitonesAndBroadcast}
             setCapo={setCapo}
             setChordDisplay={setChordDisplay}
@@ -475,16 +487,13 @@ function semitoneBadge(semitones: number): string {
  * between Capo and Show. It has moved to Settings, next to the instrument and the
  * theme, where the other choices a reader carries across every song already live.
  *
- * Grouped by what they act on — the chords, then the text — because "chord
- * display" and "size" are both settings of the same sheet and nothing else on the
- * screen says which part of it each one changes.
- *
  * Redesigned: every row here now reads as a label line (the name, a badge for
  * whatever it is set to, and — for Key — the key that comes out of it) followed by its
  * own full-width control, rather than a label squeezed to one side of it. Capo picks a
  * fret directly now instead of stepping to it one fret at a time, which is what freed
  * the row to grow past `MAX_CAPO` frets without ever needing a way to reach the ones a
- * fixed few buttons could not show.
+ * fixed few buttons could not show. The "Chords"/"Text" group headings went with that
+ * change — see the note on the first row for why.
  */
 function ReadingPanel({
   semitones,
@@ -494,6 +503,7 @@ function ReadingPanel({
   written,
   chordDisplay,
   zoomStep,
+  broadcasting,
   setSemitones,
   setCapo,
   setChordDisplay,
@@ -509,6 +519,10 @@ function ReadingPanel({
   written: Key | null
   chordDisplay: ChordDisplay
   zoomStep: number
+  /** True only while this reader has a live broadcast of their own, so the Key row can
+   *  say that moving it moves every following screen too. Never true on the guest side,
+   *  where a follower has no broadcast to lead. */
+  broadcasting: boolean
   setSemitones: (value: number) => void
   setCapo: (value: number) => void
   setChordDisplay: (value: ChordDisplay) => void
@@ -519,8 +533,11 @@ function ReadingPanel({
 
   return (
     <div className="control-panel">
-      <span className="group-label">Chords</span>
-
+      {/*
+        * No "Chords"/"Text" group headings any more. Each row already names itself —
+        * Key, Capo, Chords as, Text size — and with only four of them the headings
+        * were labelling groups of one and two.
+        */}
       <div className="control-row">
         <span className="control-name-label">Key</span>
         <span className="value-badge" title={formatSemitones(semitones)}>
@@ -564,6 +581,19 @@ function ReadingPanel({
       </div>
 
       {/*
+        * The one consequence of these three buttons that is not visible on this
+        * screen: while a broadcast is live, moving the key here moves it on every
+        * screen following it. Said only then — with nobody following, there is
+        * nothing extra happening to warn anyone about.
+        */}
+      {broadcasting && (
+        <p className="broadcast-hint">
+          <span className="broadcast-hint-dot" aria-hidden />
+          The followers&apos; screens change key with you.
+        </p>
+      )}
+
+      {/*
         * Said only for the guest side's reuse of this panel — never here, since
         * `semitonesLocked` is always false in the ordinary reading flow. The row
         * above still shows the key; what a guest cannot do is move it.
@@ -574,24 +604,30 @@ function ReadingPanel({
         </div>
       )}
 
-      <div className="control-row mt-4">
+      <div className="control-row mt-[1.125rem]">
         <span className="control-name-label">Capo</span>
         <span className="value-badge">{capo === 0 ? 'none' : `fret ${capo}`}</span>
       </div>
 
       <div className="fret-row mt-2.5" role="group" aria-label="Capo fret">
-        {Array.from({ length: MAX_CAPO + 1 }, (_, fret) => (
-          <button
-            key={fret}
-            type="button"
-            className={fret === capo ? 'fret-button is-on' : 'fret-button'}
-            onClick={() => setCapo(fret)}
-            aria-pressed={fret === capo}
-            aria-label={fret === 0 ? 'No capo' : `Capo on fret ${fret}`}
-          >
-            {fret}
-          </button>
-        ))}
+        {Array.from({ length: MAX_CAPO + 1 }, (_, fret) => {
+          const classes = ['fret-button']
+          if (fret === 0) classes.push('is-none')
+          if (fret === capo) classes.push('is-on')
+
+          return (
+            <button
+              key={fret}
+              type="button"
+              className={classes.join(' ')}
+              onClick={() => setCapo(fret)}
+              aria-pressed={fret === capo}
+              aria-label={fret === 0 ? 'No capo' : `Capo on fret ${fret}`}
+            >
+              {fret}
+            </button>
+          )
+        })}
       </div>
 
       {/*
@@ -600,17 +636,21 @@ function ReadingPanel({
         * A sentence and a button rather than an automatic move: the capo is the one
         * thing here that changes what the hands do, and the reader is the one holding
         * them. It disappears as soon as it has nothing left to offer — but the slot
-        * around it does not, so stepping through capo positions never shifts Show
-        * and Text below; see `.capo-hint-slot`'s own comment in globals.css.
+        * around it does not, so stepping through capo positions never shifts the two
+        * rows below; see `.capo-hint-slot`'s own comment in globals.css.
         */}
       <div className="capo-hint-slot">
         {suggestion !== null && (
-          <div className="control-hint">
-            <span>
+          <div className="capo-suggestion">
+            <span className="capo-suggestion-text">
               Easier at <strong>fret {suggestion.fret}</strong> — {suggestion.easy} of{' '}
               {suggestion.total} chords open
             </span>
-            <button type="button" className="btn btn-sm" onClick={() => setCapo(suggestion.fret)}>
+            <button
+              type="button"
+              className="capo-suggestion-action"
+              onClick={() => setCapo(suggestion.fret)}
+            >
               Move capo
             </button>
           </div>
@@ -621,10 +661,12 @@ function ReadingPanel({
 
       <span className="control-name-label">Chords as</span>
 
-      <span className="segment mt-2.5" role="group" aria-label="Chord display">
+      {/* `w-full` + `flex-1`, the same idiom `ThemePicker`/`NotationPicker` already use
+          for a segment that fills its container rather than hugging its labels. */}
+      <span className="segment mt-2 w-full" role="group" aria-label="Chord display">
         <button
           type="button"
-          className={chordDisplay === 'name' ? 'segment-button is-on' : 'segment-button'}
+          className={chordDisplay === 'name' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
           onClick={() => setChordDisplay('name')}
           aria-pressed={chordDisplay === 'name'}
         >
@@ -632,7 +674,7 @@ function ReadingPanel({
         </button>
         <button
           type="button"
-          className={chordDisplay === 'shape' ? 'segment-button is-on' : 'segment-button'}
+          className={chordDisplay === 'shape' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
           onClick={() => setChordDisplay('shape')}
           aria-pressed={chordDisplay === 'shape'}
         >
@@ -640,13 +682,10 @@ function ReadingPanel({
         </button>
       </span>
 
-      <div className="control-divider" />
-
-      <span className="group-label">Text</span>
-
-      <div className="control-row">
-        <span className="control-name-label">Size</span>
-        <span className="flex-1" />
+      {/* No second divider: "Chords as" and "Text size" are one step apart, not two
+          groups, so the space between them does the separating. */}
+      <div className="mt-4 flex items-baseline justify-between">
+        <span className="control-name-label">Text size</span>
         <span className="control-hint-text">{ZOOM_STEPS[zoomStep]} px</span>
       </div>
 
