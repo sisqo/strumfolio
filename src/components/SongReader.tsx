@@ -72,10 +72,13 @@ async function placeOf(
  * The ChordPro is parsed here, on the server, so the parse happens once at build
  * time and the client only ever formats an already-structured song.
  *
- * Stepping to the next song happens in the header and nowhere else. There used to be
- * two cards for it at the foot of the sheet as well, which meant the same two
- * destinations twice on one screen — and the copy at the bottom was the one you had
- * to scroll a whole song to reach, while the arrows are in reach the entire time.
+ * Stepping to the next song happens in the reading bar's own capsule (`LiveControlBar`)
+ * and nowhere else — moved down from the header it used to live in, to sit with
+ * the rest of what a hand reaches for mid-song rather than at the top of the page, out
+ * of reach on a stand. There used to be two cards for it at the foot of the sheet as
+ * well, before that, which meant the same destination twice on one screen — and the
+ * copy at the bottom was the one you had to scroll a whole song to reach, while the
+ * bar is in reach the entire time.
  */
 export async function SongReader({ song }: { song: Song }) {
   const parsed = parseChordPro(song.body)
@@ -111,10 +114,6 @@ export async function SongReader({ song }: { song: Song }) {
               ? undefined
               : { href: `/songbooks/${home.slug}#song-${song.slug}`, label: home.name }
           }
-          steps={{
-            previous: series?.previous ? `/songs/${series.previous}` : null,
-            next: series?.next ? `/songs/${series.next}` : null,
-          }}
         />
 
         {/*
@@ -159,7 +158,18 @@ export async function SongReader({ song }: { song: Song }) {
           <div className="bar-spacer" />
         </main>
 
-        <LiveControlBar />
+        <LiveControlBar
+          steps={
+            series === null
+              ? null
+              : {
+                  previous: series.previous ? `/songs/${series.previous}` : null,
+                  next: series.next ? `/songs/${series.next}` : null,
+                  position: series.position,
+                  total: series.total,
+                }
+          }
+        />
       </SongProvider>
     </PrefsProvider>
   )

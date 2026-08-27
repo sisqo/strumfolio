@@ -1,10 +1,18 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
+import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { usePrefs } from '@/components/PrefsProvider'
+import { useSingAlong } from '@/components/SingAlongProvider'
 import {
+  IconBroadcast,
+  IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconHare,
+  IconLink,
   IconPause,
   IconPlay,
   IconSliders,
@@ -12,27 +20,52 @@ import {
   IconUndo,
 } from '@/components/icons'
 import { type CapoOption, MAX_CAPO, suggestCapo } from '@/lib/music/capo'
+import { estimateKey } from '@/lib/music/key'
+import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
+import { audienceSentence } from '@/lib/plans/types'
+import { followUrl } from '@/lib/singAlong/link'
 import { broadcastPlay, broadcastTranspose } from '@/lib/singAlong/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
+
+/** Where this song sits in the sequence a reader can step through with the bar's own
+ *  prev/next capsule — `null` when there is none, a guest following a broadcast being
+ *  the one case that applies to today: `FollowSession` mounts `ControlBar` directly, with
+ *  no `steps` prop, rather than passing one with nothing in it. */
+export interface NavSteps {
+  previous: string | null
+  next: string | null
+  position: number
+  total: number
+}
+
+/** Which floating panel is open above the bar, if any — at most one at a time, so
+ *  opening a second always closes whichever the reader had open already. */
+type Panel = 'settings' | 'speed' | 'sing' | null
 
 /**
  * The reading controls, floating over the bottom of the song.
  *
- * One row, and only two things on it: play, and how fast the page moves. Those are
- * the ones a hand reaches for with a guitar in the other, and the eight controls
- * that used to sit here wrapped onto a second line on every phone.
+ * Redesigned around the same one-row idea the previous version put in words —
+ * "the ones a hand reaches for with a guitar in the other" — but that set has grown by
+ * two: Sing Together now has a quick toggle here rather than living only in the header
+ * menu, and stepping to the next song has moved down from the header into a capsule of
+ * its own beside this one. On a phone there is no room to also keep the scroll-speed
+ * slider spread out full width once those two are added, so it collapses to a single
+ * icon there — see `.speed-compact`'s own comment — which is what frees enough width
+ * for the two capsules to read as one bar rather than two, at that size.
  *
- * Everything else — how far the song has been moved, the size of the text — is set
- * once before the song starts and lives in a panel behind the last button. The cost
- * is named and accepted: with the panel closed, the bar says nothing about how the
- * song has been moved. The sheet does, in the chords themselves.
+ * Everything set once before the song starts — capo, text size, how a chord is shown —
+ * still lives in the settings panel behind its own button, unchanged in spirit from
+ * before: a control tapped mid-song stays out here, one set once stays behind the
+ * button.
  */
 export function ControlBar({
   songSlug,
   chords = [],
   semitonesLocked = false,
   broadcastEnabled = true,
+  steps = null,
 }: {
   /**
    * Which song this bar belongs to — needed only to tell Sing Together which song
@@ -42,8 +75,8 @@ export function ControlBar({
    */
   songSlug: string
   /**
-   * Every chord token of the song, for the capo suggestion. Empty is a fine answer —
-   * the suggestion then has nothing to say and says nothing.
+   * Every chord token of the song, for the capo suggestion and for guessing the key
+   * it's written in. Empty is a fine answer — both then have nothing to say.
    */
   chords?: string[]
   /**
@@ -61,8 +94,14 @@ export function ControlBar({
    * silently retarget that account's own broadcast. A guest's own copy of this bar
    * must never be able to call them, session or not; that is a categorical property of
    * where the bar is mounted, not something to detect from whether a session exists.
+   * The same flag also hides the Sing Together toggle itself, for the same reason: a
+   * guest must never be offered a way to start a broadcast of their own.
    */
   broadcastEnabled?: boolean
+  /** This song's place in the songbook it was opened from, for the prev/next capsule.
+   *  `null` when there is none to show — a guest's reading page, or a song with no
+   *  songbook of its own. */
+  steps?: NavSteps | null
 }) {
   const {
     global,
@@ -75,16 +114,8 @@ export function ControlBar({
     setCapo,
   } = usePrefs()
   const { running, toggle } = useAutoScroll(song.scrollSpeed)
-  const [open, setOpen] = useState(false)
+  const [panel, setPanel] = useState<Panel>(null)
 
-  /*
-   * The one thing Sing Together needs from every semitone change: not the raw value
-   * the buttons proposed, but the same clamped value `setSemitones` is about to save —
-   * computed once, here, and handed to both. Computing it twice, once inside
-   * `setSemitones` and again for the broadcast, would still agree today, but only
-   * because both happen to call the same clamp; this way there is one number, used
-   * twice, and no way for the two to drift apart if that ever stopped being true.
-   */
   const setSemitonesAndBroadcast = (value: number) => {
     const clamped = clampSemitones(value)
     setSemitones(clamped)
@@ -92,25 +123,30 @@ export function ControlBar({
   }
 
   useEffect(() => {
-    if (!open) return
+    if (panel === null) return
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') setPanel(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [panel])
 
   /*
-   * Only while the panel is open, because that is the only place it is shown — and
-   * because on a ukulele the answer is searched rather than looked up: about thirteen
-   * thousand fingerings per chord, cached after the first time, but the first time is
-   * 56 ms of one thread. Paying that when a panel is opened is fine; paying it on every
-   * reading page, for something nobody is looking at, is not.
+   * Only while the settings panel is open, because that is the only place either is
+   * shown — and because on a ukulele the capo suggestion is searched rather than looked
+   * up: about thirteen thousand fingerings per chord, cached after the first time, but
+   * the first time is 56 ms of one thread. Paying that when a panel is opened is fine;
+   * paying it on every reading page, for something nobody is looking at, is not.
    */
   const suggestion = useMemo(
-    () => (open ? suggestCapo(chords, song.semitones, song.capo, global.instrument) : null),
-    [open, chords, song.semitones, song.capo, global.instrument],
+    () =>
+      panel === 'settings' ? suggestCapo(chords, song.semitones, song.capo, global.instrument) : null,
+    [panel, chords, song.semitones, song.capo, global.instrument],
+  )
+  const written = useMemo(
+    () => (panel === 'settings' ? (estimateKey(chords) ?? C_MAJOR) : null),
+    [panel, chords],
   )
 
   const lastSpeed = SCROLL_SPEEDS.length - 1
@@ -119,104 +155,338 @@ export function ControlBar({
     <nav className="control-bar" aria-label="Reading controls">
       {/* Catches the tap that means "never mind". Inside the bar, so it does not
           count as the manual gesture that pauses the scroll. */}
-      {open && <div className="menu-overlay" onClick={() => setOpen(false)} aria-hidden />}
+      {panel !== null && <div className="menu-overlay" onClick={() => setPanel(null)} aria-hidden />}
 
-      <div className="control-dock">
-        {open && (
-          <ReadingPanel
-            semitones={song.semitones}
-            semitonesLocked={semitonesLocked}
-            capo={song.capo}
-            suggestion={suggestion}
-            chordDisplay={global.chordDisplay}
-            zoomStep={global.zoomStep}
-            setSemitones={setSemitonesAndBroadcast}
-            setCapo={setCapo}
-            setChordDisplay={setChordDisplay}
-            setZoomStep={setZoomStep}
-          />
-        )}
+      <div className={steps === null ? 'control-strip' : 'control-strip has-nav'}>
+        <div className="control-dock">
+          {panel === 'settings' && (
+            <ReadingPanel
+              semitones={song.semitones}
+              semitonesLocked={semitonesLocked}
+              capo={song.capo}
+              suggestion={suggestion}
+              written={written}
+              chordDisplay={global.chordDisplay}
+              zoomStep={global.zoomStep}
+              setSemitones={setSemitonesAndBroadcast}
+              setCapo={setCapo}
+              setChordDisplay={setChordDisplay}
+              setZoomStep={setZoomStep}
+            />
+          )}
 
-        <button
-          type="button"
-          className="control-button control-play"
-          onClick={() => {
+          {broadcastEnabled && panel === 'sing' && (
+            <SingPanel close={() => setPanel(null)} />
+          )}
+
+          {broadcastEnabled && <SingToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
+
+          <button
+            type="button"
+            className="control-button control-play"
+            onClick={() => {
+              /*
+               * Only on the press that starts the scroll, never the one that stops it:
+               * pausing is a private, local thing to do while reading, and must not
+               * change what anyone else's screen is showing. `broadcastPlay` no-ops on
+               * its own when this reader has no broadcast running, so nothing here
+               * checks for one first.
+               */
+              if (!running && broadcastEnabled) void broadcastPlay(songSlug, song.semitones).catch(() => {})
+              toggle()
+            }}
+            aria-pressed={running}
+            aria-label={running ? 'Stop scrolling' : 'Start scrolling'}
+          >
+            {running ? <IconPause size={16} /> : <IconPlay size={16} />}
+          </button>
+
+          {/* The full slider, shown from the width the two capsules can no longer
+              share the row at — see `.speed-full`'s own rule. */}
+          <div className="speed speed-full">
+            <IconTurtle size={24} />
+            <input
+              type="range"
+              className="speed-range"
+              min={0}
+              max={lastSpeed}
+              step={1}
+              value={song.scrollSpeed}
+              onChange={(event) => setScrollSpeed(Number(event.target.value))}
+              style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
+              aria-label="Scroll speed"
+              aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
+            />
+            <IconHare size={24} />
+          </div>
+
+          {/* The collapsed version, below that width: an icon that opens the same
+              slider standing on end above it. */}
+          <div className="speed-compact">
+            <button
+              type="button"
+              className="control-button"
+              onClick={() => setPanel((current) => (current === 'speed' ? null : 'speed'))}
+              aria-expanded={panel === 'speed'}
+              aria-label="Scroll speed"
+            >
+              <IconHare size={19} />
+            </button>
+
+            {panel === 'speed' && (
+              <div className="speed-popover">
+                <IconHare size={16} />
+                <span className="speed-vertical-wrap">
+                  <input
+                    type="range"
+                    className="speed-range zoom-range speed-range-vertical"
+                    min={0}
+                    max={lastSpeed}
+                    step={1}
+                    value={song.scrollSpeed}
+                    onChange={(event) => setScrollSpeed(Number(event.target.value))}
+                    style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
+                    aria-label="Scroll speed"
+                    aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
+                  />
+                </span>
+                <IconTurtle size={16} />
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="control-button control-open"
+            onClick={() => setPanel((current) => (current === 'settings' ? null : 'settings'))}
+            aria-expanded={panel === 'settings'}
             /*
-             * Only on the press that starts the scroll, never the one that stops it:
-             * pausing is a private, local thing to do while reading, and must not
-             * change what anyone else's screen is showing. `broadcastPlay` no-ops on
-             * its own when this reader has no broadcast running, so nothing here
-             * checks for one first.
+             * The unsaved change is named here rather than on the dot. A live region
+             * nested inside a button is not something a reader reaching this control
+             * would be told about — the button's own name is — so the dot is left as
+             * the visual half and the words join the label.
              */
-            if (!running && broadcastEnabled) void broadcastPlay(songSlug, song.semitones).catch(() => {})
-            toggle()
-          }}
-          aria-pressed={running}
-          aria-label={running ? 'Stop scrolling' : 'Start scrolling'}
-        >
-          {running ? <IconPause size={16} /> : <IconPlay size={16} />}
-        </button>
+            aria-label={
+              (panel === 'settings' ? 'Close chords and text' : 'Chords and text') +
+              (pending > 0 ? ', unsaved change' : '')
+            }
+          >
+            <IconSliders size={20} />
 
-        <div className="speed">
-          <IconTurtle size={24} />
-          <input
-            type="range"
-            className="speed-range"
-            min={0}
-            max={lastSpeed}
-            step={1}
-            value={song.scrollSpeed}
-            onChange={(event) => setScrollSpeed(Number(event.target.value))}
-            /*
-             * The filled part of the track. Chrome will not paint it from the
-             * value, and Firefox uses ::-moz-range-progress instead, so the number
-             * is handed to CSS and each engine takes the half it understands.
-             */
-            style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
-            aria-label="Scroll speed"
-            aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
-          />
-          <IconHare size={24} />
+            {/* A queued change is visible, so nothing is ever lost in silence. */}
+            {pending > 0 && <span className="pending-dot" title="Unsaved" aria-hidden />}
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="control-button control-open"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          /*
-           * The unsaved change is named here rather than on the dot. A live region
-           * nested inside a button is not something a reader reaching this control
-           * would be told about — the button's own name is — so the dot is left as
-           * the visual half and the words join the label.
-           */
-          aria-label={
-            (open ? 'Close chords and text' : 'Chords and text') +
-            (pending > 0 ? ', unsaved change' : '')
-          }
-        >
-          <IconSliders size={20} />
-
-          {/* A queued change is visible, so nothing is ever lost in silence. */}
-          {pending > 0 && <span className="pending-dot" title="Unsaved" aria-hidden />}
-        </button>
+        {steps !== null && <PrevNext steps={steps} />}
       </div>
     </nav>
   )
 }
 
+/** Steps to the previous or next song in the songbook, and where this one sits among
+ *  them — moved down from the header so it sits with the rest of what a hand
+ *  reaches for mid-song rather than at the top of the page, out of reach on a stand. */
+function PrevNext({ steps }: { steps: NavSteps }) {
+  return (
+    <div className="control-nav">
+      <Step href={steps.previous} label="Previous song" direction="previous" />
+      <span className="control-nav-count">
+        {steps.position}/{steps.total}
+      </span>
+      <Step href={steps.next} label="Next song" direction="next" />
+    </div>
+  )
+}
+
+function Step({
+  href,
+  label,
+  direction,
+}: {
+  href: string | null
+  label: string
+  direction: 'previous' | 'next'
+}) {
+  const icon = direction === 'previous' ? <IconChevronLeft size={22} /> : <IconChevronRight size={22} />
+
+  if (href === null) {
+    return (
+      <span className="control-button is-off" aria-hidden>
+        {icon}
+      </span>
+    )
+  }
+
+  return (
+    <Link href={href} className="control-button" title={label} aria-label={label}>
+      {icon}
+    </Link>
+  )
+}
+
+/** The Sing Together toggle: a quiet icon while nothing is running, a filled pill
+ *  naming the follower count once something is. Tapping either opens `SingPanel`. */
+function SingToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { broadcast, audience } = useSingAlong()
+  const live = broadcast !== null && broadcast !== undefined
+
+  if (!live) {
+    return (
+      <button
+        type="button"
+        className="control-button control-sing"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label="Sing Together"
+      >
+        <IconBroadcast size={19} />
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="control-sing is-live"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={
+        audience === null
+          ? 'Sing Together is on'
+          : `Sing Together is on, ${audience.following} following`
+      }
+    >
+      <IconBroadcast size={19} />
+      {audience !== null && <span className="control-sing-count">{audience.following}</span>}
+    </button>
+  )
+}
+
 /**
- * How far the song has been moved from the key it was written in.
+ * The condensed Sing Together screen, anchored above the bar's own toggle.
  *
- * Steps rather than the name of the key: the name is on every chord of the sheet
- * already, and what this row cannot show is how far from home you have gone.
- * The sign is the typographic minus, so it lines up with the buttons beside it.
+ * A smaller version of the menu's own Sing Together view, not a second copy of it: no
+ * QR here (drawing one is not a cost worth paying for a panel this size, or twice for
+ * one broadcast), no numbered steps — a leader who has reached for this button mid-song
+ * already knows what starting one does. What survives is the one thing this location
+ * earns over the menu's: it opens without leaving the song.
+ */
+function SingPanel({ close }: { close: () => void }) {
+  const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useSingAlong()
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+
+  const doStart = async () => {
+    setError(null)
+    const result = await start()
+    if (result.ok) return
+
+    if (result.reason === 'plan-required') {
+      setPlanNotice({ reason: 'plan-required', feature: 'Sing Together' })
+      close()
+    } else if (result.reason === 'no-session') {
+      setError('Session expired. Reload the page and sign in again.')
+    } else {
+      setError("Couldn't start. Try again.")
+    }
+  }
+
+  const doStop = async () => {
+    setError(null)
+    const result = await stop()
+    if (!result.ok) setError("Couldn't stop. Try again.")
+  }
+
+  const copyLink = async () => {
+    if (broadcast == null) return
+    try {
+      await navigator.clipboard.writeText(followUrl(broadcast.token))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* Clipboard access can be refused; the link is still there as selectable text. */
+    }
+  }
+
+  return (
+    <div className="sing-panel">
+      {broadcast === undefined && <p className="text-sm text-muted">One moment…</p>}
+
+      {broadcast === null && askFailed && (
+        <>
+          <p className="notice notice-error" role="alert">
+            Couldn&apos;t check whether you already have one running.
+          </p>
+          <button type="button" className="btn btn-sm mt-2 w-full" onClick={checkBroadcast}>
+            Try again
+          </button>
+        </>
+      )}
+
+      {broadcast === null && !askFailed && (
+        <>
+          <p className="text-sm text-muted">
+            Share a link and whoever opens it follows this song, live, in your key — no
+            account needed on their side.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm mt-3 w-full"
+            onClick={() => void doStart()}
+            disabled={busy}
+          >
+            <IconBroadcast size={15} />
+            Start broadcasting
+          </button>
+        </>
+      )}
+
+      {broadcast !== null && broadcast !== undefined && (
+        <>
+          <p className="select-all break-all text-xs text-muted">{followUrl(broadcast.token)}</p>
+          {audience !== null && (
+            <p className="mt-1.5 text-xs text-muted">{audienceSentence(audience.following, audience.devices)}</p>
+          )}
+          <div className="mt-2.5 flex gap-1.5">
+            <button type="button" className="btn btn-sm flex-1" onClick={() => void copyLink()}>
+              {copied ? <IconCheck size={14} /> : <IconLink size={14} />}
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <button type="button" className="btn btn-ink btn-sm flex-1" onClick={() => void doStop()} disabled={busy}>
+              Stop
+            </button>
+          </div>
+        </>
+      )}
+
+      {error !== null && (
+        <p className="notice notice-error mt-2" role="alert">
+          {error}
+        </p>
+      )}
+
+      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
+    </div>
+  )
+}
+
+/**
+ * How far the song has been moved from the key it was written in, in full — used as
+ * the badge's accessible name, since the badge itself shows only the bare signed number.
  */
 function formatSemitones(semitones: number): string {
   if (semitones === 0) return '0 semitones'
   const sign = semitones > 0 ? '+' : '−'
   const size = Math.abs(semitones)
   return `${sign}${size} ${size === 1 ? 'semitone' : 'semitones'}`
+}
+
+/** The bare signed number the Key badge shows: `formatSemitones` without the word. */
+function semitoneBadge(semitones: number): string {
+  if (semitones === 0) return '0'
+  return semitones > 0 ? `+${semitones}` : `−${Math.abs(semitones)}`
 }
 
 /**
@@ -231,12 +501,20 @@ function formatSemitones(semitones: number): string {
  * Grouped by what they act on — the chords, then the text — because "chord
  * display" and "size" are both settings of the same sheet and nothing else on the
  * screen says which part of it each one changes.
+ *
+ * Redesigned: every row here now reads as a label line (the name, a badge for
+ * whatever it is set to, and — for Key — the key that comes out of it) followed by its
+ * own full-width control, rather than a label squeezed to one side of it. Capo picks a
+ * fret directly now instead of stepping to it one fret at a time, which is what freed
+ * the row to grow past `MAX_CAPO` frets without ever needing a way to reach the ones a
+ * fixed few buttons could not show.
  */
 function ReadingPanel({
   semitones,
   semitonesLocked,
   capo,
   suggestion,
+  written,
   chordDisplay,
   zoomStep,
   setSemitones,
@@ -249,6 +527,9 @@ function ReadingPanel({
   semitonesLocked: boolean
   capo: number
   suggestion: CapoOption | null
+  /** The song's own key, estimated from its chords — `null` only while the panel is
+   *  closed, when nothing needs it. */
+  written: Key | null
   chordDisplay: ChordDisplay
   zoomStep: number
   setSemitones: (value: number) => void
@@ -256,51 +537,53 @@ function ReadingPanel({
   setChordDisplay: (value: ChordDisplay) => void
   setZoomStep: (value: number) => void
 }) {
+  const reading = written !== null ? transposeKey(written, semitones) : null
+  const lastZoom = ZOOM_STEPS.length - 1
+
   return (
     <div className="control-panel">
       <span className="group-label">Chords</span>
 
       <div className="control-row">
-        <span className="control-name">
-          <span className="control-name-label">Key</span>
-          <span className={semitones === 0 ? 'control-name-value' : 'control-name-value is-changed'}>
-            {formatSemitones(semitones)}
-          </span>
+        <span className="control-name-label">Key</span>
+        <span className="value-badge" title={formatSemitones(semitones)}>
+          {semitoneBadge(semitones)}
         </span>
+        {reading !== null && <span className="control-hint-text">reading in {reading.name}</span>}
+      </div>
 
-        <span className="segment">
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setSemitones(semitones - 1)}
-            disabled={semitonesLocked}
-            aria-label="Lower by a semitone"
-          >
-            <span aria-hidden>−1</span>
-          </button>
+      <div className="value-buttons mt-2.5">
+        <button
+          type="button"
+          className="value-button"
+          onClick={() => setSemitones(semitones - 1)}
+          disabled={semitonesLocked}
+          aria-label="Lower by a semitone"
+        >
+          −1
+        </button>
 
-          {/* The way back, as a symbol: inert while there is nothing to undo. */}
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setSemitones(0)}
-            disabled={semitonesLocked || semitones === 0}
-            aria-label="Return to the written key"
-            title={semitonesLocked || semitones === 0 ? undefined : 'Return to the written key'}
-          >
-            <IconUndo size={15} />
-          </button>
+        <button
+          type="button"
+          className="value-button is-accent"
+          onClick={() => setSemitones(0)}
+          disabled={semitonesLocked || semitones === 0}
+          aria-label="Return to the written key"
+          title={semitonesLocked || semitones === 0 ? undefined : 'Return to the written key'}
+        >
+          <IconUndo size={14} />
+          reset
+        </button>
 
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setSemitones(semitones + 1)}
-            disabled={semitonesLocked}
-            aria-label="Raise by a semitone"
-          >
-            <span aria-hidden>+1</span>
-          </button>
-        </span>
+        <button
+          type="button"
+          className="value-button"
+          onClick={() => setSemitones(semitones + 1)}
+          disabled={semitonesLocked}
+          aria-label="Raise by a semitone"
+        >
+          +1
+        </button>
       </div>
 
       {/*
@@ -314,46 +597,24 @@ function ReadingPanel({
         </div>
       )}
 
-      <div className="control-row">
-        <span className="control-name">
-          <span className="control-name-label">Capo</span>
-          <span className={capo === 0 ? 'control-name-value' : 'control-name-value is-changed'}>
-            {capo === 0 ? 'none' : `fret ${capo}`}
-          </span>
-        </span>
+      <div className="control-row mt-4">
+        <span className="control-name-label">Capo</span>
+        <span className="value-badge">{capo === 0 ? 'none' : `fret ${capo}`}</span>
+      </div>
 
-        <span className="segment">
+      <div className="fret-row mt-2.5" role="group" aria-label="Capo fret">
+        {Array.from({ length: MAX_CAPO + 1 }, (_, fret) => (
           <button
+            key={fret}
             type="button"
-            className="segment-button"
-            onClick={() => setCapo(capo - 1)}
-            disabled={capo === 0}
-            aria-label="Lower the capo by one fret"
+            className={fret === capo ? 'fret-button is-on' : 'fret-button'}
+            onClick={() => setCapo(fret)}
+            aria-pressed={fret === capo}
+            aria-label={fret === 0 ? 'No capo' : `Capo on fret ${fret}`}
           >
-            <span aria-hidden>−</span>
+            {fret}
           </button>
-
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setCapo(0)}
-            disabled={capo === 0}
-            aria-label="Remove the capo"
-            title={capo === 0 ? undefined : 'Remove the capo'}
-          >
-            <IconUndo size={15} />
-          </button>
-
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setCapo(capo + 1)}
-            disabled={capo === MAX_CAPO}
-            aria-label="Raise the capo by one fret"
-          >
-            <span aria-hidden>+</span>
-          </button>
-        </span>
+        ))}
       </div>
 
       {/*
@@ -369,78 +630,69 @@ function ReadingPanel({
         {suggestion !== null && (
           <div className="control-hint">
             <span>
-              {suggestion.easy === suggestion.total
-                ? `With capo at fret ${suggestion.fret}, all chords are open.`
-                : `With capo at fret ${suggestion.fret}, ${suggestion.easy} of ${suggestion.total} chords are open.`}
+              Easier at <strong>fret {suggestion.fret}</strong> — {suggestion.easy} of{' '}
+              {suggestion.total} chords open
             </span>
             <button type="button" className="btn btn-sm" onClick={() => setCapo(suggestion.fret)}>
-              Apply
+              Move capo
             </button>
           </div>
         )}
       </div>
 
-      {/*
-        * Whether the chord above a syllable reads as its name or as its shape,
-        * drawn the same size the name would take (`.sheet-chord-shape`, next to
-        * `SheetChord`'s own comment on why this sits in the sheet, not the popup).
-        */}
-      <div className="control-row">
-        <span className="control-name">
-          <span className="control-name-label">Show</span>
-        </span>
+      <div className="control-divider" />
 
-        <span className="segment" role="group" aria-label="Chord display">
-          <button
-            type="button"
-            className={chordDisplay === 'name' ? 'segment-button is-on' : 'segment-button'}
-            onClick={() => setChordDisplay('name')}
-            aria-pressed={chordDisplay === 'name'}
-          >
-            Name
-          </button>
-          <button
-            type="button"
-            className={chordDisplay === 'shape' ? 'segment-button is-on' : 'segment-button'}
-            onClick={() => setChordDisplay('shape')}
-            aria-pressed={chordDisplay === 'shape'}
-          >
-            Shape
-          </button>
-        </span>
-      </div>
+      <span className="control-name-label">Chords as</span>
+
+      <span className="segment mt-2.5" role="group" aria-label="Chord display">
+        <button
+          type="button"
+          className={chordDisplay === 'name' ? 'segment-button is-on' : 'segment-button'}
+          onClick={() => setChordDisplay('name')}
+          aria-pressed={chordDisplay === 'name'}
+        >
+          Name
+        </button>
+        <button
+          type="button"
+          className={chordDisplay === 'shape' ? 'segment-button is-on' : 'segment-button'}
+          onClick={() => setChordDisplay('shape')}
+          aria-pressed={chordDisplay === 'shape'}
+        >
+          Shape
+        </button>
+      </span>
 
       <div className="control-divider" />
 
       <span className="group-label">Text</span>
 
       <div className="control-row">
-        <span className="control-name">
-          <span className="control-name-label">Size</span>
-          <span className="control-name-value">{ZOOM_STEPS[zoomStep]} px</span>
-        </span>
-
-        <span className="segment">
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setZoomStep(zoomStep - 1)}
-            disabled={zoomStep === 0}
-            aria-label="Decrease text size"
-          >
-            <span aria-hidden>A−</span>
-          </button>
-          <button
-            type="button"
-            className="segment-button"
-            onClick={() => setZoomStep(zoomStep + 1)}
-            disabled={zoomStep === ZOOM_STEPS.length - 1}
-            aria-label="Increase text size"
-          >
-            <span aria-hidden>A+</span>
-          </button>
-        </span>
+        <span className="control-name-label">Size</span>
+        <span className="flex-1" />
+        <span className="control-hint-text">{ZOOM_STEPS[zoomStep]} px</span>
       </div>
+
+      <span className="zoom-row mt-2.5">
+        <span className="zoom-label" aria-hidden>
+          A
+        </span>
+        <input
+          type="range"
+          className="speed-range zoom-range"
+          min={0}
+          max={lastZoom}
+          step={1}
+          value={zoomStep}
+          onChange={(event) => setZoomStep(Number(event.target.value))}
+          style={{ '--fill': `${(zoomStep / lastZoom) * 100}%` } as React.CSSProperties}
+          aria-label="Text size"
+          aria-valuetext={`${ZOOM_STEPS[zoomStep]} px`}
+        />
+        <span className="zoom-label is-large" aria-hidden>
+          A
+        </span>
+      </span>
     </div>
   )
 }

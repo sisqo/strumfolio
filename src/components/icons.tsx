@@ -109,6 +109,28 @@ export function IconImport(props: IconProps) {
   )
 }
 
+/** Add a song: a case, open, with something set inside it. */
+export function IconAddSong(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4v6M12 10l6-1.4M12 10 6 8.6" />
+      <path d="M4 6.5v9L12 19l8-3.5v-9" />
+      <path d="M12 10v9" />
+    </Icon>
+  )
+}
+
+/** Paste: a clipboard, for text arriving from elsewhere rather than typed here. */
+export function IconClipboard(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="7" y="4" width="11" height="16" rx="2" />
+      <path d="M11 4V3h3v1" />
+      <path d="M10.5 10h4M10.5 14h4" />
+    </Icon>
+  )
+}
+
 export function IconDownload(props: IconProps) {
   return (
     <Icon {...props}>
@@ -496,13 +518,23 @@ export function IconOnStage(props: IconProps) {
   )
 }
 
-/** Sing together: a signal going out, so every device can follow the same one. */
+/**
+ * Sing together: a signal going out both ways from one centre, so every device can
+ * follow the same one.
+ *
+ * Redrawn from an earlier mark that radiated upward from a dot at the foot of
+ * the glyph — this one is symmetric left and right instead, matching the redesigned
+ * reading bar and header pill it now sits in alongside the menu entry it already had.
+ * One glyph, one meaning, in both places.
+ */
 export function IconBroadcast(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none" />
-      <path d="M8.5 19a3.5 3.5 0 0 1 7 0" />
-      <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+      <path d="M8.4 8.9a4.6 4.6 0 0 0 0 6.2" />
+      <path d="M15.6 8.9a4.6 4.6 0 0 1 0 6.2" />
+      <path d="M5.4 5.6a9.2 9.2 0 0 0 0 12.8" />
+      <path d="M18.6 5.6a9.2 9.2 0 0 1 0 12.8" />
     </Icon>
   )
 }

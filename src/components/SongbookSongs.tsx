@@ -4,28 +4,21 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 
 import { ArrangeSongbook } from '@/components/ArrangeSongbook'
-import { ImportIntoSongbook } from '@/components/ImportIntoSongbook'
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
 import { SongRow } from '@/components/SongRow'
 import {
+  IconAddSong,
   IconBooks,
   IconChevronDown,
   IconChevronRight,
   IconGrip,
-  IconImport,
   IconOffline,
   IconPencil,
-  IconPlus,
   IconTrash,
 } from '@/components/icons'
-import { createSong } from '@/lib/import/actions'
-import { saveMessage, type SaveRefusal } from '@/lib/import/types'
-import { loadSongIndex } from '@/lib/library/actions'
 import { applyOrder } from '@/lib/songbooks/order'
 import { useLiveRows } from '@/lib/library/useLiveSongs'
-import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 import type { SongIndexRow } from '@/lib/search-index'
 import { type Folds, readFolds, songFromHash, writeFolds } from '@/lib/sections/folds'
 import { writeMessage, type WriteResult } from '@/lib/songbooks/types'
@@ -48,10 +41,11 @@ import { writeMessage, type WriteResult } from '@/lib/songbooks/types'
  * 2. arriving from a song opens the section that song is in, so the way back lands you
  *    where you were rather than in front of a closed list.
  *
- * Arranging, and now importing too, are modes rather than a handle on every row (or a
- * form) for the rest of the app's life, because this is a list you read far more often
- * than you rearrange or add to. The two are mutually exclusive: there is one reason to
- * leave the plain list at a time.
+ * Arranging is a mode rather than a handle on every row for the rest of the app's
+ * life, because this is a list you read far more often than you rearrange. Adding a
+ * song used to be a second mode here too, split between a "New song" shortcut and an
+ * "Add song" import screen; both now live on `AddSongScreen`, one screen down, so
+ * there is one door in rather than two.
  */
 export function SongbookSongs({
   slug,
@@ -66,23 +60,7 @@ export function SongbookSongs({
   const { mayEdit } = useRole()
 
   const [rows, setRows] = useLiveRows(baked)
-  const [mode, setMode] = useState<'list' | 'organizing' | 'importing'>('list')
-
-  /*
-   * A blank song is a single title (plus a section, if there's more than one
-   * to choose from) followed by a redirect straight into the editor — not
-   * its own screen the way Arrange and Add song are, since there's nothing
-   * left to show here once it's created. An inline panel, same shape as
-   * renaming a section just above, fits that better than a third `mode`.
-   */
-  const [creating, setCreating] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newSectionId, setNewSectionId] = useState('')
-  const [creatingBusy, setCreatingBusy] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
-  /** A refusal by the plan gets the same dialog `HomeScreen` opens for its own — see
-      `PlanUpgradeModal`'s own comment on why — instead of the inline `createError` above. */
-  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+  const [mode, setMode] = useState<'list' | 'organizing'>('list')
 
   const [folds, setFolds] = useState<Folds>({})
   /** The song a link asked for, if one did. The *song*, not its section: see below. */
@@ -184,21 +162,6 @@ export function SongbookSongs({
     document.getElementById(`song-${asked}`)?.scrollIntoView({ block: 'center' })
   }, [arrived, asked])
 
-  /**
-   * What Arrange gets for free from dragging a row, Import has to ask for: a song it
-   * just saved has no way to patch itself into `rows`, so the only way to make it
-   * show up without a reload is to read the live index again, the same way this list
-   * read it the first time.
-   */
-  const refreshRows = useCallback(async () => {
-    try {
-      const live = await loadSongIndex()
-      if (live !== null) setRows(live)
-    } catch {
-      // Offline or signed out: the list stays as it was.
-    }
-  }, [setRows])
-
   if (mode === 'organizing') {
     return (
       <ArrangeSongbook
@@ -206,20 +169,6 @@ export function SongbookSongs({
         rows={rows}
         onDone={() => setMode('list')}
         onApplied={(order) => setRows((current) => applyOrder(current, order))}
-      />
-    )
-  }
-
-  if (mode === 'importing') {
-    // Never actually null here — the button that reaches this mode only exists once
-    // the songbook itself has loaded — but the lookup is nullable, so a fallback is
-    // still needed to satisfy the type.
-    return (
-      <ImportIntoSongbook
-        songbookSlug={slug}
-        songbookName={nameOf(slug) ?? ''}
-        onDone={() => setMode('list')}
-        onImported={refreshRows}
       />
     )
   }
@@ -257,16 +206,19 @@ export function SongbookSongs({
         </div>
 
         {/*
-          * Both need a network — one to save the layout, the other to save a song —
-          * and both are for someone whose songbook this is, not a reader. No minimum
-          * number of songs for Arrange: with sections there is a layout to change with
-          * one song — moving it to another section — and with none at all, which is
-          * making the first division. Adding a song has no minimum either: an empty
-          * songbook is exactly the case it exists for.
+          * Both need a network — one to save the layout, the other to add a song — and
+          * both are for someone whose songbook this is, not a reader. No minimum number
+          * of songs for Arrange: with sections there is a layout to change with one
+          * song — moving it to another section — and with none at all, which is making
+          * the first division. Adding a song has no minimum either: an empty songbook
+          * is exactly the case it exists for.
           *
           * Both render regardless of `online` and go `disabled` instead — same pattern
           * as the songbooks list's own header actions, so an editor sees why these two
           * are inert (the notice below says so) instead of finding them simply gone.
+          * Add song is a real navigation rather than a mode switch now that it is a
+          * screen of its own, so it stays a button (not a bare `Link`) precisely so it
+          * can be disabled the same way Arrange is.
           */}
         {mayEdit && (
           <div className="screen-header-actions">
@@ -281,25 +233,11 @@ export function SongbookSongs({
             </button>
             <button
               type="button"
-              className="btn btn-sm"
-              disabled={!online}
-              onClick={() => {
-                setCreating(true)
-                setNewTitle('')
-                setNewSectionId(String(divisions[0]?.id ?? ''))
-                setCreateError(null)
-              }}
-            >
-              <IconPlus size={16} />
-              New song
-            </button>
-            <button
-              type="button"
               className="btn btn-primary btn-sm"
               disabled={!online}
-              onClick={() => setMode('importing')}
+              onClick={() => router.push(`/songbooks/${slug}/add`)}
             >
-              <IconImport size={16} />
+              <IconAddSong size={16} />
               Add song
             </button>
           </div>
@@ -312,91 +250,6 @@ export function SongbookSongs({
           Without a connection, this songbook can only be viewed. Arranging it or adding
           songs needs a connection.
         </p>
-      )}
-
-      {mayEdit && creating && (
-        <div className="panel mt-4 p-3.5">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="text-[0.84375rem] text-muted">Title</span>
-              <input
-                autoFocus
-                value={newTitle}
-                onChange={(event) => setNewTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') setCreating(false)
-                }}
-                placeholder="Song title"
-                className="form-field min-w-0 flex-1"
-              />
-            </label>
-            {divisions.length > 1 && (
-              <label className="picker picker-raised">
-                <span className="sr-only">Section</span>
-                <select
-                  value={newSectionId}
-                  onChange={(event) => setNewSectionId(event.target.value)}
-                  className="picker-select"
-                >
-                  {divisions.map((section) => (
-                    <option key={section.id} value={String(section.id)}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-                <IconChevronDown size={14} />
-              </label>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={creatingBusy || newTitle.trim() === ''}
-              onClick={async () => {
-                setCreatingBusy(true)
-                setCreateError(null)
-                try {
-                  const result = await createSong(
-                    newTitle,
-                    slug,
-                    newSectionId === '' ? null : Number(newSectionId),
-                  )
-                  if (!result.ok) {
-                    if (Object.hasOwn(LIMIT_MESSAGE, result.reason)) {
-                      /*
-                       * Guarded by the membership check above: `duplicate` is not a key of
-                       * `LIMIT_MESSAGE` (`createSong` never returns it anyway — see its own
-                       * comment on why), so `result` here is always the `SaveRefusal` branch
-                       * of the union. `Object.hasOwn` does not tell the compiler that, hence
-                       * the cast, same reasoning as `HomeScreen`'s own `run`.
-                       */
-                      const refusal = result as SaveRefusal
-                      setCreating(false)
-                      setPlanNotice({ reason: refusal.reason as LimitReason, limit: refusal.limit })
-                    } else {
-                      setCreateError(saveMessage(result))
-                    }
-                    return
-                  }
-                  router.push(`/songs/${result.song.slug}/edit`)
-                } catch {
-                  setCreateError(saveMessage({ reason: 'failed' }))
-                } finally {
-                  setCreatingBusy(false)
-                }
-              }}
-            >
-              Create
-            </button>
-            <button type="button" className="btn btn-quiet btn-sm" onClick={() => setCreating(false)}>
-              Cancel
-            </button>
-          </div>
-          {createError !== null && (
-            <p className="notice notice-error mt-2" role="alert">
-              {createError}
-            </p>
-          )}
-        </div>
       )}
 
       {mayEdit && error !== null && (
@@ -702,10 +555,6 @@ export function SongbookSongs({
             })}
           </ul>
         </>
-      )}
-
-      {planNotice !== null && (
-        <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />
       )}
     </>
   )

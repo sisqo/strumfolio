@@ -3100,6 +3100,44 @@
   }
 
   /*
+   * "Live" (`SingAlongPill.tsx`) — shown in `TopBar` on every screen for as long as
+   * this reader has a Sing Together broadcast running, not only the reading page it
+   * was started from: the broadcast keeps going while its leader checks a songbook,
+   * so the header keeps saying so. Same `--accent-soft`/`--accent` pairing as
+   * `.viewing-as-pill` above and the bar's own live indicators — one warm tint for
+   * "something worth noticing" everywhere it appears.
+   */
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    flex: none;
+    height: 2rem;
+    padding: 0 0.75rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .live-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .live-pill-count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .live-pill-dot {
+    color: color-mix(in srgb, var(--accent) 55%, var(--accent-soft));
+  }
+
+  /*
    * Both lockups render; CSS picks one. Static markup can't ask which theme is
    * showing — `.brand`/`.hero-badge` are on statically generated, precached pages —
    * so the swap has to happen the same way the color tokens above do: a rule for
@@ -3900,20 +3938,123 @@
     pointer-events: auto;
   }
 
-  .control-dock {
+  /*
+   * Holds the main dock and, once there is somewhere to step to, the prev/next
+   * capsule beside it — two shapes from `sm` up, one continuous pill below it. The
+   * merge is done with corner radii and a shared edge rather than by changing which
+   * elements exist: `.control-dock` and `.control-nav`, when both render, are always
+   * two siblings; only their own rounding and the gap between them move. `.has-nav`
+   * is set by the component, not inferred in CSS, because whether `.control-nav`
+   * exists at all is exactly what it already knows from its own `steps` prop.
+   */
+  .control-strip {
     position: relative;
     z-index: 1;
     pointer-events: auto;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    align-items: stretch;
+    justify-content: center;
     max-width: 48rem;
     margin-inline: auto;
+  }
+
+  @media (min-width: 640px) {
+    .control-strip.has-nav {
+      gap: 0.75rem;
+      max-width: 58.75rem;
+    }
+  }
+
+  .control-dock {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
     padding: 0.5rem;
     background: var(--surface);
     border: 1px solid var(--edge);
     border-radius: var(--r-2xl);
     box-shadow: var(--shadow-float);
+  }
+
+  .control-strip.has-nav .control-dock {
+    border-inline-end: none;
+    border-radius: var(--r-2xl) 0 0 var(--r-2xl);
+  }
+
+  @media (min-width: 640px) {
+    .control-strip.has-nav .control-dock {
+      /* Still `flex: 1` from the base rule above — grows to fill the row, capped
+         here so it does not crowd `.control-nav` out on a wide screen. */
+      max-width: 41.25rem;
+      border-inline-end: 1px solid var(--edge);
+      border-radius: var(--r-2xl);
+    }
+  }
+
+  /* The prev/next capsule, squared on the edge touching `.control-dock` below `sm`
+     so the two read as one bar — see `.control-strip`'s own comment. */
+  .control-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    padding: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-inline-start: none;
+    border-radius: 0 var(--r-2xl) var(--r-2xl) 0;
+    box-shadow: var(--shadow-float);
+  }
+
+  @media (min-width: 640px) {
+    .control-nav {
+      border-inline-start: 1px solid var(--edge);
+      border-radius: var(--r-2xl);
+    }
+  }
+
+  .control-nav-count {
+    min-width: 2.75rem;
+    padding-inline: 0.125rem;
+    text-align: center;
+    color: var(--faint);
+    font-size: 0.84375rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Below `sm` the merged bar holds four fixed-size buttons in `.control-dock` and
+   * three more in `.control-nav`, none of which shrink (`.control-button` is `flex:
+   * none`) — so what fits is arithmetic, not layout, and the numbers are tight on a
+   * narrow phone. This trims every margin that is not a tap target itself: the
+   * 44px floor `.control-button`'s own comment already treats as the true minimum
+   * (2.875rem was a little above it), tighter gaps and padding on both capsules,
+   * and a narrower count badge. Verify on an actual ~360px-wide phone — the
+   * narrowest still in real use — since this is arithmetic this file cannot run.
+   */
+  @media (max-width: 639px) {
+    .control-button {
+      min-width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .control-dock {
+      gap: 0.3125rem;
+      padding: 0.375rem;
+    }
+
+    .control-nav {
+      gap: 0.125rem;
+      padding: 0.375rem;
+    }
+
+    .control-nav-count {
+      min-width: 2.125rem;
+      font-size: 0.78125rem;
+    }
   }
 
   /* Keeps the end of the song clear of the bar. One row now, so one number. */
@@ -3936,6 +4077,11 @@
     line-height: 1;
   }
 
+  /* An arrow with nowhere to go: holds its place in `.control-nav`, takes no taps. */
+  .control-button.is-off {
+    color: var(--line);
+  }
+
   /* The one control that is a destination rather than a nudge. */
   .control-play {
     background: var(--accent);
@@ -3949,14 +4095,66 @@
     color: var(--accent);
   }
 
+  /* Sing Together's own toggle, quiet until a broadcast is live — see `.is-live`. */
+  .control-sing {
+    color: var(--faint);
+  }
+
+  .control-sing.is-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+    height: 2.875rem;
+    padding: 0 1rem 0 0.875rem;
+    border-radius: var(--r-lg);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--edge));
+    color: var(--accent);
+  }
+
+  .control-sing-count {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
   @media (hover: hover) {
     .control-play:hover {
       background: color-mix(in srgb, var(--accent) 88%, var(--ink));
     }
 
-    .control-open:hover {
+    .control-open:hover,
+    .control-nav .control-button:not(.is-off):hover,
+    .speed-compact .control-button:hover {
       background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
     }
+
+    .control-button.control-sing:hover {
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+
+    .control-sing.is-live:hover {
+      background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
+    }
+  }
+
+  /* The condensed Sing Together popover, anchored above the toggle that opens it —
+     same shape as `.control-panel`, narrower, and always on the leading edge since
+     that is where the toggle sits. */
+  .sing-panel {
+    position: absolute;
+    inset-block-end: calc(100% + 0.625rem);
+    inset-inline-start: 0;
+    width: 18rem;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.875rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow-panel);
+    text-align: start;
   }
 
   /*
@@ -3982,34 +4180,105 @@
    * It was two buttons and eight dots. The dots said which step you were on but
    * not that you could go straight to another, and reaching step 8 from step 1
    * cost seven taps in the middle of a song.
+   *
+   * Two shapes now instead of one: `.speed-full`, this same track, shown from `sm`
+   * up; and `.speed-compact` below it, a single icon that opens `.speed-popover` —
+   * the same value, the same input, just standing on end. Below `sm` there is no
+   * longer room for the full track once the Sing Together toggle and the prev/next
+   * capsule both want a place in the same row; see `.control-strip`'s own comment
+   * for where that room comes from.
    */
-  .speed {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    flex: 1;
-    min-width: 0;
-    height: 2.875rem;
-    padding-inline: 0.75rem;
-    border-radius: var(--r-lg);
-    background: var(--surface-2);
+  .speed-full {
+    display: none;
   }
 
-  .speed svg {
+  @media (min-width: 640px) {
+    .speed-full {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      flex: 1;
+      min-width: 0;
+      height: 2.875rem;
+      padding-inline: 0.75rem;
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+    }
+  }
+
+  .speed-full svg {
+    flex: none;
+    color: var(--faint);
+  }
+
+  .speed-compact {
+    position: relative;
+    display: flex;
+  }
+
+  @media (min-width: 640px) {
+    .speed-compact {
+      display: none;
+    }
+  }
+
+  .speed-popover {
+    position: absolute;
+    inset-block-end: calc(100% + 0.625rem);
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0.625rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .speed-popover svg {
     flex: none;
     color: var(--faint);
   }
 
   /*
+   * The box the rotated input is centred inside: its own width and height are what
+   * `.speed-compact`'s popover actually lays out around, since a rotated element
+   * keeps its *un*rotated footprint for layout purposes. Sized for the footprint the
+   * input has *after* the turn — narrow, tall — rather than the wide, short box the
+   * input itself still reports.
+   */
+  .speed-vertical-wrap {
+    position: relative;
+    display: block;
+    width: 1.5rem;
+    height: 7rem;
+  }
+
+  .speed-range-vertical {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 50%;
+    width: 7rem;
+    translate: -50% -50%;
+    rotate: -90deg;
+  }
+
+  /*
    * A real range input, styled. The steps are the same eight the dots showed, and
    * the same index the preference stores — this is the same control in a new shape,
-   * so the keyboard and a screen reader get it for free.
+   * so the keyboard and a screen reader get it for free. `.zoom-range` (the text
+   * size slider, in the settings panel below) shares every rule here: same track,
+   * same thumb, a different value underneath.
    *
    * The box is taller than the track it paints, so the thumb has somewhere to be
    * grabbed. --fill comes from the component: it is the only part of a range the
    * browser will not compute for us in both engines.
    */
-  .speed-range {
+  .speed-range,
+  .zoom-range {
     appearance: none;
     flex: 1;
     min-width: 0;
@@ -4019,7 +4288,8 @@
     cursor: pointer;
   }
 
-  .speed-range::-webkit-slider-runnable-track {
+  .speed-range::-webkit-slider-runnable-track,
+  .zoom-range::-webkit-slider-runnable-track {
     height: 0.375rem;
     border-radius: var(--r-pill);
     background: linear-gradient(
@@ -4029,7 +4299,8 @@
     );
   }
 
-  .speed-range::-webkit-slider-thumb {
+  .speed-range::-webkit-slider-thumb,
+  .zoom-range::-webkit-slider-thumb {
     appearance: none;
     width: 1.25rem;
     height: 1.25rem;
@@ -4040,19 +4311,22 @@
     background: var(--surface);
   }
 
-  .speed-range::-moz-range-track {
+  .speed-range::-moz-range-track,
+  .zoom-range::-moz-range-track {
     height: 0.375rem;
     border-radius: var(--r-pill);
     background: var(--line);
   }
 
-  .speed-range::-moz-range-progress {
+  .speed-range::-moz-range-progress,
+  .zoom-range::-moz-range-progress {
     height: 0.375rem;
     border-radius: var(--r-pill);
     background: var(--accent);
   }
 
-  .speed-range::-moz-range-thumb {
+  .speed-range::-moz-range-thumb,
+  .zoom-range::-moz-range-thumb {
     width: 1.25rem;
     height: 1.25rem;
     border: 2px solid var(--accent);
@@ -4074,9 +4348,9 @@
     position: absolute;
     inset-block-end: calc(100% + 0.625rem);
     inset-inline-end: 0;
-    width: 16.75rem;
+    width: 21.25rem;
     max-width: calc(100vw - 1.5rem);
-    padding: 0.875rem;
+    padding: 1.125rem;
     background: var(--surface);
     border: 1px solid var(--edge);
     border-radius: var(--r-panel);
@@ -4087,10 +4361,13 @@
     margin-bottom: 0.5rem;
   }
 
+  /* A control's own label line: its name, what it is set to, and (Key only) what
+     that comes out to — the row a full-width control (`.value-buttons`,
+     `.fret-row`, `.zoom-row`) sits under rather than beside. */
   .control-row {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 0.5rem;
   }
 
   .control-row + .control-row {
@@ -4137,35 +4414,151 @@
     margin-top: 0;
   }
 
-  .control-name {
-    flex: 1;
-    min-width: 0;
-  }
-
   .control-name-label {
     display: block;
     color: var(--ink);
-    font-size: 0.8125rem;
+    font-size: 0.90625rem;
   }
 
-  /* What the control is set to now, under the name of the control. */
-  .control-name-value {
-    display: block;
-    margin-top: 1px;
-    color: var(--muted);
-    font-size: 0.6875rem;
+  /* A control's own value, badged: the same warm accent-soft the header's Live pill
+     and the reading bar's own Sing Together pill already use for "worth noticing". */
+  .value-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    padding-inline: 0.625rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.78125rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
 
-  /* Away from the original key: the same colour as the chords it is changing. */
-  .control-name-value.is-changed {
-    color: var(--accent);
+  /* A quieter remark on the same label line: what a value comes out to (Key's
+     "reading in A"), or its plain number (Text size's "22 px") — never itself the
+     thing being changed, so never the accent's own colour the badge already owns. */
+  .control-hint-text {
+    color: var(--faint);
+    font-size: 0.78125rem;
   }
 
   .control-divider {
     height: 1px;
     margin: 0.875rem 0;
     background: var(--surface-2);
+  }
+
+  /* Key's own row of buttons: two nudges either side of the way back to the written
+     key. Individual buttons on the panel's own surface rather than a recessed
+     track — see `.fret-button`'s own comment for why Capo, just below, does not
+     share this shape even though it shares everything else about the row above it. */
+  .value-buttons {
+    display: flex;
+    gap: 0.375rem;
+  }
+
+  .value-button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.75rem;
+    border-radius: var(--r-md);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 0.9375rem;
+  }
+
+  /* The one button among the three that returns to a state rather than nudging away
+     from it — tinted the same as `.value-badge` so "back to what the badge names"
+     reads as one idea. */
+  .value-button.is-accent {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--edge));
+    color: var(--accent);
+    font-size: 0.8125rem;
+  }
+
+  .value-button:disabled {
+    color: var(--faint);
+  }
+
+  .value-button.is-accent:disabled {
+    background: var(--surface-2);
+    border-color: transparent;
+    color: var(--faint);
+  }
+
+  @media (hover: hover) {
+    .value-button:not(:disabled):not(.is-accent):hover {
+      background: var(--surface-2);
+      color: var(--accent);
+    }
+
+    .value-button.is-accent:not(:disabled):hover {
+      background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
+    }
+  }
+
+  /*
+   * Capo's own row: one button per fret, the current one filled, the rest plain —
+   * a direct pick rather than `.value-buttons`' nudge-and-reset, because a capo has
+   * no single "away from" direction the way a semitone does and a reader reaching
+   * for fret 5 should not have to step through 1 to 4 to get there. Wraps rather
+   * than scrolling: `MAX_CAPO` is fixed, so the panel is never taller than the one
+   * extra row that buys every fret a full 44px target instead of eight squeezed
+   * into one.
+   */
+  .fret-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3125rem;
+  }
+
+  .fret-button {
+    flex: 1 1 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.75rem;
+    border-radius: var(--r-sm);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 0.8125rem;
+  }
+
+  .fret-button.is-on {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 500;
+  }
+
+  @media (hover: hover) {
+    .fret-button:not(.is-on):hover {
+      background: var(--surface-2);
+      color: var(--accent);
+    }
+  }
+
+  /* Text size's own row: the same slider track `.speed-full` uses (`.zoom-range`
+     shares its styling, see that rule's own comment), between a small A and a large
+     one instead of a turtle and a hare. */
+  .zoom-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .zoom-label {
+    flex: none;
+    color: var(--faint);
+    font-size: 0.8125rem;
+  }
+
+  .zoom-label.is-large {
+    font-size: 1.3125rem;
   }
 
   /* A grouped control: one recessed track holding related buttons. */
@@ -4304,6 +4697,81 @@
 
   .search-field input {
     padding-inline-start: 2.875rem;
+  }
+
+  /* ---- Add song: mode switch and file drop ----------------------------- */
+
+  /* Which of the three ways a song is arriving, before any of them is chosen. */
+  .mode-switch {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+  }
+
+  .mode-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.375rem;
+    padding: 0 1.125rem;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .mode-tab.is-active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+
+  @media (hover: hover) {
+    .mode-tab:not(.is-active):hover {
+      color: var(--ink);
+    }
+  }
+
+  /* Where a `.txt`/`.cho`/`.chordpro` file is dropped, or a tap opens the file picker. */
+  .drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    border-radius: var(--r-lg);
+    background: var(--bg);
+    border: 1.5px dashed var(--line);
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .drop-zone.is-over {
+    background: var(--surface-3);
+    border-color: var(--accent);
+  }
+
+  @media (hover: hover) {
+    .drop-zone:hover {
+      background: var(--surface-3);
+      border-color: var(--accent);
+    }
+  }
+
+  .drop-zone-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--r-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   /* ---- Chips ---------------------------------------------------------- */

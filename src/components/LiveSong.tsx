@@ -10,7 +10,7 @@
 
 import { useState } from 'react'
 
-import { ControlBar } from '@/components/ControlBar'
+import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { EditSongLink } from '@/components/EditSongLink'
 import { usePrefs } from '@/components/PrefsProvider'
 import { SongSheet } from '@/components/SongSheet'
@@ -188,7 +188,7 @@ export function LiveSheet() {
  * chords the song actually holds — and they come from the live copy, so a chord added
  * in the editor counts the moment it is saved.
  */
-export function LiveControlBar() {
+export function LiveControlBar({ steps }: { steps: NavSteps | null }) {
   const { song, parsed } = useSong()
-  return <ControlBar songSlug={song.slug} chords={chordTokens(parsed)} />
+  return <ControlBar songSlug={song.slug} chords={chordTokens(parsed)} steps={steps} />
 }

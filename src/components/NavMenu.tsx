@@ -6,6 +6,7 @@ import QRCode from 'qrcode'
 
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { useRole } from '@/components/RoleProvider'
+import { useSingAlong } from '@/components/SingAlongProvider'
 import {
   IconBroadcast,
   IconCheck,
@@ -21,42 +22,10 @@ import {
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
 import { audienceIsFull, audienceSentence } from '@/lib/plans/types'
-import {
-  type BroadcastState,
-  broadcastAudience,
-  getMyBroadcast,
-  startBroadcast,
-  stopBroadcast,
-} from '@/lib/singAlong/session'
-
-/**
- * The link a guest's device opens to follow this reader's broadcast.
- *
- * A plain function rather than a constant: `window` does not exist while this module's
- * top level runs on the server, and a function's body is not evaluated until something
- * calls it. Every call site — the QR effect, `copyLink`, and the JSX branch below — is
- * reachable only once `broadcast` holds an actual token, and that never happens before
- * the effect that first calls `getMyBroadcast` returns. On the server `broadcast` is
- * still its initial `undefined`, so none of them run before this component is safely on
- * the client.
- */
-function followUrl(token: string): string {
-  return `${window.location.origin}/follow/${token}`
-}
+import { followUrl } from '@/lib/singAlong/link'
 
 /** The tuner, which is a separate app on its own domain. */
 const TUNER_URL = 'https://guitar.sisqo.dev'
-
-/**
- * How often the follower count is re-read while the Sing Together panel is actually open.
- *
- * At module scope rather than inside the component so it stays out of the effect's
- * dependency array — the same reason `POLL_MS` sits at the top of `FollowSession`. Ten
- * seconds is chosen for a leader who is reading this line for a few seconds while handing a
- * phone round, not for a background watcher: the effect does not run at all with the panel
- * shut, which is nearly always.
- */
-const AUDIENCE_MS = 10_000
 
 /**
  * The header's sections, behind one button.
@@ -89,62 +58,14 @@ export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'main' | 'sing-together'>('main')
   const { mayEdit } = useRole()
+  const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useSingAlong()
 
-  /*
-   * `undefined` until the read comes back, `null` once it has and there is nothing
-   * running, and the row itself once there is. Kept here rather than inside the view
-   * below so it survives the view resetting to `main` on every close — asked once, for
-   * as long as this menu exists, so reopening the panel later shows the same QR and
-   * link rather than a blank "no broadcast" that has to be told otherwise again.
-   */
-  const [broadcast, setBroadcast] = useState<BroadcastState | null | undefined>(undefined)
-  /*
-   * Separate from `broadcast` itself: `broadcast === null` has to keep meaning two
-   * different things apart, not collapse them into one. A reader who really has
-   * nothing running may safely be offered Start. A reader whose broadcast could simply
-   * not be asked about — offline, or a request that failed in transit — must not be,
-   * because `startBroadcast` restarts rather than refuses (see its own doc comment):
-   * offering Start there risks quietly rotating the token under a link already handed
-   * out, the moment the connection comes back and the tap lands. Cleared only by a
-   * check that actually got an answer, not by time or by a later render.
-   */
-  const [askFailed, setAskFailed] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   /** A refusal by the plan gets the same dialog `HomeScreen` opens for its own — see
       `PlanUpgradeModal`'s own comment on why — instead of the inline `error` above. */
   const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
-  /*
-   * How many devices are following right now, and how many this plan allows — the answer to
-   * the question a leader who has just handed the link round actually has. `null` covers
-   * three states on purpose and renders nothing in all of them: nothing live to count, a
-   * read that failed, and the moment before the first read comes back. An unknown count must
-   * not become «— of 3» or «0 of 3»: zero is a claim, a dash is a glyph that looks like a
-   * fault, and a wrong number sends a leader debugging a broadcast that is working, while a
-   * missing line costs them nothing. `error` in this panel stays for a failed Start or Stop,
-   * which are things the leader pressed.
-   *
-   * A third, independent piece of state, deliberately not folded into `broadcast` or
-   * `askFailed`: those two exist to keep «nothing is running» and «I could not find out»
-   * apart, and a count that came back empty is neither of them.
-   */
-  const [audience, setAudience] = useState<{ following: number; devices: number } | null>(null)
-
-  const checkBroadcast = () => {
-    setAskFailed(false)
-    void getMyBroadcast()
-      .then(setBroadcast)
-      .catch(() => {
-        setAskFailed(true)
-        setBroadcast(null)
-      })
-  }
-
-  useEffect(() => {
-    checkBroadcast()
-  }, [])
 
   /*
    * The QR is redrawn only when the token actually changes — starting a broadcast, or
@@ -177,53 +98,6 @@ export function NavMenu({ current }: { current: Section }) {
     }
   }, [token])
 
-  /*
-   * The follower count, read only while this panel is on the Sing Together view and there is
-   * a broadcast to count. Not folded into `getMyBroadcast`, whose one call happens on mount
-   * of every page in the app: that would put a count and a plan read behind every navigation
-   * to render a string visible only inside one closed panel. `view === 'sing-together'`
-   * already implies the panel is open — closing it and the menu button both reset `view` to
-   * `main`, and Escape steps back there first — so `open` would be a second condition saying
-   * the same thing, with a second chance to disagree.
-   *
-   * Cleared on cleanup rather than left showing its last value, and that is the deliberate
-   * part: reopening the panel shows nothing for a moment and then the number, because a
-   * leader reads this line precisely to know what is true *now*, and a stale count is worse
-   * than a missing one.
-   *
-   * `token` is in the dependency array for one reason and it is not the obvious one: it gates
-   * the read on there being *something* live to count, so a reader who has never started a
-   * broadcast never asks. It does not aim the count at this link — `broadcastAudience` takes
-   * no token and resolves this reader's currently-live row server-side, so the number is
-   * always about whatever they have running now, which need not be the link on screen if
-   * another tab restarted it. That is the better of the two behaviours (the count is never
-   * about a dead link) but it is not what keying on `token` achieves, and it is worth saying
-   * so before somebody reads a guarantee into the deps that is not there.
-   */
-  useEffect(() => {
-    if (view !== 'sing-together' || token === undefined) {
-      setAudience(null)
-      return
-    }
-
-    let cancelled = false
-    const read = () => {
-      void broadcastAudience()
-        .then((answer) => {
-          if (!cancelled) setAudience(answer)
-        })
-        .catch(() => {
-          if (!cancelled) setAudience(null)
-        })
-    }
-    read()
-    const timer = setInterval(read, AUDIENCE_MS)
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [view, token])
-
   const close = () => {
     setOpen(false)
     setView('main')
@@ -242,54 +116,40 @@ export function NavMenu({ current }: { current: Section }) {
   }, [open, view])
 
   const startSinging = async () => {
-    setBusy(true)
     setError(null)
-    try {
-      const result = await startBroadcast()
-      if (result.ok) setBroadcast({ token: result.token, songSlug: null, semitones: 0 })
-      /*
-       * Told apart from every other failure on purpose: «try again» is advice, and it is
-       * false advice here — a plan that does not include leading will not start one on the
-       * second press either. `PlanUpgradeModal` names the feature and offers a way to
-       * `/pricing`, so pressing this button now points somewhere, unlike when this comment
-       * was first written. `close()` alongside it, not just `setPlanNotice`: the dialog's
-       * own "See plans" link navigates to `/pricing`, and this menu lives in the root layout
-       * across that navigation — left `open`, it would still be showing this same panel,
-       * Start button and all, on the page the reader lands on.
-       */
-      else if (result.reason === 'plan-required') {
-        setPlanNotice({ reason: 'plan-required', feature: 'Sing Together' })
-        close()
-      }
-      /*
-       * The other reason worth telling apart, now that there is a reason at all to tell
-       * apart: an expired session is fixed by reloading and signing in again, and pressing
-       * a button that cannot work is not how anybody discovers that. The wording is
-       * `WRITE_MESSAGE`'s for the same condition, copied rather than imported — this action
-       * has no message map to index, and two different sentences for one failure is a
-       * difference the reader would have to explain to themselves.
-       */
-      else if (result.reason === 'no-session') setError('Session expired. Reload the page and sign in again.')
-      else setError("Couldn't start. Try again.")
-    } catch {
-      setError("Couldn't start. Try again.")
-    } finally {
-      setBusy(false)
+    const result = await start()
+    if (result.ok) return
+
+    /*
+     * Told apart from every other failure on purpose: «try again» is advice, and it is
+     * false advice here — a plan that does not include leading will not start one on the
+     * second press either. `PlanUpgradeModal` names the feature and offers a way to
+     * `/pricing`, so pressing this button now points somewhere, unlike when this comment
+     * was first written. `close()` alongside it, not just `setPlanNotice`: the dialog's
+     * own "See plans" link navigates to `/pricing`, and this menu lives in the root layout
+     * across that navigation — left `open`, it would still be showing this same panel,
+     * Start button and all, on the page the reader lands on.
+     */
+    if (result.reason === 'plan-required') {
+      setPlanNotice({ reason: 'plan-required', feature: 'Sing Together' })
+      close()
     }
+    /*
+     * The other reason worth telling apart, now that there is a reason at all to tell
+     * apart: an expired session is fixed by reloading and signing in again, and pressing
+     * a button that cannot work is not how anybody discovers that. The wording is
+     * `WRITE_MESSAGE`'s for the same condition, copied rather than imported — this action
+     * has no message map to index, and two different sentences for one failure is a
+     * difference the reader would have to explain to themselves.
+     */
+    else if (result.reason === 'no-session') setError('Session expired. Reload the page and sign in again.')
+    else setError("Couldn't start. Try again.")
   }
 
   const stopSinging = async () => {
-    setBusy(true)
     setError(null)
-    try {
-      const result = await stopBroadcast()
-      if (result.ok) setBroadcast(null)
-      else setError("Couldn't stop. Try again.")
-    } catch {
-      setError("Couldn't stop. Try again.")
-    } finally {
-      setBusy(false)
-    }
+    const result = await stop()
+    if (!result.ok) setError("Couldn't stop. Try again.")
   }
 
   const copyLink = async () => {
