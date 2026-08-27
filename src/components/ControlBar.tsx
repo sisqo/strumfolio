@@ -62,6 +62,7 @@ export function ControlBar({
   semitonesLocked = false,
   broadcastEnabled = true,
   steps = null,
+  stepsLocked = false,
   onStepTo,
 }: {
   /**
@@ -99,6 +100,16 @@ export function ControlBar({
    *  `null` when there is none to show — a guest's reading page with no songbook open,
    *  or a song with no songbook of its own. */
   steps?: NavSteps | null
+  /**
+   * True only while a follower is actually following a broadcast: the position still
+   * shows ("3/12"), so a guest can see where the leader is in the songbook, but
+   * stepping away from it is not theirs to do while the broadcast is still choosing
+   * for them — the same reasoning `semitonesLocked` already applies to the key, kept
+   * as a second flag rather than folded into it because a guest may suspend following
+   * (`Unfollow`) without that touching the key lock at all. Always false on the
+   * reader's own copy of this bar.
+   */
+  stepsLocked?: boolean
   /**
    * How to reach the song `steps` names, when a real navigation is not what that
    * means — a follower's own page, which shows a song by swapping state rather than
@@ -291,7 +302,7 @@ export function ControlBar({
           </button>
         </div>
 
-        {steps !== null && <PrevNext steps={steps} onStepTo={onStepTo} />}
+        {steps !== null && <PrevNext steps={steps} locked={stepsLocked} onStepTo={onStepTo} />}
       </div>
     </nav>
   )
@@ -308,15 +319,33 @@ export function ControlBar({
  * route a song reads at. A follower has no such page — `FollowSession` shows a song by
  * swapping state in place — so it hands in `onStepTo` instead, and a slug is handed
  * back rather than a page changing under it.
+ *
+ * `locked` still shows the count — a follower can see where the leader is in the
+ * songbook even while unable to leave it — but renders both arrows the same inert way
+ * `slug === null` already does, whether or not there is actually somewhere to step to.
  */
-function PrevNext({ steps, onStepTo }: { steps: NavSteps; onStepTo?: (slug: string) => void }) {
+function PrevNext({
+  steps,
+  locked,
+  onStepTo,
+}: {
+  steps: NavSteps
+  locked: boolean
+  onStepTo?: (slug: string) => void
+}) {
   return (
     <div className="control-nav">
-      <Step slug={steps.previous} label="Previous song" direction="previous" onStepTo={onStepTo} />
+      <Step
+        slug={steps.previous}
+        label="Previous song"
+        direction="previous"
+        locked={locked}
+        onStepTo={onStepTo}
+      />
       <span className="control-nav-count">
         {steps.position}/{steps.total}
       </span>
-      <Step slug={steps.next} label="Next song" direction="next" onStepTo={onStepTo} />
+      <Step slug={steps.next} label="Next song" direction="next" locked={locked} onStepTo={onStepTo} />
     </div>
   )
 }
@@ -325,18 +354,36 @@ function Step({
   slug,
   label,
   direction,
+  locked,
   onStepTo,
 }: {
   slug: string | null
   label: string
   direction: 'previous' | 'next'
+  locked: boolean
   onStepTo?: (slug: string) => void
 }) {
   const icon = direction === 'previous' ? <IconChevronLeft size={22} /> : <IconChevronRight size={22} />
 
+  // Nowhere to go, said to nobody: an arrow that holds its place needs no name.
   if (slug === null) {
     return (
       <span className="control-button is-off" aria-hidden>
+        {icon}
+      </span>
+    )
+  }
+
+  /*
+   * There genuinely is a song in this direction, but a follower may not step to it
+   * while the broadcast is still choosing for them — unlike the `null` case above,
+   * this is worth a name: the count beside it ("3/12") says where the leader is, and
+   * a reason for why the arrows beside it do nothing is the difference between that
+   * reading as broken and reading as expected.
+   */
+  if (locked) {
+    return (
+      <span className="control-button is-off" title="Following the leader" aria-label={`${label}, following the leader`}>
         {icon}
       </span>
     )

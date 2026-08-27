@@ -991,6 +991,7 @@ function FollowedSong({
         semitonesLocked={song.following}
         broadcastEnabled={false}
         steps={steps}
+        stepsLocked={song.following}
         onStepTo={onStepTo}
       />
     </>
