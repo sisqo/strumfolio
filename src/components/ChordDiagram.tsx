@@ -1,3 +1,4 @@
+import { barresOf, underBarre } from '@/lib/music/barre'
 import type { ChordShape } from '@/lib/music/shapes'
 
 /**
@@ -46,16 +47,13 @@ export function ChordDiagram({
   const base = atNut ? 1 : lowest
 
   /**
-   * One finger across several strings. Every movable form is played this way, and
-   * without the bar an F#m reads as six separate fingers at two different frets.
-   * Drawn from the lowest string on that fret to the highest, as a chord chart
-   * does — the strings in between belong to the bar even when another finger
-   * frets them higher up.
+   * One finger across several strings — usually one bar, sometimes two. Without them
+   * an F#m reads as six separate fingers at two different frets, and a ukulele's F#
+   * (`3121`) as three fingers that no hand could place. Which strings a bar covers,
+   * and whether a shape has one at all, is `barresOf`'s question: it is a claim about
+   * how a hand holds the shape, so it lives in a tested module rather than here.
    */
-  const onLowest = shape.frets
-    .map((fret, string) => (fret === lowest && fret > 0 ? string : -1))
-    .filter((string) => string !== -1)
-  const barre = onLowest.length >= 3 ? { fret: lowest, from: onLowest[0], to: onLowest.at(-1)! } : null
+  const barres = barresOf(shape.frets)
 
   const y = (fret: number) => TOP + FRET_GAP * (fret - base) + FRET_GAP / 2
 
@@ -119,8 +117,9 @@ export function ChordDiagram({
         </text>
       )}
 
-      {barre !== null && (
+      {barres.map((barre) => (
         <rect
+          key={`${barre.fret}:${barre.from}`}
           x={LEFT + STRING_GAP * barre.from - 6}
           y={y(barre.fret) - 6}
           width={STRING_GAP * (barre.to - barre.from) + 12}
@@ -129,13 +128,14 @@ export function ChordDiagram({
           className="chord-diagram-dot"
           stroke="none"
         />
-      )}
+      ))}
 
       {shape.frets.map((fret, string) => {
         const x = LEFT + STRING_GAP * string
 
-        // Already covered by the bar.
-        if (barre !== null && fret === barre.fret) return null
+        // Already covered by a bar — including a string the bar only passes under,
+        // whose own dot is at some higher fret and is drawn there.
+        if (fret !== null && underBarre(barres, string, fret)) return null
 
         if (fret === null) {
           return (

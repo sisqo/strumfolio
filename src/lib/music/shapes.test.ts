@@ -133,6 +133,9 @@ describe('the ukulele shapes a player would recognise', () => {
     ['E7', [1, 2, 0, 2]],
     ['F', [2, 0, 1, 0]],
     ['Fm', [1, 0, 1, 3]],
+    // A bar at the first fret with two fingers above it — see `barresOf`, which is
+    // what draws it that way; the shape itself was always this.
+    ['F#', [3, 1, 2, 1]],
     ['G', [0, 2, 3, 2]],
     ['G7', [0, 2, 1, 2]],
     ['Gm', [0, 2, 3, 1]],
