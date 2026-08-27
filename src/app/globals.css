@@ -3407,19 +3407,6 @@
     width: min(19rem, calc(100vw - 2rem));
   }
 
-  /*
-   * The other direction, and for the same `inset-inline-end: 0` reason `.is-wide` explains:
-   * the admin menu's trigger is the one panel opener that is *not* at the end of the bar —
-   * two buttons sit to its right — so its right edge starts that much further left, and the
-   * base `min-width: 13rem` put the panel's left edge at exactly 0 on a 320px screen
-   * (measured, not estimated). Nothing was clipped at that width, but nothing was spare
-   * either, and an overflow to the *left* is not scrollable the way one to the right is: it
-   * would simply be unreachable. A row of short links does not need 13rem anyway.
-   */
-  .menu-panel.is-compact {
-    min-width: 10.5rem;
-  }
-
   /* One step of Sing Together's "how it works", not a real ordered list: the
      numbering is said with a badge instead of a marker so it can sit beside
      the text rather than indenting it. */
@@ -4484,10 +4471,11 @@
    * extra row that buys every fret a full 44px target instead of eight squeezed
    * into one.
    */
+  /* One row, never wrapping: it holds a fixed six frets plus the arrow that pages
+     them, which is what `FRET_PAGE` was sized for. */
   .fret-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.3125rem;
+    gap: 0.25rem;
   }
 
   .fret-button {
@@ -4508,6 +4496,12 @@
     color: var(--faint);
   }
 
+  /* The arrow that pages the row along: the one cell here that is not a fret, so it is
+     drawn as quietly as fret 0 and can never take the selected fill. */
+  .fret-button.is-page {
+    color: var(--faint);
+  }
+
   .fret-button.is-on {
     background: var(--accent);
     color: var(--on-accent);
@@ -4520,7 +4514,8 @@
       color: var(--accent);
     }
 
-    .fret-button.is-none:not(.is-on):hover {
+    .fret-button.is-none:not(.is-on):hover,
+    .fret-button.is-page:hover {
       color: var(--muted);
     }
   }

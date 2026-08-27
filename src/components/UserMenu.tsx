@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { InstrumentPicker } from '@/components/InstrumentPicker'
 import { NotationPicker } from '@/components/NotationPicker'
 import { useRole } from '@/components/RoleProvider'
+import { ThemePicker } from '@/components/ThemePicker'
 import { IconChevronLeft, IconChevronRight, IconKey, IconReceipt, IconSettings, IconTrash } from '@/components/icons'
 import { deleteMyAccount } from '@/lib/accounts/actions'
 import { SELF_DELETE_MESSAGE } from '@/lib/accounts/types'
@@ -25,10 +26,11 @@ import { PLAN_LABEL } from '@/lib/plans/types'
  * **Identical for every reader, a global owner included.** This panel used to carry an
  * "Owner" badge beside the plan, which made it the one place the user menu was a different
  * shape for one person; running the installation is not a fact about being this reader, and
- * it now lives behind `AdminMenu`'s own opener in the header instead. That an owner is an
- * owner is still visible — they are the only one who sees that opener at all. Delete account nests one level under Settings rather than sitting beside the
- * preference pickers: it is a consequence of the account — leaving altogether — not a
- * preference to set.
+ * it lives behind the hamburger's own Admin entry instead (`AdminPanel`). That an owner is
+ * an owner is still visible — they are the only one who sees that entry at all. Delete
+ * account nests one level under Settings rather than sitting beside the preference
+ * pickers: it is a consequence of the account — leaving altogether — not a preference to
+ * set.
  *
  * **Billing sits on the main panel, beside Change password**, and used to nest under Settings
  * with Delete account for the reasoning above. Moved deliberately: that placement was decided
@@ -46,8 +48,8 @@ import { PLAN_LABEL } from '@/lib/plans/types'
  * monogram for others would read as two different features rather than one. The
  * email is the one identity fact every reader has, whichever way they signed in.
  *
- * Hidden entirely until the identity is known, the same rule `AdminMenu` follows for its
- * own opener: a control that flashes in a moment late is a control that was simply not
+ * Hidden entirely until the identity is known, the same rule the hamburger's Admin entry
+ * follows: a control that flashes in a moment late is a control that was simply not
  * there yet, not one that has already been reached for.
  *
  * Sign-out arrives as `children`, not an import: it is a server component
@@ -182,12 +184,19 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
 
                 {/*
                  * Grouped together because each of these is answered once for the whole
-                 * account rather than per song — instrument and notation both read the
-                 * same way on every sheet until the reader changes them again, same
-                 * reasoning `InstrumentPicker` gives for itself. Theme lives only behind
-                 * the header's own cycling icon now, not here — a preference with just
-                 * one control, not two, is simpler read from wherever it already sits.
+                 * account rather than per song — instrument, notation and theme all read
+                 * the same way on every sheet until the reader changes them again, same
+                 * reasoning `InstrumentPicker` gives for itself.
+                 *
+                 * Theme is here rather than behind a cycling icon in the header: signed
+                 * in, that icon was a third opener in a bar that already has two, and a
+                 * glyph that cycles auto → light → dark makes the reader tap through
+                 * states to find the one they want instead of naming all three. It is
+                 * still an icon in `PublicHeader`, where there is no account menu to put
+                 * it in — the same `ThemePicker`/`ThemeToggle` pair the guest side
+                 * already splits this way (`GuestSettingsMenu`).
                  */}
+                <ThemePicker />
                 <InstrumentPicker />
                 <NotationPicker />
 

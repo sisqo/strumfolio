@@ -2,7 +2,16 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { formatChord, parseChord, transposeChord } from './chord'
-import { MAX_CAPO, clampCapo, easeOf, readKey, readShift, suggestCapo } from './capo'
+import {
+  FRET_PAGE,
+  MAX_CAPO,
+  clampCapo,
+  easeOf,
+  fretWindowStart,
+  readKey,
+  readShift,
+  suggestCapo,
+} from './capo'
 import { type Key, keyFor, transposeKey } from './notes'
 
 /** What the sheet would print for a chord, at a given transposition and capo. */
@@ -168,5 +177,56 @@ describe('suggesting a capo', () => {
       const found = suggestCapo(EB_SONG, 0, capo, 'guitar')
       assert.notEqual(found?.fret, capo)
     }
+  })
+})
+
+describe('which frets the reading panel shows at once', () => {
+  it('starts at the nut, so the first page is 0 up to one short of a page', () => {
+    assert.equal(fretWindowStart(0, 0), 0)
+  })
+
+  it('never starts so late that the row would show cells past the last fret', () => {
+    /* A page of 6 over frets 0..7 can start no later than 2 (showing 2..7). The capo is
+       on the last fret here on purpose: with it at 0 the containment rule below would
+       pull the window back to the nut, and this assertion would be about that instead. */
+    assert.equal(fretWindowStart(99, MAX_CAPO), MAX_CAPO - FRET_PAGE + 1)
+  })
+
+  it('never starts before the nut', () => {
+    assert.equal(fretWindowStart(-5, 0), 0)
+  })
+
+  /*
+   * The rule the whole function exists for: whatever page was last looked at, the row
+   * has to contain the fret the capo is actually on — otherwise the badge above it names
+   * a fret that is nowhere on screen.
+   */
+  it('pulls the window forward to reach a capo past its end', () => {
+    const start = fretWindowStart(0, MAX_CAPO)
+    assert.ok(MAX_CAPO >= start && MAX_CAPO <= start + FRET_PAGE - 1)
+  })
+
+  it('pulls the window back to reach a capo before its start', () => {
+    const start = fretWindowStart(MAX_CAPO, 0)
+    assert.equal(start, 0)
+  })
+
+  it('shows every fret from 0 to MAX_CAPO on some page, wherever the capo is', () => {
+    for (let capo = 0; capo <= MAX_CAPO; capo += 1) {
+      const start = fretWindowStart(0, capo)
+      assert.ok(
+        capo >= start && capo <= start + FRET_PAGE - 1,
+        `capo ${capo} fell outside the window starting at ${start}`,
+      )
+    }
+  })
+
+  it('leaves a page alone when the capo is already inside it', () => {
+    // Capo 3 is inside 2..7, so paging to 2 and then asking again must not move it back.
+    assert.equal(fretWindowStart(2, 3), 2)
+  })
+
+  it('starts at the nut when every fret fits in one page', () => {
+    assert.equal(fretWindowStart(3, 0, 4, FRET_PAGE), 0)
   })
 })

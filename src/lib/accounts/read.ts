@@ -367,7 +367,7 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
  *
  * The name is now narrower than what this answers, and is left alone deliberately: there is
  * no account switcher in a menu any more — the way into another account is `/accounts`,
- * reached from `AdminMenu`, whose opener this is what decides the existence of. Renaming it
+ * reached from `AdminPanel`, whose Admin entry this is what decides the existence of. Renaming it
  * would touch `RoleProvider` and every reader of `isGlobalOwner` for no behavioural gain, so
  * the comment carries the correction instead.
  */

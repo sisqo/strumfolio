@@ -22,7 +22,7 @@ interface RoleContextValue {
   mayEdit: boolean
   /**
    * A true, installation-wide owner (`isOwner`) — what decides whether the header offers
-   * `AdminMenu` at all, the one opener that is either present or absent rather than a panel
+   * `AdminPanel` at all, the one entry that is either present or absent rather than a panel
    * with an entry missing from it. It used to answer for two readers instead: the Accounts
    * entry inside `NavMenu` and the user menu's own "Owner" badge, both of which have gone,
    * so the two menus every reader uses are now the same shape for everybody.

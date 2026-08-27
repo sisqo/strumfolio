@@ -32,6 +32,46 @@ export function clampCapo(fret: number): number {
   return Math.max(0, Math.min(MAX_CAPO, Math.round(fret)))
 }
 
+/**
+ * How many fret buttons the reading panel shows at once.
+ *
+ * Six, plus one cell for the arrow that reveals the rest — seven cells across a panel
+ * that is 340px wide, which is the widest a 44px tap target survives. `MAX_CAPO + 1`
+ * positions do not fit in six, hence the paging below.
+ */
+export const FRET_PAGE = 6
+
+/**
+ * Where the visible run of fret buttons starts.
+ *
+ * Two things decide it, and the order matters: what the reader last paged to, and then
+ * where the capo actually is. The second always wins — a panel reopened with the capo on
+ * fret 7 must show fret 7, whatever page was last looked at, or the row would claim a
+ * capo the reader cannot see and the badge above it would be the only tell.
+ *
+ * A function rather than clamping inline in the component because it is the one piece of
+ * this control with a rule in it, and a rule belongs where a test can hold it: every
+ * off-by-one here is invisible on screen (a row that looks fine and hides one fret).
+ */
+export function fretWindowStart(
+  desired: number,
+  capo: number,
+  max: number = MAX_CAPO,
+  size: number = FRET_PAGE,
+): number {
+  /* The furthest a window may start and still be full: past this it would show
+     empty cells past `max` rather than frets. Never below 0, for a `max` that is
+     smaller than one page. */
+  const last = Math.max(0, max - size + 1)
+
+  let start = Math.min(Math.max(Math.round(desired), 0), last)
+
+  if (capo < start) start = capo
+  else if (capo > start + size - 1) start = capo - size + 1
+
+  return Math.min(Math.max(start, 0), last)
+}
+
 /** How far to move the written chords to get the ones on the page. */
 export function readShift(semitones: number, capo: number): number {
   return semitones - capo

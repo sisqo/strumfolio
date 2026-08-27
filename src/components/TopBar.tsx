@@ -1,9 +1,7 @@
 import Link from 'next/link'
 
-import { AdminMenu } from '@/components/AdminMenu'
 import { NavMenu } from '@/components/NavMenu'
 import { SignOutButton } from '@/components/SignOutButton'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewingAsPill } from '@/components/ViewingAsPill'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
@@ -46,15 +44,15 @@ export type Section =
  * server renders it: these pages are statically generated and precached, and
  * nothing here should be able to change that.
  *
- * `ThemeToggle` sits between the steps and `UserMenu` rather than inside either
- * menu, the one control on this bar that is not about navigating or about who is
- * signed in — and the same component `PublicHeader` renders on every screen this
- * bar does not reach, so a reader who signs in mid-visit meets the identical
- * switch rather than a second one that happens to look the same.
+ * Two openers at the end of the bar, and only two: the account menu and the hamburger.
+ * The theme switch used to sit between the steps and the avatar, and the admin shield
+ * beside it; four icons in a row is more than a phone affords once the song's own title
+ * and the way back are also on this line, so both moved inside the panels — see the
+ * comment at the openers themselves.
  *
  * Stays a plain, synchronous function on purpose — `ViewingAsPill` is the one child that
  * needs to know who is looking, and it is `'use client'`, reading `useRole()` the same way
- * `AdminMenu`/`UserMenu` already do. `TopBar` itself calling `auth()`/`cookies()` to answer
+ * `NavMenu`/`UserMenu` already do. `TopBar` itself calling `auth()`/`cookies()` to answer
  * that question directly would opt every page that renders it out of static generation —
  * `/billing`, `/help`, `/thanks` and `/export` all render this bar and are all still `○`
  * (prerendered) today, exactly because nothing server-side here has ever read a dynamic API.
@@ -108,14 +106,14 @@ export function TopBar({
           </div>
         )}
 
-        <ThemeToggle />
         {/*
-         * Between the theme switch and the avatar, so the hamburger keeps the end of the bar
-         * it has always had. Draws nothing at all for anybody who is not a global owner — see
-         * `AdminMenu`'s own comment on why the difference lives in whether this opener exists
-         * rather than in holes inside the other two panels.
+         * Two openers, and only two. The theme switch used to sit here as a third icon
+         * and the admin shield as a fourth; both have moved inside the panels — theme
+         * into the account menu's own Settings (as `ThemePicker`, which names all three
+         * states instead of cycling through them), admin into the hamburger's first
+         * entry. `PublicHeader` still carries `ThemeToggle` as an icon, because there is
+         * no account menu in front of a session to put it in.
          */}
-        <AdminMenu current={current} />
         <UserMenu>
           <SignOutButton />
         </UserMenu>

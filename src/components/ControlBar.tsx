@@ -17,7 +17,7 @@ import {
   IconTurtle,
   IconUndo,
 } from '@/components/icons'
-import { type CapoOption, MAX_CAPO, suggestCapo } from '@/lib/music/capo'
+import { type CapoOption, FRET_PAGE, MAX_CAPO, fretWindowStart, suggestCapo } from '@/lib/music/capo'
 import { estimateKey } from '@/lib/music/key'
 import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
@@ -531,6 +531,18 @@ function ReadingPanel({
   const reading = written !== null ? transposeKey(written, semitones) : null
   const lastZoom = ZOOM_STEPS.length - 1
 
+  /*
+   * Which page of frets the reader last paged to — a *request*, not the answer:
+   * `fretWindowStart` gets the last word, because the fret the capo is on has to be on
+   * screen whatever page was asked for. Holding the request rather than the resolved
+   * value is what lets the capo pull the window without that pull becoming the new
+   * request and sticking after the capo moves away again.
+   */
+  const [fretPage, setFretPage] = useState(0)
+  const fretStart = fretWindowStart(fretPage, capo)
+  const pagesForward = fretStart + FRET_PAGE <= MAX_CAPO
+  const canPage = pagesForward || fretStart > 0
+
   return (
     <div className="control-panel">
       {/*
@@ -609,8 +621,18 @@ function ReadingPanel({
         <span className="value-badge">{capo === 0 ? 'none' : `fret ${capo}`}</span>
       </div>
 
+      {/*
+        * Six frets and an arrow, rather than every fret squeezed into one row. Seven
+        * cells across the panel's 19rem of inner width come out 40px wide; all eight
+        * frets in one row would be 34px, narrow enough that the wrong fret is the one
+        * a thumb finds with a guitar in the other hand. The arrow pages the run along
+        * and turns into a `‹` once there is nothing further to reveal, so the row is
+        * always exactly seven cells and never changes width — see `fretWindowStart` for
+        * the one rule here, that the fret the capo is on is always among the six.
+        */}
       <div className="fret-row mt-2.5" role="group" aria-label="Capo fret">
-        {Array.from({ length: MAX_CAPO + 1 }, (_, fret) => {
+        {Array.from({ length: Math.min(FRET_PAGE, MAX_CAPO + 1 - fretStart) }, (_, index) => {
+          const fret = fretStart + index
           const classes = ['fret-button']
           if (fret === 0) classes.push('is-none')
           if (fret === capo) classes.push('is-on')
@@ -628,6 +650,18 @@ function ReadingPanel({
             </button>
           )
         })}
+
+        {canPage && (
+          <button
+            type="button"
+            className="fret-button is-page"
+            onClick={() => setFretPage(pagesForward ? fretStart + FRET_PAGE : fretStart - FRET_PAGE)}
+            aria-label={pagesForward ? 'Show higher frets' : 'Show lower frets'}
+            title={pagesForward ? 'Higher frets' : 'Lower frets'}
+          >
+            {pagesForward ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+          </button>
+        )}
       </div>
 
       {/*

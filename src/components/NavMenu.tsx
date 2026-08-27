@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { AdminPanel, isAdminSection } from '@/components/AdminPanel'
 import { useRole } from '@/components/RoleProvider'
 import { SingTogetherPanel } from '@/components/SingTogetherPanel'
 import {
@@ -15,6 +16,7 @@ import {
   IconMenu,
   IconNote,
   IconPrint,
+  IconShield,
   IconTuningFork,
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
@@ -30,30 +32,32 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * the panel every entry carries its label, which the icon-only row on a phone
  * could not.
  *
- * **Nothing in this panel depends on who is asking any more.** Accounts and Emails were the
- * last two entries that did, offered only to a global owner, and they have moved out to
- * `AdminMenu` — a third opener in the header that is either there or not, which is a plainer
- * thing than a panel with holes in it for one reader. `mayEdit` still gates the booklet and
- * Export, and that is not the same kind of test: with a single grantable role (v3.1) every
- * signed-in reader is admin on their own account, so it is false only before the answer
- * arrives.
+ * **Admin is the one entry that depends on who is asking**, and it is the first one:
+ * everything about running the installation lives behind it, offered to a global owner
+ * and simply absent for everybody else. It used to be a shield of its own in the header
+ * — the reasoning being that "an opener that is either there or not" beats "a panel with
+ * holes in it for one reader" — and that still holds; what changed is that the header
+ * could not afford a third icon beside the avatar and the hamburger on a phone, so the
+ * either/or moved down here to the panel's first row. `mayEdit` gates the booklet and
+ * Export further down, and that is not the same kind of test: with a single grantable
+ * role (v3.1) every signed-in reader is admin on their own account, so it is false only
+ * before the answer arrives.
  *
- * Sing Together is a second screen inside this same panel rather than a page of its
- * own: it is reached mid-song, and a real navigation would cost the reader the page
- * they were reading to get there and again to get back. What it does is about the
- * repertoire being read — the songs this reader is about to sing from, sent to
- * whoever opened the link — not about this reader's own account. `view` resets to
- * `main` on every close, so the panel always opens where it left off closing — at
- * the top, not wherever Sing Together happened to leave it. `SingTogetherPanel` owns
- * the actual screen — whether a broadcast is already running, the QR, start and
- * stop — shared with the reading bar's own toggle so the two can never disagree about
- * the same broadcast; see `SingAlongProvider`'s own comment for why that state lives
- * above both of them instead of in either.
+ * Sing Together and Admin are both second screens inside this same panel rather than
+ * pages of their own: Sing Together is reached mid-song, where a real navigation would
+ * cost the reader the page they were reading to get there and again to get back, and
+ * Admin is a list of six links that would otherwise need a screen to hold six links.
+ * `view` resets to `main` on every close, so the panel always opens where it left off
+ * closing — at the top, not wherever either of them happened to leave it.
+ * `SingTogetherPanel` owns its own screen — whether a broadcast is already running, the
+ * QR, start and stop — shared with the reading bar's own toggle so the two can never
+ * disagree about the same broadcast; see `SingAlongProvider`'s own comment for why that
+ * state lives above both of them instead of in either.
  */
 export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'main' | 'sing-together'>('main')
-  const { mayEdit } = useRole()
+  const [view, setView] = useState<'main' | 'sing-together' | 'admin'>('main')
+  const { mayEdit, isGlobalOwner } = useRole()
 
   const close = () => {
     setOpen(false)
@@ -121,8 +125,53 @@ export function NavMenu({ current }: { current: Section }) {
               </>
             )}
 
+            {view === 'admin' && (
+              <>
+                {/* Same back row as Sing Together's, for the same reason — see its comment. */}
+                <button
+                  type="button"
+                  className="menu-item w-full"
+                  role="menuitem"
+                  aria-label="Back to the menu"
+                  onClick={() => setView('main')}
+                >
+                  <IconChevronLeft size={17} />
+                  Admin
+                </button>
+
+                <div className="menu-divider" />
+
+                <AdminPanel current={current} onNavigate={close} />
+              </>
+            )}
+
             {view === 'main' && (
               <>
+                {/*
+                  * First, and the only entry in this panel that depends on who is asking:
+                  * an installation-wide owner gets it, nobody else sees it at all. Its own
+                  * divider below rather than sitting flush with Home — what is behind it is
+                  * about running the installation, not about reading from it, and that is a
+                  * bigger step than the one between any two entries under it.
+                  */}
+                {isGlobalOwner && (
+                  <>
+                    <button
+                      type="button"
+                      className={isAdminSection(current) ? 'menu-item is-on w-full' : 'menu-item w-full'}
+                      role="menuitem"
+                      aria-label="Admin, opens the administration pages"
+                      onClick={() => setView('admin')}
+                    >
+                      <IconShield size={17} />
+                      Admin
+                      <IconChevronRight size={15} className="ms-auto" />
+                    </button>
+
+                    <div className="menu-divider" />
+                  </>
+                )}
+
                 <Link href="/" className={item('songs')} role="menuitem" onClick={close}>
                   <IconNote size={17} />
                   Home
