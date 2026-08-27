@@ -498,11 +498,6 @@
     fill: var(--accent);
   }
 
-  /* The bar the capo makes: the same line as the nut, in the colour of a finger. */
-  .chord-diagram-capo {
-    stroke: var(--accent);
-  }
-
   /*
    * That a capo is on, under the title. In the accent colour and not muted: it changes
    * every chord below it, which is more than a detail about the song — it is the reason
@@ -579,6 +574,26 @@
     stroke: none;
     font-size: 13px;
     font-weight: 600;
+  }
+
+  /*
+   * That a capo is on: the fret it sits on, in the accent colour, beside a nut drawn
+   * exactly like any other nut.
+   *
+   * It used to be the nut *itself* that went accent — "the same line as the nut, in the
+   * colour of a finger", which was the reasoning, and the reasoning is what turned out to
+   * be wrong: a capo is the one thing on this diagram that is *not* a finger. Sharing
+   * `--accent` with `.chord-diagram-dot` was survivable while the only accent horizontals
+   * were dots, and stopped being once a barre is drawn as a bar — a bar across the neck at
+   * the first fret sits a few pixels under the nut, and two accent lines that close together
+   * read as one thick capo rather than as a capo and a finger behind it.
+   *
+   * So the colour now marks the *number*, which is the part that says something a nut cannot
+   * say on its own, and the nut goes back to being a nut. `.capo-note` under the song title
+   * carries the same fact in words, which is why a number is enough here.
+   */
+  .chord-diagram-capo {
+    fill: var(--accent);
   }
 
   .chord-notes {

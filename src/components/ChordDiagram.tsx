@@ -66,12 +66,16 @@ export function ChordDiagram({
       focusable="false"
     >
       {/*
-        * The nut, or a plain fret when the window has moved up the neck.
+        * The nut, or a plain fret when the window has moved up the neck. The same line
+        * either way with a capo on: the shape is unchanged, because a capo makes a new nut
+        * and the C shape behind it is still the C shape — what is drawn differently is the
+        * fret named beside it, in the accent colour. Without that, an open shape and the
+        * same shape behind a capo are the same picture.
         *
-        * With a capo on, the shape is unchanged — a capo makes a new nut, and the C
-        * shape behind it is still the C shape — so the only thing to draw differently
-        * is the bar itself, in the accent colour, with the fret named beside it. Without
-        * that, an open shape and the same shape behind a capo are the same picture.
+        * The nut used to take the accent colour itself. It cannot: a bar at the first fret
+        * lands a few pixels below this line, and two accent horizontals that close together
+        * read as one thick capo instead of a capo with a finger behind it. See
+        * `.chord-diagram-capo`, which now colours the number.
         */}
       <line
         x1={LEFT}
@@ -80,11 +84,15 @@ export function ChordDiagram({
         y2={TOP}
         strokeWidth={atNut ? 4 : 1.2}
         strokeLinecap="butt"
-        className={atNut && capo > 0 ? 'chord-diagram-capo' : undefined}
       />
 
       {atNut && capo > 0 && (
-        <text x={LEFT - 5} y={TOP - 4} className="chord-diagram-fret" textAnchor="end">
+        <text
+          x={LEFT - 5}
+          y={TOP - 4}
+          className="chord-diagram-fret chord-diagram-capo"
+          textAnchor="end"
+        >
           {capo}
         </text>
       )}
