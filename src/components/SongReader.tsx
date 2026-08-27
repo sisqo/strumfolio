@@ -163,8 +163,8 @@ export async function SongReader({ song }: { song: Song }) {
             series === null
               ? null
               : {
-                  previous: series.previous ? `/songs/${series.previous}` : null,
-                  next: series.next ? `/songs/${series.next}` : null,
+                  previous: series.previous,
+                  next: series.next,
                   position: series.position,
                   total: series.total,
                 }

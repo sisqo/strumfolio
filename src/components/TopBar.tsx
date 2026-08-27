@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { AdminMenu } from '@/components/AdminMenu'
 import { NavMenu } from '@/components/NavMenu'
 import { SignOutButton } from '@/components/SignOutButton'
-import { SingAlongPill } from '@/components/SingAlongPill'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewingAsPill } from '@/components/ViewingAsPill'
@@ -108,8 +107,6 @@ export function TopBar({
             <Step href={steps.next} label="Next song" direction="next" />
           </div>
         )}
-
-        <SingAlongPill />
 
         <ThemeToggle />
         {/*

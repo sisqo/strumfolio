@@ -66,11 +66,10 @@ const AUDIENCE_MS = 10_000
  * `null` for a session-less caller without touching the database beyond the session
  * check, the same way `RoleProvider`'s own `loadIdentity` already does on every page.
  *
- * What this does *not* own: the QR code (drawn only inside the menu's own wide panel,
- * and `QRCode.toDataURL` is not a cost worth paying on every page for a code nobody is
- * looking at), the "Copied" flash, or any error text — those read differently in the
- * menu's full screen than they would in the bar's one-line pill, so each caller keeps
- * its own.
+ * What this does *not* own: the QR code, the "Copied" flash, and any error text — all
+ * three live in `SingTogetherPanel` instead, drawn only while that panel is actually
+ * open (from the menu or from the bar, whichever the reader tapped), never on every
+ * page load for a code nobody is looking at.
  */
 export function SingAlongProvider({ children }: { children: ReactNode }) {
   const [broadcast, setBroadcast] = useState<BroadcastState | null | undefined>(undefined)

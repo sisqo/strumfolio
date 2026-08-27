@@ -3100,44 +3100,6 @@
   }
 
   /*
-   * "Live" (`SingAlongPill.tsx`) — shown in `TopBar` on every screen for as long as
-   * this reader has a Sing Together broadcast running, not only the reading page it
-   * was started from: the broadcast keeps going while its leader checks a songbook,
-   * so the header keeps saying so. Same `--accent-soft`/`--accent` pairing as
-   * `.viewing-as-pill` above and the bar's own live indicators — one warm tint for
-   * "something worth noticing" everywhere it appears.
-   */
-  .live-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4375rem;
-    flex: none;
-    height: 2rem;
-    padding: 0 0.75rem;
-    border-radius: var(--r-pill);
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 0.8125rem;
-    font-weight: 500;
-  }
-
-  .live-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-
-  .live-pill-count {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .live-pill-dot {
-    color: color-mix(in srgb, var(--accent) 55%, var(--accent-soft));
-  }
-
-  /*
    * Both lockups render; CSS picks one. Static markup can't ask which theme is
    * showing — `.brand`/`.hero-badge` are on statically generated, precached pages —
    * so the swap has to happen the same way the color tokens above do: a rule for

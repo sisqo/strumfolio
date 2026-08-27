@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { ControlBar } from '@/components/ControlBar'
+import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { GuestSettingsMenu } from '@/components/GuestSettingsMenu'
 import { PrefsProvider, usePrefs } from '@/components/PrefsProvider'
 import { SongSheet } from '@/components/SongSheet'
@@ -16,6 +16,7 @@ import {
   guestListSongbooks,
   guestListSongs,
   guestLoadSong,
+  guestSeriesOf,
 } from '@/lib/singAlong/guestReads'
 import { pollBroadcast } from '@/lib/singAlong/session'
 
@@ -504,6 +505,21 @@ export function FollowSession({ token }: { token: string }) {
     setScreen('song')
   }
 
+  /**
+   * What the reading bar's own prev/next capsule calls — `openSong`, plus suspending
+   * first if this guest was following. Without the suspend, `reconcile`'s own rule
+   * ("the broadcaster's play always wins over ordinary browsing") would read the very
+   * next poll as this guest still following, see a song that disagrees with what the
+   * broadcast is showing, and pull them straight back to it — undoing a tap that,
+   * unlike drifting to the songbook list for a moment, was a deliberate choice to read
+   * something else.
+   */
+  async function stepToSong(slug: string): Promise<void> {
+    followStateRef.current = 'suspended'
+    setFollowState('suspended')
+    await openSong(slug)
+  }
+
   function toggleSection(sectionId: number): void {
     if (songbook === null) return
     setSongbook({ ...songbook, open: { ...songbook.open, [sectionId]: !isSectionOpen(songbook, sectionId) } })
@@ -667,12 +683,14 @@ export function FollowSession({ token }: { token: string }) {
         <>
           {banner}
           <FollowedSong
+            token={token}
             song={song}
             isLive={live !== null && song.data.slug === live.songSlug}
             backLabel={songbook?.content.songbookName ?? 'Songbook'}
             onBack={() => setScreen('songbook')}
             onUnfollow={unfollow}
             onFollowLive={() => void followLive()}
+            onStepTo={(slug) => void stepToSong(slug)}
           />
         </>
       )
@@ -848,13 +866,16 @@ function LiveNowBanner({ title, onFollow }: { title: string | null; onFollow: ()
  * nothing to rejoin on a song the broadcast is not actually showing.
  */
 function FollowedSong({
+  token,
   song,
   isLive,
   backLabel,
   onBack,
   onUnfollow,
   onFollowLive,
+  onStepTo,
 }: {
+  token: string
   song: ShownSong
   /** Whether this exact song is what the broadcast is showing right now. */
   isLive: boolean
@@ -865,9 +886,13 @@ function FollowedSong({
   onUnfollow: () => void
   /** Resumes following, at whatever the broadcast is showing right now. */
   onFollowLive: () => void
+  /** Suspends following (if following) and opens another song by slug — the reading
+   *  bar's own prev/next capsule, wired to `stepToSong`. */
+  onStepTo: (slug: string) => void
 }) {
   const parsed = useMemo(() => parseChordPro(song.data.body), [song.data])
   const { setCapo, setScrollSpeed } = usePrefs()
+  const [steps, setSteps] = useState<NavSteps | null>(null)
 
   useEffect(() => {
     setCapo(DEFAULT_SONG_PREFS.capo)
@@ -885,6 +910,33 @@ function FollowedSong({
      */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song.data.slug])
+
+  /*
+   * Read fresh for every song shown, regardless of how it got on screen — browsed to,
+   * or swept in by the broadcast, which never populates `songbook` at all (see
+   * `reconcile`). Cleared first rather than left showing the previous song's arrows for
+   * a beat, the same reasoning `useSingAlong`'s own audience count uses.
+   */
+  useEffect(() => {
+    let cancelled = false
+    setSteps(null)
+    void guestSeriesOf(token, song.data.slug).then((series) => {
+      if (cancelled) return
+      setSteps(
+        series === null
+          ? null
+          : {
+              previous: series.previous,
+              next: series.next,
+              position: series.position,
+              total: series.total,
+            },
+      )
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token, song.data.slug])
 
   return (
     <>
@@ -938,6 +990,8 @@ function FollowedSong({
         chords={chordTokens(parsed)}
         semitonesLocked={song.following}
         broadcastEnabled={false}
+        steps={steps}
+        onStepTo={onStepTo}
       />
     </>
   )

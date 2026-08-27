@@ -3,16 +3,14 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useSingAlong } from '@/components/SingAlongProvider'
+import { SingTogetherPanel } from '@/components/SingTogetherPanel'
 import {
   IconBroadcast,
-  IconCheck,
   IconChevronLeft,
   IconChevronRight,
   IconHare,
-  IconLink,
   IconPause,
   IconPlay,
   IconSliders,
@@ -23,8 +21,6 @@ import { type CapoOption, MAX_CAPO, suggestCapo } from '@/lib/music/capo'
 import { estimateKey } from '@/lib/music/key'
 import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
-import { audienceSentence } from '@/lib/plans/types'
-import { followUrl } from '@/lib/singAlong/link'
 import { broadcastPlay, broadcastTranspose } from '@/lib/singAlong/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
@@ -66,6 +62,7 @@ export function ControlBar({
   semitonesLocked = false,
   broadcastEnabled = true,
   steps = null,
+  onStepTo,
 }: {
   /**
    * Which song this bar belongs to — needed only to tell Sing Together which song
@@ -99,9 +96,16 @@ export function ControlBar({
    */
   broadcastEnabled?: boolean
   /** This song's place in the songbook it was opened from, for the prev/next capsule.
-   *  `null` when there is none to show — a guest's reading page, or a song with no
-   *  songbook of its own. */
+   *  `null` when there is none to show — a guest's reading page with no songbook open,
+   *  or a song with no songbook of its own. */
   steps?: NavSteps | null
+  /**
+   * How to reach the song `steps` names, when a real navigation is not what that
+   * means — a follower's own page, which shows a song by swapping state rather than
+   * routing. Omitted on the reader's own copy of this bar, where `Step` falls back to
+   * a plain `Link` to `/songs/‹slug›`.
+   */
+  onStepTo?: (slug: string) => void
 }) {
   const {
     global,
@@ -158,27 +162,36 @@ export function ControlBar({
       {panel !== null && <div className="menu-overlay" onClick={() => setPanel(null)} aria-hidden />}
 
       <div className={steps === null ? 'control-strip' : 'control-strip has-nav'}>
+        {/*
+         * Both panels below are siblings of `.control-dock`/`.control-nav` here, not
+         * children of the button that opens them: `.control-strip` is what still spans
+         * the bar's true edges once `.control-nav` is sharing the row with the dock,
+         * and a panel anchored to the dock's own (now narrower) edge went partly off
+         * the screen on a phone the moment there was somewhere for it to shrink from.
+         */}
+        {panel === 'settings' && (
+          <ReadingPanel
+            semitones={song.semitones}
+            semitonesLocked={semitonesLocked}
+            capo={song.capo}
+            suggestion={suggestion}
+            written={written}
+            chordDisplay={global.chordDisplay}
+            zoomStep={global.zoomStep}
+            setSemitones={setSemitonesAndBroadcast}
+            setCapo={setCapo}
+            setChordDisplay={setChordDisplay}
+            setZoomStep={setZoomStep}
+          />
+        )}
+
+        {broadcastEnabled && panel === 'sing' && (
+          <div className="sing-panel">
+            <SingTogetherPanel onClose={() => setPanel(null)} />
+          </div>
+        )}
+
         <div className="control-dock">
-          {panel === 'settings' && (
-            <ReadingPanel
-              semitones={song.semitones}
-              semitonesLocked={semitonesLocked}
-              capo={song.capo}
-              suggestion={suggestion}
-              written={written}
-              chordDisplay={global.chordDisplay}
-              zoomStep={global.zoomStep}
-              setSemitones={setSemitonesAndBroadcast}
-              setCapo={setCapo}
-              setChordDisplay={setChordDisplay}
-              setZoomStep={setZoomStep}
-            />
-          )}
-
-          {broadcastEnabled && panel === 'sing' && (
-            <SingPanel close={() => setPanel(null)} />
-          )}
-
           {broadcastEnabled && <SingToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
 
           <button
@@ -278,39 +291,50 @@ export function ControlBar({
           </button>
         </div>
 
-        {steps !== null && <PrevNext steps={steps} />}
+        {steps !== null && <PrevNext steps={steps} onStepTo={onStepTo} />}
       </div>
     </nav>
   )
 }
 
-/** Steps to the previous or next song in the songbook, and where this one sits among
- *  them — moved down from the header so it sits with the rest of what a hand
- *  reaches for mid-song rather than at the top of the page, out of reach on a stand. */
-function PrevNext({ steps }: { steps: NavSteps }) {
+/**
+ * Steps to the previous or next song in the songbook, and where this one sits among
+ * them — moved down from the header so it sits with the rest of what a hand reaches
+ * for mid-song rather than at the top of the page, out of reach on a stand.
+ *
+ * `steps.previous`/`.next` are slugs, not hrefs: what stepping to one *means* differs
+ * by who is reading. A signed-in reader gets a real navigation, `/songs/‹slug›`, built
+ * here rather than by every caller, since this is the one place that already knows the
+ * route a song reads at. A follower has no such page — `FollowSession` shows a song by
+ * swapping state in place — so it hands in `onStepTo` instead, and a slug is handed
+ * back rather than a page changing under it.
+ */
+function PrevNext({ steps, onStepTo }: { steps: NavSteps; onStepTo?: (slug: string) => void }) {
   return (
     <div className="control-nav">
-      <Step href={steps.previous} label="Previous song" direction="previous" />
+      <Step slug={steps.previous} label="Previous song" direction="previous" onStepTo={onStepTo} />
       <span className="control-nav-count">
         {steps.position}/{steps.total}
       </span>
-      <Step href={steps.next} label="Next song" direction="next" />
+      <Step slug={steps.next} label="Next song" direction="next" onStepTo={onStepTo} />
     </div>
   )
 }
 
 function Step({
-  href,
+  slug,
   label,
   direction,
+  onStepTo,
 }: {
-  href: string | null
+  slug: string | null
   label: string
   direction: 'previous' | 'next'
+  onStepTo?: (slug: string) => void
 }) {
   const icon = direction === 'previous' ? <IconChevronLeft size={22} /> : <IconChevronRight size={22} />
 
-  if (href === null) {
+  if (slug === null) {
     return (
       <span className="control-button is-off" aria-hidden>
         {icon}
@@ -318,15 +342,30 @@ function Step({
     )
   }
 
+  if (onStepTo !== undefined) {
+    return (
+      <button
+        type="button"
+        className="control-button"
+        title={label}
+        aria-label={label}
+        onClick={() => onStepTo(slug)}
+      >
+        {icon}
+      </button>
+    )
+  }
+
   return (
-    <Link href={href} className="control-button" title={label} aria-label={label}>
+    <Link href={`/songs/${slug}`} className="control-button" title={label} aria-label={label}>
       {icon}
     </Link>
   )
 }
 
 /** The Sing Together toggle: a quiet icon while nothing is running, a filled pill
- *  naming the follower count once something is. Tapping either opens `SingPanel`. */
+ *  naming the follower count once something is. Tapping either opens the same
+ *  `SingTogetherPanel` the hamburger menu's own entry does. */
 function SingToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { broadcast, audience } = useSingAlong()
   const live = broadcast !== null && broadcast !== undefined
@@ -360,115 +399,6 @@ function SingToggle({ open, onToggle }: { open: boolean; onToggle: () => void })
       <IconBroadcast size={19} />
       {audience !== null && <span className="control-sing-count">{audience.following}</span>}
     </button>
-  )
-}
-
-/**
- * The condensed Sing Together screen, anchored above the bar's own toggle.
- *
- * A smaller version of the menu's own Sing Together view, not a second copy of it: no
- * QR here (drawing one is not a cost worth paying for a panel this size, or twice for
- * one broadcast), no numbered steps — a leader who has reached for this button mid-song
- * already knows what starting one does. What survives is the one thing this location
- * earns over the menu's: it opens without leaving the song.
- */
-function SingPanel({ close }: { close: () => void }) {
-  const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useSingAlong()
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
-
-  const doStart = async () => {
-    setError(null)
-    const result = await start()
-    if (result.ok) return
-
-    if (result.reason === 'plan-required') {
-      setPlanNotice({ reason: 'plan-required', feature: 'Sing Together' })
-      close()
-    } else if (result.reason === 'no-session') {
-      setError('Session expired. Reload the page and sign in again.')
-    } else {
-      setError("Couldn't start. Try again.")
-    }
-  }
-
-  const doStop = async () => {
-    setError(null)
-    const result = await stop()
-    if (!result.ok) setError("Couldn't stop. Try again.")
-  }
-
-  const copyLink = async () => {
-    if (broadcast == null) return
-    try {
-      await navigator.clipboard.writeText(followUrl(broadcast.token))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      /* Clipboard access can be refused; the link is still there as selectable text. */
-    }
-  }
-
-  return (
-    <div className="sing-panel">
-      {broadcast === undefined && <p className="text-sm text-muted">One moment…</p>}
-
-      {broadcast === null && askFailed && (
-        <>
-          <p className="notice notice-error" role="alert">
-            Couldn&apos;t check whether you already have one running.
-          </p>
-          <button type="button" className="btn btn-sm mt-2 w-full" onClick={checkBroadcast}>
-            Try again
-          </button>
-        </>
-      )}
-
-      {broadcast === null && !askFailed && (
-        <>
-          <p className="text-sm text-muted">
-            Share a link and whoever opens it follows this song, live, in your key — no
-            account needed on their side.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm mt-3 w-full"
-            onClick={() => void doStart()}
-            disabled={busy}
-          >
-            <IconBroadcast size={15} />
-            Start broadcasting
-          </button>
-        </>
-      )}
-
-      {broadcast !== null && broadcast !== undefined && (
-        <>
-          <p className="select-all break-all text-xs text-muted">{followUrl(broadcast.token)}</p>
-          {audience !== null && (
-            <p className="mt-1.5 text-xs text-muted">{audienceSentence(audience.following, audience.devices)}</p>
-          )}
-          <div className="mt-2.5 flex gap-1.5">
-            <button type="button" className="btn btn-sm flex-1" onClick={() => void copyLink()}>
-              {copied ? <IconCheck size={14} /> : <IconLink size={14} />}
-              {copied ? 'Copied' : 'Copy link'}
-            </button>
-            <button type="button" className="btn btn-ink btn-sm flex-1" onClick={() => void doStop()} disabled={busy}>
-              Stop
-            </button>
-          </div>
-        </>
-      )}
-
-      {error !== null && (
-        <p className="notice notice-error mt-2" role="alert">
-          {error}
-        </p>
-      )}
-
-      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
-    </div>
   )
 }
 

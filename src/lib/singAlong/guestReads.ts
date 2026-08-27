@@ -20,6 +20,7 @@
 import { songAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import type { Song } from '@/lib/data/types'
+import { type Series, seriesOf } from '@/lib/songbooks/series'
 
 import { broadcastAccountForToken } from './session'
 
@@ -101,4 +102,25 @@ export async function guestLoadSong(token: string, slug: string): Promise<Song |
 
   const songs = await listSongsForAccount(account)
   return songs.find((song) => song.slug === slug) ?? null
+}
+
+/**
+ * Where a song sits among the others of its songbook, for a guest — the same
+ * `seriesOf` the signed-in reading page already uses, over this token's own account,
+ * so a follower's prev/next capsule works whether they browsed here or were swept
+ * straight into the song by the broadcast (`FollowSession`'s `reconcile`, which never
+ * touches `songbook` state at all). `null` both when the token does not resolve and
+ * when the slug is not on that account's shelf — the song itself may still be showing
+ * on screen (the broadcast said so more recently than this read), it just has nothing
+ * to step through.
+ */
+export async function guestSeriesOf(token: string, slug: string): Promise<Series | null> {
+  const account = await broadcastAccountForToken(token)
+  if (account === null) return null
+
+  const songs = await listSongsForAccount(account)
+  const song = songs.find((entry) => entry.slug === slug)
+  if (song === undefined) return null
+
+  return seriesOf(song, songs)
 }
