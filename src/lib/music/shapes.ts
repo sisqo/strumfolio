@@ -270,22 +270,77 @@ const REACH = 3
 const LAST_FRET = 12
 
 /**
- * How a ukulele voicing is judged, lowest cost first: strings left silent, then how
- * far up the neck it sits, then how far the hand has to stretch, then how many
- * fingers it takes.
+ * The frets a hand covers without leaving the nut, which is where a chart wants to be.
  *
- * The order of the middle two is the whole difference between a chart someone would
+ * `REACH` is the span of one hand; planted at the nut that hand reaches the fourth
+ * fret, and every shape a ukulele book prints on its first pages lives inside it.
+ */
+const COMFORT = REACH + 1
+
+/**
+ * Strings left silent with a sounding string on either side of them.
+ *
+ * Not the same concession as an outer string left out, which is why the two are counted
+ * separately: an outer string is one the strum simply misses, while an inner one has to
+ * be damped while its neighbours ring — on four strings played with a thumb or the back
+ * of the nails, that is a different technique rather than a harder version of the same
+ * one.
+ */
+function silentInside(frets: Fret[]): number {
+  const sounding = frets
+    .map((fret, string) => (fret === null ? -1 : string))
+    .filter((string) => string !== -1)
+  if (sounding.length === 0) return 0
+
+  let count = 0
+  for (let string = sounding[0]; string < sounding[sounding.length - 1]; string += 1) {
+    if (frets[string] === null) count += 1
+  }
+  return count
+}
+
+/**
+ * How a ukulele voicing is judged, lowest cost first: strings damped in the middle of
+ * the chord, then whether the hand has to leave the first four frets, then strings left
+ * out at the edges, then how far up the neck it sits, then how far the hand has to
+ * stretch, then how many fingers it takes.
+ *
+ * The order of the last three is the whole difference between a chart someone would
  * recognise and one they would not. Ranked by stretch first, the search answers F
  * with 5555 — four fingers in a row at the fifth fret, span zero, perfectly valid and
  * not what anybody plays — instead of 2010 at the nut. Position first, and the famous
  * shapes appear on their own.
+ *
+ * **Leaving the nut costs more than dropping an outer string**, and that ordering is
+ * the answer to a real complaint. Silence-first alone is defensible on an instrument
+ * with only four strings — one of them is a quarter of the sound — but taken absolutely
+ * it bought that quarter at any price: a D diminished came out `7545`, at the seventh
+ * fret, where `121x` at the first sounds the same three notes and simply leaves the A
+ * string alone. Nobody climbs to the seventh fret to keep a string the chord does not
+ * need. An *inner* string is a different matter and outranks even position: F
+ * diminished can be had at the first fret only by damping the C string between two
+ * ringing ones, so it stays where it was, at `4542`.
+ *
+ * None of this can disturb a shape that was already at home. Every winner inside the
+ * first four frets scores zero on the first three terms — nothing there is silent at
+ * all — so it still beats everything above them, and among the shapes down there the
+ * order is the one this function always used. Where no low voicing exists — a major
+ * ninth needs four distinct tones and can be out of reach — every candidate scores the
+ * same on position and the ranking below decides exactly as it did before.
  */
 function cost(frets: Fret[]): number[] {
   const fretted = frets.filter((fret): fret is number => fret !== null && fret > 0)
   const highest = fretted.length === 0 ? 0 : Math.max(...fretted)
   const span = fretted.length === 0 ? 0 : highest - Math.min(...fretted)
 
-  return [frets.filter((fret) => fret === null).length, highest, span, fretted.length]
+  return [
+    silentInside(frets),
+    highest > COMFORT ? 1 : 0,
+    frets.filter((fret) => fret === null).length,
+    highest,
+    span,
+    fretted.length,
+  ]
 }
 
 function cheaper(one: number[], other: number[]): boolean {

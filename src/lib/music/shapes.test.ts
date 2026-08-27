@@ -158,6 +158,52 @@ describe('the ukulele shapes a player would recognise', () => {
   }
 })
 
+describe('what a ukulele chart gives up to stay at the nut', () => {
+  const ukulele = (token: string) => {
+    const chord = parseChord(token)
+    assert.ok(chord !== null, `${token} did not parse`)
+    return shapeFor(chord, 'ukulele')?.frets
+  }
+
+  /**
+   * Both of these used to be found high up the neck, because keeping every string
+   * sounding outranked everything else. On four strings that is worth a lot and not
+   * worth this: the same three notes are down at the nut.
+   */
+  it('leaves an outer string out rather than climb the neck', () => {
+    assert.deepEqual(ukulele('Ddim'), [1, 2, 1, null])
+    assert.deepEqual(ukulele('Cdim'), [null, 3, 2, 3])
+  })
+
+  /**
+   * The other half of the same rule. Fdim and Adim have a first-fret voicing too, and
+   * both reach it only by damping a string with a ringing one on either side, so they
+   * stay where they were — the stretch is the easier of the two things to ask for.
+   */
+  it('will not damp a string between two that ring', () => {
+    assert.deepEqual(ukulele('Fdim'), [4, 5, 4, 2])
+    assert.deepEqual(ukulele('Adim'), [5, 3, 5, 0])
+  })
+
+  it('never picks a shape with a hole in the middle of it', () => {
+    for (const family of Object.keys(FAMILIES)) {
+      for (let root = 0; root < 12; root += 1) {
+        const shape = shapeFor(
+          { root, rootName: 'C', suffix: family, bass: null, bassName: null },
+          'ukulele',
+        )
+        if (shape === undefined || shape === null) continue
+
+        const sounding = shape.frets.flatMap((fret, string) => (fret === null ? [] : [string]))
+        const inner = shape.frets
+          .slice(sounding[0], sounding[sounding.length - 1])
+          .filter((fret) => fret === null)
+        assert.equal(inner.length, 0, `${root}:${family} damps a string in the middle`)
+      }
+    }
+  })
+})
+
 describe('shapeFor', () => {
   const shapeOf = (token: string) => {
     const chord = parseChord(token)
