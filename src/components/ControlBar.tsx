@@ -184,9 +184,23 @@ export function ControlBar({
 
   return (
     <nav className="control-bar" aria-label="Reading controls">
-      {/* Catches the tap that means "never mind". Inside the bar, so it does not
-          count as the manual gesture that pauses the scroll. */}
-      {panel !== null && <div className="menu-overlay" onClick={() => setPanel(null)} aria-hidden />}
+      {/*
+        * Catches the tap that means "never mind". Inside the bar, so it does not count as
+        * the manual gesture that pauses the scroll.
+        *
+        * `is-scrim` only for the reading panel, and only below `sm` (see its rule): on a
+        * phone that panel spans the whole bar and stands over the song, and the mock dims
+        * what is behind it so the song reads as put aside rather than as still available
+        * under a floating card. The speed popover gets no scrim — it is a thumb-sized
+        * thing that dimming the whole screen would badly overstate.
+        */}
+      {panel !== null && (
+        <div
+          className={panel === 'settings' ? 'menu-overlay is-scrim' : 'menu-overlay'}
+          onClick={() => setPanel(null)}
+          aria-hidden
+        />
+      )}
 
       <div className={steps === null ? 'control-strip' : 'control-strip has-nav'}>
         {/*
@@ -263,62 +277,81 @@ export function ControlBar({
             <IconHare size={24} />
           </div>
 
-          {/* The collapsed version, below that width: an icon that opens the same
-              slider standing on end above it. */}
-          <div className="speed-compact">
+          {/*
+            * Speed and the panel button, wrapped together — one cell of the phone's grid,
+            * and nothing at all here, where `.control-tools` is `display: contents` and
+            * these two are direct children of the dock exactly as they were.
+            */}
+          <div className="control-tools">
+            {/* The collapsed version, below that width: an icon that opens the same
+                slider standing on end above it. */}
+            <div className="speed-compact">
+              <button
+                type="button"
+                className="control-button"
+                onClick={() => setPanel((current) => (current === 'speed' ? null : 'speed'))}
+                aria-expanded={panel === 'speed'}
+                aria-label="Scroll speed"
+              >
+                <IconHare size={19} />
+
+                {/*
+                  * Which speed it is set to, on a phone, where the slider is behind this
+                  * button rather than beside it. The same 1-based number the slider's own
+                  * `aria-valuetext` reads out, so the two never disagree — and `aria-hidden`
+                  * because that label already says it in full.
+                  */}
+                <span className="speed-step" aria-hidden>
+                  {song.scrollSpeed + 1}
+                </span>
+              </button>
+
+              {panel === 'speed' && (
+                <div className="speed-popover">
+                  <IconHare size={16} />
+                  <span className="speed-vertical-wrap">
+                    <input
+                      type="range"
+                      className="speed-range zoom-range speed-range-vertical"
+                      min={0}
+                      max={lastSpeed}
+                      step={1}
+                      value={song.scrollSpeed}
+                      onChange={(event) => setScrollSpeed(Number(event.target.value))}
+                      style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
+                      aria-label="Scroll speed"
+                      aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
+                    />
+                  </span>
+                  <IconTurtle size={16} />
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
-              className="control-button"
-              onClick={() => setPanel((current) => (current === 'speed' ? null : 'speed'))}
-              aria-expanded={panel === 'speed'}
-              aria-label="Scroll speed"
+              className={
+                panel === 'settings' ? 'control-button control-open is-on' : 'control-button control-open'
+              }
+              onClick={() => setPanel((current) => (current === 'settings' ? null : 'settings'))}
+              aria-expanded={panel === 'settings'}
+              /*
+               * The unsaved change is named here rather than on the dot. A live region
+               * nested inside a button is not something a reader reaching this control
+               * would be told about — the button's own name is — so the dot is left as
+               * the visual half and the words join the label.
+               */
+              aria-label={
+                (panel === 'settings' ? 'Close chords and text' : 'Chords and text') +
+                (pending > 0 ? ', unsaved change' : '')
+              }
             >
-              <IconHare size={19} />
+              <IconSliders size={20} />
+
+              {/* A queued change is visible, so nothing is ever lost in silence. */}
+              {pending > 0 && <span className="pending-dot" title="Unsaved" aria-hidden />}
             </button>
-
-            {panel === 'speed' && (
-              <div className="speed-popover">
-                <IconHare size={16} />
-                <span className="speed-vertical-wrap">
-                  <input
-                    type="range"
-                    className="speed-range zoom-range speed-range-vertical"
-                    min={0}
-                    max={lastSpeed}
-                    step={1}
-                    value={song.scrollSpeed}
-                    onChange={(event) => setScrollSpeed(Number(event.target.value))}
-                    style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
-                    aria-label="Scroll speed"
-                    aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
-                  />
-                </span>
-                <IconTurtle size={16} />
-              </div>
-            )}
           </div>
-
-          <button
-            type="button"
-            className="control-button control-open"
-            onClick={() => setPanel((current) => (current === 'settings' ? null : 'settings'))}
-            aria-expanded={panel === 'settings'}
-            /*
-             * The unsaved change is named here rather than on the dot. A live region
-             * nested inside a button is not something a reader reaching this control
-             * would be told about — the button's own name is — so the dot is left as
-             * the visual half and the words join the label.
-             */
-            aria-label={
-              (panel === 'settings' ? 'Close chords and text' : 'Chords and text') +
-              (pending > 0 ? ', unsaved change' : '')
-            }
-          >
-            <IconSliders size={20} />
-
-            {/* A queued change is visible, so nothing is ever lost in silence. */}
-            {pending > 0 && <span className="pending-dot" title="Unsaved" aria-hidden />}
-          </button>
         </div>
 
         {steps !== null && <PrevNext steps={steps} locked={stepsLocked} onStepTo={onStepTo} />}
@@ -339,9 +372,14 @@ export function ControlBar({
  * swapping state in place — so it hands in `onStepTo` instead, and a slug is handed
  * back rather than a page changing under it.
  *
- * `locked` still shows the count — a follower can see where the leader is in the
- * songbook even while unable to leave it — but renders both arrows the same inert way
- * `slug === null` already does, whether or not there is actually somewhere to step to.
+ * `locked` renders both arrows the same inert way `slug === null` already does, whether
+ * or not there is actually somewhere to step to — while still leaving a follower able to
+ * see where the leader is in the songbook. That last part used to be this capsule's own
+ * count, and on a phone it no longer is: the count is hidden below `sm`, where the mock
+ * gives this row to two labelled buttons instead. So both screens that render a bar now
+ * carry the position in their header — `SongReader` always did («Prima parte · 3 of 12»),
+ * and `FollowedSong` gained it when the count left the bar rather than after somebody
+ * noticed it missing.
  */
 function PrevNext({
   steps,
@@ -382,13 +420,33 @@ function Step({
   locked: boolean
   onStepTo?: (slug: string) => void
 }) {
-  const icon = direction === 'previous' ? <IconChevronLeft size={22} /> : <IconChevronRight size={22} />
+  /*
+   * The chevron on its own from `sm` up, and the chevron with its name on a phone,
+   * where this is a button filling half the bar's top row rather than one of three
+   * things in a capsule (`.control-step`). Written on the leading side for Previous
+   * and the trailing side for Next, so each arrow points away from the label the way
+   * the mock draws them; `.control-step-label` hides the words on a wider screen.
+   */
+  const face =
+    direction === 'previous' ? (
+      <>
+        <IconChevronLeft size={22} />
+        <span className="control-step-label">Previous</span>
+      </>
+    ) : (
+      <>
+        <span className="control-step-label">Next</span>
+        <IconChevronRight size={22} />
+      </>
+    )
+
+  const classes = `control-button control-step is-${direction}`
 
   // Nowhere to go, said to nobody: an arrow that holds its place needs no name.
   if (slug === null) {
     return (
-      <span className="control-button is-off" aria-hidden>
-        {icon}
+      <span className={`${classes} is-off`} aria-hidden>
+        {face}
       </span>
     )
   }
@@ -396,35 +454,33 @@ function Step({
   /*
    * There genuinely is a song in this direction, but a follower may not step to it
    * while the broadcast is still choosing for them — unlike the `null` case above,
-   * this is worth a name: the count beside it ("3/12") says where the leader is, and
-   * a reason for why the arrows beside it do nothing is the difference between that
-   * reading as broken and reading as expected.
+   * this is worth a name: the position in the header ("3 of 12") says where the leader
+   * is, and a reason for why the arrows beside it do nothing is the difference between
+   * that reading as broken and reading as expected.
    */
   if (locked) {
     return (
-      <span className="control-button is-off" title="Following the leader" aria-label={`${label}, following the leader`}>
-        {icon}
+      <span
+        className={`${classes} is-off`}
+        title="Following the leader"
+        aria-label={`${label}, following the leader`}
+      >
+        {face}
       </span>
     )
   }
 
   if (onStepTo !== undefined) {
     return (
-      <button
-        type="button"
-        className="control-button"
-        title={label}
-        aria-label={label}
-        onClick={() => onStepTo(slug)}
-      >
-        {icon}
+      <button type="button" className={classes} title={label} aria-label={label} onClick={() => onStepTo(slug)}>
+        {face}
       </button>
     )
   }
 
   return (
-    <Link href={`/songs/${slug}`} className="control-button" title={label} aria-label={label}>
-      {icon}
+    <Link href={`/songs/${slug}`} className={classes} title={label} aria-label={label}>
+      {face}
     </Link>
   )
 }

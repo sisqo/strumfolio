@@ -970,7 +970,29 @@ function FollowedSong({
         <h1 className="text-[1.6875rem] font-medium leading-[1.12] tracking-[-0.03em]">
           {song.data.title}
         </h1>
-        {song.data.artist !== null && <p className="mt-2.5 text-base text-muted">{song.data.artist}</p>}
+
+        {/*
+          * The artist and where this song sits in the songbook, on one line — the same
+          * shape `SongReader`'s own header has always had, and this screen gained the
+          * second half of it when the reading bar's count went away below `sm` (see
+          * `PrevNext`). It matters most for the reader who cannot act on it: a follower
+          * is shown inert arrows while the broadcast chooses, and «3 of 12» is the whole
+          * of what tells them where the leader has got to. Either half can be missing —
+          * a song with no artist, a song reached by broadcast with no songbook behind it
+          * — so the separator belongs to the position rather than sitting between two
+          * things that may not both be there.
+          */}
+        {(song.data.artist !== null || steps !== null) && (
+          <p className="mt-2.5 text-base text-muted">
+            {song.data.artist}
+            {steps !== null && (
+              <>
+                {song.data.artist !== null && <span className="text-faint"> · </span>}
+                {steps.position} of {steps.total}
+              </>
+            )}
+          </p>
+        )}
       </header>
 
       <SongSheet song={parsed} />

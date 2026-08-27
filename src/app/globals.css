@@ -3958,6 +3958,16 @@
     }
   }
 
+  /*
+   * Speed and the panel button, which are one cell of the phone's grid and nothing at
+   * all on a wider screen: `display: contents` here, so the desktop dock stays the flat
+   * flex row it has always been and this wrapper is invisible to it. It exists because
+   * two buttons cannot share one grid cell without something to hold them.
+   */
+  .control-tools {
+    display: contents;
+  }
+
   /* The prev/next capsule, squared on the edge touching `.control-dock` below `sm`
      so the two read as one bar — see `.control-strip`'s own comment. */
   .control-nav {
@@ -3990,38 +4000,16 @@
   }
 
   /*
-   * Below `sm` the merged bar holds four fixed-size buttons in `.control-dock` and
-   * three more in `.control-nav`, none of which shrink (`.control-button` is `flex:
-   * none`) — so what fits is arithmetic, not layout, and the numbers are tight on a
-   * narrow phone. This trims every margin that is not a tap target itself: the
-   * 44px floor `.control-button`'s own comment already treats as the true minimum
-   * (2.875rem was a little above it), tighter gaps and padding on both capsules,
-   * and a narrower count badge. Verify on an actual ~360px-wide phone — the
-   * narrowest still in real use — since this is arithmetic this file cannot run.
+   * Keeps the end of the song clear of the bar.
+   *
+   * One number per layout, each the bar's own height plus the same clearance: the
+   * desktop bar is one 46px row in 8px of padding, and the phone's is two rows and a
+   * play circle (see the phone block further down) at 129px. Sized for the bar *with* the prev/next
+   * row even though a song outside a sequence has no such row — that case ends the song
+   * 36px further up the screen, which is whitespace after the last line rather than
+   * anything a reader loses. A spacer that is too short is the opposite: the last line
+   * of a song, behind the bar, on stage.
    */
-  @media (max-width: 639px) {
-    .control-button {
-      min-width: 2.75rem;
-      height: 2.75rem;
-    }
-
-    .control-dock {
-      gap: 0.3125rem;
-      padding: 0.375rem;
-    }
-
-    .control-nav {
-      gap: 0.125rem;
-      padding: 0.375rem;
-    }
-
-    .control-nav-count {
-      min-width: 2.125rem;
-      font-size: 0.78125rem;
-    }
-  }
-
-  /* Keeps the end of the song clear of the bar. One row now, so one number. */
   .bar-spacer {
     height: calc(5.5rem + env(safe-area-inset-bottom));
   }
@@ -4041,9 +4029,21 @@
     line-height: 1;
   }
 
-  /* An arrow with nowhere to go: holds its place in `.control-nav`, takes no taps. */
+  /* An arrow with nowhere to go: holds its place, takes no taps — greyed on a phone
+     too, where it is a full labelled button rather than a bare chevron. */
   .control-button.is-off {
     color: var(--line);
+  }
+
+  /*
+   * Both phone-only, and hidden rather than absent from the markup: the label because
+   * the desktop capsule has room for two chevrons and not for two words, and the speed
+   * badge because from `sm` up the slider itself is on the bar and already shows where
+   * it is set.
+   */
+  .control-step-label,
+  .speed-step {
+    display: none;
   }
 
   /* The one control that is a destination rather than a nudge. */
@@ -4057,6 +4057,17 @@
     position: relative;
     background: var(--accent-soft);
     color: var(--accent);
+  }
+
+  /*
+   * While that panel is open. Not a layout state, so it applies at every width: the
+   * button is the only thing on screen that says which of the two things overlaying the
+   * song belongs to it, and «pressed» is worth more than a hover-only hint on a device
+   * with no hover at all.
+   */
+  .control-open.is-on {
+    background: var(--accent);
+    color: var(--on-accent);
   }
 
   /* Strum Together's own toggle, quiet until a broadcast is live — see `.is-live`. */
@@ -4125,6 +4136,12 @@
    * A queued preference change, on the button that opens the panel those
    * preferences live behind. It had no home in the new bar and this is the honest
    * one: whatever has not reached the server is one of the things in there.
+   *
+   * One rule, since the phone redesign: there used to be a second `.pending-dot` down
+   * in the editor's own section, unused by any component and silently overriding this
+   * one's size at every width — it inherited `position: absolute` from here too, so had
+   * anything ever rendered it, it would have been positioned against whatever happened
+   * to be above it. Deleted rather than renamed: nothing referenced it.
    */
   .pending-dot {
     position: absolute;
@@ -4667,6 +4684,257 @@
     .segment-button:not(:disabled):not(.is-on):hover {
       background: color-mix(in srgb, var(--surface) 88%, var(--accent));
       color: var(--accent);
+    }
+  }
+
+  /*
+   * ---- The bar on a phone -------------------------------------------------
+   *
+   * Below `sm` the bar is a different shape, and this block is the whole of that
+   * difference: one panel of two rows — Previous and Next above, Strum Together, play
+   * and the two tool buttons below — with a 78px play circle straddling the seam,
+   * cut out of both rows by a ring in the bar's own colour.
+   *
+   * **What it replaces, and why the replacement is smaller rather than tighter.** This
+   * used to be a compaction block: seven fixed-size buttons had to share one row, so it
+   * shaved every button to the 44px floor and squeezed both capsules' gaps and padding.
+   * The arithmetic worked and the row was still crowded — a 44px target with a guitar in
+   * the other hand is the *minimum*, not a size to design for. Two rows buy the room
+   * back: nothing here is under 48px, the buttons a hand reaches for mid-song are 58px,
+   * and play is 78px because it is the one control that is a destination.
+   *
+   * **The layout is done by handing the grid two wrappers' children rather than by
+   * moving any markup.** `.control-dock` and `.control-nav` are the desktop bar's two
+   * capsules; here they are `display: contents`, so their children become items of this
+   * grid directly and every box property on the wrappers falls away — the strip itself
+   * carries the surface, the border and the shadow. Nothing in `ControlBar` renders
+   * differently between the two layouts, which is what keeps one set of handlers and one
+   * DOM for both. Verified before relying on it: nothing is absolutely positioned against
+   * `.control-dock` (`.control-panel` and `.strum-panel` anchor to `.control-strip`,
+   * `.speed-popover` to `.speed-compact`, `.pending-dot` to `.control-open`), so dropping
+   * the dock's box costs no positioning context.
+   *
+   * The three columns are the mock's `1fr 88px 1fr`: the middle one is the play circle's
+   * own lane, held at a fixed width so the two 1fr columns either side stay equal and the
+   * circle stays centred whether or not there is a Strum Together toggle to its left.
+   */
+  @media (max-width: 639px) {
+    .control-strip {
+      display: grid;
+      grid-template-columns: 1fr 5.5rem 1fr;
+      align-items: center;
+      gap: 0.375rem 0.5rem;
+      padding: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--edge);
+      border-radius: var(--r-2xl);
+      box-shadow: var(--shadow-float);
+    }
+
+    /* No row above to leave a gap under when there is nowhere to step to. */
+    .control-strip:not(.has-nav) {
+      row-gap: 0;
+    }
+
+    .control-dock,
+    .control-nav {
+      display: contents;
+    }
+
+    /*
+     * Previous and Next, each filling its own column and each carrying its name. The
+     * label is the reason this row exists at all: two chevrons could have stayed in the
+     * row below, and what a phone had no room for was saying what they do.
+     */
+    .control-step {
+      grid-row: 1;
+      gap: 0.5rem;
+      height: 3rem;
+      border-radius: var(--r-md);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.90625rem;
+      font-weight: 400;
+    }
+
+    .control-step.is-previous {
+      grid-column: 1;
+    }
+
+    .control-step.is-next {
+      grid-column: 3;
+    }
+
+    .control-step-label {
+      display: inline;
+    }
+
+    /*
+     * The count is not in this bar. It is in the header on both screens that render one
+     * — «Prima parte · 3 of 12» on the reader's own page, artist and position on a
+     * follower's — which is where the mock puts it and where it does not cost a tap
+     * target's worth of room.
+     */
+    .control-nav-count {
+      display: none;
+    }
+
+    .control-strum {
+      grid-area: 2 / 1;
+      justify-self: start;
+    }
+
+    .control-button.control-strum,
+    .control-strum.is-live {
+      height: 3.625rem;
+      min-width: 3.625rem;
+      border-radius: var(--r-panel);
+    }
+
+    .control-strum-count {
+      font-size: 1.0625rem;
+    }
+
+    /*
+     * The circle over the seam. `margin-top` is tuned to the row heights rather than
+     * chosen: it lifts the 78px circle until its outer box is 59px, one pixel more than
+     * the 58px buttons beside it, so row 2 keeps their height and the circle's top edge
+     * reaches 19px up into the row above while its bottom lands exactly on the bar's
+     * padding edge. The ring is `--surface`, the bar's own colour and not white, or the
+     * cut-out reads as a light outline drawn on a dark bar in dark mode.
+     */
+    .control-play {
+      grid-area: 2 / 2;
+      justify-self: center;
+      width: 4.875rem;
+      min-width: 0;
+      height: 4.875rem;
+      border: 5px solid var(--surface);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .control-strip.has-nav .control-play {
+      margin-top: -1.1875rem;
+    }
+
+    /*
+     * The icons grow with the buttons under them — the mock's 23px, 24px and 30px against
+     * the 19/20px a 46px button wanted. Sized here rather than by passing a different
+     * `size` prop, because the prop would have to be a breakpoint the component cannot
+     * see; CSS on the `svg` overrides the width and height attributes it writes.
+     *
+     * Each selector stops at the button it belongs to. `.control-tools svg` would have
+     * been shorter and wrong: the speed popover lives inside `.speed-compact`, and its
+     * own turtle and hare are 16px on purpose.
+     *
+     * The mock nudges the play triangle 3px to the right for optical centring; this one
+     * needs no nudge — its path is already drawn right of the viewBox centre — and the
+     * same element becomes a pause icon while scrolling, which would be visibly off
+     * centre if it were shifted.
+     */
+    .control-play > svg {
+      width: 1.875rem;
+      height: 1.875rem;
+    }
+
+    .control-strum > svg {
+      width: 1.4375rem;
+      height: 1.4375rem;
+    }
+
+    .speed-compact > .control-button > svg,
+    .control-open > svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    /* Two buttons in one cell, which is why they have a wrapper of their own at all. */
+    .control-tools {
+      display: flex;
+      grid-area: 2 / 3;
+      justify-content: flex-end;
+      gap: 0.375rem;
+    }
+
+    /*
+     * These two flex between 46px and the mock's 58px rather than being fixed at 58, and
+     * the reason is arithmetic the mock could not see: it is drawn at 402px, where two
+     * 58px buttons and the gap between them leave 6px of slack in this column. At 390px
+     * the slack is zero, and at 375px — a current iPhone — the same three numbers overrun
+     * the column by 8px, which in a grid means overflowing it: `.control-button` is
+     * `flex: none`, so nothing would shrink and the leading button would slide under the
+     * play circle. Of the three numbers only this one can give — the column width belongs
+     * to the grid and the gap is already the smallest thing in the bar — so it does, down
+     * to the 46px floor `.control-button` treats as the true minimum and no further.
+     */
+    .control-tools > * {
+      flex: 1 1 3.625rem;
+      min-width: 2.875rem;
+      max-width: 3.625rem;
+    }
+
+    .control-tools .control-button {
+      height: 3.625rem;
+      border-radius: var(--r-panel);
+    }
+
+    /* The one that is a wrapper rather than the button itself: the icon's own button
+       fills whatever width the flexing above settled on. */
+    .speed-compact .control-button {
+      position: relative;
+      width: 100%;
+      min-width: 0;
+      background: var(--bg);
+      color: var(--muted);
+    }
+
+    /* Which of the speeds it is set to, without opening the slider to find out. */
+    .speed-step {
+      position: absolute;
+      right: 0.5rem;
+      bottom: 0.4375rem;
+      color: var(--faint);
+      font-size: 0.65625rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pending-dot {
+      top: 0.5625rem;
+      inset-inline-end: 0.5625rem;
+      width: 0.5rem;
+      height: 0.5rem;
+    }
+
+    /*
+     * The song, put behind the panel. A literal dark rgb rather than a token, the same
+     * choice `.upgrade-backdrop` makes and for the same reason: a scrim has to darken in
+     * both themes, and `--ink` is a *light* colour in dark mode — mixed in at 22% it
+     * would wash the song out instead of pushing it back.
+     */
+    .control-bar .menu-overlay.is-scrim {
+      background: rgb(22 24 29 / 22%);
+    }
+
+    /*
+     * The panel spans the bar rather than the button that opened it. On a phone an
+     * anchored popover either runs off the edge or is narrower than it needs to be, and
+     * the two controls that sit side by side inside it («Chords as» and «Instrument»,
+     * see `.control-pair`) only have room for their labels at the full width.
+     */
+    .control-panel {
+      inset-inline: 0;
+      width: auto;
+      max-width: none;
+      padding: 1rem;
+      border-radius: var(--r-panel);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .bar-spacer {
+      height: calc(9.75rem + env(safe-area-inset-bottom));
     }
   }
 
@@ -5457,14 +5725,6 @@
   .editor-hint {
     color: var(--muted);
     font-size: 0.75rem;
-  }
-
-  .pending-dot {
-    flex: none;
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--accent);
   }
 
   /* ---- Skeletons -------------------------------------------------------- */
