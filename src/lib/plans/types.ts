@@ -127,13 +127,20 @@ export interface PlanLimits {
   /**
    * Whether the reader may pick the ukulele.
    *
-   * Two control points, and neither can be the whole gate on its own. `saveGlobalPrefs`
-   * refuses to *store* the choice, which is what would otherwise carry it across a reload
-   * and to the reader's other devices; `ReadingPanel` refuses the tap in the first place
-   * and offers `/pricing` instead. The client half is the one a reader experiences and the
-   * server half is the one that cannot be bypassed — the shapes themselves are drawn in the
-   * browser from a table that ships with the app, so nothing server-side can stop a
-   * determined reader from seeing them.
+   * Three control points, and no one of them is the whole gate. `ReadingPanel` refuses the
+   * tap and offers `/pricing` — the half a reader experiences. `saveGlobalPrefs` refuses to
+   * *store* the choice, which is what would otherwise carry it across a reload and to the
+   * reader's other devices — the half that cannot be bypassed. And `PrefsProvider`, with
+   * `allowedInstrument` behind it on the server, clamps the value every screen *reads*, which
+   * is the only one that answers for a row written while the ukulele was still included: an
+   * account that picked it and then downgraded, expired, or simply chose it before there was
+   * anything to stop them. Refusing the next tap does nothing for that reader — they tapped
+   * months ago.
+   *
+   * The shapes themselves are drawn in the browser from a table that ships with the app, so
+   * no check anywhere can stop a determined reader from seeing them. What these three
+   * together guarantee is narrower and is the claim `/pricing` actually makes: nothing the
+   * app shows or remembers contradicts what the plan says.
    */
   ukulele: boolean
   /** Whether the reader may ask for a feature — read by `requestFeature`, and by nothing else. */

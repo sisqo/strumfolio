@@ -150,6 +150,16 @@ export function FeatureRequestScreen() {
                 </p>
               )}
 
+              {/*
+                * Why the button is not pressable yet, said only once the reader has started
+                * writing: on an untouched form it would be a complaint about nothing. Without
+                * it the button is simply dead and the screen knows why and will not say —
+                * `FEATURE_REQUEST_MESSAGE` has had the sentence all along.
+                */}
+              {problem !== null && summary.trim().length > 0 && (
+                <p className="mt-3 text-xs text-muted">{FEATURE_REQUEST_MESSAGE[problem]}</p>
+              )}
+
               {error !== null && (
                 <p className="notice notice-error mt-3" role="alert">
                   {error}

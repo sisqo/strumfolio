@@ -37,10 +37,13 @@ import {
  * own value rather than `saved` or `failed` for the same reason the other two are apart:
  * the row *was* written, but not with the instrument that was asked for, and a queue that
  * read that as `failed` would resend the same refused value every fifteen seconds for as
- * long as the app stayed open. Nothing renders it yet — the reading panel's instrument
- * picker is client-side and hiding it is a later step — so today its only job is to be
- * distinguishable in that flush and to stop this returning `saved` about a preference it
- * did not save.
+ * long as the app stayed open.
+ *
+ * Still nothing renders it, and now for a better reason than before: `ReadingPanel` refuses
+ * the tap and offers `/pricing`, so a request the plan does not allow no longer reaches this
+ * function from the interface at all. Its job is to stay distinguishable in that flush — and
+ * to stop this returning `saved` about a preference it did not save — for the one path left
+ * that can produce it, a plan that lapsed while the app was offline with a queued write.
  */
 export type SaveResult = 'saved' | 'no-destination' | 'not-in-plan' | 'failed'
 
@@ -61,9 +64,38 @@ export interface LoadedPrefs {
   song: SongPrefs | null
 }
 
+/**
+ * The instrument this account may actually read shapes for.
+ *
+ * The read-side counterpart to `saveGlobalPrefs`'s refusal, and it exists because refusing
+ * the write was never enough on its own: a row written while the ukulele *was* included —
+ * before a downgrade, before an expiry, or before there was a client-side gate at all — goes
+ * on saying `ukulele` for as long as nobody saves over it. This is what stops that row from
+ * outliving the entitlement it was written under, and it is the half a reader cannot get
+ * past by clearing their browser storage.
+ *
+ * Asks about the plan **only when the stored value is not guitar**, the same parsimony
+ * `saveGlobalPrefs` states for itself: this runs on every song open, and the common case
+ * must not pay two count queries to answer a question it never raises.
+ *
+ * The row itself is left alone rather than corrected in place. A read is not a write — a
+ * `GET` that repairs the database is a surprise, it would fire on every song open until it
+ * succeeded, and it would throw away the reader's real answer: somebody who resubscribes
+ * gets their ukulele back exactly because nobody overwrote what they had chosen.
+ */
+async function allowedInstrument(
+  stored: Instrument,
+  user: { accountOwnerEmail: string },
+): Promise<Instrument> {
+  if (stored === 'guitar') return stored
+  const entitlements = await entitlementsOf(user.accountOwnerEmail)
+  return entitlements.refused.ukulele === null ? stored : 'guitar'
+}
+
 export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
-  const email = (await currentUser())?.email ?? null
-  if (email === null) return { global: null, song: null }
+  const user = await currentUser()
+  if (user === null) return { global: null, song: null }
+  const email = user.email
 
   const database = db()
 
@@ -79,7 +111,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
       : {
           zoomStep: clampZoom(globalRows[0].zoomStep),
           notation: globalRows[0].notation === 'int' ? ('int' as const) : ('it' as const),
-          instrument: readInstrument(globalRows[0].instrument),
+          instrument: await allowedInstrument(readInstrument(globalRows[0].instrument), user),
           chordDisplay: readChordDisplay(globalRows[0].chordDisplay),
         }
 
@@ -105,23 +137,28 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
 }
 
 /**
- * The one server-side control point for the ukulele, which is otherwise a soft gate: the
- * chord diagrams are drawn in the browser from a table that ships with the app, so nothing
- * can stop a determined reader seeing ukulele shapes. What *can* be refused is storing the
- * choice, which is what makes it stick across devices and sessions — so that is what is
- * refused, on a plan whose matrix says no ukulele.
+ * The write-side control point for the ukulele: what a plan without it cannot do is make the
+ * choice *stick*, across a reload and across the reader's other devices.
+ *
+ * The one that cannot be bypassed, and no longer the only one. `ReadingPanel` refuses the tap
+ * (which is the half a reader experiences) and `allowedInstrument` clamps the value on the way
+ * back out (which is what keeps a row written under an entitlement that has since lapsed from
+ * outliving it) — see `PlanLimits.ukulele`. The shapes themselves are drawn in the browser
+ * from a table that ships with the app, so no server-side check can stop a determined reader
+ * from seeing them; what all three halves together do is make sure nothing the app itself
+ * shows or remembers contradicts what the plan says.
  *
  * Refused narrowly, and the narrowness is the decision. The instrument shares one row with
  * the zoom, the notation and the chord display, and this function's result goes to the
  * offline queue rather than to a screen: returning early would throw away a font-size
  * change the reader made in the same breath, with no way to tell them why. So the row is
  * written with the instrument the plan allows, and the answer says the instrument did not
- * take. The reader's own screen keeps showing what they picked until the page is reloaded —
- * the client-side half of this gate is a later step, deliberately not invented here.
+ * take.
  *
- * The plan is resolved **only** when a non-guitar instrument is actually asked for. This
- * runs on every zoom step and every notation press, and those must not each pay for two
- * count queries to answer a question they never raise.
+ * The plan is resolved **only** when a non-guitar instrument is actually asked for — inside
+ * `allowedInstrument`, which is the same test the read path runs and is shared for exactly
+ * that reason. This runs on every zoom step and every notation press, and those must not each
+ * pay for two count queries to answer a question they never raise.
  */
 export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
   const user = await currentUser()
@@ -129,11 +166,7 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
   const email = user.email
 
   const asked = readInstrument(prefs.instrument)
-  let instrument: Instrument = asked
-  if (asked !== 'guitar') {
-    const entitlements = await entitlementsOf(user.accountOwnerEmail)
-    if (entitlements.refused.ukulele !== null) instrument = 'guitar'
-  }
+  const instrument = await allowedInstrument(asked, user)
 
   const values = {
     zoomStep: clampZoom(prefs.zoomStep),

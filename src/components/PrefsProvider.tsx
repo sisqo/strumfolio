@@ -12,8 +12,10 @@ import {
   useState,
 } from 'react'
 
+import { useRole } from '@/components/RoleProvider'
 import type { Notation } from '@/lib/music/chord'
 import type { Instrument } from '@/lib/music/shapes'
+import { PLANS } from '@/lib/plans/types'
 import { loadPrefs, recordSongOpened, saveGlobalPrefs, saveSongPrefs } from '@/lib/prefs/actions'
 import { prefsQueue } from '@/lib/prefs/queue'
 import {
@@ -145,6 +147,40 @@ export function PrefsProvider({
     }
   }, [songSlug, persist])
 
+  /**
+   * The preferences as read, which is not always the preferences as stored: a plan without
+   * the ukulele reads guitar shapes whatever the row says.
+   *
+   * **The clamp has to be here and not at the picker**, and the bug it closes is the one a
+   * refusal at the tap cannot: an account that stored `ukulele` and then lost the
+   * entitlement — a downgrade, an expiry, or simply a free account that picked it before
+   * there was anything to stop them — keeps a row saying `ukulele`, and `loadPrefs` hands it
+   * back untouched. Refusing the next tap does nothing about that; the reader has already
+   * tapped, months ago. Clamping the value every consumer reads is what makes the answer the
+   * same in all four places it shows up — the chord popup, the shapes on the sheet, the capo
+   * suggestion, and which button the panel draws as on — and what makes `/pricing`'s «Guitar»
+   * cell true for those accounts rather than aspirational.
+   *
+   * It also holds where the server cannot be asked: the local cache is read before paint and
+   * is the only source at all when the app is offline, so a check that waited for
+   * `loadPrefs` would leave a free account reading ukulele shapes for as long as it stayed
+   * on a train. `loadPrefs` clamps too — that is the half a reader cannot bypass — but this
+   * is the half that is always there.
+   *
+   * `plan` is the plan of the account **being looked at**, not of the person looking: a
+   * global owner inspecting a customer's account sees that customer's entitlements here.
+   * Deliberate, and consistent with `Entitlements.refused`, which is account-wide for every
+   * other gate in the app.
+   *
+   * Fails open while `plan` is null — unknown, or plans not enforced — like every other
+   * client-side plan test here.
+   */
+  const { plan } = useRole()
+  const readable = useMemo<GlobalPrefs>(() => {
+    const refused = plan !== null && !PLANS[plan].ukulele
+    return refused && global.instrument !== 'guitar' ? { ...global, instrument: 'guitar' } : global
+  }, [global, plan])
+
   /*
    * Setting a preference to the value it already has is not a change, and saying so
    * here rather than at each call site is what keeps the queue honest: it would
@@ -158,10 +194,10 @@ export function PrefsProvider({
   const updateGlobal = useCallback(
     (next: GlobalPrefs) => {
       if (
-        next.zoomStep === global.zoomStep &&
-        next.notation === global.notation &&
-        next.instrument === global.instrument &&
-        next.chordDisplay === global.chordDisplay
+        next.zoomStep === readable.zoomStep &&
+        next.notation === readable.notation &&
+        next.instrument === readable.instrument &&
+        next.chordDisplay === readable.chordDisplay
       ) {
         return
       }
@@ -171,7 +207,7 @@ export function PrefsProvider({
       writeGlobalPrefs(next)
       prefsQueue.enqueueGlobal(next)
     },
-    [global, persist],
+    [readable, persist],
   )
 
   const updateSong = useCallback(
@@ -199,20 +235,20 @@ export function PrefsProvider({
 
   const value = useMemo<PrefsContextValue>(
     () => ({
-      global,
+      global: readable,
       song,
       pending,
-      setZoomStep: (step) => updateGlobal({ ...global, zoomStep: clampZoom(step) }),
-      setNotation: (notation) => updateGlobal({ ...global, notation }),
-      setInstrument: (instrument) => updateGlobal({ ...global, instrument }),
-      setChordDisplay: (chordDisplay) => updateGlobal({ ...global, chordDisplay }),
+      setZoomStep: (step) => updateGlobal({ ...readable, zoomStep: clampZoom(step) }),
+      setNotation: (notation) => updateGlobal({ ...readable, notation }),
+      setInstrument: (instrument) => updateGlobal({ ...readable, instrument }),
+      setChordDisplay: (chordDisplay) => updateGlobal({ ...readable, chordDisplay }),
       setSemitones: (semitones) =>
         updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),
       setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: clampCapo(fret) })),
       setNote: (note) => updateSong((prev) => ({ ...prev, note })),
     }),
-    [global, song, pending, updateGlobal, updateSong],
+    [readable, song, pending, updateGlobal, updateSong],
   )
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>

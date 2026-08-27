@@ -555,8 +555,10 @@ function ReadingPanel({
   const canPage = pagesForward || fretStart > 0
 
   /*
-   * The ukulele's own gate, and the client-side half of it — see `PlanLimits.ukulele` for
-   * why there are two halves and why neither is sufficient alone.
+   * The ukulele's own gate — this is the half that refuses the *tap*. What the panel draws
+   * as on is already clamped upstream by `PrefsProvider`, which is what answers for a row
+   * that was written while the ukulele was still included; see `PlanLimits.ukulele` for the
+   * three halves and why none of them is sufficient alone.
    *
    * Read off `plan` rather than asked of the server, because this panel opens while a
    * musician is on stage and a round trip per tap is not something to put in that path. It
