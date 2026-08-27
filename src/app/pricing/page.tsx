@@ -56,7 +56,7 @@ function lifetimeOpen(): boolean {
  * The lifetime clause is gated on `lifetimeOpen()` for the same reason the block itself is,
  * and this is the half that is easy to miss: a meta description is the one place a closed
  * offer would keep being advertised with nothing on the screen to show it. This sentence is
- * what a shared link renders as a card, so leaving it ungated would put "€149 once, until 31
+ * what a shared link renders as a card, so leaving it ungated would put "€189 once, until 31
  * December 2026" in front of readers who cannot buy it, in the place nobody thinks to look.
  *
  * A function, and `generateMetadata` below rather than a `metadata` constant, for the reason
@@ -158,7 +158,7 @@ const LIFETIME_WHAT =
 /*
  * "Promo", added ahead of the redesign's own badge beside the price rather than above it —
  * the badge now sits at the same height as the number it qualifies instead of underneath it,
- * and "price valid until" on its own read as though €149 itself were about to change, when
+ * and "price valid until" on its own read as though €189 itself were about to change, when
  * what actually closes on that date is the offer, not the plan.
  */
 const LIFETIME_PILL = `Promo price valid until ${LIFETIME.closesOnLabel}`
@@ -173,7 +173,23 @@ const LIFETIME_PILL = `Promo price valid until ${LIFETIME.closesOnLabel}`
 /** The lead sentence, bold in the design — see the JSX below for the plain rest of it. */
 const TRUST_NOTE_LEAD = 'Nothing you put in here is ever deleted'
 
-const TRUST_NOTE_REST = 'If a subscription ends, your songs stay readable, printable and exportable.'
+/*
+ * «printable» was here too, and was the one word in this sentence the code refuses. A
+ * subscription ending drops the account to `free`, `PLANS.free.booklet` is `'no'`, and
+ * `loadBooklet` (`lib/booklet/actions.ts`) answers `plan-required` — deliberately, and pinned
+ * from the other side by `entitlements.test.ts`'s expiry block, which asserts the lapsed
+ * limits are `PLANS.free` field for field. There is no second way to print, either: the
+ * booklet PDF is the only printing path in the app, and no `@media print` rule exists
+ * anywhere in `globals.css`. So the promise had no build in which it was true, rather than
+ * being true today and at risk later.
+ *
+ * The other two words stay because both hold with nothing else live: reading is gated
+ * nowhere, and `exportAll`/`exportOrganized` (`lib/import/actions.ts`) check the reader's
+ * role and never the plan. The same sentence in `planChangeEmail` (`lib/email/templates.ts`)
+ * carried the same third word and lost it in the same change — that message is sent at
+ * exactly the moment this claim gets tested, which is the worst place to overpromise.
+ */
+const TRUST_NOTE_REST = 'If a subscription ends, your songs stay readable and exportable.'
 
 /**
  * Read once and reused by every column and by the Lifetime block below, rather than called
@@ -287,17 +303,22 @@ function capCell(limit: number | null): string {
  * `plain` and `custom` used to return the identical string, and this map used to be the
  * code-level guard that kept a customizable booklet off this page: `bookletBrandLine` asks
  * only whether the tier is `branded`, so premium's `custom` behaves exactly like plus' `plain`
- * in the code today. The two cases are now split apart on request — premium's cell names the
- * custom line — which makes this cell a **roadmap claim** rather than a description of what
- * the PDF currently prints, in the same class as the two "Printed booklet themes" rows below
- * and unlike every other cell on this page. What premium's booklet does today is exactly what
- * plus' does; what this cell says is what it will do.
+ * in the code today. The two cases are now split apart — premium's cell names the custom line
+ * — which makes this cell a **roadmap claim** rather than a description of what the PDF
+ * currently prints. What premium's booklet does today is exactly what plus' does.
+ *
+ * **So the cell says so, in as many words.** It carried the claim in the present tense for a
+ * while, and that was the one unlabelled promise on a page where every other future feature is
+ * worded `COMING_SOON` — the two "Printed booklet themes" rows and "AI MCP integration" below.
+ * The parenthetical is lower-case rather than that constant reused verbatim, because this cell
+ * is a description with a qualifier appended and not a cell whose whole content is the
+ * qualifier; the three rows below say nothing else, so there `Coming soon` opens the sentence.
  *
  * A `switch` over the union rather than an `=== 'branded'` test, so the day a fifth tier is
  * added this stops compiling instead of quietly describing it as "without that line".
  * `prices.test.ts` pins the gap from the other side, next to the numbers: it still asserts
  * that nothing in the code can tell `plain` and `custom` apart, and fails the day something
- * can — which is the day this cell stops being a promise.
+ * can — which is the day the parenthetical here comes back off.
  */
 function bookletCell(tier: BookletTier): string | null {
   switch (tier) {
@@ -308,7 +329,7 @@ function bookletCell(tier: BookletTier): string | null {
     case 'plain':
       return 'Without that line'
     case 'custom':
-      return 'With your custom line'
+      return 'With your custom line (coming soon)'
   }
 }
 
@@ -363,19 +384,24 @@ const COMING_SOON = 'Coming soon'
  *
  * One thing is deliberately still absent, for the reason that would make it easy to
  * "complete": there is no smart-capo row, although `PLANS.free.smartCapo === false` says free
- * does not have it. `Entitlements.refused` has six fields and `smartCapo` is not one of them,
+ * does not have it. `Entitlements.refused` has seven fields and `smartCapo` is not one of them,
  * and `PlanLimits` says out loud that no call site reads the field and that no gate may be
  * invented for it. So the free plan gets the smart capo suggestion today and would still get
  * it the day `SONGBOOK_PLANS` is switched on — a row here would sell Standard for something
  * Free already delivers.
  *
  * The customizable booklet is no longer in that same boat. `bookletCell`'s own comment still
- * holds — `custom` behaves exactly like `plain` today, and no cell above may claim otherwise —
- * but the two "Printed booklet …" rows below name it anyway, worded `COMING_SOON` rather than
- * as something these plans already do. That is a deliberate roadmap commitment on a public
- * page, confirmed rather than assumed: a reader on Plus or Premium is being told a themed
- * booklet is coming, not that it is here. "AI MCP integration" is the same kind of row for
- * the same reason, confirmed separately: nothing in this repository speaks MCP yet.
+ * holds — `custom` behaves exactly like `plain` today — and the "Printed booklet" cell above
+ * does name the custom line, but with «(coming soon)» on it, so it makes the claim without
+ * dating it to today. The two "Printed booklet …" rows below name the themed booklet the same
+ * way, worded `COMING_SOON`. All three are deliberate roadmap commitments on a public page,
+ * confirmed rather than assumed: a reader on Plus or Premium is being told a themed booklet is
+ * coming, not that it is here. "AI MCP integration" is the same kind of row for the same
+ * reason, confirmed separately: nothing in this repository speaks MCP yet.
+ *
+ * Which leaves this table with **no unlabelled promise on it**, and that is the property worth
+ * keeping rather than a tidiness to preserve: every cell either describes what the gates do
+ * today or says out loud that it does not yet.
  */
 const ROWS: ComparisonRow[] = [
   {

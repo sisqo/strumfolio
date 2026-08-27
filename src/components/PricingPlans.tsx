@@ -483,7 +483,7 @@ export function PricingPlans({
                 * A Lifetime holder gets no downgrade offer here either: `mockCancel` refuses
                 * it (`not-applicable`, the same answer it gives for "nothing live" and
                 * "already Free"), so the button could only ever report a failure — and it used
-                * to report the *wrong* one, telling someone who had paid €149 that their
+                * to report the *wrong* one, telling someone who had paid €189 that their
                 * account "is already on Free".
                 */}
               {column.cta !== undefined && !pending && signedIn && !isCurrent && isLifetime && (

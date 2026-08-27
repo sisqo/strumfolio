@@ -331,9 +331,14 @@ export function planChangeEmail(input: {
           : `${fromLabel} stays in force until ${day}. On that day this account moves to ${toLabel}.`
 
   /* The one reassurance worth repeating from /pricing's own trust note, because this is the
-     moment a musician wonders about it: nothing they put in is deleted by a plan ending. */
-  const kept =
-    'Nothing you have put in is deleted: your songs stay readable, printable and exportable.'
+     moment a musician wonders about it: nothing they put in is deleted by a plan ending.
+
+     «printable» is deliberately not in the list, here or on /pricing — see `TRUST_NOTE_REST`'s
+     own comment for the whole reason. The short of it: going back to Free means
+     `PLANS.free.booklet === 'no'`, so `loadBooklet` refuses, and the booklet PDF is the only
+     way to print anything in this app. This message is sent precisely when the plan ends, so
+     it is the one place the reader could act on the claim the same day it stopped being true. */
+  const kept = 'Nothing you have put in is deleted: your songs stay readable and exportable.'
 
   /* «before then» rather than «before that day», so the one sentence serves the named-day shape
      and the dateless one alike — after «ends on 22 September 2027» it reads the same. */

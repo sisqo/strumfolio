@@ -154,6 +154,28 @@ const PLAN_HOLD = plansEnforced()
     'you already have more than that, nothing changes for you today. If a paid plan lapses, nothing ' +
     'is deleted.'
 
+/**
+ * The « once they open» hedge, or nothing at all — appended by the two feature cards below that
+ * name a gated feature: starting a Strum Together session, and the printed booklet.
+ *
+ * Both cards used to carry those three words as static text, and they stopped being true the day
+ * `SONGBOOK_PLANS` and `SONGBOOK_MOCK_CHECKOUT` went on in production. That left this page
+ * hedging about whether the limits were real while `/pricing` beside it stated the same limits as
+ * plain facts — precisely the disagreement `resolve.ts`'s comment on `plansEnforced` names as the
+ * failure to avoid, and it warns these two pages must flip together. `PLAN_HOLD` above was
+ * already reading the flags for the FAQ answer; these two sentences were the half that was not.
+ *
+ * Keyed on `plansEnforced()` and deliberately **not** on `mockCheckoutEnabled()`: what makes
+ * «part of the paid plans» true is that a free account is actually held out of the feature, which
+ * is enforcement and not whether anything is on sale. With the flag off, `UNGATED` grants both
+ * (`refused.lead` and `refused.booklet` are each null there), so a free account really does lead
+ * and really does print, and the hedge has to stay regardless of the checkout.
+ *
+ * An empty string rather than two full sentences per card: the surrounding prose is what each
+ * card is actually about, and duplicating it per branch is how the two copies come to drift.
+ */
+const PLANS_OPEN_HEDGE = plansEnforced() ? '' : ' once they open'
+
 const FAQ: FaqGroup[] = [
   {
     title: 'Bringing in your collection',
@@ -318,7 +340,10 @@ const FEATURES: Feature[] = [
      * protocol does: `pollBroadcast` sends the song and the transposition, and a follower's
      * viewport is reset to the top on a song change and never touched again. "In the same key" is
      * exactly what it does send. /pricing's guest-link band says it the same way. */
-    text: 'Share a link. Every device follows the same song, in the same key — near or far, with nothing to install and no account for anyone following. Starting a session is part of the paid plans once they open; following one never is.',
+    text:
+      'Share a link. Every device follows the same song, in the same key — near or far, with nothing to ' +
+      `install and no account for anyone following. Starting a session is part of the paid plans${PLANS_OPEN_HEDGE}; ` +
+      'following one never is.',
   },
   {
     icon: <IconTuningFork size={20} />,
@@ -342,11 +367,18 @@ const FEATURES: Feature[] = [
     title: 'Print a real booklet',
     /* "Part of the paid plans" full stop was the only sentence in this list that told a reader
      * they *cannot* do something the deployed build lets them do: `loadBooklet` reads
-     * `refused.booklet`, which is `null` in `UNGATED`, so a free account prints a booklet today.
-     * The other plan claims on this page understate what an account may do, which is the safe
-     * direction; this one denied it outright, and a reader who believes it never opens the export
-     * panel. "Once the paid plans open" is true now and true then. */
-    text: 'Turn any songbook into a typeset PDF — chords above the words, one song a page, a cover and an index — ready to print and hand out. Part of the paid plans once they open.',
+     * `refused.booklet`, which is `null` in `UNGATED`, so a free account prints a booklet with
+     * the plans unenforced. The other plan claims on this page understate what an account may
+     * do, which is the safe direction; this one denied it outright, and a reader who believes it
+     * never opens the booklet screen.
+     *
+     * Hence `PLANS_OPEN_HEDGE` rather than either wording hard-coded: the hedge was then pinned
+     * on unconditionally, which made the sentence wrong in the other direction the day
+     * enforcement went on and the plans really did open. One flag read, and the sentence is true
+     * in both builds instead of in whichever one it was last edited for. */
+    text:
+      'Turn any songbook into a typeset PDF — chords above the words, one song a page, a cover ' +
+      `and an index — ready to print and hand out. Part of the paid plans${PLANS_OPEN_HEDGE}.`,
   },
   {
     icon: <IconUsers size={20} />,
