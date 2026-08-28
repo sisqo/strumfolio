@@ -461,9 +461,8 @@ export function AddSongScreen({
                   decision,
                 )
                 if (result.ok) {
-                  startOver()
-                  setNotice('Saved. Publish from the home screen to have it available offline too.')
-                  await Promise.all([refresh(), router.refresh()])
+                  await refresh()
+                  router.push(`/songbooks/${songbookSlug}`)
                 }
                 return result
               }}
@@ -481,7 +480,12 @@ export function AddSongScreen({
             sectionId={chosenSection?.id ?? null}
             sectionName={chosenSection?.name ?? null}
             online={online}
-            onDone={async () => {
+            onDone={async (allSettled) => {
+              if (allSettled) {
+                await refresh()
+                router.push(`/songbooks/${songbookSlug}`)
+                return
+              }
               await Promise.all([refresh(), router.refresh()])
             }}
             onReset={startOver}

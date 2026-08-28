@@ -89,8 +89,14 @@ export function ImportBatch({
   sectionId: number | null
   sectionName: string | null
   online: boolean
-  /** Called once the run is over, so the screen can refresh what it shows. */
-  onDone: () => Promise<void>
+  /**
+   * Called once the run is over, so the screen can refresh what it shows. The argument
+   * is whether every included row is now settled — nothing left that a retry could
+   * still fix — which is what lets the caller tell "done, move on" apart from "some
+   * rows still need another try": `false` while a failed row remains, even if every
+   * other row in the batch saved.
+   */
+  onDone: (allSettled: boolean) => Promise<void>
   onReset: () => void
 }) {
   const [rows, setRows] = useState<Row[]>(
@@ -111,6 +117,15 @@ export function ImportBatch({
   const run = async () => {
     setBusy(true)
     setRan(true)
+
+    /*
+     * Tracked locally rather than read back off `rows` state after the loop: `patch`
+     * only queues a `setRows`, so the state this closure captured at the top of `run`
+     * would still show every row as it was before this run started. A row settles the
+     * moment its own outcome is anything but `'failed'`; only a failure among the rows
+     * actually attempted this run means there is still something a retry could fix.
+     */
+    let anyUnresolved = false
 
     for (const row of rows) {
       if (!row.include || settled(row)) continue
@@ -166,14 +181,16 @@ export function ImportBatch({
           patch(row.id, { outcome: { state: 'refused', message: saveMessage(result) } })
         } else {
           patch(row.id, { outcome: { state: 'failed', message: saveMessage(result) } })
+          anyUnresolved = true
         }
       } catch {
         patch(row.id, { outcome: { state: 'failed', message: saveMessage({ reason: 'failed' }) } })
+        anyUnresolved = true
       }
     }
 
     setBusy(false)
-    await onDone()
+    await onDone(!anyUnresolved)
   }
 
   const counted = (state: Outcome['state']) =>
