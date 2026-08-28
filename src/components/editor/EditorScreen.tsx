@@ -138,6 +138,7 @@ export function EditorScreen({ song }: { song: Song }) {
   const [confirming, setConfirming] = useState(false)
 
   const [history, setHistory] = useState<string[]>([])
+  const [future, setFuture] = useState<string[]>([])
   const raw = useRef<HTMLTextAreaElement | null>(null)
   /** Where the caret goes after a command rewrote the source. */
   const rawCaret = useRef<number | null>(null)
@@ -150,6 +151,17 @@ export function EditorScreen({ song }: { song: Song }) {
     JSON.stringify(fields) !== JSON.stringify(saved.current.fields)
 
   const parsed = useMemo(() => parseChordPro(source), [source])
+  const doc = useMemo(() => fromSource(source), [source])
+
+  /**
+   * Whether the Chord command has anywhere to put one: the line the caret is in.
+   * Lyrics take a chord, and a still-blank line is promoted by it (`addChord`);
+   * a marker, a directive, a comment or a tab have no syllable to hang one from,
+   * and a disabled button says so where a silent no-op just looked broken. In
+   * Source mode the command types brackets instead, which works anywhere.
+   */
+  const caretKind = doc.blocks[caret.line]?.kind
+  const canChord = mode === 'source' || caretKind === 'lyrics' || caretKind === 'blank'
 
   useEffect(() => {
     const at = rawCaret.current
@@ -173,6 +185,8 @@ export function EditorScreen({ song }: { song: Song }) {
       setHistory((entries) => [...entries, source].slice(-40))
     }
 
+    // A new edit is a fork: what was undone is no longer where Redo can go.
+    setFuture((entries) => (entries.length === 0 ? entries : []))
     lastKind.current = kind
     setSource(next)
   }
@@ -182,10 +196,56 @@ export function EditorScreen({ song }: { song: Song }) {
     if (previous === undefined) return
 
     setHistory((entries) => entries.slice(0, -1))
+    setFuture((entries) => [...entries, source])
     lastKind.current = null
     setSource(previous)
+    // The chord it pointed at may not exist in the state coming back.
+    setEditing(null)
     setNotice(null)
   }
+
+  const redo = () => {
+    const next = future[future.length - 1]
+    if (next === undefined) return
+
+    setFuture((entries) => entries.slice(0, -1))
+    setHistory((entries) => [...entries, source])
+    lastKind.current = null
+    setSource(next)
+    setEditing(null)
+    setNotice(null)
+  }
+
+  /**
+   * Ctrl/Cmd+Z and its two spellings of redo, everywhere on the screen — the
+   * words live in controlled inputs whose own undo history is not this one, so
+   * the shortcut must be claimed before the browser spends it there. Registered
+   * once, reading the latest closures through a ref, because `source` changes on
+   * every keystroke and re-subscribing at that rate says the wrong thing.
+   */
+  const keys = useRef({ undo, redo })
+  useEffect(() => {
+    keys.current = { undo, redo }
+  })
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+
+      const key = event.key.toLowerCase()
+      if (key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) keys.current.redo()
+        else keys.current.undo()
+      } else if (key === 'y') {
+        event.preventDefault()
+        keys.current.redo()
+      }
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const command = (edit: (document: SongDocument) => SongDocument) => {
     change(toSource(edit(fromSource(source))), null)
@@ -207,13 +267,14 @@ export function EditorScreen({ song }: { song: Song }) {
       return
     }
 
-    const document = fromSource(source)
-    const block = document.blocks[caret.line]
-    if (block === undefined || block.kind !== 'lyrics') return
+    const block = doc.blocks[caret.line]
+    if (block === undefined || (block.kind !== 'lyrics' && block.kind !== 'blank')) return
 
-    // Where the new chord lands once the chords are back in order.
-    const chord = block.chords.filter((entry) => entry.at <= caret.at).length
-    change(toSource(addChord(document, caret.line, caret.at)), null)
+    // Where the new chord lands once the chords are back in order. On a blank
+    // line there is nothing yet: `addChord` promotes it, and the chord is first.
+    const at = block.kind === 'lyrics' ? caret.at : 0
+    const chord = block.kind === 'lyrics' ? block.chords.filter((entry) => entry.at <= caret.at).length : 0
+    change(toSource(addChord(doc, caret.line, at)), null)
     setEditing({ line: caret.line, chord })
   }
 
@@ -368,7 +429,13 @@ export function EditorScreen({ song }: { song: Song }) {
                 * is the one whose icon — a plus — says least on its own, and one label
                 * in the row is what tells you the rest are commands too.
                 */}
-              <button type="button" className="btn btn-inset btn-sm" onClick={insertChord}>
+              <button
+                type="button"
+                className="btn btn-inset btn-sm"
+                disabled={!canChord}
+                onClick={insertChord}
+                title={canChord ? undefined : 'Put the cursor on a line of words first'}
+              >
                 <IconPlus size={15} />
                 Chord
               </button>

@@ -13,6 +13,7 @@ import {
   sectionsOf,
   shiftChords,
 } from './document'
+import { wordStarts } from './syllables'
 
 function replace(document: SongDocument, index: number, block: Block): SongDocument {
   const blocks = [...document.blocks]
@@ -43,6 +44,23 @@ export function setLineText(document: SongDocument, index: number, text: string)
   if (block.kind === 'blank') return replace(document, index, { kind: 'lyrics', text, chords: [] })
 
   if (block.kind !== 'lyrics') return document
+
+  /**
+   * Words written under a line that was only chords: the chords spread over the
+   * new words in their order — `[re] [la] [re] [sol]` above «Quando sono solo
+   * scrivo» puts re on Quando, la on sono, and any left over after the last
+   * word. Their packed positions (one per stand-in space) were never *places*,
+   * only an order, and shifting them like ordinary anchors piled every chord
+   * onto the end of whatever got typed.
+   */
+  if (block.text.trim() === '' && text.trim() !== '' && block.chords.length > 0) {
+    const starts = wordStarts(text)
+    const chords = [...block.chords]
+      .sort((a, b) => a.at - b.at)
+      .map((chord, order) => ({ ...chord, at: starts[order] ?? text.length }))
+
+    return replace(document, index, { ...block, text, chords })
+  }
 
   /**
    * A line emptied of text still keeps its chords, which is what makes a bare chord
@@ -81,11 +99,46 @@ export function addChord(
   at: number,
   name = '',
 ): SongDocument {
-  const block = lyricsAt(document, index)
+  /**
+   * A chord dropped on a still-blank row promotes it, the same way typing does
+   * (see `setLineText`): an intro is written chords-first, and the toolbar's
+   * Chord on a fresh line silently doing nothing was indistinguishable from
+   * being broken.
+   */
+  const existing = document.blocks[index]
+  const block =
+    existing !== undefined && existing.kind === 'blank'
+      ? { kind: 'lyrics' as const, text: '', chords: [] as ChordAt[] }
+      : lyricsAt(document, index)
   if (block === null) return document
 
   const clamped = Math.max(0, Math.min(block.text.length, at))
   const chords = [...block.chords, { at: clamped, name }].sort((a, b) => a.at - b.at)
+
+  return replace(document, index, { ...block, chords })
+}
+
+/**
+ * A chord inserted between two others by order rather than by letter — the
+ * gesture of a wordless line, and of the run past the last word: out there the
+ * positions are all ties, so "where" can only mean "between which two". The new
+ * chord takes the seat (`at`) of the chord it displaces — or the end of the
+ * text when it goes last — and its place in the array is what writes it out
+ * before that chord rather than after it. The new chord's index in the block is
+ * the order itself, since the array comes back sorted.
+ */
+export function insertChordAmong(
+  document: SongDocument,
+  index: number,
+  order: number,
+  name = '',
+): SongDocument {
+  const block = lyricsAt(document, index)
+  if (block === null) return document
+
+  const chords = [...block.chords].sort((a, b) => a.at - b.at)
+  const bounded = Math.max(0, Math.min(chords.length, order))
+  chords.splice(bounded, 0, { at: chords[bounded]?.at ?? block.text.length, name })
 
   return replace(document, index, { ...block, chords })
 }
@@ -133,9 +186,27 @@ export function moveChord(
   const block = lyricsAt(document, index)
   if (block === null || block.chords[chord] === undefined) return { document, chord }
 
-  const at = Math.max(0, block.chords[chord].at + delta)
+  return moveChordTo(document, index, chord, block.chords[chord].at + delta)
+}
+
+/**
+ * Sets a chord straight down on a letter — the drop end of a drag, where the
+ * finger names a destination rather than a direction. Same contract as the
+ * nudge above: the new index comes back because landing on another chord's
+ * letter can change which chord the caller's index means.
+ */
+export function moveChordTo(
+  document: SongDocument,
+  index: number,
+  chord: number,
+  at: number,
+): { document: SongDocument; chord: number } {
+  const block = lyricsAt(document, index)
+  if (block === null || block.chords[chord] === undefined) return { document, chord }
+
+  const clamped = Math.max(0, at)
   const chords = block.chords.map((entry, position) =>
-    position === chord ? { ...entry, at } : entry,
+    position === chord ? { ...entry, at: clamped } : entry,
   )
 
   const ordered = chords

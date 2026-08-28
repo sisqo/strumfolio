@@ -223,6 +223,26 @@ export function sectionsOf(blocks: Block[]): SectionKind[] {
 }
 
 /**
+ * The chords the song already uses, most frequent first, ties in the order they
+ * first appear. The editor offers these while a chord is being named: a song's
+ * own vocabulary is almost always the chord being typed, and on a phone one tap
+ * beats a trip through the symbols keyboard.
+ */
+export function chordVocabulary(blocks: Block[]): string[] {
+  const counts = new Map<string, number>()
+
+  for (const block of blocks) {
+    if (block.kind !== 'lyrics') continue
+    for (const { name } of block.chords) {
+      const trimmed = name.trim()
+      if (trimmed !== '') counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1)
+    }
+  }
+
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name)
+}
+
+/**
  * Where the chords of a line end up after its text changes.
  *
  * The edit is reduced to one replaced span: what the old and new text share at the

@@ -5552,11 +5552,24 @@
    */
   .chord-row {
     position: relative;
-    padding-block-start: 0.4rem;
+    padding-block-start: 0.5rem;
     color: var(--accent);
-    font-size: 1rem;
+    font-size: 1.125rem;
     line-height: 1.4;
     white-space: pre;
+    /*
+     * A horizontal pull on this row is a chord being dragged, so the browser must
+     * not spend it panning the line; a vertical one is still the page scrolling.
+     * The words below keep their own horizontal pan — this only claims the strip.
+     */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* The headroom for a second lane of chips (see `.chord-chip.is-lifted`). */
+  .chord-row.has-lanes {
+    padding-block-start: 1.85rem;
   }
 
   /*
@@ -5567,7 +5580,7 @@
   .chord-ghost {
     visibility: hidden;
     font-family: var(--font-sans), system-ui, sans-serif;
-    font-size: 1rem;
+    font-size: 1.125rem;
     font-weight: 400;
     letter-spacing: normal;
   }
@@ -5593,15 +5606,58 @@
     border-radius: var(--r-xs);
     color: var(--accent);
     font-family: var(--font-sans), system-ui, sans-serif;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    /* 500, the reader's own chord weight (`.sheet-chord`): one voice, both sides. */
+    font-weight: 500;
     white-space: pre;
+    /* The row drags it; the hand should say so before the finger tries. */
+    cursor: grab;
+  }
+
+  /*
+   * The touch target, grown past the painted chip: a name is ~18px tall and a rule
+   * of this app is 44px for what is tapped over and over. Upwards only, and barely
+   * sideways — below the chip is the words' input, and beside it is the very gap a
+   * tap must still be able to drop a *new* chord into (the row's own pointer logic
+   * makes the same call: a pull owns the chip from afar, a tap only up close).
+   */
+  .chord-chip::after {
+    content: '';
+    position: absolute;
+    inset: -0.6rem -0.2rem 0;
   }
 
   @media (hover: hover) {
     .chord-chip:hover {
       background: var(--accent-soft);
     }
+  }
+
+  /* Held: the same chip, following the finger from letter to letter. */
+  .chord-chip.is-dragging {
+    z-index: 6;
+    background: var(--accent-soft);
+    cursor: grabbing;
+  }
+
+  /*
+   * The second lane: a chip that would paint over its neighbour — two chords on
+   * one letter, or long names a letter apart — rides above it instead, with a
+   * hairline leader down to the letter it still belongs to. Presentation only;
+   * the file underneath does not change.
+   */
+  .chord-chip.is-lifted {
+    inset-block-end: 1.3rem;
+  }
+
+  .chord-chip.is-lifted::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    inset-inline-start: 1px;
+    width: 1px;
+    height: 1.2rem;
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   /*
@@ -5612,21 +5668,74 @@
   .chord-loose {
     display: inline-flex;
     align-items: flex-end;
-    gap: 0.9em;
+    /* Wide enough that the middle of the gap is an add, never a near-miss edit. */
+    gap: 1.1em;
   }
 
-  .chord-chip.is-loose {
-    position: static;
-    padding-inline-end: 0;
+  /*
+   * One loose chord — trailing past the last letter, or on a wordless line. The
+   * chip hangs from the same zero-width anchor it hangs from over a letter, so
+   * its bottom sits on the row's baseline exactly like every anchored chip; a
+   * hidden copy of its name (the strut) holds the room it needs in the flow.
+   * The same ruler trick as the ghost — in-flow chips aligned by their own
+   * baseline instead sat a descender lower than their anchored neighbours.
+   */
+  .chord-seat {
+    display: inline-flex;
+  }
+
+  .chord-seat-strut {
+    visibility: hidden;
+    /* The chip's own metrics, so the room reserved is the room taken. */
+    padding-inline-end: 0.35em;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: pre;
   }
 
   /*
    * The same loose row, sat after the last letter instead of standing in for a
-   * whole line: one or more chords that play once the words are done. The gap
-   * before the first one keeps it from touching the last letter's own chip.
+   * whole line: one or more chords that play once the words are done. The dashed
+   * hairline is the seam of the text — these chords live *past* it, and the file
+   * keeps only their order out here (see `ChordAt.at`), never a distance, which
+   * is exactly what a seam with no ruler after it looks like.
    */
   .chord-trailing {
-    margin-inline-start: 0.35em;
+    margin-inline-start: 0.5em;
+    padding-inline-start: 0.55em;
+    border-inline-start: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  /*
+   * The seat past the last chord, shown on the focused line: chords could always
+   * land out there, but an invisible place gets no taps. Decoration only —
+   * `pointer-events: none` sends the tap through to the row, which has always
+   * known what a tap past the end means. Hung from its seat's anchor like any
+   * chip, so it sits at chip height, not a descender below it.
+   */
+  .chord-add-seat {
+    margin-inline-start: 0.5em;
+    pointer-events: none;
+  }
+
+  .chord-add-slot {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: 0;
+    padding: 0 0.45em;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border-radius: var(--r-xs);
+    color: color-mix(in srgb, var(--accent) 65%, transparent);
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  /* The slot's width, not a name's: the same + with its padding and border. */
+  .chord-seat-strut.chord-add-strut {
+    padding: 0 0.45em;
+    border: 1px solid transparent;
+    line-height: 1.3;
   }
 
   /*
@@ -5634,8 +5743,8 @@
    * than in its flow, with a `z-index` above every chip so a chord a few letters
    * away can never paint over it. Small on purpose: this still lives inside
    * `.line-scroll`, which clips vertically on purpose of its own (see its comment),
-   * so anything placed here has a real ceiling. The two arrows do not: see
-   * `.chord-move-controls` below for where they actually live now.
+   * so anything placed here has a real ceiling. The controls do not: see
+   * `.chord-bar` below for where they live, outside the clipping box entirely.
    */
   .chord-editing {
     position: absolute;
@@ -5656,14 +5765,15 @@
 
   .chord-field {
     visibility: visible;
-    width: 5ch;
+    /* The width travels with the name — set inline by `ChordField`, so `FA#m7`
+       is never edited through a slot half its size. */
     padding: 0 0.3rem;
     border: 1px solid var(--accent);
     border-radius: var(--r-xs);
     background: var(--surface);
     color: var(--accent);
-    /* 16px, again to stop iOS zooming when it takes focus. */
-    font-size: 1rem;
+    /* 17px — still past the 16px floor under which iOS zooms a focused field. */
+    font-size: 1.0625rem;
     /*
      * Inherited from `.chord-row` otherwise (1.4), which is sized for the ghost
      * text, not for this box: at 16px that line-height plus even this padding
@@ -5672,7 +5782,7 @@
      * at the top rather than shown. Tight to the font itself is what fits.
      */
     line-height: 1;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .chord-field:focus {
@@ -5682,27 +5792,61 @@
   }
 
   /*
-   * The two arrows that move the chord being edited — a sibling of `.line-scroll`
-   * rather than something floating inside it, and that is the entire fix: a popover
-   * tall enough to be worth a thumb's landing on it, rendered inside a box that
-   * clips vertically on purpose, simply got sheared off. Out here in the row's own
-   * layout there is no ceiling to hit, and a long line scrolling sideways never
-   * carries these out of view with it either.
+   * The controls of the chord being named, on a bar of their own under the line —
+   * not floating over it: `.line-scroll` clips vertically on purpose, so a control
+   * tall enough for a thumb rendered inside it simply got sheared off. A bar below
+   * the row has no ceiling to hit, never scrolls out of view with a long line, and
+   * puts the controls where a thumb already is. In the middle, the song's own
+   * chords as one-tap suggestions (see `chordVocabulary`).
    */
-  .chord-move-controls {
+  .chord-bar {
     display: flex;
-    flex: none;
-    align-self: center;
+    align-items: center;
     gap: 0.4rem;
+    margin-block: 0.35rem 0.6rem;
+    padding-inline-start: 0.5rem;
   }
 
+  .chord-suggest {
+    display: flex;
+    flex: 1;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .chord-suggest::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chord-suggestion {
+    flex: none;
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  @media (hover: hover) {
+    .chord-suggestion:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+  }
+
+  /* 2.75rem, the app's own floor for what is tapped repeatedly. */
   .chord-nudge {
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     background: var(--surface-2);
@@ -5717,6 +5861,13 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+
+    /* Taking a chord off is the one destructive press on the bar; say so. */
+    .chord-bar-remove:hover {
+      background: var(--danger-soft);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
   }
 
   .line-input {
@@ -5727,7 +5878,8 @@
     background: none;
     color: var(--ink);
     font-family: var(--font-sans), system-ui, sans-serif;
-    font-size: 1rem;
+    /* A step up from the reading default: editing is aiming, not glancing. */
+    font-size: 1.125rem;
     font-weight: 400;
     letter-spacing: normal;
     line-height: 1.35;
@@ -5769,6 +5921,7 @@
 
   /* The × that takes a stacco, a marker or a directive away. */
   .line-remove {
+    position: relative;
     flex: none;
     width: 1.9rem;
     height: 1.9rem;
@@ -5776,6 +5929,13 @@
     color: var(--muted);
     font-size: 1.1rem;
     line-height: 1;
+  }
+
+  /* Painted small, tapped big: the rows around it hold nothing else on that side. */
+  .line-remove::after {
+    content: '';
+    position: absolute;
+    inset: -0.45rem;
   }
 
   @media (hover: hover) {
@@ -5828,6 +5988,32 @@
   .editor-hint {
     color: var(--muted);
     font-size: 0.75rem;
+  }
+
+  /*
+   * The row that adds a line, at the foot of the song: dressed as the place it
+   * will become — the same dashed seam the trailing chords and the ⊕ slot use for
+   * "something can go here" — rather than as a footnote nobody reads as a button.
+   */
+  .editor-add-line {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 2.75rem;
+    margin-block-start: 0.75rem;
+    padding-inline: 0.6rem;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-md);
+    color: var(--muted);
+    font-size: 0.875rem;
+    text-align: start;
+  }
+
+  @media (hover: hover) {
+    .editor-add-line:hover {
+      border-color: var(--faint);
+      color: var(--ink);
+    }
   }
 
   /* ---- Skeletons -------------------------------------------------------- */

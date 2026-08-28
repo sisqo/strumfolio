@@ -6,9 +6,11 @@ import { fromSource, toSource } from './document'
 import {
   addChord,
   chordIndexAt,
+  insertChordAmong,
   insertTab,
   joinLines,
   moveChord,
+  moveChordTo,
   removeChord,
   removeLine,
   setChord,
@@ -40,6 +42,18 @@ describe('editing the words', () => {
 
   it('edits the text of a comment', () => {
     assert.equal(edit('{c: assolo}', (doc) => setLineText(doc, 0, 'assolo di guitar')), '{c: assolo di guitar}')
+  })
+
+  it('spreads the chords of a chord-only line over the words written under it', () => {
+    const after = edit('[re] [la] [re] [sol]', (doc) =>
+      setLineText(doc, 0, 'Quando sono solo scrivo'),
+    )
+
+    assert.equal(after, '[re]Quando [la]sono [re]solo [sol]scrivo')
+  })
+
+  it('sends the chords left over past the last word, in their order', () => {
+    assert.equal(edit('[re] [la]', (doc) => setLineText(doc, 0, 'ciao')), '[re]ciao[la]')
   })
 
   it('turns a blank line into a real one the moment it holds text', () => {
@@ -119,6 +133,65 @@ describe('moving a chord along its line', () => {
   it('keeps its place when it overtakes nothing', () => {
     const result = move('[la]ca[mi]stello', 0, 1)
     assert.equal(result.chord, 0)
+  })
+})
+
+describe('dropping a chord straight onto a letter', () => {
+  const drop = (source: string, chord: number, at: number) => {
+    const result = moveChordTo(fromSource(source), 0, chord, at)
+    return { source: toSource(result.document), chord: result.chord }
+  }
+
+  it('lands where the finger let go', () => {
+    assert.equal(drop('[la]castello', 0, 4).source, 'cast[la]ello')
+  })
+
+  it('says where the chord went when the drop overtakes another', () => {
+    const result = drop('[la]ca[mi]stello', 0, 4)
+    assert.equal(result.source, 'ca[mi]st[la]ello')
+    assert.equal(result.chord, 1)
+  })
+
+  it('lands past the last word as a trailing chord', () => {
+    assert.equal(drop('ca[la]stello', 0, 12).source, 'castello[la]')
+  })
+
+  it('never lands before the first letter', () => {
+    assert.equal(drop('ca[la]stello', 0, -3).source, '[la]castello')
+  })
+
+  it('agrees with the nudge about ties', () => {
+    // Dropped onto the other chord's letter, the mover keeps its original order.
+    const result = drop('[la]ca[mi]stello', 0, 2)
+    assert.equal(result.source, 'ca[la][mi]stello')
+    assert.equal(result.chord, 0)
+  })
+})
+
+describe('inserting a chord between two others, by order', () => {
+  it('lands between the two the order names, on a wordless line', () => {
+    const after = edit('[re] [la] [re] [sol]', (doc) => insertChordAmong(doc, 0, 2, 'x'))
+    assert.equal(after, '[re] [la] [x][re] [sol]')
+  })
+
+  it('goes last when the order points past every chord', () => {
+    assert.equal(edit('[re] [la]', (doc) => insertChordAmong(doc, 0, 5, 'x')), '[re] [la][x]')
+  })
+
+  it('slips between two chords already past the end of the words', () => {
+    const after = edit('pallon[mi7]e[la-][sol]', (doc) => insertChordAmong(doc, 0, 2, 'x'))
+    assert.equal(after, 'pallon[mi7]e[la-][x][sol]')
+  })
+})
+
+describe('a chord on a still-blank row', () => {
+  it('promotes the row, the same way typing does', () => {
+    // The toolbar's Chord pressed on a fresh line: the intro written chords-first.
+    assert.equal(edit('uno\n', (doc) => addChord(doc, 1, 0, 're')), 'uno\n[re]')
+  })
+
+  it('still refuses a row that is not words at all', () => {
+    assert.equal(edit('{soc}', (doc) => addChord(doc, 0, 0, 're')), '{soc}')
   })
 })
 

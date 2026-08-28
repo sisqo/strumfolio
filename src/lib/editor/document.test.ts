@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 import { parseChordPro } from '../chordpro'
 import {
   type ChordAt,
+  chordVocabulary,
   fromSource,
   readLyricLine,
   sectionsOf,
@@ -247,5 +248,18 @@ describe('which section a line is in', () => {
       parseChordPro(source).sections.map((section) => section.kind),
       ['chorus'],
     )
+  })
+})
+
+describe('the chords a song already uses', () => {
+  it('comes back most frequent first, ties in order of first appearance', () => {
+    const { blocks } = fromSource(['[la]uno [mi]due', '[mi]tre [re]quattro', '{c: [sol]ignorato}'].join('\n'))
+
+    assert.deepEqual(chordVocabulary(blocks), ['mi', 'la', 're'])
+  })
+
+  it('skips the chord still being named', () => {
+    const { blocks } = fromSource('[la]uno [] due')
+    assert.deepEqual(chordVocabulary(blocks), ['la'])
   })
 })
