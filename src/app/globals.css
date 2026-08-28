@@ -3459,6 +3459,43 @@
   }
 
   /*
+   * The reading bar's quick search (`SongReaderSearch`) — a panel that hangs off its own
+   * button in the header, same as `.menu-panel` above, but styled to read as a strip the
+   * bar grows by rather than a card floating below it: full width, flush against the
+   * bar's own bottom edge, no radius or shadow of its own. `.top-bar` is the nearest
+   * positioned ancestor (`sticky` is not `static`), which is what lets `left`/`right: 0`
+   * span the whole bar instead of just the button that opens it.
+   */
+  .song-search-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: var(--bg);
+    border-top: 1px solid var(--edge);
+  }
+
+  .song-search-panel-inner {
+    max-width: var(--top-bar-width, 48rem);
+    margin-inline: auto;
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  /*
+   * Capped rather than left to grow with the result count: this panel hangs off a
+   * `sticky` header, not a page that scrolls with it, so an account with a few hundred
+   * songs would otherwise push its own results off the bottom of the screen with no way
+   * to reach them. `dvh` rather than `vh` — a phone's address bar takes real space `vh`
+   * does not know about.
+   */
+  .song-search-results {
+    margin-top: 1rem;
+    max-height: 60dvh;
+    overflow-y: auto;
+  }
+
+  /*
    * Strum Together's own view of the menu panel needs more room than a row of
    * links does — two explained steps, a QR code and a link — so it grows wider
    * here rather than everywhere `.menu-panel` is used. Capped against the
@@ -3595,6 +3632,33 @@
 
   @media (hover: hover) {
     .back-link:hover {
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+  }
+
+  /*
+   * An icon on its own in the same pill shape as `.back-link` beside it, for the
+   * reading bar's two icon-only buttons (back, search): `.back-link` itself keeps its
+   * asymmetric padding — tighter on the chevron's side, to sit a label's icon at the
+   * pill's edge — which is wrong the moment there is no label to sit beside. This is
+   * the label-less sibling, symmetric and square-ish rather than sized around text.
+   */
+  .icon-pill {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--edge);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--muted);
+  }
+
+  @media (hover: hover) {
+    .icon-pill:hover {
       background: var(--surface-2);
       color: var(--ink);
     }

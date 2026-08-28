@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 
 import { NavMenu } from '@/components/NavMenu'
 import { SignOutButton } from '@/components/SignOutButton'
@@ -47,9 +48,21 @@ export type Section =
  *
  * Two openers at the end of the bar, and only two: the account menu and the hamburger.
  * The theme switch used to sit between the steps and the avatar, and the admin shield
- * beside it; four icons in a row is more than a phone affords once the song's own title
- * and the way back are also on this line, so both moved inside the panels — see the
- * comment at the openers themselves.
+ * beside it; four icons in a row is more than a phone affords once the way back and,
+ * from inside a song, the search button are also on this line, so both moved inside the
+ * panels — see the comment at the openers themselves.
+ *
+ * `back` used to carry its songbook's name as visible text; it is icon-only now; the
+ * label survives only as `aria-label`/`title`, because dropping the text is what freed
+ * the room search needed on the same side of the bar, not because the name stopped
+ * mattering to a screen reader or a mouse left resting on the icon.
+ *
+ * `search`, like `back`, is only worth passing from inside a song: it needs a way to
+ * jump to another song, which is the one thing every other screen `TopBar` renders on
+ * already has its own route for. It is a slot rather than a fixed piece of markup —
+ * `TopBar` never reads the account's songs itself, `SongReader` builds the panel and
+ * hands it down — so the pages that render this bar without ever passing `search` stay
+ * exactly as static as they are today.
  *
  * Stays a plain, synchronous function on purpose — `ViewingAsPill` is the one child that
  * needs to know who is looking, and it is `'use client'`, reading `useRole()` the same way
@@ -62,12 +75,15 @@ export function TopBar({
   current,
   back,
   steps,
+  search,
 }: {
   current: Section
   /** A second way out, next to the brand. Leave unset when it would lead home too. */
   back?: { href: string; label: string }
   /** Previous and next song, when this screen is part of a sequence. */
   steps?: { previous: string | null; next: string | null }
+  /** The reading page's own quick search, already wired to its account's songs. */
+  search?: ReactNode
 }) {
   return (
     <header className="top-bar">
@@ -88,11 +104,17 @@ export function TopBar({
         <ViewingAsPill />
 
         {back !== undefined && (
-          <Link href={back.href} className="back-link min-w-0">
-            <IconChevronLeft size={16} />
-            <span className="truncate">{back.label}</span>
+          <Link
+            href={back.href}
+            className="icon-pill"
+            aria-label={`Back to ${back.label}`}
+            title={back.label}
+          >
+            <IconChevronLeft size={18} />
           </Link>
         )}
+
+        {search}
 
         <span className="flex-1" />
 

@@ -3,12 +3,14 @@ import { Footer } from '@/components/Footer'
 import { LiveControlBar, LiveSheet, SongHeading } from '@/components/LiveSong'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SongProvider } from '@/components/SongProvider'
+import { SongReaderSearch } from '@/components/SongReaderSearch'
 import { TopBar } from '@/components/TopBar'
 import { parseChordPro } from '@/lib/chordpro'
 import { type Song, repository } from '@/lib/data'
 import { songAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { hasDatabase } from '@/lib/db/client'
+import { type SongIndexRow, toIndexRow } from '@/lib/search-index'
 import { type Series, seriesOf } from '@/lib/songbooks/series'
 
 /** The songbook this song is in: where the header's way back leads. */
@@ -40,10 +42,24 @@ interface Home {
  * steps through must be this account's songs, never another one's read alongside them
  * by coincidence of a shared songbook slug — impossible today since slugs are unique
  * per account's songbook already, but the scoped read is also just less to fetch.
+ *
+ * `library` rides along on the same fetch, for `SongReaderSearch`: every other song in
+ * the account, minus this one, with the songbook it lives in resolved the same way
+ * `home` is. Same staleness as the neighbours above and for the same reason — a search
+ * result that opened a page still filed under a songbook it just moved out of is a
+ * smaller wrong than one row disagreeing with a `home` computed from a different read a
+ * moment apart. No lyrics: `toIndexRow`, not `toIndexEntry`, keeps this page from
+ * parsing and shipping the words of every song in the account just to fill a search box
+ * most loads of this page never open.
  */
 async function placeOf(
   song: Song,
-): Promise<{ home: Home | null; section: string | null; series: Series | null }> {
+): Promise<{
+  home: Home | null
+  section: string | null
+  series: Series | null
+  library: { song: SongIndexRow; under: string | null }[]
+}> {
   const owner = hasDatabase ? await songAccountOf(song.slug) : null
 
   const [songs, songbooks, sections] =
@@ -63,7 +79,16 @@ async function placeOf(
   const home = found === undefined ? null : { slug: found.slug, name: found.name }
   const section = sections.find((entry) => entry.id === song.sectionId)?.name ?? null
 
-  return { home, section, series: seriesOf(song, songs) }
+  const songbookOf = new Map(sections.map((entry) => [entry.id, entry.songbookSlug]))
+  const nameOf = new Map(songbooks.map((entry) => [entry.slug, entry.name]))
+  const library = songs
+    .filter((entry) => entry.slug !== song.slug)
+    .map((entry) => ({
+      song: toIndexRow(entry),
+      under: nameOf.get(songbookOf.get(entry.sectionId) ?? '') ?? null,
+    }))
+
+  return { home, section, series: seriesOf(song, songs), library }
 }
 
 /**
@@ -82,7 +107,7 @@ async function placeOf(
  */
 export async function SongReader({ song }: { song: Song }) {
   const parsed = parseChordPro(song.body)
-  const { home, section, series } = await placeOf(song)
+  const { home, section, series, library } = await placeOf(song)
 
   return (
     <PrefsProvider songSlug={song.slug}>
@@ -114,6 +139,7 @@ export async function SongReader({ song }: { song: Song }) {
               ? undefined
               : { href: `/songbooks/${home.slug}#song-${song.slug}`, label: home.name }
           }
+          search={<SongReaderSearch library={library} />}
         />
 
         {/*
