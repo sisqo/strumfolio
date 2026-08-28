@@ -1,6 +1,7 @@
 'use client'
 
-import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { mayShowAccountSwitcher } from '@/lib/accounts/read'
 import { loadIdentity } from '@/lib/auth/actions'
@@ -118,27 +119,28 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [subscriptionPlan, setSubscriptionPlan] = useState<Plan | null>(null)
   const [planChosen, setPlanChosen] = useState(true)
 
-  useEffect(() => {
-    let alive = true
+  const alive = useRef(true)
 
-    const ask = async () => {
-      try {
-        const [identity, showSwitcher] = await Promise.all([loadIdentity(), mayShowAccountSwitcher()])
-        if (alive) {
-          setEmail(identity?.email ?? null)
-          setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)
-          setRole(identity?.role ?? null)
-          setSwitcher(showSwitcher)
-          setPlan(identity?.plan ?? null)
-          setSubscriptionPlan(identity?.subscriptionPlan ?? null)
-          setPlanChosen(identity?.planChosen ?? true)
-          setKnown(true)
-        }
-      } catch {
-        // Offline, or signed out: nothing is offered, which is the safe direction.
+  const ask = useCallback(async () => {
+    try {
+      const [identity, showSwitcher] = await Promise.all([loadIdentity(), mayShowAccountSwitcher()])
+      if (alive.current) {
+        setEmail(identity?.email ?? null)
+        setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)
+        setRole(identity?.role ?? null)
+        setSwitcher(showSwitcher)
+        setPlan(identity?.plan ?? null)
+        setSubscriptionPlan(identity?.subscriptionPlan ?? null)
+        setPlanChosen(identity?.planChosen ?? true)
+        setKnown(true)
       }
+    } catch {
+      // Offline, or signed out: nothing is offered, which is the safe direction.
     }
+  }, [])
 
+  useEffect(() => {
+    alive.current = true
     void ask()
 
     /*
@@ -152,10 +154,27 @@ export function RoleProvider({ children }: { children: ReactNode }) {
      */
     window.addEventListener('online', ask)
     return () => {
-      alive = false
+      alive.current = false
       window.removeEventListener('online', ask)
     }
-  }, [])
+  }, [ask])
+
+  /*
+   * And again on the one navigation that can turn a stale answer into a wrong one: leaving
+   * `/login`. `signIn('credentials', ...)` redirects to the same root layout this provider
+   * lives in, so Next.js patches the tree in place rather than reloading the document — the
+   * mount-time `ask()` above already ran and settled on "signed out" before the credentials
+   * form ever submitted, and nothing else was going to ask again. (Google's button doesn't
+   * need this: it leaves the app for `accounts.google.com` and comes back through a real
+   * HTTP redirect, which does reload the document and re-run the effect above.)
+   */
+  const pathname = usePathname()
+  const previousPathname = useRef(pathname)
+  useEffect(() => {
+    const cameFromLogin = previousPathname.current === '/login' && pathname !== '/login'
+    previousPathname.current = pathname
+    if (cameFromLogin) void ask()
+  }, [pathname, ask])
 
   const value = useMemo<RoleContextValue>(
     () => ({
