@@ -9,7 +9,8 @@ import { SongSheet } from '@/components/SongSheet'
 import { IconBroadcast, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
 import type { Song } from '@/lib/data/types'
-import { DEFAULT_SONG_PREFS } from '@/lib/prefs/types'
+import type { Notation } from '@/lib/music/chord'
+import { DEFAULT_GLOBAL_PREFS, DEFAULT_SONG_PREFS } from '@/lib/prefs/types'
 import {
   type GuestSongbook,
   type GuestSongbookContent,
@@ -165,6 +166,16 @@ export function FollowSession({ token }: { token: string }) {
   const [live, setLive] = useState<LiveNow | null>(null)
   const [liveMeta, setLiveMeta] = useState<{ title: string; artist: string | null } | null>(null)
 
+  /**
+   * Which chord alphabet the leader themselves reads in, mirrored onto this guest's
+   * screen so a followed sheet never shows a different notation than the one the
+   * broadcaster is actually looking at. Kept apart from `live` rather than folded into
+   * it: unlike the song and the key, this is not a fact about what is playing, so it
+   * must survive `live` going back to `null` between songs — a guest browsing the
+   * repertoire on their own still reads it in the leader's alphabet, not the default.
+   */
+  const [leaderNotation, setLeaderNotation] = useState<Notation>(DEFAULT_GLOBAL_PREFS.notation)
+
   /*
    * Two pieces rather than three `'full' | 'full-stopped' | 'full-closed'` screens: `screen`
    * says what is on the screen and `fullState` says why it is still there — the same split
@@ -258,9 +269,14 @@ export function FollowSession({ token }: { token: string }) {
      * paused `FollowedSong` both know what `Follow` would jump to. Everything after
      * that only runs while `followStateRef.current` still says `'following'`; suspended,
      * this function's whole job ends the moment `live` is set.
+     *
+     * `leaderNotation` is set unconditionally too, and for a stronger reason than
+     * `live`: it is not a fact about what is playing, so there is no "nothing to
+     * reconcile" state for it the way `songSlug === null` is for the song below.
      */
-    async function reconcile(songSlug: string | null, semitones: number): Promise<void> {
+    async function reconcile(songSlug: string | null, semitones: number, notation: Notation): Promise<void> {
       setLive(songSlug === null ? null : { songSlug, semitones })
+      setLeaderNotation(notation)
 
       if (followStateRef.current === 'suspended') return
 
@@ -427,7 +443,7 @@ export function FollowSession({ token }: { token: string }) {
           admitted = true
         }
 
-        await reconcile(poll.songSlug, poll.semitones)
+        await reconcile(poll.songSlug, poll.semitones, poll.notation)
         if (cancelled) return
 
         await sleep(POLL_MS)
@@ -828,6 +844,7 @@ export function FollowSession({ token }: { token: string }) {
 
   return (
     <PrefsProvider persist={false} songSlug={null}>
+      <PushBroadcastNotation notation={leaderNotation} />
       <header className="top-bar">
         <div className="top-bar-inner">
           <span className="flex-1" />
@@ -1050,6 +1067,23 @@ function PushBroadcastKey({ semitones }: { semitones: number }) {
   useEffect(() => {
     setSemitones(semitones)
   }, [semitones, setSemitones])
+
+  return null
+}
+
+/**
+ * The same bridge as `PushBroadcastKey`, for the leader's own notation instead of the
+ * key — see `leaderNotation`'s own comment in `FollowSession` for why this is mounted
+ * once at the top rather than only inside a followed song: unlike the key, notation is
+ * not a property of what is playing, so it has to keep applying whether this guest is
+ * following, suspended, or just browsing the repertoire on their own.
+ */
+function PushBroadcastNotation({ notation }: { notation: Notation }) {
+  const { setNotation } = usePrefs()
+
+  useEffect(() => {
+    setNotation(notation)
+  }, [notation, setNotation])
 
   return null
 }

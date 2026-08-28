@@ -29,7 +29,8 @@ import { cookies } from 'next/headers'
 import { accessTo, asEditor, currentUser } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts, singAlongDevices, singAlongSessions } from '@/lib/db/schema'
+import { accounts, singAlongDevices, singAlongSessions, userPrefs } from '@/lib/db/schema'
+import type { Notation } from '@/lib/music/chord'
 import { UNGATED } from '@/lib/plans/entitlements'
 import { deviceCapOf } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
@@ -389,6 +390,13 @@ export async function broadcastTranspose(songSlug: string, semitones: number): P
  *
  * With no device cookie there is no row to look for, and `false` in the join condition keeps
  * that case to the same single statement rather than a second query shape to keep in step.
+ *
+ * Also left-joins `user_prefs` on the *owner's* email — not `broadcastAccountEmail` — because
+ * notation is a preference about the person reading the sheet, keyed by whoever is signed in,
+ * and that is the leader even when they are broadcasting an account they merely switched into.
+ * `.limit(1)` still holds: `user_prefs.user_email` is a primary key, so this join can add at
+ * most one row, never fan the result out. No row there (nobody has touched their settings yet)
+ * comes back `null`, which `pollBroadcast` reads the same way `DEFAULT_GLOBAL_PREFS` does.
  */
 async function sessionWithDevice(token: string, deviceId: string | null) {
   const rows = await db()
@@ -397,9 +405,11 @@ async function sessionWithDevice(token: string, deviceId: string | null) {
       semitones: singAlongSessions.currentSemitones,
       lastActiveAt: singAlongSessions.lastActiveAt,
       broadcastAccountEmail: singAlongSessions.broadcastAccountEmail,
+      notation: userPrefs.notation,
       deviceLastSeenAt: singAlongDevices.lastSeenAt,
     })
     .from(singAlongSessions)
+    .leftJoin(userPrefs, eq(userPrefs.userEmail, singAlongSessions.ownerEmail))
     .leftJoin(
       singAlongDevices,
       and(
@@ -804,7 +814,7 @@ async function seatDevice(
 export async function pollBroadcast(
   token: string,
 ): Promise<
-  | { ok: true; songSlug: string | null; semitones: number }
+  | { ok: true; songSlug: string | null; semitones: number; notation: Notation }
   | { ok: false; reason: 'expired' | 'full' | 'closed' }
 > {
   /*
@@ -819,7 +829,18 @@ export async function pollBroadcast(
   const row = await sessionWithDevice(token, deviceId)
   if (row === null || !isFresh(row.lastActiveAt)) return { ok: false, reason: 'expired' }
 
-  const showing = { ok: true as const, songSlug: row.songSlug, semitones: row.semitones }
+  /*
+   * A guest reads the same chord alphabet the leader does, never a choice of their own
+   * (see `PushBroadcastNotation` in `FollowSession.tsx`) — so this is the one field here
+   * that is not merely echoing what the leader's own client already sent, and it is why
+   * the join above exists at all. Anything other than the literal `'it'` reads as `'int'`,
+   * which is both the column's default and `DEFAULT_GLOBAL_PREFS.notation` — so a leader
+   * who has never touched their notation setting and a leader with no `user_prefs` row at
+   * all land on the same answer.
+   */
+  const notation: Notation = row.notation === 'it' ? 'it' : 'int'
+
+  const showing = { ok: true as const, songSlug: row.songSlug, semitones: row.semitones, notation }
   if (deviceId === null) return showing
 
   const now = new Date()

@@ -16,9 +16,9 @@ import { usePrefs } from '@/components/PrefsProvider'
  * The cost of the move is real and was named, not avoided: an anonymous guest
  * following a Strum Together broadcast has no account and never reaches this menu, so
  * once notation left the reading panel it left guests with no door to it at all.
- * That was decided anyway — a guest is stuck with whatever notation their own prefs
- * already held, for as long as the session lasts, with nowhere on their screen left
- * to change it.
+ * That was decided anyway — a guest reads in whatever notation the *leader* has set
+ * on their own account, pushed in every poll (`PushBroadcastNotation` in
+ * `FollowSession.tsx`), with nowhere on their own screen to override it.
  */
 export function NotationPicker() {
   const { global, setNotation } = usePrefs()
