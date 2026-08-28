@@ -356,7 +356,7 @@ export function AddSongScreen({
                 onChange={(event) => setPasted(event.target.value)}
                 rows={12}
                 spellCheck={false}
-                placeholder={'Amazing Grace\nTraditional (John Newton, 1779)\n\nG                  C\nAmazing grace, how sweet the sound\n\n---\n\nDanny Boy\nTraditional Irish air, lyrics by Frederick Weatherly (1913)'}
+                placeholder={'Never Lose The Chord\nThe Strumfolio Sessions\n\n[C]I used to juggle tabs, a hundred open tabs\n[G]Banner ads and popups, [Am]losing where I was\n\n---\n\nDanny Boy\nTraditional Irish air, lyrics by Frederick Weatherly (1913)'}
                 className="form-field font-mono text-sm"
               />
             </label>

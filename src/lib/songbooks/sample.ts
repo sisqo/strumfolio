@@ -18,12 +18,49 @@ import { parseChordPro } from '@/lib/chordpro'
 export const SAMPLE_SONGBOOK_NAME = 'Example songbook'
 
 /**
- * Traditional songs with no living author and no active copyright — hymns and folk
- * ballads old enough to be in the public domain everywhere this app is used. Order
- * here is the order songs are inserted in; sections are created the first time one
- * of their songs is reached.
+ * The first entry is an original Strumfolio composition, written for this purpose
+ * (no rights to clear). The rest are traditional songs with no living author and no
+ * active copyright — hymns and folk ballads old enough to be in the public domain
+ * everywhere this app is used. Order here is the order songs are inserted in; sections
+ * are created the first time one of their songs is reached.
  */
 const SONG_BODIES: string[] = [
+  `{title: Never Lose The Chord}
+{artist: The Strumfolio Sessions}
+{tags: original, strumfolio}
+{division: Demo}
+
+[C]I used to juggle tabs, a hundred open tabs
+[G]Banner ads and popups, [Am]losing where I was
+[F]Now it's in my pocket, [C]works without a signal
+[G]Offline on a mountain, [Am]still it's [F]all here
+
+{start_of_chorus}
+[C]Strumfolio, take it anywhere
+[G]No wifi, no worries, I don't care
+[Am]Every song I love, one tap away
+[F]Transpose it, [C]play it, [G]my [Am]way
+{end_of_chorus}
+
+[C]Capo's on the second, key of D I need
+[G]One tap and it shifts, that's [Am]all it takes to lead
+[F]My cousin sings it high, [C]I sing it kinda low
+[G]Same chart, different key, [Am]that's the [F]way to go
+
+{start_of_bridge}
+[Am]No more scrolling ads
+[F]No more squinting eyes
+[C]Just me and my guitar
+[G]Under open skies
+{end_of_bridge}
+
+{start_of_chorus}
+[C]Strumfolio, take it anywhere
+[G]No wifi, no worries, I don't care
+[Am]Every song I love, one tap away
+[F]Transpose it, [C]play it, [G]my [Am]way
+{end_of_chorus}`,
+
   `{title: Amazing Grace}
 {artist: Traditional (John Newton, 1779)}
 {tags: hymn, gospel, folk}
