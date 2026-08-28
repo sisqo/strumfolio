@@ -8,13 +8,13 @@ import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
 import { SongRow } from '@/components/SongRow'
 import {
-  IconAddSong,
   IconBooks,
   IconChevronDown,
   IconChevronRight,
   IconGrip,
   IconOffline,
   IconPencil,
+  IconPlus,
   IconTrash,
 } from '@/components/icons'
 import { applyOrder } from '@/lib/songbooks/order'
@@ -237,7 +237,7 @@ export function SongbookSongs({
               disabled={!online}
               onClick={() => router.push(`/songbooks/${slug}/add`)}
             >
-              <IconAddSong size={16} />
+              <IconPlus size={16} />
               Add song
             </button>
           </div>

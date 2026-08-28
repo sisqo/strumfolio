@@ -109,17 +109,6 @@ export function IconImport(props: IconProps) {
   )
 }
 
-/** Add a song: a case, open, with something set inside it. */
-export function IconAddSong(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M12 4v6M12 10l6-1.4M12 10 6 8.6" />
-      <path d="M4 6.5v9L12 19l8-3.5v-9" />
-      <path d="M12 10v9" />
-    </Icon>
-  )
-}
-
 /** Paste: a clipboard, for text arriving from elsewhere rather than typed here. */
 export function IconClipboard(props: IconProps) {
   return (
