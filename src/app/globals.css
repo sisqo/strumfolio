@@ -6149,6 +6149,22 @@
   }
 
   /*
+   * The answer to a Save, in the sticky head with the button that asked. It used to
+   * sit in the flow below and was measured rendering 639px above the top of the
+   * screen when saved from far enough down a long song — the one moment on this
+   * screen that most needs an answer, giving none.
+   *
+   * Tighter than a `.notice` in the page flow, because this one is chrome: it holds
+   * space away from the song for as long as it is up. The success case takes itself
+   * back down after six seconds (see `EditorScreen`); a failure stays.
+   */
+  .editor-outcome {
+    margin-block-end: 0.5rem;
+    padding-block: 0.45rem;
+    font-size: 0.8125rem;
+  }
+
+  /*
    * One row, never wrapping: on a phone this held three rows of controls, and a
    * sticky block that tall leaves nothing to edit under it. What it costs is the
    * words next to the back chevron and the "non salvato" label — the first has its

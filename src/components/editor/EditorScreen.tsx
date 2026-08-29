@@ -247,6 +247,19 @@ export function EditorScreen({ song }: { song: Song }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  /*
+   * A successful save says so and then gets out of the way. It lives in the sticky
+   * head now, which is the only place it was certain to be seen — and that is also
+   * the reason it cannot stay: every line it holds is a line of song not shown, on
+   * the screen of someone who came here to read. A failure has no timer: it is still
+   * true a minute later, and it is the one the reader has to act on.
+   */
+  useEffect(() => {
+    if (notice === null) return
+    const timer = setTimeout(() => setNotice(null), 6000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   const command = (edit: (document: SongDocument) => SongDocument) => {
     change(toSource(edit(fromSource(source))), null)
     setNotice(null)
@@ -320,7 +333,7 @@ export function EditorScreen({ song }: { song: Song }) {
       // The reading page reads this before it asks the server anything.
       writeEdit(result.song)
       saved.current = { source, fields }
-      setNotice('Saved. It shows right away in the song; publish it to have it offline too.')
+      setNotice('Saved. It shows in the song right away; publish it to have it offline too.')
       await refreshSongbooks()
     } catch {
       setError(saveMessage({ reason: 'failed' }))
@@ -421,6 +434,28 @@ export function EditorScreen({ song }: { song: Song }) {
           </div>
         </div>
 
+        {/*
+          * The outcome of a save, inside the sticky head rather than in the flow below
+          * it — because Save itself is in the sticky head, and its answer was not.
+          * Measured before this moved: saving from the third verse of a long song
+          * rendered the notice at y = −639px, off the top of the screen. Success and
+          * failure alike; the only cue left on screen was the Save button going quiet,
+          * which is not a cue anyone unaware of it would look for, and on failure the
+          * button correctly stays enabled and says nothing at all.
+          *
+          * `role="alert"`/`role="status"` do the same job for a screen reader, which had
+          * no way of hearing either result before: the editor carried no live region.
+          */}
+        {(error !== null || notice !== null) && (
+          <p
+            className={error !== null ? 'notice notice-error editor-outcome' : 'notice editor-outcome'}
+            role={error !== null ? 'alert' : 'status'}
+          >
+            {error === null && <IconInfo />}
+            {error ?? notice}
+          </p>
+        )}
+
         {mode !== 'preview' && (
           <div className="editor-tools">
             <div className="editor-tools-scroll">
@@ -456,19 +491,6 @@ export function EditorScreen({ song }: { song: Song }) {
           </div>
         )}
       </div>
-
-      {error !== null && (
-        <p className="notice notice-error mt-4" role="alert">
-          {error}
-        </p>
-      )}
-
-      {notice !== null && (
-        <p className="notice mt-4" role="status">
-          <IconInfo />
-          {notice}
-        </p>
-      )}
 
       {/*
         * The chevron replaces the triangle the browser draws, which was the one thing
