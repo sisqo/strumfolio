@@ -153,10 +153,9 @@ one reason: it marks the thing a player's eye must never mistake for a lyric. Ev
 else that borrows it (a badge, an active control) stays visibly quieter than the chords
 themselves, on purpose.
 
-This system explicitly rejects the cluttered, ad-driven chord-site aesthetic (Ultimate
-Guitar and its kind) and the generic flat-dark developer-tool look — a single neon
-accent on near-black. Depth here comes from a warm neutral palette and a considered
-surface ladder, not from gradients, glow, or noise.
+(See PRODUCT.md's Anti-references for what this system is built against; the design
+consequence is that depth here comes from a warm neutral palette and a considered surface
+ladder, not from gradients, glow, or noise — see the Don'ts below for the specifics.)
 
 **Key Characteristics:**
 - Warm off-white paper in light, near-black (not pure black) in dark — never a cold or clinical neutral.
@@ -282,6 +281,22 @@ A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-
 
 **One row from `sm` up, two below it** — and the two-row version is not the old one coming back. What was replaced was two rows of small controls stacked at every width, which split awkwardly on a 390px phone; what a phone has now is one panel of two rows sized *up* rather than down: Previous and Next above, the mid-song controls below, nothing under 48px, the ones a hand reaches for at 58px, and a 78px play circle straddling the seam between the rows, cut out of both by a ring in the bar's own colour. Play is the largest thing in the app on purpose — it is the one control that is a destination rather than a nudge. Above `sm` all of it collapses back to the single row, with the two capsules (dock, prev/next) the wider screen has room for.
 
+### The Visual Editor (signature component)
+
+Chords are edited exactly where they are read: a hidden copy of the line's words, in the
+same font, carries zero-width anchors between the letters, and each chord chip hangs from
+its anchor — the browser does the measuring, so a chip never drifts, in either theme, at
+any width. Chip type is the reader's own (500 weight) — one voice, both sides of the same
+sheet. **The ghost must never be widened to make room for a chip**: two that would collide
+lift into a second lane with a hairline leader back to their letter, never by pushing the
+words apart.
+
+A tap snaps a new chord to the nearest syllable, not the raw letter under the finger — a
+hand's precision, not a stylus's; dragging a chip moves it letter by letter for the rare
+correction that needs it. Naming a chord opens a bar *under* the line rather than a popover
+*over* it, since the line's own horizontal scroll clips vertically on purpose — every
+control on that bar sits at the same 44px floor as the reading control bar.
+
 ## 6. Do's and Don'ts
 
 ### Do:
@@ -296,7 +311,7 @@ A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-
 ### Don't:
 - **Don't** build anything resembling the ad-heavy, cluttered chord/tab site aesthetic (Ultimate Guitar and similar) — no ad slots, no popups, no competing calls to action around the reading surface.
 - **Don't** default to a generic flat-dark developer-tool look (near-black surface, single neon accent) — Strumfolio's dark theme is warm and hand-tuned, not a formulaic inversion.
-- **Don't** use a side-stripe (`border-left`/`border-right` > 1px) as a decorative colored accent anywhere outside the sheet's own chorus/bridge indent, which is the one place this app uses it and does so as a diluted accent tint, not a flat color bar.
+- **Don't** use a side-stripe (`border-left`/`border-right` > 1px) as a decorative colored accent — the sheet's own chorus/bridge indent is the one place this app uses one that way, a diluted accent tint rather than a flat color bar. The editor's focused-line marker (`.editor-line.is-focused`) is a second, narrower exception: a functional focus indicator, not a decoration, earning the same pass a browser's own focus ring would.
 - **Don't** give a disabled primary button a faded/opacity treatment — drop the fill to the flat disabled state instead.
 - **Don't** let a translucent or blurred surface sit over the song sheet — the top bar tried this and it let lyrics show through; use a solid page-colored background instead.
 - **Don't** introduce a second display font or a bold weight above 600 outside chord names — Outfit at 400/500 carries the whole system.

@@ -7,8 +7,8 @@ too and are not repeated below.
 
 ## What this is
 
-Strumfolio — a private, invite-only PWA for reading a musician's own lyrics/chords on stage:
-zoom, auto-scroll, transposition, capo, offline. Next.js 15 App Router, React 19, TypeScript,
+Strumfolio — a private PWA for reading a musician's own lyrics/chords on stage: zoom,
+auto-scroll, transposition, capo, offline. Next.js 15 App Router, React 19, TypeScript,
 Tailwind v3, Postgres on Neon via Drizzle ORM, NextAuth v5, Serwist for the service worker.
 Deployed on Vercel (`sisqo` account), production at https://strumfolio.com. Full product
 framing lives in `PRODUCT.md`, the visual language in `DESIGN.md`, and the running log of
@@ -49,10 +49,10 @@ cd "$SCRATCH" && npx tsc --noEmit && npm test && npm run build
 ```
 
 A working-tree build (even an `rsync`'d copy) can pass while the actual commit is broken if a
-file was edited after `git add` and never re-staged. This happened once for real: a commit
-that deleted `LightThemeOnly.tsx` still imported and rendered it on `/login`, discovered only
-by `git show HEAD:path | grep` on the pushed commit, and fixed in a follow-up commit. Doing
-the `git archive HEAD` check first is what would have caught it before the push.
+file was edited after `git add` and never re-staged — it happened once for real: a commit
+that deleted `LightThemeOnly.tsx` still imported and rendered it on `/login`, caught only by
+grepping the pushed commit's own content, fixed in a follow-up. The `git archive HEAD` check
+above is what would have caught it first.
 
 Push once verified — don't wait for a separate "go ahead" on the push step itself for an
 ordinary forward commit. This does not relax the usual rules: stage explicit paths (never
@@ -73,17 +73,14 @@ clean up your own before leaving.
 
 ## Migrating the production database: `vercel env pull --environment=production` looks like it works but doesn't
 
-Confirmed 2026-08-22, applying migration `0027`: this account's Vercel CLI token can read
-**Development** secrets fine (`vercel env pull --environment=development` returns real values),
-but pulling **Production** returns a real file with every real secret present as a literal
-empty string (`DATABASE_URL=""`, `AUTH_SECRET=""`, all of them) — only Vercel's own
-auto-populated system vars (`VERCEL_ENV`, `VERCEL_OIDC_TOKEN`, …) come through non-empty. The
-command exits 0 and looks identical to a successful pull; nothing in its output says access was
-refused. `vercel whoami` still shows the correct `sisqo` account, and `vercel env ls
-production` still lists every variable as present — this is a read-permission restriction on
-decrypting Production values specifically through this CLI session, not a missing variable, a
-wrong account, or a bug in the pull itself. Don't waste time re-authenticating or re-linking the
-project over this; nothing about the setup is broken.
+Confirmed 2026-08-22, applying migration `0027`: this account's Vercel CLI token reads
+**Development** secrets fine, but pulling **Production** returns a real file where every
+secret is a literal empty string (`DATABASE_URL=""`, `AUTH_SECRET=""`, …) — only Vercel's
+own auto-populated system vars come through non-empty. The command exits 0 and looks
+identical to a successful pull, and `vercel whoami`/`vercel env ls production` both still
+look correct: this is a read-permission restriction on decrypting Production values through
+this CLI session, not a missing variable, a wrong account, or a bug. Don't waste time
+re-authenticating or re-linking the project over this.
 
 Practical effect: an agent cannot obtain a working `DATABASE_URL` for production this way, so it
 cannot run `npm run db:migrate` against production on its own. The person driving the CLI (who

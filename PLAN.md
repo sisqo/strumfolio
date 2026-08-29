@@ -448,9 +448,8 @@ qualcun altro (i collaboratori spariranno di nuovo in v3.1). Il cancello d'ingre
 cambia; cambia solo cosa trova chi entra. Rationale delle scelte sotto in *Decisioni*.
 
 **Nuova tabella `accounts`** (`ownerEmail` chiave primaria). **Lo slug resta globale**, non
-composto con l'account: l'idea di una chiave `(accountOwnerEmail, slug)` si è rivelata
-incompatibile con `generateStaticParams`, che genera le pagine a build time senza un
-account di richiesta con cui comporla. **`roleOf` accetta l'account bersaglio**: admin se
+composto con l'account (perché, in dettaglio: *Decisioni* → *Account (v3.0)* → "Unicità di
+slug e brani"). **`roleOf` accetta l'account bersaglio**: admin se
 l'email è proprietaria globale *o* proprietaria di quello specifico account, altrimenti la
 riga in `members` per quell'account (mai `admin`). La provisione (crea la riga, clona
 l'Example) gira a ogni sign-in riuscita, idempotente. L'account corrente vive in un
@@ -512,10 +511,10 @@ Numerazione **citata per punto da commenti nel codice** (`provision.ts`, `action
 6. **La pagina Accounts ha un solo pubblico**: i proprietari globali, un solo elenco, con
    *Entra*, *Crea* (riusa `provisionAccount`) ed *Elimina* per riga.
 7. **Eliminare un account è una cascata immediata**, senza blocco se non è vuoto —
-   canzoniere per canzoniere, poi le trasmissioni Sing Together aperte, poi la riga in
+   canzoniere per canzoniere, poi le trasmissioni Strum Together aperte, poi la riga in
    `accounts` — tutto in una transazione. **L'unica rete di sicurezza è nell'interfaccia,
    non nel database**: va ridigitato l'indirizzo prima che il pulsante funzioni.
-8. **Sing Together non cambia nel meccanismo**, ma avviare una trasmissione richiede ora
+8. **Strum Together non cambia nel meccanismo**, ma avviare una trasmissione richiede ora
    "admin sull'account aperto" invece di "editor o admin".
 9. **Migrazione dei quattro indirizzi ammessi solo tramite `members`**: ciascuno riceve un
    proprio account (stesso `provisionAccount`, eseguito da script prima del deploy) —
@@ -1032,7 +1031,7 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Decisione | Scelta | Perché |
 |---|---|---|
 | Account corrente | Cookie separato dal token di sessione, sempre riverificato lato server | Non è un fatto di sicurezza come il ruolo, ma una preferenza di navigazione; deve comunque non fidarsi di sé stesso |
-| URL | Invariati, l'account non compare nella rotta | Coerente con l'architettura sottile attuale; il costo è che un link copiato dipende da quale account ha attivo chi lo apre — accettato, Sing Together resta a parte con i suoi token |
+| URL | Invariati, l'account non compare nella rotta | Coerente con l'architettura sottile attuale; il costo è che un link copiato dipende da quale account ha attivo chi lo apre — accettato, Strum Together resta a parte con i suoi token |
 | Unicità di slug e brani | Globale, come prima della v3.0 — `accountOwnerEmail` resta una colonna su `songbooks`, non parte della chiave | Deciso in interview come chiave composta per account, poi rovesciato: `generateStaticParams` genera a build time, senza un account di richiesta con cui comporla. `uniqueSlug()` evita le collisioni alla clonazione dell'Example |
 | Confine di privacy per slug globali | Pagine dinamiche (`force-dynamic`) con controllo d'accesso per-richiesta, non più la generazione statica | Uno slug globale raggiungibile da chiunque sia autenticato è una fuga; il controllo deve stare nel caricamento, non nel fatto che la pagina esista già pre-generata |
 | Precache offline | Rimosso il precache d'installazione di tutti i brani; sostituito da caching di runtime autenticato (`sw.ts`) + warm-up per-lettore (`OfflineSync`) | Un unico precache per l'intera installazione scaricava ogni account su ogni dispositivo; con più account non c'è più un "tutti i brani" innocuo da precachizzare |
@@ -1044,7 +1043,7 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Creazione dell'account | Automatica al primo login riuscito, per chiunque superi il cancello | "Ogni utente ha il proprio account" è letto alla lettera, non solo per i proprietari |
 | Ruolo nel proprio account | Sempre admin *di quell'account*, non rimovibile, ma senza il potere di vedere gli altri account | Un editor non gestisce la lista delle persone (regola già esistente, v2.1); chi possiede un account deve poterne gestire i collaboratori. Distinto dal bypass globale, altrimenti "admin" smetterebbe di voler dire "vede tutto" |
 | `members.role` concedibile | Solo editor o viewer, mai admin | L'admin di un account non è un grado che si invita: o sei il proprietario, o sei un proprietario globale |
-| Chi può trasmettere (Sing Together) | Editor o admin sull'account aperto in quel momento | Un viewer può seguire un canzoniere, non esporlo pubblicamente con un link |
+| Chi può trasmettere (Strum Together) | Editor o admin sull'account aperto in quel momento | Un viewer può seguire un canzoniere, non esporlo pubblicamente con un link |
 | Preferenze globali (`userPrefs`) | Restano della persona, non dell'account | Zoom, notazione e strumento sono un'abitudine di lettura, non del repertorio guardato |
 | Migrazione dei membri esistenti | Convertiti as-is sull'account del proprietario scelto | Nessuno deve essere re-invitato per non perdere l'accesso che ha già oggi |
 | Account personale di chi c'era già | Creato al login successivo, stesso meccanismo dei nuovi utenti | Nessuna logica speciale in più solo per la migrazione |
