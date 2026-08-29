@@ -102,6 +102,50 @@ always wins over whatever `.env.local` says; and `scripts/migrate.ts` itself pro
 variable is set. Exporting just `DATABASE_URL_UNPOOLED` for the one command is enough to point
 that single migration run at production while every other file on disk stays pointed at dev.
 
+## Development and Production are separate Neon databases (since 2026-08-29)
+
+Before this date, Development and Production shared the exact same Neon database (`songs-db`,
+host `ep-muddy-rain-awwahyle`) — Production's `DATABASE_URL` was a manual copy of the same
+connection string the Neon Marketplace integration injected into Development, per the creation
+history below. Local `npm run dev` was therefore reading and writing real production data.
+
+That's fixed now: a second Neon Marketplace resource, `songs-db-dev` (host
+`ep-little-boat-aui3a9q1`), is connected **only** to Vercel's Development environment.
+Production's `DATABASE_URL` is untouched and still points at the original `songs-db` — it was
+never part of this change. Local `.env.local` and Vercel's Development env vars now point at
+`songs-db-dev`; the two databases are independent from here on and **will drift** — a migration
+or data change made against one does not reach the other.
+
+Practical implications:
+- **Schema changes**: `npm run db:migrate` must be run against `songs-db-dev` for local/preview
+  work (the normal case, `DATABASE_URL_UNPOOLED` already points there) and separately against
+  production when that migration is meant to ship — same two-step process the "Migrating the
+  production database" section above already describes.
+- **Data**: `songs-db-dev` got a one-time, one-way copy of production's data on 2026-08-29
+  (`pg_dump --data-only` / `pg_restore`, excluding the `drizzle.__drizzle_migrations` and
+  `neon_auth.project_config` bookkeeping tables). It is a snapshot, not a sync — real accounts,
+  emails, password hashes and `paddle_events` history from that date live in the dev database
+  too. Nothing keeps it current; re-run the same dump/restore if a fresh copy is ever needed.
+- **`pg_dump`/`pg_restore` version**: Neon runs Postgres 17; Ubuntu 24.04's stock
+  `postgresql-client` package only goes up to 16, and `pg_dump` hard-refuses to talk to a newer
+  major version. The PGDG apt repo (`apt.postgresql.org`) provides `postgresql-client-17`, added
+  via the standard three-line signed-repo dance — needed again on a fresh machine.
+- **Connecting a second Neon resource to the same Vercel environment collides on env var
+  names** (`DATABASE_URL`, `PGDATABASE`, etc. — whatever the first resource already claimed).
+  `vercel integration add neon -e development --prefix DEV_` (or `vercel integration resource
+  connect <resource> -e development --prefix DEV_`) sidesteps this by naming the second
+  resource's vars `DEV_DATABASE_URL` etc.; copy those values into the plain `DATABASE_URL`/
+  `DATABASE_URL_UNPOOLED` the app actually reads (`vercel env rm` the old ones first, they don't
+  auto-overwrite), then remove the `DEV_`-prefixed duplicates and the old resource's now-stale
+  `PGHOST`/`POSTGRES_*`/`NEON_PROJECT_ID`/etc. from Development to avoid a second, misleading
+  pointer back at the wrong database.
+- **`vercel integration resource disconnect`/`remove` gets blocked by the Claude Code auto-mode
+  classifier** (a marketplace-resource-level change, treated as too risky to run unattended).
+  The old `songs-db` resource is therefore still nominally "connected" in `vercel integration
+  ls` even though none of its env vars remain in any environment — cosmetic only, harmless to
+  leave, but disconnecting it fully requires either explicit permission for that one command or
+  doing it by hand from the Vercel dashboard (Integrations → songs-db → remove from project).
+
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 
 The production domain moved twice on 2026-08-21 (`songbook.sisqo.dev` →
