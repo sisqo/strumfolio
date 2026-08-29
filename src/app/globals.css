@@ -6501,14 +6501,21 @@
 
   /*
    * The seat past the last chord, shown on the focused line: chords could always
-   * land out there, but an invisible place gets no taps. Decoration only —
-   * `pointer-events: none` sends the tap through to the row, which has always
-   * known what a tap past the end means. Hung from its seat's anchor like any
-   * chip, so it sits at chip height, not a descender below it.
+   * land out there, but an invisible place gets no taps. Hung from its seat's
+   * anchor like any chip, so it sits at chip height, not a descender below it.
+   *
+   * Sticky, because on a line wider than the screen it was measured at 3px of its
+   * 23px visible — the affordance built to reveal a hidden gesture, itself hidden,
+   * on exactly the phone it was built for. It keeps its place in the flow (the
+   * strut still holds the room), and only rides into view when the line is scrolled
+   * away from it. Honest only because the button carries its own meaning now — see
+   * `AddSlot`; as decoration passing taps down to the row, moving it would have
+   * made it point at one letter and drop the chord on another.
    */
   .chord-add-seat {
+    position: sticky;
+    inset-inline-end: 0;
     margin-inline-start: 0.5em;
-    pointer-events: none;
   }
 
   .chord-add-slot {
@@ -6516,12 +6523,24 @@
     inset-block-end: 0;
     inset-inline-start: 0;
     padding: 0 0.45em;
-    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
     border-radius: var(--r-xs);
-    color: color-mix(in srgb, var(--accent) 65%, transparent);
+    /*
+     * Was `accent 65%`, which measured 2.92:1 on the light theme — under the 4.5:1
+     * floor, and this is an active control, not one of the disabled ones the ramp
+     * deliberately exempts. Full accent is the same colour a chord already reads in.
+     */
+    color: var(--accent);
     font-size: 0.9rem;
     font-weight: 500;
     line-height: 1.3;
+  }
+
+  /* The row's own reach, so the ⊕ is a thumb's target and not a 23px one. */
+  .chord-add-slot::after {
+    content: '';
+    position: absolute;
+    inset: -0.6rem -0.35rem;
   }
 
   /* The slot's width, not a name's: the same + with its padding and border. */

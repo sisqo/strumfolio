@@ -764,17 +764,33 @@ function ChordSeat({
 
 /**
  * The seat past the last chord, made visible on the focused line. Built like a
- * `ChordSeat` so it hangs at the same height as every chip; decoration only —
- * `pointer-events: none` on the seat sends the tap through to the row, which
- * has always known what a tap out here means.
+ * `ChordSeat` so it hangs at the same height as every chip.
+ *
+ * A real button now, and that is what lets it be pinned. It used to be decoration
+ * with `pointer-events: none`, passing the tap down to the row — but the row reads
+ * a tap's *meaning from its x*, so on a line wider than the screen the slot sat off
+ * the right edge (measured: 3px of 23px visible at 390px) and could not simply be
+ * moved into view: pinned decoration would have pointed at one place and dropped
+ * the chord at another. Given a handler of its own, "after the last word" is a
+ * meaning that does not depend on where the button is, so it can be pinned to the
+ * edge of the scrollport and always be reachable.
  */
-function AddSlot() {
+function AddSlot({ onAdd }: { onAdd: () => void }) {
   return (
-    <span className="chord-seat chord-add-seat" aria-hidden>
+    <span className="chord-seat chord-add-seat">
       <span className="chord-anchor">
-        <span className="chord-add-slot">+</span>
+        <button
+          type="button"
+          className="chord-add-slot"
+          onClick={onAdd}
+          aria-label="Add a chord after the last word"
+        >
+          +
+        </button>
       </span>
-      <span className="chord-seat-strut chord-add-strut">+</span>
+      <span className="chord-seat-strut chord-add-strut" aria-hidden>
+        +
+      </span>
     </span>
   )
 }
@@ -950,6 +966,10 @@ function ChordRow({
     // the field commits on the blur this press causes, and nothing more happens.
     if (editing !== null) return
     if (event.pointerType === 'mouse' && event.button !== 0) return
+    // The ⊕ answers for itself, and says something this machine cannot: it means
+    // "after the last word" wherever it happens to be pinned, while everything
+    // here reads a position off the finger.
+    if ((event.target as HTMLElement).closest('.chord-add-seat') !== null) return
 
     const near = chipAt(event.currentTarget, event.clientX)
     pointer.current = {
@@ -1076,7 +1096,7 @@ function ChordRow({
             />
           ))}
         </span>
-        {focused && editing === null && <AddSlot />}
+        {focused && editing === null && <AddSlot onAdd={() => onInsertAmong(chords.length)} />}
       </div>
     )
   }
@@ -1152,7 +1172,16 @@ function ChordRow({
         * live out here (see the note on `ChordAt.at` — the file keeps their order,
         * never a distance), but nothing said so.
         */}
-      {focused && editing === null && <AddSlot />}
+      {focused && editing === null && (
+        <AddSlot
+          onAdd={() =>
+            // The same branch the row's own tap past the end takes: once something
+            // is already out there, a new one joins the run by order — that is all
+            // ChordPro keeps past the last letter.
+            hasTrailing ? onInsertAmong(chords.length) : onAddAt(text.length)
+          }
+        />
+      )}
     </div>
   )
 }
