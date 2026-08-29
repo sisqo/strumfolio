@@ -1,4 +1,5 @@
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Outfit } from 'next/font/google'
 
@@ -160,6 +161,7 @@ export default function RootLayout({
           */}
         <OfflineSync />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
