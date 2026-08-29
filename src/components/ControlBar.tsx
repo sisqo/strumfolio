@@ -523,7 +523,7 @@ function StrumToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
  * How far the song has been moved from the key it was written in, in full — used as
  * the badge's accessible name, since the badge itself shows only the bare signed number.
  */
-function formatSemitones(semitones: number): string {
+export function formatSemitones(semitones: number): string {
   if (semitones === 0) return '0 semitones'
   const sign = semitones > 0 ? '+' : '−'
   const size = Math.abs(semitones)

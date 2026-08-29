@@ -10,7 +10,7 @@
 
 import { useState } from 'react'
 
-import { ControlBar, type NavSteps } from '@/components/ControlBar'
+import { ControlBar, formatSemitones, type NavSteps } from '@/components/ControlBar'
 import { EditSongLink } from '@/components/EditSongLink'
 import { usePrefs } from '@/components/PrefsProvider'
 import { SongSheet } from '@/components/SongSheet'
@@ -79,7 +79,7 @@ export function SongHeading({ place }: { place: Place | null }) {
         </p>
       )}
 
-      <CapoNote />
+      <TransposeNote />
       <SongNote />
 
       {/*
@@ -96,28 +96,37 @@ export function SongHeading({ place }: { place: Place | null }) {
 }
 
 /**
- * That there is a capo on, and therefore that the chords are shapes.
+ * That the chords on this sheet are not the ones written in the file — a capo, a
+ * transposition, or both — and that what's shown is still exactly what to play.
  *
  * The one thing on this screen that has to be here rather than in the reading panel:
- * the panel is shut almost all the time, and a capo kept from yesterday renames every
- * chord on the page. Without this line the sheet would say Do where it said Re and
- * nothing would explain why — the sort of silent surprise this app avoids elsewhere.
+ * the panel is shut almost all the time, and a capo or a transposition kept from
+ * yesterday renames every chord on the page. Without this line the sheet would say Do
+ * where it said Re and nothing would explain why — the sort of silent surprise this
+ * app avoids elsewhere. Both facts belong in the same note for that reason: a reader
+ * who left a capo on last time is exactly as likely to have left a transposition on,
+ * and the risk the note exists to close is identical either way.
  *
  * It no longer names the key that comes out, because nothing on this screen names a
  * key any more. What it has to say is the half that was doing the work: the letters
- * below are what the hand does, and the capo accounts for the difference.
+ * below are what the hand does, whichever of the two moved them.
  *
- * Nothing at all when there is no capo, because then there is nothing to explain.
+ * Nothing at all when neither is set, because then there is nothing to explain.
  */
-function CapoNote() {
+function TransposeNote() {
   const { song: prefs } = usePrefs()
+  const { capo, semitones } = prefs
 
-  if (prefs.capo === 0) return null
+  if (capo === 0 && semitones === 0) return null
+
+  const facts: string[] = []
+  if (capo !== 0) facts.push(`capo on fret ${capo}`)
+  if (semitones !== 0) facts.push(`transposed ${formatSemitones(semitones)}`)
 
   return (
-    <p className="capo-note mt-2.5">
+    <p className="transpose-note mt-2.5">
       <IconNote size={13} />
-      capo on fret {prefs.capo} · the chords are already what to play
+      {facts.join(', ')} · the chords are already what to play
     </p>
   )
 }

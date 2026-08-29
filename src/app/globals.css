@@ -533,11 +533,11 @@
   }
 
   /*
-   * That a capo is on, under the title. In the accent colour and not muted: it changes
-   * every chord below it, which is more than a detail about the song — it is the reason
-   * the letters are the ones they are.
+   * That a capo, a transposition, or both are on, under the title. In the accent colour
+   * and not muted: either changes every chord below it, which is more than a detail
+   * about the song — it is the reason the letters are the ones they are.
    */
-  .capo-note {
+  .transpose-note {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -623,8 +623,8 @@
    * read as one thick capo rather than as a capo and a finger behind it.
    *
    * So the colour now marks the *number*, which is the part that says something a nut cannot
-   * say on its own, and the nut goes back to being a nut. `.capo-note` under the song title
-   * carries the same fact in words, which is why a number is enough here.
+   * say on its own, and the nut goes back to being a nut. `.transpose-note` under the song
+   * title carries the same fact in words, which is why a number is enough here.
    */
   .chord-diagram-capo {
     fill: var(--accent);
