@@ -1447,6 +1447,523 @@
     line-height: 1.5;
   }
 
+  /* ---- The visual editor, shown live (login) --------------------------- */
+
+  /*
+   * The editor band: copy on one side, the living demo on the other. The demo
+   * leads on a wide screen (`order: -1`) and follows the copy on a phone, where
+   * the reader meets the claim before the picture.
+   */
+  .editor-tour-grid {
+    display: grid;
+    gap: 1.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 1024px) {
+    .editor-tour-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .editor-tour-demo {
+      order: -1;
+    }
+  }
+
+  /* The three claims beside the demo — hairline rows, not a second card grid. */
+  .editor-points {
+    display: grid;
+    margin-top: 1.25rem;
+  }
+
+  .editor-point {
+    display: flex;
+    gap: 0.875rem;
+    padding: 1rem 0;
+    border-block-start: 1px solid var(--line);
+  }
+
+  .editor-point-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.8125rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .editor-point-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* The same two sizes `.feature-spotlight-point-*` speak in, on the plain page. */
+  .editor-point-title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .editor-point-text {
+    margin: 0.3125rem 0 0;
+    color: var(--muted);
+    font-size: 0.84375rem;
+    line-height: 1.5;
+  }
+
+  /*
+   * The demo sheet (`EditorDemo`): the editor's own ghost-anchor mechanism,
+   * redrawn as decoration. The hidden row of words is what places the chips over
+   * the visible one — same font, same size, `pre` on both, exactly like
+   * `.chord-ghost` and `.line-input` in the real editor — so the chips sit on
+   * their syllables in both themes at every width, and the demo can never drift
+   * from the product the way a screenshot does. The font scales with the
+   * viewport only so the longest line clears a 320px screen without wrapping,
+   * which would break the ghost's one promise.
+   */
+  .editor-demo {
+    padding: 1.375rem 1.5rem 1.5rem;
+    overflow: hidden;
+    border: 1px solid var(--edge);
+    border-radius: var(--r-xl);
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
+    font-size: clamp(0.875rem, 3.4vw, 1.125rem);
+  }
+
+  .demo-chords,
+  .demo-words {
+    white-space: pre;
+  }
+
+  .demo-chords {
+    visibility: hidden;
+    padding-block-start: 0.5rem;
+    line-height: 1.4;
+  }
+
+  .demo-words {
+    color: var(--ink);
+    line-height: 1.35;
+  }
+
+  .demo-anchor {
+    position: relative;
+    display: inline-block;
+    width: 0;
+  }
+
+  .demo-chip {
+    visibility: visible;
+    color: var(--accent);
+    font-size: 0.78em;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: pre;
+  }
+
+  .demo-anchor .demo-chip {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: 0;
+  }
+
+  /*
+   * One loop, four acts, 14 seconds: the song at rest; a chord carried onto its
+   * syllable; a tap in the gap between two chords, which opens a new one and
+   * brings the bar up; a suggestion taken and confirmed, and the bar gone. Every
+   * animation below shares the one duration and reads its cue off the same
+   * percentages, which is what keeps the four acts in step — the timeline is the
+   * comment, and the numbers are the score:
+   *
+   *   0-14   the song, at rest          40-44  the bar comes up, a chord opens
+   *   14-30  the chord is carried       48-58  a suggestion is taken
+   *   34-40  a tap in the gap           62-74  confirmed, the bar goes
+   *   76-92  the finished line          92-100 reset, behind a fade
+   */
+  .demo-chip.is-held {
+    margin-inline-start: -0.3em;
+    padding: 0 0.3em;
+    border-radius: var(--r-xs);
+    animation: demo-drag 14s ease-in-out infinite;
+  }
+
+  @keyframes demo-drag {
+    0%,
+    8% {
+      translate: -5.2rem 0;
+      background: transparent;
+      opacity: 1;
+    }
+    12%,
+    30% {
+      background: var(--accent-soft);
+    }
+    14% {
+      translate: -5.2rem 0;
+      opacity: 1;
+    }
+    30%,
+    92% {
+      translate: 0 0;
+      opacity: 1;
+    }
+    34%,
+    92% {
+      background: transparent;
+    }
+    93% {
+      translate: 0 0;
+      opacity: 0;
+    }
+    94% {
+      translate: -5.2rem 0;
+      opacity: 0;
+    }
+    96%,
+    100% {
+      translate: -5.2rem 0;
+      opacity: 1;
+    }
+  }
+
+  /*
+   * A finger landing. Four of them, one per act, each parked in the element its
+   * act happens on — the chip being carried, the gap being tapped, the
+   * suggestion being taken, the confirm. Only the timing differs.
+   */
+  .demo-ring {
+    position: absolute;
+    inset-block-end: -0.4em;
+    inset-inline-start: -0.2em;
+    width: 1.5em;
+    height: 1.5em;
+    visibility: visible;
+    border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .demo-ring-drag {
+    animation: demo-ring-drag 14s ease-in-out infinite;
+  }
+
+  @keyframes demo-ring-drag {
+    0%,
+    8% {
+      translate: -5.2rem 0;
+      opacity: 0;
+    }
+    12%,
+    14% {
+      translate: -5.2rem 0;
+      opacity: 1;
+    }
+    30% {
+      translate: 0 0;
+      opacity: 1;
+    }
+    34%,
+    100% {
+      translate: 0 0;
+      opacity: 0;
+    }
+  }
+
+  /*
+   * The other three sit still and simply land: same shape, centred on whatever
+   * they are tapping rather than hung off a letter's anchor.
+   */
+  .demo-suggestion .demo-ring,
+  .demo-key .demo-ring {
+    inset: -0.25rem;
+    width: auto;
+    height: auto;
+    border-radius: var(--r-xs);
+  }
+
+  .demo-ring-add {
+    animation: demo-tap-add 14s ease-out infinite;
+  }
+
+  .demo-ring-pick {
+    animation: demo-tap-pick 14s ease-out infinite;
+  }
+
+  .demo-ring-ok {
+    animation: demo-tap-ok 14s ease-out infinite;
+  }
+
+  @keyframes demo-tap-add {
+    0%,
+    34% {
+      opacity: 0;
+      scale: 0.5;
+    }
+    38%,
+    44% {
+      opacity: 1;
+      scale: 1;
+    }
+    48%,
+    100% {
+      opacity: 0;
+      scale: 1;
+    }
+  }
+
+  @keyframes demo-tap-pick {
+    0%,
+    48% {
+      opacity: 0;
+      scale: 0.5;
+    }
+    52%,
+    58% {
+      opacity: 1;
+      scale: 1;
+    }
+    62%,
+    100% {
+      opacity: 0;
+      scale: 1;
+    }
+  }
+
+  @keyframes demo-tap-ok {
+    0%,
+    62% {
+      opacity: 0;
+      scale: 0.5;
+    }
+    66%,
+    70% {
+      opacity: 1;
+      scale: 1;
+    }
+    74%,
+    100% {
+      opacity: 0;
+      scale: 1;
+    }
+  }
+
+  /*
+   * The chord the tap opens: a bordered field while it is being named, exactly as
+   * in the editor — and the confirm does not replace it with a chip, it simply
+   * takes the border away, which is what the editor's own field-to-chip really
+   * looks like. Its resting state is the finished one, so reduced motion (which
+   * stops every animation here) shows a plain, named chord.
+   */
+  .demo-field {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: -0.3em;
+    visibility: visible;
+    padding: 0 0.3em;
+    border: 1px solid transparent;
+    /* Not `--r-xs`: on a box one letter wide that radius reads as a circle. */
+    border-radius: 0.35rem;
+    color: var(--accent);
+    font-size: 0.78em;
+    font-weight: 500;
+    line-height: 1.35;
+    animation: demo-field 14s ease infinite;
+  }
+
+  .demo-name {
+    animation: demo-name 14s ease infinite;
+  }
+
+  @keyframes demo-field {
+    0%,
+    40% {
+      opacity: 0;
+      border-color: transparent;
+      background: transparent;
+    }
+    44%,
+    70% {
+      opacity: 1;
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+    74%,
+    92% {
+      opacity: 1;
+      border-color: transparent;
+      background: transparent;
+    }
+    94%,
+    100% {
+      opacity: 0;
+      border-color: transparent;
+      background: transparent;
+    }
+  }
+
+  @keyframes demo-name {
+    0%,
+    54% {
+      opacity: 0;
+    }
+    58%,
+    92% {
+      opacity: 1;
+    }
+    94%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* The suggestion that gets taken, filling for the moment it is pressed. */
+  .demo-suggestion.is-picked {
+    position: relative;
+    animation: demo-picked 14s ease infinite;
+  }
+
+  @keyframes demo-picked {
+    0%,
+    52% {
+      background: var(--surface);
+      border-color: var(--line);
+    }
+    56%,
+    62% {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+    66%,
+    100% {
+      background: var(--surface);
+      border-color: var(--line);
+    }
+  }
+
+  /* The chord bar under the line being edited, at illustration scale. */
+  .demo-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    /* Always in the flow — the fade is opacity, so the two lines of the song
+       never move as the bar comes and goes. */
+    margin: 0.625rem 0 1rem;
+    animation: demo-bar 14s ease infinite;
+  }
+
+  @keyframes demo-bar {
+    0%,
+    40% {
+      opacity: 0;
+      translate: 0 -0.35rem;
+    }
+    44%,
+    70% {
+      opacity: 1;
+      translate: 0 0;
+    }
+    76%,
+    100% {
+      opacity: 0;
+      translate: 0 -0.35rem;
+    }
+  }
+
+  .demo-key {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-xs);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    line-height: 1;
+  }
+
+  .demo-key.is-accent {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
+  }
+
+  .demo-suggest {
+    display: flex;
+    flex: 1;
+    gap: 0.3rem;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .demo-suggestion {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 1.9rem;
+    padding-inline: 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-xs);
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  /* The seam and the seat past the last word, as the editor draws them. */
+  .demo-trailing {
+    display: inline-flex;
+    visibility: visible;
+    align-items: flex-end;
+    gap: 0.8em;
+    margin-inline-start: 0.5em;
+    padding-inline-start: 0.55em;
+    border-inline-start: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .demo-slot {
+    display: inline-block;
+    visibility: visible;
+    margin-inline-start: 0.5em;
+    padding: 0 0.4em;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border-radius: var(--r-xs);
+    color: color-mix(in srgb, var(--accent) 65%, transparent);
+    font-size: 0.78em;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  /*
+   * Reduced motion gets the end of the story rather than none of it: every
+   * element's resting state is its finished one, so both chords sit in place —
+   * and the two things that exist only mid-edit, the bar and the rings, are
+   * simply absent.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .editor-demo *,
+    .editor-demo *::before,
+    .editor-demo *::after {
+      animation: none !important;
+    }
+
+    .demo-bar,
+    .demo-ring {
+      display: none;
+    }
+  }
+
   /*
    * One FAQ group's own questions: a single column on a phone, two side by side from
    * `lg` up — the redesign's own call, replacing `.card-stack`'s single column at every

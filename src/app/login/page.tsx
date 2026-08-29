@@ -5,18 +5,21 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { signIn } from '@/auth'
+import { EditorDemo } from '@/components/EditorDemo'
 import { Footer } from '@/components/Footer'
 import {
   IconBooks,
   IconBroadcast,
   IconChevronRight,
   IconChordShape,
+  IconCode,
   IconDevices,
   IconGoogle,
   IconImport,
   IconLeads,
   IconLink,
   IconOnStage,
+  IconPencil,
   IconPrint,
   IconSliders,
   IconTuningFork,
@@ -39,7 +42,7 @@ const TITLE = `${APP_NAME} — ${APP_PAYOFF}`
  * plan is not one: it has no end date, which is the first thing /pricing says.
  */
 const DESCRIPTION =
-  'Play and sing with your own chords and lyrics — import, edit, export freely. Key, capo, auto-scroll, synced everywhere. Free to use, with paid plans for bigger repertoires.'
+  'Play and sing with your own chords and lyrics — import, edit visually, export freely. Key, capo, auto-scroll, synced everywhere. Free to use, with paid plans for bigger repertoires.'
 
 /**
  * «1 songbook», «300 songs» — every count below is read from `PLANS` rather than typed, so a
@@ -98,6 +101,32 @@ interface SpotlightPoint {
   title: string
   text: string
 }
+
+/**
+ * What the editor band says next to the living demo (`EditorDemo`). Three points,
+ * one per reason a musician keeps a repertoire tidy: placing chords, keeping the
+ * words current, and never being locked in. Every claim below is a shipped
+ * behaviour, not an aspiration — the tap-lands-on-a-syllable rule, the drag, the
+ * seat past the last word, the suggestions, and the byte-for-byte ChordPro
+ * round-trip are all in `components/editor/` and `lib/editor/` today.
+ */
+const EDITOR_POINTS: SpotlightPoint[] = [
+  {
+    icon: <IconChordShape size={18} />,
+    title: 'Chords land on the syllable',
+    text: 'Tap above a line and the chord drops on the syllable under your finger. Drag it to fine-tune letter by letter — or park it past the last word, for the turnaround.',
+  },
+  {
+    icon: <IconPencil size={18} />,
+    title: 'Lyrics are just text',
+    text: "Type, split, join — fix a verse five minutes before you play, and it's on your reading screen the moment you save. While you name a chord, the song's own chords are one tap away.",
+  },
+  {
+    icon: <IconCode size={18} />,
+    title: 'Plain ChordPro underneath',
+    text: 'The editor writes the standard format, byte for byte. Peek at the source anytime, export whenever — your songs are never locked in.',
+  },
+]
 
 const STRUM_TOGETHER_POINTS: SpotlightPoint[] = [
   {
@@ -226,6 +255,23 @@ const FAQ: FaqGroup[] = [
          * must describe the same gate, and this pair is the one that has drifted before.
          */
         a: 'Yes — tap any chord in a song and see exactly where to place your fingers. Guitar is on every plan, including the free one; the ukulele comes with the paid plans.',
+      },
+    ],
+  },
+  {
+    title: 'Editing your songs',
+    items: [
+      {
+        q: 'Do I need to learn ChordPro to edit my songs?',
+        a: 'No. The visual editor shows the song exactly as it reads — words on the line, chords above them — and writes standard ChordPro for you underneath, byte for byte. If you like working with brackets, the Source view is one tap away, and the two can never disagree.',
+      },
+      {
+        q: 'How precisely can I place a chord?',
+        a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to fine-tune letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
+      },
+      {
+        q: 'Do edits show up right away when I play?',
+        a: 'On the device you edited on, immediately: save, open the song, the new words are there. Your other devices pick the change up as soon as they are online.',
       },
     ],
   },
@@ -599,9 +645,47 @@ export default async function LoginPage({ searchParams }: Props) {
       </section>
 
       {/*
+        * The visual editor, ahead of everything else this page has to say: it is the
+        * thing no other app in this category does — the sheet itself is the editor —
+        * and instead of describing it, the demo beside the copy IS it, built with the
+        * editor's own ghost-anchor technique so it can never drift from the product
+        * (see `EditorDemo`). The demo leads on a wide screen and follows the words on
+        * a phone; the three points beside it are shipped behaviour, not roadmap.
+        */}
+      <section className="landing-width mt-11 lg:mt-14">
+        <div className="editor-tour-grid">
+          <div>
+            <h2 className="landing-section-title">Edit the song, not the markup.</h2>
+            <p className="mt-2.5 max-w-[30rem] text-sm leading-[1.5] text-muted">
+              Words on the line, chords above them — you edit the song exactly as it
+              reads. Drop a chord on a syllable with a tap, slide it letter by letter,
+              and what you save is on your reading screen immediately.
+            </p>
+
+            <div className="editor-points">
+              {EDITOR_POINTS.map((point) => (
+                <div key={point.title} className="editor-point">
+                  <span className="editor-point-icon">{point.icon}</span>
+                  <div>
+                    <h3 className="editor-point-title">{point.title}</h3>
+                    <p className="editor-point-text">{point.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="editor-tour-demo">
+            <EditorDemo />
+          </div>
+        </div>
+      </section>
+
+      {/*
         * Strum Together, raised above the feature tour below rather than folded into
-        * it: it is the one thing on this page two people are doing at once, and the
-        * first thing a visitor who is not signing in today should read. See
+        * it: it is the one thing on this page two people are doing at once. It reads
+        * second of the two spotlights now — the editor band above leads, being the
+        * claim no competitor can match — but keeps the loud accent fill to itself. See
         * `.feature-spotlight`'s own comment in globals.css for why the fill is what
         * marks it out.
         */}
