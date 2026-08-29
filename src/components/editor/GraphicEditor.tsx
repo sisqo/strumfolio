@@ -99,6 +99,23 @@ export interface Caret {
 }
 
 /**
+ * Where the caret belongs once a chord on this line is the thing being worked on.
+ *
+ * The line is the half that matters: every command in the toolbar acts on
+ * `caret.line` (see `COMMANDS` in `EditorScreen`), so a chord opened on line four
+ * while the caret still says line zero pointed `Delete line` at the wrong line —
+ * silently, with the focus border and the disabled `Chord` button both agreeing
+ * with the stale answer rather than with the finger. The letter is best-effort: the
+ * chord's own seat when it has one, clamped to the text, since a trailing chord
+ * sits past the last letter by design.
+ */
+function caretToChord(block: Block, line: number, chord: number): Caret {
+  if (block.kind !== 'lyrics') return { line, at: 0 }
+  const at = block.chords[chord]?.at ?? block.text.length
+  return { line, at: Math.min(at, block.text.length) }
+}
+
+/**
  * The song as it will read, with the words editable in place.
  *
  * The words of each line are a real `<input>`: the caret, the selection and the
@@ -163,7 +180,12 @@ export function GraphicEditor({
             focused={caret.line === index}
             editing={editing !== null && editing.line === index ? editing.chord : null}
             suggestions={suggestions}
-            onEditChord={(chord) => onEditing(chord === null ? null : { line: index, chord })}
+            onEditChord={(chord) => {
+              // Working on a chord is being on that line, so the caret goes with it —
+              // see `caretToChord` for what the five line commands would otherwise do.
+              if (chord !== null) onCaret(caretToChord(block, index, chord))
+              onEditing(chord === null ? null : { line: index, chord })
+            }}
             onChordName={(chord, name) => {
               apply(setChord(doc, index, chord, name))
               onEditing(null)
@@ -172,6 +194,7 @@ export function GraphicEditor({
               const block = doc.blocks[index]
               if (block.kind !== 'lyrics') return
 
+              onCaret({ line: index, at })
               // Opened for typing straight away: an empty chord is a chord you are
               // in the middle of naming, and leaving it empty takes it back off.
               onEditing({ line: index, chord: chordIndexAt(block.chords, at) })
@@ -181,6 +204,9 @@ export function GraphicEditor({
               const block = doc.blocks[index]
               if (block.kind !== 'lyrics') return
 
+              // Past the last word, where this gesture lives: the end of the text is
+              // the only letter-position that means anything out there.
+              onCaret({ line: index, at: block.text.length })
               // The new chord's index is the order itself (see `insertChordAmong`).
               onEditing({ line: index, chord: order })
               apply(insertChordAmong(doc, index, order))
