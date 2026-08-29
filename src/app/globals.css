@@ -1198,11 +1198,30 @@
    * the same weight, `.feature-spotlight-title`'s own heading included, instead of the
    * fill's heading standing out as the one that was sized up.
    */
+  /*
+   * The accent line over a section's own title on `/login` — the device tour's
+   * and the editor band's. Two instances, one class: they are the same element,
+   * and written out as utilities they had already drifted apart on the letter
+   * spacing. Not `.group-label`, which is the app's own quiet 11px form field
+   * label; this one is bigger, heavier and accent-coloured, and it belongs to
+   * the public page.
+   */
+  .landing-kicker {
+    display: block;
+    color: var(--accent);
+    font-size: 0.78125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
   .landing-section-title {
     font-size: 1.375rem;
     font-weight: 500;
     line-height: 1.2;
     letter-spacing: -0.02em;
+    /* Even line lengths on a two-line heading, rather than one word left alone. */
+    text-wrap: balance;
   }
 
   @media (min-width: 1024px) {
@@ -1574,193 +1593,78 @@
   }
 
   /*
-   * One loop, four acts, 14 seconds: the song at rest; a chord carried onto its
-   * syllable; a tap in the gap between two chords, which opens a new one and
-   * brings the bar up; a suggestion taken and confirmed, and the bar gone. Every
-   * animation below shares the one duration and reads its cue off the same
-   * percentages, which is what keeps the four acts in step — the timeline is the
-   * comment, and the numbers are the score:
-   *
-   *   0-14   the song, at rest          40-44  the bar comes up, a chord opens
-   *   14-30  the chord is carried       48-58  a suggestion is taken
-   *   34-40  a tap in the gap           62-74  confirmed, the bar goes
-   *   76-92  the finished line          92-100 reset, behind a fade
+   * The chip the finger carries. Its resting state is the journey's end — on the
+   * syllable — so reduced motion, which stops every animation on this card, shows
+   * the line as the edit left it rather than mid-move.
    */
   .demo-chip.is-held {
     margin-inline-start: -0.3em;
     padding: 0 0.3em;
     border-radius: var(--r-xs);
-    animation: demo-drag 14s ease-in-out infinite;
+    animation: demo-drag 12.7s ease-in-out infinite;
   }
 
+  /*
+   * One clock for everything on this card — 12.7 seconds, every cue read off the
+   * same percentages — which is what keeps the acts in step. The timeline is the
+   * comment, and the numbers below are the score:
+   *
+   *    0-6    at rest                     50-59  the finished line
+   *    6-20   the chord is carried        59-73  carried back
+   *   22-26   a tap in the gap            74-95  reopened, and removed
+   *   32-37   a suggestion taken          95-100 at rest again — 100% is 0%,
+   *   43-50   confirmed, the bar goes            so the loop needs no reset
+   */
   @keyframes demo-drag {
-    0%,
-    8% {
+    0% {
       translate: -5.2rem 0;
       background: transparent;
-      opacity: 1;
     }
-    12%,
-    30% {
+    5.51% {
+      translate: -5.2rem 0;
+      background: transparent;
+    }
+    7.48% {
       background: var(--accent-soft);
     }
-    14% {
+    8.66% {
       translate: -5.2rem 0;
-      opacity: 1;
     }
-    30%,
-    92% {
+    16.54% {
       translate: 0 0;
-      opacity: 1;
+      background: var(--accent-soft);
     }
-    34%,
-    92% {
+    20.08% {
       background: transparent;
     }
-    93% {
+    58.27% {
       translate: 0 0;
-      opacity: 0;
+      background: transparent;
     }
-    94% {
-      translate: -5.2rem 0;
-      opacity: 0;
+    60.24% {
+      background: var(--accent-soft);
     }
-    96%,
-    100% {
-      translate: -5.2rem 0;
-      opacity: 1;
-    }
-  }
-
-  /*
-   * A finger landing. Four of them, one per act, each parked in the element its
-   * act happens on — the chip being carried, the gap being tapped, the
-   * suggestion being taken, the confirm. Only the timing differs.
-   */
-  .demo-ring {
-    position: absolute;
-    inset-block-end: -0.4em;
-    inset-inline-start: -0.2em;
-    width: 1.5em;
-    height: 1.5em;
-    visibility: visible;
-    border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .demo-ring-drag {
-    animation: demo-ring-drag 14s ease-in-out infinite;
-  }
-
-  @keyframes demo-ring-drag {
-    0%,
-    8% {
-      translate: -5.2rem 0;
-      opacity: 0;
-    }
-    12%,
-    14% {
-      translate: -5.2rem 0;
-      opacity: 1;
-    }
-    30% {
+    61.81% {
       translate: 0 0;
-      opacity: 1;
     }
-    34%,
+    69.69% {
+      translate: -5.2rem 0;
+      background: var(--accent-soft);
+    }
+    72.83% {
+      background: transparent;
+    }
     100% {
-      translate: 0 0;
-      opacity: 0;
-    }
-  }
-
-  /*
-   * The other three sit still and simply land: same shape, centred on whatever
-   * they are tapping rather than hung off a letter's anchor.
-   */
-  .demo-suggestion .demo-ring,
-  .demo-key .demo-ring {
-    inset: -0.25rem;
-    width: auto;
-    height: auto;
-    border-radius: var(--r-xs);
-  }
-
-  .demo-ring-add {
-    animation: demo-tap-add 14s ease-out infinite;
-  }
-
-  .demo-ring-pick {
-    animation: demo-tap-pick 14s ease-out infinite;
-  }
-
-  .demo-ring-ok {
-    animation: demo-tap-ok 14s ease-out infinite;
-  }
-
-  @keyframes demo-tap-add {
-    0%,
-    34% {
-      opacity: 0;
-      scale: 0.5;
-    }
-    38%,
-    44% {
-      opacity: 1;
-      scale: 1;
-    }
-    48%,
-    100% {
-      opacity: 0;
-      scale: 1;
-    }
-  }
-
-  @keyframes demo-tap-pick {
-    0%,
-    48% {
-      opacity: 0;
-      scale: 0.5;
-    }
-    52%,
-    58% {
-      opacity: 1;
-      scale: 1;
-    }
-    62%,
-    100% {
-      opacity: 0;
-      scale: 1;
-    }
-  }
-
-  @keyframes demo-tap-ok {
-    0%,
-    62% {
-      opacity: 0;
-      scale: 0.5;
-    }
-    66%,
-    70% {
-      opacity: 1;
-      scale: 1;
-    }
-    74%,
-    100% {
-      opacity: 0;
-      scale: 1;
+      translate: -5.2rem 0;
+      background: transparent;
     }
   }
 
   /*
    * The chord the tap opens: a bordered field while it is being named, exactly as
-   * in the editor — and the confirm does not replace it with a chip, it simply
-   * takes the border away, which is what the editor's own field-to-chip really
-   * looks like. Its resting state is the finished one, so reduced motion (which
-   * stops every animation here) shows a plain, named chord.
+   * in the editor — and the confirm does not swap it for a chip, it simply takes
+   * the border away, which is what the editor's own field-to-chip really looks
+   * like. It opens twice: once to be named, once more to be removed.
    */
   .demo-field {
     position: absolute;
@@ -1775,33 +1679,50 @@
     font-size: 0.78em;
     font-weight: 500;
     line-height: 1.35;
-    animation: demo-field 14s ease infinite;
+    animation: demo-field 12.7s ease infinite;
+  }
+
+  /*
+   * The splashes' own seat: the same box, transparent and never faded. A splash
+   * placed inside the field would be invisible for exactly as long as the field
+   * is, and both of the ones fired here land while it is still opening or has
+   * already closed.
+   */
+  .demo-field.is-seat {
+    color: transparent;
+    animation: none;
   }
 
   .demo-name {
-    animation: demo-name 14s ease infinite;
+    animation: demo-name 12.7s ease infinite;
   }
 
   @keyframes demo-field {
     0%,
-    40% {
+    22.05% {
       opacity: 0;
       border-color: transparent;
       background: transparent;
     }
-    44%,
-    70% {
+    25.98%,
+    43.7% {
       opacity: 1;
       border-color: var(--accent);
       background: var(--surface);
     }
-    74%,
-    92% {
+    46.06%,
+    75.2% {
       opacity: 1;
       border-color: transparent;
       background: transparent;
     }
-    94%,
+    78.74%,
+    89.76% {
+      opacity: 1;
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+    90.94%,
     100% {
       opacity: 0;
       border-color: transparent;
@@ -1811,69 +1732,375 @@
 
   @keyframes demo-name {
     0%,
-    54% {
+    35.43% {
       opacity: 0;
     }
-    58%,
-    92% {
+    36.61%,
+    89.76% {
       opacity: 1;
     }
-    94%,
+    90.94%,
     100% {
       opacity: 0;
+    }
+  }
+
+  /*
+   * A splash where the finger lands: eight sparks thrown out of the point and
+   * fading as they go. Every spark shares one duration and one curve; only the
+   * keyframe name differs, which is how nine landings stay on the same clock.
+   */
+  .demo-splash {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    visibility: visible;
+  }
+
+  .demo-spoke {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .demo-spark {
+    position: absolute;
+    left: -1px;
+    bottom: 0;
+    width: 2px;
+    height: 7px;
+    border-radius: 1px;
+    background: var(--accent);
+    opacity: 0;
+    animation-duration: 12.7s;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+    animation-iteration-count: infinite;
+  }
+
+  /* The bar's controls are bigger than a chip; so are their sparks. */
+  .demo-spark.is-long {
+    height: 9px;
+  }
+
+  .demo-splash-pickup .demo-spark {
+    animation-name: burst-pickup;
+  }
+
+  .demo-splash-drop .demo-spark {
+    animation-name: burst-drop;
+  }
+
+  .demo-splash-add .demo-spark {
+    animation-name: burst-add;
+  }
+
+  .demo-splash-pick .demo-spark {
+    animation-name: burst-pick;
+  }
+
+  .demo-splash-ok .demo-spark {
+    animation-name: burst-ok;
+  }
+
+  .demo-splash-back-pickup .demo-spark {
+    animation-name: burst-back-pickup;
+  }
+
+  .demo-splash-back-drop .demo-spark {
+    animation-name: burst-back-drop;
+  }
+
+  .demo-splash-gtap .demo-spark {
+    animation-name: burst-gtap;
+  }
+
+  .demo-splash-remove .demo-spark {
+    animation-name: burst-remove;
+  }
+
+  @keyframes burst-pickup {
+    0%,
+    4.72% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    6.3% {
+      opacity: 1;
+    }
+    7.87% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    11.81%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-drop {
+    0%,
+    15.75% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    17.32% {
+      opacity: 1;
+    }
+    18.9% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    22.83%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-add {
+    0%,
+    21.26% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    22.83% {
+      opacity: 1;
+    }
+    24.41% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    28.35%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-pick {
+    0%,
+    30.31% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    31.89% {
+      opacity: 1;
+    }
+    33.46% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    37.4%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-ok {
+    0%,
+    41.34% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    42.91% {
+      opacity: 1;
+    }
+    44.49% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    48.43%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-back-pickup {
+    0%,
+    57.48% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    59.06% {
+      opacity: 1;
+    }
+    60.63% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    64.57%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-back-drop {
+    0%,
+    68.9% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    70.47% {
+      opacity: 1;
+    }
+    72.05% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    75.98%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-gtap {
+    0%,
+    72.83% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    74.41% {
+      opacity: 1;
+    }
+    75.98% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    79.92%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
+    }
+  }
+
+  @keyframes burst-remove {
+    0%,
+    83.07% {
+      opacity: 0;
+      translate: 0 -2px;
+      scale: 1 0.4;
+    }
+    84.65% {
+      opacity: 1;
+    }
+    86.22% {
+      opacity: 1;
+      translate: 0 -11px;
+      scale: 1 1;
+    }
+    90.16%,
+    100% {
+      opacity: 0;
+      translate: 0 -15px;
+      scale: 1 0.7;
     }
   }
 
   /* The suggestion that gets taken, filling for the moment it is pressed. */
   .demo-suggestion.is-picked {
-    position: relative;
-    animation: demo-picked 14s ease infinite;
+    animation: demo-picked 12.7s ease infinite;
   }
 
   @keyframes demo-picked {
     0%,
-    52% {
+    31.1% {
       background: var(--surface);
       border-color: var(--line);
     }
-    56%,
-    62% {
+    33.07%,
+    36.22% {
       background: var(--accent-soft);
       border-color: var(--accent);
     }
-    66%,
+    37.4%,
     100% {
       background: var(--surface);
       border-color: var(--line);
     }
   }
 
-  /* The chord bar under the line being edited, at illustration scale. */
+  /*
+   * The chord bar under the line being edited. It has no height of its own at
+   * rest: it opens the line apart to come up and closes it again on the way out,
+   * so a card with nothing being named is as compact as the song on it.
+   */
   .demo-bar {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    /* Always in the flow — the fade is opacity, so the two lines of the song
-       never move as the bar comes and goes. */
-    margin: 0.625rem 0 1rem;
-    animation: demo-bar 14s ease infinite;
+    height: 0;
+    margin: 0;
+    animation: demo-bar 12.7s ease infinite;
   }
 
   @keyframes demo-bar {
     0%,
-    40% {
+    23.23% {
       opacity: 0;
       translate: 0 -0.35rem;
+      height: 0;
+      margin-block: 0;
     }
-    44%,
-    70% {
+    25.98%,
+    43.7% {
       opacity: 1;
       translate: 0 0;
+      height: 1.9rem;
+      margin-block: 0.625rem 1rem;
     }
-    76%,
+    49.61%,
+    75.2% {
+      opacity: 0;
+      translate: 0 -0.35rem;
+      height: 0;
+      margin-block: 0;
+    }
+    78.74%,
+    88.58% {
+      opacity: 1;
+      translate: 0 0;
+      height: 1.9rem;
+      margin-block: 0.625rem 1rem;
+    }
+    94.88%,
     100% {
       opacity: 0;
       translate: 0 -0.35rem;
+      height: 0;
+      margin-block: 0;
     }
   }
 
@@ -1948,7 +2175,7 @@
   /*
    * Reduced motion gets the end of the story rather than none of it: every
    * element's resting state is its finished one, so both chords sit in place —
-   * and the two things that exist only mid-edit, the bar and the rings, are
+   * and the two things that exist only mid-edit, the bar and the splashes, are
    * simply absent.
    */
   @media (prefers-reduced-motion: reduce) {
@@ -1958,9 +2185,8 @@
       animation: none !important;
     }
 
-    .demo-bar,
-    .demo-ring {
-      display: none;
+    .demo-transient {
+      display: none !important;
     }
   }
 

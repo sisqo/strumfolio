@@ -7,16 +7,44 @@
  * they do in the app, in both themes, at every width — this is a demo, not a
  * screenshot, and it can never drift out of date the way a screenshot does.
  *
- * It plays one loop in four acts, the shape of a real edit: the song at rest; a
- * chord picked up and carried onto its syllable; a tap on the empty space between
- * two chords, which opens a new one and brings up the chord bar; and a suggestion
- * taken, confirmed, the bar gone. Every ring is a finger landing — four of them,
- * one per act, each in the place its act happens.
+ * One twenty-second loop, and it comes back to where it began rather than
+ * blinking back: a chord is carried onto its syllable, a tap in the gap between
+ * two chords opens a new one and brings the bar up, a suggestion is taken and
+ * confirmed — and then the same two moves in reverse, the chord carried back and
+ * the new one removed, which leaves the song at 100% exactly as it was at 0%. A
+ * loop that undoes itself needs no hidden reset.
  *
- * All of it is decoration around one `role="img"` label: nothing here is
- * interactive, and `prefers-reduced-motion` shows the finished state — both
- * chords placed, no bar, no rings — instead of playing anything.
+ * Every point the finger lands on gets a splash (`Splash` below). All of it is
+ * decoration around one `role="img"` label: nothing here is interactive, and
+ * `prefers-reduced-motion` shows the finished line — both chords placed, no bar,
+ * no splashes — instead of playing anything.
  */
+
+/** The eight directions a splash throws a spark in. */
+const SPOKES = [0, 45, 90, 135, 180, 225, 270, 315]
+
+/**
+ * The splash a finger leaves where it lands: eight sparks thrown out of the
+ * point and fading as they go. `cue` names which moment of the loop it belongs
+ * to — the timing lives in the matching `burst-*` keyframes, so a splash has no
+ * clock of its own and cannot drift from the rest.
+ *
+ * `long` is for the bar's own controls, whose sparks are a little longer than a
+ * chip's: the buttons are bigger, and a spark sized for a chord name reads as a
+ * smudge next to them.
+ */
+function Splash({ cue, long = false }: { cue: string; long?: boolean }) {
+  return (
+    <span className={`demo-splash demo-transient demo-splash-${cue}`} aria-hidden>
+      {SPOKES.map((angle) => (
+        <span key={angle} className="demo-spoke" style={{ rotate: `${angle}deg` }}>
+          <span className={long ? 'demo-spark is-long' : 'demo-spark'} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function EditorDemo() {
   return (
     <div
@@ -31,40 +59,59 @@ export function EditorDemo() {
               <span className="demo-chip">Am</span>
             </span>
             Every{' '}
-            {/* Act three lands here: the gap between two chords, where a tap adds. */}
+            {/* The gap between two chords: where the tap adds one, and where it
+                is taken away again on the way back. */}
             <span className="demo-anchor">
               <span className="demo-field">
                 <span className="demo-name">G</span>
               </span>
-              <span className="demo-ring demo-ring-add" />
+              {/*
+                * The same box again, transparent and never faded, carrying only
+                * the two splashes: a splash inside the field itself would be
+                * invisible for exactly as long as the field is — and both of
+                * these land while it is still opening or already closing.
+                */}
+              <span className="demo-field is-seat">
+                G
+                <Splash cue="add" />
+                <Splash cue="gtap" />
+              </span>
             </span>
             song I love, one{' '}
             <span className="demo-anchor">
-              <span className="demo-chip is-held">C</span>
-              <span className="demo-ring demo-ring-drag" />
+              <span className="demo-chip is-held">
+                C
+                <Splash cue="pickup" />
+                <Splash cue="drop" />
+                <Splash cue="back-pickup" />
+                <Splash cue="back-drop" />
+              </span>
             </span>
             tap away
           </div>
           <div className="demo-words">Every song I love, one tap away</div>
         </div>
 
-        {/* Always in the flow, so the sheet never reflows as it comes and goes. */}
-        <div className="demo-bar">
+        {/* Opens the line apart to come up, and closes it again on the way out. */}
+        <div className="demo-bar demo-transient">
           <span className="demo-key">‹</span>
           <span className="demo-key">›</span>
           <span className="demo-suggest">
             <span className="demo-suggestion">C</span>
             <span className="demo-suggestion is-picked">
               G
-              <span className="demo-ring demo-ring-pick" />
+              <Splash cue="pick" long />
             </span>
             <span className="demo-suggestion">Am</span>
             <span className="demo-suggestion">F</span>
           </span>
-          <span className="demo-key">×</span>
+          <span className="demo-key">
+            ×
+            <Splash cue="remove" long />
+          </span>
           <span className="demo-key is-accent">
             ✓
-            <span className="demo-ring demo-ring-ok" />
+            <Splash cue="ok" long />
           </span>
         </div>
 

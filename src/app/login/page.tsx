@@ -114,17 +114,17 @@ const EDITOR_POINTS: SpotlightPoint[] = [
   {
     icon: <IconChordShape size={18} />,
     title: 'Chords land on the syllable',
-    text: 'Tap above a line and the chord drops on the syllable under your finger. Drag it to fine-tune letter by letter — or park it past the last word, for the turnaround.',
+    text: 'Tap above a line and the chord lands on the syllable under your finger. Drag to nudge it letter by letter, or past the last word where the turnaround goes.',
   },
   {
     icon: <IconPencil size={18} />,
-    title: 'Lyrics are just text',
-    text: "Type, split, join — fix a verse five minutes before you play, and it's on your reading screen the moment you save. While you name a chord, the song's own chords are one tap away.",
+    title: 'Type over the words',
+    text: "Words are just text — the chords follow the words they sit on. Fix a verse two minutes before you play and it's saved to your reading screen.",
   },
   {
     icon: <IconCode size={18} />,
     title: 'Plain ChordPro underneath',
-    text: 'The editor writes the standard format, byte for byte. Peek at the source anytime, export whenever — your songs are never locked in.',
+    text: 'Every edit writes standard ChordPro. Read the source anytime, export a song or your whole library — nothing here is locked in.',
   },
 ]
 
@@ -622,9 +622,7 @@ export default async function LoginPage({ searchParams }: Props) {
       <section className="landing-width mt-11 lg:mt-14">
         <div className="device-tour-grid">
           <div>
-            <span className="text-[0.78125rem] font-semibold uppercase tracking-wide text-accent">
-              No install, anywhere
-            </span>
+            <span className="landing-kicker">No install, anywhere</span>
             <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
             <p className="mt-2.5 text-sm leading-[1.5] text-muted">
               Organise your songbooks at the desk on Windows or Mac, then open the same library on
@@ -655,11 +653,11 @@ export default async function LoginPage({ searchParams }: Props) {
       <section className="landing-width mt-11 lg:mt-14">
         <div className="editor-tour-grid">
           <div>
-            <h2 className="landing-section-title">Edit the song, not the markup.</h2>
-            <p className="mt-2.5 max-w-[30rem] text-sm leading-[1.5] text-muted">
-              Words on the line, chords above them — you edit the song exactly as it
-              reads. Drop a chord on a syllable with a tap, slide it letter by letter,
-              and what you save is on your reading screen immediately.
+            <span className="landing-kicker">Editing, made visual</span>
+            <h2 className="landing-section-title mt-2.5">Edit the song, not the code.</h2>
+            <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
+              Words on the line, chords above them — the same layout you read from on
+              stage. Simple to use, no syntax to remember.
             </p>
 
             <div className="editor-points">
