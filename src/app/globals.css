@@ -6311,7 +6311,14 @@
    */
   .chord-row {
     position: relative;
-    padding-block-start: 0.5rem;
+    /*
+     * Two things stack into the room above the chips: the lead (headroom for the
+     * name field, and for the thumb once this line is the one being worked on) and
+     * one step per lane of lifted chips. Kept as two variables rather than one
+     * number so `.is-focused` can raise the first without knowing about the second.
+     */
+    --chord-row-lead: 0.5rem;
+    padding-block-start: calc(var(--chord-row-lead) + var(--lanes, 0) * 1.35rem);
     color: var(--accent);
     font-size: 1.125rem;
     line-height: 1.4;
@@ -6326,9 +6333,29 @@
     -webkit-user-select: none;
   }
 
-  /* The headroom for the lanes actually in use (see `.chord-chip.is-lifted`). */
-  .chord-row.has-lanes {
-    padding-block-start: calc(0.5rem + var(--lanes, 1) * 1.35rem);
+  /*
+   * The line being worked on grows to a thumb's size; the rest stay exactly as
+   * compact and as honest to the reading view as they were.
+   *
+   * This is the one structural answer to the editor's oldest touch problem. Both
+   * strips of a line are one line of text tall — the chord row 33px, the words 24px
+   * — and neither can reach the app's own 44px floor while that is true of every
+   * line at once, on a screen that has to show a song. Nothing but the row can grow
+   * either: the chips hang from zero-width anchors on a ghost that must never be
+   * widened, and the pointer machine that adds, opens and drags a chord lives on
+   * the row itself, so the row's height *is* the size of the target.
+   *
+   * So only the focused line pays. It gains the height where a thumb is already
+   * aiming, the words below it move out of mis-tap range of the chord strip, and
+   * every other line keeps the compact rhythm the reading view has — which is what
+   * makes the graphic mode worth reading as a song rather than a form.
+   */
+  .editor-line.is-focused .chord-row {
+    --chord-row-lead: 1.2rem;
+  }
+
+  .editor-line.is-focused .line-input {
+    padding-block: 0.625rem;
   }
 
   /*
