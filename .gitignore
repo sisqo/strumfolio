@@ -48,3 +48,7 @@ next-env.d.ts
 
 # local backups of data dropped from the database
 /.backup
+
+# impeccable's own per-machine edit cache — accumulates across sessions and
+# changes on nearly every edit, unlike the design sidecar/config next to it
+.impeccable/hook.cache.json
