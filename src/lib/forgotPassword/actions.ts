@@ -26,8 +26,7 @@ import type { RequestResetResult, ResetPasswordResult } from './types'
 const EXPIRES_IN_MS = 60 * 60 * 1000
 
 /**
- * Proposed, not tuned — same status as `register`'s own constant (PLAN.md, open
- * question 24).
+ * Proposed, not tuned — same status as `register`'s own constant.
  */
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 10 * 60 * 1000

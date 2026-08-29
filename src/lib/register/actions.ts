@@ -29,8 +29,8 @@ import type { RegisterResult, ResendResult } from './types'
 const EXPIRES_IN_MS = 24 * 60 * 60 * 1000
 
 /**
- * Proposed, not tuned (PLAN.md, open question 24): the number to raise or lower once
- * there is real traffic to look at, not a value to get exactly right today.
+ * Proposed, not tuned: the number to raise or lower once there is real traffic to look
+ * at, not a value to get exactly right today.
  */
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 10 * 60 * 1000
