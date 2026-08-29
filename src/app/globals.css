@@ -6349,7 +6349,9 @@
     border-radius: var(--r-xs);
     color: var(--accent);
     font-family: var(--font-sans), system-ui, sans-serif;
-    font-size: 0.9rem;
+    /* A step up from 0.9rem: still visibly lighter than the words below it, but a
+     * name this small was hard to aim a thumb at while dragging it letter by letter. */
+    font-size: 1rem;
     /* 500, the reader's own chord weight (`.sheet-chord`): one voice, both sides. */
     font-weight: 500;
     white-space: pre;
@@ -6358,7 +6360,7 @@
   }
 
   /*
-   * The touch target, grown past the painted chip: a name is ~18px tall and a rule
+   * The touch target, grown past the painted chip: a name is ~20px tall and a rule
    * of this app is 44px for what is tapped over and over. Upwards only, and barely
    * sideways — below the chip is the words' input, and beside it is the very gap a
    * tap must still be able to drop a *new* chord into (the row's own pointer logic
