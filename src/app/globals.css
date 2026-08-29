@@ -6326,9 +6326,9 @@
     -webkit-user-select: none;
   }
 
-  /* The headroom for a second lane of chips (see `.chord-chip.is-lifted`). */
+  /* The headroom for the lanes actually in use (see `.chord-chip.is-lifted`). */
   .chord-row.has-lanes {
-    padding-block-start: 1.85rem;
+    padding-block-start: calc(0.5rem + var(--lanes, 1) * 1.35rem);
   }
 
   /*
@@ -6402,13 +6402,18 @@
   }
 
   /*
-   * The second lane: a chip that would paint over its neighbour — two chords on
-   * one letter, or long names a letter apart — rides above it instead, with a
-   * hairline leader down to the letter it still belongs to. Presentation only;
-   * the file underneath does not change.
+   * The lanes above the baseline: a chip that would paint over its neighbour — two
+   * chords on one letter, or long names a letter apart — rides above it instead,
+   * with a hairline leader down to the letter it still belongs to. Presentation
+   * only; the file underneath does not change.
+   *
+   * `--lane` rather than one fixed height, because a cluster can need more than one
+   * lane: with only the ground lane measured, the third chord of `[Cmaj7]a[Ebm7b5]b
+   * [F#m7]c` was lifted straight onto the second and the two names overlapped. The
+   * leader grows with the lane so it always reaches back down to its own letter.
    */
   .chord-chip.is-lifted {
-    inset-block-end: 1.3rem;
+    inset-block-end: calc(var(--lane, 1) * 1.3rem);
   }
 
   .chord-chip.is-lifted::before {
@@ -6417,7 +6422,7 @@
     top: 100%;
     inset-inline-start: 1px;
     width: 1px;
-    height: 1.2rem;
+    height: calc(var(--lane, 1) * 1.3rem - 0.1rem);
     background: color-mix(in srgb, var(--accent) 40%, transparent);
   }
 

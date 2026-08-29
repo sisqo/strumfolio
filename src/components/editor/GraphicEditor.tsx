@@ -662,7 +662,7 @@ function ChordChip({
   chord,
   editing,
   dragging,
-  lifted,
+  lane,
   suppress,
   onEdit,
   onName,
@@ -671,7 +671,8 @@ function ChordChip({
   chord: { index: number; name: string }
   editing: number | null
   dragging: boolean
-  lifted: boolean
+  /** How many lanes above the ground this chip was lifted; 0 sits on the baseline. */
+  lane: number
   suppress: { current: boolean }
   onEdit: (chord: number | null) => void
   onName: (chord: number, name: string) => void
@@ -689,13 +690,15 @@ function ChordChip({
 
   const classes = ['chord-chip']
   if (dragging) classes.push('is-dragging')
-  if (lifted) classes.push('is-lifted')
+  if (lane > 0) classes.push('is-lifted')
 
   return (
     <button
       type="button"
       className={classes.join(' ')}
       data-chord={chord.index}
+      // How high to ride, and how far the leader has to reach back down.
+      style={lane > 0 ? ({ '--lane': lane } as React.CSSProperties) : undefined}
       /*
        * The pointer path runs through the row (tap opens, a horizontal pull drags);
        * this click is the keyboard's way in, plus the guard that keeps a click the
@@ -745,7 +748,7 @@ function ChordSeat({
           chord={chord}
           editing={editing}
           dragging={dragging}
-          lifted={false}
+          lane={0}
           suppress={suppress}
           onEdit={onEdit}
           onName={onName}
@@ -830,7 +833,8 @@ function ChordRow({
   /** True for the tick the browser's own click takes to follow a pointer lift. */
   const suppress = useRef(false)
   const [dragging, setDragging] = useState<{ chord: number; at: number } | null>(null)
-  const [lifted, setLifted] = useState<readonly number[]>([])
+  /** Which lane each chord sits in, by chord index; 0 is the ground lane. */
+  const [lanes, setLanes] = useState<readonly number[]>([])
   const [fontsReady, setFontsReady] = useState(false)
 
   /*
@@ -852,9 +856,16 @@ function ChordRow({
    * over each other, because each hangs from a zero-width anchor and the ghost
    * must never be widened (it mirrors the input; see `.chord-ghost`). So the
    * honest fix is presentational: measure the rendered chips, and lift any that
-   * collides into a second lane above, with a hairline leader back down to its
-   * letter. The rects are read after layout and only the vertical changes, so
-   * one pass settles.
+   * collides into a lane above, with a hairline leader back down to its letter.
+   * The rects are read after layout and only the vertical changes, so one pass
+   * settles.
+   *
+   * As many lanes as the crowding needs, not one. With a single lane tracked, the
+   * *third* chord of a cluster was lifted into a lane nothing was measuring and
+   * landed on top of the second: `[Cmaj7]a[Ebm7b5]b[F#m7]c` painted as `EF#m7b5`,
+   * two names overlapping by 50px. So each lane keeps its own right edge and a
+   * chip takes the first one it clears — which is the same rule as before, run
+   * upwards until it finds room instead of giving up after one try.
    */
   const chordsKey = chords.map((chord) => `${chord.at}:${chord.name}`).join(' ')
   useLayoutEffect(() => {
@@ -873,22 +884,35 @@ function ChordRow({
       row.querySelector('.chord-add-slot')?.getBoundingClientRect().left ?? Infinity,
     )
 
-    const lifts: number[] = []
-    let groundRight = -Infinity
+    const next: number[] = chords.map(() => 0)
+    /** The right edge reached so far in each lane; index 0 is the ground. */
+    const laneRight: number[] = []
+
     // Scoped to the ghost: the seats past it hold chips in anchors too, but
     // those sit in the flow and can never collide or lift.
     for (const chip of row.querySelectorAll<HTMLElement>('.chord-ghost .chord-anchor .chord-chip')) {
       const box = chip.getBoundingClientRect()
-      if (box.left >= groundRight - 1 && box.right <= seam + 1) groundRight = box.right
-      else lifts.push(Number(chip.dataset.chord))
+
+      let lane = 0
+      // The seam is the ground lane's problem alone: a lifted chip clears the
+      // trailing group and the ⊕ slot by riding above them.
+      while (
+        box.left < (laneRight[lane] ?? -Infinity) - 1 ||
+        (lane === 0 && box.right > seam + 1)
+      ) {
+        lane += 1
+      }
+
+      laneRight[lane] = box.right
+      next[Number(chip.dataset.chord)] = lane
     }
 
-    setLifted((current) =>
-      current.length === lifts.length && current.every((chord, i) => chord === lifts[i])
+    setLanes((current) =>
+      current.length === next.length && current.every((lane, i) => lane === next[i])
         ? current
-        : lifts,
+        : next,
     )
-  }, [chordsKey, editing, dragging, focused, fontsReady])
+  }, [chordsKey, editing, dragging, focused, fontsReady, chords])
 
   /* While a chip is held, its chord shows at the letter under the finger. */
   const shown =
@@ -1057,6 +1081,7 @@ function ChordRow({
     )
   }
 
+  const deepestLane = lanes.reduce((deepest, lane) => Math.max(deepest, lane), 0)
   const anchored = ordered.filter((chord) => chord.at < text.length)
   const trailing = ordered.filter((chord) => chord.at >= text.length)
 
@@ -1077,7 +1102,7 @@ function ChordRow({
           chord={chord}
           editing={editing}
           dragging={dragging !== null && dragging.chord === chord.index}
-          lifted={lifted.includes(chord.index)}
+          lane={lanes[chord.index] ?? 0}
           suppress={suppress}
           onEdit={onEdit}
           onName={onName}
@@ -1096,7 +1121,9 @@ function ChordRow({
   return (
     <div
       ref={rowRef}
-      className={`chord-row${lifted.length > 0 ? ' has-lanes' : ''}`}
+      className={`chord-row${deepestLane > 0 ? ' has-lanes' : ''}`}
+      // The headroom the row has to hold: as many lanes as are actually in use.
+      style={deepestLane > 0 ? ({ '--lanes': deepestLane } as React.CSSProperties) : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
