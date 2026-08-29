@@ -686,8 +686,13 @@ export default async function LoginPage({ searchParams }: Props) {
         * claim no competitor can match — but keeps the loud accent fill to itself. See
         * `.feature-spotlight`'s own comment in globals.css for why the fill is what
         * marks it out.
+        *
+        * More top margin than a plain section-to-section gap, matching the section
+        * below it and for the same reason (see that section's own comment): the solid
+        * fill starts a hard edge right here too, not only where it ends, and the editor
+        * band above only has to separate from the plain page.
         */}
-      <section className="landing-width mt-11 lg:mt-14">
+      <section className="landing-width mt-14 lg:mt-20">
         <div className="feature-spotlight">
           <svg
             className="feature-spotlight-mark"
