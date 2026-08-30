@@ -216,9 +216,9 @@ export function LiveSheet() {
         anchors,
         comments,
         mode,
-        onOpen: (ids) => setOpen({ kind: 'read', ids }),
-        onPlace: (anchor) =>
-          setOpen({ kind: 'write', anchor, label: labelFor(fromSource(song.body), anchor) }),
+        onOpen: (ids, at) => setOpen({ kind: 'read', ids, at }),
+        onPlace: (anchor, at) =>
+          setOpen({ kind: 'write', anchor, label: labelFor(fromSource(song.body), anchor), at }),
       }}
     />
   )

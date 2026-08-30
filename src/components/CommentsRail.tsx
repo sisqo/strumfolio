@@ -15,9 +15,11 @@
 import { useComments } from '@/components/CommentsProvider'
 import { IconComment, IconPlus } from '@/components/icons'
 
+import { pointOf } from '@/components/SongSheet'
+import type { CardPoint } from '@/lib/comments/types'
 import { whenOf } from '@/lib/comments/when'
 
-export function CommentsRail({ onOpen }: { onOpen: (ids: string[]) => void }) {
+export function CommentsRail({ onOpen }: { onOpen: (ids: string[], at: CardPoint) => void }) {
   const { comments, mode, setMode } = useComments()
   if (mode === 'hidden') return null
 
@@ -40,7 +42,7 @@ export function CommentsRail({ onOpen }: { onOpen: (ids: string[]) => void }) {
           key={comment.id}
           type="button"
           className="comments-rail-row"
-          onClick={() => onOpen([comment.id])}
+          onClick={(event) => onOpen([comment.id], pointOf(event.currentTarget))}
         >
           <span className={comment.anchor === null ? 'comment-badge is-orphan' : 'comment-badge'} aria-hidden>
             {index + 1}

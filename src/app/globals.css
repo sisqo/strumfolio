@@ -479,23 +479,33 @@
    * badge that stayed 15px while the words went to 34px would stop being findable at the
    * text size this app exists to offer.
    */
+  /*
+   * `width`/`height` are in the badge's **own** em, which is 0.62 of the line's — so the
+   * numbers here are ~1.2 × 0.62 ≈ 0.75em of the word beside it. Sizing both the font and
+   * the box in `em` off the parent was the first version's bug: 0.68em of 0.68em came out
+   * at 0.46em and the mark was too small to find.
+   *
+   * `inline-flex` inside `.sheet-lyric`, which is `display: block` — so it flows *after*
+   * the last letter of the word. As a sibling of that block it became a row of its own and
+   * dropped under the line.
+   */
   .comment-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 0.68em;
-    height: 0.68em;
-    margin: 0 0.1em 0 0.14em;
+    width: 1.2em;
+    height: 1.2em;
+    margin: 0 0.1em 0 0.2em;
     padding: 0;
     border: 0;
     border-radius: 50%;
     background: var(--note);
-    color: var(--surface);
+    color: #fff;
     font-family: inherit;
-    font-size: 0.68em;
+    font-size: 0.62em;
     font-weight: 600;
     line-height: 1;
-    vertical-align: 0.32em;
+    vertical-align: 0.28em;
     cursor: pointer;
   }
 
@@ -532,17 +542,37 @@
     cursor: pointer;
   }
 
+  /*
+   * Armed mode paints **nothing** on the words.
+   *
+   * The first version gave every target a tinted box, which is what the whole page then
+   * looked like: not "armed", but "everything is selected" — a wall of grey blocks over a
+   * song somebody is trying to read. The tinted track in the header is what says the mode
+   * is on; down here a pointer and a hover are enough, and a finger gets the press state.
+   *
+   * `-webkit-tap-highlight-color` is off for the same reason: on a phone, tapping a word
+   * flashed a box the size of the word and read as a selection.
+   */
   .song-sheet.is-adding .sheet-lyric-target,
   .song-sheet.is-adding .sheet-chord-target {
-    background: color-mix(in srgb, var(--note) 12%, transparent);
-    border-radius: 0.15em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    /* A double tap on a word must not start selecting the song. */
+    user-select: none;
   }
 
   @media (hover: hover) {
     .sheet-lyric-target:hover,
     .sheet-chord-target:hover {
-      background: color-mix(in srgb, var(--note) 26%, transparent);
+      background: color-mix(in srgb, var(--note) 22%, transparent);
+      border-radius: 0.15em;
     }
+  }
+
+  .sheet-lyric-target:active,
+  .sheet-chord-target:active {
+    background: color-mix(in srgb, var(--note) 30%, transparent);
+    border-radius: 0.15em;
   }
 
   /*
@@ -641,6 +671,15 @@
 
   /* ---- The card ------------------------------------------------------- */
 
+  /*
+   * On a phone the card is a sheet at the bottom, under a dimmed page — the thumb is
+   * there and a 320px card beside a word would be most of the screen anyway.
+   *
+   * Wider than that it is a popover pinned under its own mark (`placeCard`), and the
+   * backdrop stops dimming: it is only there to catch the click that closes the card, and
+   * darkening the whole song to show a two-line note read as a much bigger event than it
+   * is — the line the note is about has to stay readable beside it.
+   */
   .comment-card-backdrop {
     position: fixed;
     inset: 0;
@@ -650,6 +689,12 @@
     justify-content: center;
     padding: 1rem;
     background: var(--dim);
+  }
+
+  @media (min-width: 30.0625rem) {
+    .comment-card-backdrop {
+      background: none;
+    }
   }
 
   .comment-card {

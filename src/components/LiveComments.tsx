@@ -16,7 +16,7 @@ export function LiveComments() {
 
   return (
     <>
-      <CommentsRail onOpen={(ids) => setOpen({ kind: 'read', ids })} />
+      <CommentsRail onOpen={(ids, at) => setOpen({ kind: 'read', ids, at })} />
       {open !== null && <CommentCard subject={open} onClose={() => setOpen(null)} />}
     </>
   )

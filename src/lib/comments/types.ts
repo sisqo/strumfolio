@@ -64,9 +64,14 @@ export interface SongComment {
  * Here rather than beside the component that renders it, so the provider can hold this as
  * state without the component and the provider importing each other.
  */
+export interface CardPoint {
+  x: number
+  y: number
+}
+
 export type CardSubject =
-  | { kind: 'read'; ids: string[] }
-  | { kind: 'write'; anchor: CommentAnchor; label: string }
+  | { kind: 'read'; ids: string[]; at: CardPoint }
+  | { kind: 'write'; anchor: CommentAnchor; label: string; at: CardPoint }
 
 /** An orphan is exactly a comment with no anchor. One test, named once. */
 export function isOrphan(comment: SongComment): boolean {
