@@ -1235,17 +1235,16 @@
     justify-content: center;
     width: 3.25rem;
     height: 3.25rem;
-    border: 1px solid var(--edge);
+    border: 1px solid transparent;
     border-radius: var(--r-pill);
-    background: var(--surface);
-    color: var(--muted);
+    background: var(--accent);
+    color: var(--on-accent);
     box-shadow: var(--shadow-float);
   }
 
   @media (hover: hover) {
     .feedback-launcher:hover {
-      background: var(--surface-2);
-      color: var(--ink);
+      background: color-mix(in srgb, var(--accent) 88%, var(--ink));
     }
   }
 
