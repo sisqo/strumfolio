@@ -369,16 +369,29 @@ ciò contro cui girano i confronti su `updatedAt` (il suo stesso commento,
 form. **Stimare il punto 5 come «una migrazione più un blocco nel form» lo sottostima di
 una decina di file.**
 
+### Stato
+
+Passi 1–4 **fatti e in produzione** (`bd777df`, `dfdb09c`, `13e2d92`). Passi 5–7 da fare.
+Due scostamenti dal piano scritto sopra, entrambi deliberati:
+
+- **`.html` non è un rifiuto per nome.** Il piano lo metteva fra i Tier C insieme a iReal
+  Pro. È sbagliato: un `.html` è molto più spesso una pagina salvata — che è l'unica via
+  d'uscita da Ultimate Guitar — che un export iReal Pro. Si decide dal contenuto
+  (`isIRealPro`: iReal Pro incapsula un URL `irealb://`).
+- **Il salvataggio è ancora sequenziale, non a blocchi.** Il piano prometteva blocchi; la
+  sequenzialità è però una proprietà di correttezza (due salvataggi paralleli leggerebbero
+  la stessa lista di slug occupati), e spostarla lato server richiede di cambiare
+  `saveSong`. Con il pre-flight sul cap il caso peggiore che i blocchi dovevano risolvere
+  non si presenta più, e l'attesa è ora leggibile («Importing 47 of 212»). Resta come
+  questione aperta, non come debito nascosto.
+
 **Ordine consigliato**, per resa decrescente su costo crescente:
 
-1. Allarga `FILE_TYPES` a tutte le estensioni ChordPro + `detect.ts`. Costo quasi nullo,
-   copre subito LinkeSoft, Setlist Helper, BandHelper, SongSelect, e l'export ChordPro di
-   OnSong e MobileSheets — cioè la maggioranza delle migrazioni reali.
-2. `dialect.ts` con le collisioni e i loro test. Va prima dei parser dei concorrenti,
-   non dopo: è ciò che impedisce loro di corrompere in silenzio.
-3. `archive.ts` (zip → cartelle → sezioni) + `songbookpro.ts`. `fflate` è già in casa.
-4. Il riepilogo sopra soglia e la verifica preventiva del cap. Servono prima che qualcuno
-   droppi davvero 212 brani.
+1. ~~Allarga `FILE_TYPES` a tutte le estensioni ChordPro + `detect.ts`.~~ **Fatto.**
+2. ~~`dialect.ts` con le collisioni e i loro test.~~ **Fatto** — e con esso il blocco di
+   metatag di OnSong, che senza sarebbe finito nei versi.
+3. ~~`archive.ts` + `songbookpro.ts`, più OpenSong/OpenLyrics XML.~~ **Fatto.**
+4. ~~Il riepilogo sopra soglia e la verifica preventiva del cap.~~ **Fatto.**
 5. La migrazione 0032 e i sette campi lungo tutti e otto i tipi qui sopra, le sette
    direttive in `toChoproFile`, il blocco «Dettagli». **È il punto più grosso della lista**,
    nonostante sembri il più contenuto.
@@ -434,8 +447,13 @@ una decina di file.**
   la rimanda.
 - **PDF scansionati.** Fuori piano: senza uno strato di testo pdfjs non restituisce nulla.
   Serve OCR, che è un problema diverso.
-- **La soglia del riepilogo.** Non fissata. Da tarare su un import vero; l'ordine di
-  grandezza discusso era ~50.
+- **La soglia del riepilogo.** Fissata a 50 in `ImportBatch.tsx`, come giudizio e non
+  come misura. Da ritarare su un import vero.
+- **Il salvataggio a blocchi.** Rimandato: vedi «Stato» sopra. Da riprendere se un import
+  reale da 200+ brani si rivela troppo lento, il che si misura, non si indovina.
+- **Il parser SongbookPro non è mai stato provato su un file vero.** Trova il corpo prima
+  per nome e poi per forma proprio perché nessuna fonte documenta la chiave, ma finché non
+  passa un `.sbpbackup` reale resta l'unico parser scritto contro una struttura dedotta.
 - **La chiave JSON di SongbookPro** che contiene testo e accordi: non documentata da nessuna
   fonte. Uno smontaggio manuale di un `.sbpbackup` reale, prima di stimare quel parser.
 - **`.onsongarchive`.** Nessun parser pubblico esiste, eppure SongbookPro e OpenSongApp lo
