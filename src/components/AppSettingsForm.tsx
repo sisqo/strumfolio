@@ -78,13 +78,18 @@ export function AppSettingsForm({ initial, available }: { initial: NotifySetting
       <ul className="flex flex-col gap-1">
         {NOTIFY_EVENTS.map((event) => (
           <li key={event}>
-            {/* `.row` carries the flex, gap, padding and radius; only the alignment differs,
-                because the note under each label makes these rows two lines tall. A bare
-                checkbox, like the one on `/accounts` — this app styles none of them. */}
-            <label className="row cursor-pointer items-start">
+            {/* `.row` carries the flex, gap, padding and radius. A real Toggle (DESIGN.md
+                §5), not the bare checkbox a page-local filter like the one on `/accounts`
+                stays with: this one is saved per account and decides whether a Telegram
+                message actually reaches somebody, which is exactly the kind of
+                consequence-beyond-the-screen the Toggle is for. Centered rather than
+                `items-start`, now that the control has real height of its own to center
+                against the two-line label instead of hugging its first line. */}
+            <label className="row cursor-pointer items-center">
               <input
                 type="checkbox"
-                className="mt-1"
+                role="switch"
+                className="toggle-switch"
                 checked={settings[event]}
                 disabled={!online || busy !== null}
                 onChange={() => void toggle(event)}

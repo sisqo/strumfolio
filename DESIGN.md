@@ -133,6 +133,15 @@ components:
     textColor: "{colors.chord-terracotta}"
     rounded: "{rounded.pill}"
     padding: "0.25rem 0.625rem"
+  toggle-track-off:
+    backgroundColor: "{colors.paper-surface-raised}"
+    rounded: "{rounded.pill}"
+  toggle-track-on:
+    backgroundColor: "{colors.chord-terracotta}"
+    rounded: "{rounded.pill}"
+  toggle-thumb:
+    backgroundColor: "{colors.paper-surface}"
+    rounded: "{rounded.pill}"
 ---
 
 # Design System: Strumfolio
@@ -270,6 +279,13 @@ What goes over the page while something is open on top of it. Two weights of one
 - **Style:** white/surface fill (or page-colored when nested inside a card, matching the card ladder), hairline `--edge` border, `1.125rem` (lg) radius, resting shadow. 16px minimum font size, specifically to stop iOS auto-zooming a field on focus.
 - **Focus:** border-color transition only (150ms ease) — no glow, no layout shift.
 - **Placeholder:** faint-colored, never lighter than the app's own contrast floor.
+
+### Toggle
+- **Shape:** a pill-shaped track (`rounded.pill`, `2.75rem × 1.5rem`) with a circular thumb that slides — the one control in the app that reads on/off as motion rather than a checkmark.
+- **Off:** track fills `paper-surface-raised` (the same recessed tone a segmented control's track uses), thumb white/surface with a resting shadow, sitting at the track's near edge.
+- **On:** track fills solid Chord Terracotta/Amber, thumb slides to the far edge — same fill as a primary button, so "on" reads with the app's one accent color rather than a second one invented for switches.
+- **Built on a real `<input type="checkbox" role="switch">`**, styled rather than replaced with a custom button — focus-visible, labelling and keyboard toggling stay the browser's, not reinvented; `role="switch"` only changes what a screen reader calls it.
+- **When to reach for it instead of a bare checkbox:** a choice whose consequence reaches past the screen it's on — what ends up saved, shown to somebody else, or printed (the notification switches in `AppSettingsForm`; `/booklet`'s own-key-and-capo option). A page-local filter with nothing to persist, like the ones on `/accounts`, stays a plain unstyled checkbox on purpose; giving every checkbox this weight would flatten the distinction rather than sharpen it.
 
 ### Navigation
 - **Top bar:** solid page-colored background (not translucent — the sheet beneath it is a white card, and a blur would show lyrics through the header). Sticky, `z-index: 40`.

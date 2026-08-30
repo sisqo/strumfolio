@@ -157,6 +157,8 @@ export function BookletPanel() {
           <label className="row cursor-pointer">
             <input
               type="checkbox"
+              role="switch"
+              className="toggle-switch"
               checked={usePersonalSettings}
               onChange={(event) => setUsePersonalSettings(event.target.checked)}
             />
