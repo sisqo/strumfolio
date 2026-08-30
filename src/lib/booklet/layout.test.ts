@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { balancedCut, lineRows, sectionRows, splitByRows, splitGroupsIntoColumns } from './layout'
+import {
+  type FlatRow,
+  balancedCut,
+  flattenGroups,
+  lineRows,
+  regroupRows,
+  sectionRows,
+  splitByRows,
+  splitRowsForColumns,
+} from './layout'
 import type { Line, Section } from '../chordpro'
 
 /** A lyrics line of `n` words — the words themselves never matter to a row count. */
@@ -122,38 +131,63 @@ test('an equally balanced tie fills the left column, not the right', () => {
   assert.ok(rowsOf(left) >= rowsOf(right), 'the left column carries at least as much as the right')
 })
 
-test('index groups divide by their own rows, header included', () => {
+test('flattening and regrouping round-trip: one header row, then one row per entry', () => {
   const groups = [
     { sectionName: 'First', entries: ['a', 'b'] },
-    { sectionName: 'Second', entries: ['c', 'd', 'e', 'f', 'g', 'h'] },
+    { sectionName: 'Second', entries: ['c'] },
   ]
-  const [left, right] = splitGroupsIntoColumns(groups)
+  const rows = flattenGroups(groups)
+  assert.equal(rows.length, 5)
   assert.deepEqual(
-    left.map((group) => group.sectionName),
-    ['First'],
+    rows.map((row) => row.kind),
+    ['header', 'entry', 'entry', 'header', 'entry'],
   )
-  assert.deepEqual(
-    right.map((group) => group.sectionName),
-    ['Second'],
-  )
+  assert.deepEqual(regroupRows(rows), groups)
 })
 
-test('a big final index group does not drag every group into the left column', () => {
-  const groups = [
-    { sectionName: 'One', entries: ['a'] },
-    { sectionName: 'Two', entries: ['b'] },
-    { sectionName: 'Three', entries: Array.from({ length: 20 }, (_, i) => `s${i}`) },
-  ]
-  const [left, right] = splitGroupsIntoColumns(groups)
-  assert.equal(right.length, 1, 'the right column must not be empty')
-  assert.deepEqual(
-    left.map((group) => group.sectionName),
-    ['One', 'Two'],
-  )
+test('a slice that starts mid-group gets its header back, repeated', () => {
+  const rows = flattenGroups([{ sectionName: 'Only', entries: ['a', 'b', 'c', 'd'] }])
+  // The tail of a column or page break: entries whose header stayed in the previous slice.
+  const groups = regroupRows(rows.slice(3))
+  assert.deepEqual(groups, [{ sectionName: 'Only', entries: ['c', 'd'] }])
 })
 
-test('a single index group has nothing to divide against, and says so', () => {
-  const [left, right] = splitGroupsIntoColumns([{ sectionName: 'Only', entries: ['a', 'b', 'c'] }])
-  assert.equal(left.length, 1)
+/**
+ * The single-section songbook — the shape that used to render as one compressed,
+ * illegible column beside a blank one, because a group could not be divided at all.
+ */
+test('one big group divides between the columns, mid-group', () => {
+  const rows = flattenGroups([{ sectionName: 'Tutte', entries: Array.from({ length: 20 }, (_, i) => `s${i}`) }])
+  const [left, right] = splitRowsForColumns(rows)
+  assert.ok(left.length > 0 && right.length > 0, 'both columns carry rows')
+  assert.ok(Math.abs(left.length - right.length) <= 1, 'and they are balanced')
+  // The right column starts mid-group, so regrouping it synthesizes the repeated header.
+  assert.equal(regroupRows(right)[0].sectionName, 'Tutte')
+  assert.equal(regroupRows(right)[0].entries.length, right.length)
+})
+
+test('a header is never the last row of the left column', () => {
+  // Ten rows whose balanced cut is 5, landing exactly on the second header (row index 4).
+  const rows = flattenGroups([
+    { sectionName: 'First', entries: ['a', 'b', 'c'] },
+    { sectionName: 'Second', entries: ['d', 'e', 'f', 'g', 'h'] },
+  ])
+  assert.equal(rows[4].kind, 'header', 'the second header sits where the balanced cut falls')
+  const [left, right] = splitRowsForColumns(rows)
+  assert.equal(left.length, 6, 'the cut moved one row forward, past the stranded header')
+  assert.notEqual(left[left.length - 1].kind, 'header')
+  assert.equal(right.length, 4)
+})
+
+test('a lone header-and-entry pair stays together in the left column', () => {
+  const rows = flattenGroups([{ sectionName: 'Only', entries: ['a'] }])
+  const [left, right] = splitRowsForColumns(rows)
+  assert.equal(left.length, 2)
   assert.equal(right.length, 0)
+})
+
+test('no rows divide into two empty columns without throwing', () => {
+  const [left, right] = splitRowsForColumns([] as FlatRow<string>[])
+  assert.deepEqual(left, [])
+  assert.deepEqual(right, [])
 })

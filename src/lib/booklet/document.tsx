@@ -96,11 +96,13 @@
  * space, exactly when it carries a single indivisible stanza with nothing to balance
  * against; see `BookletSongPage` and `balancedCut`.
  *
- * The index doesn't get this same per-page measurement treatment — it splits its groups
- * into two columns once by row count (`splitGroupsIntoColumns`) and leaves any overflow
- * to `@react-pdf/renderer`'s own pagination. A songbook of a single section is therefore
- * still an index in the left column with the right one blank, since one group cannot be
- * divided without repeating its header; see `splitGroupsIntoColumns`'s own comment.
+ * The index gets the same measurement treatment (`paginateIndex`), on a smaller unit: the
+ * row, not the group. A group is as long as a songbook section and renders `wrap={false}`,
+ * so leaving its overflow to `@react-pdf/renderer`'s own pagination — which is what this
+ * file used to do — meant a single-section songbook of a hundred songs printed as one
+ * column of compressed, overlapping rows beside a blank one, plus a stray blank page. Rows
+ * are small and uniform, so pages built from them always fit; a group whose rows continue
+ * across a column or page break gets its header repeated there (`regroupRows`).
  */
 
 import { Fragment } from 'react'
@@ -109,7 +111,7 @@ import { Document, Font, Link, Page, Path, StyleSheet, Svg, Text, View, pdf } fr
 import { PDFDocument } from 'pdf-lib'
 
 import type { Booklet, BookletSong } from './actions'
-import { type ColumnGroup, splitByRows, splitGroupsIntoColumns } from './layout'
+import { type ColumnGroup, type FlatRow, flattenGroups, regroupRows, splitByRows, splitRowsForColumns } from './layout'
 import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
@@ -596,16 +598,23 @@ function IndexColumn({ groups }: { groups: IndexGroup[] }) {
   )
 }
 
+/**
+ * One physical page of the index: its own slice of rows, already known (by
+ * `paginateIndex`) to fit here, divided between the two columns by
+ * `splitRowsForColumns` and regrouped under their headers — a group whose rows continue
+ * into the second column, or onto the next index page, gets its header repeated there
+ * (see `regroupRows`), the way a printed index repeats a letter heading across a break.
+ */
 function IndexPage({
   songbookName,
-  groups,
+  rows,
   footerText,
 }: {
   songbookName: string
-  groups: IndexGroup[]
+  rows: FlatRow<IndexEntry>[]
   footerText: string
 }) {
-  const [left, right] = splitGroupsIntoColumns(groups)
+  const [leftRows, rightRows] = splitRowsForColumns(rows)
 
   return (
     <Page size="A4" style={styles.page}>
@@ -616,16 +625,49 @@ function IndexPage({
 
       <View style={styles.indexColumns}>
         <View style={styles.indexColumnLeft}>
-          <IndexColumn groups={left} />
+          <IndexColumn groups={regroupRows(leftRows)} />
         </View>
         <View style={styles.indexColumn}>
-          <IndexColumn groups={right} />
+          <IndexColumn groups={regroupRows(rightRows)} />
         </View>
       </View>
 
       <Footer footerText={footerText} />
     </Page>
   )
+}
+
+/**
+ * Splits the index into the physical pages it takes, the same way `paginateSong` splits a
+ * song: by measuring real renders (`largestPrefixThatFits`), never by trusting the
+ * renderer's own pagination — which could not have worked here anyway, since every group
+ * renders `wrap={false}` and a songbook section can hold more songs than a page holds
+ * rows. Before this, a long enough index compressed its rows into an illegible column and
+ * grew a stray blank page; now each page carries exactly the rows measured to fit it.
+ *
+ * Returns row-count slices rather than elements because it runs twice over the same
+ * shape: once with `page: null` to learn how many pages the index needs (the numbers
+ * cannot exist before the songs are placed, and a row is exactly as tall saying "3" as
+ * "103"), and the real render then reuses the same slices with the numbers filled in.
+ */
+async function paginateIndex(
+  rows: FlatRow<IndexEntry>[],
+  render: (rows: FlatRow<IndexEntry>[]) => React.ReactElement,
+): Promise<number[]> {
+  const slices: number[] = []
+  let remaining = rows
+  while (remaining.length > 0) {
+    const fit = await largestPrefixThatFits(remaining, render)
+    let count = fit.count
+    // A header as a page's last row belongs with its entries on the next page — one row
+    // fewer than measured to fit can only fit too.
+    if (count > 1 && remaining[count - 1].kind === 'header') count -= 1
+    slices.push(count)
+    remaining = remaining.slice(count)
+  }
+  // A songbook with no songs at all still gets its one (empty) index page.
+  if (slices.length === 0) slices.push(0)
+  return slices
 }
 
 /** A song's three link slots, empty ones dropped, order kept. */
@@ -1187,15 +1229,16 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, footer
 
   // The index's own length turns on how many songs and sections there are,
   // never on the digits printed next to them — a row is exactly as tall
-  // whether it says "3" or "103" — so it can be measured with no real page
-  // numbers in hand yet.
+  // whether it says "3" or "103" — so it can be paginated with no real page
+  // numbers in hand yet, and the very same slices reused once they exist.
   const measureGroups: IndexGroup[] = booklet.sections.map((section) => ({
     sectionName: section.name,
     entries: section.songs.map((song) => ({ title: song.title, page: null })),
   }))
-  const indexPageCount = await countPages(
-    <IndexPage songbookName={booklet.songbookName} groups={measureGroups} footerText={footerText} />,
-  )
+  const indexSlices = await paginateIndex(flattenGroups(measureGroups), (rows) => (
+    <IndexPage songbookName={booklet.songbookName} rows={rows} footerText={footerText} />
+  ))
+  const indexPageCount = indexSlices.length
 
   // Page 1 is the cover, the index follows it, and every song starts right
   // where the one before it left off. A song's own notes, when it has any, are
@@ -1223,10 +1266,22 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, footer
     }),
   }))
 
+  // The measured slices, re-cut over the rows that now carry real numbers — same section
+  // names, same titles, same row count, so the same slice boundaries hold by construction.
+  const indexRows = flattenGroups(indexGroups)
+  const indexPages: FlatRow<IndexEntry>[][] = []
+  let taken = 0
+  for (const slice of indexSlices) {
+    indexPages.push(indexRows.slice(taken, taken + slice))
+    taken += slice
+  }
+
   const document = (
     <Document title={booklet.songbookName}>
       <CoverPage booklet={booklet} footerText={footerText} />
-      <IndexPage songbookName={booklet.songbookName} groups={indexGroups} footerText={footerText} />
+      {indexPages.map((rows, index) => (
+        <IndexPage key={index} songbookName={booklet.songbookName} rows={rows} footerText={footerText} />
+      ))}
       {entries.map((entry, index) => (
         <Fragment key={index}>
           {songPagination[index].pages.map((songPage, pageIndex) => (

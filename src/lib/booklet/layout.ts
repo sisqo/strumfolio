@@ -103,17 +103,60 @@ export interface ColumnGroup<T> {
 }
 
 /**
- * Splits index groups into two columns by row count (a group header plus one row per
- * song), never mid-group — the index's equivalent of `splitByRows`, and balanced by the
- * same `balancedCut`.
- *
- * One known artifact survives this, unchanged and deliberately: a songbook with a single
- * section has a single group, which cannot be divided without repeating its header, so
- * its index fills the left column and leaves the right one blank. Fixing that means
- * deciding whether the column would have overflowed, which needs a measured height rather
- * than these ordinal weights — see this file's own top comment.
+ * The index, flattened to the rows it actually prints — the unit its columns and pages
+ * divide on. A group used to be that unit, and it could not be: a group is as long as a
+ * songbook section, `wrap={false}` in the renderer means a too-long one cannot break, and
+ * a single-section songbook of a hundred songs rendered as one column of overlapping,
+ * illegible rows beside a blank one, with a stray blank page after. Rows are small and
+ * uniform, so nothing built from them is ever too big to place.
  */
-export function splitGroupsIntoColumns<T>(groups: ColumnGroup<T>[]): [ColumnGroup<T>[], ColumnGroup<T>[]] {
-  const cut = balancedCut(groups.map((group) => 1 + group.entries.length))
-  return [groups.slice(0, cut), groups.slice(cut)]
+export type FlatRow<T> = { kind: 'header'; sectionName: string } | { kind: 'entry'; sectionName: string; entry: T }
+
+export function flattenGroups<T>(groups: ColumnGroup<T>[]): FlatRow<T>[] {
+  return groups.flatMap((group): FlatRow<T>[] => [
+    { kind: 'header', sectionName: group.sectionName },
+    ...group.entries.map((entry): FlatRow<T> => ({ kind: 'entry', sectionName: group.sectionName, entry })),
+  ])
+}
+
+/**
+ * Rows back into renderable groups. A slice that starts mid-group — the top of a second
+ * column, or of a continuation page — starts with entries whose header stayed behind in
+ * the previous slice, so the header is repeated for them, the way a printed index repeats
+ * a letter heading when a letter's entries span a column break. That synthesized header
+ * is one more row than the slice was cut to, which is fine everywhere this is used: a
+ * column pair is balanced ordinally, and a page slice is measured by rendering exactly
+ * what this returns.
+ */
+export function regroupRows<T>(rows: FlatRow<T>[]): ColumnGroup<T>[] {
+  const groups: ColumnGroup<T>[] = []
+  let current: ColumnGroup<T> | null = null
+
+  for (const row of rows) {
+    if (row.kind === 'header') {
+      current = { sectionName: row.sectionName, entries: [] }
+      groups.push(current)
+    } else {
+      if (current === null || current.sectionName !== row.sectionName) {
+        current = { sectionName: row.sectionName, entries: [] }
+        groups.push(current)
+      }
+      current.entries.push(row.entry)
+    }
+  }
+
+  return groups
+}
+
+/**
+ * Where one page's rows divide between its two columns: the balanced cut, nudged so a
+ * header is never the last row of the left column — a heading with its entries in the
+ * next column reads as a typo, and moving the cut one row forward puts its first entry
+ * beside it while only making the left column the fuller one, which is the tie-breaking
+ * direction `balancedCut` already leans.
+ */
+export function splitRowsForColumns<T>(rows: FlatRow<T>[]): [FlatRow<T>[], FlatRow<T>[]] {
+  let cut = balancedCut(rows.map(() => 1))
+  if (cut < rows.length && rows[cut - 1]?.kind === 'header') cut += 1
+  return [rows.slice(0, cut), rows.slice(cut)]
 }
