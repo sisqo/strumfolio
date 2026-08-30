@@ -63,6 +63,47 @@ describe('deduce', () => {
     assert.equal(result.body, '[Am]subito il testo')
   })
 
+  it('reads an OnSong file’s metatag block instead of taking it for a heading', () => {
+    // Without this the title would be the literal string «Title: Amazing Grace», and
+    // `Key: G` would render as the first line of the lyrics.
+    const result = deduce('Title: Amazing Grace\nArtist: John Newton\nKey: G\n\n[G]Amazing [C]grace')
+
+    assert.equal(result.dialect, 'onsong')
+    assert.equal(result.title, 'Amazing Grace')
+    assert.equal(result.artist, 'John Newton')
+    assert.equal(result.body, '[G]Amazing [C]grace')
+  })
+
+  it('reads {a:} as the artist in an OnSong file and leaves it alone in an unplaced one', () => {
+    const onsong = deduce('Title: Grace\nCapo: 2\n\n{a: John Newton}\n[G]Amazing')
+    assert.equal(onsong.dialect, 'onsong')
+    assert.equal(onsong.artist, 'John Newton')
+
+    // The same directive, in a file nothing identifies: it is as likely to be
+    // MobileSheets' album as OnSong's artist, so it becomes neither.
+    const unplaced = deduce('{title: Grace}\n{a: Hymns Vol. 2}\n\n[G]Amazing')
+    assert.equal(unplaced.dialect, 'chordpro')
+    assert.equal(unplaced.artist, null)
+  })
+
+  it('never lets a dialect overrule a standard directive', () => {
+    // `{artist:}` means the same thing in every app; `{a:}` does not. The unambiguous
+    // one wins, whichever order they appear in.
+    const result = deduce('Title: Grace\n\n{a: Wrong}\n{artist: John Newton}\n[G]Amazing')
+    assert.equal(result.artist, 'John Newton')
+  })
+
+  it('keeps a directive it understood but has nowhere to store', () => {
+    // Nothing here holds an album, and deleting the line would destroy the only copy
+    // of it this person has.
+    const result = deduce('{title: Grace}\n{album: Hymns Vol. 2}\n\n[G]Amazing')
+    assert.ok(result.body.includes('{album: Hymns Vol. 2}'))
+  })
+
+  it('reports plain ChordPro as the dialect when nothing identifies the source', () => {
+    assert.equal(deduce('{title: Grace}\n\n[G]Amazing').dialect, 'chordpro')
+  })
+
   it('works on the output of the converter', () => {
     const pasted = [
       'Certe notti',

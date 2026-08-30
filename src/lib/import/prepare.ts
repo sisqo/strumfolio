@@ -10,6 +10,7 @@
 
 import { type InputFormat, convert } from './convert'
 import { deduce } from './deduce'
+import type { Dialect } from './dialect'
 import { splitSongs } from './split'
 
 export interface PreparedSong {
@@ -38,6 +39,15 @@ export interface PreparedSong {
    * chosen destination when a songbook name never does.
    */
   declaresSection: string | null
+  /**
+   * Whose conventions this song was read under.
+   *
+   * Shown, not merely carried: the same directive means different things in different
+   * apps, so «understood as OnSong» is part of what the preview is *for*. A person who
+   * can see it named can tell before saving whether the guess was right, which is the
+   * same bargain the format label beside it already makes.
+   */
+  dialect: Dialect
 }
 
 export function prepareSongs(text: string): PreparedSong[] {
@@ -57,6 +67,7 @@ export function prepareSongs(text: string): PreparedSong[] {
       format: converted.format,
       declares: found.songbookName,
       declaresSection: found.sectionName,
+      dialect: found.dialect,
     }
   })
 }

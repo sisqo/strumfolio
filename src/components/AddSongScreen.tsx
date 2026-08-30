@@ -17,6 +17,8 @@ import {
   IconPlus,
 } from '@/components/icons'
 import { createSong, saveSong } from '@/lib/import/actions'
+import { detectSource } from '@/lib/import/detect'
+import type { Dialect } from '@/lib/import/dialect'
 import { type PreparedSong, prepareSongs } from '@/lib/import/prepare'
 import { saveMessage, type SaveRefusal } from '@/lib/import/types'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
@@ -36,7 +38,28 @@ const FORMAT_LABEL: Record<string, string> = {
   'lyrics-only': 'no chords found: lyrics only',
 }
 
-const FILE_TYPES = /\.(txt|cho|chordpro)$/i
+/**
+ * Named only when it is not plain ChordPro. Saying «read as ChordPro» beside «recognized
+ * as ChordPro» would be the same sentence twice; naming the other three is worth a line,
+ * because it is what explains why a directive was read the way it was.
+ */
+const DIALECT_LABEL: Record<Dialect, string> = {
+  chordpro: 'ChordPro',
+  onsong: 'an OnSong export',
+  songbookpro: 'a SongbookPro export',
+  mobilesheets: 'a MobileSheets export',
+}
+
+/**
+ * Every extension the file input offers, as one string.
+ *
+ * Kept beside `detectSource` rather than duplicating its knowledge: that function
+ * decides what a file *is*, and this list only decides what the browser's own picker
+ * greys out. They have drifted apart once already — the visible hint under the drop
+ * zone, the `accept` attribute and the guard all named three extensions in three
+ * places — so both the attribute and the hint below read from here now.
+ */
+const ACCEPTED = '.txt,.cho,.crd,.chopro,.chord,.chordpro,.cpm,.pro,.onsong,.tab'
 
 /**
  * The one door into a songbook's repertoire, replacing what used to be two: a
@@ -127,8 +150,23 @@ export function AddSongScreen({
   const readFile = async (file: File) => {
     setFileError(null)
 
-    if (!FILE_TYPES.test(file.name)) {
-      setFileError('That doesn’t look like a .txt, .cho or .chordpro file.')
+    const source = detectSource(file.name)
+
+    /*
+     * A refusal is a real songbook file we deliberately do not open, and it carries the
+     * sentence that says what to do instead. Worth the separate branch: OnSong's
+     * `.backup` is the *first* thing somebody migrating reaches for — it is what that
+     * app's own «back up everything» button produces — so it is the file most likely to
+     * be dropped here, and «that doesn't look like a .txt» would be a true statement
+     * that answers the wrong question.
+     */
+    if (source.kind === 'refused') {
+      setFileError(source.advice)
+      return
+    }
+
+    if (source.kind !== 'text') {
+      setFileError('That doesn’t look like a song file. Try a .txt, .cho or .chordpro export.')
       return
     }
 
@@ -375,8 +413,9 @@ export function AddSongScreen({
           <div>
             <span className="field-label">Choose a file</span>
             <p className="mb-2.5 text-sm leading-[1.45] text-muted">
-              A <code>.txt</code> with chords above the lyrics, or a <code>.cho</code> ChordPro
-              export &mdash; several songs in one file are read as several songs.
+              A <code>.txt</code> with chords above the lyrics, or a ChordPro export from
+              another app &mdash; OnSong, SongbookPro, MobileSheets, LinkeSoft, Setlist Helper
+              and SongSelect all write one. Several songs in one file are read as several songs.
             </p>
             <label
               className={dragOver ? 'drop-zone is-over' : 'drop-zone'}
@@ -396,11 +435,11 @@ export function AddSongScreen({
                 <IconImport size={21} />
               </span>
               <span className="text-sm font-medium">Drop a file here, or browse</span>
-              <span className="text-xs text-muted">.txt, .cho, .chordpro</span>
+              <span className="text-xs text-muted">.txt, .cho, .crd, .chopro, .pro, .onsong…</span>
               <input
                 ref={fileInput}
                 type="file"
-                accept=".txt,.cho,.chordpro"
+                accept={ACCEPTED}
                 className="sr-only"
                 onChange={(event) => {
                   const file = event.target.files?.[0]
@@ -420,7 +459,9 @@ export function AddSongScreen({
         {single !== null && (
           <div>
             <p className="mb-4 text-xs text-muted">
-              {FORMAT_LABEL[single.format] ?? single.format} · goes into {songbookName}
+              {FORMAT_LABEL[single.format] ?? single.format}
+              {single.dialect !== 'chordpro' && <> · read as {DIALECT_LABEL[single.dialect]}</>} · goes
+              into {songbookName}
               {declaredSection !== null ? (
                 <> · will use its own section «{declaredSection}»</>
               ) : (
