@@ -67,34 +67,34 @@
  * laid out, since a page is as long as its own lyrics make it, not a fixed
  * slot. `pdf-lib` reads a throwaway rendered PDF back just to count its
  * physical pages — see `countPages` — which is also how each song finds its
- * own page breaks: `paginateSong` renders growing prefixes of a song's
- * sections and asks `countPages` whether they still fit on one physical
- * page, binary-searching for the largest prefix that does. `@react-pdf/renderer`
- * lays out a fixed tree and won't balance text across columns as it
- * overflows the way a browser's own CSS columns would, so this is the
- * closest a fixed layout can get to that: a page's own worth of sections,
- * once found, is what decides how many physical pages the whole song needs —
- * there's no separate measuring pass to reconcile with a later render.
+ * own column and page breaks: `paginateSong` renders growing runs of a song's
+ * lines and asks `countPages` whether they still fit, binary-searching for
+ * the largest run that does (`largestPrefixThatFits`). `@react-pdf/renderer`
+ * lays out a fixed tree and won't flow text across columns as it overflows
+ * the way a browser's own CSS columns would, so this is the closest a fixed
+ * layout can get to that — and what a measuring render answered is exactly
+ * what the finished document renders, so the two can never disagree.
+ *
+ * The layout flows newspaper-style, and its indivisible unit is the **line**,
+ * not the stanza: a lyrics line is its chord row and its words as one block,
+ * so a chord can never end a column with its syllable at the top of the next
+ * — that pairing is the one typographic promise this file keeps everywhere.
+ * Each column is filled as far as it can be, and a verse or chorus divides
+ * wherever a column bottom falls, continuing in the next column or on the
+ * next page with its styling intact (`fragmentSections`). Keeping stanzas
+ * whole per column — this file's earlier rule — read nicely on paper but
+ * paid in pages: columns closed early because the next stanza would not fit
+ * whole, and a song written as one unbroken block (the shape most real songs
+ * arrive in) wasted half of every page. Only a song's final page balances
+ * its leftover between the columns instead of filling the left one first
+ * (`lastPageCut`, which prefers a stanza boundary when one costs little);
+ * every other column simply fills.
  *
  * What each `<Page>` element measured travels with it (`largestPrefixThatFits` returns
  * the page count beside the prefix, and `paginateSong` keeps it), because one page
- * element is not always one sheet. Assuming it was is what used to walk the index off:
- * an oversized stanza printed on two sheets, was counted as one, and every song after it
- * carried a page number one too low — a wrong number in the index, with nothing in the
- * types or the tests able to see it.
- *
- * A section never splits across the column divide (see `splitByRows` in `layout.ts`), and
- * a stanza never splits across a column or page break either (see the `stanza` style's
- * own comment) — with exactly one exception, made where the alternative was worse. A
- * stanza too tall to fit a page even by itself cannot be honoured whole: `wrap={false}`
- * means react-pdf pushes the entire block to a page of its own, leaving the page before
- * it holding nothing but the song's title and dropping whatever ran past the paper's
- * bottom edge. `paginateSong` divides such a stanza by line instead, evenly, so each
- * piece is a real page with its own header. It is the only place a stanza breaks.
- *
- * A page renders as one full-width column, rather than a half-width one beside empty
- * space, exactly when it carries a single indivisible stanza with nothing to balance
- * against; see `BookletSongPage` and `balancedCut`.
+ * element is not always one sheet: a single line taller than a whole page — a very long
+ * tab block — overflows, and counting its element as one sheet would walk every following
+ * index entry off by the difference, with nothing in the types or the tests able to see it.
  *
  * The index gets the same measurement treatment (`paginateIndex`), on a smaller unit: the
  * row, not the group. A group is as long as a songbook section and renders `wrap={false}`,
@@ -113,12 +113,14 @@ import { PDFDocument } from 'pdf-lib'
 import type { Booklet, BookletSong } from './actions'
 import {
   type ColumnGroup,
+  type FlatLine,
   type FlatRow,
   flattenGroups,
+  flattenSections,
+  fragmentSections,
+  lastPageCut,
   regroupRows,
   sectionWeight,
-  splitByRows,
-  splitLinesForColumns,
   splitRowsForColumns,
 } from './layout'
 import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
@@ -690,10 +692,10 @@ function linksOf(song: BookletSong): string[] {
  * `includeComments` on `BookletPanel`) or simply never annotated this particular song.
  *
  * `anchorsByLine` is keyed on the `Line` object itself rather than on an index, because
- * `paginateSong`/`splitByRows` slice `parsed.sections` into pages and columns by taking
- * sub-arrays, never by cloning — the same `Line` reference that lived in the whole song
- * still lives in whichever page and column it lands in, so an identity-keyed map built
- * once, before any slicing, keeps answering correctly after it.
+ * `paginateSong` divides the song into columns and pages by slicing and regrouping
+ * (`flattenSections`/`fragmentSections`), never by cloning — the same `Line` reference
+ * that lived in the whole song still lives in whichever column it lands in, so an
+ * identity-keyed map built once, before any slicing, keeps answering correctly after it.
  */
 interface BookletNotes {
   anchorsByLine: Map<Line, PartAnchor[][]>
@@ -864,10 +866,11 @@ function Stanzas({
                 : styles.stanza
           }
           /*
-           * Never split, on a column or a page break alike: print convention
-           * keeps a verse or chorus whole, and it also happens to be the
-           * simplest way to guarantee a chord is never stranded apart from
-           * its own lyric — nothing inside an unbreakable block can be torn.
+           * Every fragment arrives already cut to fit its column (`paginateSong`), so
+           * this never fires in the finished document — it is load-bearing for the
+           * *measuring* renders: a candidate run too tall for its column must overflow
+           * to a second page for `countPages` to see, rather than be quietly split by
+           * react-pdf's own pagination into a layout the real document would never use.
            */
           wrap={false}
         >
@@ -883,19 +886,24 @@ function Stanzas({
 }
 
 /**
- * One physical page of a song: its own slice of sections, already known (by
- * `paginateSong`) to fit here, split into columns by `splitByRows`. That split
- * leaves the right column empty only when the page carries one indivisible
- * stanza and there is nothing to balance it against — and rather than sit that
- * lone content in a half-width column next to a blank one, the page renders it
- * as a single full-width column instead.
+ * One physical page of a song: two columns of stanza fragments, already cut (by
+ * `paginateSong`, by measurement) to fit here. The page no longer decides its own column
+ * split — the columns arrive explicit, because filling them is the pagination itself:
+ * the left column is measured full before the right begins, so a page and its measuring
+ * render can never disagree about where the divide falls.
+ *
+ * `right === null` renders the one full-width column a short song, or a short final
+ * remainder, keeps for itself; `right === []` is different and deliberate — a half-width
+ * left column beside an empty right one, which is what a *measuring* render of the left
+ * column alone must look like for its answer to hold on the finished page.
  */
 function BookletSongPage({
   title,
   artist,
   links,
   sectionName,
-  sections,
+  left,
+  right,
   chordLabel,
   roomForChords,
   transposeNote,
@@ -909,7 +917,8 @@ function BookletSongPage({
   links: string[]
   /** The songbook section this song lives in — shown as a running header on every page. */
   sectionName: string
-  sections: Section[]
+  left: Section[]
+  right: Section[] | null
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
   /** `TransposeNote`'s sentence for this song, or null when printed in the written key. */
@@ -918,8 +927,6 @@ function BookletSongPage({
   isFirstPage: boolean
   footerText: string
 }) {
-  const [left, right] = splitByRows(sections, roomForChords)
-
   return (
     <Page size="A4" style={styles.page} wrap>
       {isFirstPage ? (
@@ -947,7 +954,7 @@ function BookletSongPage({
         </View>
       )}
 
-      {right.length === 0 ? (
+      {right === null ? (
         <View style={styles.columnsSingle}>
           <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
         </View>
@@ -957,7 +964,9 @@ function BookletSongPage({
             <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
           </View>
           <View style={styles.column}>
-            <Stanzas sections={right} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+            {right.length > 0 && (
+              <Stanzas sections={right} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+            )}
           </View>
         </View>
       )}
@@ -1074,23 +1083,18 @@ async function countPages(page: React.ReactElement): Promise<number> {
  * and every caller assumed one page, which is how a stanza that overflowed silently
  * shifted every following song's page number in the index.
  *
- * The binary search assumes a longer prefix never fits in fewer pages than a shorter one.
- * That is now very nearly exact: `BookletSongPage` renders full-width instead of
- * two-column only for a lone indivisible block (see `splitByRows`), so the layout no
- * longer flips back and forth between widths as the prefix grows.
+ * The binary search assumes a longer prefix never fits in fewer pages than a shorter one
+ * — exact here, since every caller's render keeps one shape as the prefix grows: a column
+ * only gains lines, it never changes width.
  */
 async function largestPrefixThatFits<T>(
   items: T[],
   render: (prefix: T[]) => React.ReactElement,
-  /** What rendering all of `items` already measured, when a caller has just measured it —
-   *  the whole-run render is this function's first step, and a caller that divides an
-   *  oversized block re-enters with exactly the run it has already paid for. */
-  measuredWhole?: number,
 ): Promise<{ count: number; pages: number }> {
   if (items.length === 0) return { count: 0, pages: 1 }
-  if (items.length === 1) return { count: 1, pages: measuredWhole ?? (await countPages(render(items))) }
+  if (items.length === 1) return { count: 1, pages: await countPages(render(items)) }
 
-  const whole = measuredWhole ?? (await countPages(render(items)))
+  const whole = await countPages(render(items))
   if (whole <= 1) return { count: items.length, pages: whole }
 
   let lo = 1
@@ -1112,12 +1116,34 @@ async function largestPrefixThatFits<T>(
   return { count: lo, pages: loPages ?? (await countPages(render(items.slice(0, lo)))) }
 }
 
+/** One physical page of a song, as `paginateSong` hands it to the document: explicit
+ *  columns (see `BookletSongPage` on `right`'s three shapes) and what the page measured. */
+interface SongPage {
+  left: Section[]
+  right: Section[] | null
+  /** Normally 1; more only for the conceded case `largestPrefixThatFits` describes. */
+  pageCount: number
+}
+
 /**
- * Splits one song into the physical pages it will actually take, finding
- * each page break by measurement (see `largestPrefixThatFits`) instead of
- * splitting the whole song once by line count and hoping `@react-pdf/renderer`'s
- * own pagination lines the two columns up sensibly across a page break — it
- * doesn't (see this file's own top comment for the failure that caused).
+ * Splits one song into the physical pages it will actually take, newspaper-style: the
+ * left column is filled as far as real renders say it can be (`largestPrefixThatFits`),
+ * the right column continues from there, and the next page from there — breaking verses
+ * and choruses wherever a column bottom falls. The one thing that never breaks is a line,
+ * which is already the chord row and its words as one block, so a chord can never end a
+ * column with its syllable at the top of the next.
+ *
+ * An earlier version kept every stanza whole in its column and paid for it three ways —
+ * pages closing half-empty because the next stanza would not fit whole, a one-stanza song
+ * (the shape most real songs arrive in: lyrics pasted as one unbroken block) spread over
+ * pages of one half-filled column each, and a whole branch of special cases mediating
+ * between the two. Filling columns by measure and letting stanzas divide is both the
+ * denser layout and the simpler machine.
+ *
+ * The one page that is balanced rather than filled is the song's last: nothing after it
+ * shares the page, so filling the left column and leaving the right a stub would save
+ * nothing — the leftover divides evenly (`lastPageCut`, which prefers a stanza boundary
+ * when one costs little), or keeps the single full-width column when it is short.
  */
 async function paginateSong(
   song: BookletSong,
@@ -1125,9 +1151,7 @@ async function paginateSong(
   notation: Notation,
   footerText: string,
 ): Promise<{
-  /** One entry per `<Page>` element, with the physical pages that element measured —
-   *  normally 1, and more only for the conceded case `largestPrefixThatFits` describes. */
-  pages: { sections: Section[]; pageCount: number }[]
+  pages: SongPage[]
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
   transposeNote: string | null
@@ -1141,13 +1165,14 @@ async function paginateSong(
 
   const links = linksOf(song)
 
-  const renderCandidate = (sections: Section[], isFirstPage: boolean) => (
+  const renderCandidate = (left: Section[], right: Section[] | null, isFirstPage: boolean) => (
     <BookletSongPage
       title={song.title}
       artist={song.artist}
       links={links}
       sectionName={sectionName}
-      sections={sections}
+      left={left}
+      right={right}
       chordLabel={chordLabel}
       roomForChords={roomForChords}
       transposeNote={transposeNote}
@@ -1157,137 +1182,117 @@ async function paginateSong(
     />
   )
 
-  /*
-   * A stanza's lines rendered as one page of two balanced columns — how a divided stanza
-   * uses a page. The single-section render (`columnsSingle`) would put the same lines in
-   * one full-width column and leave half the page white: for the short lines a chord
-   * chart is made of, a column's height is what bounds how many fit, so a page of two
-   * half-width columns holds nearly twice as much. This is the shape most real songs
-   * arrive in — lyrics pasted as one unbroken block, no blank lines — so it is the main
-   * layout, not an edge case.
-   */
-  const asColumnPair = (source: Section, lines: Line[]): Section[] => {
-    const [left, right] = splitLinesForColumns(lines, roomForChords)
-    return right.length > 0 ? [{ ...source, lines: left }, { ...source, lines: right }] : [{ ...source, lines: left }]
-  }
-
   /**
-   * Whether this stanza can sit whole on a fresh page of its own — the question that
-   * decides if breaking it is unavoidable. Measured with the continuation header, once
-   * per section (the answer cannot change between pages).
+   * The song's last page: `items` is everything left, at most two columns' worth. Balanced
+   * rather than filled — see this function's own top comment — with the estimated cut
+   * verified by a real render, since half the lines at half the width can wrap taller than
+   * the estimate thinks; anything under about half a column keeps the full-width single
+   * column a short song has always had, where two three-line columns would only look
+   * emptier than one six-line block.
    */
-  const oversizedAlone = new Map<Section, boolean>()
-  const isOversizedAlone = async (section: Section): Promise<boolean> => {
-    let answer = oversizedAlone.get(section)
-    if (answer === undefined) {
-      answer = (await countPages(renderCandidate([section], false))) > 1
-      oversizedAlone.set(section, answer)
+  const lastPage = async (items: FlatLine[], isFirstPage: boolean): Promise<SongPage> => {
+    const tall = fragmentSections(items).reduce((sum, s) => sum + sectionWeight(s, roomForChords), 0) > 350
+    if (tall && items.length > 1) {
+      const cut = lastPageCut(items, roomForChords)
+      const left = fragmentSections(items.slice(0, cut))
+      const right = fragmentSections(items.slice(cut))
+      if ((await countPages(renderCandidate(left, right, isFirstPage))) <= 1) {
+        return { left, right, pageCount: 1 }
+      }
     }
-    return answer
+    // Full width wraps no more than a half-width column of the same lines, so a remainder
+    // measured to fit one column can only fit here too.
+    return { left: fragmentSections(items), right: null, pageCount: 1 }
   }
 
-  const pages: { sections: Section[]; pageCount: number }[] = []
-  let remaining = parsed.sections
-  while (remaining.length > 0) {
+  const flat = flattenSections(parsed.sections)
+  const pages: SongPage[] = []
+  /** Where each pushed page's lines started in `flat` — what lets the respread below
+   *  reopen the last two pages as one run of lines. */
+  const pageStarts: number[] = []
+  let cursor = 0
+  while (cursor < flat.length) {
+    pageStarts.push(cursor)
     const isFirstPage = pages.length === 0
-    const fit = await largestPrefixThatFits(remaining, (sections) => renderCandidate(sections, isFirstPage))
+    const rest = flat.slice(cursor)
 
-    /*
-     * One stanza that will not fit this page even on its own. `wrap={false}` means
-     * react-pdf cannot break it, so left alone it shoves the whole block onto a page of
-     * its own and leaves this one holding nothing but the song's title — the orphaned
-     * title page — with the lyrics then landing on a page that has no header at all, and
-     * whatever ran past the bottom edge drawn off the paper where it does not print.
-     *
-     * So the stanza is divided here instead, by line and by measurement, into pages of
-     * two balanced columns (`asColumnPair`), the same number of lines on each page rather
-     * than every page full and a remnant on the last. Print convention keeps a verse or
-     * chorus whole and this is the one case that cannot honour it: the alternative is not
-     * an unbroken stanza, it is a stanza with its end missing.
-     */
-    if (fit.pages > 1 && fit.count === 1 && remaining[0].lines.length > 1) {
-      const oversized = remaining[0]
-      const capacity = await largestPrefixThatFits(oversized.lines, (prefix) =>
-        renderCandidate(asColumnPair(oversized, prefix), isFirstPage),
-      )
-      if (capacity.pages <= 1) {
-        // `pieces` is 1 exactly when the whole stanza fits one page as a column pair —
-        // the single-full-width render measured above was what overflowed, not the page.
-        const pieces = Math.ceil(oversized.lines.length / capacity.count)
-        const spread = Math.ceil(oversized.lines.length / pieces)
-        pages.push({
-          sections: asColumnPair(oversized, oversized.lines.slice(0, spread)),
-          // Fewer lines than the prefix just measured to fit can only fit too.
-          pageCount: 1,
-        })
-        const rest = oversized.lines.slice(spread)
-        remaining = [...(rest.length > 0 ? [{ ...oversized, lines: rest }] : []), ...remaining.slice(1)]
-        continue
-      }
-      // A single line taller than a page — a very long tab block. Nothing smaller to
-      // hand back, so the page overflows and the measured count keeps the index honest.
-      pages.push({
-        sections: [{ ...oversized, lines: oversized.lines.slice(0, capacity.count) }],
-        pageCount: capacity.pages,
-      })
-      remaining = [
-        ...(capacity.count < oversized.lines.length
-          ? [{ ...oversized, lines: oversized.lines.slice(capacity.count) }]
-          : []),
-        ...remaining.slice(1),
-      ]
+    // Fill the left column: the largest run of lines a half-width column holds.
+    const leftFit = await largestPrefixThatFits(rest, (prefix) =>
+      renderCandidate(fragmentSections(prefix), [], isFirstPage),
+    )
+
+    if (leftFit.pages > 1) {
+      // One line taller than a page — a very long tab block. Nothing smaller to hand
+      // back, so the page overflows and the measured count keeps the index honest.
+      pages.push({ left: fragmentSections(rest.slice(0, leftFit.count)), right: null, pageCount: leftFit.pages })
+      cursor += leftFit.count
       continue
     }
 
-    /*
-     * The page is closing with room to spare because the next stanza will not join it
-     * whole. When that stanza would sit whole on its own next page, the room is the price
-     * of keeping it unbroken — paid gladly. But when it is a stanza too tall for any page
-     * — one that will be divided regardless — leaving this page half-empty buys nothing:
-     * its opening lines start here, filling the page, and the rest flows on as the
-     * oversized branch above.
-     */
-    if (fit.pages <= 1 && fit.count < remaining.length) {
-      const next = remaining[fit.count]
-      if (next.lines.length > 1 && (await isOversizedAlone(next))) {
-        const head = remaining.slice(0, fit.count)
-        const filled = await largestPrefixThatFits(next.lines, (prefix) =>
-          renderCandidate([...head, { ...next, lines: prefix }], isFirstPage),
-        )
-        if (filled.count > 0 && filled.count < next.lines.length && filled.pages <= 1) {
-          pages.push({ sections: [...head, { ...next, lines: next.lines.slice(0, filled.count) }], pageCount: 1 })
-          remaining = [{ ...next, lines: next.lines.slice(filled.count) }, ...remaining.slice(fit.count + 1)]
-          continue
-        }
-      }
+    if (leftFit.count === rest.length) {
+      pages.push(await lastPage(rest, isFirstPage))
+      break
     }
 
-    /*
-     * A page carrying one tall stanza that does fit still reads better as the two
-     * balanced columns every other page has than as one full-width column beside a page
-     * of white — the remainder of a divided stanza lands here, at up to a full page of
-     * lines. A short stanza keeps the full-width render: two four-line columns look
-     * emptier than one eight-line block. The threshold is half a column's height, in the
-     * same estimated points the balance already uses; whether the pair actually fits is
-     * still measured, since half the lines at half the width can wrap taller.
-     */
-    if (fit.count === 1 && fit.pages <= 1 && remaining[0].lines.length > 1) {
-      const lone = remaining[0]
-      if (sectionWeight(lone, roomForChords) > 350) {
-        const pair = asColumnPair(lone, lone.lines)
-        if (pair.length === 2 && (await countPages(renderCandidate(pair, isFirstPage))) <= 1) {
-          pages.push({ sections: pair, pageCount: 1 })
-          remaining = remaining.slice(1)
-          continue
-        }
-      }
+    // Fill the right column with what follows.
+    const leftColumn = fragmentSections(rest.slice(0, leftFit.count))
+    const afterLeft = rest.slice(leftFit.count)
+    const rightFit = await largestPrefixThatFits(afterLeft, (prefix) =>
+      renderCandidate(leftColumn, fragmentSections(prefix), isFirstPage),
+    )
+
+    if (rightFit.pages > 1) {
+      // The next line alone overflows a column (the giant tab again): close this page on
+      // its left column and let the concession branch above meet the line head-on.
+      pages.push({ left: leftColumn, right: null, pageCount: 1 })
+      cursor += leftFit.count
+      continue
     }
 
-    pages.push({ sections: remaining.slice(0, fit.count), pageCount: fit.pages })
-    remaining = remaining.slice(fit.count)
+    if (leftFit.count + rightFit.count === rest.length) {
+      // Everything left fits this one page — balance it instead of leaving the right
+      // column a stub under a full left one, if the balanced render agrees it fits.
+      const balanced = await lastPage(rest, isFirstPage)
+      pages.push(balanced.right !== null ? balanced : { left: leftColumn, right: fragmentSections(afterLeft), pageCount: 1 })
+      break
+    }
+
+    pages.push({ left: leftColumn, right: fragmentSections(afterLeft.slice(0, rightFit.count)), pageCount: 1 })
+    cursor += leftFit.count + rightFit.count
   }
+
+  /*
+   * Filling every column to the bottom can leave the song's very last page a stub — a
+   * full page followed by three lines. The page count cannot change (those lines need a
+   * page either way, and the next song starts fresh regardless), so when the last page
+   * came out at under a third of the one before it, the two are reopened as one run and
+   * divided evenly instead, each half its own balanced pair. Only the last two: every
+   * page before them stays filled, which is the whole point of the flow.
+   */
+  if (pages.length >= 2) {
+    const last = pages[pages.length - 1]
+    const prev = pages[pages.length - 2]
+    if (last.pageCount === 1 && prev.pageCount === 1) {
+      const weigh = (page: SongPage) =>
+        [...page.left, ...(page.right ?? [])].reduce((sum, s) => sum + sectionWeight(s, roomForChords), 0)
+      if (weigh(last) < weigh(prev) / 3) {
+        const combined = flat.slice(pageStarts[pageStarts.length - 2])
+        const cut = lastPageCut(combined, roomForChords)
+        const isFirst = pages.length === 2
+        const pageA = await lastPage(combined.slice(0, cut), isFirst)
+        const pageB = await lastPage(combined.slice(cut), false)
+        // Only when both halves measured as the balanced pairs they were asked to be —
+        // `lastPage`'s full-width fallback is unmeasured here, where a half can exceed
+        // one column, so a fallback on either side keeps the filled pages instead.
+        if (pageA.right !== null && pageB.right !== null) {
+          pages.splice(pages.length - 2, 2, pageA, pageB)
+        }
+      }
+    }
+  }
+
   // An empty song body still gets one (empty) page, so the index has somewhere to point.
-  if (pages.length === 0) pages.push({ sections: [], pageCount: 1 })
+  if (pages.length === 0) pages.push({ left: [], right: null, pageCount: 1 })
 
   let footnotes: { element: React.ReactElement; pageCount: number } | null = null
   if (notes !== null) {
@@ -1380,7 +1385,8 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, footer
               artist={entry.song.artist}
               links={linksOf(entry.song)}
               sectionName={entry.sectionName}
-              sections={songPage.sections}
+              left={songPage.left}
+              right={songPage.right}
               chordLabel={songPagination[index].chordLabel}
               roomForChords={songPagination[index].roomForChords}
               transposeNote={songPagination[index].transposeNote}

@@ -5,11 +5,12 @@ import {
   type FlatRow,
   balancedCut,
   flattenGroups,
+  flattenSections,
+  fragmentSections,
+  lastPageCut,
   lineWeight,
   regroupRows,
   sectionWeight,
-  splitByRows,
-  splitLinesForColumns,
   splitRowsForColumns,
 } from './layout'
 import type { Line, Section } from '../chordpro'
@@ -25,10 +26,6 @@ function lyrics(words = 1): Line {
 
 function verse(lines: number): Section {
   return { kind: 'verse', lines: Array.from({ length: lines }, () => lyrics()) }
-}
-
-function weightOf(sections: Section[]): number {
-  return sections.reduce((sum, section) => sum + sectionWeight(section, true), 0)
 }
 
 test('a lyrics line weighs the same however many words it has, and less with no chord row', () => {
@@ -51,89 +48,77 @@ test('a chorus weighs more than a verse of the same lines, for its padding and r
   assert.ok(sectionWeight({ kind: 'chorus', lines }, true) > sectionWeight({ kind: 'verse', lines }, true))
 })
 
-/**
- * The regression this file was written for. The old running `seen < half` test asked
- * whether the weight *before* a section had already passed half, so a final section
- * bigger than everything before it always joined the left column — and `BookletSongPage`
- * renders an empty right column as one full-width column, so the whole page silently
- * stopped being a two-column page.
- */
-test('a long final section goes right, instead of dragging the whole page into one column', () => {
-  const [left, right] = splitByRows([verse(1), verse(1), verse(20)], true)
-  assert.equal(right.length, 1, 'the right column must not be empty')
-  assert.equal(left.length, 2)
+test('flattening a song keeps every line, in order, remembering its stanza', () => {
+  const a = verse(2)
+  const b = verse(3)
+  const flat = flattenSections([a, b])
+  assert.equal(flat.length, 5)
+  assert.deepEqual(
+    flat.map((item) => item.section),
+    [a, a, b, b, b],
+  )
+  assert.deepEqual(
+    flat.map((item) => item.line),
+    [...a.lines, ...b.lines],
+  )
 })
 
-test('a long first section goes left and the short one still gets its own column', () => {
-  const [left, right] = splitByRows([verse(20), verse(1)], true)
-  assert.equal(left.length, 1)
-  assert.equal(right.length, 1)
+test('fragments regroup a run of lines under their stanzas, sharing the Line objects', () => {
+  const a = verse(2)
+  const b: Section = { kind: 'chorus', lines: Array.from({ length: 3 }, () => lyrics()) }
+  const flat = flattenSections([a, b])
+  const fragments = fragmentSections(flat)
+  assert.equal(fragments.length, 2)
+  assert.equal(fragments[0].kind, 'verse')
+  assert.equal(fragments[1].kind, 'chorus')
+  // Shared by identity, never cloned — the comment markers' anchor map depends on it.
+  assert.equal(fragments[0].lines[0], a.lines[0])
+  assert.equal(fragments[1].lines[2], b.lines[2])
 })
 
-test('a short first section does not swallow the long one behind it', () => {
-  const [left, right] = splitByRows([verse(1), verse(20)], true)
-  assert.equal(left.length, 1)
-  assert.equal(right.length, 1)
+test('a slice that starts mid-stanza becomes a fragment that keeps the stanza kind', () => {
+  const chorus: Section = { kind: 'chorus', lines: Array.from({ length: 6 }, () => lyrics()) }
+  const flat = flattenSections([chorus])
+  const fragments = fragmentSections(flat.slice(4))
+  assert.equal(fragments.length, 1)
+  assert.equal(fragments[0].kind, 'chorus', 'the continuation keeps its tint and rule')
+  assert.equal(fragments[0].lines.length, 2)
 })
 
-test('even sections divide down the middle', () => {
-  const [left, right] = splitByRows([verse(5), verse(5), verse(5), verse(5)], true)
-  assert.equal(left.length, 2)
-  assert.equal(right.length, 2)
-  assert.equal(weightOf(left), weightOf(right))
+test('a stanza divided across a slice boundary is two fragments of the same kind', () => {
+  const a = verse(4)
+  const b = verse(4)
+  const flat = flattenSections([a, b])
+  // A column bottom falling mid-`b`: lines 0..5 = all of a and half of b.
+  const fragments = fragmentSections(flat.slice(0, 6))
+  assert.equal(fragments.length, 2)
+  assert.equal(fragments[1].lines.length, 2)
 })
 
-test('sections keep their written order across the divide', () => {
-  const sections = [verse(3), verse(4), verse(3), verse(4)]
-  const [left, right] = splitByRows(sections, true)
-  assert.deepEqual([...left, ...right], sections)
+test('the last page cut divides a one-stanza song evenly', () => {
+  const flat = flattenSections([verse(31)])
+  const cut = lastPageCut(flat, true)
+  assert.equal(cut, 16)
 })
 
-/**
- * The one case that still renders single-column, and the reason `BookletSongPage` keeps
- * that branch at all: one indivisible stanza has no second column to balance against.
- * (A stanza too tall for a page never gets here whole — `paginateSong` divides it into
- * column pairs first.)
- */
-test('a lone section leaves the right column empty, which is what makes the page full-width', () => {
-  const [left, right] = splitByRows([verse(9)], true)
-  assert.equal(left.length, 1)
-  assert.equal(right.length, 0)
+test('the last page cut prefers a stanza boundary when it costs little', () => {
+  // 7 + 6 lines: the boundary at 7 is one line off perfect balance — close enough to win.
+  const flat = flattenSections([verse(7), verse(6)])
+  assert.equal(lastPageCut(flat, true), 7)
 })
 
-test('no sections at all divides into nothing, without throwing', () => {
-  assert.deepEqual(splitByRows([], true), [[], []])
+test('the last page cut breaks a stanza when the boundary is too lopsided', () => {
+  // 20 + 4 lines: cutting at the boundary leaves 20 against 4; the even cut wins.
+  const flat = flattenSections([verse(20), verse(4)])
+  assert.equal(lastPageCut(flat, true), 12)
 })
 
-/**
- * The Bandabardò regression: a page of [six-string tab, stanza] was balanced as if the
- * tab were six lines of words, so the lyric column came out three times as tall as the
- * tab column and the page broke with both half-empty.
- */
-test('a tab block is weighed by printed height, so the columns come out even', () => {
-  const tab: Section = {
-    kind: 'verse',
-    lines: [{ kind: 'tab', rows: ['e|--', 'B|--', 'G|--', 'D|--', 'A|--', 'E|--'] }],
+test('the last page cut never empties either column', () => {
+  for (const sections of [[verse(2)], [verse(1), verse(1)], [verse(50)]]) {
+    const flat = flattenSections(sections)
+    const cut = lastPageCut(flat, true)
+    assert.ok(cut >= 1 && cut < flat.length, `${flat.length} lines cut at ${cut}`)
   }
-  // Six tab rows ≈ 63pt ≈ two lyrics lines: the balanced cut pairs the tab with the
-  // two-line verse, not with the six-line one row-counting would have matched it to.
-  const [left, right] = splitByRows([tab, verse(2)], true)
-  assert.equal(left.length, 1)
-  assert.equal(right.length, 1)
-  assert.ok(Math.abs(weightOf(left) - weightOf(right)) < lineWeight(lyrics(), true))
-})
-
-test('a divided stanza cuts its lines into two balanced columns', () => {
-  const lines = Array.from({ length: 31 }, () => lyrics())
-  const [left, right] = splitLinesForColumns(lines, true)
-  assert.equal(left.length, 16)
-  assert.equal(right.length, 15)
-})
-
-test('one line, or none, stays a single column', () => {
-  assert.deepEqual(splitLinesForColumns([], true), [[], []])
-  const one = [lyrics()]
-  assert.deepEqual(splitLinesForColumns(one, true), [one, []])
 })
 
 test('balancedCut leaves nothing on the right only when there is at most one block', () => {
@@ -154,8 +139,6 @@ test('an equally balanced tie fills the left column, not the right', () => {
   // Cutting after the first block or after the second both leave a gap of 2. The fuller
   // left column wins, so a column pair never leans to the short side.
   assert.equal(balancedCut([2, 2, 2]), 2)
-  const [left, right] = splitByRows([verse(2), verse(2), verse(2)], true)
-  assert.ok(weightOf(left) >= weightOf(right), 'the left column carries at least as much as the right')
 })
 
 test('flattening and regrouping round-trip: one header row, then one row per entry', () => {

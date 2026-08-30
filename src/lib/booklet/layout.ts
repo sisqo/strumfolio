@@ -47,20 +47,18 @@ export function sectionWeight(section: Section, roomForChords: boolean): number 
 
 /**
  * How many of these blocks belong in the left column: the cut whose two sides come out
- * closest in weight.
+ * closest in weight. Used by the index's column split (`splitRowsForColumns`) — a song's
+ * columns are filled by measurement instead, and only its final page balances, via
+ * `lastPageCut`.
  *
  * This replaces a running `seen < half` test that compared the weight accumulated
  * *before* the current block against the half-way mark — judging a block by what preceded
  * it rather than by what it would make of the column it joined. The visible failure was a
- * final block larger than everything before it, which always landed left: a page of two
- * short stanzas and one long one put all three in the left column, leaving the right one
- * empty and the whole page rendering as a single full-width column. `layout.test.ts` pins
- * exactly that shape.
+ * final block larger than everything before it, which always landed left, leaving the
+ * right column empty. `layout.test.ts` pins exactly that shape.
  *
  * Returns `weights.length` — everything left, nothing right — only when there is at most
- * one block to place. For two or more, leaving the last block on the right is always
- * closer to balanced than an empty column, so a page or an index only renders
- * single-column when it genuinely has one indivisible block on it.
+ * one block to place.
  *
  * Ties go to the fuller left column; see the comparison's own comment below.
  */
@@ -89,31 +87,88 @@ export function balancedCut(weights: number[]): number {
 }
 
 /**
- * Splits a song's sections between the two columns of one page, by estimated height
- * rather than by section count — a page of one long verse and one short chorus would
- * divide unevenly by section alone. Never mid-section: a stanza stays whole (see the
- * `stanza` style's own `wrap={false}`), and sections keep the order they were written in,
- * some in one column and the rest continuing in the other.
- *
- * A section too tall to fit a page even alone is not this function's problem — it is
- * divided by line before it ever gets here, by `paginateSong`, and arrives as the
- * two-piece pages `splitLinesForColumns` cuts.
+ * One printable line of a song with the stanza it came from — the unit the whole layout
+ * flows in. The line is the only thing that never breaks: a lyrics `Line` renders its
+ * chord row and its words row as one block, so a chord can never end a column with its
+ * syllable at the top of the next. Everything larger — a verse, a chorus, a tab block's
+ * neighbourhood — may divide wherever a column bottom falls: a column is filled as far as
+ * it can be, newspaper-style, and the stanza continues in the next column or on the next
+ * page. Stanza identity travels with each line so the renderer can regroup a column's
+ * lines into styled fragments (`fragmentSections`) — a chorus's tint and rule follow its
+ * lines into whichever column they land in.
  */
-export function splitByRows(sections: Section[], roomForChords: boolean): [Section[], Section[]] {
-  const cut = balancedCut(sections.map((section) => sectionWeight(section, roomForChords)))
-  return [sections.slice(0, cut), sections.slice(cut)]
+export interface FlatLine {
+  section: Section
+  line: Line
+}
+
+export function flattenSections(sections: Section[]): FlatLine[] {
+  return sections.flatMap((section) => section.lines.map((line) => ({ section, line })))
 }
 
 /**
- * Where one page's worth of a divided stanza's lines cuts into its two columns — the
- * line-level `splitByRows`, for the one stanza allowed to break at all (see
- * `paginateSong`'s oversized branch). Balanced by the same estimated heights, so a tab
- * inside the stanza does not drag the cut the way it used to drag columns.
+ * A run of flat lines back into renderable sections: consecutive lines of the same stanza
+ * become one fragment carrying that stanza's kind, so a chorus divided across a column
+ * break is two tinted fragments rather than one tinted and one bare. `Line` objects are
+ * shared, never cloned — the identity the comment markers' anchor map is keyed on.
  */
-export function splitLinesForColumns(lines: Line[], roomForChords: boolean): [Line[], Line[]] {
-  if (lines.length < 2) return [lines, []]
-  const cut = balancedCut(lines.map((line) => lineWeight(line, roomForChords)))
-  return [lines.slice(0, cut), lines.slice(cut)]
+export function fragmentSections(items: FlatLine[]): Section[] {
+  const fragments: Section[] = []
+  let source: Section | null = null
+
+  for (const item of items) {
+    if (item.section !== source) {
+      source = item.section
+      fragments.push({ kind: source.kind, lines: [] })
+    }
+    fragments[fragments.length - 1].lines.push(item.line)
+  }
+
+  return fragments
+}
+
+/**
+ * Where a song's final page divides its lines between the two columns: the balanced cut
+ * over estimated heights, preferring a stanza boundary when one costs little.
+ *
+ * Only the final page is balanced at all — every other column is simply filled to the
+ * bottom, and its cut is found by measurement, not here. On the final page nothing is
+ * gained by filling (the songs after it start fresh pages regardless), so the leftover
+ * lines divide evenly instead of leaving the right column a stub. Within `tolerance`
+ * (roughly three lines) of the best gap, a cut where one stanza ends and another begins
+ * wins over a cut mid-stanza: a stanza unbroken for free is kept whole, but never at the
+ * price of columns more than a few lines apart — dense first, tidy second.
+ */
+export function lastPageCut(items: FlatLine[], roomForChords: boolean, tolerance = 90): number {
+  const weights = items.map((item) => lineWeight(item.line, roomForChords))
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+
+  let bestGap = Infinity
+  let bestCut = 1
+  let left = 0
+  const gaps: number[] = []
+  for (let cut = 1; cut < items.length; cut += 1) {
+    left += weights[cut - 1]
+    const gap = Math.abs(left - (total - left))
+    gaps[cut] = gap
+    if (gap <= bestGap) {
+      bestGap = gap
+      bestCut = cut
+    }
+  }
+
+  let boundaryCut: number | null = null
+  let boundaryGap = Infinity
+  for (let cut = 1; cut < items.length; cut += 1) {
+    if (items[cut - 1].section === items[cut].section) continue
+    if (gaps[cut] > bestGap + tolerance) continue
+    if (gaps[cut] <= boundaryGap) {
+      boundaryGap = gaps[cut]
+      boundaryCut = cut
+    }
+  }
+
+  return boundaryCut ?? bestCut
 }
 
 /** One songbook section's worth of index rows — a header, then a row per song. */
