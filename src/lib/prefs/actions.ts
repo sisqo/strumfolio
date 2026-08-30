@@ -21,6 +21,7 @@ import {
   clampSemitones,
   clampSpeed,
   clampZoom,
+  readAccidentals,
   readChordDisplay,
   readInstrument,
 } from './types'
@@ -113,6 +114,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           notation: globalRows[0].notation === 'int' ? ('int' as const) : ('it' as const),
           instrument: await allowedInstrument(readInstrument(globalRows[0].instrument), user),
           chordDisplay: readChordDisplay(globalRows[0].chordDisplay),
+          accidentals: readAccidentals(globalRows[0].accidentals),
         }
 
   if (songSlug === null) return { global, song: null }
@@ -172,6 +174,7 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
     notation: prefs.notation === 'int' ? 'int' : 'it',
     instrument,
     chordDisplay: readChordDisplay(prefs.chordDisplay),
+    accidentals: readAccidentals(prefs.accidentals),
   }
 
   try {

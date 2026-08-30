@@ -10,6 +10,7 @@ import {
   candidates,
   chordNoteNames,
   familyOf,
+  fingeringText,
   shapeFor,
   shapeNotes,
 } from './shapes'
@@ -306,5 +307,21 @@ describe('chordNoteNames', () => {
 
   it('still names the root when the suffix is unknown', () => {
     assert.deepEqual(notesOf('Calt'), ['C'])
+  })
+})
+
+describe('fingeringText', () => {
+  it('prints one character per string, low to high', () => {
+    assert.equal(fingeringText([3, 2, 0, 0, 0, 3]), '320003')
+    assert.equal(fingeringText([null, 3, 2, 0, 1, 0]), 'x32010')
+  })
+
+  it('draws the shapes the sheet actually looks up', () => {
+    assert.equal(fingeringText(shapeFor(parseChord('G')!, 'guitar')!.frets), '320003')
+    assert.equal(fingeringText(shapeFor(parseChord('C')!, 'ukulele')!.frets), '0003')
+  })
+
+  it('spaces the cells out once a fret needs two digits', () => {
+    assert.equal(fingeringText([10, 12, 12, 11, 10, 10]), '10 12 12 11 10 10')
   })
 })

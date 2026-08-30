@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { GuestSettingsMenu } from '@/components/GuestSettingsMenu'
 import { PrefsProvider, usePrefs } from '@/components/PrefsProvider'
+import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
 import { IconBroadcast, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
@@ -1021,6 +1022,19 @@ function FollowedSong({
             )}
           </p>
         )}
+
+        {/*
+          * The same row the reader's own screen carries, with the key locked: a follower
+          * reads the leader's key rather than choosing one, but still has a capo, an
+          * accidental and a chord display of their own — those are about the hands holding
+          * this phone, not about the broadcast.
+          */}
+        <SongControls
+          songSlug={song.data.slug}
+          chords={chordTokens(parsed)}
+          semitonesLocked={song.following}
+          broadcastEnabled={false}
+        />
       </header>
 
       <SongSheet song={parsed} />
@@ -1037,8 +1051,6 @@ function FollowedSong({
         */}
       <ControlBar
         songSlug={song.data.slug}
-        chords={chordTokens(parsed)}
-        semitonesLocked={song.following}
         broadcastEnabled={false}
         steps={steps}
         stepsLocked={song.following}

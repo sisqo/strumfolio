@@ -9,11 +9,16 @@ import type { CommentsMode } from '@/components/CommentsProvider'
 import { type AnchorMap, type PartAnchor, notesAt } from '@/lib/comments/anchorMap'
 import type { CardPoint, CommentAnchor, SongComment } from '@/lib/comments/types'
 import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
-import { type Chord, type Notation, formatChord, parseChord, transposeChord } from '@/lib/music/chord'
-import { readKey, readShift } from '@/lib/music/capo'
-import { estimateKey } from '@/lib/music/key'
-import { type Key, C_MAJOR } from '@/lib/music/notes'
-import { type Instrument, shapeFor } from '@/lib/music/shapes'
+import {
+  type Accidentals,
+  type Chord,
+  type Notation,
+  formatChord,
+  parseChord,
+  readChord,
+} from '@/lib/music/chord'
+import { readShift } from '@/lib/music/capo'
+import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
 
 const BLANK = ' '
@@ -72,27 +77,21 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
   const [shown, setShown] = useState<Chord | null>(null)
 
   /*
-   * The key the song is written in, read off its own chords.
+   * Transposition and capo together: how far the written chords move to reach the page.
    *
-   * Nothing stores this and nothing shows it. It exists for one decision: moved chords
-   * have to be spelled either sharp or flat, and the key they land in is what settles
-   * that — so a song in Bb transposed up gets `Ab`, not `G#`. Memoised on the song
-   * rather than on the shift, because the written key does not move when the reader does.
-   */
-  const written = useMemo(() => estimateKey(chordTokens(song)) ?? C_MAJOR, [song])
-
-  /*
-   * The key whose letters go on the page, which is not always the key that sounds.
+   * Transposing moves both what sounds and what is printed; a capo moves only what is
+   * printed, downwards, because the shapes you finger behind a capo are lower than what
+   * comes out of the instrument — see `lib/music/capo.ts`, where the two shifts are named
+   * and tested.
    *
-   * Transposing moves both; a capo moves only this one, downwards, because the shapes
-   * you finger behind a capo are lower than what comes out of the instrument — see
-   * `lib/music/capo.ts`, where the two shifts are named and tested.
+   * **Nothing here estimates a key any more**, and that is the only line of this comment
+   * that is new. The estimate existed for one decision — a moved chord has to be spelled
+   * sharp or flat, and the key it lands in settled which — and since v4.1 the reader
+   * settles it directly (`readChord`, `GlobalPrefs.accidentals`). Computing it anyway and
+   * discarding the answer would cost a scan of the song per render and, worse, leave a
+   * comment here that claimed the key decided the letters when it no longer does.
    */
   const shift = readShift(songPrefs.semitones, songPrefs.capo)
-  const currentKey = useMemo(
-    () => readKey(written, songPrefs.semitones, songPrefs.capo),
-    [written, songPrefs.semitones, songPrefs.capo],
-  )
 
   /**
    * Whether to leave room for chords above every line, decided for the whole song
@@ -121,8 +120,30 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
   const showNotes = notes !== undefined && notes.mode !== 'hidden'
   const orphans = showNotes ? notes.comments.filter((comment) => comment.anchor === null) : []
 
+  /*
+   * The song's own chords, once, for the two modes that answer «where do the fingers go»
+   * above the song instead of over every syllable. Null in the other two, which is what
+   * keeps `shapeFor` — a search, on a ukulele — from running at all for a reader reading
+   * names.
+   */
+  const summary = useMemo(
+    () =>
+      global.chordDisplay === 'diagrams' || global.chordDisplay === 'fingerings'
+        ? summarise(song, shift, global.accidentals, global.notation, global.instrument)
+        : null,
+    [song, shift, global.accidentals, global.notation, global.instrument, global.chordDisplay],
+  )
+
   return (
     <>
+      {summary !== null && summary.length > 0 && (
+        <ChordSummary
+          chords={summary}
+          as={global.chordDisplay === 'diagrams' ? 'diagrams' : 'fingerings'}
+          capo={songPrefs.capo}
+        />
+      )}
+
       <div
         className={showNotes && notes.mode === 'adding' ? 'song-sheet is-adding' : 'song-sheet'}
         style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}
@@ -137,10 +158,10 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
                   line={line}
                   shift={shift}
                   notation={global.notation}
+                  accidentals={global.accidentals}
                   chordDisplay={global.chordDisplay}
                   instrument={global.instrument}
                   capo={songPrefs.capo}
-                  currentKey={currentKey}
                   roomForChords={roomForChords}
                   onPick={setShown}
                   notes={showNotes ? notes : undefined}
@@ -193,14 +214,111 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
   )
 }
 
+/** One chord of the song, as the summary above it draws it. */
+interface SummaryChord {
+  /** As the sheet writes it — transposed, respelled, in the reader's own notation. */
+  label: string
+  shape: ChordShape
+}
+
+/**
+ * The distinct chords of a song, each with the shape a hand makes for it.
+ *
+ * `chordTokens` deduplicates already, and the labels are deduplicated again after
+ * respelling: a source that writes both `Bb` and `A#` is one chord once the reader has
+ * chosen which way accidentals go, and drawing the same box twice under two names would
+ * be the summary contradicting the song above it.
+ *
+ * A chord with no shape in the table — an exotic suffix, `shapeFor`'s own comment — is
+ * left out rather than listed with an empty box. This block answers exactly one question,
+ * "where do the fingers go", and a row that cannot answer it is not a quieter answer but
+ * a puzzle; the chord is still named over its own syllable, and tapping it there still
+ * opens the popup that says as much in words.
+ */
+function summarise(
+  song: ParsedSong,
+  shift: number,
+  accidentals: Accidentals,
+  notation: Notation,
+  instrument: Instrument,
+): SummaryChord[] {
+  const found: SummaryChord[] = []
+  const seen = new Set<string>()
+
+  for (const token of chordTokens(song)) {
+    const parsed = parseChord(token)
+    if (parsed === null) continue
+
+    const chord = readChord(parsed, shift, accidentals)
+    const shape = shapeFor(chord, instrument)
+    if (shape === null) continue
+
+    const label = formatChord(chord, notation)
+    if (seen.has(label)) continue
+
+    seen.add(label)
+    found.push({ label, shape })
+  }
+
+  return found
+}
+
+/**
+ * The chords of the song, gathered once above it.
+ *
+ * Two shapes for two appetites, and the difference is how much of the screen a reader is
+ * willing to spend before the first line of the song. `diagrams` draws the boxes at a size
+ * that reads from a music stand and takes no container at all — a rule under it is enough
+ * to say where the song starts. `fingerings` replaces the drawings with two columns of
+ * numbers, which is the smallest thing that still answers the question, and takes a nested
+ * card because a bare grid of digits above a song reads as part of the song.
+ *
+ * Both leave the words themselves exactly as `names` draws them. That is the whole point
+ * of having them: the reader who wants the shapes without paying 34px a line for them.
+ */
+function ChordSummary({
+  chords,
+  as,
+  capo,
+}: {
+  chords: SummaryChord[]
+  as: 'diagrams' | 'fingerings'
+  /** The fret the capo is on, for each box's own capo bar — the shape unchanged. */
+  capo: number
+}) {
+  if (as === 'fingerings') {
+    return (
+      <div className="chord-fingerings" aria-label="The chords in this song">
+        {chords.map((chord) => (
+          <span key={chord.label} className="chord-fingering">
+            <span className="chord-fingering-name">{chord.label}</span>
+            <span className="chord-fingering-frets">{fingeringText(chord.shape.frets)}</span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="chord-strip" aria-label="The chords in this song">
+      {chords.map((chord) => (
+        <span key={chord.label} className="chord-strip-item">
+          <ChordDiagram shape={chord.shape} capo={capo} className="chord-strip-shape" />
+          <span className="chord-strip-name">{chord.label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function SheetLine({
   line,
   shift,
   notation,
+  accidentals,
   chordDisplay,
   instrument,
   capo,
-  currentKey,
   roomForChords,
   onPick,
   notes,
@@ -210,11 +328,11 @@ function SheetLine({
   /** Transposition and capo together: how far the written chords move to reach the page. */
   shift: number
   notation: Notation
+  accidentals: Accidentals
   chordDisplay: ChordDisplay
   instrument: Instrument
   /** The fret the capo is on, for the shape's own capo bar — the shape unchanged, see `ChordDiagram`. */
   capo: number
-  currentKey: Key
   roomForChords: boolean
   onPick: (chord: Chord) => void
   notes?: SheetNotes
@@ -293,10 +411,10 @@ function SheetLine({
                       raw={part.chord}
                       shift={shift}
                       notation={notation}
+                      accidentals={accidentals}
                       chordDisplay={chordDisplay}
                       instrument={instrument}
                       capo={capo}
-                      currentKey={currentKey}
                       onPick={onPick}
                       note={
                         notes === undefined || anchor === undefined
@@ -414,20 +532,20 @@ function SheetChord({
   raw,
   shift,
   notation,
+  accidentals,
   chordDisplay,
   instrument,
   capo,
-  currentKey,
   onPick,
   note,
 }: {
   raw: string | null
   shift: number
   notation: Notation
+  accidentals: Accidentals
   chordDisplay: ChordDisplay
   instrument: Instrument
   capo: number
-  currentKey: Key
   onPick: (chord: Chord) => void
   /**
    * What this slot does about notes. While `adding` is armed the tap places one instead of
@@ -461,7 +579,8 @@ function SheetChord({
     )
   }
 
-  const chord = transposeChord(parsed, shift, currentKey)
+  // Moved and spelled in one step; see `readChord` for why no key is consulted.
+  const chord = readChord(parsed, shift, accidentals)
   const label = formatChord(chord, notation)
 
   /*

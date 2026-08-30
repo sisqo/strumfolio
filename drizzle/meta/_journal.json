@@ -225,6 +225,13 @@
       "when": 1788084219659,
       "tag": "0031_booklet_footer",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788113297127,
+      "tag": "0032_accidentals",
+      "breakpoints": true
     }
   ]
 }

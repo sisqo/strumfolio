@@ -13,9 +13,11 @@ Tailwind v3, Postgres on Neon via Drizzle ORM, NextAuth v5, Serwist for the serv
 Deployed on Vercel (`sisqo` account), production at https://strumfolio.com. Full product
 framing lives in `PRODUCT.md`, the visual language in `DESIGN.md`, and the running log of
 decisions in `PLAN.md` — including plans/pricing/payments (v3.6), the mandatory
-plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), `/emails` (v3.9), and
-anchored comments (v4.0, which also removed the per-song note). See `PLAN.md`'s own top
-note for the versions after v3.3 it does *not* yet cover.
+plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), `/emails` (v3.9),
+anchored comments (v4.0, which also removed the per-song note), and the song chips (v4.1,
+which moved key/capo/accidentals/chord-display out of the reading panel onto the song
+itself and added the sharp-or-flat choice). See `PLAN.md`'s own top note for the versions
+after v3.3 it does *not* yet cover.
 
 A feature still being built keeps its plan in a `PLAN-<feature>.md` of its own and is
 folded into `PLAN.md` as a version section once it ships — `PLAN.md` documents delivered
@@ -79,26 +81,29 @@ clean up your own before leaving.
 ## Migrating the production database: `vercel env pull --environment=production` looks like it works but doesn't
 
 Confirmed 2026-08-22, applying migration `0027`: this account's Vercel CLI token reads
-**Development** secrets fine, but pulling **Production** returns a real file where every
-secret is a literal empty string (`DATABASE_URL=""`, `AUTH_SECRET=""`, …) — only Vercel's
-own auto-populated system vars come through non-empty. The command exits 0 and looks
-identical to a successful pull, and `vercel whoami`/`vercel env ls production` both still
-look correct: this is a read-permission restriction on decrypting Production values through
-this CLI session, not a missing variable, a wrong account, or a bug. Don't waste time
-re-authenticating or re-linking the project over this.
+**Development** secrets fine, but pulling **Production** does not hand back the secrets. The
+command exits 0 and looks identical to a successful pull, and `vercel whoami`/`vercel env ls
+production` both still look correct: this is a read restriction on decrypting Production
+values through this CLI session, not a missing variable, a wrong account, or a bug. Don't
+waste time re-authenticating or re-linking the project over this.
 
-Practical effect: an agent cannot obtain a working `DATABASE_URL` for production this way, so it
-cannot run `npm run db:migrate` against production on its own. The person driving the CLI (who
-has whatever additional permission the token lacks) has to do it, with one care taken so it
-never touches the **development** config a local `npm run dev` still needs afterward:
+**Re-confirmed 2026-08-30** on CLI 59.10.0, applying `0032`, with two corrections to what
+this section used to say:
 
-```bash
-vercel env pull --environment=production /tmp/strumfolio-prod.env   # never .env.local
-export DATABASE_URL_UNPOOLED=$(grep '^DATABASE_URL_UNPOOLED=' /tmp/strumfolio-prod.env | cut -d= -f2- | tr -d '"')
-npm run db:migrate
-unset DATABASE_URL_UNPOOLED
-rm /tmp/strumfolio-prod.env
-```
+- The symptom has changed and is now explicit — `! 16 Secret values cannot be pulled from
+  the 'production' Environment. Wrote "[SENSITIVE]" as placeholders`. So the tell is the
+  literal string `[SENSITIVE]`, not the empty string the 2026-08-22 note describes. Test it
+  with `grep -c SENSITIVE` on the pulled file rather than by eye.
+- **`DATABASE_URL_UNPOOLED` does not exist in Production at all** (nor does
+  `POSTGRES_URL_NON_POOLING`) — only `DATABASE_URL`, and that one comes back
+  `[SENSITIVE]`. The `export DATABASE_URL_UNPOOLED=…` line this section used to recommend
+  therefore exports an empty string and `npm run db:migrate` quietly runs against
+  **development** instead, which is a worse failure than not running at all. Do not use it.
+
+Practical effect: an agent cannot obtain a working `DATABASE_URL` for production this way, so
+it cannot run `npm run db:migrate` against production on its own — and neither can anyone else
+from this CLI while the Production values stay marked Secret. **Use the Neon SQL console
+route below**, which is now the primary path rather than the fallback it was written as.
 
 This works without ever editing `.env.local` because of two things already in this repo:
 `scripts/load-env.ts` sets each variable with `??=`, so a value already exported in the shell
@@ -107,10 +112,11 @@ always wins over whatever `.env.local` says; and `scripts/migrate.ts` itself pro
 variable is set. Exporting just `DATABASE_URL_UNPOOLED` for the one command is enough to point
 that single migration run at production while every other file on disk stays pointed at dev.
 
-### When there is no terminal at all: the Neon SQL console, journal row included
+### The Neon SQL console, journal row included — the route that works
 
-Confirmed 2026-08-30, applying `0030`. With nobody able to run the CLI, production is still
-reachable from a browser — Neon dashboard → the **`songs-db`** project (not `songs-db-dev`)
+Confirmed 2026-08-30, applying `0030`, and the route `0032` needs for the same reason. With
+nobody able to run the CLI against production, it is still reachable from a browser — Neon
+dashboard → the **`songs-db`** project (not `songs-db-dev`)
 → SQL Editor. What makes this safe is the *second* statement, which is the part that is easy
 to forget and expensive to skip:
 

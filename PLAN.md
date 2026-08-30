@@ -8,7 +8,7 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v4.0 — commenti ancorati** (l'ultima versione numerata qui) sono
+> **Stato:** da v1 a **v4.1 — i controlli sul brano** (l'ultima versione numerata qui) sono
 > consegnate e in produzione su https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
@@ -167,12 +167,15 @@ mano non verrebbe mai mappato in `Do-7`.
 ### Trasposizione
 
 Ogni accordo si scompone in `{ fondamentale, suffisso, basso }`; la trasposizione è
-`(pc + n) mod 12` su una classe di altezza 0–11. Due regole: **senza trasposizione la
-grafia della sorgente si conserva** (un `Bb` in Do resta `Bb`, mai riscritto `La#`);
-**trasponendo, la tonalità d'arrivo decide** l'enarmonia secondo il circolo delle quinte
-(dieci semitoni sopra arriva in Sib, si legge `Ab` e mai `Sol#`). La tonalità si stima
-dagli accordi del brano, non più un campo salvato dalla v2.0. Il capotasto (v1.8) sottrae
-dalla distanza scritta prima di sonare.
+`(pc + n) mod 12` su una classe di altezza 0–11. Tre regole, nell'ordine in cui si
+scavalcano: **senza trasposizione la grafia della sorgente si conserva** (un `Bb` in Do
+resta `Bb`, mai riscritto `La#`); **trasponendo, la tonalità d'arrivo decide** l'enarmonia
+secondo il circolo delle quinte (dieci semitoni sopra arriva in Sib, si legge `Ab` e mai
+`Sol#`); **e la scelta ♯/♭ di chi legge (v4.1) scavalca entrambe**, a qualunque
+trasposizione, zero compresa — è l'unico modo perché il controllo faccia qualcosa su un
+brano che nessuno ha trasposto. La tonalità si stima dagli accordi del brano, non più un
+campo salvato dalla v2.0. Il capotasto (v1.8) sottrae dalla distanza scritta prima di
+sonare.
 
 ### Notazione
 
@@ -288,8 +291,12 @@ rimossi dal repo quando entra il repertorio vero, o risorgeranno a ogni ripristi
 |---|---|---|
 | Trasposizione (semitoni) | per brano | `user_song_prefs` |
 | Velocità auto-scroll | per brano | `user_song_prefs` |
+| Capotasto | per brano | `user_song_prefs` |
 | Zoom | globale | `user_prefs` |
 | Notazione IT/INT | globale | `user_prefs` |
+| Strumento (chitarra/ukulele) | globale | `user_prefs` |
+| Come si mostrano gli accordi | globale | `user_prefs` |
+| Alterazioni ♯/♭ (v4.1) | globale | `user_prefs` |
 
 Tutte sul DB, sincronizzate fra dispositivi, con la coda offline descritta sopra. Scritture
 debounced (2s) via server action.
@@ -997,6 +1004,69 @@ tutta l'installazione — nessuno ne aveva mai scritta una.
 Migrazioni 0029 (tabella) e 0030 (rimozione della nota). La 0030 è stata applicata in
 produzione dal console SQL di Neon, journal incluso — vedi `CLAUDE.md`, «When there is no
 terminal at all», per perché la riga di journal non è opzionale.
+
+### v4.1 — i controlli sul brano
+
+Chiave, capotasto, alterazioni e resa degli accordi escono dal pannello di lettura e vanno
+**sotto al titolo**, come una riga di chip che va a capo da sola: i primi tre stanno su una
+riga a 402px, «Chords» scende sulla seconda. Nel pannello dietro al bottone della barra
+restano solo strumento e dimensione del testo.
+
+1. **La regola vecchia era giusta e la classificazione no.** «Un controllo che si tocca a
+   brano in corso sta fuori, uno che si imposta una volta sta dietro al bottone» reggeva
+   finché tutti i controlli erano solo controlli. Quei quattro invece **dicono** qualcosa
+   oltre a impostarla — in che tonalità sei, se c'è un capotasto — e un valore che vale la
+   pena leggere non può passare la vita chiuso. La prova era già nel codice: esisteva una
+   riga apposta sotto al titolo (`TransposeNote`) il cui unico compito era ripetere a parole
+   capo e trasposizione, «perché il pannello è chiuso quasi sempre». Con i chip quella riga è
+   sparita: i chip *sono* la nota.
+2. **Le alterazioni ♯/♭ sono una funzione nuova**, non uno spostamento. Due segmenti, nessun
+   «auto»: il valore salvato decide sempre, e scavalca sia la grafia della sorgente sia la
+   tonalità d'arrivo (vedi *Motore musicale*). Costo accettato consapevolmente: il default è
+   `sharp`, quindi un brano scritto con `Bb` si legge `A#` finché chi legge non tocca il
+   secondo segmento. `respellChord` è una funzione pura con i suoi test — è la sola parte di
+   questa versione che `npm test` può davvero coprire.
+3. **`ChordDisplay` passa da due valori a quattro**: `name`, `shape` (diagrammi in linea),
+   `diagrams` e `fingerings`. I primi due decidono cosa sta **sopra ogni sillaba**, gli altri
+   due lasciano stare le sillabe e mettono **un riepilogo sopra al brano** — una striscia di
+   riquadri senza contenitore, o due colonne di numeri (`320003`) dentro una card annidata.
+   La colonna resta `text` senza CHECK, quindi nessuna migrazione: solo `readChordDisplay` ha
+   imparato i due nomi nuovi. `shape` conserva il nome che aveva quando i valori erano due —
+   rinominare un valore già scritto nel database si paga una migrazione per niente.
+4. **La migrazione 0032 è scritta a mano**, come la 0024–0031: `drizzle-kit generate` ora si
+   rifiuta di girare del tutto (0028/0029/0030 condividono `id` e `prevId`, vedi la nota in
+   testa alla 0031 e *Domande aperte* #19). Una sola colonna, `accidentals text NOT NULL
+   DEFAULT 'sharp'`.
+5. **La riga vale anche per l'ospite di Strum Together e per l'anteprima dell'editor.** Al
+   seguace la chiave è bloccata — legge quella di chi guida — ma capotasto, alterazioni e
+   resa degli accordi restano suoi: riguardano le mani che tengono *quel* telefono, non la
+   trasmissione. Nell'anteprima dell'editor la riga arriva insieme allo spartito, perché è
+   quella modalità a promettere «il brano come si leggerà».
+6. **La stima della tonalità esce dal percorso di lettura**, ed è la conseguenza meno
+   ovvia della scelta al punto 2. `estimateKey` esisteva per una sola decisione — se un
+   accordo trasposto si scrive `F#` o `Gb` — e con la risposta data dal lettore quella
+   decisione non si prende più: `readChord` compita dalla preferenza e non consulta
+   nessuna tonalità. Le due chiamate che c'erano (spartito e libretto) sono state tolte,
+   non lasciate a calcolare qualcosa che veniva poi buttato. `key.ts` resta, con in testa
+   la nota che dice che oggi non lo legge nessuno e che cosa lo rimetterebbe in servizio:
+   un terzo segmento «auto» su quel chip.
+7. **I due menu (capotasto, accordi) pendono dalla riga, non dal chip che li apre.** Un menu
+   ancorato al chip «Chords» — che a 402px sta sulla seconda riga, spostato a destra — esce
+   dal bordo del telefono. È la stessa cosa che `.control-panel` aveva già imparato per il
+   pannello della barra. Il calcolo del capotasto suggerito resta dietro all'apertura del
+   menu: su ukulele è una ricerca da 56 ms al primo giro, e senza quel cancello la pagherebbe
+   ogni apertura di brano, dato che ora questa riga si monta con lo spartito e non con un
+   pannello.
+
+**Scostamenti dichiarati dalla board.** Il badge della chiave nel mock è verde e quello del
+capotasto terracotta; qui sono due pesi dello stesso caldo (soffuso e pieno), perché un
+secondo colore su una schermata di lettura è esattamente ciò che la Chord-First Rule di
+`DESIGN.md` esiste per impedire. I chip sono 36px e non 26px: ogni controllo dell'header in
+quest'app è già più grande di come lo disegna la board (la traccia delle note è 44px contro
+30px), quindi il rapporto fra chip e traccia è quello che si è tenuto, non il pixel. La board
+mobile è l'unica aggiornata — `Song Reader.dc.html` mostra ancora il pannello vecchio — ma i
+chip valgono a ogni larghezza: due set di controlli divergenti costano più di una board
+ferma.
 
 ## Vincoli d'ambiente
 

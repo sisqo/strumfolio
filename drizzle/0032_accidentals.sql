@@ -1,0 +1,14 @@
+-- Which way a reader wants accidentals written: `sharp` or `flat`.
+--
+-- Defaulted and not null rather than nullable, unlike 0031 right before it, and for the
+-- opposite reason: this one *is* read on every sheet, and the control that sets it is
+-- two segments with one of them always lit. A null would be a state the screen has no
+-- way to draw, so every existing row gets the answer that keeps the page as it is for
+-- anyone who never touches it.
+--
+-- Snapshot warning (see 0031's own note, and PLAN.md Domande aperte #19): every
+-- `drizzle-kit` snapshot from 0015 on is a copy of an old one rather than a real
+-- incremental diff, and `db:generate` refuses to run at all now — 0028/0029/0030 share
+-- one id and prevId. This file and its journal entry were written by hand, the same way
+-- 0024-0031 were.
+ALTER TABLE "user_prefs" ADD COLUMN "accidentals" text DEFAULT 'sharp' NOT NULL;

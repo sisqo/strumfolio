@@ -443,6 +443,22 @@ function highestFret(frets: Fret[]): number {
  * sits lowest on the neck, which is what keeps a Bb from being drawn at the tenth fret
  * when the sixth will do. On a ukulele the search has already chosen.
  */
+/**
+ * A shape written the way a chord chart prints it: one cell per string, low to high,
+ * `x` for a string that is not played and `0` for one left open — `320003` for a G,
+ * `x32010` for a C.
+ *
+ * Run together when every cell is a single character, which is the whole of the open
+ * position and most of what a song ever asks for, and spaced out the moment one of them
+ * is not: a barre at the tenth fret would otherwise print `101212101010` and mean
+ * nothing at all. Spacing rather than truncating, because a shape up the neck is exactly
+ * where a reader most needs the numbers.
+ */
+export function fingeringText(frets: Fret[]): string {
+  const cells = frets.map((fret) => (fret === null ? 'x' : String(fret)))
+  return cells.some((cell) => cell.length > 1) ? cells.join(' ') : cells.join('')
+}
+
 export function shapeFor(chord: Chord, instrument: Instrument = 'guitar'): ChordShape | null {
   const resolved = familyOf(chord.suffix)
   if (resolved === null) return null

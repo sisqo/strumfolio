@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ControlBar } from '@/components/ControlBar'
+import { SongControls } from '@/components/SongControls'
 import { SongFields, type SongFieldValues } from '@/components/SongFields'
 import { SongSheet } from '@/components/SongSheet'
 import { useSongbooks } from '@/components/SongbookProvider'
@@ -549,13 +550,15 @@ export function EditorScreen({ song }: { song: Song }) {
 
       {mode === 'preview' && (
         <>
-          <SongSheet song={parsed} />
           {/*
-            * The reader's own bar, not a copy of it: the point of this mode is to
-            * see the song the way it will be read, transposition included.
+            * The reader's own controls, not a copy of them: the point of this mode is to
+            * see the song the way it will be read, transposition included — which is why
+            * the row that sets it comes along with the sheet rather than only the bar.
             */}
+          <SongControls songSlug={song.slug} chords={chordTokens(parsed)} />
+          <SongSheet song={parsed} />
           <div className="bar-spacer" />
-          <ControlBar songSlug={song.slug} chords={chordTokens(parsed)} />
+          <ControlBar songSlug={song.slug} />
         </>
       )}
 

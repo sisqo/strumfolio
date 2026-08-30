@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { usePrefs } from '@/components/PrefsProvider'
@@ -18,23 +18,12 @@ import {
   IconPlay,
   IconSliders,
   IconTurtle,
-  IconUndo,
 } from '@/components/icons'
-import {
-  type CapoOption,
-  FRET_PAGE,
-  MAX_CAPO,
-  formatSemitones,
-  fretWindowStart,
-  suggestCapo,
-} from '@/lib/music/capo'
-import { estimateKey } from '@/lib/music/key'
-import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { INSTRUMENTS, INSTRUMENT_LABEL, type Instrument } from '@/lib/music/shapes'
 import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
 import { PLANS } from '@/lib/plans/types'
-import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
-import { broadcastPlay, broadcastTranspose } from '@/lib/strumTogether/session'
+import { SCROLL_SPEEDS, ZOOM_STEPS } from '@/lib/prefs/types'
+import { broadcastPlay } from '@/lib/strumTogether/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
 /** Where this song sits in the sequence a reader can step through with the bar's own
@@ -64,15 +53,14 @@ type Panel = 'settings' | 'speed' | 'sing' | null
  * icon there — see `.speed-compact`'s own comment — which is what frees enough width
  * for the two capsules to read as one bar rather than two, at that size.
  *
- * Everything set once before the song starts — capo, text size, how a chord is shown —
- * still lives in the settings panel behind its own button, unchanged in spirit from
- * before: a control tapped mid-song stays out here, one set once stays behind the
- * button.
+ * What is behind the panel button has shrunk to two things — the instrument and the text
+ * size — since the key, the capo, the accidentals and how a chord is shown moved onto the
+ * song itself (`SongControls`). The old rule was "tapped mid-song stays out here, set once
+ * stays behind the button"; those four broke it from a direction the rule did not cover,
+ * by having a value worth reading as well as one worth setting. See `ReadingPanel`.
  */
 export function ControlBar({
   songSlug,
-  chords = [],
-  semitonesLocked = false,
   broadcastEnabled = true,
   steps = null,
   stepsLocked = false,
@@ -86,27 +74,14 @@ export function ControlBar({
    */
   songSlug: string
   /**
-   * Every chord token of the song, for the capo suggestion and for guessing the key
-   * it's written in. Empty is a fine answer — both then have nothing to say.
-   */
-  chords?: string[]
-  /**
-   * True only for the guest side's reuse of this same bar: a guest is following
-   * someone else's key, not choosing their own, so the buttons that would change it
-   * are disabled rather than hidden — the Key row still has to say what key this is.
-   * Always false here, on the reader's own copy of the bar, where the key is theirs
-   * to move.
-   */
-  semitonesLocked?: boolean
-  /**
-   * False only for Strum Together's guest view. `broadcastPlay`/`broadcastTranspose`
-   * would otherwise fire under whichever real account happens to be signed into the
-   * browser showing the link — not the guest reading it, since a guest has none — and
-   * silently retarget that account's own broadcast. A guest's own copy of this bar
-   * must never be able to call them, session or not; that is a categorical property of
-   * where the bar is mounted, not something to detect from whether a session exists.
-   * The same flag also hides the Strum Together toggle itself, for the same reason: a
-   * guest must never be offered a way to start a broadcast of their own.
+   * False only for Strum Together's guest view. `broadcastPlay` would otherwise fire
+   * under whichever real account happens to be signed into the browser showing the link
+   * — not the guest reading it, since a guest has none — and silently retarget that
+   * account's own broadcast. A guest's own copy of this bar must never be able to call
+   * it, session or not; that is a categorical property of where the bar is mounted, not
+   * something to detect from whether a session exists. The same flag also hides the
+   * Strum Together toggle itself, for the same reason: a guest must never be offered a
+   * way to start a broadcast of their own.
    */
   broadcastEnabled?: boolean
   /** This song's place in the songbook it was opened from, for the prev/next capsule.
@@ -131,36 +106,9 @@ export function ControlBar({
    */
   onStepTo?: (slug: string) => void
 }) {
-  const {
-    global,
-    song,
-    pending,
-    setZoomStep,
-    setChordDisplay,
-    setInstrument,
-    setSemitones,
-    setScrollSpeed,
-    setCapo,
-  } = usePrefs()
+  const { global, song, pending, setZoomStep, setInstrument, setScrollSpeed } = usePrefs()
   const { running, toggle } = useAutoScroll(song.scrollSpeed)
   const [panel, setPanel] = useState<Panel>(null)
-  const { broadcast } = useStrumTogether()
-
-  /*
-   * Gated on `broadcastEnabled` as well as on there being a broadcast at all: on the
-   * guest side the provider answers `null` anyway (a follower has no session, so
-   * `getMyBroadcast` finds nothing), but that is a fact about who happens to be signed
-   * into the browser rather than about this bar, and the same reasoning
-   * `broadcastEnabled`'s own comment gives applies — a guest's copy of this bar must
-   * never speak for an account that isn't reading it.
-   */
-  const broadcasting = broadcastEnabled && broadcast !== null && broadcast !== undefined
-
-  const setSemitonesAndBroadcast = (value: number) => {
-    const clamped = clampSemitones(value)
-    setSemitones(clamped)
-    if (broadcastEnabled) void broadcastTranspose(songSlug, clamped).catch(() => {})
-  }
 
   useEffect(() => {
     if (panel === null) return
@@ -171,23 +119,6 @@ export function ControlBar({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [panel])
-
-  /*
-   * Only while the settings panel is open, because that is the only place either is
-   * shown — and because on a ukulele the capo suggestion is searched rather than looked
-   * up: about thirteen thousand fingerings per chord, cached after the first time, but
-   * the first time is 56 ms of one thread. Paying that when a panel is opened is fine;
-   * paying it on every reading page, for something nobody is looking at, is not.
-   */
-  const suggestion = useMemo(
-    () =>
-      panel === 'settings' ? suggestCapo(chords, song.semitones, song.capo, global.instrument) : null,
-    [panel, chords, song.semitones, song.capo, global.instrument],
-  )
-  const written = useMemo(
-    () => (panel === 'settings' ? (estimateKey(chords) ?? C_MAJOR) : null),
-    [panel, chords],
-  )
 
   const lastSpeed = SCROLL_SPEEDS.length - 1
 
@@ -216,18 +147,8 @@ export function ControlBar({
          */}
         {panel === 'settings' && (
           <ReadingPanel
-            semitones={song.semitones}
-            semitonesLocked={semitonesLocked}
-            capo={song.capo}
-            suggestion={suggestion}
-            written={written}
-            chordDisplay={global.chordDisplay}
             instrument={global.instrument}
             zoomStep={global.zoomStep}
-            broadcasting={broadcasting}
-            setSemitones={setSemitonesAndBroadcast}
-            setCapo={setCapo}
-            setChordDisplay={setChordDisplay}
             setInstrument={setInstrument}
             setZoomStep={setZoomStep}
           />
@@ -527,81 +448,34 @@ function StrumToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
     </button>
   )
 }
-
-/** The bare signed number the Key badge shows: `formatSemitones` without the word. */
-function semitoneBadge(semitones: number): string {
-  if (semitones === 0) return '0'
-  return semitones > 0 ? `+${semitones}` : `−${Math.abs(semitones)}`
-}
-
 /**
- * What the song is read in, rather than how it is read: the key it has been moved
- * to, whether a capo is doing part of that work, whether a chord shows as its name
- * or its shape, and how big the words are.
+ * What the reader carries from song to song: which instrument the chord boxes are drawn
+ * for, and how big the words are.
  *
- * Notation — the alphabet the chords are named in — used to be listed here too,
- * between Capo and Show. It has moved to Settings, next to the instrument and the
- * theme, where the other choices a reader carries across every song already live.
+ * It used to hold the key, the capo and how a chord is shown as well, on the rule that a
+ * control set once before the song starts stays behind a button and one tapped mid-song
+ * stays out. Those three have moved onto the song itself (`SongControls`) because they
+ * broke the rule from the other side: each of them *states* something — what key you are
+ * in, whether there is a capo on — and a value worth reading cannot spend its life shut
+ * behind a button. What is left is the two that only ever set something, and neither has
+ * anything to say when nobody is looking at it.
  *
- * Redesigned: every row here now reads as a label line (the name, a badge for
- * whatever it is set to, and — for Key — the key that comes out of it) followed by its
- * own full-width control, rather than a label squeezed to one side of it. Capo picks a
- * fret directly now instead of stepping to it one fret at a time, which is what freed
- * the row to grow past `MAX_CAPO` frets without ever needing a way to reach the ones a
- * fixed few buttons could not show. The "Chords"/"Text" group headings went with that
- * change — see the note on the first row for why.
+ * Two controls, so no group headings and no divider between them: with four rows the
+ * "Chords"/"Text" headings were already labelling groups of one and two, and with two
+ * rows the space does all the separating there is to do.
  */
 function ReadingPanel({
-  semitones,
-  semitonesLocked,
-  capo,
-  suggestion,
-  written,
-  chordDisplay,
   instrument,
   zoomStep,
-  broadcasting,
-  setSemitones,
-  setCapo,
-  setChordDisplay,
   setInstrument,
   setZoomStep,
 }: {
-  semitones: number
-  /** True for the guest side's reuse of this panel; always false in the ordinary flow. */
-  semitonesLocked: boolean
-  capo: number
-  suggestion: CapoOption | null
-  /** The song's own key, estimated from its chords — `null` only while the panel is
-   *  closed, when nothing needs it. */
-  written: Key | null
-  chordDisplay: ChordDisplay
   instrument: Instrument
   zoomStep: number
-  /** True only while this reader has a live broadcast of their own, so the Key row can
-   *  say that moving it moves every following screen too. Never true on the guest side,
-   *  where a follower has no broadcast to lead. */
-  broadcasting: boolean
-  setSemitones: (value: number) => void
-  setCapo: (value: number) => void
-  setChordDisplay: (value: ChordDisplay) => void
   setInstrument: (value: Instrument) => void
   setZoomStep: (value: number) => void
 }) {
-  const reading = written !== null ? transposeKey(written, semitones) : null
   const lastZoom = ZOOM_STEPS.length - 1
-
-  /*
-   * Which page of frets the reader last paged to — a *request*, not the answer:
-   * `fretWindowStart` gets the last word, because the fret the capo is on has to be on
-   * screen whatever page was asked for. Holding the request rather than the resolved
-   * value is what lets the capo pull the window without that pull becoming the new
-   * request and sticking after the capo moves away again.
-   */
-  const [fretPage, setFretPage] = useState(0)
-  const fretStart = fretWindowStart(fretPage, capo)
-  const pagesForward = fretStart + FRET_PAGE <= MAX_CAPO
-  const canPage = pagesForward || fretStart > 0
 
   /*
    * The ukulele's own gate — this is the half that refuses the *tap*. What the panel draws
@@ -623,226 +497,43 @@ function ReadingPanel({
   return (
     <div className="control-panel">
       {/*
-        * No "Chords"/"Text" group headings any more. Each row already names itself —
-        * Key, Capo, Chords as, Text size — and with only four of them the headings
-        * were labelling groups of one and two.
+        * Which instrument the boxes on the sheet are for. It sat in the account menu's
+        * Settings once, with the notation and the theme, on the reasoning that a reader owns
+        * one instrument and answers for it once. True, and it is still answered once — this
+        * writes the same account-wide preference, not a per-song one; what was wrong is that
+        * it was answered two panels away from the only place its effect is visible.
         */}
-      <div className="control-row">
-        <span className="control-name-label">Key</span>
-        <span className="value-badge" title={formatSemitones(semitones)}>
-          {semitoneBadge(semitones)}
-        </span>
-        {reading !== null && <span className="control-hint-text">reading in {reading.name}</span>}
-      </div>
+      <span className="control-name-label">Instrument</span>
 
-      <div className="value-buttons mt-2.5">
-        <button
-          type="button"
-          className="value-button"
-          onClick={() => setSemitones(semitones - 1)}
-          disabled={semitonesLocked}
-          aria-label="Lower by a semitone"
-        >
-          −1
-        </button>
-
-        <button
-          type="button"
-          className="value-button is-accent"
-          onClick={() => setSemitones(0)}
-          disabled={semitonesLocked || semitones === 0}
-          aria-label="Return to the written key"
-          title={semitonesLocked || semitones === 0 ? undefined : 'Return to the written key'}
-        >
-          <IconUndo size={14} />
-          reset
-        </button>
-
-        <button
-          type="button"
-          className="value-button"
-          onClick={() => setSemitones(semitones + 1)}
-          disabled={semitonesLocked}
-          aria-label="Raise by a semitone"
-        >
-          +1
-        </button>
-      </div>
-
-      {/*
-        * The one consequence of these three buttons that is not visible on this
-        * screen: while a broadcast is live, moving the key here moves it on every
-        * screen following it. Said only then — with nobody following, there is
-        * nothing extra happening to warn anyone about.
-        */}
-      {broadcasting && (
-        <p className="broadcast-hint">
-          <span className="broadcast-hint-dot" aria-hidden />
-          The followers&apos; screens change key with you.
-        </p>
-      )}
-
-      {/*
-        * Said only for the guest side's reuse of this panel — never here, since
-        * `semitonesLocked` is always false in the ordinary reading flow. The row
-        * above still shows the key; what a guest cannot do is move it.
-        */}
-      {semitonesLocked && (
-        <div className="control-hint">
-          <span>Following the leader&apos;s key.</span>
-        </div>
-      )}
-
-      <div className="control-row mt-[1.125rem]">
-        <span className="control-name-label">Capo</span>
-        <span className="value-badge">{capo === 0 ? 'none' : `fret ${capo}`}</span>
-      </div>
-
-      {/*
-        * Six frets and an arrow, rather than every fret squeezed into one row. Seven
-        * cells across the panel's 19rem of inner width come out 40px wide; all eight
-        * frets in one row would be 34px, narrow enough that the wrong fret is the one
-        * a thumb finds with a guitar in the other hand. The arrow pages the run along
-        * and turns into a `‹` once there is nothing further to reveal, so the row is
-        * always exactly seven cells and never changes width — see `fretWindowStart` for
-        * the one rule here, that the fret the capo is on is always among the six.
-        */}
-      <div className="fret-row mt-2.5" role="group" aria-label="Capo fret">
-        {Array.from({ length: Math.min(FRET_PAGE, MAX_CAPO + 1 - fretStart) }, (_, index) => {
-          const fret = fretStart + index
-          const classes = ['fret-button']
-          if (fret === 0) classes.push('is-none')
-          if (fret === capo) classes.push('is-on')
+      {/* `w-full` + `flex-1`, the same idiom `ThemePicker`/`NotationPicker` already use
+          for a segment that fills its container rather than hugging its labels. */}
+      <span className="segment mt-2 w-full" role="group" aria-label="Instrument for chord shapes">
+        {INSTRUMENTS.map((entry) => {
+          /*
+           * Refused, not hidden and not disabled. A disabled button says "not for you" and
+           * stops there; this one still takes the tap and answers it with the dialog that
+           * names the feature and offers `/pricing` — the same shape every other
+           * plan-refusal in the app takes, and the only one that tells a reader what the
+           * ukulele would cost them.
+           */
+          const refused = entry !== 'guitar' && ukuleleRefused
 
           return (
             <button
-              key={fret}
+              key={entry}
               type="button"
-              className={classes.join(' ')}
-              onClick={() => setCapo(fret)}
-              aria-pressed={fret === capo}
-              aria-label={fret === 0 ? 'No capo' : `Capo on fret ${fret}`}
+              className={entry === instrument ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
+              aria-pressed={entry === instrument}
+              onClick={() => (refused ? setPaywallOpen(true) : setInstrument(entry))}
             >
-              {fret}
+              <span className="inline-flex items-center gap-1">
+                {INSTRUMENT_LABEL[entry]}
+                {refused && <IconLock size={11} />}
+              </span>
             </button>
           )
         })}
-
-        {canPage && (
-          <button
-            type="button"
-            className="fret-button is-page"
-            onClick={() => setFretPage(pagesForward ? fretStart + FRET_PAGE : fretStart - FRET_PAGE)}
-            aria-label={pagesForward ? 'Show higher frets' : 'Show lower frets'}
-            title={pagesForward ? 'Higher frets' : 'Lower frets'}
-          >
-            {pagesForward ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
-          </button>
-        )}
-      </div>
-
-      {/*
-        * What a capo would do for the hands, when it would do something.
-        *
-        * A sentence and a button rather than an automatic move: the capo is the one
-        * thing here that changes what the hands do, and the reader is the one holding
-        * them. It disappears as soon as it has nothing left to offer — but the slot
-        * around it does not, so stepping through capo positions never shifts the two
-        * rows below; see `.capo-hint-slot`'s own comment in globals.css.
-        */}
-      <div className="capo-hint-slot">
-        {suggestion !== null && (
-          <div className="capo-suggestion">
-            <span className="capo-suggestion-text">
-              Easier at <strong>fret {suggestion.fret}</strong> — {suggestion.easy} of{' '}
-              {suggestion.total} chords open
-            </span>
-            <button
-              type="button"
-              className="capo-suggestion-action"
-              onClick={() => setCapo(suggestion.fret)}
-            >
-              Move capo
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="control-divider" />
-
-      {/*
-        * Two controls side by side, and the pairing is the point rather than a way to save a
-        * row: Shape is what puts a diagram on the sheet at all, and Instrument is which
-        * instrument that diagram is for. Asked here, next to each other, because the second
-        * question only means anything once the first has been answered — it used to sit in the
-        * account menu's Settings with the notation and the theme, on the reasoning that a
-        * reader owns one instrument and answers for it once. True, and it is still answered
-        * once (this writes the same account-wide preference, not a per-song one); what was
-        * wrong is that it was answered two panels away from the only place its effect is
-        * visible.
-        *
-        * `.control-pair` wraps rather than squeezing — see its own rule in globals.css: on the
-        * narrowest phones the panel is not wide enough for two segments and they stack, which
-        * is better than "Ukulele" spilling out of its button.
-        */}
-      <div className="control-pair">
-        <div>
-          <span className="control-name-label">Chords as</span>
-
-          {/* `w-full` + `flex-1`, the same idiom `ThemePicker`/`NotationPicker` already use
-              for a segment that fills its container rather than hugging its labels. */}
-          <span className="segment mt-2 w-full" role="group" aria-label="Chord display">
-            <button
-              type="button"
-              className={chordDisplay === 'name' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
-              onClick={() => setChordDisplay('name')}
-              aria-pressed={chordDisplay === 'name'}
-            >
-              Name
-            </button>
-            <button
-              type="button"
-              className={chordDisplay === 'shape' ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
-              onClick={() => setChordDisplay('shape')}
-              aria-pressed={chordDisplay === 'shape'}
-            >
-              Shape
-            </button>
-          </span>
-        </div>
-
-        <div>
-          <span className="control-name-label">Instrument</span>
-
-          <span className="segment mt-2 w-full" role="group" aria-label="Instrument for chord shapes">
-            {INSTRUMENTS.map((entry) => {
-              /*
-               * Refused, not hidden and not disabled. A disabled button says "not for you" and
-               * stops there; this one still takes the tap and answers it with the dialog that
-               * names the feature and offers `/pricing` — the same shape every other
-               * plan-refusal in the app takes, and the only one that tells a reader what the
-               * ukulele would cost them.
-               */
-              const refused = entry !== 'guitar' && ukuleleRefused
-
-              return (
-                <button
-                  key={entry}
-                  type="button"
-                  className={entry === instrument ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
-                  aria-pressed={entry === instrument}
-                  onClick={() => (refused ? setPaywallOpen(true) : setInstrument(entry))}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {INSTRUMENT_LABEL[entry]}
-                    {refused && <IconLock size={11} />}
-                  </span>
-                </button>
-              )
-            })}
-          </span>
-        </div>
-      </div>
+      </span>
 
       {paywallOpen && (
         <FeaturePaywallModal
@@ -852,8 +543,6 @@ function ReadingPanel({
         />
       )}
 
-      {/* No second divider: the pair above and "Text size" are one step apart, not two
-          groups, so the space between them does the separating. */}
       <div className="mt-4 flex items-baseline justify-between">
         <span className="control-name-label">Text size</span>
         <span className="control-hint-text">{ZOOM_STEPS[zoomStep]} px</span>
@@ -871,9 +560,9 @@ function ReadingPanel({
           step={1}
           value={zoomStep}
           onChange={(event) => setZoomStep(Number(event.target.value))}
-          style={{ '--fill': `${(zoomStep / lastZoom) * 100}%` } as React.CSSProperties}
           aria-label="Text size"
           aria-valuetext={`${ZOOM_STEPS[zoomStep]} px`}
+          style={{ '--fill': `${(zoomStep / lastZoom) * 100}%` } as React.CSSProperties}
         />
         <span className="zoom-label is-large" aria-hidden>
           A

@@ -19,10 +19,14 @@
  * somebody else's page uninvited. A reader may still opt in, per download (never
  * remembered — see `BookletPanel`), to their own capo/transposition for a personal
  * copy; when they do, `BookletSong.personal` carries it and every affected page says so
- * out loud (`transposeNote` below), the same sentence `TransposeNote` puts on the
- * reading screen — including in the one case where the letters printed don't change at
- * all (capo and transposition cancelling, see `music/capo.ts`'s own comment), because
- * the note is what stops that from reading as a silent no-op.
+ * out loud (`transposeNote` below) — including in the one case where the letters printed
+ * don't change at all (capo and transposition cancelling, see `music/capo.ts`'s own
+ * comment), because the note is what stops that from reading as a silent no-op.
+ *
+ * It is the only place that sentence survives. The reading screen carried the same one
+ * under the title until v4.1, when the Key and Capo chips started showing their values
+ * outright and a line repeating them in words became the same fact twice; print has no
+ * chips, so here it still has a job.
  *
  * Colors are literal hex, not `var(--accent)` and friends: a PDF has no
  * stylesheet to read custom properties from, and this page's paper palette
@@ -123,13 +127,11 @@ import {
   sectionWeight,
   splitRowsForColumns,
 } from './layout'
-import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
+import { type Line, type Section, parseChordPro } from '../chordpro'
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
-import { type Notation, parseChord, transposeChord, formatChord } from '../music/chord'
-import { readKey, readShift, transposeNoteText } from '../music/capo'
-import { estimateKey } from '../music/key'
-import { C_MAJOR } from '../music/notes'
+import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '../music/chord'
+import { readShift, transposeNoteText } from '../music/capo'
 
 // React-pdf hyphenates long words by default (a title wrapping as "ani-mati"),
 // which reads as a typo rather than typesetting. A song title or chord chart
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 4.5,
   },
-  /** `TransposeNote`'s sentence, printed — see `prepare`'s own comment on why it must. */
+  /** `transposeNoteText`'s sentence, printed — see this file's own top comment on why it must. */
   personalNote: {
     fontSize: 8.625,
     fontStyle: 'italic',
@@ -739,20 +741,24 @@ function buildNotes(song: BookletSong, sections: Section[]): BookletNotes | null
  * where a capo and a transposition cancel on the page (`shift === 0` with a real capo
  * set) still gets its sentence — see this file's own top comment.
  */
-function prepare(song: BookletSong, notation: Notation) {
+function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals) {
   const parsed = parseChordPro(song.body)
-  const written = estimateKey(chordTokens(parsed)) ?? C_MAJOR
 
   const personal = song.personal
   const shift = personal === null ? 0 : readShift(personal.semitones, personal.capo)
-  const spellingKey = personal === null ? written : readKey(written, personal.semitones, personal.capo)
   const transposeNote = personal === null ? null : transposeNoteText(personal.capo, personal.semitones)
 
   const chordLabel = (raw: string | null): string | null => {
     if (raw === null) return null
     const chord = parseChord(raw)
     if (chord === null) return raw
-    return formatChord(transposeChord(chord, shift, spellingKey), notation)
+    /*
+     * Print follows screen: `accidentals` is a preference about the reader rather than about
+     * a song (`GlobalPrefs`), the same as `notation` beside it, so a booklet printed by
+     * someone who reads flats says `Bb` where their phone says `Bb`. This used to estimate
+     * the song's key to decide the accidental; nothing does any more — see `readChord`.
+     */
+    return formatChord(readChord(chord, shift, accidentals), notation)
   }
 
   const roomForChords = parsed.sections.some((section) =>
@@ -921,7 +927,7 @@ function BookletSongPage({
   right: Section[] | null
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
-  /** `TransposeNote`'s sentence for this song, or null when printed in the written key. */
+  /** `transposeNoteText`'s sentence for this song, or null when printed in the written key. */
   transposeNote: string | null
   notes: BookletNotes | null
   isFirstPage: boolean
@@ -1149,6 +1155,7 @@ async function paginateSong(
   song: BookletSong,
   sectionName: string,
   notation: Notation,
+  accidentals: Accidentals,
   footerText: string,
 ): Promise<{
   pages: SongPage[]
@@ -1161,7 +1168,11 @@ async function paginateSong(
    *  own comment): a second render of the same props could only ever agree. */
   footnotes: { element: React.ReactElement; pageCount: number } | null
 }> {
-  const { parsed, chordLabel, roomForChords, transposeNote, notes } = prepare(song, notation)
+  const { parsed, chordLabel, roomForChords, transposeNote, notes } = prepare(
+    song,
+    notation,
+    accidentals,
+  )
 
   const links = linksOf(song)
 
@@ -1311,14 +1322,21 @@ async function paginateSong(
 }
 
 /** Renders the booklet to a downloadable blob — the one thing the export panel needs. */
-export async function bookletToBlob(booklet: Booklet, notation: Notation, footerText: string): Promise<Blob> {
+export async function bookletToBlob(
+  booklet: Booklet,
+  notation: Notation,
+  accidentals: Accidentals,
+  footerText: string,
+): Promise<Blob> {
   const entries = flatten(booklet)
 
   // Every song starts a fresh page and shares no flow with its neighbours, so
   // how it paginates depends only on its own words — safe to do in parallel,
   // before any page number exists.
   const songPagination = await Promise.all(
-    entries.map((entry) => paginateSong(entry.song, entry.sectionName, notation, footerText)),
+    entries.map((entry) =>
+      paginateSong(entry.song, entry.sectionName, notation, accidentals, footerText),
+    ),
   )
 
   // The index's own length turns on how many songs and sections there are,

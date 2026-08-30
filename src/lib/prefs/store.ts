@@ -24,6 +24,7 @@ import {
   clampSemitones,
   clampSpeed,
   clampZoom,
+  readAccidentals,
   readChordDisplay,
   readInstrument,
 } from './types'
@@ -62,6 +63,7 @@ export function readGlobalPrefs(): GlobalPrefs {
     notation: cached.notation === 'int' || cached.notation === 'it' ? cached.notation : 'it',
     instrument: readInstrument(cached.instrument),
     chordDisplay: readChordDisplay(cached.chordDisplay),
+    accidentals: readAccidentals(cached.accidentals),
   }
 }
 

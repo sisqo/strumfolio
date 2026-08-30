@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { formatChord, normalizeSuffix, parseChord, renderChord, transposeChord } from './chord'
+import {
+  formatChord,
+  normalizeSuffix,
+  parseChord,
+  readChord,
+  renderChord,
+  transposeChord,
+} from './chord'
 import { keyFor, transposeKey } from './notes'
 
 const C = keyFor(0, 'major')
@@ -314,5 +321,49 @@ describe('international notation', () => {
 describe('renderChord', () => {
   it('passes non-chord tokens through unchanged', () => {
     assert.equal(renderChord('x2', 2, 'it', C), 'x2')
+  })
+})
+
+describe('readChord', () => {
+  /** Parse, move, spell — exactly what the sheet does to every chord on it. */
+  const read = (raw: string, semitones: number, accidentals: 'sharp' | 'flat') =>
+    formatChord(readChord(parseChord(raw)!, semitones, accidentals), 'int')
+
+  it('overrides the source spelling with nothing transposed', () => {
+    // The whole reason this exists: rule 1 would have kept both as written.
+    assert.equal(read('Bb', 0, 'sharp'), 'A#')
+    assert.equal(read('A#', 0, 'flat'), 'Bb')
+  })
+
+  it('overrides what the key it lands in would have spelled', () => {
+    // Ten semitones up from C lands in Bb, where rule 2 spells this Bb.
+    assert.equal(read('C', 10, 'flat'), 'Bb')
+    assert.equal(read('C', 10, 'sharp'), 'A#')
+  })
+
+  it('moves the pitch classes the same way transposeChord does', () => {
+    assert.equal(readChord(parseChord('B')!, 1, 'sharp').root, 0)
+    assert.equal(readChord(parseChord('C')!, -1, 'flat').root, 11)
+  })
+
+  it('leaves naturals alone, and resolves a spelled-out one either way', () => {
+    assert.equal(read('G', 0, 'flat'), 'G')
+    assert.equal(read('G', 0, 'sharp'), 'G')
+    // Pitch class 11 is B in both tables, so Cb comes out B whichever was asked for.
+    assert.equal(read('Cb', 0, 'sharp'), 'B')
+    assert.equal(read('Cb', 0, 'flat'), 'B')
+  })
+
+  it('moves and respells the slash bass too', () => {
+    assert.equal(read('Bb/Db', 0, 'sharp'), 'A#/C#')
+    assert.equal(read('C/E', 2, 'flat'), 'D/Gb')
+  })
+
+  it('leaves the suffix untouched', () => {
+    assert.equal(readChord(parseChord('Bbm7')!, 3, 'sharp').suffix, 'm7')
+  })
+
+  it('speaks Italian through formatChord like any other chord', () => {
+    assert.equal(formatChord(readChord(parseChord('A#')!, 0, 'flat'), 'it'), 'Sib')
   })
 })

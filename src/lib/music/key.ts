@@ -1,11 +1,19 @@
 /**
  * Estimates the key of a song from its chords.
  *
- * Nothing stores a key any more, and this is why nothing has to: the only thing the
- * app ever needed one for is spelling. Transposing has to choose between `F#` and
- * `Gb`, and that choice belongs to the key being landed in — so the key is worked out
- * from the chords the song is made of, at the moment it is read, and is never seen,
- * typed or saved.
+ * Nothing stores a key, and since v4.1 **nothing reads one either**. The only thing the
+ * app ever needed one for was spelling: transposing has to choose between `F#` and `Gb`,
+ * and that choice belonged to the key being landed in. Then the reading screen grew a
+ * ♯/♭ control with no unset state (`GlobalPrefs.accidentals`), the reader answers that
+ * question directly, and `readChord` spells from their answer without consulting a key at
+ * all — so both call sites this file had, the sheet and the booklet, stopped asking.
+ *
+ * It is kept rather than deleted, and the distinction to hold on to is that this is a
+ * *shelved* answer and not a dead one: the module is correct, tested, and is exactly what
+ * an «auto» third state on that control would need on the day somebody wants one. What it
+ * must not become is a call in a path that throws its answer away — which is what both
+ * call sites briefly were while v4.1 was being written, spelling from the reader's choice
+ * while still paying for an estimate and carrying a comment that said the key decided.
  *
  * Being a guess is therefore cheap in a way it was not when it was a field. The worst
  * a wrong guess can do is spell an accidental the other way round; and where it is

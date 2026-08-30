@@ -292,8 +292,13 @@ What goes over the page while something is open on top of it. Two weights of one
 - **Icon buttons:** 2.5rem square, `sm` radius, raised (white fill + hairline edge) in the header, recessed (page-colored fill) on a card — a control never gets the same treatment as the surface it sits on.
 - **Segmented control:** grouped buttons in one recessed track (`surface-2` background); the active segment gets a solid accent fill, everything else stays flat.
 
+### Song chips
+A wrapping row of small recessed pills under the song title, one per thing this reading of this song is set to: key (a stepper whose badge is also the way back to the written key), capo, sharps-or-flats, and how much of a chord the sheet draws. 2.25rem tall, `sm` radius, `surface-3` fill, muted label plus a badge or a word for the value — **accent-soft for a value that is a distance from home, solid accent for one that is a thing clamped to the neck**, and never a second hue: the accent belongs to the chords (see Do's and Don'ts). The two that open a menu carry a chevron and hang their panel off the *row*, full-width and capped, never off the chip itself.
+
+They exist because a control whose value is worth reading cannot live behind a button. Before this row the app had a separate line under the title whose only job was to say in words what a shut panel was hiding.
+
 ### The Reading Control Bar (signature component)
-A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-area inset, holding only what's touched mid-song (play/pause, speed, the Strum Together toggle) with everything set-once-before-playing (key, capo, chord display, instrument, text size) tucked behind one button that opens a panel above the dock.
+A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-area inset, holding only what's touched mid-song (play/pause, speed, the Strum Together toggle) with the two genuinely set-and-forgotten choices (instrument, text size) tucked behind one button that opens a panel above the dock. Key, capo, accidentals and chord display used to be in that panel and are now the chips above.
 
 **One row from `sm` up, two below it** — and the two-row version is not the old one coming back. What was replaced was two rows of small controls stacked at every width, which split awkwardly on a 390px phone; what a phone has now is one panel of two rows sized *up* rather than down: Previous and Next above, the mid-song controls below, nothing under 48px, the ones a hand reaches for at 58px, and a 78px play circle straddling the seam between the rows, cut out of both by a ring in the bar's own colour. Play is the largest thing in the app on purpose — it is the one control that is a destination rather than a nudge. Above `sm` all of it collapses back to the single row, with the two capsules (dock, prev/next) the wider screen has room for.
 

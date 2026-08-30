@@ -14,15 +14,14 @@ import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
 import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { EditSongLink } from '@/components/EditSongLink'
-import { usePrefs } from '@/components/PrefsProvider'
+import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
-import { IconExternal, IconNote } from '@/components/icons'
+import { IconExternal } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
 import { fromSource } from '@/lib/editor/document'
-import { transposeNoteText } from '@/lib/music/capo'
 
 /**
  * Where this song sits in the sequence it is being read in.
@@ -52,8 +51,15 @@ function HeadingNotes() {
  * itself; the space does the work.
  */
 export function SongHeading({ place }: { place: Place | null }) {
-  const { song, deleted } = useSong()
+  const { song, parsed, deleted } = useSong()
   const links = [song.link1, song.link2, song.link3].filter((link) => link !== null)
+
+  /*
+   * From the live copy, not the baked one, so a chord added in the editor counts towards
+   * the capo suggestion the moment it is saved — the same reasoning `LiveControlBar` used
+   * to give for handing the bar its chords.
+   */
+  const chords = useMemo(() => chordTokens(parsed), [parsed])
 
   return (
     <header className="mb-4">
@@ -103,7 +109,7 @@ export function SongHeading({ place }: { place: Place | null }) {
         </p>
       )}
 
-      <TransposeNote />
+      <SongControls songSlug={song.slug} chords={chords} />
 
       {/*
         * Said only when the server has answered that the row is gone — never
@@ -115,38 +121,6 @@ export function SongHeading({ place }: { place: Place | null }) {
         </p>
       )}
     </header>
-  )
-}
-
-/**
- * That the chords on this sheet are not the ones written in the file — a capo, a
- * transposition, or both — and that what's shown is still exactly what to play.
- *
- * The one thing on this screen that has to be here rather than in the reading panel:
- * the panel is shut almost all the time, and a capo or a transposition kept from
- * yesterday renames every chord on the page. Without this line the sheet would say Do
- * where it said Re and nothing would explain why — the sort of silent surprise this
- * app avoids elsewhere. Both facts belong in the same note for that reason: a reader
- * who left a capo on last time is exactly as likely to have left a transposition on,
- * and the risk the note exists to close is identical either way.
- *
- * It no longer names the key that comes out, because nothing on this screen names a
- * key any more. What it has to say is the half that was doing the work: the letters
- * below are what the hand does, whichever of the two moved them.
- *
- * Nothing at all when neither is set, because then there is nothing to explain.
- */
-function TransposeNote() {
-  const { song: prefs } = usePrefs()
-  const text = transposeNoteText(prefs.capo, prefs.semitones)
-
-  if (text === null) return null
-
-  return (
-    <p className="transpose-note mt-2.5">
-      <IconNote size={13} />
-      {text}
-    </p>
   )
 }
 
@@ -179,11 +153,11 @@ export function LiveSheet() {
 }
 
 /**
- * The chords are handed to the bar because a capo worth suggesting depends on which
- * chords the song actually holds — and they come from the live copy, so a chord added
- * in the editor counts the moment it is saved.
+ * The bar needs nothing about the song's own chords any more: the capo suggestion and the
+ * key both moved onto the sheet's own header (`SongControls`), and what is left here —
+ * play, speed, Strum Together, the step to the next song — is the same on every song.
  */
 export function LiveControlBar({ steps }: { steps: NavSteps | null }) {
-  const { song, parsed } = useSong()
-  return <ControlBar songSlug={song.slug} chords={chordTokens(parsed)} steps={steps} />
+  const { song } = useSong()
+  return <ControlBar songSlug={song.slug} steps={steps} />
 }

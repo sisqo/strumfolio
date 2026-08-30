@@ -77,7 +77,13 @@ export function readShift(semitones: number, capo: number): number {
   return semitones - capo
 }
 
-/** The key whose letters are on the page, which is where the capo shows up. */
+/**
+ * The key whose letters are on the page, which is where the capo shows up.
+ *
+ * Unread since v4.1, for the same reason and on the same terms as `estimateKey` itself —
+ * see the note at the top of `key.ts`. `readShift` above, which is the half that says how
+ * far the chords moved, is still what every sheet runs on.
+ */
 export function readKey(original: Key, semitones: number, capo: number): Key {
   return transposeKey(original, readShift(semitones, capo))
 }
@@ -95,9 +101,13 @@ export function formatSemitones(semitones: number): string {
 }
 
 /**
- * The sentence that explains why the chords shown aren't the ones written — shared by
- * the reading screen's own note (`TransposeNote`) and the booklet's per-song
- * annotation, so the two can never drift into saying this two different ways.
+ * The sentence that explains why the chords shown aren't the ones written.
+ *
+ * The booklet's per-song annotation is its only reader now. It used to be shared with the
+ * reading screen, which carried the same sentence under the title precisely because capo
+ * and transposition were hidden in a shut panel; since v4.1 the Key and Capo chips state
+ * their values outright and that line was the same fact twice. A page being printed has no
+ * chips, so it still needs the words.
  *
  * Null when neither capo nor transposition is set, because then there is nothing to
  * explain.

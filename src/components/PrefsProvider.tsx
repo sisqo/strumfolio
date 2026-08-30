@@ -13,7 +13,7 @@ import {
 } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
-import type { Notation } from '@/lib/music/chord'
+import type { Accidentals, Notation } from '@/lib/music/chord'
 import type { Instrument } from '@/lib/music/shapes'
 import { PLANS } from '@/lib/plans/types'
 import { loadPrefs, recordSongOpened, saveGlobalPrefs, saveSongPrefs } from '@/lib/prefs/actions'
@@ -45,6 +45,7 @@ interface PrefsContextValue {
   setNotation: (notation: Notation) => void
   setInstrument: (instrument: Instrument) => void
   setChordDisplay: (chordDisplay: ChordDisplay) => void
+  setAccidentals: (accidentals: Accidentals) => void
   setSemitones: (semitones: number) => void
   setScrollSpeed: (step: number) => void
   setCapo: (fret: number) => void
@@ -196,7 +197,8 @@ export function PrefsProvider({
         next.zoomStep === readable.zoomStep &&
         next.notation === readable.notation &&
         next.instrument === readable.instrument &&
-        next.chordDisplay === readable.chordDisplay
+        next.chordDisplay === readable.chordDisplay &&
+        next.accidentals === readable.accidentals
       ) {
         return
       }
@@ -240,6 +242,7 @@ export function PrefsProvider({
       setNotation: (notation) => updateGlobal({ ...readable, notation }),
       setInstrument: (instrument) => updateGlobal({ ...readable, instrument }),
       setChordDisplay: (chordDisplay) => updateGlobal({ ...readable, chordDisplay }),
+      setAccidentals: (accidentals) => updateGlobal({ ...readable, accidentals }),
       setSemitones: (semitones) =>
         updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),

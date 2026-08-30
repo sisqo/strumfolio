@@ -163,7 +163,7 @@ export function BookletPanel() {
         return
       }
 
-      const blob = await bookletToBlob(booklet, global.notation, footerText)
+      const blob = await bookletToBlob(booklet, global.notation, global.accidentals, footerText)
       downloadBlob(blob, `${booklet.songbookName}.pdf`)
       setNotice(`Downloaded "${booklet.songbookName}" as a printable booklet.`)
     } catch {

@@ -509,12 +509,24 @@ export const userPrefs = pgTable('user_prefs', {
    */
   instrument: text('instrument').notNull().default('guitar'),
   /**
-   * Whether the sheet shows a chord as its name or as its shape — `name` or `shape`.
-   * Defaulted rather than nullable, same reasoning as `instrument` right above:
-   * every existing row already answers the question, with the answer that changes
-   * nothing for a reader who has never touched this preference.
+   * How much of a chord the sheet draws — `name`, `shape`, `diagrams` or `fingerings`
+   * (`ChordDisplay`). Defaulted rather than nullable, same reasoning as `instrument`
+   * right above: every existing row already answers the question, with the answer that
+   * changes nothing for a reader who has never touched this preference.
+   *
+   * It grew from two values to four without a migration, which is the payoff of the
+   * plain-`text`-no-CHECK convention this schema follows throughout: the column already
+   * accepted any string, so only `readChordDisplay` had to learn the new ones.
    */
   chordDisplay: text('chord_display').notNull().default('name'),
+  /**
+   * Whether chords are written with sharps or with flats — `sharp` or `flat`.
+   *
+   * Defaulted to `sharp` and not nullable, so there is no "unset" state for the reading
+   * screen to draw: the control is two segments with one of them always lit, and a third
+   * state would be a thing it has no way to show. See `readChord` for what it does.
+   */
+  accidentals: text('accidentals').notNull().default('sharp'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
