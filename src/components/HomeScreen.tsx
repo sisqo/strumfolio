@@ -999,7 +999,7 @@ function SampleSongbookNote({ slug }: { slug: string | null }) {
   if (slug === null || !shown) return null
 
   return (
-    <div className="notice notice-accent mt-4" role="status">
+    <div className="notice mt-4" role="status">
       <IconInfo />
       <span className="flex-1">
         We&apos;ve added a few songs to get you started. Open one, change a chord, see how it
