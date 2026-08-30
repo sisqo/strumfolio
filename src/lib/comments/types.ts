@@ -2,8 +2,11 @@
  * The vocabulary of an anchored comment: a private note a reader pins to one point of
  * one song, on their own screen.
  *
- * Not the song note (`user_song_prefs.note`), which speaks about the whole song and
- * stays where it is: these two coexist, and both mock boards draw them together.
+ * These replaced the per-song note that used to sit above the sheet (`user_song_prefs.note`,
+ * dropped in migration 0030). The two were planned to coexist — both mock boards draw them
+ * together — but a note anchored to the word it is about says everything the free-floating
+ * one said and also says *where*, and two places to write a reminder about one song were two
+ * places to look for it.
  *
  * The anchor lives in the *editor's* coordinates — `SongDocument.blocks` is 1:1 with the
  * source lines, whereas the reading parser drops blank lines and unknown directives and

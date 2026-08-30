@@ -10,10 +10,18 @@
 ## Cos'è
 
 Un **commento** è un appunto testuale privato che un lettore aggancia a un punto preciso di
-una canzone: una sillaba della riga di testo, oppure un accordo della riga sopra. Non è la
-nota di canzone che esiste già (`user_song_prefs.note`, la striscia «Attacca piano, il
-ritornello va giù di un tono» sotto il titolo): quella parla della canzone intera e resta
-dov'è. Le due convivono, e nei mock convivono infatti in entrambe le board.
+una canzone: una sillaba della riga di testo, oppure un accordo della riga sopra.
+
+> **Aggiornamento (30/08/2026).** Il piano prevedeva che convivesse con la nota di canzone
+> già esistente (`user_song_prefs.note`, la striscia «Attacca piano, il ritornello va giù di
+> un tono» sotto il titolo), come nei mock, che le disegnano insieme in entrambe le board.
+> A feature finita quella nota è stata invece **eliminata** (migrazione 0030): un appunto
+> agganciato alla parola di cui parla dice tutto quello che diceva la striscia e in più dice
+> *dove*, e due posti dove scrivere un promemoria sulla stessa canzone erano due posti dove
+> cercarlo. Contate prima di toglierla: 48 righe di preferenze e zero note non vuote in tutta
+> l'installazione — nessuno ne aveva mai scritta una. Le righe che seguono la nominano ancora
+> come termine di paragone per il gating (Decisione 5), e quel confronto resta valido:
+> descrive perché nessuna delle due si vende.
 
 Tre stati, non due, esposti da un interruttore a tre segmenti nell'header della canzone:
 commenti **nascosti**, commenti **visibili** (lo stato in cui si sta), e **modalità aggiunta**,

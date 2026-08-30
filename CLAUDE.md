@@ -102,6 +102,35 @@ always wins over whatever `.env.local` says; and `scripts/migrate.ts` itself pro
 variable is set. Exporting just `DATABASE_URL_UNPOOLED` for the one command is enough to point
 that single migration run at production while every other file on disk stays pointed at dev.
 
+### When there is no terminal at all: the Neon SQL console, journal row included
+
+Confirmed 2026-08-30, applying `0030`. With nobody able to run the CLI, production is still
+reachable from a browser — Neon dashboard → the **`songs-db`** project (not `songs-db-dev`)
+→ SQL Editor. What makes this safe is the *second* statement, which is the part that is easy
+to forget and expensive to skip:
+
+```sql
+BEGIN;
+ALTER TABLE "user_song_prefs" DROP COLUMN "note";   -- the migration's own SQL
+INSERT INTO drizzle.__drizzle_migrations ("hash","created_at") VALUES ('<sha256>', <when>);
+COMMIT;
+```
+
+Run by hand, the schema changes but drizzle's journal does not, so the **next** real
+migration re-runs this one — and since `migrate` wraps the whole run in one transaction, that
+failure takes every later migration down with it. The two values come from the repo, and both
+are derivable without guessing:
+
+- `<sha256>` — `sha256` of the migration file's **raw bytes** (`readMigrationFiles` in
+  `node_modules/drizzle-orm/migrator.js` hashes the file, not the statements).
+- `<when>` — the `when` field of that migration's entry in `drizzle/meta/_journal.json`.
+
+`drizzle.__drizzle_migrations` is `(id SERIAL, hash text, created_at bigint)`, and
+`pg-core/dialect.js` decides what to apply by comparing **`created_at` against the journal's
+`when`**, never by matching the hash — so the timestamp is the load-bearing value and it must
+be greater than the previous migration's. The `BEGIN`/`COMMIT` matters: a `DROP` that commits
+without its journal row leaves exactly the mismatch this exists to prevent.
+
 ## Development and Production are separate Neon databases (since 2026-08-29)
 
 Before this date, Development and Production shared the exact same Neon database (`songs-db`,
