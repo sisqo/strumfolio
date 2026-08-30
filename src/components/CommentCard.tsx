@@ -11,46 +11,48 @@
  * are the same place, and reading them in order is the point.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useComments } from '@/components/CommentsProvider'
 import { whenOf } from '@/lib/comments/when'
 import type { CardPoint, CardSubject } from '@/lib/comments/types'
 
-/** How wide the card is allowed to be, and how far it stays from the edge of the screen. */
+/** How wide the card would like to be, and how close to the edge it may come. */
 const CARD_WIDTH = 320
 const MARGIN = 12
-/** Below this the card is a bottom sheet: there is no room to sit beside anything. */
-const PHONE = 480
+/** The gap between the mark and the card, so the badge stays visible beside it. */
+const GAP = 10
 
 /**
  * Pins the card under the mark it belongs to, clamped so it never runs off the screen.
  *
- * The first version was a bottom sheet at every width, which put the card at the foot of
- * the page while the word it was about stayed near the top — the reader had to hold the
- * anchor in their head to read the note. The mock is explicit that the card is «pinned
- * under the mark it belongs to», and this is the arithmetic for it.
+ * At **every** width, with no bottom-sheet branch. The first version fell back to a sheet
+ * below 480px on the reasoning that a 320px card is most of a phone screen anyway — but
+ * the point of the card is that the words it is about stay in view beside it, and a sheet
+ * at the foot of the page is exactly what breaks that. On a narrow screen the card
+ * narrows instead.
  *
- * Still a bottom sheet on a phone, where a 320px card beside a word is most of the screen
- * anyway and the thumb is at the bottom.
+ * Takes the measured height rather than guessing one: whether there is room below the
+ * mark depends on how tall the card actually turned out, which is only knowable once it
+ * has rendered — hence the layout effect that calls this again with a real number.
  */
-function placeCard(at: CardPoint): React.CSSProperties {
-  if (typeof window === 'undefined' || window.innerWidth <= PHONE) return {}
+function placeCard(at: CardPoint, height: number): React.CSSProperties {
+  if (typeof window === 'undefined') return {}
 
+  const width = Math.min(CARD_WIDTH, window.innerWidth - MARGIN * 2)
   const left = Math.min(
-    Math.max(MARGIN, at.x - CARD_WIDTH / 2),
-    window.innerWidth - CARD_WIDTH - MARGIN,
+    Math.max(MARGIN, at.x - width / 2),
+    Math.max(MARGIN, window.innerWidth - width - MARGIN),
   )
 
-  // Under the mark by default; above it when there is not enough room below, which is
-  // what stops a note near the foot of a long song from opening off-screen.
-  const below = window.innerHeight - at.y
-  const style: React.CSSProperties = { position: 'fixed', left, width: CARD_WIDTH, margin: 0 }
+  // Under the mark by default; above it when the card would otherwise run off the bottom,
+  // which is what a note near the foot of a long song would do on every open.
+  const fitsBelow = at.y + GAP + height <= window.innerHeight - MARGIN
+  const top = fitsBelow
+    ? at.y + GAP
+    : Math.max(MARGIN, Math.min(at.y - GAP - height, window.innerHeight - height - MARGIN))
 
-  if (below < 240) style.bottom = Math.max(MARGIN, window.innerHeight - at.y + 18)
-  else style.top = at.y + 10
-
-  return style
+  return { position: 'fixed', left, top, width, margin: 0 }
 }
 
 export function CommentCard({ subject, onClose }: { subject: CardSubject; onClose: () => void }) {
@@ -58,6 +60,9 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const field = useRef<HTMLTextAreaElement | null>(null)
+  const card = useRef<HTMLDivElement | null>(null)
+
+  const [placed, setPlaced] = useState<React.CSSProperties>(() => placeCard(subject.at, 0))
 
   useEffect(() => {
     field.current?.focus()
@@ -77,6 +82,20 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
   useEffect(() => {
     if (subject.kind === 'read' && shown.length === 0) onClose()
   }, [subject.kind, shown.length, onClose])
+
+  /*
+   * Placed once against a zero height, then again against the real one before the browser
+   * paints — `useLayoutEffect`, not `useEffect`, so the card is never seen in the wrong
+   * place for a frame.
+   *
+   * Re-run on the three things that change how tall it is: which card this is, how many
+   * notes are stacked in it, and whether one of them is open in a textarea. A card that
+   * grew after opening would otherwise keep a `top` computed for its old height and could
+   * run off the bottom of the screen.
+   */
+  useLayoutEffect(() => {
+    setPlaced(placeCard(subject.at, card.current?.offsetHeight ?? 0))
+  }, [subject, shown.length, editing])
 
   const label = subject.kind === 'write' ? subject.label : (shown[0]?.anchorLabel ?? '')
   const orphaned = subject.kind === 'read' && shown.length > 0 && shown[0].anchor === null
@@ -112,7 +131,8 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
     <div className="comment-card-backdrop" onClick={onClose} role="presentation">
       <div
         className={subject.kind === 'write' ? 'comment-card is-writing' : 'comment-card'}
-        style={placeCard(subject.at)}
+        ref={card}
+        style={placed}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -152,10 +172,10 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
                 rows={3}
               />
               <div className="comment-card-actions">
-                <button type="button" className="comment-card-cancel" onClick={() => setEditing(null)}>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => setEditing(null)}>
                   Cancel
                 </button>
-                <button type="button" className="comment-card-save" onClick={save} disabled={draft.trim() === ''}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={draft.trim() === ''}>
                   Save
                 </button>
               </div>
@@ -167,7 +187,7 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
               <div className="comment-card-actions">
                 <button
                   type="button"
-                  className="comment-card-cancel"
+                  className="btn btn-quiet btn-sm"
                   onClick={() => {
                     setEditing(comment.id)
                     setDraft(comment.body)
@@ -175,7 +195,7 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
                 >
                   Edit
                 </button>
-                <button type="button" className="comment-card-delete" onClick={() => remove(comment.id)}>
+                <button type="button" className="btn btn-quiet btn-sm comment-card-delete" onClick={() => remove(comment.id)}>
                   Delete
                 </button>
               </div>
@@ -194,10 +214,10 @@ export function CommentCard({ subject, onClose }: { subject: CardSubject; onClos
               rows={3}
             />
             <div className="comment-card-actions">
-              <button type="button" className="comment-card-cancel" onClick={onClose}>
+              <button type="button" className="btn btn-quiet btn-sm" onClick={onClose}>
                 Cancel
               </button>
-              <button type="button" className="comment-card-save" onClick={save} disabled={draft.trim() === ''}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={draft.trim() === ''}>
                 Save
               </button>
             </div>

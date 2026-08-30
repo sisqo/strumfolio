@@ -672,34 +672,21 @@
   /* ---- The card ------------------------------------------------------- */
 
   /*
-   * On a phone the card is a sheet at the bottom, under a dimmed page — the thumb is
-   * there and a 320px card beside a word would be most of the screen anyway.
+   * A click-catcher and nothing else — no dimming, at any width.
    *
-   * Wider than that it is a popover pinned under its own mark (`placeCard`), and the
-   * backdrop stops dimming: it is only there to catch the click that closes the card, and
-   * darkening the whole song to show a two-line note read as a much bigger event than it
-   * is — the line the note is about has to stay readable beside it.
+   * The card is pinned under its own mark (`placeCard`), and the whole reason it is pinned
+   * there is that the line it talks about stays readable beside it. Darkening the song to
+   * show a two-line note would take that back, and read as a much bigger event than it is.
    */
   .comment-card-backdrop {
     position: fixed;
     inset: 0;
     z-index: 60;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 1rem;
-    background: var(--dim);
   }
 
-  @media (min-width: 30.0625rem) {
-    .comment-card-backdrop {
-      background: none;
-    }
-  }
-
+  /* Width and position both come from `placeCard`, inline: they depend on where the mark
+     is and how wide the screen is, neither of which a stylesheet can know. */
   .comment-card {
-    width: 100%;
-    max-width: 26rem;
     max-height: 70dvh;
     overflow-y: auto;
     padding: 1rem;
@@ -770,39 +757,17 @@
     margin-block-start: 0.5rem;
   }
 
-  .comment-card-cancel,
-  .comment-card-delete,
-  .comment-card-save {
-    height: 2.25rem;
-    padding: 0 0.875rem;
-    border: 0;
-    border-radius: var(--r-pill);
-    font-family: inherit;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .comment-card-cancel {
-    background: none;
-    color: var(--muted);
-  }
-
-  .comment-card-delete {
-    background: none;
+  /*
+   * The card's actions are the app's real buttons — `btn btn-primary btn-sm` and
+   * `btn btn-quiet btn-sm` — not lookalikes styled here. The first version drew its own
+   * Save in the note blue, which put a button on the screen that matched no other primary
+   * action in the app; two sets of button styles is also two sets to keep in step.
+   *
+   * Only Delete adds anything, and it needs `.btn` in the selector to outrank
+   * `.btn-quiet`'s own colour, which is declared later in this file.
+   */
+  .btn.comment-card-delete {
     color: var(--danger);
-  }
-
-  .comment-card-save {
-    background: var(--note);
-    color: var(--surface);
-  }
-
-  /* Inert until something has been typed — the one rule the writing card states. */
-  .comment-card-save:disabled {
-    background: var(--surface-2);
-    color: var(--faint);
-    cursor: not-allowed;
   }
 
   /* ---- The rail, and the layout that makes room for it ----------------- */
