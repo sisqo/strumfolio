@@ -91,13 +91,15 @@
  * songbook's own index rarely spans more than a page or two.
  */
 
+import { Fragment } from 'react'
+
 import { Document, Font, Link, Page, Path, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer'
 import { PDFDocument } from 'pdf-lib'
 
-import { SITE_URL } from '@/lib/brand'
-
 import type { Booklet, BookletSong } from './actions'
 import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
+import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
+import { type SongComment, inReadingOrder } from '../comments/types'
 import { type Notation, parseChord, transposeChord, formatChord } from '../music/chord'
 import { readKey, readShift, transposeNoteText } from '../music/capo'
 import { estimateKey } from '../music/key'
@@ -131,6 +133,9 @@ const LEADER_DOTS = '#d5d1c8'
 const ACCENT = '#97490f'
 const ACCENT_BG = '#faf6f1'
 const BADGE_TEXT = '#fffaf4'
+/** The reading screen's own note blue (`--note`, light theme) — a comment must never
+ *  read as part of the music, so it never borrows the chord accent. */
+const NOTE_BLUE = '#2f5f8f'
 /** `ACCENT` diluted against a white page — a bridge's own rule, quieter than a chorus's solid one. */
 const BRIDGE_RULE = '#dbbfab'
 
@@ -169,7 +174,7 @@ const styles = StyleSheet.create({
     borderTopColor: RULE,
     paddingTop: 13.5,
   },
-  footerText: {
+  footerCaption: {
     fontSize: 8.25,
     color: FOOTER_GREY,
   },
@@ -428,13 +433,50 @@ const styles = StyleSheet.create({
     fontSize: 9.75,
     color: INK,
   },
+  /** The footnote marker, right after the text it's about — see `markerNumbers`'s own
+   *  comment on why it can carry more than one number. */
+  noteMarker: {
+    fontSize: 6,
+    color: NOTE_BLUE,
+  },
+
+  // Notes, at the foot of the song they belong to
+  footnotesGroup: {
+    marginTop: 15,
+  },
+  /** The orphan group's own label — same wording as the reading screen's, since it
+   *  is the same fact: these notes lost their hold on the text (`reanchor.ts`). */
+  footnotesOrphanLabel: {
+    fontSize: 8.625,
+    fontStyle: 'italic',
+    color: MUTED,
+    marginBottom: 6,
+  },
+  footnoteRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+  },
+  footnoteNumber: {
+    width: 18,
+    flex: 'none',
+    fontSize: 8.625,
+    fontWeight: 'bold',
+    color: NOTE_BLUE,
+  },
+  footnoteBody: {
+    flex: 1,
+    fontSize: 9,
+    lineHeight: 1.4,
+    color: INK,
+  },
 })
 
 /**
- * The page number, and — on the plans whose booklet carries it — the "Printed with
- * Strumfolio · …" line. `brandLine` is decided on the server and travels on `loadBooklet`'s
- * result: the PDF is rendered here in the browser, so re-deriving it here would be both a
- * second round trip and a soft gate anybody could flip in devtools.
+ * The page number, and — on the plans whose booklet carries one — the footer line: the
+ * fixed "Printed with Strumfolio · …", nothing, or the account's own words. `footerText`
+ * is resolved once on the server and travels on `loadBooklet`'s result — see
+ * `resolveFooterText` there — so this component never decides what a plan may print,
+ * only draws whatever string it was handed.
  *
  * The `Text` element is rendered either way and only its *content* goes empty, which is
  * deliberate and load-bearing. Page numbers come from measuring renders (`countPages`,
@@ -442,19 +484,19 @@ const styles = StyleSheet.create({
  * the printed one would shift every song's page number in the index — silently, with
  * nothing for the compiler to catch and no test in this repo able to see it.
  */
-function Footer({ brandLine, bordered = true }: { brandLine: boolean; bordered?: boolean }) {
+function Footer({ footerText, bordered = true }: { footerText: string; bordered?: boolean }) {
   return (
     <View style={[styles.footer, bordered ? styles.footerBordered : undefined]} fixed>
-      <Text style={styles.footerText}>{brandLine ? `Printed with Strumfolio · ${SITE_URL}` : ''}</Text>
+      <Text style={styles.footerCaption}>{footerText}</Text>
       <Text
-        style={styles.footerText}
+        style={styles.footerCaption}
         render={({ pageNumber }) => (pageNumber === 1 ? '' : String(pageNumber))}
       />
     </View>
   )
 }
 
-function CoverPage({ booklet, brandLine }: { booklet: Booklet; brandLine: boolean }) {
+function CoverPage({ booklet, footerText }: { booklet: Booklet; footerText: string }) {
   const songCount = booklet.sections.reduce((sum, section) => sum + section.songs.length, 0)
   const sectionNames = booklet.sections.map((section) => section.name)
 
@@ -485,7 +527,7 @@ function CoverPage({ booklet, brandLine }: { booklet: Booklet; brandLine: boolea
 
       <View style={{ flex: 1 }} />
 
-      <Footer brandLine={brandLine} bordered={false} />
+      <Footer footerText={footerText} bordered={false} />
     </Page>
   )
 }
@@ -551,11 +593,11 @@ function IndexColumn({ groups }: { groups: IndexGroup[] }) {
 function IndexPage({
   songbookName,
   groups,
-  brandLine,
+  footerText,
 }: {
   songbookName: string
   groups: IndexGroup[]
-  brandLine: boolean
+  footerText: string
 }) {
   const [left, right] = splitGroupsIntoColumns(groups)
 
@@ -575,7 +617,7 @@ function IndexPage({
         </View>
       </View>
 
-      <Footer brandLine={brandLine} />
+      <Footer footerText={footerText} />
     </Page>
   )
 }
@@ -583,6 +625,48 @@ function IndexPage({
 /** A song's three link slots, empty ones dropped, order kept. */
 function linksOf(song: BookletSong): string[] {
   return [song.link1, song.link2, song.link3].filter((link) => link !== null)
+}
+
+/**
+ * Everything the booklet needs to print this reader's own comments on this song — or
+ * null when they asked for the written key's silence on the matter (see
+ * `includeComments` on `BookletPanel`) or simply never annotated this particular song.
+ *
+ * `anchorsByLine` is keyed on the `Line` object itself rather than on an index, because
+ * `paginateSong`/`splitByRows` slice `parsed.sections` into pages and columns by taking
+ * sub-arrays, never by cloning — the same `Line` reference that lived in the whole song
+ * still lives in whichever page and column it lands in, so an identity-keyed map built
+ * once, before any slicing, keeps answering correctly after it.
+ */
+interface BookletNotes {
+  anchorsByLine: Map<Line, PartAnchor[][]>
+  /** In reading order — every number printed, on a marker or in the footnote list, is a
+   *  position in this list, never recomputed some other way. */
+  comments: SongComment[]
+  numberById: Map<string, number>
+}
+
+function buildNotes(song: BookletSong, sections: Section[]): BookletNotes | null {
+  if (song.comments.length === 0) return null
+
+  const comments = inReadingOrder(song.comments)
+  const numberById = new Map(comments.map((comment, index) => [comment.id, index + 1]))
+
+  // The map is flat over the whole song's lyrics lines, in source order — the same
+  // counter `SongSheet` keeps, kept here across every section before any page or
+  // column split touches them, since the map's indices assume nothing has yet.
+  const anchorMap = buildAnchorMap(song.body)
+  const anchorsByLine = new Map<Line, PartAnchor[][]>()
+  let lyricLine = -1
+  for (const section of sections) {
+    for (const line of section.lines) {
+      if (line.kind !== 'lyrics') continue
+      lyricLine += 1
+      anchorsByLine.set(line, anchorMap[lyricLine] ?? [])
+    }
+  }
+
+  return { anchorsByLine, comments, numberById }
 }
 
 /**
@@ -616,17 +700,29 @@ function prepare(song: BookletSong, notation: Notation) {
     section.lines.some((line) => line.kind === 'lyrics' && line.hasChords),
   )
 
-  return { parsed, chordLabel, roomForChords, transposeNote }
+  const notes = buildNotes(song, parsed.sections)
+
+  return { parsed, chordLabel, roomForChords, transposeNote, notes }
+}
+
+/** The footnote numbers a marker carries — more than one when several notes are
+ *  stacked on the exact same point, since a printed page has no tap to expand them
+ *  the way the reading screen's one badge does. */
+function markerNumbers(ids: string[], numberById: Map<string, number>): string {
+  return ids.map((id) => numberById.get(id) ?? '?').join(',')
 }
 
 function BookletLine({
   line,
   chordLabel,
   roomForChords,
+  notes,
 }: {
   line: Line
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
+  /** Null when the reader printed with no comments — see `BookletNotes`'s own comment. */
+  notes: BookletNotes | null
 }) {
   if (line.kind === 'comment') {
     return <Text style={styles.comment}>{line.text}</Text>
@@ -644,20 +740,34 @@ function BookletLine({
     )
   }
 
+  const anchorsForLine = notes?.anchorsByLine.get(line)
+
   return (
     <View style={styles.line}>
       {line.words.map((word, wordIndex) => (
         <View key={wordIndex} style={styles.word}>
           {word.parts.map((part, partIndex) => {
             const label = chordLabel(part.chord)
+            const anchor = anchorsForLine?.[wordIndex]?.[partIndex]
+            const lyricNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'lyric') : null
+            const chordNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'chord') : null
+
             return (
               <View key={partIndex} style={styles.part}>
                 {roomForChords && (
                   <Text style={label === null ? styles.chord : [styles.chord, styles.chordGap]}>
                     {label ?? ' '}
+                    {chordNote !== null && chordNote.ids.length > 0 && (
+                      <Text style={styles.noteMarker}> {markerNumbers(chordNote.ids, notes!.numberById)}</Text>
+                    )}
                   </Text>
                 )}
-                <Text style={styles.lyric}>{part.text === '' ? ' ' : part.text}</Text>
+                <Text style={styles.lyric}>
+                  {part.text === '' ? ' ' : part.text}
+                  {lyricNote !== null && lyricNote.ids.length > 0 && (
+                    <Text style={styles.noteMarker}> {markerNumbers(lyricNote.ids, notes!.numberById)}</Text>
+                  )}
+                </Text>
               </View>
             )
           })}
@@ -671,10 +781,12 @@ function Stanzas({
   sections,
   chordLabel,
   roomForChords,
+  notes,
 }: {
   sections: Section[]
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
+  notes: BookletNotes | null
 }) {
   return (
     <>
@@ -704,7 +816,7 @@ function Stanzas({
         >
           {section.lines.map((line, lineIndex) => (
             <View key={lineIndex} style={lineIndex > 0 ? styles.lineSpacing : undefined}>
-              <BookletLine line={line} chordLabel={chordLabel} roomForChords={roomForChords} />
+              <BookletLine line={line} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
             </View>
           ))}
         </View>
@@ -759,8 +871,9 @@ function BookletSongPage({
   chordLabel,
   roomForChords,
   transposeNote,
+  notes,
   isFirstPage,
-  brandLine,
+  footerText,
 }: {
   title: string
   artist: string | null
@@ -773,8 +886,9 @@ function BookletSongPage({
   roomForChords: boolean
   /** `TransposeNote`'s sentence for this song, or null when printed in the written key. */
   transposeNote: string | null
+  notes: BookletNotes | null
   isFirstPage: boolean
-  brandLine: boolean
+  footerText: string
 }) {
   const [left, right] = splitByRows(sections)
 
@@ -807,20 +921,82 @@ function BookletSongPage({
 
       {right.length === 0 ? (
         <View style={styles.columnsSingle}>
-          <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} />
+          <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
         </View>
       ) : (
         <View style={styles.columns}>
           <View style={styles.columnLeft}>
-            <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} />
+            <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
           </View>
           <View style={styles.column}>
-            <Stanzas sections={right} chordLabel={chordLabel} roomForChords={roomForChords} />
+            <Stanzas sections={right} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
           </View>
         </View>
       )}
 
-      <Footer brandLine={brandLine} />
+      <Footer footerText={footerText} />
+    </Page>
+  )
+}
+
+/**
+ * Every one of this reader's own comments on a song, at the foot of it — the numbers
+ * printed here are exactly the ones a marker carries in the lyrics above, so a page torn
+ * out of the booklet still reads on its own.
+ *
+ * Its own page(s) rather than sharing the song's last one: `paginateSong`'s binary
+ * search already measures the tightest fit for the lyrics alone, and asking it to also
+ * account for a footnote block only on whichever prefix turns out to be the last would
+ * mean measuring two different things at once. A dedicated page, measured the same way
+ * the cover and the index already are (`countPages`, once, reused for the real render),
+ * keeps that measurement honest without touching the lyrics' own.
+ *
+ * Left in `@react-pdf/renderer`'s own hands if the list itself overflows one page — the
+ * same trade-off `IndexPage`'s own comment already accepts, and for the same reason: a
+ * songbook's own notes rarely run past a page or two.
+ */
+function BookletFootnotesPage({
+  title,
+  comments,
+  footerText,
+}: {
+  title: string
+  /** In reading order — row N is footnote number N + 1. */
+  comments: SongComment[]
+  footerText: string
+}) {
+  const anchored = comments.filter((comment) => comment.anchor !== null)
+  const orphaned = comments.filter((comment) => comment.anchor === null)
+
+  const row = (comment: SongComment) => (
+    <View key={comment.id} style={styles.footnoteRow} wrap={false}>
+      <Text style={styles.footnoteNumber}>{comments.indexOf(comment) + 1}</Text>
+      <Text style={styles.footnoteBody}>{comment.body}</Text>
+    </View>
+  )
+
+  return (
+    <Page size="A4" style={styles.page} wrap>
+      <View style={styles.continuationHeader}>
+        <Text style={styles.continuationTitle}>
+          {title} <Text style={styles.continuationSuffix}>— notes</Text>
+        </Text>
+      </View>
+
+      <View style={styles.footnotesGroup}>{anchored.map(row)}</View>
+
+      {orphaned.length > 0 && (
+        <View style={styles.footnotesGroup}>
+          <Text style={styles.footnotesOrphanLabel}>
+            {orphaned.length === 1
+              ? 'No longer anchored to the words:'
+              : `${orphaned.length} notes no longer anchored to the words:`}
+          </Text>
+          {orphaned.map(row)}
+        </View>
+      )}
+
+      <Footer footerText={footerText} />
     </Page>
   )
 }
@@ -899,14 +1075,19 @@ async function paginateSong(
   song: BookletSong,
   sectionName: string,
   notation: Notation,
-  brandLine: boolean,
+  footerText: string,
 ): Promise<{
   pages: Section[][]
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
   transposeNote: string | null
+  notes: BookletNotes | null
+  /** The song's own notes, at its foot — rendered once here and reused as-is for the
+   *  real document, the same reason `IndexPage`'s own element is (see `countPages`'
+   *  own comment): a second render of the same props could only ever agree. */
+  footnotes: { element: React.ReactElement; pageCount: number } | null
 }> {
-  const { parsed, chordLabel, roomForChords, transposeNote } = prepare(song, notation)
+  const { parsed, chordLabel, roomForChords, transposeNote, notes } = prepare(song, notation)
 
   const links = linksOf(song)
 
@@ -920,8 +1101,9 @@ async function paginateSong(
       chordLabel={chordLabel}
       roomForChords={roomForChords}
       transposeNote={transposeNote}
+      notes={notes}
       isFirstPage={isFirstPage}
-      brandLine={brandLine}
+      footerText={footerText}
     />
   )
 
@@ -936,18 +1118,24 @@ async function paginateSong(
   // An empty song body still gets one (empty) page, so the index has somewhere to point.
   if (pages.length === 0) pages.push([])
 
-  return { pages, chordLabel, roomForChords, transposeNote }
+  let footnotes: { element: React.ReactElement; pageCount: number } | null = null
+  if (notes !== null) {
+    const element = <BookletFootnotesPage title={song.title} comments={notes.comments} footerText={footerText} />
+    footnotes = { element, pageCount: await countPages(element) }
+  }
+
+  return { pages, chordLabel, roomForChords, transposeNote, notes, footnotes }
 }
 
 /** Renders the booklet to a downloadable blob — the one thing the export panel needs. */
-export async function bookletToBlob(booklet: Booklet, notation: Notation, brandLine: boolean): Promise<Blob> {
+export async function bookletToBlob(booklet: Booklet, notation: Notation, footerText: string): Promise<Blob> {
   const entries = flatten(booklet)
 
   // Every song starts a fresh page and shares no flow with its neighbours, so
   // how it paginates depends only on its own words — safe to do in parallel,
   // before any page number exists.
   const songPagination = await Promise.all(
-    entries.map((entry) => paginateSong(entry.song, entry.sectionName, notation, brandLine)),
+    entries.map((entry) => paginateSong(entry.song, entry.sectionName, notation, footerText)),
   )
 
   // The index's own length turns on how many songs and sections there are,
@@ -959,15 +1147,18 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, brandL
     entries: section.songs.map((song) => ({ title: song.title, page: null })),
   }))
   const indexPageCount = await countPages(
-    <IndexPage songbookName={booklet.songbookName} groups={measureGroups} brandLine={brandLine} />,
+    <IndexPage songbookName={booklet.songbookName} groups={measureGroups} footerText={footerText} />,
   )
 
   // Page 1 is the cover, the index follows it, and every song starts right
-  // where the one before it left off.
+  // where the one before it left off. A song's own notes, when it has any, are
+  // pages of its own right after its last lyrics page (see `BookletFootnotesPage`'s
+  // own comment) — counted here so the *next* song's index entry still points at
+  // the right page, even though nothing ever links to the notes pages themselves.
   let page = 1 + indexPageCount + 1
   const startPages: number[] = songPagination.map((songPages) => {
     const startsAt = page
-    page += songPages.pages.length
+    page += songPages.pages.length + (songPages.footnotes?.pageCount ?? 0)
     return startsAt
   })
 
@@ -983,25 +1174,29 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, brandL
 
   const document = (
     <Document title={booklet.songbookName}>
-      <CoverPage booklet={booklet} brandLine={brandLine} />
-      <IndexPage songbookName={booklet.songbookName} groups={indexGroups} brandLine={brandLine} />
-      {entries.map((entry, index) =>
-        songPagination[index].pages.map((sections, pageIndex) => (
-          <BookletSongPage
-            key={`${index}-${pageIndex}`}
-            title={entry.song.title}
-            artist={entry.song.artist}
-            links={linksOf(entry.song)}
-            sectionName={entry.sectionName}
-            sections={sections}
-            chordLabel={songPagination[index].chordLabel}
-            roomForChords={songPagination[index].roomForChords}
-            transposeNote={songPagination[index].transposeNote}
-            isFirstPage={pageIndex === 0}
-            brandLine={brandLine}
-          />
-        )),
-      )}
+      <CoverPage booklet={booklet} footerText={footerText} />
+      <IndexPage songbookName={booklet.songbookName} groups={indexGroups} footerText={footerText} />
+      {entries.map((entry, index) => (
+        <Fragment key={index}>
+          {songPagination[index].pages.map((sections, pageIndex) => (
+            <BookletSongPage
+              key={pageIndex}
+              title={entry.song.title}
+              artist={entry.song.artist}
+              links={linksOf(entry.song)}
+              sectionName={entry.sectionName}
+              sections={sections}
+              chordLabel={songPagination[index].chordLabel}
+              roomForChords={songPagination[index].roomForChords}
+              transposeNote={songPagination[index].transposeNote}
+              notes={songPagination[index].notes}
+              isFirstPage={pageIndex === 0}
+              footerText={footerText}
+            />
+          ))}
+          {songPagination[index].footnotes?.element}
+        </Fragment>
+      ))}
     </Document>
   )
 

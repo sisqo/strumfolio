@@ -6,13 +6,19 @@ import { PLAN_LABEL } from './types'
 
 /**
  * The drift guard: this is the assertion that actually earns its keep as the map grows.
- * `entitlements.ts`'s `refused` has seven fields; only these four ever resolve to
+ * `entitlements.ts`'s `refused` has eight fields; only these five ever resolve to
  * `'plan-required'` (`createSongbook`/`createSong`/`editRepertoire` only ever answer
- * `frozen` or a numbered cap). A fifth gate landing there with no matching entry here is
+ * `frozen` or a numbered cap). A sixth gate landing there with no matching entry here is
  * exactly the drift `PAYWALL_FEATURES` exists to prevent.
  */
-test('PAYWALL_FEATURES covers exactly the four plan-required gates', () => {
-  assert.deepEqual(Object.keys(PAYWALL_FEATURES).sort(), ['booklet', 'featureRequest', 'lead', 'ukulele'])
+test('PAYWALL_FEATURES covers exactly the five plan-required gates', () => {
+  assert.deepEqual(Object.keys(PAYWALL_FEATURES).sort(), [
+    'booklet',
+    'bookletCustomFooter',
+    'featureRequest',
+    'lead',
+    'ukulele',
+  ])
 })
 
 test('every label but the declared Strum Together exception is lowercase with no leading article', () => {

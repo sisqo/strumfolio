@@ -20,6 +20,8 @@
 import { parseLyricLine } from '../chordpro'
 import { fromSource, writeLyricLine } from '../editor/document'
 
+import type { CommentTarget, SongComment } from './types'
+
 export interface PartAnchor {
   blockIndex: number
   charOffset: number
@@ -61,4 +63,38 @@ export function buildAnchorMap(source: string): AnchorMap {
   })
 
   return map
+}
+
+/**
+ * The notes sitting on one exact point, and the number the first of them wears.
+ *
+ * Shared by the reading screen (`SongSheet`) and the booklet's own rendering
+ * (`booklet/document.tsx`), which both walk the same reading AST and need the same
+ * answer to "does a part have a note on it, and which one" — a second copy of this scan
+ * is exactly the kind of thing that would drift the two silently apart.
+ *
+ * `comments` must already be in reading order (`inReadingOrder`): the number is the
+ * position in that list, never recomputed from anything else.
+ */
+export function notesAt(
+  comments: readonly SongComment[],
+  anchor: PartAnchor,
+  target: CommentTarget,
+): { ids: string[]; number: number } {
+  const ids: string[] = []
+  let number = 0
+
+  comments.forEach((comment, index) => {
+    if (comment.anchor === null) return
+    if (
+      comment.anchor.blockIndex === anchor.blockIndex &&
+      comment.anchor.charOffset === anchor.charOffset &&
+      comment.anchor.target === target
+    ) {
+      if (ids.length === 0) number = index + 1
+      ids.push(comment.id)
+    }
+  })
+
+  return { ids, number }
 }

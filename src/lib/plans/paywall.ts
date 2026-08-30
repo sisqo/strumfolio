@@ -8,7 +8,7 @@
  * reason (see this repo's `CLAUDE.md`): the copy rules below are worth a synchronous test,
  * and neither of those module kinds may export one.
  *
- * This is deliberately narrower than `LimitReason` (`types.ts`). Only the four gates below
+ * This is deliberately narrower than `LimitReason` (`types.ts`). Only the five gates below
  * ever resolve to `'plan-required'` — `entitlements.ts`'s `refused` has three more fields
  * (`createSongbook`, `createSong`, `editRepertoire`) but they only ever answer `frozen` or a
  * numbered cap, never a bare feature refusal — so `PlanUpgradeModal` still owns those two,
@@ -18,8 +18,8 @@
 
 import { PLAN_LABEL, type Plan } from './types'
 
-/** The four `Entitlements['refused']` fields (`entitlements.ts`) that ever answer `'plan-required'`. */
-export type PaywallGate = 'lead' | 'booklet' | 'ukulele' | 'featureRequest'
+/** The five `Entitlements['refused']` fields (`entitlements.ts`) that ever answer `'plan-required'`. */
+export type PaywallGate = 'lead' | 'booklet' | 'bookletCustomFooter' | 'ukulele' | 'featureRequest'
 
 export interface PaywallFeature {
   /**
@@ -42,6 +42,9 @@ export const PAYWALL_FEATURES: Record<PaywallGate, PaywallFeature> = {
   lead: { label: 'Strum Together', minPlan: 'standard' },
   // PLANS.free.booklet === 'no', PLANS.standard.booklet === 'branded'.
   booklet: { label: 'printable booklets', minPlan: 'standard' },
+  // PLANS.plus.booklet === 'plain', PLANS.premium.booklet === 'custom' — the one tier that
+  // may replace the fixed footer line with the reader's own.
+  bookletCustomFooter: { label: 'custom booklet footers', minPlan: 'premium' },
   // PLANS.free.ukulele === false, PLANS.standard.ukulele === true. Named for the diagrams
   // `ReadingPanel`'s instrument tap actually gates, matching the pricing table's own "Chord
   // shapes" row rather than the instrument alone.

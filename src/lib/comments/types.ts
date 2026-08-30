@@ -58,6 +58,38 @@ export interface SongComment {
   updatedAt: string
 }
 
+/** The shape a `userSongComments` row comes back as, whichever query selected it. */
+export interface CommentRow {
+  id: string
+  blockIndex: number | null
+  charOffset: number | null
+  target: string
+  anchorLabel: string
+  body: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
+ * A database row, read as a `SongComment` — shared by `comments/actions.ts` and
+ * `booklet/actions.ts` so the one rule that matters (`blockIndex`/`charOffset` are both
+ * null, or neither is) is written once. Plain rather than living in either `'use server'`
+ * file, which may only export async functions.
+ */
+export function commentFromRow(row: CommentRow): SongComment {
+  return {
+    id: row.id,
+    anchor:
+      row.blockIndex === null || row.charOffset === null
+        ? null
+        : { blockIndex: row.blockIndex, charOffset: row.charOffset, target: readTarget(row.target) },
+    anchorLabel: row.anchorLabel,
+    body: row.body,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
 /**
  * What the open card is about: a stack of notes being read, or a point being written at.
  *

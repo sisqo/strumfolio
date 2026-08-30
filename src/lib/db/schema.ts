@@ -201,6 +201,16 @@ export const accounts = pgTable(
      * not from the day this column was added.
      */
     planChosenAt: timestamp('plan_chosen_at', { withTimezone: true }),
+    /**
+     * What the printed booklet's footer says, in place of the fixed «Printed with
+     * Strumfolio» line — only ever read when the account's *current* plan tier is
+     * `custom` (`bookletCustomFooterAllowed`, `plans/entitlements.ts`); a downgrade
+     * leaves the row untouched but unreachable, the same way `allowedInstrument`
+     * (`prefs/actions.ts`) leaves a stored ukulele choice in place but unread.
+     * Null, not defaulted to empty, since almost no row will ever answer this and a
+     * null prints exactly as much as an empty string would.
+     */
+    bookletFooter: text('booklet_footer'),
   },
   (table) => [unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId)],
 )

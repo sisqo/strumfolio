@@ -99,10 +99,9 @@ export function readPlanStatus(value: unknown): PlanStatus {
  * How much of the printable booklet a plan includes.
  *
  * `no` is the whole feature withheld; `branded` prints the «Printed with Strumfolio» line
- * that every booklet carries today; `plain` prints without it. `custom` is premium's value
- * and today behaves exactly like `plain` — the customizable booklet is a later step, so
- * nothing may gate on `custom` yet. The only question any caller asks of this field in
- * this run is `bookletBrandLine`, i.e. whether the tier is `branded`.
+ * that every booklet not on `custom` or `plain` carries; `plain` prints no footer at all;
+ * `custom` (premium and lifetime) lets the reader type their own line instead — see
+ * `bookletCustomFooterAllowed` and `bookletBrandLine`, `plans/entitlements.ts`.
  */
 export type BookletTier = 'no' | 'branded' | 'plain' | 'custom'
 
@@ -147,7 +146,10 @@ export interface PlanLimits {
   featureRequests: FeatureRequestTier
   /** Matrix-only in this run: no call site reads it yet. Do not invent a gate for it. */
   smartCapo: boolean
-  /** Read by `loadBooklet` (`no` refuses) and by `bookletBrandLine` (`branded` prints the line). */
+  /**
+   * Read by `loadBooklet` (`no` refuses), `bookletBrandLine` (`branded` prints the fixed
+   * line), and `bookletCustomFooterAllowed` (`custom` prints the reader's own instead).
+   */
   booklet: BookletTier
   /** May start a Strum Together broadcast — read by `startBroadcast`. */
   mayLead: boolean

@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useRole } from '@/components/RoleProvider'
 import { IconChevronDown, IconDownload, IconInfo, IconLock, IconPrint } from '@/components/icons'
-import { loadBooklet } from '@/lib/booklet/actions'
+import { loadBooklet, loadBookletFooter, saveBookletFooter } from '@/lib/booklet/actions'
 import { bookletToBlob } from '@/lib/booklet/document'
 import type { Songbook } from '@/lib/data/types'
 import { downloadBlob } from '@/lib/download'
@@ -27,15 +27,16 @@ import { loadSongbooks } from '@/lib/songbooks/actions'
  *
  * The PDF is rendered **in the browser**, from what `loadBooklet` hands back — see
  * `booklet/document.tsx`. So the server decides what may be printed and what the document says
- * about itself (`brandLine`), and this side only draws it; a reader's own notation preference
+ * about itself (`footerText`), and this side only draws it; a reader's own notation preference
  * (`usePrefs`) is applied here for the same reason it is applied on a song screen, being a
  * display choice rather than something stored in the songbook.
  *
- * `usePersonalSettings` is a different kind of choice from the notation above: it decides
- * whether `loadBooklet` fetches this reader's own capo/transposition per song at all, which is
- * why it travels as an argument to a server action rather than as a prop this side resolves on
- * its own. Local `useState`, never a stored preference, and reset to `false` on every mount —
- * see its own comment above for why that has to be the case.
+ * `usePersonalSettings` and `includeComments` are a different kind of choice from the notation
+ * above: they decide whether `loadBooklet` fetches this reader's own capo/transposition and
+ * anchored notes per song at all, which is why both travel as arguments to a server action
+ * rather than as props this side resolves on its own. Local `useState`, never a stored
+ * preference, and reset to `false` on every mount — see their own comments above for why that
+ * has to be the case.
  */
 export function BookletPanel() {
   const { global } = usePrefs()
@@ -65,6 +66,59 @@ export function BookletPanel() {
    * or capo by forgetting a choice from a previous download.
    */
   const [usePersonalSettings, setUsePersonalSettings] = useState(false)
+  /**
+   * Same reasoning as `usePersonalSettings` above, and the same reset-on-mount rule:
+   * a booklet is for the room by default, and printing this one reader's own private
+   * notes into a copy meant to be handed out is the opt-in exception, asked again
+   * every time rather than remembered.
+   */
+  const [includeComments, setIncludeComments] = useState(false)
+
+  /**
+   * Unlike the two toggles above, this one **is** persisted — it is the account's own
+   * footer line, not a per-download choice, so it is fetched once on mount rather than
+   * reset every time. `footerRefused` is this field's own preview of the gate
+   * `saveBookletFooter` and `loadBooklet`'s own `resolveFooterText` both enforce
+   * server-side (see `bookletRefused` above for the identical reasoning): a plan below
+   * `custom` sees the field locked and answered with the same paywall, in case they try.
+   */
+  const [footerDraft, setFooterDraft] = useState('')
+  const [footerStatus, setFooterStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [footerPaywallOpen, setFooterPaywallOpen] = useState(false)
+  const footerRefused = plan !== null && PLANS[plan].booklet !== 'custom'
+  const footerSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadBookletFooter()
+      .then((saved) => {
+        if (!cancelled) setFooterDraft(saved ?? '')
+      })
+      .catch(() => {
+        // Offline, or nobody signed in: the field stays blank, same as a never-set line.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /*
+   * Debounced from the change handler itself, not from a `useEffect` on `footerDraft` —
+   * that would also fire the moment the load above sets the initial value, saving straight
+   * back what was just read for nothing. Cleared and restarted on every keystroke, so only
+   * the value 600ms after the last one is ever written.
+   */
+  const onFooterChange = (value: string) => {
+    setFooterDraft(value)
+    setFooterStatus('idle')
+    if (footerSaveTimer.current !== null) clearTimeout(footerSaveTimer.current)
+    footerSaveTimer.current = setTimeout(() => {
+      setFooterStatus('saving')
+      saveBookletFooter(value)
+        .then((result) => setFooterStatus(result === 'saved' ? 'saved' : 'error'))
+        .catch(() => setFooterStatus('error'))
+    }, 600)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -88,7 +142,7 @@ export function BookletPanel() {
     setBusy(true)
     setNotice(null)
     try {
-      const result = await loadBooklet(bookletSlug, usePersonalSettings)
+      const result = await loadBooklet(bookletSlug, usePersonalSettings, includeComments)
       if (!result.ok) {
         /*
          * Two different refusals, because they have two different remedies: a plan without
@@ -103,13 +157,13 @@ export function BookletPanel() {
         }
         return
       }
-      const { booklet, brandLine } = result
+      const { booklet, footerText } = result
       if (booklet.sections.every((section) => section.songs.length === 0)) {
         setNotice('Nothing to print: this songbook has no songs yet.')
         return
       }
 
-      const blob = await bookletToBlob(booklet, global.notation, brandLine)
+      const blob = await bookletToBlob(booklet, global.notation, footerText)
       downloadBlob(blob, `${booklet.songbookName}.pdf`)
       setNotice(`Downloaded "${booklet.songbookName}" as a printable booklet.`)
     } catch {
@@ -172,6 +226,41 @@ export function BookletPanel() {
             />
             <span className="text-[0.875rem] text-ink">Use my own key and capo for this printout</span>
           </label>
+          <label className="row cursor-pointer">
+            <input
+              type="checkbox"
+              role="switch"
+              className="toggle-switch"
+              checked={includeComments}
+              onChange={(event) => setIncludeComments(event.target.checked)}
+            />
+            <span className="text-[0.875rem] text-ink">Include my notes in this printout</span>
+          </label>
+          <label className="flex w-64 flex-col gap-1">
+            <span className="flex items-center gap-1 text-[0.8125rem] text-muted">
+              Custom footer line
+              {footerRefused && <IconLock size={11} />}
+            </span>
+            <input
+              type="text"
+              className="form-field text-sm"
+              value={footerRefused ? '' : footerDraft}
+              readOnly={footerRefused}
+              maxLength={140}
+              placeholder={footerRefused ? 'Upgrade to set your own line' : 'e.g. Property of The Wandering Chords'}
+              onFocus={(event) => {
+                if (!footerRefused) return
+                // Refused, not disabled — same reasoning `ControlBar`'s `ukuleleRefused`
+                // gives: a field a reader cannot tab into or hear announced would look
+                // broken rather than gated.
+                event.currentTarget.blur()
+                setFooterPaywallOpen(true)
+              }}
+              onChange={(event) => onFooterChange(event.target.value)}
+            />
+            {footerStatus === 'saved' && <span className="text-[0.75rem] text-muted">Saved</span>}
+            {footerStatus === 'error' && <span className="text-[0.75rem] text-danger">Could not save</span>}
+          </label>
           <button
             type="button"
             className="btn btn-sm"
@@ -190,6 +279,14 @@ export function BookletPanel() {
           feature={PAYWALL_FEATURES.booklet.label}
           plan={PAYWALL_FEATURES.booklet.minPlan}
           onDismiss={() => setPaywallOpen(false)}
+        />
+      )}
+
+      {footerPaywallOpen && (
+        <FeaturePaywallModal
+          feature={PAYWALL_FEATURES.bookletCustomFooter.label}
+          plan={PAYWALL_FEATURES.bookletCustomFooter.minPlan}
+          onDismiss={() => setFooterPaywallOpen(false)}
         />
       )}
     </section>

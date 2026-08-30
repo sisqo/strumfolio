@@ -6,7 +6,7 @@ import { ChordDiagram } from '@/components/ChordDiagram'
 import { ChordPopup } from '@/components/ChordPopup'
 import { usePrefs } from '@/components/PrefsProvider'
 import type { CommentsMode } from '@/components/CommentsProvider'
-import type { AnchorMap, PartAnchor } from '@/lib/comments/anchorMap'
+import { type AnchorMap, type PartAnchor, notesAt } from '@/lib/comments/anchorMap'
 import type { CardPoint, CommentAnchor, SongComment } from '@/lib/comments/types'
 import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
 import { type Chord, type Notation, formatChord, parseChord, transposeChord } from '@/lib/music/chord'
@@ -49,26 +49,6 @@ export interface SheetNotes {
 export function pointOf(element: HTMLElement): CardPoint {
   const box = element.getBoundingClientRect()
   return { x: box.left + box.width / 2, y: box.bottom }
-}
-
-/** The notes sitting on one exact point, and the number the first of them wears. */
-function notesAt(notes: SheetNotes, anchor: PartAnchor, target: CommentAnchor['target']) {
-  const ids: string[] = []
-  let number = 0
-
-  notes.comments.forEach((comment, index) => {
-    if (comment.anchor === null) return
-    if (
-      comment.anchor.blockIndex === anchor.blockIndex &&
-      comment.anchor.charOffset === anchor.charOffset &&
-      comment.anchor.target === target
-    ) {
-      if (ids.length === 0) number = index + 1
-      ids.push(comment.id)
-    }
-  })
-
-  return { ids, number }
 }
 
 /**
@@ -264,9 +244,10 @@ function SheetLine({
           <span className="sheet-word">
             {word.parts.map((part, partIndex) => {
               const anchor = anchors?.[wordIndex]?.[partIndex]
-              const lyric = notes !== undefined && anchor !== undefined ? notesAt(notes, anchor, 'lyric') : null
+              const lyric =
+                notes !== undefined && anchor !== undefined ? notesAt(notes.comments, anchor, 'lyric') : null
               const chordNote =
-                notes !== undefined && anchor !== undefined ? notesAt(notes, anchor, 'chord') : null
+                notes !== undefined && anchor !== undefined ? notesAt(notes.comments, anchor, 'chord') : null
 
               /*
                * Both kinds of badge ride **inside** `.sheet-lyric`, never beside it.

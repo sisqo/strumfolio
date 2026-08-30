@@ -113,6 +113,10 @@ export interface Entitlements {
     editRepertoire: LimitReason | null
     lead: LimitReason | null
     booklet: LimitReason | null
+    /** Whether the booklet may print at all is `booklet` above; this is the narrower
+     *  question of whether its footer may be the reader's own line rather than the fixed
+     *  one — see `bookletCustomFooterAllowed`. */
+    bookletCustomFooter: LimitReason | null
     ukulele: LimitReason | null
     featureRequest: LimitReason | null
   }
@@ -331,6 +335,7 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
        */
       lead: limits.mayLead ? null : 'plan-required',
       booklet: limits.booklet === 'no' ? 'plan-required' : null,
+      bookletCustomFooter: limits.booklet === 'custom' ? null : 'plan-required',
       ukulele: limits.ukulele ? null : 'plan-required',
       /*
        * The fourth of the same kind, and outside the freeze for the same reason: asking
@@ -379,6 +384,13 @@ export const UNGATED: Entitlements = {
     editRepertoire: null,
     lead: null,
     booklet: null,
+    /*
+     * Never `null`, unlike every other field here: `limits.booklet` is pinned to
+     * `'branded'` above, on purpose (see this constant's own comment), and that pin is
+     * exactly what `bookletCustomFooterAllowed` reads — so a custom footer must stay
+     * unreachable under `UNGATED` for the identical reason the brand line must stay on.
+     */
+    bookletCustomFooter: 'plan-required',
     ukulele: null,
     featureRequest: null,
   },
@@ -394,4 +406,18 @@ export const UNGATED: Entitlements = {
  */
 export function bookletBrandLine(entitlements: Entitlements): boolean {
   return entitlements.limits.booklet === 'branded'
+}
+
+/**
+ * Whether this plan's booklet tier lets the reader type their own footer line at all.
+ *
+ * The second (and, for now, last) thing anything reads off `BookletTier` beyond `no`/
+ * `branded` — see that type's own comment on why nothing asked this before. Read at both
+ * ends of the custom footer, same as `bookletBrandLine`: `saveBookletFooter` refuses the
+ * write server-side, and `loadBooklet` refuses to print a stored line the account can no
+ * longer edit, so a downgrade takes effect on the next booklet even though the row itself
+ * is left untouched.
+ */
+export function bookletCustomFooterAllowed(entitlements: Entitlements): boolean {
+  return entitlements.limits.booklet === 'custom'
 }

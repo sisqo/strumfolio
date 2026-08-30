@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { UNGATED, bookletBrandLine, entitlementsFor, liveSubscription, planStateFor, resolveSubscription } from './entitlements'
+import {
+  UNGATED,
+  bookletBrandLine,
+  bookletCustomFooterAllowed,
+  entitlementsFor,
+  liveSubscription,
+  planStateFor,
+  resolveSubscription,
+} from './entitlements'
 import type { StoredPlan } from './entitlements'
 import { PLANS } from './types'
 import type { LimitReason, RepertoireCounts } from './types'
@@ -40,22 +48,35 @@ describe('the plan matrix', () => {
     assert.equal(ent.refused.editRepertoire, null)
     assert.equal(ent.refused.lead, 'plan-required')
     assert.equal(ent.refused.booklet, 'plan-required')
+    assert.equal(ent.refused.bookletCustomFooter, 'plan-required')
     assert.equal(ent.refused.ukulele, 'plan-required')
   })
 
-  it('opens all three of those on standard, brand line included', () => {
+  it('opens all three of those on standard, brand line included, custom footer still refused', () => {
     const ent = entitlementsFor(stored({ plan: 'standard' }), NOW, EMPTY)
 
     assert.equal(ent.refused.lead, null)
     assert.equal(ent.refused.booklet, null)
+    assert.equal(ent.refused.bookletCustomFooter, 'plan-required')
     assert.equal(ent.refused.ukulele, null)
     assert.equal(bookletBrandLine(ent), true)
   })
 
-  it('drops the brand line from plus upwards', () => {
-    assert.equal(bookletBrandLine(entitlementsFor(stored({ plan: 'plus' }), NOW, EMPTY)), false)
-    assert.equal(bookletBrandLine(entitlementsFor(stored({ plan: 'premium' }), NOW, EMPTY)), false)
-    assert.equal(bookletBrandLine(entitlementsFor(stored({ plan: 'lifetime' }), NOW, EMPTY)), false)
+  it('drops the brand line from plus upwards, and opens the custom footer from premium upwards', () => {
+    const plus = entitlementsFor(stored({ plan: 'plus' }), NOW, EMPTY)
+    const premium = entitlementsFor(stored({ plan: 'premium' }), NOW, EMPTY)
+    const lifetime = entitlementsFor(stored({ plan: 'lifetime' }), NOW, EMPTY)
+
+    assert.equal(bookletBrandLine(plus), false)
+    assert.equal(bookletBrandLine(premium), false)
+    assert.equal(bookletBrandLine(lifetime), false)
+
+    assert.equal(bookletCustomFooterAllowed(plus), false)
+    assert.equal(plus.refused.bookletCustomFooter, 'plan-required')
+    assert.equal(bookletCustomFooterAllowed(premium), true)
+    assert.equal(premium.refused.bookletCustomFooter, null)
+    assert.equal(bookletCustomFooterAllowed(lifetime), true)
+    assert.equal(lifetime.refused.bookletCustomFooter, null)
   })
 
   /* The lifetime-is-premium mapping asserted through the function, not through the table. */
@@ -532,6 +553,7 @@ describe('the freeze', () => {
     assert.equal(ent.frozen, true)
     assert.equal(ent.refused.lead, 'plan-required')
     assert.equal(ent.refused.booklet, 'plan-required')
+    assert.equal(ent.refused.bookletCustomFooter, 'plan-required')
     assert.equal(ent.refused.ukulele, 'plan-required')
   })
 
@@ -578,13 +600,14 @@ describe('purity', () => {
 })
 
 describe('the off switch', () => {
-  it('refuses nothing at all', () => {
+  it('refuses nothing but the custom footer, which stays pinned shut on purpose', () => {
     assert.deepEqual(UNGATED.refused, {
       createSongbook: null,
       createSong: null,
       editRepertoire: null,
       lead: null,
       booklet: null,
+      bookletCustomFooter: 'plan-required',
       ukulele: null,
       featureRequest: null,
     })
@@ -609,8 +632,9 @@ describe('the off switch', () => {
    * switch's only test coverage, because the half that reads the environment is async and
    * queries the database, and this repo has no infrastructure for testing that.
    */
-  it('keeps printing the brand line', () => {
+  it('keeps printing the brand line, and never lets it be replaced', () => {
     assert.equal(bookletBrandLine(UNGATED), true)
+    assert.equal(bookletCustomFooterAllowed(UNGATED), false)
   })
 
   it('differs from premium in the brand line and in nothing else', () => {

@@ -12,10 +12,12 @@
 
 import { and, asc, eq, inArray } from 'drizzle-orm'
 
-import { currentUser } from '@/lib/auth/session'
+import { asEditor, currentUser } from '@/lib/auth/session'
+import { SITE_URL } from '@/lib/brand'
+import { type SongComment, commentFromRow } from '@/lib/comments/types'
 import { db } from '@/lib/db/client'
-import { sections, songbooks, songs, userSongPrefs } from '@/lib/db/schema'
-import { bookletBrandLine } from '@/lib/plans/entitlements'
+import { accounts, sections, songbooks, songs, userSongComments, userSongPrefs } from '@/lib/db/schema'
+import { type Entitlements, bookletBrandLine, bookletCustomFooterAllowed } from '@/lib/plans/entitlements'
 import type { LimitReason } from '@/lib/plans/types'
 import { clampCapo, clampSemitones } from '@/lib/prefs/types'
 import { editableSongbook } from '@/lib/songbooks/access'
@@ -44,6 +46,13 @@ export interface BookletSong {
    * customer's, exactly like every other read of `user_song_prefs`.
    */
   personal: PersonalSettings | null
+  /**
+   * The downloading reader's own anchored comments on this song, only when they asked to
+   * include them (see `includeComments` below) — empty otherwise, and empty either way for
+   * a song nobody has annotated. Same reasoning as `personal` on whose comments these are:
+   * the signed-in address, never the songbook's own account.
+   */
+  comments: SongComment[]
 }
 
 export interface BookletSection {
@@ -66,13 +75,29 @@ export interface Booklet {
  * not allow it», which for a plan that has no booklet at all is false on every count and
  * invites somebody to retry something that will never work.
  *
- * The success branch carries `brandLine`, which the caller needs anyway and must not
+ * The success branch carries `footerText`, which the caller needs anyway and must not
  * decide for itself: the document is rendered in the browser, so what it prints about
- * itself is the server's answer, not the browser's.
+ * itself — the fixed brand line, nothing, or the account's own line — is the server's
+ * answer, not the browser's. See `resolveFooterText`.
  */
 export type BookletResult =
-  | { ok: true; booklet: Booklet; brandLine: boolean }
+  | { ok: true; booklet: Booklet; footerText: string }
   | { ok: false; reason: 'not-found' | LimitReason }
+
+/**
+ * What the booklet's footer says, resolved once on the server from the plan tier and
+ * (only when the tier actually allows it) the account's own saved line.
+ *
+ * Never reads `savedFooter` at all on a tier that cannot use it: a downgrade leaves the
+ * column untouched (see its own comment in `db/schema.ts`), and this is the one place
+ * that has to keep not reading it, the same way `allowedInstrument` keeps not trusting a
+ * stored ukulele choice past the entitlement that allowed it.
+ */
+function resolveFooterText(entitlements: Entitlements, savedFooter: string | null): string {
+  if (bookletCustomFooterAllowed(entitlements)) return savedFooter ?? ''
+  if (bookletBrandLine(entitlements)) return `Printed with Strumfolio · ${SITE_URL}`
+  return ''
+}
 
 /**
  * Every saved (semitones, capo) this reader has for the given songs, keyed by song
@@ -97,7 +122,48 @@ async function personalSettingsFor(
   )
 }
 
-export async function loadBooklet(songbookSlug: string, usePersonalSettings = false): Promise<BookletResult> {
+/**
+ * Every one of this reader's own comments across the given songs, grouped by song slug —
+ * empty when nobody asked to print them, so the common case pays no query at all. Left
+ * unsorted here, same as `loadComments`: putting them in reading order is `document.tsx`'s
+ * job, the same place the reading screen does it.
+ */
+async function commentsFor(songSlugs: string[]): Promise<Map<string, SongComment[]>> {
+  if (songSlugs.length === 0) return new Map()
+
+  const user = await currentUser()
+  if (user === null) return new Map()
+
+  const rows = await db()
+    .select({
+      id: userSongComments.id,
+      blockIndex: userSongComments.blockIndex,
+      charOffset: userSongComments.charOffset,
+      target: userSongComments.target,
+      anchorLabel: userSongComments.anchorLabel,
+      body: userSongComments.body,
+      createdAt: userSongComments.createdAt,
+      updatedAt: userSongComments.updatedAt,
+      songSlug: userSongComments.songSlug,
+    })
+    .from(userSongComments)
+    .where(and(eq(userSongComments.userEmail, user.email), inArray(userSongComments.songSlug, songSlugs)))
+
+  const bySlug = new Map<string, SongComment[]>()
+  for (const row of rows) {
+    const comment = commentFromRow(row)
+    const existing = bySlug.get(row.songSlug)
+    if (existing === undefined) bySlug.set(row.songSlug, [comment])
+    else existing.push(comment)
+  }
+  return bySlug
+}
+
+export async function loadBooklet(
+  songbookSlug: string,
+  usePersonalSettings = false,
+  includeComments = false,
+): Promise<BookletResult> {
   const target = await editableSongbook(songbookSlug)
   if (!target.ok) return { ok: false, reason: 'not-found' }
 
@@ -137,6 +203,9 @@ export async function loadBooklet(songbookSlug: string, usePersonalSettings = fa
   const personalBySlug = usePersonalSettings
     ? await personalSettingsFor(rows.map((row) => row.slug))
     : new Map<string, PersonalSettings>()
+  const commentsBySlug = includeComments
+    ? await commentsFor(rows.map((row) => row.slug))
+    : new Map<string, SongComment[]>()
 
   // Sections in the order their first song was seen, which is already the
   // position order the query asked for — a `Map` keeps that order and lets a
@@ -158,12 +227,77 @@ export async function loadBooklet(songbookSlug: string, usePersonalSettings = fa
       link3: row.link3,
       body: row.body,
       personal: personalBySlug.get(row.slug) ?? null,
+      comments: commentsBySlug.get(row.slug) ?? [],
     })
+  }
+
+  let savedFooter: string | null = null
+  if (bookletCustomFooterAllowed(target.entitlements)) {
+    const [accountRow] = await db()
+      .select({ bookletFooter: accounts.bookletFooter })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, target.accountOwnerEmail))
+      .limit(1)
+    savedFooter = accountRow?.bookletFooter ?? null
   }
 
   return {
     ok: true,
     booklet: { songbookName: songbookRow.name, sections: [...bySection.values()] },
-    brandLine: bookletBrandLine(target.entitlements),
+    footerText: resolveFooterText(target.entitlements, savedFooter),
+  }
+}
+
+/**
+ * The account's own saved footer line, for the input on `/booklet` — null when it has
+ * none yet, regardless of whether the current plan may still use it (see
+ * `saveBookletFooter`'s own comment on why the write side is where that gate lives).
+ */
+export async function loadBookletFooter(): Promise<string | null> {
+  const permission = await asEditor()
+  if (!permission.ok) return null
+
+  const [row] = await db()
+    .select({ bookletFooter: accounts.bookletFooter })
+    .from(accounts)
+    .where(eq(accounts.ownerEmail, permission.accountOwnerEmail))
+    .limit(1)
+
+  return row?.bookletFooter ?? null
+}
+
+/** How long a footer line may be — long enough for a real sentence, short enough that a
+ *  page-wide footer never wraps. Enforced here, not in the schema: a cap this soft is UI,
+ *  the same reasoning `user_song_comments.body`'s own length gives for staying unbounded
+ *  at the column. */
+const MAX_FOOTER_LENGTH = 140
+
+export type FooterSaveResult = 'saved' | 'not-in-plan' | 'no-destination' | 'failed'
+
+/**
+ * Writes the account's own booklet footer line — refused, not merely ignored, on a plan
+ * that cannot use one, so a reader typing into a field they cannot actually save from
+ * finds out from the same round trip rather than from a silently unsaved draft.
+ *
+ * `no-destination` covers both no session and no edit access to the current account, the
+ * same collapsing `saveSongPrefs` already does: neither is worth telling apart from the
+ * other three-way split `SaveResult` makes, and only `failed` is worth retrying.
+ */
+export async function saveBookletFooter(text: string): Promise<FooterSaveResult> {
+  const permission = await asEditor()
+  if (!permission.ok) return 'no-destination'
+  if (!bookletCustomFooterAllowed(permission.entitlements)) return 'not-in-plan'
+
+  const trimmed = text.trim().slice(0, MAX_FOOTER_LENGTH)
+
+  try {
+    await db()
+      .update(accounts)
+      .set({ bookletFooter: trimmed === '' ? null : trimmed })
+      .where(eq(accounts.ownerEmail, permission.accountOwnerEmail))
+    return 'saved'
+  } catch (error) {
+    console.error('saveBookletFooter failed', error)
+    return 'failed'
   }
 }

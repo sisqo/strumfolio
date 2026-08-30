@@ -20,7 +20,7 @@ import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
 import { userSongComments } from '@/lib/db/schema'
 
-import { readTarget, type SongComment } from './types'
+import { type SongComment, commentFromRow } from './types'
 
 /**
  * The outcome of a write, from the outbox's point of view — the same three-way split
@@ -29,31 +29,6 @@ import { readTarget, type SongComment } from './types'
  * drop the entry rather than resend it forever.
  */
 export type CommentWriteResult = 'saved' | 'no-destination' | 'failed'
-
-interface Row {
-  id: string
-  blockIndex: number | null
-  charOffset: number | null
-  target: string
-  anchorLabel: string
-  body: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-function toComment(row: Row): SongComment {
-  return {
-    id: row.id,
-    anchor:
-      row.blockIndex === null || row.charOffset === null
-        ? null
-        : { blockIndex: row.blockIndex, charOffset: row.charOffset, target: readTarget(row.target) },
-    anchorLabel: row.anchorLabel,
-    body: row.body,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }
-}
 
 export async function loadComments(songSlug: string): Promise<SongComment[] | null> {
   const user = await currentUser()
@@ -74,7 +49,7 @@ export async function loadComments(songSlug: string): Promise<SongComment[] | nu
       .from(userSongComments)
       .where(and(eq(userSongComments.userEmail, user.email), eq(userSongComments.songSlug, songSlug)))
 
-    return rows.map(toComment)
+    return rows.map(commentFromRow)
   } catch (error) {
     console.error('loadComments failed', error)
     return null
@@ -165,7 +140,7 @@ export async function reanchorSongComments(
 
     if (rows.length === 0) return { orphaned: 0 }
 
-    const before = rows.map(toComment)
+    const before = rows.map(commentFromRow)
     const after = reanchorAll(before, oldSource, newSource)
 
     let orphaned = 0
