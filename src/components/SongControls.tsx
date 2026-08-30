@@ -2,14 +2,29 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import { ChordDiagram } from '@/components/ChordDiagram'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
-import { IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
-import { FRET_PAGE, MAX_CAPO, formatSemitones, fretWindowStart, suggestCapo } from '@/lib/music/capo'
+import { IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
+import {
+  type CapoOption,
+  FRET_PAGE,
+  type FretEase,
+  MAX_CAPO,
+  distinctChordCount,
+  easeByFret,
+  formatSemitones,
+  fretWindowStart,
+  readShift,
+  suggestCapo,
+} from '@/lib/music/capo'
+import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '@/lib/music/chord'
+import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
 import {
   CHORD_DISPLAYS,
   CHORD_DISPLAY_HINT,
   CHORD_DISPLAY_LABEL,
+  CHORD_DISPLAY_TITLE,
   type ChordDisplay,
   clampSemitones,
 } from '@/lib/prefs/types'
@@ -107,6 +122,31 @@ export function SongControls({
       menu === 'capo' ? suggestCapo(chords, song.semitones, song.capo, global.instrument) : null,
     [menu, chords, song.semitones, song.capo, global.instrument],
   )
+  /*
+   * One dot per chord, per fret — the menu's own visual, not a summary of it. Gated the
+   * same way `suggestion` is and for the same reason; the two share the identical
+   * underlying computation (`easeByFret`'s own comment), so asking for both costs no
+   * more than asking for one.
+   */
+  const ease = useMemo(
+    () => (menu === 'capo' ? easeByFret(chords, song.semitones, global.instrument) : null),
+    [menu, chords, song.semitones, global.instrument],
+  )
+
+  /*
+   * The Chords menu's own preview: how many distinct chords the song has, and up to
+   * three of them — moved and spelled exactly as the sheet shows them right now — for
+   * its rows to draw from. Gated on the menu being open for the same reason `ease` is:
+   * a diagram needs `shapeFor`, which searches on a ukulele.
+   */
+  const chordsPreview = useMemo(() => {
+    if (menu !== 'chords') return null
+    const shift = readShift(song.semitones, song.capo)
+    return {
+      total: distinctChordCount(chords),
+      items: previewChords(chords, shift, global.accidentals, global.notation, global.instrument, 3),
+    }
+  }, [menu, chords, song.semitones, song.capo, global.accidentals, global.notation, global.instrument])
 
   return (
     <div className="song-chips">
@@ -145,7 +185,10 @@ export function SongControls({
               : `Key ${semitoneBadge(song.semitones)}, return to the written key`
           }
         >
-          Key <span className="song-chip-badge">{semitoneBadge(song.semitones)}</span>
+          Key{' '}
+          <span className={song.semitones === 0 ? 'song-chip-badge' : 'song-chip-badge is-set'}>
+            {semitoneBadge(song.semitones)}
+          </span>
         </button>
 
         <button
@@ -168,7 +211,9 @@ export function SongControls({
         title="Choose the capo fret"
       >
         Capo
-        <span className="song-chip-badge is-solid">{song.capo}</span>
+        <span className={song.capo === 0 ? 'song-chip-badge' : 'song-chip-badge is-solid'}>
+          {song.capo}
+        </span>
         <IconChevronDown size={11} />
       </button>
 
@@ -242,18 +287,22 @@ export function SongControls({
         */}
       {menu !== null && <div className="menu-overlay" onClick={() => setMenu(null)} aria-hidden />}
 
-      {menu === 'capo' && (
+      {menu === 'capo' && ease !== null && (
         <CapoMenu
           capo={song.capo}
           suggestion={suggestion}
+          ease={ease}
           setCapo={setCapo}
           onDone={() => setMenu(null)}
         />
       )}
 
-      {menu === 'chords' && (
+      {menu === 'chords' && chordsPreview !== null && (
         <ChordDisplayMenu
           chordDisplay={global.chordDisplay}
+          total={chordsPreview.total}
+          preview={chordsPreview.items}
+          capo={song.capo}
           onPick={(value) => {
             setChordDisplay(value)
             setMenu(null)
@@ -273,69 +322,125 @@ function semitoneBadge(semitones: number): string {
 /**
  * Which fret the capo is on, picked directly rather than stepped to.
  *
- * Six frets and an arrow, exactly as the reading panel drew them, and for the same
- * reason: seven cells across this width come out wide enough to hit with a guitar in
- * the other hand, where all eight in one row would not. The arrow pages the run along
- * and turns into a `‹` once there is nothing further to reveal, so the row is always
- * seven cells and never changes width — `fretWindowStart` keeps the fret the capo is
- * on among the six whatever page was asked for.
+ * Six frets and an arrow, the fixed shape `FRET_PAGE` was sized for, and for the same
+ * reason as before: seven cells across this width come out wide enough to hit with a
+ * guitar in the other hand, where all eight in one row would not. The arrow pages the
+ * run along and turns into a `‹` once there is nothing further to reveal, so the row is
+ * always seven cells and never changes width — `fretWindowStart` keeps the fret the
+ * capo is on among the six whatever page was asked for.
+ *
+ * Each cell now draws a row of dots under its number, one per chord in the song, filled
+ * for however many are easy to hold at that fret — the same fact `suggestCapo` already
+ * computes to make its one suggestion, just shown for every fret at once rather than
+ * kept to itself. The chosen fret gets a ring rather than a fill, and the *suggested*
+ * fret — when it differs from the chosen one and is on the visible page — gets the one
+ * tinted cell in the row; nothing else here takes a second colour.
  */
 function CapoMenu({
   capo,
   suggestion,
+  ease,
   setCapo,
   onDone,
 }: {
   capo: number
-  suggestion: ReturnType<typeof suggestCapo>
+  suggestion: CapoOption | null
+  ease: FretEase
   setCapo: (fret: number) => void
   onDone: () => void
 }) {
   /*
-   * Which page of frets the reader last paged to — a *request*, not the answer:
-   * `fretWindowStart` gets the last word, because the fret the capo is on has to be on
-   * screen whatever page was asked for.
+   * Which page of frets the reader last paged to — a *request*, not quite the answer:
+   * `fretWindowStart` still gets the last word once, against `openedCapo` just below,
+   * so a menu opened with the capo already on fret 7 shows fret 7 rather than 0.
    */
   const [fretPage, setFretPage] = useState(0)
-  const fretStart = fretWindowStart(fretPage, capo)
-  const pagesForward = fretStart + FRET_PAGE <= MAX_CAPO
-  const canPage = pagesForward || fretStart > 0
+
+  /*
+   * The capo this menu opened with, frozen for as long as it stays open — not the live
+   * `capo` prop `fretWindowStart` used to be handed on every render.
+   *
+   * That was the bug: `fretWindowStart`'s whole point is that the fret the capo is on
+   * always wins, whatever page was asked for — right for a reopened menu, wrong for a
+   * reader paging through one that is already open. With no capo set, the current fret
+   * *is* 0, so every page request past it was pulled straight back to fret 0 before it
+   * ever rendered — the arrow looked dead until the reader happened to tap a fret first,
+   * which moved `capo` off the value fighting them. Freezing it here means the one
+   * fret that must stay visible is decided once, at the moment this menu opened, and
+   * paging afterwards is never re-litigated against a selection the reader is still
+   * looking for. A fret picked from a page this already shows needs no such rule to
+   * begin with — the reader can only click a button that is already on screen.
+   */
+  const [openedCapo] = useState(capo)
+  const fretStart = fretWindowStart(fretPage, openedCapo)
+  const canPageBack = fretStart > 0
+  const canPageForward = fretStart + FRET_PAGE <= MAX_CAPO
 
   return (
     <div className="chip-menu">
+      <div className="chip-menu-head">
+        <span className="control-name-label">Capo</span>
+        <span className="chip-menu-head-hint">dots = open positions</span>
+      </div>
+
       <div className="fret-row" role="group" aria-label="Capo fret">
+        {canPageBack && (
+          <button
+            type="button"
+            className="fret-button is-page"
+            onClick={() => setFretPage(fretStart - FRET_PAGE)}
+            aria-label="Show lower frets"
+            title="Lower frets"
+          >
+            <IconChevronLeft size={16} />
+          </button>
+        )}
+
         {Array.from({ length: Math.min(FRET_PAGE, MAX_CAPO + 1 - fretStart) }, (_, index) => {
           const fret = fretStart + index
+          const easy = ease.easyByFret[fret]
+          const isSuggested = suggestion !== null && suggestion.fret === fret
+
           const classes = ['fret-button']
-          if (fret === 0) classes.push('is-none')
           if (fret === capo) classes.push('is-on')
+          else if (isSuggested) classes.push('is-suggested')
 
           return (
             <button
               key={fret}
               type="button"
               className={classes.join(' ')}
-              onClick={() => {
-                setCapo(fret)
-                onDone()
-              }}
+              onClick={() => setCapo(fret)}
               aria-pressed={fret === capo}
-              aria-label={fret === 0 ? 'No capo' : `Capo on fret ${fret}`}
+              aria-label={
+                (fret === 0 ? 'No capo' : `Capo on fret ${fret}`) +
+                (ease.total > 0 ? `, ${easy} of ${ease.total} chords open` : '')
+              }
             >
-              {fret}
+              <span className="fret-button-number">{fret}</span>
+              {ease.total > 0 && (
+                <span className="fret-dots" aria-hidden>
+                  {Array.from({ length: ease.total }, (_, dot) => (
+                    <span
+                      key={dot}
+                      className={dot < easy ? 'fret-dot is-filled' : 'fret-dot'}
+                    />
+                  ))}
+                </span>
+              )}
             </button>
           )
         })}
 
-        {canPage && (
+        {canPageForward && (
           <button
             type="button"
             className="fret-button is-page"
-            onClick={() => setFretPage(pagesForward ? fretStart + FRET_PAGE : fretStart - FRET_PAGE)}
-            aria-label={pagesForward ? 'Show higher frets' : 'Show lower frets'}
-            title={pagesForward ? 'Higher frets' : 'Lower frets'}
+            onClick={() => setFretPage(fretStart + FRET_PAGE)}
+            aria-label="Show higher frets"
+            title="Higher frets"
           >
-            {pagesForward ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+            <IconChevronRight size={16} />
           </button>
         )}
       </div>
@@ -353,8 +458,8 @@ function CapoMenu({
       {suggestion !== null && (
         <div className="capo-suggestion mt-2.5">
           <span className="capo-suggestion-text">
-            Easier at <strong>fret {suggestion.fret}</strong> — {suggestion.easy} of{' '}
-            {suggestion.total} chords open
+            At <strong>fret {suggestion.fret}</strong>, {suggestion.easy} of {suggestion.total}{' '}
+            chords are open
           </span>
           <button
             type="button"
@@ -364,7 +469,7 @@ function CapoMenu({
               onDone()
             }}
           >
-            Move capo
+            Move
           </button>
         </div>
       )}
@@ -372,21 +477,185 @@ function CapoMenu({
   )
 }
 
+/** One chord ready to sit in a menu row: the letters a reader would see right now, and
+ *  the shape a hand would make for it — `null` when there is none in the table, which
+ *  `previewChords` below already filters out before this type is ever built. */
+interface ChordPreviewItem {
+  label: string
+  shape: ChordShape
+}
+
 /**
- * How much of a chord the sheet draws — four answers, each with the one line that says
- * what it costs. The names are the reader's rather than the stored values': `shape` has
- * been in the database since there were only two of these, and what a reader sees is
- * «diagrams inline», which is what it does.
+ * Up to `max` of the song's own chords, in reading order, moved and spelled exactly as
+ * the sheet shows them right now — what the Chords menu's own rows draw from, so a
+ * reader previews each mode against *their* song rather than a stock example.
+ *
+ * Skips a chord with no shape in the table (an exotic suffix — `shapeFor`'s own
+ * comment): a preview exists to show what a mode draws, and one that cannot be drawn
+ * has nothing to contribute here, even though it still gets a name and a slot on the
+ * real sheet.
+ */
+function previewChords(
+  tokens: string[],
+  shift: number,
+  accidentals: Accidentals,
+  notation: Notation,
+  instrument: Instrument,
+  max: number,
+): ChordPreviewItem[] {
+  const seen = new Set<string>()
+  const found: ChordPreviewItem[] = []
+
+  for (const token of tokens) {
+    if (found.length >= max) break
+
+    const parsed = parseChord(token)
+    if (parsed === null) continue
+
+    const chord = readChord(parsed, shift, accidentals)
+    const label = formatChord(chord, notation)
+    if (seen.has(label)) continue
+    seen.add(label)
+
+    const shape = shapeFor(chord, instrument)
+    if (shape === null) continue
+
+    found.push({ label, shape })
+  }
+
+  return found
+}
+
+/**
+ * The sentence under a row's own title. `diagrams` and `fingerings` say it with the
+ * song's own chords when there are any to show; everything else, and a song with
+ * nothing previewable, falls back to `CHORD_DISPLAY_HINT`'s generic sentence.
+ */
+function chordsMenuSubtitle(entry: ChordDisplay, total: number, preview: ChordPreviewItem[]): string {
+  if (entry === 'diagrams' && total > 0) {
+    return `All ${total} shape${total === 1 ? '' : 's'}, in a panel above the lyrics`
+  }
+
+  if (entry === 'fingerings' && preview[0] !== undefined) {
+    return `One line per chord: ${preview[0].label} ${fingeringText(preview[0].shape.frets)}`
+  }
+
+  return CHORD_DISPLAY_HINT[entry]
+}
+
+/**
+ * What a row draws to its own right: the same three (or fewer) chords every row
+ * shares, in whichever shape that mode actually puts on the sheet — diagrams, a
+ * fingering, or bare names — followed by one or two bare bars standing for the lyric
+ * lines the real sheet still has under it.
+ */
+function ChordsMenuPreview({
+  entry,
+  preview,
+  capo,
+}: {
+  entry: ChordDisplay
+  preview: ChordPreviewItem[]
+  capo: number
+}) {
+  if (entry === 'diagrams') {
+    return (
+      <span className="chords-menu-preview">
+        <span className="chords-menu-diagrams">
+          {preview.map((chord) => (
+            <ChordDiagram
+              key={chord.label}
+              shape={chord.shape}
+              capo={capo}
+              className="chords-menu-diagram"
+            />
+          ))}
+        </span>
+        <span className="chords-menu-bar" style={{ width: '2.5rem' }} />
+      </span>
+    )
+  }
+
+  if (entry === 'fingerings') {
+    const first = preview[0]
+    return (
+      <span className="chords-menu-preview">
+        {first !== undefined && (
+          <span className="chords-menu-fingering">
+            {first.label} {fingeringText(first.shape.frets)}
+          </span>
+        )}
+        <span className="chords-menu-bar" style={{ width: '2.5rem' }} />
+        <span className="chords-menu-bar" style={{ width: '1.875rem' }} />
+      </span>
+    )
+  }
+
+  if (entry === 'shape') {
+    return (
+      <span className="chords-menu-preview">
+        <span className="chords-menu-diagrams is-spread">
+          {preview.slice(0, 2).map((chord) => (
+            <ChordDiagram
+              key={chord.label}
+              shape={chord.shape}
+              capo={capo}
+              className="chords-menu-diagram is-small"
+            />
+          ))}
+        </span>
+        <span className="chords-menu-bar" style={{ width: '2.5rem' }} />
+      </span>
+    )
+  }
+
+  return (
+    <span className="chords-menu-preview">
+      <span className="chords-menu-names">
+        {preview.map((chord) => (
+          <span key={chord.label}>{chord.label}</span>
+        ))}
+      </span>
+      <span className="chords-menu-bar" style={{ width: '2.5rem' }} />
+      <span className="chords-menu-bar" style={{ width: '1.75rem' }} />
+    </span>
+  )
+}
+
+/**
+ * How much of a chord the sheet draws — four rows, each showing what it does against
+ * the song actually open rather than telling it in words alone: a stock example would
+ * say the same thing for every song, and the point of this menu is that the choice can
+ * be made by looking.
+ *
+ * The names here are the reader's rather than the stored values': `shape` has been in
+ * the database since there were only two of these, and what a reader sees is
+ * «Diagrams in the lyrics», which is what it does.
  */
 function ChordDisplayMenu({
   chordDisplay,
+  total,
+  preview,
+  capo,
   onPick,
 }: {
   chordDisplay: ChordDisplay
+  /** Distinct chords in the song — "6 in this song", and what a diagrams row's own
+   *  sentence counts. */
+  total: number
+  /** Up to three of them, ready for a row's own preview — see `previewChords`. */
+  preview: ChordPreviewItem[]
+  /** For a diagram preview's own capo bar — the shape unchanged, see `ChordDiagram`. */
+  capo: number
   onPick: (value: ChordDisplay) => void
 }) {
   return (
-    <div className="chip-menu" role="group" aria-label="How chords are shown">
+    <div className="chip-menu">
+      <div className="chip-menu-head">
+        <span className="control-name-label">Chords</span>
+        <span className="chip-menu-head-hint">{total} in this song</span>
+      </div>
+
       {CHORD_DISPLAYS.map((entry) => (
         <button
           key={entry}
@@ -395,8 +664,12 @@ function ChordDisplayMenu({
           onClick={() => onPick(entry)}
           aria-pressed={entry === chordDisplay}
         >
-          <span className="chip-menu-name">{CHORD_DISPLAY_LABEL[entry]}</span>
-          <span className="chip-menu-hint">{CHORD_DISPLAY_HINT[entry]}</span>
+          <span className="chip-menu-title">
+            <span className="chip-menu-name">{CHORD_DISPLAY_TITLE[entry]}</span>
+            <span className="chip-menu-hint">{chordsMenuSubtitle(entry, total, preview)}</span>
+          </span>
+          <ChordsMenuPreview entry={entry} preview={preview} capo={capo} />
+          {entry === chordDisplay && <IconCheck size={14} className="chip-menu-check" />}
         </button>
       ))}
     </div>

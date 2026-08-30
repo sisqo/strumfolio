@@ -1217,28 +1217,40 @@
   }
 
   /*
-   * What a chip is set to. Two weights of the same warm rather than two hues: the board
-   * gives Key a green badge and Capo a terracotta one, and a second colour on a reading
-   * screen is exactly what the Chord-First Rule (DESIGN.md) exists to prevent — the accent
-   * belongs to the chords. Soft for a value that is a *distance from home* and solid for
-   * one that is a *thing clamped to the neck* keeps the two apart at a glance, which is
-   * all the hue was doing.
+   * What a chip is set to — neutral by default, because a badge that always lit up
+   * would say "Key +0" and "Key +2" with the same urgency, and the first of those is
+   * not a fact worth a colour. `.is-set`/`.is-solid` below are what a real value earns:
+   * Key stays the warm accent, soft rather than solid because its value is a *distance
+   * from home*; Capo's is green rather than warm, on request, to match the one fret the
+   * capo menu itself fills solid — the fret the reader is actually on. Both readings of
+   * "the chosen fret" share one colour, on the chip and inside the menu it opens; the
+   * warm accent stays reserved for the chords themselves and for Key beside it.
+   *
+   * A smaller radius than this app's own scale offers anywhere else: `--r-xs`, the
+   * smallest named step, is already about half this badge's own height, which reads as
+   * a pill rather than the rounded square the board draws for a number this short. Not
+   * a token because nothing else on the page needs a radius the scale doesn't cover.
    */
   .song-chip-badge {
     display: inline-flex;
     align-items: center;
     height: 1.375rem;
     padding-inline: 0.5rem;
-    border-radius: var(--r-xs);
-    background: var(--accent-soft);
-    color: var(--accent);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    color: var(--muted);
     font-size: 0.78125rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
 
+  .song-chip-badge.is-set {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
   .song-chip-badge.is-solid {
-    background: var(--accent);
+    background: var(--success);
     color: var(--on-accent);
   }
 
@@ -1319,10 +1331,36 @@
     box-shadow: var(--shadow-panel);
   }
 
+  /* "Capo"/"Chords" and the one-line fact beside it — dots explained, or the song's
+     own chord count — said once above the rows rather than on each of them. Shared by
+     both menus this row hangs off of, so the two headers can never drift apart. */
+  .chip-menu-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.625rem;
+  }
+
+  .chip-menu-head-hint {
+    color: var(--faint);
+    font-size: 0.75rem;
+  }
+
+  /*
+   * One row: what a mode is called, what it does, a look at it against the song
+   * actually open, and — on the chosen row alone — the mark that says so.
+   *
+   * `align-items: center` rather than the plain block this was before `ChordDisplayMenu`
+   * grew a live preview: the titles now share their row with something that can run two
+   * or three lines of its own (the diagram/name/fingering block), and centring is what
+   * keeps a short title from riding at the top of a taller row instead of level with it.
+   */
   .chip-menu-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
     width: 100%;
-    padding: 0.5rem 0.75rem;
+    padding: 0.625rem;
     border-radius: var(--r-md);
     text-align: start;
     cursor: pointer;
@@ -1332,28 +1370,110 @@
     background: var(--accent-soft);
   }
 
+  /* The words: title and hint, in the space the preview and the check don't take. */
+  .chip-menu-title {
+    flex: 1;
+    min-width: 0;
+  }
+
   .chip-menu-name {
     display: block;
     color: var(--ink);
-    font-size: 0.9375rem;
+    font-size: 0.84375rem;
   }
 
   .chip-menu-item.is-on .chip-menu-name {
     color: var(--accent);
-    font-weight: 500;
+    font-weight: 600;
   }
 
   .chip-menu-hint {
     display: block;
-    margin-top: 0.0625rem;
+    margin-top: 0.125rem;
     color: var(--faint);
-    font-size: 0.78125rem;
+    font-size: 0.71875rem;
   }
 
   @media (hover: hover) {
     .chip-menu-item:not(.is-on):hover {
       background: var(--surface-3);
     }
+  }
+
+  /* The mark on the chosen row alone — never reserved as empty space on the others,
+     which is why every other row's preview sits flush against the row's own edge. */
+  .chip-menu-check {
+    flex: none;
+    color: var(--accent);
+  }
+
+  /* ---- The Chords menu's own live preview ------------------------------ */
+
+  /*
+   * What a row draws to its own right: the song's own chords, in whichever shape that
+   * row's mode actually puts on the sheet, stacked above one or two bare bars standing
+   * for the lyric lines still under it. Right-aligned and its own column, so every row
+   * reads the same way regardless of how tall its particular preview comes out.
+   */
+  .chords-menu-preview {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+  }
+
+  .chords-menu-diagrams {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.3125rem;
+  }
+
+  /* Wider gaps for "Diagrams in the lyrics": these sit one to a syllable rather than
+     side by side in one panel, and the space between them is what says so. */
+  .chords-menu-diagrams.is-spread {
+    gap: 1rem;
+  }
+
+  /*
+   * Sized up from a first pass that took the mock's own tiny gallery icons as a literal
+   * pixel target and came out too small to read as anything but a grey smudge — a menu
+   * a reader taps into deserves a preview they can actually look at, not just one that
+   * is technically there.
+   */
+  .chords-menu-diagram {
+    display: block;
+    width: auto;
+    height: 1.875rem;
+    stroke: color-mix(in srgb, var(--ink) 28%, transparent);
+    color: var(--muted);
+  }
+
+  .chords-menu-diagram.is-small {
+    height: 1.5rem;
+  }
+
+  .chords-menu-fingering {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--accent);
+  }
+
+  .chords-menu-names {
+    display: flex;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* A bare line standing for a line of lyrics the real sheet still has under it —
+     never real text, since what it draws is "there is a song here", not the song. */
+  .chords-menu-bar {
+    height: 0.1875rem;
+    border-radius: 0.125rem;
+    background: var(--line);
   }
 
   /* ---- The chords, gathered above the song ---------------------------- */
@@ -1383,10 +1503,29 @@
     border-block-end: 1px solid var(--surface-3);
   }
 
+  /*
+   * A button now, not a plain span: tapping the whole box — the diagram or the name,
+   * either — opens the same fingering popup a tap on the sheet's own chords already
+   * does. The un-styling below is what makes a `<button>` disappear back into looking
+   * like the plain box it replaced.
+   */
   .chord-strip-item {
     display: flex;
     flex-direction: column;
     align-items: center;
+    border: 0;
+    margin: 0;
+    padding: 0.25rem;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .chord-strip-item:hover .chord-strip-name {
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
   }
 
   /* Sized by height, the same idea `.chord-diagram` and `.sheet-chord-shape` already
@@ -1399,9 +1538,11 @@
     color: var(--muted);
   }
 
+  /* The same colour and weight as a chord's own name on the sheet (`.sheet-chord`):
+     this is that chord, not a caption about it. */
   .chord-strip-name {
     margin-top: 0.375rem;
-    color: var(--ink);
+    color: var(--accent);
     font-size: 0.8125rem;
     font-weight: 500;
   }
@@ -1425,18 +1566,40 @@
     border: 1px solid var(--surface-3);
   }
 
+  /* A button now, like `.chord-strip-item` beside it: the whole row — name and frets
+     both — opens the same fingering popup a tap on the sheet's own chords already does. */
   .chord-fingering {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: none;
     font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: var(--muted);
+    text-align: start;
+    cursor: pointer;
   }
 
-  /* Wide enough for `Bm`, so every fret string in the block starts on the same column. */
+  @media (hover: hover) {
+    .chord-fingering:hover .chord-fingering-name {
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+  }
+
+  /*
+   * A floor, not a fixed width: `min-width` gives `Bm` a tidy little column without
+   * clipping `Bbmaj7` or `C#dim7` — a plain `width` doesn't grow for a name that
+   * outgrows it, and the letters just overflow into the frets sitting right after it in
+   * the row, which is the bug this rule exists to have fixed. Any name at or under the
+   * floor still starts every fret string on roughly the same column; a longer one pushes
+   * its own frets over, same as a normal flex row does.
+   */
   .chord-fingering-name {
     flex: none;
-    width: 2.4ch;
+    min-width: 2.4ch;
     color: var(--accent);
   }
 
@@ -6604,67 +6767,152 @@
   }
 
   /*
-   * Capo's own row: one button per fret, the current one filled, the rest plain —
-   * a direct pick rather than `.value-buttons`' nudge-and-reset, because a capo has
-   * no single "away from" direction the way a semitone does and a reader reaching
-   * for fret 5 should not have to step through 1 to 4 to get there. Wraps rather
-   * than scrolling: `MAX_CAPO` is fixed, so the panel is never taller than the one
-   * extra row that buys every fret a full 44px target instead of eight squeezed
-   * into one.
+   * Capo's own row: one button per fret, a direct pick rather than `.value-buttons`'
+   * nudge-and-reset, because a capo has no single "away from" direction the way a
+   * semitone does and a reader reaching for fret 5 should not have to step through 1
+   * to 4 to get there.
+   *
+   * One row, never wrapping: it holds a fixed six frets plus the arrow that pages
+   * them, which is what `FRET_PAGE` was sized for.
    */
-  /* One row, never wrapping: it holds a fixed six frets plus the arrow that pages
-     them, which is what `FRET_PAGE` was sized for. */
   .fret-row {
     display: flex;
     gap: 0.25rem;
   }
 
+  /*
+   * A fret, and — under its number — a row of dots, one per chord in the song, filled
+   * for however many are easy to hold there (`easeByFret`). Column rather than the
+   * single centred row this used to be: the number and the dots are two different
+   * facts about the same fret, not one wider label.
+   *
+   * `min-height` rather than a fixed one, unlike every other tap target in this app: the
+   * dot row's own height varies with how many chords the song has, and clipping it would
+   * make the fact it draws unreadable. 2.75rem is the floor a tap target never falls
+   * under; nothing here is fought to stay at exactly that height.
+   */
   .fret-button {
     flex: 1 1 2.5rem;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 2.75rem;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0 0.4375rem;
+    border: 2px solid transparent;
     border-radius: var(--r-xs);
     background: var(--bg);
+    box-sizing: border-box;
     color: var(--ink);
     font-size: 0.8125rem;
   }
 
-  /* Fret 0 is "no capo" — the absence of the thing this row sets, so it is lettered
-     like a placeholder rather than like the seven real positions beside it. */
-  .fret-button.is-none {
-    color: var(--faint);
+  .fret-button-number {
+    line-height: 1;
   }
 
-  /* The arrow that pages the row along: the one cell here that is not a fret, so it is
-     drawn as quietly as fret 0 and can never take the selected fill. */
+  /*
+   * The chosen fret takes a ring, not a fill — unlike `.value-button` and every other
+   * "this one is selected" control in this panel. The fill is what the *suggestion*
+   * below takes instead, and if the chosen fret filled too the two would read as the
+   * same kind of fact when they are not: one is where the reader is, the other is
+   * where the app thinks they'd rather be — a distinction of *shape* now, ring against
+   * fill, rather than of hue: both take the one green this menu uses throughout (on
+   * request), the same green the Capo chip's own badge fills solid once this menu is
+   * closed, so "the fret I am on" reads as one colour wherever it shows up.
+   */
+  .fret-button.is-on {
+    border-color: var(--success);
+  }
+
+  .fret-button.is-on .fret-button-number {
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  /*
+   * The one fret in the row that gets a fill — the suggested one, and only when it is
+   * not also the chosen one (a suggestion that repeats the chosen fret is not offered
+   * at all, see `suggestCapo`). `--success`/`--success-soft` are reused rather than
+   * `--plan-lifetime`, which shares this hue in the palette but is a declared exception
+   * scoped to `/accounts` alone (DESIGN.md) — this is a reading screen, exactly where
+   * that badge is not allowed to show up.
+   */
+  .fret-button.is-suggested {
+    background: var(--success-soft);
+  }
+
+  .fret-button.is-suggested .fret-button-number {
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  /* The arrow that pages the row along: the one cell here that is not a fret, so it
+     draws no dots and can never take the ring or the suggested fill. */
   .fret-button.is-page {
     color: var(--faint);
   }
 
-  .fret-button.is-on {
-    background: var(--accent);
-    color: var(--on-accent);
-    font-weight: 500;
-  }
-
   @media (hover: hover) {
-    .fret-button:not(.is-on):hover {
+    .fret-button:not(.is-on):not(.is-suggested):hover {
       background: var(--surface-2);
-      color: var(--accent);
     }
 
-    .fret-button.is-none:not(.is-on):hover,
     .fret-button.is-page:hover {
       color: var(--muted);
     }
   }
 
   /*
-   * What a capo would do for the hands, when it would do something — warm rather than
-   * grey, unlike `.control-hint` above: this one is an offer with a control in it, not
-   * a remark, and the tint is what tells those two apart at a glance inside one panel.
+   * One row in the mock's own six-chord example, where six dots at 6px apiece fit the
+   * cell with room to spare. A song with a real repertoire's worth of chords does not
+   * fit that assumption — a dozen distinct chords is an ordinary song, not an edge
+   * case — and a fixed single row of them ran straight past the cell's own edge into
+   * the next one, which is the bug this rule exists to have fixed.
+   *
+   * `align-self: stretch` is what makes the wrap happen at the *cell's* actual width
+   * rather than a guessed pixel value: the number above stays centred and
+   * shrink-to-fit (the column's own `align-items: center`), while this row alone
+   * takes the full width available and wraps its dots inside it, at whatever width
+   * the cell renders at on a given phone. A song with many distinct chords gets a
+   * taller row of cells, not a wider one — still one dot per chord, still literal,
+   * never past its own edge.
+   */
+  .fret-dots {
+    display: flex;
+    flex-wrap: wrap;
+    align-self: stretch;
+    justify-content: center;
+    gap: 0.125rem;
+  }
+
+  .fret-dot {
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 50%;
+    background: var(--line);
+  }
+
+  /* Filled by default in the faint ink used for a decorative mark elsewhere on this
+     panel; a ring or suggested fill overrides it below, the same way it overrides the
+     number's own colour. */
+  .fret-dot.is-filled {
+    background: var(--faint);
+  }
+
+  .fret-button.is-on .fret-dot.is-filled {
+    background: var(--success);
+  }
+
+  .fret-button.is-suggested .fret-dot.is-filled {
+    background: var(--success);
+  }
+
+  /*
+   * What a capo would do for the hands, when it would do something. Green, matching
+   * the one fret cell above it that shares this fact — see `.fret-button.is-suggested`
+   * for why that is `--success` and not the accent.
    */
   .capo-suggestion {
     display: flex;
@@ -6672,24 +6920,32 @@
     gap: 0.625rem;
     padding: 0.5625rem 0.625rem 0.5625rem 0.75rem;
     border-radius: var(--r-sm);
-    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--edge));
+    background: color-mix(in srgb, var(--success-soft) 65%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--success) 18%, var(--edge));
   }
 
   .capo-suggestion-text {
     flex: 1;
-    color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+    color: color-mix(in srgb, var(--success) 70%, var(--muted));
     font-size: 0.78125rem;
     line-height: 1.35;
   }
 
   .capo-suggestion-text strong {
-    color: color-mix(in srgb, var(--accent) 85%, black);
+    color: color-mix(in srgb, var(--success) 85%, black);
     font-weight: 600;
   }
 
-  /* Filled, and a pill: the one thing in this panel that acts on the reader's hands
-     rather than on the page, so it is the one control here shaped like a decision. */
+  /*
+   * Filled, and a pill: the one thing in this panel that acts on the reader's hands
+   * rather than on the page, so it is the one control here shaped like a decision.
+   *
+   * `--on-accent` rather than a dedicated `--on-success`: both pairs invert the same
+   * way between themes — a dark saturated colour in light mode, a light one in dark —
+   * so the ink that reads on one reads on the other. True by construction of how this
+   * palette is built (`--accent`/`--success` both flip luminance together), not
+   * something that happens to work by chance.
+   */
   .capo-suggestion-action {
     display: inline-flex;
     align-items: center;
@@ -6697,7 +6953,7 @@
     height: 2rem;
     padding: 0 0.875rem;
     border-radius: var(--r-pill);
-    background: var(--accent);
+    background: var(--success);
     color: var(--on-accent);
     font-size: 0.78125rem;
     font-weight: 500;
@@ -6705,7 +6961,7 @@
 
   @media (hover: hover) {
     .capo-suggestion-action:hover {
-      background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+      background: color-mix(in srgb, var(--success) 88%, black);
     }
   }
 

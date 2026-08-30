@@ -141,6 +141,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
           chords={summary}
           as={global.chordDisplay === 'diagrams' ? 'diagrams' : 'fingerings'}
           capo={songPrefs.capo}
+          onPick={setShown}
         />
       )}
 
@@ -219,6 +220,9 @@ interface SummaryChord {
   /** As the sheet writes it — transposed, respelled, in the reader's own notation. */
   label: string
   shape: ChordShape
+  /** The same chord, kept whole rather than just its label — what a tap on this row
+   *  hands to `ChordPopup`, the same object a tap on the sheet itself would produce. */
+  chord: Chord
 }
 
 /**
@@ -257,7 +261,7 @@ function summarise(
     if (seen.has(label)) continue
 
     seen.add(label)
-    found.push({ label, shape })
+    found.push({ label, shape, chord })
   }
 
   return found
@@ -280,20 +284,32 @@ function ChordSummary({
   chords,
   as,
   capo,
+  onPick,
 }: {
   chords: SummaryChord[]
   as: 'diagrams' | 'fingerings'
   /** The fret the capo is on, for each box's own capo bar — the shape unchanged. */
   capo: number
+  /** Opens `ChordPopup` for the tapped chord — the same handler and the same popup a
+   *  tap on the sheet's own chords already uses, so the three ways of reaching a
+   *  chord's fingering (the lyric line, and either shape of this summary) never
+   *  disagree about what they show. */
+  onPick: (chord: Chord) => void
 }) {
   if (as === 'fingerings') {
     return (
       <div className="chord-fingerings" aria-label="The chords in this song">
         {chords.map((chord) => (
-          <span key={chord.label} className="chord-fingering">
+          <button
+            key={chord.label}
+            type="button"
+            className="chord-fingering"
+            onClick={() => onPick(chord.chord)}
+            aria-label={`${chord.label}, show the fingering`}
+          >
             <span className="chord-fingering-name">{chord.label}</span>
             <span className="chord-fingering-frets">{fingeringText(chord.shape.frets)}</span>
-          </span>
+          </button>
         ))}
       </div>
     )
@@ -302,10 +318,16 @@ function ChordSummary({
   return (
     <div className="chord-strip" aria-label="The chords in this song">
       {chords.map((chord) => (
-        <span key={chord.label} className="chord-strip-item">
+        <button
+          key={chord.label}
+          type="button"
+          className="chord-strip-item"
+          onClick={() => onPick(chord.chord)}
+          aria-label={`${chord.label}, show the fingering`}
+        >
           <ChordDiagram shape={chord.shape} capo={capo} className="chord-strip-shape" />
           <span className="chord-strip-name">{chord.label}</span>
-        </span>
+        </button>
       ))}
     </div>
   )

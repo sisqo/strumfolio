@@ -22,10 +22,12 @@ export { clampCapo } from '../music/capo'
 export type ChordDisplay = 'name' | 'shape' | 'diagrams' | 'fingerings'
 
 /**
- * In the order the picker offers them, which is by how much of the screen each one
- * costs: nothing, a small block, a bigger block, and then every line of the song.
+ * In the order the menu offers them: heaviest first, down to the default that costs
+ * the song nothing. `ChordDisplayMenu`'s own rows are what this order is for — it
+ * runs from "a panel above the whole song" down to "nothing but the name", the reverse
+ * of ranking by how little each one asks of the screen.
  */
-export const CHORD_DISPLAYS: ChordDisplay[] = ['name', 'fingerings', 'diagrams', 'shape']
+export const CHORD_DISPLAYS: ChordDisplay[] = ['diagrams', 'fingerings', 'shape', 'name']
 
 export const CHORD_DISPLAY_LABEL: Record<ChordDisplay, string> = {
   name: 'names',
@@ -34,12 +36,31 @@ export const CHORD_DISPLAY_LABEL: Record<ChordDisplay, string> = {
   shape: 'diagrams inline',
 }
 
-/** What each mode does, for the picker — one line, in the reader's own terms. */
+/**
+ * The full sentence each row in the Chords menu names itself with — distinct from
+ * `CHORD_DISPLAY_LABEL` above, which is the word the compact chip badge shows
+ * (`Chords: diagrams`) and is too short to stand alone as a row's own heading.
+ */
+export const CHORD_DISPLAY_TITLE: Record<ChordDisplay, string> = {
+  diagrams: 'Diagrams before the song',
+  fingerings: 'Fingerings before the song',
+  shape: 'Diagrams in the lyrics',
+  name: 'Names only',
+}
+
+/**
+ * What each mode does, for the picker — one line, in the reader's own terms.
+ *
+ * `diagrams` and `fingerings` carry a generic fallback here, not their real sentence:
+ * the Chords menu prefers to say it with the song's own chords ("All 6 shapes…", "One
+ * line per chord: G 320003") and reaches for this only when there is nothing of the
+ * reader's own to show — a song with no chords, or none the shape table recognises.
+ */
 export const CHORD_DISPLAY_HINT: Record<ChordDisplay, string> = {
-  name: 'Just the name, over the syllable',
+  name: 'The name above the syllable, nothing else',
   fingerings: 'Fret numbers, once above the song',
   diagrams: 'Chord boxes, once above the song',
-  shape: 'A chord box over every syllable',
+  shape: 'Drawn on the word where the chord falls',
 }
 
 /** Preferences that belong to the reader, not to any one song. */

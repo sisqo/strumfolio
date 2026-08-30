@@ -57,9 +57,22 @@ export function ChordDiagram({
 
   const y = (fret: number) => TOP + FRET_GAP * (fret - base) + FRET_GAP / 2
 
+  /*
+   * Room for the fret number beside the nut, widened only when that number needs two
+   * digits — reachable on guitar for a handful of high movable shapes (a maj9 lands as
+   * high as fret 11) and, on a ukulele search, for anything the open table doesn't
+   * cover. The label is right-anchored at `LEFT - 5`, five units short of the fretboard's
+   * own left edge: one digit fits inside that with room to spare, but a second digit
+   * pushes its leftmost stroke past x = 0 — outside the viewBox, where an SVG clips by
+   * default — and the whole number disappeared rather than crowding the diagram. Single
+   * digit stays exactly as wide as before; nothing here moves for the common case.
+   */
+  const wideLabel = !atNut && String(base).length > 1
+  const originX = wideLabel ? -8 : 0
+
   return (
     <svg
-      viewBox={`0 0 ${RIGHT + LEFT} ${BOTTOM + 8}`}
+      viewBox={`${originX} 0 ${RIGHT + LEFT - originX} ${BOTTOM + 8}`}
       className={className}
       role="img"
       aria-hidden

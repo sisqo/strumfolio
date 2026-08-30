@@ -6,6 +6,8 @@ import {
   FRET_PAGE,
   MAX_CAPO,
   clampCapo,
+  distinctChordCount,
+  easeByFret,
   easeOf,
   fretWindowStart,
   readKey,
@@ -173,6 +175,43 @@ describe('suggesting a capo', () => {
     assert.equal(suggestCapo([], 0, 0, 'guitar'), null)
     assert.equal(suggestCapo(['x2', 'assolo'], 0, 0, 'guitar'), null)
   })
+})
+
+describe('the ease of every fret at once', () => {
+  const EB_SONG = ['Eb', 'Ab', 'Bb', 'Cm']
+
+  it('has one entry per fret, 0 through MAX_CAPO', () => {
+    const found = easeByFret(EB_SONG, 0, 'guitar')
+    assert.equal(found.easyByFret.length, MAX_CAPO + 1)
+    assert.equal(found.total, 4)
+  })
+
+  it('agrees with easeOf at every fret', () => {
+    const found = easeByFret(EB_SONG, 0, 'guitar')
+
+    for (let capo = 0; capo <= MAX_CAPO; capo += 1) {
+      const single = easeOf(EB_SONG, 0, capo, 'guitar')
+      assert.equal(found.easyByFret[capo], single.easy)
+      assert.equal(found.total, single.total)
+    }
+  })
+
+  it('agrees with suggestCapo about which fret is best', () => {
+    const found = easeByFret(EB_SONG, 0, 'guitar')
+    const suggested = suggestCapo(EB_SONG, 0, 0, 'guitar')
+
+    assert.ok(suggested !== null)
+    assert.equal(found.easyByFret[suggested.fret], suggested.easy)
+  })
+
+  it('gives every chord a fair fret with no chords at all', () => {
+    const found = easeByFret([], 0, 'guitar')
+    assert.equal(found.total, 0)
+    assert.deepEqual(
+      found.easyByFret,
+      Array.from({ length: MAX_CAPO + 1 }, () => 0),
+    )
+  })
 
   it('compares against the capo already on, not against a bare neck', () => {
     // With the capo where the suggestion would send it, there is nothing left to say.
@@ -255,5 +294,20 @@ describe('which frets the reading panel shows at once', () => {
 
   it('starts at the nut when every fret fits in one page', () => {
     assert.equal(fretWindowStart(3, 0, 4, FRET_PAGE), 0)
+  })
+})
+
+describe('counting a song\'s own distinct chords', () => {
+  it('agrees with what easeByFret already counts', () => {
+    const song = ['Eb', 'Ab', 'Bb', 'Cm']
+    assert.equal(distinctChordCount(song), easeByFret(song, 0, 'guitar').total)
+  })
+
+  it('collapses repeats and drops non-chords', () => {
+    assert.equal(distinctChordCount(['G', 'G', 'C', 'G', 'x2', 'assolo']), 2)
+  })
+
+  it('is zero for a song with no chords', () => {
+    assert.equal(distinctChordCount([]), 0)
   })
 })

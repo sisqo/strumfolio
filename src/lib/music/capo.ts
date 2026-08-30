@@ -149,6 +149,16 @@ function distinctChords(tokens: string[]): { root: PitchClass; suffix: string }[
   return [...seen.values()]
 }
 
+/**
+ * How many distinct chords a song has — the same count `easeByFret`'s own `total`
+ * gives, exposed on its own for a caller that has no reason to also pay for
+ * `easeByFret`'s per-fret search: the Chords menu wants this to say "6 in this song"
+ * and never asks which frets are easy.
+ */
+export function distinctChordCount(tokens: string[]): number {
+  return distinctChords(tokens).length
+}
+
 /** How many of these chords are easy to hold once moved by `shift`. */
 function easeAt(
   chords: { root: PitchClass; suffix: string }[],
@@ -160,6 +170,33 @@ function easeAt(
   ).length
 }
 
+/** How many of a song's chords are easy at every fret from 0 to `MAX_CAPO`, at once. */
+export interface FretEase {
+  /** Distinct chords in the song — what every count below is out of. */
+  total: number
+  /** Indexed by fret: how many of those chords are easy to hold there. */
+  easyByFret: number[]
+}
+
+/**
+ * The capo menu's own dots, one call for the whole row rather than one per cell.
+ *
+ * `easeOf` and `suggestCapo` below are both written in terms of this now, rather than
+ * each running its own loop over the same frets — the menu asks the identical question
+ * of every visible fret that `suggestCapo` already asks internally to find its one
+ * answer, so computing it once and reading off an array is the same cost as before,
+ * not six or eight times it. `isEasyShape` caches its own search per chord family
+ * (`shapes.ts`'s own `searched` map), so the first fret asked anywhere pays the full
+ * cost and every fret after — in this array or in a sibling call — reads it back.
+ */
+export function easeByFret(tokens: string[], semitones: number, instrument: Instrument): FretEase {
+  const chords = distinctChords(tokens)
+  const easyByFret = Array.from({ length: MAX_CAPO + 1 }, (_, fret) =>
+    easeAt(chords, readShift(semitones, fret), instrument),
+  )
+  return { total: chords.length, easyByFret }
+}
+
 /** How the song sits under the hands as it is now: the baseline a suggestion must beat. */
 export function easeOf(
   tokens: string[],
@@ -167,13 +204,8 @@ export function easeOf(
   capo: number,
   instrument: Instrument,
 ): CapoOption {
-  const chords = distinctChords(tokens)
-
-  return {
-    fret: capo,
-    easy: easeAt(chords, readShift(semitones, capo), instrument),
-    total: chords.length,
-  }
+  const { total, easyByFret } = easeByFret(tokens, semitones, instrument)
+  return { fret: capo, easy: easyByFret[capo], total }
 }
 
 /**
@@ -192,19 +224,19 @@ export function suggestCapo(
   capo: number,
   instrument: Instrument,
 ): CapoOption | null {
-  const chords = distinctChords(tokens)
-  if (chords.length === 0) return null
+  const { total, easyByFret } = easeByFret(tokens, semitones, instrument)
+  if (total === 0) return null
 
-  const current = easeAt(chords, readShift(semitones, capo), instrument)
-  if (current === chords.length) return null
+  const current = easyByFret[capo]
+  if (current === total) return null
 
   let best: CapoOption | null = null
 
   for (let fret = 0; fret <= MAX_CAPO; fret += 1) {
     if (fret === capo) continue
 
-    const easy = easeAt(chords, readShift(semitones, fret), instrument)
-    if (best === null || easy > best.easy) best = { fret, easy, total: chords.length }
+    const easy = easyByFret[fret]
+    if (best === null || easy > best.easy) best = { fret, easy, total }
   }
 
   return best !== null && best.easy > current ? best : null

@@ -1058,6 +1058,94 @@ restano solo strumento e dimensione del testo.
    ogni apertura di brano, dato che ora questa riga si monta con lo spartito e non con un
    pannello.
 
+7. **Il menu del capotasto, corretto in una seconda passata**, dopo aver riletto per intero
+   `Song Reader Mobile.dc.html` e trovato la sezione 5c che la prima lettura aveva saltato:
+   ogni tasto disegna una fila di puntini, uno per accordo distinto del brano, pieni per
+   quanti sono comodi a quel tasto — lo stesso conto che `suggestCapo` già faceva per
+   proporre un solo tasto, ora mostrato per tutti insieme (`easeByFret`, che le due funzioni
+   condividono perché non possano più raccontare due storie diverse). Il tasto scelto prende
+   un anello, non un riempimento — il riempimento pieno è riservato al tasto *suggerito*, e
+   se il tasto scelto lo condividesse le due informazioni si confonderebbero. Il colore del
+   suggerimento è verde (`--success`/`--success-soft`), non il caldo dell'accento: l'accento
+   è dei soli accordi, e `--plan-lifetime` — che nella palette condivide questa tinta — è
+   un'eccezione dichiarata riservata ad `/accounts`, mai a uno schermo di lettura. La griglia
+   del mock mostra sei tasti non consecutivi senza freccia (probabilmente un campione
+   illustrativo): il capotasto reale arriva al tasto 7, quindi la finestra scorrevole a sei
+   più freccia già in uso resta, solo con la nuova veste per cella.
+
+8. **Il menu «Chords», rifatto sul mock invece che a parole.** La sezione 5d disegna
+   quattro righe, ciascuna con un'anteprima reale invece di una sola frase — diagrammi
+   in miniatura, una riga di diteggiatura, il nome degli accordi — e un ordine preciso
+   (dal modo che occupa più spazio a quello che non ne occupa nessuno: diagrammi sopra
+   il brano, diteggiature sopra il brano, diagrammi in linea, solo nomi), l'opposto
+   dell'ordine con cui le avevo elencate la prima volta. L'anteprima di ogni riga pesca
+   dai veri accordi del brano aperto — fino a tre, trasposti e compitati come li vede
+   in quel momento chi legge (`previewChords`) — non dall'esempio fisso disegnato nel
+   mock, che sarebbe stato lo stesso per ogni canzone. La riga «Fingerings» e quella
+   «Diagrams» scrivono anche la propria frase con quei dati reali («Tutti i 3 accordi,
+   in un pannello sopra al testo»); le altre due tengono la frase fissa del mock. Il
+   conteggio «N in this song» condivide la stessa definizione di «accordo distinto» già
+   usata dal menu del capotasto (`distinctChordCount`, spacchettato da `easeByFret` così
+   il numero non possa mai dire due cose diverse a seconda del menu aperto.
+
+9. **Tre difetti trovati usando il popup davvero, corretti insieme.**
+   - La freccia per scorrere i tasti oltre il 5 non faceva nulla finché il capotasto era
+     su 0 — che è lo stato di partenza di ogni canzone. Causa: `fretWindowStart` impone che
+     il tasto *attualmente scelto* resti sempre visibile, giusto per un menu riaperto (deve
+     mostrare subito il tasto 7 se il capotasto era già lì), sbagliato mentre il menu è
+     aperto e si sta solo sfogliando — con capotasto a 0, ogni richiesta di pagina veniva
+     ricacciata indietro perché 0 doveva restare in vista. Il capotasto con cui il menu si
+     è aperto ora si congela in uno stato locale (`openedCapo`) e non insegue più il valore
+     live: un tasto cliccato dalla pagina che si vede già non ha comunque bisogno di quella
+     regola.
+   - Un solo bottone a scorrimento cambiava icona e verso a seconda della pagina; ora sono
+     due bottoni indipendenti, uno prima del tasto 0 e uno dopo l'ultimo, ciascuno presente
+     solo quando c'è davvero dove andare — lo stesso disegno di `PrevNext`/`Step` già usato
+     per canzone precedente/successiva.
+   - Il colore del capotasto scelto — sia l'anello nel popup sia il badge del chip in
+     pagina — è passato dal caldo dell'accento al verde del suggerimento, su richiesta
+     esplicita: un solo colore per «il tasto su cui sono», raccontato allo stesso modo
+     dentro e fuori dal popup. La distinzione fra scelto e suggerito resta di forma (anello
+     contro riempimento), non più di tinta.
+   - Le anteprime del menu «Chords» erano state dimensionate sul valore letterale delle
+     icone minuscole del mock e risultavano illeggibili; diagrammi e testo sono stati
+     ingranditi (diagrammi 17→30px e 13→24px, testo 8-9.5px→12-13px).
+   - Il riquadro «fingerings» sopra il brano scriveva il nome dell'accordo in una colonna a
+     `width: 2.4ch` fissa: un nome più lungo di due lettere (`F#m7`, `Bbmaj7`) sporgeva oltre
+     quella larghezza e si sovrapponeva alla diteggiatura accanto, perché una `width` fissa
+     non cresce per un contenuto più largo mentre un `min-width` sì — cambiato in quello.
+
+10. **Il riepilogo «diagrams» diventa cliccabile, e un difetto vero trovato cercando
+    quello segnalato.**
+    - Ogni riquadro (`ChordSummary`, entrambe le modalità — `diagrams` prima,
+      `fingerings` a richiesta separata subito dopo) era testo statico; ora è un
+      bottone che apre lo stesso `ChordPopup` di un tap sull'accordo nel testo — stesso
+      gestore (`setShown`), stesso elemento, mai due popup che potrebbero raccontare
+      cose diverse. Serviva portare il `Chord` vero (non solo l'etichetta già formattata)
+      dentro `SummaryChord`, dato che `ChordPopup` rifà da sé `shapeFor`/`formatChord`.
+      Il nome dell'accordo in modalità `diagrams` ha anche cambiato colore, da `--ink` a
+      `--accent`: è lo stesso accordo che sta nel testo, non una didascalia su di esso.
+    - Cercando «il primo accordo tagliato» senza uno screenshot a disposizione, il
+      render fedele del componente vero (non un'approssimazione disegnata a mano) ha
+      trovato un difetto reale in `ChordDiagram`: il numero del tasto lontano dal
+      capotasto è ancorato a `x = LEFT - 5` con `text-anchor: end`, che basta per una
+      cifra sola ma per una doppia (raggiungibile con un `maj9` di chitarra, che può
+      arrivare al tasto 11) manda la prima cifra sotto x=0 — fuori dal `viewBox`, dove
+      un SVG taglia di default. Il numero spariva del tutto, non solo si stringeva.
+      Verificato con un render diretto del componente (react-dom/server, fuori da
+      Next): confermato sparito prima, visibile dopo aver allargato il `viewBox` di 8
+      unità sul solo lato sinistro, e solo quando il numero è a due cifre — un accordo
+      comune non cambia di un pixel. Non è escluso che sia un problema diverso da quello
+      segnalato: non avendo un modo per riprodurre esattamente il caso del canzoniere
+      reale, questo è il difetto concreto che la ricerca ha trovato.
+11. **Due correzioni su richiesta diretta, non dal mock.**
+    - I badge di Key e Capo in pagina restavano colorati anche a valore 0 (nessuna
+      trasposizione, nessun capotasto) — ora sono neutri finché il valore non si
+      allontana da 0, e lo stesso `--r-xs` che altrove nell'app legge come «angolo
+      smussato» qui, su un badge alto 22px, si vedeva come un cerchio: il raggio è sceso
+      a un valore fuori dalla scala dei token, il più piccolo che serve in tutta l'app.
+    - Il font del riquadro «fingerings» sopra il brano è sceso da 14px a 13px.
+
 **Scostamenti dichiarati dalla board.** Il badge della chiave nel mock è verde e quello del
 capotasto terracotta; qui sono due pesi dello stesso caldo (soffuso e pieno), perché un
 secondo colore su una schermata di lettura è esattamente ciò che la Chord-First Rule di
