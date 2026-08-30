@@ -1146,6 +1146,20 @@ restano solo strumento e dimensione del testo.
       a un valore fuori dalla scala dei token, il più piccolo che serve in tutta l'app.
     - Il font del riquadro «fingerings» sopra il brano è sceso da 14px a 13px.
 
+12. **Cancellare un brano, anche dalla pagina di lettura.** Fino ad ora l'unico posto era
+    l'editor (`deleteSong`, `src/lib/import/actions.ts`, con la sua conferma a due passi in
+    `EditorScreen`); un lettore che vuole solo togliere un brano doveva aprirlo per modifica
+    per farlo. `DeleteSongLink` accanto a `EditSongLink`, in fondo alla canzone, ripete la
+    stessa domanda in chiaro invece di cancellare al primo tocco — la stessa che l'editor
+    già fa, posta allo stesso modo. La riga con la regola sopra i due pulsanti si è spostata
+    da `EditSongLink` (che la possedeva da sola) a un nuovo `SongActions`, componente client
+    che decide se mostrare la riga in base al ruolo: `SongReader` è un componente server e
+    non può saperlo, e una riga vuota per chi non può modificare — la maggioranza di chi
+    legge — sarebbe stata una regressione. Dopo la cancellazione si torna al canzoniere di
+    provenienza (`home.slug`, già calcolato da `placeOf` per il «torna indietro» dell'header)
+    invece che alla radice dell'app come fa l'editor: qui quell'informazione era già a
+    disposizione.
+
 **Scostamenti dichiarati dalla board.** Il badge della chiave nel mock è verde e quello del
 capotasto terracotta; qui sono due pesi dello stesso caldo (soffuso e pieno), perché un
 secondo colore su una schermata di lettura è esattamente ciò che la Chord-First Rule di

@@ -10,10 +10,7 @@ import { useOnline } from '@/lib/useOnline'
  * The way into the editor, for the people who have one.
  *
  * A client component for one link, because the page around it is generated at build time
- * and cannot know who is reading. It takes two rules at its foot with it, in its `bottom`
- * placement (below the sheet, its original and still its default) — but not in `top` (beside
- * the title, level with it): that one has no rule to separate it from, sitting in the
- * header rather than after the song.
+ * and cannot know who is reading.
  *
  * **A role that may edit.** Nothing at all for a reader with no account of their own on
  * this one, rather than a button that would refuse, and nothing until the role is known.
@@ -27,8 +24,10 @@ import { useOnline } from '@/lib/useOnline'
  * `useOnline` exists for: controls that would otherwise look available and quietly do
  * nothing. So the link comes back when the signal does.
  *
- * The rule above the `bottom` placement goes too. It exists to separate the song from what
- * you do to it, and with nothing to do there is nothing to separate.
+ * `bottom` used to carry its own rule and margin above it, separating the song from what
+ * you do to it. That moved to `SongActions`, which now renders this beside `DeleteSongLink`
+ * and owns the one rule between them and the song — two things you do *to* the song share
+ * one separator, not one each.
  */
 export function EditSongLink({
   slug,
@@ -70,11 +69,5 @@ export function EditSongLink({
       </Link>
     )
 
-  if (placement === 'top') return link
-
-  return (
-    <div className="mt-10 border-t pt-4" style={{ borderColor: 'var(--surface-2)' }}>
-      {link}
-    </div>
-  )
+  return link
 }

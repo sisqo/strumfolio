@@ -1,8 +1,8 @@
 import { CommentsProvider } from '@/components/CommentsProvider'
 import { LiveComments } from '@/components/LiveComments'
-import { EditSongLink } from '@/components/EditSongLink'
 import { Footer } from '@/components/Footer'
 import { LiveControlBar, LiveSheet, SongHeading } from '@/components/LiveSong'
+import { SongActions } from '@/components/SongActions'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SongProvider } from '@/components/SongProvider'
 import { SongReaderSearch } from '@/components/SongReaderSearch'
@@ -148,7 +148,8 @@ export async function SongReader({ song }: { song: Song }) {
         {/*
           * The sheet is a card that runs off the bottom of the screen, so
           * everything that belongs to the song is inside it: the title, the words,
-          * the way to the next song, and the way into the editor.
+          * the way to the next song, and what you can do to the song itself — edit it
+          * or delete it.
           *
           * One thing does now sit on the page beside it, against the rule this comment
           * used to state absolutely: the notes rail, on a wide screen only. It earns the
@@ -175,12 +176,14 @@ export async function SongReader({ song }: { song: Song }) {
           <LiveSheet />
 
           {/*
-            * A link, not a form: the editor is a page of its own, and two ways to
-            * change a song would be two things to keep in step. It needs a network
-            * to save, so it needs one to open — and a role that may change songs,
-            * which is why it is a component of its own.
+            * Edit is a link, not a form: the editor is a page of its own, and two ways
+            * to change a song would be two things to keep in step. Delete sits beside
+            * it — the only other place a song could go, and this is the page a reader
+            * is already on. `redirectTo` is the songbook this song came from, the same
+            * one the header's own way back leads to; a song with none goes to `/`,
+            * since there is no page left that still lists it.
             */}
-          <EditSongLink slug={song.slug} />
+          <SongActions slug={song.slug} redirectTo={home === null ? '/' : `/songbooks/${home.slug}`} />
 
           {/*
             * Above the spacer, not after it: the spacer's whole job is to keep the
