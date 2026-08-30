@@ -48,7 +48,6 @@ interface PrefsContextValue {
   setSemitones: (semitones: number) => void
   setScrollSpeed: (step: number) => void
   setCapo: (fret: number) => void
-  setNote: (note: string) => void
 }
 
 const PrefsContext = createContext<PrefsContextValue | null>(null)
@@ -218,8 +217,7 @@ export function PrefsProvider({
       if (
         next.semitones === prev.semitones &&
         next.scrollSpeed === prev.scrollSpeed &&
-        next.capo === prev.capo &&
-        next.note === prev.note
+        next.capo === prev.capo
       ) {
         return
       }
@@ -246,7 +244,6 @@ export function PrefsProvider({
         updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),
       setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: clampCapo(fret) })),
-      setNote: (note) => updateSong((prev) => ({ ...prev, note })),
     }),
     [readable, song, pending, updateGlobal, updateSong],
   )

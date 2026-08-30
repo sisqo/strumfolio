@@ -8,7 +8,7 @@
  * form renders the same sheet with no provider anywhere near it.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
@@ -17,7 +17,7 @@ import { EditSongLink } from '@/components/EditSongLink'
 import { usePrefs } from '@/components/PrefsProvider'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
-import { IconExternal, IconNote, IconPencil, IconPlus } from '@/components/icons'
+import { IconExternal, IconNote } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
@@ -104,7 +104,6 @@ export function SongHeading({ place }: { place: Place | null }) {
       )}
 
       <TransposeNote />
-      <SongNote />
 
       {/*
         * Said only when the server has answered that the row is gone — never
@@ -148,62 +147,6 @@ function TransposeNote() {
       <IconNote size={13} />
       {text}
     </p>
-  )
-}
-
-/**
- * A reminder to self, above the sheet rather than behind a button: the point of
- * "watch the bridge" or "capo 2, not 3" is to be read before the fingers start
- * moving, not found by whoever remembers a panel exists.
- *
- * Saved through the same debounced queue as the key and the capo — see
- * `PrefsProvider`'s own comment — so there is nothing here to explicitly save.
- * "Done" only closes the editor; every keystroke before it already queued.
- */
-function SongNote() {
-  const { song: prefs, setNote } = usePrefs()
-  const [editing, setEditing] = useState(false)
-
-  if (!editing) {
-    if (prefs.note.trim() === '') {
-      return (
-        <button type="button" className="btn btn-quiet btn-sm mt-2.5" onClick={() => setEditing(true)}>
-          <IconPlus size={13} />
-          Add a note
-        </button>
-      )
-    }
-
-    return (
-      <div className="song-note mt-2.5">
-        <IconNote size={13} />
-        <span className="song-note-text">{prefs.note}</span>
-        <button
-          type="button"
-          className="song-note-edit"
-          onClick={() => setEditing(true)}
-          aria-label="Edit note"
-        >
-          <IconPencil size={13} />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="mt-2.5">
-      <textarea
-        autoFocus
-        value={prefs.note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="Capo 2, watch the bridge…"
-        rows={2}
-        className="form-field song-note-field text-sm"
-      />
-      <button type="button" className="btn btn-sm mt-2" onClick={() => setEditing(false)}>
-        Done
-      </button>
-    </div>
   )
 }
 

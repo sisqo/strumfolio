@@ -83,7 +83,6 @@ export function readSongPrefs(slug: string): SongPrefs {
         ? clampSpeed(cached.scrollSpeed)
         : DEFAULT_SONG_PREFS.scrollSpeed,
     capo: typeof cached.capo === 'number' ? clampCapo(cached.capo) : DEFAULT_SONG_PREFS.capo,
-    note: typeof cached.note === 'string' ? cached.note : DEFAULT_SONG_PREFS.note,
   }
 }
 

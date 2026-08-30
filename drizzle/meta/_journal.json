@@ -211,6 +211,13 @@
       "when": 1788069397324,
       "tag": "0029_song_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788082809170,
+      "tag": "0030_drop_song_note",
+      "breakpoints": true
     }
   ]
 }

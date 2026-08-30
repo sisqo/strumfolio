@@ -1117,53 +1117,6 @@
     font-size: 0.8125rem;
   }
 
-  /*
-   * A reminder to self, read before the sheet rather than a button that opens
-   * one — see `SongNote`'s own comment in `LiveSong.tsx`. Page-colored rather
-   * than a card: it sits inside the sheet's own card, and two white surfaces
-   * touching would read as one (the same rule `.hero-counters` and every
-   * nested card in this file already follow).
-   */
-  .song-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.45rem;
-    padding: 0.5rem 0.7rem;
-    border-radius: var(--r-md);
-    background: var(--bg);
-    color: var(--muted);
-    font-size: 0.8125rem;
-    line-height: 1.45;
-  }
-
-  .song-note svg {
-    flex: none;
-    margin-top: 0.2rem;
-    color: var(--faint);
-  }
-
-  .song-note-text {
-    flex: 1;
-    min-width: 0;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-  }
-
-  .song-note-edit {
-    flex: none;
-    color: var(--faint);
-  }
-
-  @media (hover: hover) {
-    .song-note-edit:hover {
-      color: var(--ink);
-    }
-  }
-
-  .song-note-field {
-    resize: vertical;
-  }
-
   .chord-diagram-open {
     stroke: var(--muted);
   }

@@ -540,14 +540,6 @@ export const userSongPrefs = pgTable(
      */
     capo: integer('capo').notNull().default(0),
     /**
-     * A reminder to self about this song — "capo 2, watch the bridge" — never sung,
-     * never shown to a Strum Together guest, just for whoever wrote it (v3.5).
-     * Defaulted to empty rather than nullable, the same reasoning `capo` above gives:
-     * every row that exists already answers this, with the answer that changes
-     * nothing for a reader who has never touched it.
-     */
-    note: text('note').notNull().default(''),
-    /**
      * When this reader last opened this song, for the home screen's "Recently
      * played" (v3.5). Null, not defaulted to now: a row can exist for reasons that
      * have nothing to do with having opened the song — a transposition saved once,

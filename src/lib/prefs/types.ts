@@ -33,11 +33,6 @@ export interface SongPrefs {
    * capo kept globally would silently change the chords of songs never opened.
    */
   capo: number
-  /**
-   * A reminder to self, never sung and never shown to anyone following a Sing
-   * Together broadcast — see `userSongPrefs.note`'s own comment in `db/schema.ts`.
-   */
-  note: string
 }
 
 /** Font sizes for the sheet, in pixels. The text reflows; it is not a viewport zoom. */
@@ -74,7 +69,7 @@ export function readChordDisplay(value: unknown): ChordDisplay {
   return value === 'shape' ? 'shape' : 'name'
 }
 
-export const DEFAULT_SONG_PREFS: SongPrefs = { semitones: 0, scrollSpeed: 3, capo: 0, note: '' }
+export const DEFAULT_SONG_PREFS: SongPrefs = { semitones: 0, scrollSpeed: 3, capo: 0 }
 
 export function clampZoom(step: number): number {
   return Math.max(0, Math.min(ZOOM_STEPS.length - 1, Math.round(step)))

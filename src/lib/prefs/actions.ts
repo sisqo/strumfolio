@@ -130,7 +130,6 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           semitones: clampSemitones(songRows[0].semitones),
           scrollSpeed: clampSpeed(songRows[0].scrollSpeed),
           capo: clampCapo(songRows[0].capo),
-          note: songRows[0].note,
         }
 
   return { global, song }
@@ -198,7 +197,6 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
     semitones: clampSemitones(prefs.semitones),
     scrollSpeed: clampSpeed(prefs.scrollSpeed),
     capo: clampCapo(prefs.capo),
-    note: prefs.note,
   }
 
   try {
@@ -248,7 +246,7 @@ export async function recordSongOpened(songSlug: string): Promise<void> {
  *
  * **An UPDATE that nulls one column, never a DELETE**, and that is the whole of what makes this
  * safe rather than destructive: `lastOpenedAt` shares its row with `semitones`, `capo`,
- * `scrollSpeed` and `note` (see `userSongPrefs` in `db/schema.ts`), so deleting the rows would
+ * `scrollSpeed` and `capo` (see `userSongPrefs` in `db/schema.ts`), so deleting the rows would
  * throw away the key this reader sings each song in, the fret their capo sits on and the
  * reminder they wrote themselves — to clear a list of shortcuts. One column is the only thing
  * anybody is asking to forget.
