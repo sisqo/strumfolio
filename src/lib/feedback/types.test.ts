@@ -33,7 +33,7 @@ describe('feedbackProblem', () => {
 
   it('has wording for every reason a screen can be handed', () => {
     // `plan-required` is deliberately absent: it is the one refusal answered by
-    // `PlanUpgradeModal` rather than by a line under the field, and the type says so.
+    // `FeaturePaywallModal` rather than by a line under the field, and the type says so.
     for (const reason of ['too-short', 'too-long', 'no-session', 'rate-limited', 'failed'] as const) {
       assert.equal(typeof FEEDBACK_MESSAGE[reason], 'string')
       assert.ok(FEEDBACK_MESSAGE[reason].length > 0, `${reason} has no wording`)

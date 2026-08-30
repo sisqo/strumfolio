@@ -11,15 +11,6 @@ import { useDialogA11y } from '@/lib/useDialogA11y'
 export interface PlanNotice {
   reason: LimitReason
   limit?: LimitFacts
-  /**
-   * Named only when there is one feature to blame for a `plan-required` refusal with no cap
-   * to quote — Strum Together, the printable booklet — so the dialog can say what was refused
-   * rather than fall back to `LIMIT_MESSAGE`'s vaguest line, "This is not included in your
-   * plan." Left unset for a count refusal, where `limit` already names the cap, and for
-   * `frozen`, which is over more than one cap at once and would misname the problem by
-   * blaming a single feature.
-   */
-  feature?: string
 }
 
 /**
@@ -31,6 +22,15 @@ export interface PlanNotice {
  * `frozen` is the one reason with no purchase that fixes it — see `LimitReason`'s own comment
  * in `plans/types.ts` — so it is also the one case here with no "See plans" button: telling
  * someone to buy more when the answer is to delete would be both wrong and expensive.
+ *
+ * The fourth reason, `plan-required`, no longer reaches this dialog in practice: the four
+ * gates that ever produce it (`entitlements.ts`'s `lead`/`booklet`/`ukulele`/
+ * `featureRequest`) now open `FeaturePaywallModal` instead, whose "Included in {plan}"
+ * template can name the one plan that grants a single feature — a claim this dialog cannot
+ * make for a numbered cap, where more than one plan lifts it. `LIMIT_MESSAGE['plan-required']`
+ * stays as the bare fallback below for the same reason it always has: a `Record<LimitReason,
+ * string>` demands all four keys, and a future call site that forgets `limit` should read a
+ * vague truth rather than crash on a missing one.
  */
 export function PlanUpgradeModal({ notice, onClose }: { notice: PlanNotice; onClose: () => void }) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -47,12 +47,7 @@ export function PlanUpgradeModal({ notice, onClose }: { notice: PlanNotice; onCl
   useDialogA11y(cardRef, onClose)
 
   const canUpgrade = notice.reason !== 'frozen'
-  const message =
-    notice.limit !== undefined
-      ? limitSentence(notice.limit)
-      : notice.feature !== undefined
-        ? `${notice.feature} is not included in your plan.`
-        : LIMIT_MESSAGE[notice.reason]
+  const message = notice.limit !== undefined ? limitSentence(notice.limit) : LIMIT_MESSAGE[notice.reason]
 
   return (
     <div className="upgrade-overlay">

@@ -11,10 +11,10 @@ import { useRole } from '@/components/RoleProvider'
  *
  * Note what this deliberately does **not** gate on: the plan. The booklet is a paid feature and
  * `loadBooklet` refuses `plan-required` on its own, which `BookletPanel` turns into
- * `PlanUpgradeModal` — a refusal that explains itself and offers a way to `/pricing`. Hiding the
- * page from a free account instead would leave them a menu entry leading nowhere, or no entry at
- * all and no idea the feature exists; the plan matrix on `/pricing` is where a plan's contents
- * are argued, not the menu.
+ * `FeaturePaywallModal` — a refusal that explains itself and offers a way to `/pricing`. Hiding
+ * the page from a free account instead would leave them a menu entry leading nowhere, or no
+ * entry at all and no idea the feature exists; the plan matrix on `/pricing` is where a plan's
+ * contents are argued, not the menu.
  */
 export function BookletScreen() {
   const { known, mayEdit } = useRole()

@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
+import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
+import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
-import { IconBroadcast, IconCheck } from '@/components/icons'
-import { audienceIsFull, audienceSentence } from '@/lib/plans/types'
+import { IconBroadcast, IconCheck, IconLock } from '@/components/icons'
+import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
+import { audienceIsFull, audienceSentence, PLANS } from '@/lib/plans/types'
 import { followUrl } from '@/lib/strumTogether/link'
 
 /**
@@ -18,19 +20,28 @@ import { followUrl } from '@/lib/strumTogether/link'
  * this owns only what is inside.
  *
  * `onClose` is called for exactly one reason: a `plan-required` refusal opens
- * `PlanUpgradeModal`, whose own "See plans" link navigates to `/pricing`, and whatever
+ * `FeaturePaywallModal`, whose own "See Standard" link navigates to `/pricing`, and whatever
  * opened this (the menu panel, the bar's popover) must not still be showing over that
  * navigation. Every other outcome — success, a session error, a failed stop — leaves
  * this panel open, since there is more here worth reading (the link, the retry).
  */
 export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
   const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useStrumTogether()
+  const { plan } = useRole()
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   /** A refusal by the plan gets the same dialog `HomeScreen` opens for its own — see
-      `PlanUpgradeModal`'s own comment on why — instead of the inline `error` above. */
-  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+      `FeaturePaywallModal`'s own comment on why — instead of the inline `error` above. */
+  const [paywallOpen, setPaywallOpen] = useState(false)
+
+  /*
+   * The button's own preview of the same gate `start()` enforces server-side — see
+   * `ControlBar`'s identical `ukuleleRefused` for the reasoning this mirrors: read off
+   * `plan` rather than asked of the server, and fails open (no lock shown) whenever `plan`
+   * is null, which covers both "still loading" and "enforcement is off".
+   */
+  const leadRefused = plan !== null && !PLANS[plan].mayLead
 
   /*
    * The QR is redrawn only when the token actually changes — starting a broadcast, or
@@ -69,7 +80,7 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
      * second press either.
      */
     if (result.reason === 'plan-required') {
-      setPlanNotice({ reason: 'plan-required', feature: 'Strum Together' })
+      setPaywallOpen(true)
       onClose()
     } else if (result.reason === 'no-session') {
       setError('Session expired. Reload the page and sign in again.')
@@ -240,6 +251,7 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
         >
           <IconBroadcast size={16} />
           Start broadcasting
+          {leadRefused && <IconLock size={13} />}
         </button>
       )}
 
@@ -255,7 +267,13 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
         </button>
       )}
 
-      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
+      {paywallOpen && (
+        <FeaturePaywallModal
+          feature={PAYWALL_FEATURES.lead.label}
+          plan={PAYWALL_FEATURES.lead.minPlan}
+          onDismiss={() => setPaywallOpen(false)}
+        />
+      )}
     </div>
   )
 }

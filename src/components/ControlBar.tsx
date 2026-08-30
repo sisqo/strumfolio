@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
+import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
@@ -13,6 +13,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconHare,
+  IconLock,
   IconPause,
   IconPlay,
   IconSliders,
@@ -30,6 +31,7 @@ import {
 import { estimateKey } from '@/lib/music/key'
 import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { INSTRUMENTS, INSTRUMENT_LABEL, type Instrument } from '@/lib/music/shapes'
+import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
 import { PLANS } from '@/lib/plans/types'
 import { type ChordDisplay, SCROLL_SPEEDS, ZOOM_STEPS, clampSemitones } from '@/lib/prefs/types'
 import { broadcastPlay, broadcastTranspose } from '@/lib/strumTogether/session'
@@ -616,7 +618,7 @@ function ReadingPanel({
    */
   const { plan } = useRole()
   const ukuleleRefused = plan !== null && !PLANS[plan].ukulele
-  const [notice, setNotice] = useState<PlanNotice | null>(null)
+  const [paywallOpen, setPaywallOpen] = useState(false)
 
   return (
     <div className="control-panel">
@@ -829,13 +831,12 @@ function ReadingPanel({
                   type="button"
                   className={entry === instrument ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
                   aria-pressed={entry === instrument}
-                  onClick={() =>
-                    refused
-                      ? setNotice({ reason: 'plan-required', feature: 'The ukulele' })
-                      : setInstrument(entry)
-                  }
+                  onClick={() => (refused ? setPaywallOpen(true) : setInstrument(entry))}
                 >
-                  {INSTRUMENT_LABEL[entry]}
+                  <span className="inline-flex items-center gap-1">
+                    {INSTRUMENT_LABEL[entry]}
+                    {refused && <IconLock size={11} />}
+                  </span>
                 </button>
               )
             })}
@@ -843,7 +844,13 @@ function ReadingPanel({
         </div>
       </div>
 
-      {notice !== null && <PlanUpgradeModal notice={notice} onClose={() => setNotice(null)} />}
+      {paywallOpen && (
+        <FeaturePaywallModal
+          feature={PAYWALL_FEATURES.ukulele.label}
+          plan={PAYWALL_FEATURES.ukulele.minPlan}
+          onDismiss={() => setPaywallOpen(false)}
+        />
+      )}
 
       {/* No second divider: the pair above and "Text size" are one step apart, not two
           groups, so the space between them does the separating. */}

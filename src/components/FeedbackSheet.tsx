@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useId, useRef, useState } from 'react'
 
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
+import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { useRole } from '@/components/RoleProvider'
 import {
   IconArrowRight,
@@ -27,6 +27,7 @@ import {
   screenshotTooLarge,
   type FeedbackCategory,
 } from '@/lib/feedback/types'
+import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
 import { PLANS } from '@/lib/plans/types'
 import { useDialogA11y } from '@/lib/useDialogA11y'
 
@@ -67,7 +68,7 @@ function readFileAsBase64(file: File): Promise<string> {
  * covering all four categories, reachable from the floating launcher and from the hamburger
  * menu (`FeedbackProvider` owns which triggers exist where). Below 640px this renders as a
  * sheet anchored to the bottom edge (`.feedback-sheet`, `globals.css`); at or above, the same
- * markup becomes a centered dialog, reusing `PlanUpgradeModal`'s `.upgrade-overlay` shape.
+ * markup becomes a centered dialog, reusing `FeaturePaywallModal`'s `.upgrade-overlay` shape.
  *
  * Only the Feature request card is plan-gated — Bug report, Improvement and Something else
  * are open to every plan, exactly as the mock draws them. `plan !== null &&` guards the lock
@@ -88,7 +89,7 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+  const [paywallOpen, setPaywallOpen] = useState(false)
 
   if (email === null) return null
 
@@ -131,7 +132,7 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
       /* Reachable only if the plan changed while the sheet was open — the locked card
          cannot be selected, so `submitFeedback` never sees this refusal in the normal path. */
       if (result.reason === 'plan-required') {
-        setPlanNotice({ reason: 'plan-required', feature: 'Feature requests' })
+        setPaywallOpen(true)
         return
       }
       setError(FEEDBACK_MESSAGE[result.reason])
@@ -200,9 +201,7 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
                             : 'feedback-category'
                       }
                       title={locked ? 'Feature requests are part of Plus and Premium' : undefined}
-                      onClick={() =>
-                        locked ? setPlanNotice({ reason: 'plan-required', feature: 'Feature requests' }) : setCategory(value)
-                      }
+                      onClick={() => (locked ? setPaywallOpen(true) : setCategory(value))}
                     >
                       <Icon size={20} />
                       <span>{FEEDBACK_CATEGORY_LABEL[value]}</span>
@@ -323,7 +322,13 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {planNotice !== null && <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />}
+      {paywallOpen && (
+        <FeaturePaywallModal
+          feature={PAYWALL_FEATURES.featureRequest.label}
+          plan={PAYWALL_FEATURES.featureRequest.minPlan}
+          onDismiss={() => setPaywallOpen(false)}
+        />
+      )}
     </>
   )
 }

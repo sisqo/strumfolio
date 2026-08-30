@@ -1157,8 +1157,9 @@
 
   /* ---- The modal dialog shell ------------------------------------------
      Built for the plan-upgrade dialog (`PlanUpgradeModal`, v3.13) and reused as-is by
-     `SampleSongbookModal` (v3.14) — one look for every "a card over a dimmed backdrop"
-     dialog in the app, not a style that happens to be named after its first caller. */
+     `SampleSongbookModal` (v3.14) and `FeaturePaywallModal` — one look for every "a card
+     over a dimmed backdrop" dialog in the app, not a style that happens to be named after
+     its first caller. */
 
   /* Same z-index as `.chord-overlay`: the two never show at once, and each is
      meant to sit over everything on the screen it appears on. */
@@ -1246,7 +1247,7 @@
 
   /* Same z-index as `.menu-panel`'s own overlay minus twenty: below
      `.upgrade-overlay` (60), on purpose — the locked Feature request card
-     opens `PlanUpgradeModal` on top of this sheet, not instead of it. */
+     opens `FeaturePaywallModal` on top of this sheet, not instead of it. */
   .feedback-overlay {
     position: fixed;
     inset: 0;
@@ -3558,6 +3559,21 @@
 
   .plan-card.is-paid .plan-name {
     color: color-mix(in srgb, var(--accent) 85%, black);
+  }
+
+  /*
+   * The one card `/pricing?plan=` names — set only when `FeaturePaywallModal`'s own "See
+   * {plan}" link brought a reader here, never by anything chosen on this page itself. A ring
+   * rather than a second `.plan-badge` ribbon: "Most popular" is a claim about every reader,
+   * this is a claim about exactly one, and the two must never share a badge. Combines with
+   * `.is-paid` rather than replacing it (Standard and Premium keep their own tint underneath
+   * the ring); never applied together with `.is-featured` (`PricingPlans.tsx`'s own class
+   * list), whose stronger accent treatment already draws the eye without it.
+   */
+  .plan-card.is-highlighted {
+    border-color: var(--accent);
+    border-width: 2px;
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .plan-card.is-featured {

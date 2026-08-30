@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 
-import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
+import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { usePrefs } from '@/components/PrefsProvider'
-import { IconChevronDown, IconDownload, IconInfo, IconPrint } from '@/components/icons'
+import { useRole } from '@/components/RoleProvider'
+import { IconChevronDown, IconDownload, IconInfo, IconLock, IconPrint } from '@/components/icons'
 import { loadBooklet } from '@/lib/booklet/actions'
 import { bookletToBlob } from '@/lib/booklet/document'
 import type { Songbook } from '@/lib/data/types'
 import { downloadBlob } from '@/lib/download'
+import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
+import { PLANS } from '@/lib/plans/types'
 import { loadSongbooks } from '@/lib/songbooks/actions'
 
 /**
@@ -17,7 +20,7 @@ import { loadSongbooks } from '@/lib/songbooks/actions'
  * Lifted out of `ExportPanel`, where it was the third of three cards, and moved without being
  * redesigned: same `info-card`, same picker, same button, same two refusals. What changed is
  * only which page it is on, and therefore what it shares — it used to sit under a `notice`, a
- * `busy` flag and a `PlanUpgradeModal` that the two zip exports beside it also used, and each
+ * `busy` flag and a plan-upgrade dialog that the two zip exports beside it also used, and each
  * of those is now this panel's own. That is the point of the move rather than a cost of it: a
  * plan refusal here was opening a dialog on a screen whose heading said "Export", about a
  * feature two cards further down.
@@ -36,11 +39,16 @@ import { loadSongbooks } from '@/lib/songbooks/actions'
  */
 export function BookletPanel() {
   const { global } = usePrefs()
+  const { plan } = useRole()
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  /** A refusal by the plan gets the same dialog `HomeScreen` opens for its own — see
-      `PlanUpgradeModal`'s own comment on why — instead of the inline `notice` above. */
-  const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
+  /** A refusal by the plan gets `FeaturePaywallModal` instead of the inline `notice` above —
+      see that component's own comment on why. */
+  const [paywallOpen, setPaywallOpen] = useState(false)
+
+  /* The button's own preview of the same gate `loadBooklet` enforces server-side — see
+     `ControlBar`'s identical `ukuleleRefused` for the reasoning this mirrors. */
+  const bookletRefused = plan !== null && PLANS[plan].booklet === 'no'
 
   /*
    * Fetched once, on mount, rather than threaded in as a prop: this screen needs a plain list
@@ -86,10 +94,10 @@ export function BookletPanel() {
          * Two different refusals, because they have two different remedies: a plan without
          * the booklet will answer the same way however many times the button is pressed, so
          * «the server did not respond» would be an invitation to keep trying — that one gets
-         * `PlanUpgradeModal` and a way to `/pricing` instead of the inline notice below.
+         * `FeaturePaywallModal` and a way to `/pricing` instead of the inline notice below.
          */
         if (result.reason === 'plan-required') {
-          setPlanNotice({ reason: 'plan-required', feature: 'The printable booklet' })
+          setPaywallOpen(true)
         } else {
           setNotice('Could not build the booklet: the server did not respond, or your role does not allow it.')
         }
@@ -172,12 +180,17 @@ export function BookletPanel() {
           >
             <IconDownload size={16} />
             Download PDF
+            {bookletRefused && <IconLock size={13} />}
           </button>
         </div>
       </div>
 
-      {planNotice !== null && (
-        <PlanUpgradeModal notice={planNotice} onClose={() => setPlanNotice(null)} />
+      {paywallOpen && (
+        <FeaturePaywallModal
+          feature={PAYWALL_FEATURES.booklet.label}
+          plan={PAYWALL_FEATURES.booklet.minPlan}
+          onDismiss={() => setPaywallOpen(false)}
+        />
       )}
     </section>
   )

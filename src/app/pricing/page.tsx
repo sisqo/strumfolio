@@ -11,8 +11,8 @@ import { APP_NAME } from '@/lib/brand'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
-import { PLANS } from '@/lib/plans/types'
-import type { BookletTier, FeatureRequestTier } from '@/lib/plans/types'
+import { PLAN_VALUES, PLANS } from '@/lib/plans/types'
+import type { BookletTier, FeatureRequestTier, Plan } from '@/lib/plans/types'
 import { mustChooseNow } from '@/lib/plans/viewer'
 import type { Viewer } from '@/lib/plans/viewer'
 
@@ -590,11 +590,13 @@ const ROWS: ComparisonRow[] = [
  * (see its own comment), and `generateMetadata` closes the lifetime clause on the same day the
  * block on the screen closes.
  *
- * What has *not* changed: nothing here awaits `searchParams`, and nothing here reads any
- * per-request state beyond the identity above — so the page still renders exactly the same
- * HTML for every reader in the same state, which is what keeps it reviewable. Still no
- * `export const dynamic`: reading cookies is what makes a page dynamic in this router, and
- * the declaration would only restate what `loadIdentity` already forces.
+ * **Now also awaits `searchParams`** (`?plan=`), the one query param `FeaturePaywallModal`'s
+ * "See {plan}" link sets when a gated feature sent a reader here — see `highlightPlan` below.
+ * The property the old comment stated still mostly holds, narrowed by exactly that: two
+ * readers in the same identity state and the same query string still see the same HTML: the
+ * page reads no per-request state beyond the identity above and this one param. Still no
+ * `export const dynamic`: reading cookies already makes this page dynamic in this router, so
+ * the declaration would only restate what `loadIdentity` forces regardless of `searchParams`.
  *
  * One thing left at module scope on purpose: `CHECKOUT_LIVE`. It is a synchronous
  * `process.env` read, so it is evaluated once per server process rather than once per request
@@ -622,7 +624,7 @@ const ROWS: ComparisonRow[] = [
  * The reader's own theme, like every other page now — a comparison table that reads
  * correctly in both themes anyway, drawn entirely in tokens.
  */
-export default async function PricingPage() {
+export default async function PricingPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
   /*
    * The whole reason this page is no longer static. `loadIdentity` is the same read
    * `RoleProvider` makes from the client, called here instead so that every card, the lifetime
@@ -633,6 +635,17 @@ export default async function PricingPage() {
    * simple: one object, four fields, no "still loading" third state to word a sentence for.
    */
   const identity = await loadIdentity()
+
+  /*
+   * The one column `FeaturePaywallModal`'s "See {plan}" link named, or `null` for every other
+   * arrival at this page (typed in directly, reached from the footer, the mandatory gate…).
+   * Checked against `PLAN_VALUES` rather than trusted as a `Plan`: this is a query string, so
+   * an unrecognised or absent value highlights nothing rather than throwing — the same
+   * "wrong input degrades to no claim" instinct `readPlan` states for a database column,
+   * applied here to a URL instead.
+   */
+  const { plan: planParam } = await searchParams
+  const highlightPlan: Plan | null = PLAN_VALUES.includes(planParam as Plan) ? (planParam as Plan) : null
   const viewer: Viewer = {
     email: identity?.email ?? null,
     /*
@@ -652,6 +665,19 @@ export default async function PricingPage() {
   /* Read once per request, like `CHECKOUT_LIVE` above — both the block and the metadata's own
      clause have to agree on the same day, and `describe()` asks the same function. */
   const lifetimeIsOpen = lifetimeOpen()
+
+  /*
+   * `COLUMNS` stays the module-scope constant above — every reader in the same identity
+   * state still gets the same four cards' worth of copy — and only this overlay varies per
+   * request, by `highlightPlan` alone. A `.map()` over the static array rather than moving
+   * `COLUMNS` itself into the function: nothing else about a column depends on the request,
+   * and duplicating that whole literal per request would cost more than this one field is
+   * worth explaining twice.
+   */
+  const columns =
+    highlightPlan === null
+      ? COLUMNS
+      : COLUMNS.map((column) => (column.slug === highlightPlan ? { ...column, highlighted: true } : column))
 
   return (
     <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
@@ -687,7 +713,7 @@ export default async function PricingPage() {
       </div>
 
       <section className="mt-8">
-        <PricingPlans columns={COLUMNS} rows={ROWS} tableTitle="What changes between plans" viewer={viewer} />
+        <PricingPlans columns={columns} rows={ROWS} tableTitle="What changes between plans" viewer={viewer} />
       </section>
 
       {/*

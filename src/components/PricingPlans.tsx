@@ -75,6 +75,15 @@ export interface PlanColumn {
    */
   paid?: boolean
   /**
+   * The one column `FeaturePaywallModal`'s "See {plan}" link named — `pricing/page.tsx` sets
+   * this from `searchParams.plan`, per request, never at module scope like the rest of
+   * `COLUMNS`. Deliberately its own field rather than a second meaning for `featured`:
+   * `featured` is `.plan-badge`'s "Most popular" ribbon, a claim about every reader, and this
+   * is a claim about exactly the one reader a paywall just turned away — the two must never
+   * share a badge, or "See Standard" would sometimes light up the ribbon meant for Plus.
+   */
+  highlighted?: boolean
+  /**
    * True on the Free column and nowhere else — a marker rather than a descriptor, unlike it
    * used to be (`{ href, label }`, back when this rendered one plain link and nothing had to
    * ask who was looking). Free's four states — not signed in, mid the mandatory plan-choice
@@ -338,11 +347,16 @@ export function PricingPlans({
 
       <div className="plan-columns mt-6">
         {columns.map((column) => {
-          const cardClass = column.featured
-            ? 'card plan-card is-featured'
-            : column.paid
-              ? 'card plan-card is-paid'
-              : 'card plan-card'
+          const cardClass = [
+            'card',
+            'plan-card',
+            column.featured ? 'is-featured' : column.paid ? 'is-paid' : null,
+            /* Suppressed on `.is-featured`: that card already carries its own, stronger
+               accent treatment, and a highlight ring on top of it would only muddy it. */
+            column.highlighted && !column.featured ? 'is-highlighted' : null,
+          ]
+            .filter(Boolean)
+            .join(' ')
 
           /*
            * Three ways a signed-in reader's own plan relates to this column — computed once
