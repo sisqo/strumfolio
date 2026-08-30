@@ -29,11 +29,18 @@ export interface EmailMessage {
    *
    * Unset for the four emails that go *to* a customer: `no-reply@` is the honest sender for
    * a verification link, and pointing a reply somewhere else would invite an answer nobody
-   * reads. It exists for the one email that travels the other way — a feature request
-   * arriving in the support inbox — where the address worth answering is the reader's own
-   * and cannot be the `from`, since that has to stay the verified sending domain.
+   * reads. It exists for the emails that travel the other way — feedback arriving in the
+   * support inbox — where the address worth answering is the reader's own and cannot be the
+   * `from`, since that has to stay the verified sending domain.
    */
   replyTo?: string
+  /**
+   * A screenshot riding along with feedback — the one caller that needs this. Added here
+   * rather than built as a second send function, additive-only, so the other callers stay
+   * untouched: `content` is a base64 string, the shape `feedback/actions.ts` already has one
+   * in from the browser's `FileReader`, never a `Buffer` this app would have to build.
+   */
+  attachments?: { filename: string; content: string }[]
 }
 
 /**

@@ -12,6 +12,7 @@
  */
 
 import { APP_NAME, APP_PAYOFF, SITE_URL } from '@/lib/brand'
+import { FEEDBACK_CATEGORY_LABEL, excerpt, type FeedbackCategory } from '@/lib/feedback/types'
 import { euro } from '@/lib/plans/prices'
 
 /*
@@ -92,7 +93,7 @@ function button(label: string, url: string): string {
  * The one thing in this file that ever handles text a person typed.
  *
  * Every other template interpolates a URL we minted, a plan name from a closed set or a
- * price — `featureRequestEmail` is the first to put a reader's own sentences into an HTML
+ * price — `feedbackEmail` is the first to put a reader's own sentences into an HTML
  * document, and an unescaped `<` in one of them is a malformed email at best. The five
  * characters are the standard set; `&` first, or it would double-escape the entities the
  * others introduce.
@@ -373,47 +374,45 @@ ${APP_NAME} — ${APP_PAYOFF}`
 }
 
 /**
- * A reader asking for a feature, on its way to the support inbox.
+ * The "Share your feedback" sheet's one send, covering all four categories — replaces
+ * `featureRequestEmail`, which only ever covered one of them.
  *
- * The only email in this file that goes to *us* rather than to a customer, which changes
- * what it is for: nobody needs persuading or welcoming, somebody needs to read it, answer
- * it and know who asked. So the layout is the same and the content is a record — who, on
- * which plan, and what they said.
- *
- * The plan tier is in the subject line, not only in the body, and that is the whole
- * mechanism behind Premium's «Yes, with priority» on `/pricing`: nothing in this codebase
- * can enforce an order of answering, so what it can do is make the tier impossible to miss
- * in a list of subjects. See `FeatureRequestTier` on why that is the honest shape of the
- * promise rather than a gap in it.
- *
- * `replyTo` is the asker's own address, so answering is a reply rather than a copy-paste:
- * the `from` has to stay the verified sending domain (see `sendEmail`), which means the
- * address a reader would want to answer is otherwise nowhere a mail client can use it.
+ * The category (and, for a feature request, the priority) lives in the *subject*, not only
+ * the body, for the same reason `featureRequestEmail` put the plan tier there: nothing in
+ * this codebase can enforce an order of answering, so what it can do is make the category
+ * impossible to miss in a list of subjects. The message itself has no separate one-line
+ * summary to put there instead — the mock has a single "Your message" field — so an excerpt
+ * of the message stands in for it.
  */
-export function featureRequestEmail(input: {
+export function feedbackEmail(input: {
   from: string
   plan: string
+  category: FeedbackCategory
   priority: boolean
-  summary: string
-  detail: string
+  message: string
+  screenshotFilename: string | null
 }): EmailTemplate {
   const tag = input.priority ? '[priority] ' : ''
-  const subject = `${tag}Feature request: ${input.summary}`
+  const categoryLabel = FEEDBACK_CATEGORY_LABEL[input.category]
+  const subject = `${tag}${categoryLabel}: ${excerpt(input.message, 60)}`
 
   const who = `From ${input.from} — ${input.plan}${input.priority ? ', priority' : ''}`
+  const attachmentLine =
+    input.screenshotFilename === null ? '' : `Screenshot attached: ${input.screenshotFilename}`
 
   const html = layout(`
-    ${heading(escapeHtml(input.summary))}
+    ${heading(escapeHtml(categoryLabel))}
     ${paragraph(escapeHtml(who))}
-    ${input.detail.length === 0 ? '' : quoted(escapeHtml(input.detail))}
+    ${quoted(escapeHtml(input.message))}
+    ${attachmentLine === '' ? '' : paragraph(escapeHtml(attachmentLine))}
   `)
 
-  const text = `Feature request
+  const text = `${categoryLabel}
 
 ${who}
 
-${input.summary}
-${input.detail.length === 0 ? '' : `\n${input.detail}\n`}
+${input.message}
+${attachmentLine === '' ? '' : `\n${attachmentLine}\n`}
 ${APP_NAME} — ${APP_PAYOFF}`
 
   return { subject, html, text }

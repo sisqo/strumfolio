@@ -60,6 +60,7 @@ describe('the notify switches', () => {
       'notify.downgrade',
       'notify.cancellation',
       'notify.kept_current',
+      'notify.feedback',
     ])
     assert.equal(new Set(keys).size, keys.length)
   })

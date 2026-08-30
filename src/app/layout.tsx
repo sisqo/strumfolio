@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Outfit } from 'next/font/google'
 
+import { FeedbackProvider } from '@/components/FeedbackProvider'
 import { OfflineSync } from '@/components/OfflineSync'
 import { RoleProvider } from '@/components/RoleProvider'
 import { StrumTogetherProvider } from '@/components/StrumTogetherProvider'
@@ -149,10 +150,15 @@ export default function RootLayout({
           *
           * StrumTogetherProvider nests inside it for the same reason RoleProvider itself sits
           * here rather than lower: its two consumers, the menu and the reading bar, share
-          * no closer ancestor than this — see its own comment.
+          * no closer ancestor than this — see its own comment. FeedbackProvider nests inside
+          * both for the identical reason, one level up: its own two consumers, the floating
+          * launcher and the hamburger menu's "Share your feedback" entry, share no closer
+          * ancestor either, and it needs `useRole()` for who is asking.
           */}
         <RoleProvider>
-          <StrumTogetherProvider>{children}</StrumTogetherProvider>
+          <StrumTogetherProvider>
+            <FeedbackProvider>{children}</FeedbackProvider>
+          </StrumTogetherProvider>
         </RoleProvider>
         {/*
           * Silent and stateless from the outside — see OfflineSync's own doc comment.

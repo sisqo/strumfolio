@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { AdminPanel, isAdminSection } from '@/components/AdminPanel'
+import { useFeedback } from '@/components/FeedbackProvider'
 import { useRole } from '@/components/RoleProvider'
 import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
 import {
@@ -59,6 +60,7 @@ export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'main' | 'strum-together' | 'admin'>('main')
   const { mayEdit, isGlobalOwner } = useRole()
+  const { open: openFeedback } = useFeedback()
 
   const close = () => {
     setOpen(false)
@@ -261,26 +263,27 @@ export function NavMenu({ current }: { current: Section }) {
                 </Link>
 
                 {/*
-                  * Beside Help rather than in the group above, and unconditional like Home.
-                  *
-                  * Both of these are about the app itself rather than about the songs in it —
-                  * one answers what it does, the other asks for what it does not do yet — so
-                  * they belong on the same side of the tuner's divider. Not gated on the plan
-                  * here even though Free and Standard cannot send: the page itself says so and
-                  * offers `/pricing`, which is the arrangement `BookletScreen` argues for at
-                  * length — a menu is not where a plan's contents are argued, and an entry
-                  * missing for two plans out of four teaches those readers the feature does
-                  * not exist rather than that it is not theirs yet.
+                  * Beside Help rather than in the group above, and unconditional like Home —
+                  * both are about the app itself rather than about the songs in it. Opens the
+                  * feedback sheet in place rather than navigating: the sheet is the one thing
+                  * that decides what a plan may send, on every one of its four categories, the
+                  * same "let the tap happen and explain" arrangement `BookletScreen` argues for
+                  * at length — a menu is not where a plan's contents are argued, and hiding an
+                  * entry for two plans out of four teaches those readers the feature does not
+                  * exist rather than that it is not theirs yet.
                   */}
-                <Link
-                  href="/feature-request"
-                  className={item('feature-request')}
+                <button
+                  type="button"
+                  className="menu-item w-full"
                   role="menuitem"
-                  onClick={close}
+                  onClick={() => {
+                    close()
+                    openFeedback()
+                  }}
                 >
                   <IconComment size={17} />
-                  Request a feature
-                </Link>
+                  Share your feedback
+                </button>
               </>
             )}
           </div>

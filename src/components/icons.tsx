@@ -664,6 +664,68 @@ export function IconCopy(props: IconProps) {
   )
 }
 
+/** A four-point sparkle: the feedback sheet's "Feature request" card. */
+export function IconSparkle(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5 13.7 8l4.5 1.7-4.5 1.7L12 15.9l-1.7-4.5L5.8 9.7 10.3 8z" />
+      <path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+    </Icon>
+  )
+}
+
+/** A bug, legs and all: the feedback sheet's "Bug report" card. */
+export function IconBug(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="8" y="7.5" width="8" height="11" rx="4" />
+      <path d="M9.5 8.2a2.5 2.5 0 0 1 5 0" />
+      <path d="M8 11H4.8M16 11h3.2M8 15H5.2M16 15h2.8M9.5 18.6 7.8 21M14.5 18.6 16.2 21M9.5 7.6 8 5.2M14.5 7.6 16 5.2" />
+    </Icon>
+  )
+}
+
+/** A head in thought: the feedback sheet's "Improvement" card. */
+export function IconIdea(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.2 16.5a6 6 0 1 1 5.6 0" />
+      <path d="M9.5 19.5h5M10.5 22h3" />
+    </Icon>
+  )
+}
+
+/** A padlock: a plan-gated control, locked for a plan that refuses it. */
+export function IconLock(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5.5" y="10.5" width="13" height="9.5" rx="2.5" />
+      <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+    </Icon>
+  )
+}
+
+/** A picture frame: attaching a screenshot to a piece of feedback. */
+export function IconImage(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+      <path d="m5 16 4.2-4.2 3 3L15 12l4 4" />
+      <circle cx="15" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+/** A plain arrow: the feedback sheet's Send button, once there is something to send. */
+export function IconArrowRight(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 12h13" />
+      <path d="m12 7 5 5-5 5" />
+    </Icon>
+  )
+}
+
 /** Google's mark, in its own colours, as the sign-in button expects. */
 export function IconGoogle({ size = 18 }: { size?: number }) {
   return (

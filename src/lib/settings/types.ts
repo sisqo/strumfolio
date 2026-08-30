@@ -15,11 +15,18 @@
  */
 
 /**
- * The five things worth being told about the moment they happen. Every one of them is a
+ * The six things worth being told about the moment they happen. Every one of them is a
  * notification `notifyTelegram` already sends today — this list adds the ability to stop one,
  * it does not add the notifications themselves.
  */
-export const NOTIFY_EVENTS = ['registration', 'purchase', 'downgrade', 'cancellation', 'kept_current'] as const
+export const NOTIFY_EVENTS = [
+  'registration',
+  'purchase',
+  'downgrade',
+  'cancellation',
+  'kept_current',
+  'feedback',
+] as const
 
 export type NotifyEvent = (typeof NOTIFY_EVENTS)[number]
 
@@ -34,6 +41,7 @@ export const NOTIFY_LABEL: Record<NotifyEvent, string> = {
   downgrade: 'Scheduled downgrade',
   cancellation: 'Scheduled cancellation',
   kept_current: 'Kept current plan',
+  feedback: 'New feedback',
 }
 
 export const NOTIFY_NOTE: Record<NotifyEvent, string> = {
@@ -42,6 +50,7 @@ export const NOTIFY_NOTE: Record<NotifyEvent, string> = {
   downgrade: 'Somebody chose a cheaper plan, starting at the end of the period they paid for.',
   cancellation: 'Somebody cancelled, taking effect at the end of the period they paid for.',
   kept_current: 'Somebody undid a scheduled downgrade or cancellation, staying on their current plan.',
+  feedback: 'Somebody sent feedback from the "Share your feedback" sheet.',
 }
 
 export type NotifySettings = Record<NotifyEvent, boolean>
@@ -58,6 +67,7 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
   downgrade: true,
   cancellation: true,
   kept_current: true,
+  feedback: true,
 }
 
 /**
