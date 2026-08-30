@@ -111,7 +111,16 @@ import { Document, Font, Link, Page, Path, StyleSheet, Svg, Text, View, pdf } fr
 import { PDFDocument } from 'pdf-lib'
 
 import type { Booklet, BookletSong } from './actions'
-import { type ColumnGroup, type FlatRow, flattenGroups, regroupRows, splitByRows, splitRowsForColumns } from './layout'
+import {
+  type ColumnGroup,
+  type FlatRow,
+  flattenGroups,
+  regroupRows,
+  sectionWeight,
+  splitByRows,
+  splitLinesForColumns,
+  splitRowsForColumns,
+} from './layout'
 import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
@@ -909,7 +918,7 @@ function BookletSongPage({
   isFirstPage: boolean
   footerText: string
 }) {
-  const [left, right] = splitByRows(sections)
+  const [left, right] = splitByRows(sections, roomForChords)
 
   return (
     <Page size="A4" style={styles.page} wrap>
@@ -1148,6 +1157,35 @@ async function paginateSong(
     />
   )
 
+  /*
+   * A stanza's lines rendered as one page of two balanced columns — how a divided stanza
+   * uses a page. The single-section render (`columnsSingle`) would put the same lines in
+   * one full-width column and leave half the page white: for the short lines a chord
+   * chart is made of, a column's height is what bounds how many fit, so a page of two
+   * half-width columns holds nearly twice as much. This is the shape most real songs
+   * arrive in — lyrics pasted as one unbroken block, no blank lines — so it is the main
+   * layout, not an edge case.
+   */
+  const asColumnPair = (source: Section, lines: Line[]): Section[] => {
+    const [left, right] = splitLinesForColumns(lines, roomForChords)
+    return right.length > 0 ? [{ ...source, lines: left }, { ...source, lines: right }] : [{ ...source, lines: left }]
+  }
+
+  /**
+   * Whether this stanza can sit whole on a fresh page of its own — the question that
+   * decides if breaking it is unavoidable. Measured with the continuation header, once
+   * per section (the answer cannot change between pages).
+   */
+  const oversizedAlone = new Map<Section, boolean>()
+  const isOversizedAlone = async (section: Section): Promise<boolean> => {
+    let answer = oversizedAlone.get(section)
+    if (answer === undefined) {
+      answer = (await countPages(renderCandidate([section], false))) > 1
+      oversizedAlone.set(section, answer)
+    }
+    return answer
+  }
+
   const pages: { sections: Section[]; pageCount: number }[] = []
   let remaining = parsed.sections
   while (remaining.length > 0) {
@@ -1161,36 +1199,87 @@ async function paginateSong(
      * title page — with the lyrics then landing on a page that has no header at all, and
      * whatever ran past the bottom edge drawn off the paper where it does not print.
      *
-     * So the stanza is divided here instead, by line and by measurement, and each piece
-     * becomes a real page with its own header. Print convention keeps a stanza whole and
-     * this is the one case that cannot honour it: the alternative is not an unbroken
-     * stanza, it is a stanza with its end missing.
+     * So the stanza is divided here instead, by line and by measurement, into pages of
+     * two balanced columns (`asColumnPair`), the same number of lines on each page rather
+     * than every page full and a remnant on the last. Print convention keeps a verse or
+     * chorus whole and this is the one case that cannot honour it: the alternative is not
+     * an unbroken stanza, it is a stanza with its end missing.
      */
     if (fit.pages > 1 && fit.count === 1 && remaining[0].lines.length > 1) {
       const oversized = remaining[0]
-      const lines = await largestPrefixThatFits(
-        oversized.lines,
-        (prefix) => renderCandidate([{ ...oversized, lines: prefix }], isFirstPage),
-        // Every line of it is the page just measured above, so don't render it twice.
-        fit.pages,
+      const capacity = await largestPrefixThatFits(oversized.lines, (prefix) =>
+        renderCandidate(asColumnPair(oversized, prefix), isFirstPage),
       )
-      if (lines.count < oversized.lines.length) {
-        /*
-         * Divided evenly rather than greedily. Filling this page to its last line and
-         * pushing the rest over leaves whatever is left — one line, often — alone under a
-         * "continues" header on the next page, which reads as a mistake rather than as a
-         * stanza too long for one page. Spreading the same lines over the same number of
-         * pages costs nothing and leaves both halves looking deliberate.
-         */
-        const spread = Math.ceil(oversized.lines.length / Math.ceil(oversized.lines.length / lines.count))
+      if (capacity.pages <= 1) {
+        // `pieces` is 1 exactly when the whole stanza fits one page as a column pair —
+        // the single-full-width render measured above was what overflowed, not the page.
+        const pieces = Math.ceil(oversized.lines.length / capacity.count)
+        const spread = Math.ceil(oversized.lines.length / pieces)
         pages.push({
-          sections: [{ ...oversized, lines: oversized.lines.slice(0, spread) }],
-          // Fewer lines than the prefix just measured to fit can only fit too; the
-          // measured count carries over only when nothing was given back.
-          pageCount: spread === lines.count ? lines.pages : 1,
+          sections: asColumnPair(oversized, oversized.lines.slice(0, spread)),
+          // Fewer lines than the prefix just measured to fit can only fit too.
+          pageCount: 1,
         })
-        remaining = [{ ...oversized, lines: oversized.lines.slice(spread) }, ...remaining.slice(1)]
+        const rest = oversized.lines.slice(spread)
+        remaining = [...(rest.length > 0 ? [{ ...oversized, lines: rest }] : []), ...remaining.slice(1)]
         continue
+      }
+      // A single line taller than a page — a very long tab block. Nothing smaller to
+      // hand back, so the page overflows and the measured count keeps the index honest.
+      pages.push({
+        sections: [{ ...oversized, lines: oversized.lines.slice(0, capacity.count) }],
+        pageCount: capacity.pages,
+      })
+      remaining = [
+        ...(capacity.count < oversized.lines.length
+          ? [{ ...oversized, lines: oversized.lines.slice(capacity.count) }]
+          : []),
+        ...remaining.slice(1),
+      ]
+      continue
+    }
+
+    /*
+     * The page is closing with room to spare because the next stanza will not join it
+     * whole. When that stanza would sit whole on its own next page, the room is the price
+     * of keeping it unbroken — paid gladly. But when it is a stanza too tall for any page
+     * — one that will be divided regardless — leaving this page half-empty buys nothing:
+     * its opening lines start here, filling the page, and the rest flows on as the
+     * oversized branch above.
+     */
+    if (fit.pages <= 1 && fit.count < remaining.length) {
+      const next = remaining[fit.count]
+      if (next.lines.length > 1 && (await isOversizedAlone(next))) {
+        const head = remaining.slice(0, fit.count)
+        const filled = await largestPrefixThatFits(next.lines, (prefix) =>
+          renderCandidate([...head, { ...next, lines: prefix }], isFirstPage),
+        )
+        if (filled.count > 0 && filled.count < next.lines.length && filled.pages <= 1) {
+          pages.push({ sections: [...head, { ...next, lines: next.lines.slice(0, filled.count) }], pageCount: 1 })
+          remaining = [{ ...next, lines: next.lines.slice(filled.count) }, ...remaining.slice(fit.count + 1)]
+          continue
+        }
+      }
+    }
+
+    /*
+     * A page carrying one tall stanza that does fit still reads better as the two
+     * balanced columns every other page has than as one full-width column beside a page
+     * of white — the remainder of a divided stanza lands here, at up to a full page of
+     * lines. A short stanza keeps the full-width render: two four-line columns look
+     * emptier than one eight-line block. The threshold is half a column's height, in the
+     * same estimated points the balance already uses; whether the pair actually fits is
+     * still measured, since half the lines at half the width can wrap taller.
+     */
+    if (fit.count === 1 && fit.pages <= 1 && remaining[0].lines.length > 1) {
+      const lone = remaining[0]
+      if (sectionWeight(lone, roomForChords) > 350) {
+        const pair = asColumnPair(lone, lone.lines)
+        if (pair.length === 2 && (await countPages(renderCandidate(pair, isFirstPage))) <= 1) {
+          pages.push({ sections: pair, pageCount: 1 })
+          remaining = remaining.slice(1)
+          continue
+        }
       }
     }
 

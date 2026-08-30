@@ -19,23 +19,30 @@
 import type { Line, Section } from '../chordpro'
 
 /**
- * How many rows one parsed line prints as.
+ * Roughly how tall one parsed line prints, in points — estimated from the styles in
+ * `document.tsx`, and used only to rank splits (see this file's top comment), never to
+ * decide whether something fits.
  *
- * One for lyrics — a chord row plus a words row, but every lyrics line in a song with any
- * chords at all gets both (see `roomForChords`), so they are all the same height and the
- * ratio is what matters here. One for a comment, which is shorter than a lyrics line but
- * not by enough to rank a split differently.
- *
- * A tab block is the exception worth counting properly: it is a single `Line` that prints
- * one row per string, so counting it as 1 told a split that six rows of tablature were
- * the same size as one line of words.
+ * A lyrics line in a chorded song is a chord row over a words row (~29pt with its
+ * spacing); in a song with no chords at all it is the words row alone (~17pt) — that
+ * choice is song-wide (`roomForChords`), mirroring the reading screen's own documented
+ * decision, which is why it travels in as a flag rather than reading `line.hasChords`. A
+ * tab prints one Courier row per string at ~10.5pt each. Counting a six-string tab as one
+ * unit — what this function's first version did — told a split that a whole tab block was
+ * the size of one line of words, and the column carrying it came out a third as tall as
+ * its neighbour.
  */
-export function lineRows(line: Line): number {
-  return line.kind === 'tab' ? Math.max(1, line.rows.length) : 1
+export function lineWeight(line: Line, roomForChords: boolean): number {
+  if (line.kind === 'tab') return Math.max(1, line.rows.length) * 10.5
+  if (line.kind === 'comment') return 16
+  return roomForChords ? 29 : 17
 }
 
-export function sectionRows(section: Section): number {
-  return section.lines.reduce((sum, line) => sum + lineRows(line), 0)
+/** The section's lines plus its own framing: every stanza carries a bottom margin, and a
+ *  chorus or bridge adds its padding and rule. */
+export function sectionWeight(section: Section, roomForChords: boolean): number {
+  const framing = section.kind === 'verse' ? 12 : 29
+  return framing + section.lines.reduce((sum, line) => sum + lineWeight(line, roomForChords), 0)
 }
 
 /**
@@ -82,18 +89,31 @@ export function balancedCut(weights: number[]): number {
 }
 
 /**
- * Splits a song's sections between the two columns of one page, by row count rather than
- * by section count — a page of one long verse and one short chorus would divide unevenly
- * by section alone. Never mid-section: a stanza stays whole (see the `stanza` style's own
- * `wrap={false}`), and sections keep the order they were written in, some in one column
- * and the rest continuing in the other.
+ * Splits a song's sections between the two columns of one page, by estimated height
+ * rather than by section count — a page of one long verse and one short chorus would
+ * divide unevenly by section alone. Never mid-section: a stanza stays whole (see the
+ * `stanza` style's own `wrap={false}`), and sections keep the order they were written in,
+ * some in one column and the rest continuing in the other.
  *
  * A section too tall to fit a page even alone is not this function's problem — it is
- * divided by line before it ever gets here, by `paginateSong`.
+ * divided by line before it ever gets here, by `paginateSong`, and arrives as the
+ * two-piece pages `splitLinesForColumns` cuts.
  */
-export function splitByRows(sections: Section[]): [Section[], Section[]] {
-  const cut = balancedCut(sections.map(sectionRows))
+export function splitByRows(sections: Section[], roomForChords: boolean): [Section[], Section[]] {
+  const cut = balancedCut(sections.map((section) => sectionWeight(section, roomForChords)))
   return [sections.slice(0, cut), sections.slice(cut)]
+}
+
+/**
+ * Where one page's worth of a divided stanza's lines cuts into its two columns — the
+ * line-level `splitByRows`, for the one stanza allowed to break at all (see
+ * `paginateSong`'s oversized branch). Balanced by the same estimated heights, so a tab
+ * inside the stanza does not drag the cut the way it used to drag columns.
+ */
+export function splitLinesForColumns(lines: Line[], roomForChords: boolean): [Line[], Line[]] {
+  if (lines.length < 2) return [lines, []]
+  const cut = balancedCut(lines.map((line) => lineWeight(line, roomForChords)))
+  return [lines.slice(0, cut), lines.slice(cut)]
 }
 
 /** One songbook section's worth of index rows — a header, then a row per song. */
