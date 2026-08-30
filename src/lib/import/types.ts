@@ -88,6 +88,37 @@ export interface SaveRefusal {
 
 export type DeleteResult = { ok: true; slug: string } | SaveRefusal
 
+/**
+ * How much room the plan leaves before an import starts writing.
+ *
+ * Asked once, ahead of the run, and the reason is arithmetic: `ImportBatch` saves one
+ * song at a time and refuses one at a time, so a free account dropping a 212-song
+ * archive is told no on rows 31 through 212 — a hundred and eighty-two refusals, each
+ * with the same remedy, none of them news after the first. One sentence before anything
+ * is written says the same thing better, and says it while it is still actionable.
+ *
+ * It must be read through the same path the refusal is (`entitlementsOf` and
+ * `countRepertoire`, both in `plans/resolve.ts`) rather than counted in the browser off
+ * whatever `SongbookProvider` happens to hold. A pre-flight number that disagreed with
+ * the refusal that follows would be worse than no pre-flight at all: it would promise
+ * room that the save then denies.
+ */
+export interface Headroom {
+  /**
+   * How many more songs this account may add, or null for no cap.
+   *
+   * Null is «unlimited», never a large number — the same rule `PlanLimits` states for
+   * its own caps, for the same reason: a sentinel reads as a real number in every
+   * sentence that quotes it.
+   */
+  fits: number | null
+  /** The cap itself, which is the number the refusal sentence quotes. */
+  max: number | null
+  held: number
+  /** Already over the caps: nothing may be added until deletions bring it back. */
+  frozen: boolean
+}
+
 /** What to do when a save hits a song with the same title and artist. */
 export type Decision = 'replace' | 'add'
 

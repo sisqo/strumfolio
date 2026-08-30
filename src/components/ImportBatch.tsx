@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { IconCheck, IconClose, IconInfo, IconPlus } from '@/components/icons'
-import { saveSong } from '@/lib/import/actions'
+import { saveSong, songHeadroom } from '@/lib/import/actions'
 import type { PreparedSong } from '@/lib/import/prepare'
-import { saveMessage, type Decision } from '@/lib/import/types'
+import { saveMessage, type Decision, type Headroom } from '@/lib/import/types'
 import { LIMIT_MESSAGE } from '@/lib/plans/types'
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -14,6 +14,20 @@ const FORMAT_LABEL: Record<string, string> = {
   'chords-above': 'chords above lyrics, converted',
   'lyrics-only': 'no chords found',
 }
+
+/**
+ * Above this many songs the list stops being the thing to read.
+ *
+ * Twenty songs pasted from a chord site is a list somebody actually checks row by row,
+ * and that checking is the whole point of showing it. Two hundred out of an archive is
+ * not: nobody reads two hundred rows, so a screen that insists on them is a screen that
+ * gets scrolled past to the button — which turns the preview from a safeguard into an
+ * obstacle. Past the threshold the counts lead and the list follows, still one click
+ * away for anybody who wants it.
+ *
+ * Fifty is a judgement, not a measurement, and `PLAN-import.md` records it as one.
+ */
+const SUMMARY_THRESHOLD = 50
 
 /** What to do about a song that is already in the repertoire. */
 type Policy = 'skip' | 'replace' | 'add'
@@ -105,10 +119,59 @@ export function ImportBatch({
   const [policy, setPolicy] = useState<Policy>('skip')
   const [busy, setBusy] = useState(false)
   const [ran, setRan] = useState(false)
+  /**
+   * How far a long run has got, so the wait is legible rather than merely long.
+   *
+   * `total` is captured when the run starts and not read off `attempts`: rows settle as
+   * the loop goes, so `attempts.length` shrinks under it — a counter reading off that
+   * would climb towards a number that is walking away from it, «5 of 200» becoming
+   * «5 of 195» with nothing having gone wrong.
+   */
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [headroom, setHeadroom] = useState<Headroom | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const attempts = rows.filter((row) => row.include && !settled(row))
   const untitled = attempts.filter((row) => row.title.trim() === '').length
   const done = ran && !busy && attempts.length === 0
+
+  /*
+   * Asked once, before anything is written, and only for a run big enough for the answer
+   * to matter. On a free account a 212-song archive would otherwise be refused on rows 31
+   * through 212 — a hundred and eighty-two refusals with one remedy between them, none of
+   * them news after the first. `songHeadroom` reads through the same `entitlementsOf` and
+   * `countRepertoire` the refusal itself will, so the number cannot promise room the save
+   * then denies.
+   */
+  useEffect(() => {
+    let live = true
+    void songHeadroom().then((found) => {
+      if (live) setHeadroom(found)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  /** The rows worth looking at individually, whatever the size of the run. */
+  const exceptions = rows.filter(
+    (row) => row.include && !settled(row) && (row.title.trim() === '' || row.format === 'lyrics-only'),
+  )
+  const long = rows.length > SUMMARY_THRESHOLD
+  const listed = !long || showAll ? rows : exceptions
+
+  const noChords = attempts.filter((row) => row.format === 'lyrics-only').length
+
+  /**
+   * How many of this run the plan will actually take.
+   *
+   * Null whenever there is nothing to warn about — no cap, or room enough — so the
+   * caller can branch on the fact rather than re-deriving the comparison.
+   */
+  const overCap =
+    headroom === null || headroom.fits === null || headroom.frozen || headroom.fits >= attempts.length
+      ? null
+      : headroom.fits
 
   const patch = (id: number, change: Partial<Row>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...change } : row)))
@@ -126,11 +189,15 @@ export function ImportBatch({
      * actually attempted this run means there is still something a retry could fix.
      */
     let anyUnresolved = false
+    let attempted = 0
+    const total = rows.filter((row) => row.include && !settled(row)).length
+    setProgress({ done: 0, total })
 
     for (const row of rows) {
       if (!row.include || settled(row)) continue
 
       patch(row.id, { outcome: { state: 'saving' } })
+      setProgress({ done: ++attempted, total })
 
       // `undefined` is what asks the server to stop at a twin instead of writing.
       const decision: Decision | undefined = policy === 'skip' ? undefined : policy
@@ -206,8 +273,9 @@ export function ImportBatch({
       </div>
 
       <p className="mt-1 text-sm text-muted">
-        Check each one&apos;s title and artist: they&apos;re pulled from the first lines, and some
-        songs will have them wrong. They all go into{' '}
+        {long
+          ? 'Too many to read one by one, so what follows is what stands out. They all go into '
+          : 'Check each one’s title and artist: they’re pulled from the first lines, and some songs will have them wrong. They all go into '}
         <strong className="font-medium">
           {songbookName}
           {sectionName !== null && ` · ${sectionName}`}
@@ -216,12 +284,46 @@ export function ImportBatch({
         first, if this songbook doesn&apos;t have it yet).
       </p>
 
+      {/*
+        * Past the threshold the counts lead. Only the two that a person can still do
+        * something about are listed — a missing title blocks the run, and «no chords
+        * found» is the guess most worth a second look — plus how many raised nothing at
+        * all, which is the reassuring number and the one that makes the rest legible.
+        */}
+      {long && (
+        <ul className="mt-3 grid gap-1 text-sm">
+          {untitled > 0 && (
+            <li className="text-muted">
+              <strong className="font-medium text-ink">{untitled}</strong> without a title
+            </li>
+          )}
+          {noChords > 0 && (
+            <li className="text-muted">
+              <strong className="font-medium text-ink">{noChords}</strong> with no chords found
+            </li>
+          )}
+          <li className="text-muted">
+            <strong className="font-medium text-ink">{attempts.length - exceptions.length}</strong>{' '}
+            with nothing to flag
+          </li>
+          <li>
+            <button
+              type="button"
+              className="text-sm underline underline-offset-2"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? 'show only the ones to check' : `show all ${rows.length}`}
+            </button>
+          </li>
+        </ul>
+      )}
+
       <ol className="mt-4 grid gap-3">
-        {rows.map((row, index) => (
+        {listed.map((row) => (
           <BatchRow
             key={row.id}
             row={row}
-            index={index}
+            index={rows.indexOf(row)}
             songbookName={songbookName}
             sectionName={sectionName}
             busy={busy}
@@ -255,6 +357,39 @@ export function ImportBatch({
         </p>
       )}
 
+      {/*
+        * Said once, before anything is written, instead of once per refused row. The
+        * remedy is the same for every one of them, so a hundred and eighty copies of it
+        * would be a hundred and seventy-nine repetitions — and this one arrives while
+        * there is still a choice to make, which none of those would.
+        */}
+      {!ran && overCap !== null && (
+        <p className="notice notice-accent mt-4" role="status">
+          <IconInfo />
+          <span>
+            Your plan holds {headroom?.max} songs in all, and you have {headroom?.held}.{' '}
+            {overCap === 0
+              ? 'There is no room for any of these.'
+              : `Of these ${attempts.length}, the first ${overCap} will fit.`}{' '}
+            <Link href="/pricing" className="underline underline-offset-2">
+              See the plans
+            </Link>
+            .
+          </span>
+        </p>
+      )}
+
+      {/* A repertoire already over its caps cannot take a song at all, and the answer is
+          a deletion rather than a purchase — a different sentence with a different remedy,
+          which is why `frozen` is its own branch and not a headroom of zero. */}
+      {!ran && headroom?.frozen === true && (
+        <p className="notice notice-accent mt-4" role="status">
+          <IconInfo />
+          Your repertoire is over your plan&apos;s limits, so nothing can be added until some
+          songs are deleted.
+        </p>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {/* Once everything chosen is written, the only thing left to do is paste more. */}
         {done ? (
@@ -269,7 +404,9 @@ export function ImportBatch({
             onClick={() => void run()}
           >
             {busy
-              ? 'Importing…'
+              ? // The count is what makes a long run legible: a bare «Importing…» beside a
+                // two-hundred-song archive says nothing about whether to keep waiting.
+                `Importing ${progress.done} of ${progress.total}…`
               : attempts.length === 1
                 ? `${ran ? 'Retry with' : 'Import'} 1 song`
                 : `${ran ? 'Retry with' : 'Import'} ${attempts.length} songs`}

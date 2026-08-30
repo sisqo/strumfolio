@@ -24,7 +24,7 @@ import { DEFAULT_SECTION, UNFILED, type Song } from '@/lib/data/types'
 import { db, hasDatabase } from '@/lib/db/client'
 import { songbooks, sections, songs } from '@/lib/db/schema'
 import type { Entitlements } from '@/lib/plans/entitlements'
-import { entitlementsOf } from '@/lib/plans/resolve'
+import { countRepertoire, entitlementsOf } from '@/lib/plans/resolve'
 import { limitFacts, type LimitFacts } from '@/lib/plans/types'
 import { revalidateSong } from '@/lib/revalidate'
 import { canEdit } from '@/lib/roles'
@@ -38,7 +38,7 @@ import {
   organizeExport,
   toChoproFile,
 } from './export'
-import type { Decision, DeleteResult, SaveFailure, SaveResult, SongInput } from './types'
+import type { Decision, DeleteResult, Headroom, SaveFailure, SaveResult, SongInput } from './types'
 
 /**
  * The export answers **null** when refused rather than an empty list, and the difference
@@ -588,6 +588,37 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
  * collision here just makes two songs sharing a title, same as typing the
  * same title into the editor twice would; `uniqueSlug` keeps them addressable.
  */
+/**
+ * How many songs an import may still add, asked before it adds any.
+ *
+ * Reads through exactly the path the refusal will (`accountForSave` → `entitlementsOf`,
+ * and `countRepertoire` for the number held), never a count assembled in the browser:
+ * see `Headroom`'s own comment on why a pre-flight that disagrees with the save it
+ * precedes is worse than none.
+ *
+ * Null when this reader may not write here at all. That is not the same as no room, and
+ * the caller must not word it as though it were — the remedy for «your role does not
+ * allow editing» is not an upgrade.
+ */
+export async function songHeadroom(): Promise<Headroom | null> {
+  if (!hasDatabase) return null
+
+  const target = await accountForSave(undefined)
+  if (!target.ok) return null
+
+  const { limits, frozen } = target.entitlements
+  const { songs: held } = await countRepertoire(target.accountOwnerEmail)
+
+  return {
+    // `atCap` in `entitlements.ts` refuses at `held >= cap`, so the room left is the
+    // difference and never less than none — a frozen account is already past it.
+    fits: limits.songs === null ? null : Math.max(0, limits.songs - held),
+    max: limits.songs,
+    held,
+    frozen,
+  }
+}
+
 export async function createSong(
   title: string,
   songbookSlug: string,

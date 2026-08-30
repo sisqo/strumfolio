@@ -16,7 +16,7 @@
  * already 655 kB of first load; a second route like it would not be an accident twice.
  */
 
-import { detectSource, looksLikeXml } from './detect'
+import { IREAL_ADVICE, detectSource, isIRealPro, looksLikeXml } from './detect'
 import { type PreparedSong, type SourceFile, prepareFiles, prepareSongs } from './prepare'
 
 export type ReadResult =
@@ -85,6 +85,24 @@ export async function readSongFile(file: File): Promise<ReadResult> {
     if (files.length === 0) return { ok: false, message: 'No songs found in that archive.' }
 
     return { ok: true, songs: prepareFiles(files), skipped: unreadable, text: null }
+  }
+
+  /*
+   * `.html` is the one extension whose meaning genuinely cannot be read off the name.
+   * iReal Pro writes one, but so does every «save this page» in every browser — which
+   * happens to be the only way anything ever leaves Ultimate Guitar. So the file is
+   * opened first and told apart by what is inside it.
+   */
+  if (source.kind === 'html') {
+    const text = await file.text()
+    if (isIRealPro(text)) return { ok: false, message: IREAL_ADVICE }
+
+    return {
+      ok: false,
+      message:
+        'That’s a web page, and its chords are tangled up in its markup. Open it in a browser, ' +
+        'select the song, and paste it into the Paste tab — the chords come across with it.',
+    }
   }
 
   if (source.kind === 'text' || source.kind === 'xml') {

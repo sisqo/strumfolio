@@ -192,7 +192,7 @@ async function storedPlanOf(accountOwnerEmail: string): Promise<StoredPlan | nul
  * deliberately no "skip the count when the plan is unlimited" shortcut, because a count
  * that is sometimes absent is a freeze that sometimes does not happen.
  */
-async function countRepertoire(accountOwnerEmail: string): Promise<RepertoireCounts> {
+export async function countRepertoire(accountOwnerEmail: string): Promise<RepertoireCounts> {
   const [songbookRows, songRows] = await Promise.all([
     db()
       .select({ held: count() })

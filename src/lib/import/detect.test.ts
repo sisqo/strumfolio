@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { detectSource, extensionOf, looksLikeXml, xmlFlavour } from './detect'
+import { detectSource, extensionOf, isIRealPro, looksLikeXml, xmlFlavour } from './detect'
 
 describe('what a dropped file is', () => {
   it('takes every extension that holds ChordPro or chords-above text', () => {
@@ -46,7 +46,7 @@ describe('what a dropped file is', () => {
   })
 
   it('refuses the formats we deliberately do not open, and says what to do instead', () => {
-    for (const name of ['OnSong.backup', 'library.onsongarchive', 'library.msb', 'song.gp5', 'chart.html']) {
+    for (const name of ['OnSong.backup', 'library.onsongarchive', 'library.msb', 'song.gp5', 'chart.irealb']) {
       const source = detectSource(name)
       assert.equal(source.kind, 'refused', name)
       assert.ok(source.kind === 'refused' && source.advice.length > 0, name)
@@ -59,6 +59,19 @@ describe('what a dropped file is', () => {
     const source = detectSource('OnSong.backup')
     assert.equal(source.kind, 'refused')
     assert.match(source.kind === 'refused' ? source.advice : '', /ChordPro/)
+  })
+
+  it('leaves .html undecided until its content has been read', () => {
+    // iReal Pro writes one — but so does every «save this page», which is the only way
+    // anything ever leaves Ultimate Guitar. Refusing all of them with iReal Pro's
+    // advice («no lyrics at all») would be plainly false far more often than not.
+    assert.deepEqual(detectSource('chart.html'), { kind: 'html' })
+    assert.deepEqual(detectSource('tab.htm'), { kind: 'html' })
+  })
+
+  it('tells an iReal Pro page from an ordinary saved one, by content', () => {
+    assert.equal(isIRealPro('<a href="irealbook://Blue%20Bossa=Silver">Blue Bossa</a>'), true)
+    assert.equal(isIRealPro('<html><body><pre>[ch]C[/ch] Amazing grace</pre></body></html>'), false)
   })
 
   it('says it does not know, rather than guessing', () => {

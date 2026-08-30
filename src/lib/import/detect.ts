@@ -36,6 +36,16 @@ export type Source =
   | { kind: 'docx' }
   | { kind: 'pdf' }
   /**
+   * An HTML page, which needs its content read before anything can be said about it.
+   *
+   * Deliberately not a `refused`: iReal Pro exports `.html`, but so does OnSong, and so
+   * does every «save this page» in every browser — which is the only route out of
+   * Ultimate Guitar, the one app in the survey with no export at all. Refusing all of
+   * them with iReal Pro's advice would be wrong far more often than right, so the
+   * decision waits for the bytes.
+   */
+  | { kind: 'html' }
+  /**
    * A real songbook file we deliberately do not open, with the sentence that says
    * what to do instead. Never a dead end — every one of these has a route in.
    */
@@ -73,6 +83,14 @@ const XML = /\.(xml|opensong|openlyrics)$/i
  * everything after it. The file never records «this syllable sits under this chord»,
  * which is the only fact this app actually needs from it.
  */
+/**
+ * Said in two places — for an `.irealb` file, decided by name, and for an `.html` one,
+ * decided by `isIRealPro` on its content — so it is written once.
+ */
+export const IREAL_ADVICE =
+  'iReal Pro files hold a chord grid and no lyrics at all, so there is nothing to line the ' +
+  'chords up against. Type or paste the words in, and the chords with them.'
+
 const REFUSED: { pattern: RegExp; advice: string }[] = [
   {
     pattern: /\.(backup|onsongarchive|archive)$/i,
@@ -95,10 +113,8 @@ const REFUSED: { pattern: RegExp; advice: string }[] = [
       'as text or PDF from Guitar Pro and drop that instead.',
   },
   {
-    pattern: /\.(html?|irealb|irealbook)$/i,
-    advice:
-      'iReal Pro files hold a chord grid and no lyrics at all, so there is nothing to line the ' +
-      'chords up against. Type or paste the words in, and the chords with them.',
+    pattern: /\.(irealb|irealbook)$/i,
+    advice: IREAL_ADVICE,
   },
 ]
 
@@ -119,6 +135,7 @@ export function detectSource(fileName: string): Source {
   if (/\.docx$/i.test(name)) return { kind: 'docx' }
   if (/\.pdf$/i.test(name)) return { kind: 'pdf' }
   if (/\.zip$/i.test(name)) return { kind: 'zip' }
+  if (/\.html?$/i.test(name)) return { kind: 'html' }
   if (XML.test(name)) return { kind: 'xml' }
   if (TEXT.test(name)) return { kind: 'text' }
 
@@ -144,6 +161,19 @@ export function detectSource(fileName: string): Source {
 export function looksLikeXml(text: string): boolean {
   const head = text.trimStart().slice(0, 200)
   return /^<\?xml[\s?]/i.test(head) || /^<\s*(song|songs|lyrics|properties)[\s>]/i.test(head)
+}
+
+/**
+ * Whether an HTML file is an iReal Pro export rather than an ordinary saved page.
+ *
+ * iReal Pro's `.html` is a thin wrapper around an `irealb://` or `irealbook://` URL —
+ * the whole song is percent-encoded inside that link — so its presence is decisive and
+ * its absence equally so. Everything else that arrives as `.html` (a saved chord-site
+ * page, an OnSong HTML export, a SongSelect print) holds real words, and telling
+ * somebody it has no lyrics would be plainly false.
+ */
+export function isIRealPro(text: string): boolean {
+  return /irealb(?:ook)?:\/\//i.test(text)
 }
 
 /** Which XML dialect, once `looksLikeXml` has said it is one. */
