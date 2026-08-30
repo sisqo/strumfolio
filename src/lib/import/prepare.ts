@@ -50,24 +50,69 @@ export interface PreparedSong {
   dialect: Dialect
 }
 
-export function prepareSongs(text: string): PreparedSong[] {
-  return splitSongs(text).map((piece, index) => {
-    const converted = convert(piece)
-    const found = deduce(converted.body)
+/**
+ * One piece of text to one prepared song.
+ *
+ * `id` and `fallbackSection` come from the caller because they are the only two facts
+ * a piece of text cannot know about itself: where it sits in the run, and what filed
+ * it when it says nothing. Everything else is read out of the words.
+ */
+function prepareOne(piece: string, id: number, fallbackSection: string | null): PreparedSong {
+  const converted = convert(piece)
+  const found = deduce(converted.body)
 
-    return {
-      id: index,
-      title: found.title,
-      artist: found.artist ?? '',
-      tags: found.tags.join(', '),
-      link1: found.link1 ?? '',
-      link2: found.link2 ?? '',
-      link3: found.link3 ?? '',
-      body: found.body,
-      format: converted.format,
-      declares: found.songbookName,
-      declaresSection: found.sectionName,
-      dialect: found.dialect,
+  return {
+    id,
+    title: found.title,
+    artist: found.artist ?? '',
+    tags: found.tags.join(', '),
+    link1: found.link1 ?? '',
+    link2: found.link2 ?? '',
+    link3: found.link3 ?? '',
+    body: found.body,
+    format: converted.format,
+    declares: found.songbookName,
+    /*
+     * The song's own `{division: …}` wins over the folder that held it. Both are the
+     * source claiming a section, but one was typed on purpose and the other is a
+     * consequence of where somebody dragged a file — and a directive that survived an
+     * export is the more deliberate of the two.
+     */
+    declaresSection: found.sectionName ?? fallbackSection,
+    dialect: found.dialect,
+  }
+}
+
+export function prepareSongs(text: string): PreparedSong[] {
+  return splitSongs(text).map((piece, index) => prepareOne(piece, index, null))
+}
+
+/** One file lifted out of an archive: its text, and the folder that held it. */
+export interface SourceFile {
+  text: string
+  /** Becomes the song's section when the song does not name one of its own. */
+  folder: string | null
+}
+
+/**
+ * Several files — an archive, or a multi-file selection — as one run of songs.
+ *
+ * Each file is still cut by `splitSongs`, because a single file inside an archive is
+ * as likely to hold five songs as one: an export «one file per section» is exactly
+ * what this repo's own organized export produces, and it separates the songs inside
+ * each file with `{new_song}`. So a folder of ten files can perfectly well be two
+ * hundred songs, and the ids stay unique across the whole run rather than restarting
+ * per file — they key React rows, and two rows sharing one would swap each other's
+ * edits.
+ */
+export function prepareFiles(files: SourceFile[]): PreparedSong[] {
+  const songs: PreparedSong[] = []
+
+  for (const file of files) {
+    for (const piece of splitSongs(file.text)) {
+      songs.push(prepareOne(piece, songs.length, file.folder))
     }
-  })
+  }
+
+  return songs
 }

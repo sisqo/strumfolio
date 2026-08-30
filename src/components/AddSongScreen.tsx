@@ -17,9 +17,9 @@ import {
   IconPlus,
 } from '@/components/icons'
 import { createSong, saveSong } from '@/lib/import/actions'
-import { detectSource } from '@/lib/import/detect'
 import type { Dialect } from '@/lib/import/dialect'
 import { type PreparedSong, prepareSongs } from '@/lib/import/prepare'
+import { readSongFile } from '@/lib/import/read'
 import { saveMessage, type SaveRefusal } from '@/lib/import/types'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 import { writeMessage } from '@/lib/songbooks/types'
@@ -59,7 +59,8 @@ const DIALECT_LABEL: Record<Dialect, string> = {
  * zone, the `accept` attribute and the guard all named three extensions in three
  * places — so both the attribute and the hint below read from here now.
  */
-const ACCEPTED = '.txt,.cho,.crd,.chopro,.chord,.chordpro,.cpm,.pro,.onsong,.tab'
+const ACCEPTED =
+  '.txt,.cho,.crd,.chopro,.chord,.chordpro,.cpm,.pro,.onsong,.tab,.xml,.zip,.sbpbackup'
 
 /**
  * The one door into a songbook's repertoire, replacing what used to be two: a
@@ -104,6 +105,7 @@ export function AddSongScreen({
   const [error, setError] = useState<string | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [reading, setReading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
@@ -149,37 +151,30 @@ export function AddSongScreen({
 
   const readFile = async (file: File) => {
     setFileError(null)
-
-    const source = detectSource(file.name)
-
-    /*
-     * A refusal is a real songbook file we deliberately do not open, and it carries the
-     * sentence that says what to do instead. Worth the separate branch: OnSong's
-     * `.backup` is the *first* thing somebody migrating reaches for — it is what that
-     * app's own «back up everything» button produces — so it is the file most likely to
-     * be dropped here, and «that doesn't look like a .txt» would be a true statement
-     * that answers the wrong question.
-     */
-    if (source.kind === 'refused') {
-      setFileError(source.advice)
-      return
-    }
-
-    if (source.kind !== 'text') {
-      setFileError('That doesn’t look like a song file. Try a .txt, .cho or .chordpro export.')
-      return
-    }
+    setReading(true)
 
     try {
-      const text = await file.text()
-      if (text.trim() === '') {
-        setFileError('That file is empty.')
+      const result = await readSongFile(file)
+
+      if (!result.ok) {
+        setFileError(result.message)
         return
       }
-      setPasted(text)
-      analyse(text)
+      if (result.songs.length === 0) {
+        setNotice('No songs found in that file.')
+        return
+      }
+
+      // Null for an archive, and it has to be: this is what «start over» returns
+      // somebody to, and for two hundred files there is no such thing.
+      setPasted(result.text ?? '')
+      setError(null)
+      setNotice(result.skipped === 0 ? null : `${result.skipped} file${result.skipped === 1 ? '' : 's'} skipped: not songs.`)
+      setPrepared(result.songs)
     } catch {
       setFileError('Could not read that file.')
+    } finally {
+      setReading(false)
     }
   }
 
@@ -413,9 +408,10 @@ export function AddSongScreen({
           <div>
             <span className="field-label">Choose a file</span>
             <p className="mb-2.5 text-sm leading-[1.45] text-muted">
-              A <code>.txt</code> with chords above the lyrics, or a ChordPro export from
-              another app &mdash; OnSong, SongbookPro, MobileSheets, LinkeSoft, Setlist Helper
-              and SongSelect all write one. Several songs in one file are read as several songs.
+              A <code>.txt</code> with chords above the lyrics, or a ChordPro export from another
+              app &mdash; OnSong, SongbookPro, MobileSheets, LinkeSoft, Setlist Helper and
+              SongSelect all write one. A whole <code>.zip</code> works too: its folders become
+              sections here, and several songs in one file are read as several songs.
             </p>
             <label
               className={dragOver ? 'drop-zone is-over' : 'drop-zone'}
@@ -434,8 +430,10 @@ export function AddSongScreen({
               <span className="drop-zone-icon">
                 <IconImport size={21} />
               </span>
-              <span className="text-sm font-medium">Drop a file here, or browse</span>
-              <span className="text-xs text-muted">.txt, .cho, .crd, .chopro, .pro, .onsong…</span>
+              <span className="text-sm font-medium">
+                {reading ? 'Reading…' : 'Drop a file here, or browse'}
+              </span>
+              <span className="text-xs text-muted">.txt, .cho, .chopro, .onsong, .xml, .zip…</span>
               <input
                 ref={fileInput}
                 type="file"
