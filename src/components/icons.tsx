@@ -215,6 +215,27 @@ export function IconComment(props: IconProps) {
   )
 }
 
+/** Comment struck through: the notes are off the page entirely. */
+export function IconCommentOff(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 3.5 20.5 20.5" />
+      <path d="M20 12a7 7 0 0 1-7 7H8l-4 3v-6.2A7 7 0 0 1 7.5 5.6" />
+      <path d="M10.5 5h2.5a7 7 0 0 1 6.8 5.3" />
+    </Icon>
+  )
+}
+
+/** Comment with a plus: tapping a word or a chord will write one. */
+export function IconCommentAdd(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 12.5V12a7 7 0 0 0-7-7h-2a7 7 0 0 0-7 7v3.8L8 19h5" />
+      <path d="M18 15.5v6M15 18.5h6" />
+    </Icon>
+  )
+}
+
 /** Tab: strings, and a fret marked on two of them. */
 export function IconTab(props: IconProps) {
   return (

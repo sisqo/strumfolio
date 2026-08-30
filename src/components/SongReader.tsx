@@ -1,3 +1,5 @@
+import { CommentsProvider } from '@/components/CommentsProvider'
+import { LiveComments } from '@/components/LiveComments'
 import { EditSongLink } from '@/components/EditSongLink'
 import { Footer } from '@/components/Footer'
 import { LiveControlBar, LiveSheet, SongHeading } from '@/components/LiveSong'
@@ -117,6 +119,7 @@ export async function SongReader({ song }: { song: Song }) {
         * state and show its words under the new title.
         */}
       <SongProvider key={song.slug} baked={song} bakedParsed={parsed}>
+        <CommentsProvider songSlug={song.slug}>
         <TopBar
           current="songs"
           /*
@@ -145,10 +148,15 @@ export async function SongReader({ song }: { song: Song }) {
         {/*
           * The sheet is a card that runs off the bottom of the screen, so
           * everything that belongs to the song is inside it: the title, the words,
-          * the way to the next song, and the way into the editor. Nothing sits on
-          * the page beside it — a second surface next to the one you are reading
-          * would be a second thing to look at.
+          * the way to the next song, and the way into the editor.
+          *
+          * One thing does now sit on the page beside it, against the rule this comment
+          * used to state absolutely: the notes rail, on a wide screen only. It earns the
+          * exception by being *this reader's own writing about this song* rather than a
+          * second thing to read — and it takes the gutter the sheet was already leaving
+          * empty, so the words themselves are exactly as wide as before.
           */}
+        <div className="reading-layout">
         <main className="song-card">
           {/*
             * The section, and the place in the songbook: «Prima parte · 3 of 12». The
@@ -184,6 +192,9 @@ export async function SongReader({ song }: { song: Song }) {
           <div className="bar-spacer" />
         </main>
 
+          <LiveComments />
+        </div>
+
         <LiveControlBar
           steps={
             series === null
@@ -196,6 +207,7 @@ export async function SongReader({ song }: { song: Song }) {
                 }
           }
         />
+        </CommentsProvider>
       </SongProvider>
     </PrefsProvider>
   )

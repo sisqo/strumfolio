@@ -8,8 +8,10 @@
  * form renders the same sheet with no provider anywhere near it.
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
+import { CommentsToggle } from '@/components/CommentsToggle'
+import { useComments } from '@/components/CommentsProvider'
 import { ControlBar, formatSemitones, type NavSteps } from '@/components/ControlBar'
 import { EditSongLink } from '@/components/EditSongLink'
 import { usePrefs } from '@/components/PrefsProvider'
@@ -17,6 +19,9 @@ import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
 import { IconExternal, IconNote, IconPencil, IconPlus } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
+import { buildAnchorMap } from '@/lib/comments/anchorMap'
+import { labelFor } from '@/lib/comments/reanchor'
+import { fromSource } from '@/lib/editor/document'
 
 /**
  * Where this song sits in the sequence it is being read in.
@@ -30,6 +35,12 @@ export interface Place {
   position: number
   total: number
   within: string | null
+}
+
+/** The three-segment track, in the header row beside Edit — where both reader boards put it. */
+function HeadingNotes() {
+  const { comments, mode, setMode } = useComments()
+  return <CommentsToggle mode={mode} count={comments.length} onChange={setMode} />
 }
 
 /**
@@ -49,6 +60,7 @@ export function SongHeading({ place }: { place: Place | null }) {
         <h1 className="text-[1.6875rem] font-medium leading-[1.12] tracking-[-0.03em]">
           {song.title}
         </h1>
+        <HeadingNotes />
         <EditSongLink slug={song.slug} placement="top" />
       </div>
       <p className="mt-2.5 flex flex-wrap items-center gap-2 text-base text-muted">
@@ -187,9 +199,32 @@ function SongNote() {
   )
 }
 
+/**
+ * The sheet with this reader's own notes on it.
+ *
+ * The anchor map is rebuilt from the *live* body rather than the baked one, so a note
+ * placed right after an edit lands in the coordinates the edit produced — `SongProvider`
+ * swaps the body under this component the moment a save comes back.
+ */
 export function LiveSheet() {
-  const { parsed } = useSong()
-  return <SongSheet song={parsed} />
+  const { song, parsed } = useSong()
+  const { comments, mode, setOpen } = useComments()
+
+  const anchors = useMemo(() => buildAnchorMap(song.body), [song.body])
+
+  return (
+    <SongSheet
+      song={parsed}
+      notes={{
+        anchors,
+        comments,
+        mode,
+        onOpen: (ids) => setOpen({ kind: 'read', ids }),
+        onPlace: (anchor) =>
+          setOpen({ kind: 'write', anchor, label: labelFor(fromSource(song.body), anchor) }),
+      }}
+    />
+  )
 }
 
 /**

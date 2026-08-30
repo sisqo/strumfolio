@@ -256,9 +256,21 @@ export function chordVocabulary(blocks: Block[]): string[] {
  * keeps every chord and moves only the ones after the change, which is why the rule
  * is stated in terms of the span rather than of an intent that cannot be known.
  */
-export function shiftChords(chords: ChordAt[], oldText: string, newText: string): ChordAt[] {
-  if (oldText === newText) return chords
-
+/**
+ * The stretch of `oldText` that was rewritten, as the longest common prefix and
+ * suffix leave it, plus how much longer the line got.
+ *
+ * Split out of `shiftChords` because the comments feature re-anchors on exactly
+ * this span and must not compute it a second, drifting way — but decides the
+ * *inside* case differently: a chord collapses to `prefix`, a comment orphans
+ * (`lib/comments/reanchor.ts`). Same measurement, two policies.
+ *
+ * An anchor is inside the rewritten span when `prefix <= at < spanEnd`.
+ */
+export function editedSpan(
+  oldText: string,
+  newText: string,
+): { prefix: number; spanEnd: number; delta: number } {
   let prefix = 0
   while (prefix < oldText.length && prefix < newText.length && oldText[prefix] === newText[prefix]) {
     prefix += 1
@@ -273,8 +285,13 @@ export function shiftChords(chords: ChordAt[], oldText: string, newText: string)
     suffix += 1
   }
 
-  const spanEnd = oldText.length - suffix
-  const delta = newText.length - oldText.length
+  return { prefix, spanEnd: oldText.length - suffix, delta: newText.length - oldText.length }
+}
+
+export function shiftChords(chords: ChordAt[], oldText: string, newText: string): ChordAt[] {
+  if (oldText === newText) return chords
+
+  const { prefix, spanEnd, delta } = editedSpan(oldText, newText)
 
   return chords.map((chord) => {
     // Strictly before, so text typed at an anchor pushes it along: a chord belongs

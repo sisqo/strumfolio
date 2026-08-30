@@ -73,6 +73,18 @@
    */
   --plan-standard: #2f5f8f;
   --plan-standard-soft: #e3edf6;
+
+  /*
+   * A note's blue — the one thing on the sheet deliberately *not* the chord accent, so a
+   * note can never be misread as part of the music.
+   *
+   * Its own pair rather than a reuse of `--plan-standard`, which today holds the same two
+   * values: they mean different things, and a repricing that restyled every annotation in
+   * the app would be the drift this separation exists to prevent. The collision is only
+   * ever visible on /pricing, where no sheet is rendered.
+   */
+  --note: #2f5f8f;
+  --note-soft: #e3edf6;
   --plan-plus: #6b3fa0;
   --plan-plus-soft: #efe6f7;
   --plan-premium: #8a6d1f;
@@ -173,6 +185,10 @@
     --success-soft: #17281c;
     --plan-standard: #8ec2f2;
     --plan-standard-soft: #182430;
+    /* Warmer and less saturated than the plan blue: the dark theme here is hand-tuned,
+       not an inversion, and a note sits *inside* running text rather than on a card. */
+    --note: #8fbde4;
+    --note-soft: #1a2530;
     --plan-plus: #cba6ec;
     --plan-plus-soft: #251b30;
     --plan-premium: #e0c368;
@@ -219,6 +235,8 @@
   --success-soft: #17281c;
   --plan-standard: #8ec2f2;
   --plan-standard-soft: #182430;
+  --note: #8fbde4;
+  --note-soft: #1a2530;
   --plan-plus: #cba6ec;
   --plan-plus-soft: #251b30;
   --plan-premium: #e0c368;
@@ -443,6 +461,496 @@
     font-size: 0.8em;
     font-style: italic;
     margin: 0.6em 0 0.3em;
+  }
+
+  /* ---- Anchored notes -------------------------------------------------- */
+
+  /*
+   * The mark that says a note is here.
+   *
+   * It sits **inline**, right after the text it belongs to, which is how both reader
+   * boards draw it — and which means it takes horizontal space and can move where a line
+   * wraps. `Comment Mode`'s prose promised a mark on the chord row's baseline that pushed
+   * nothing sideways; the boards are the more concrete artifact and win, but the cost is
+   * real, and it is the strongest argument for the `hidden` state, which gives the line
+   * back exactly as written.
+   *
+   * Sized in `em` so it grows with the reading zoom, unlike the boards' fixed 15px: a
+   * badge that stayed 15px while the words went to 34px would stop being findable at the
+   * text size this app exists to offer.
+   */
+  .comment-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.68em;
+    height: 0.68em;
+    margin: 0 0.1em 0 0.14em;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--note);
+    color: var(--surface);
+    font-family: inherit;
+    font-size: 0.68em;
+    font-weight: 600;
+    line-height: 1;
+    vertical-align: 0.32em;
+    cursor: pointer;
+  }
+
+  .comment-badge.is-orphan {
+    background: transparent;
+    border: 1px solid var(--note);
+    color: var(--note);
+  }
+
+  /* The underline says what the note is about; the badge says where to tap. */
+  .sheet-lyric.is-noted,
+  .sheet-chord.is-noted {
+    border-block-end: 1px dotted color-mix(in srgb, var(--note) 60%, transparent);
+  }
+
+  /*
+   * A word armed as a target while `adding` is on.
+   *
+   * Carries exactly the box `.sheet-lyric` carries — no padding, no border, the font
+   * inherited — for the same reason `button.sheet-chord` does: anything else would move
+   * where the lines wrap, and arming a mode must not reflow the song.
+   */
+  .sheet-lyric-target {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: start;
+    white-space: pre;
+    cursor: pointer;
+  }
+
+  .song-sheet.is-adding .sheet-lyric-target,
+  .song-sheet.is-adding .sheet-chord-target {
+    background: color-mix(in srgb, var(--note) 12%, transparent);
+    border-radius: 0.15em;
+  }
+
+  @media (hover: hover) {
+    .sheet-lyric-target:hover,
+    .sheet-chord-target:hover {
+      background: color-mix(in srgb, var(--note) 26%, transparent);
+    }
+  }
+
+  /*
+   * Orphans, parked at the foot of the sheet.
+   *
+   * Not at the end of the section they came from, which is unanswerable: an orphan is
+   * exactly a note whose block index was dropped, so that section is not a fact the data
+   * still holds. Saying so under one heading is the honest version, and it keeps them
+   * reachable by the same tap as any other note — which is the whole point on a phone,
+   * where there is no rail.
+   */
+  .sheet-orphans {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em;
+    margin: 1.4em 0 0;
+    padding-block-start: 0.8em;
+    border-block-start: 1px dotted color-mix(in srgb, var(--note) 45%, transparent);
+    font-size: 0.62em;
+  }
+
+  .sheet-orphans-label {
+    color: var(--faint);
+  }
+
+  /* ---- The three-segment track ---------------------------------------- */
+
+  .comments-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    padding: 3px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    box-sizing: border-box;
+  }
+
+  /*
+   * Armed, the whole track takes the tint rather than just its own segment: while
+   * `adding` is on, every word in the song behaves differently, and a control that read
+   * as merely selected would undersell that.
+   */
+  .comments-toggle.is-arming {
+    background: color-mix(in srgb, var(--note) 22%, var(--surface-2));
+  }
+
+  .comments-segment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 2.375rem;
+    height: 2.375rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: var(--r-xs);
+    background: none;
+    color: var(--faint);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .comments-segment.is-on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+
+  /*
+   * The word is desktop-only. On a phone the track has no room for it — the boards drop
+   * it and keep icon plus bare count — and the count alone still answers the question
+   * the segment exists to answer.
+   */
+  .comments-segment-label {
+    display: none;
+  }
+
+  .comments-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.3125rem;
+    border-radius: var(--r-pill);
+    background: var(--note-soft);
+    color: var(--note);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- The card ------------------------------------------------------- */
+
+  .comment-card-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--dim);
+  }
+
+  .comment-card {
+    width: 100%;
+    max-width: 26rem;
+    max-height: 70dvh;
+    overflow-y: auto;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* While the pen is armed the card's border takes the accent, so it is clear the tap
+     did something. */
+  .comment-card.is-writing {
+    border-color: color-mix(in srgb, var(--note) 55%, var(--edge));
+  }
+
+  .comment-card-head {
+    margin: 0 0 0.75rem;
+    color: var(--faint);
+    font-size: 0.78125rem;
+  }
+
+  .comment-card-anchor {
+    color: var(--note);
+  }
+
+  .comment-card-count {
+    color: var(--faint);
+  }
+
+  .comment-card-note + .comment-card-note {
+    margin-block-start: 0.75rem;
+    padding-block-start: 0.75rem;
+    border-block-start: 1px solid var(--surface-3);
+  }
+
+  .comment-card-when {
+    margin: 0 0 0.25rem;
+    color: var(--faint);
+    font-size: 0.75rem;
+  }
+
+  .comment-card-text {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.90625rem;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  .comment-card-field {
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.90625rem;
+    line-height: 1.45;
+    resize: vertical;
+  }
+
+  .comment-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-block-start: 0.5rem;
+  }
+
+  .comment-card-cancel,
+  .comment-card-delete,
+  .comment-card-save {
+    height: 2.25rem;
+    padding: 0 0.875rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .comment-card-cancel {
+    background: none;
+    color: var(--muted);
+  }
+
+  .comment-card-delete {
+    background: none;
+    color: var(--danger);
+  }
+
+  .comment-card-save {
+    background: var(--note);
+    color: var(--surface);
+  }
+
+  /* Inert until something has been typed — the one rule the writing card states. */
+  .comment-card-save:disabled {
+    background: var(--surface-2);
+    color: var(--faint);
+    cursor: not-allowed;
+  }
+
+  /* ---- The rail, and the layout that makes room for it ----------------- */
+
+  /*
+   * Below the breakpoint this is `display: contents`, so `.song-card` keeps exactly the
+   * width, margins and centring it had before the rail existed — the narrow screen is
+   * unchanged by this feature's layout, not merely similar to how it was.
+   */
+  .reading-layout {
+    display: contents;
+  }
+
+  .comments-rail {
+    display: none;
+  }
+
+  /*
+   * 48rem of sheet + 1rem of gap + 20.5rem of rail = 69.5rem, which is the boards' own
+   * 1112px of content. The sheet does not narrow: the rail takes the gutter that was
+   * already empty beside it.
+   *
+   * The threshold is a choice, not a measurement — the Design project holds fixed-width
+   * artboards and not one `@media` rule anywhere, so there was no breakpoint to copy.
+   * 75rem leaves a page margin either side at the width the rail first fits.
+   */
+  @media (min-width: 75rem) {
+    .reading-layout {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 1rem;
+      width: 69.5rem;
+      margin: 0.375rem auto 0;
+    }
+
+    .reading-layout .song-card {
+      width: 48rem;
+      flex: none;
+      margin: 0;
+    }
+
+    .comments-rail {
+      display: block;
+      position: sticky;
+      top: 4.875rem;
+      width: 20.5rem;
+      flex: none;
+      box-sizing: border-box;
+      padding: 0.375rem 0.375rem 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--edge);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-1);
+    }
+
+    /* The dock is centred on the page; with a rail beside the sheet, the sheet is not
+       the middle of the page any more, so the dock moves with it. */
+    .reading-layout ~ .control-bar .control-dock {
+      margin-inline-end: 21.5rem;
+    }
+
+    .comments-segment-label {
+      display: inline;
+    }
+  }
+
+  .comments-rail-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5625rem;
+    padding: 0.75rem 0.875rem 0.625rem;
+  }
+
+  .comments-rail-icon {
+    color: var(--note);
+    flex: none;
+  }
+
+  .comments-rail-title {
+    flex: 1;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .comments-rail-empty {
+    margin: 0;
+    padding: 0.25rem 0.875rem 0.75rem;
+    color: var(--faint);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .comments-rail-row {
+    display: flex;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.8125rem 0.875rem;
+    border: 0;
+    border-radius: var(--r-md);
+    background: none;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .comments-rail-row + .comments-rail-row {
+    border-block-start: 1px solid var(--surface-3);
+  }
+
+  @media (hover: hover) {
+    .comments-rail-row:hover {
+      background: var(--note-soft);
+    }
+  }
+
+  /* In the rail the badge is a label, not a target: the row is the target. */
+  .comments-rail-row .comment-badge {
+    width: 1.1875rem;
+    height: 1.1875rem;
+    margin: 0.125rem 0 0;
+    font-size: 0.6875rem;
+    vertical-align: baseline;
+    flex: none;
+    cursor: inherit;
+  }
+
+  .comments-rail-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .comments-rail-meta {
+    display: block;
+    color: var(--faint);
+    font-size: 0.78125rem;
+  }
+
+  .comments-rail-anchor {
+    color: var(--note);
+  }
+
+  .comments-rail-dot {
+    color: var(--line);
+  }
+
+  .comments-rail-text {
+    display: block;
+    margin-block-start: 0.25rem;
+    color: var(--ink);
+    font-size: 0.90625rem;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  .comments-rail-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.375rem 0.5rem 0;
+    padding-block-start: 0.625rem;
+    border-block-start: 1px solid var(--surface-3);
+  }
+
+  .comments-rail-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.25rem;
+    padding: 0 0.8125rem 0 0.6875rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: none;
+    color: var(--note);
+    font-family: inherit;
+    font-size: 0.84375rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .comments-rail-add:hover {
+      background: var(--note-soft);
+    }
+  }
+
+  /* The sentence that states the whole feature's privacy. */
+  .comments-rail-private {
+    margin-inline-start: auto;
+    color: var(--faint);
+    font-size: 0.78125rem;
   }
 
   /* ---- The chord shape ------------------------------------------------ */
@@ -901,6 +1409,28 @@
   .notice-error,
   .notice-success {
     box-shadow: none;
+  }
+
+  /*
+   * The way out of a notice that has one. Inherits the notice's own colour rather than
+   * picking its own, so the same button reads correctly on all four tints; quiet until
+   * reached for, because closing is never the reason the notice is there.
+   *
+   * `-0.35rem` of margin against `0.55rem` of padding: the box grows to the app's tap
+   * floor without the glyph drifting away from the corner it belongs in.
+   */
+  .notice-close {
+    flex: none;
+    align-self: flex-start;
+    margin: -0.35rem -0.35rem -0.35rem 0;
+    padding: 0.55rem;
+    border-radius: var(--r-sm);
+    color: inherit;
+    opacity: 0.65;
+  }
+
+  .notice-close:hover {
+    opacity: 1;
   }
 
   .notice-accent {

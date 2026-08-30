@@ -16,6 +16,7 @@
 import { and, asc, eq, isNull, max, or, sql } from 'drizzle-orm'
 
 import { accessTo, asEditor } from '@/lib/auth/session'
+import { reanchorSongComments } from '@/lib/comments/actions'
 import { songAccountOf } from '@/lib/data/access'
 import { placeAfter } from '@/lib/songbooks/order'
 import { rowToSong } from '@/lib/data/db'
@@ -472,17 +473,26 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
       updatedAt: sql`now()`,
     }
 
+    /**
+     * The words as they stood before this save, read inside the same transaction that
+     * replaces them — the one moment both versions exist, and therefore the only moment
+     * the anchored notes can be carried across the edit (`lib/comments/reanchor.ts`).
+     */
+    let previousBody: string | null = null
+
     // Editing a known song: update in place and keep the slug, which is what
     // keeps that song's saved transposition and speed attached to it.
     if (input.slug !== undefined) {
       const updated = await database.transaction(async (tx) => {
         const before = await tx
-          .select({ sectionId: songs.sectionId })
+          .select({ sectionId: songs.sectionId, body: songs.body })
           .from(songs)
           .where(eq(songs.slug, input.slug as string))
           .limit(1)
 
         if (before.length === 0) return []
+
+        previousBody = before[0].body
 
         /*
          * A song sent to another section arrives unplaced, so it lands at the end
@@ -502,6 +512,17 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
       })
 
       if (updated.length === 0) return { ok: false, reason: 'not-found' }
+
+      /*
+       * After the transaction, never inside it: carrying the notes is a courtesy to
+       * whoever wrote them, and a failure there must not roll back the edit the reader
+       * actually asked for. `reanchorSongComments` swallows its own errors for the same
+       * reason.
+       */
+      if (previousBody !== null) {
+        await reanchorSongComments(input.slug as string, previousBody, input.body)
+      }
+
       return saved(rowToSong(updated[0]))
     }
 

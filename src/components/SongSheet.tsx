@@ -5,6 +5,9 @@ import { Fragment, useMemo, useState } from 'react'
 import { ChordDiagram } from '@/components/ChordDiagram'
 import { ChordPopup } from '@/components/ChordPopup'
 import { usePrefs } from '@/components/PrefsProvider'
+import type { CommentsMode } from '@/components/CommentsProvider'
+import type { AnchorMap, PartAnchor } from '@/lib/comments/anchorMap'
+import type { CommentAnchor, SongComment } from '@/lib/comments/types'
 import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
 import { type Chord, type Notation, formatChord, parseChord, transposeChord } from '@/lib/music/chord'
 import { readKey, readShift } from '@/lib/music/capo'
@@ -14,6 +17,48 @@ import { type Instrument, shapeFor } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
 
 const BLANK = ' '
+
+/**
+ * Everything the sheet needs to draw notes on itself, or `undefined` for the three screens
+ * that must not.
+ *
+ * An optional prop rather than a context read, because `SongSheet` has four call sites and
+ * only one of them may show notes. `FollowSession` renders this same component for a Strum
+ * Together guest, and «only you see these» is a promise that breaks the moment a guest's
+ * screen picks the leader's notes up from a context it happens to sit inside. Passing them
+ * in makes the three silent call sites silent by construction.
+ */
+export interface SheetNotes {
+  /** Built on the server from the source — see `lib/comments/anchorMap.ts`. */
+  anchors: AnchorMap
+  /** In reading order: the badge numbers are positions in this list. */
+  comments: SongComment[]
+  mode: CommentsMode
+  /** A badge was tapped: every note sharing that point, since one card stacks them. */
+  onOpen: (ids: string[]) => void
+  /** A word or a chord was tapped while `adding` was armed. */
+  onPlace: (anchor: CommentAnchor) => void
+}
+
+/** The notes sitting on one exact point, and the number the first of them wears. */
+function notesAt(notes: SheetNotes, anchor: PartAnchor, target: CommentAnchor['target']) {
+  const ids: string[] = []
+  let number = 0
+
+  notes.comments.forEach((comment, index) => {
+    if (comment.anchor === null) return
+    if (
+      comment.anchor.blockIndex === anchor.blockIndex &&
+      comment.anchor.charOffset === anchor.charOffset &&
+      comment.anchor.target === target
+    ) {
+      if (ids.length === 0) number = index + 1
+      ids.push(comment.id)
+    }
+  })
+
+  return { ids, number }
+}
 
 /**
  * Renders the sheet: chords above the syllable they belong to.
@@ -31,7 +76,7 @@ const BLANK = ' '
  * In a song with chords, every line keeps the chord row above it whether it has
  * chords or not, so the spacing between lines is even.
  */
-export function SongSheet({ song }: { song: ParsedSong }) {
+export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNotes }) {
   const { global, song: songPrefs } = usePrefs()
   const [shown, setShown] = useState<Chord | null>(null)
 
@@ -75,27 +120,73 @@ export function SongSheet({ song }: { song: ParsedSong }) {
     [song],
   )
 
+  /*
+   * The sheet renders lines section by section; the anchor map is a flat list of the
+   * lyrics lines in source order. This counter is what joins them, and it has to be
+   * incremented for every lyrics line whether or not anything is anchored in it.
+   */
+  let lyricLine = -1
+
+  const showNotes = notes !== undefined && notes.mode !== 'hidden'
+  const orphans = showNotes ? notes.comments.filter((comment) => comment.anchor === null) : []
+
   return (
     <>
-      <div className="song-sheet" style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}>
+      <div
+        className={showNotes && notes.mode === 'adding' ? 'song-sheet is-adding' : 'song-sheet'}
+        style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}
+      >
         {song.sections.map((section, sectionIndex) => (
           <section key={sectionIndex} className={`sheet-section is-${section.kind}`}>
-            {section.lines.map((line, lineIndex) => (
-              <SheetLine
-                key={lineIndex}
-                line={line}
-                shift={shift}
-                notation={global.notation}
-                chordDisplay={global.chordDisplay}
-                instrument={global.instrument}
-                capo={songPrefs.capo}
-                currentKey={currentKey}
-                roomForChords={roomForChords}
-                onPick={setShown}
-              />
-            ))}
+            {section.lines.map((line, lineIndex) => {
+              if (line.kind === 'lyrics') lyricLine += 1
+              return (
+                <SheetLine
+                  key={lineIndex}
+                  line={line}
+                  shift={shift}
+                  notation={global.notation}
+                  chordDisplay={global.chordDisplay}
+                  instrument={global.instrument}
+                  capo={songPrefs.capo}
+                  currentKey={currentKey}
+                  roomForChords={roomForChords}
+                  onPick={setShown}
+                  notes={showNotes ? notes : undefined}
+                  anchors={showNotes ? notes.anchors[lyricLine] : undefined}
+                />
+              )
+            })}
           </section>
         ))}
+
+        {/*
+          * Orphans, parked at the foot of the sheet.
+          *
+          * Not «at the end of the section it used to be in», which the plan asked for and
+          * which turns out to be unanswerable: an orphan is exactly a note whose block
+          * index was dropped, so the section it came from is not a fact this data still
+          * holds. Parking them together under their own heading is the honest version —
+          * it says the position is gone instead of inventing one a badge would then lie
+          * about, and they stay reachable by the same tap as every other note, which is
+          * the whole reason the parked badge exists on a phone with no rail.
+          */}
+        {orphans.length > 0 && (
+          <p className="sheet-orphans">
+            <span className="sheet-orphans-label">
+              {orphans.length === 1 ? 'A note no longer sits on the words' : `${orphans.length} notes no longer sit on the words`}
+            </span>
+            {orphans.map((comment) => (
+              <CommentBadge
+                key={comment.id}
+                number={notes!.comments.indexOf(comment) + 1}
+                label={comment.anchorLabel}
+                orphan
+                onOpen={() => notes!.onOpen([comment.id])}
+              />
+            ))}
+          </p>
+        )}
       </div>
 
       {shown !== null && (
@@ -121,6 +212,8 @@ function SheetLine({
   currentKey,
   roomForChords,
   onPick,
+  notes,
+  anchors,
 }: {
   line: Line
   /** Transposition and capo together: how far the written chords move to reach the page. */
@@ -133,6 +226,9 @@ function SheetLine({
   currentKey: Key
   roomForChords: boolean
   onPick: (chord: Chord) => void
+  notes?: SheetNotes
+  /** This line's slice of the anchor map: word, then part. */
+  anchors?: PartAnchor[][]
 }) {
   if (line.kind === 'comment') {
     return <p className="sheet-comment">{line.text}</p>
@@ -155,27 +251,116 @@ function SheetLine({
           {/* The one break opportunity in the line: between words, never inside. */}
           {wordIndex > 0 && ' '}
           <span className="sheet-word">
-            {word.parts.map((part, partIndex) => (
-              <span key={partIndex} className="sheet-part">
-                {roomForChords && (
-                  <SheetChord
-                    raw={part.chord}
-                    shift={shift}
-                    notation={notation}
-                    chordDisplay={chordDisplay}
-                    instrument={instrument}
-                    capo={capo}
-                    currentKey={currentKey}
-                    onPick={onPick}
-                  />
-                )}
-                <span className="sheet-lyric">{part.text === '' ? BLANK : part.text}</span>
-              </span>
-            ))}
+            {word.parts.map((part, partIndex) => {
+              const anchor = anchors?.[wordIndex]?.[partIndex]
+              const lyric = notes !== undefined && anchor !== undefined ? notesAt(notes, anchor, 'lyric') : null
+              const chordNote =
+                notes !== undefined && anchor !== undefined ? notesAt(notes, anchor, 'chord') : null
+
+              return (
+                <span key={partIndex} className="sheet-part">
+                  {roomForChords && (
+                    <SheetChord
+                      raw={part.chord}
+                      shift={shift}
+                      notation={notation}
+                      chordDisplay={chordDisplay}
+                      instrument={instrument}
+                      capo={capo}
+                      currentKey={currentKey}
+                      onPick={onPick}
+                      note={
+                        notes === undefined || anchor === undefined
+                          ? undefined
+                          : {
+                              mode: notes.mode,
+                              marked: (chordNote?.ids.length ?? 0) > 0,
+                              onPlace: () =>
+                                notes.onPlace({ ...anchor, target: 'chord' }),
+                            }
+                      }
+                    />
+                  )}
+                  {notes !== undefined && anchor !== undefined && notes.mode === 'adding' ? (
+                    <button
+                      type="button"
+                      className="sheet-lyric sheet-lyric-target"
+                      onClick={() => notes.onPlace({ ...anchor, target: 'lyric' })}
+                      aria-label={`Add a note on ${part.text}`}
+                    >
+                      {part.text === '' ? BLANK : part.text}
+                    </button>
+                  ) : (
+                    <span className={lyric !== null && lyric.ids.length > 0 ? 'sheet-lyric is-noted' : 'sheet-lyric'}>
+                      {part.text === '' ? BLANK : part.text}
+                    </span>
+                  )}
+                  {lyric !== null && lyric.ids.length > 0 && (
+                    <CommentBadge
+                      number={lyric.number}
+                      label={part.text}
+                      stacked={lyric.ids.length}
+                      onOpen={() => notes!.onOpen(lyric.ids)}
+                    />
+                  )}
+                  {chordNote !== null && chordNote.ids.length > 0 && (
+                    <CommentBadge
+                      number={chordNote.number}
+                      label={part.chord ?? ''}
+                      stacked={chordNote.ids.length}
+                      onOpen={() => notes!.onOpen(chordNote.ids)}
+                    />
+                  )}
+                </span>
+              )
+            })}
           </span>
         </Fragment>
       ))}
     </p>
+  )
+}
+
+/**
+ * The mark that says a note is here: a small numbered circle, blue rather than the chord
+ * accent so a note can never be misread as part of the music.
+ *
+ * It sits inline, right after the text it belongs to, which is how both reader boards draw
+ * it — and which means it **takes horizontal space and can change where the line wraps**.
+ * `Comment Mode`'s own prose promised the opposite (a mark on the chord row's baseline,
+ * pushing nothing sideways); the boards are the more concrete artifact and win, but the
+ * cost is real and is the strongest argument for the `hidden` state, which gives back
+ * exactly the line as it was written.
+ */
+function CommentBadge({
+  number,
+  label,
+  stacked = 1,
+  orphan = false,
+  onOpen,
+}: {
+  number: number
+  label: string
+  /** How many notes share this point; they open as one stacked card, not several. */
+  stacked?: number
+  orphan?: boolean
+  onOpen: () => void
+}) {
+  const what = orphan
+    ? `note ${number}, no longer on the words`
+    : stacked > 1
+      ? `${stacked} notes on ${label}`
+      : `note on ${label}`
+
+  return (
+    <button
+      type="button"
+      className={orphan ? 'comment-badge is-orphan' : 'comment-badge'}
+      onClick={onOpen}
+      aria-label={what}
+    >
+      {number}
+    </button>
   )
 }
 
@@ -195,6 +380,7 @@ function SheetChord({
   capo,
   currentKey,
   onPick,
+  note,
 }: {
   raw: string | null
   shift: number
@@ -204,8 +390,18 @@ function SheetChord({
   capo: number
   currentKey: Key
   onPick: (chord: Chord) => void
+  /**
+   * What this slot does about notes. While `adding` is armed the tap places one instead of
+   * opening the fingering — the chord slot is the only control on the sheet that already
+   * had a job, and arming the mode has to take it over rather than compete with it.
+   */
+  note?: { mode: CommentsMode; marked: boolean; onPlace: () => void }
 }) {
+  const arming = note?.mode === 'adding'
+
   if (raw === null) {
+    // Nothing to note and nothing to play: an empty slot stays inert even while arming,
+    // or every line in the song would sprout a target above syllables with no chord.
     return (
       <span className="sheet-chord" aria-hidden>
         {BLANK}
@@ -213,8 +409,18 @@ function SheetChord({
     )
   }
 
+  const marked = note?.marked === true
+
   const parsed = parseChord(raw)
-  if (parsed === null) return <span className="sheet-chord">{raw}</span>
+  if (parsed === null) {
+    return arming ? (
+      <button type="button" className="sheet-chord sheet-chord-target" onClick={note.onPlace} aria-label={`Add a note on ${raw}`}>
+        {raw}
+      </button>
+    ) : (
+      <span className={marked ? 'sheet-chord is-noted' : 'sheet-chord'}>{raw}</span>
+    )
+  }
 
   const chord = transposeChord(parsed, shift, currentKey)
   const label = formatChord(chord, notation)
@@ -229,9 +435,17 @@ function SheetChord({
   return (
     <button
       type="button"
-      className="sheet-chord"
-      onClick={() => onPick(chord)}
-      aria-label={shape !== null ? `${label}, tap for the fingering` : `${label}, show the shape`}
+      className={
+        arming ? 'sheet-chord sheet-chord-target' : marked ? 'sheet-chord is-noted' : 'sheet-chord'
+      }
+      onClick={arming ? note.onPlace : () => onPick(chord)}
+      aria-label={
+        arming
+          ? `Add a note on ${label}`
+          : shape !== null
+            ? `${label}, tap for the fingering`
+            : `${label}, show the shape`
+      }
     >
       {shape !== null ? (
         <>
