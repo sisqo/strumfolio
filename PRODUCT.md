@@ -41,7 +41,10 @@ than fighting it. Two full notations, Italian and international, switch per read
 per song.
 
 **Bringing songs in, and keeping them current.** There is no catalogue to browse — every
-song is one somebody pasted in. The importer recognizes ChordPro on sight and converts
+song is one somebody pasted in, except the one songbook of public-domain traditionals a
+new account is created with, so the first screen has something playable on it instead of
+being empty. That songbook is ordinary from the moment it exists: editable, renamable,
+deletable, and counted against the plan like any other. The importer recognizes ChordPro on sight and converts
 "chords above the lyrics" copied from anywhere else, always behind a preview that stays
 editable before it saves, because the conversion is a heuristic and won't always get it
 right. Pasting more than one song at once splits automatically on the boundaries ChordPro

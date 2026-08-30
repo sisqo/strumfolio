@@ -8,8 +8,9 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v3.14 — canzoniere di esempio per i nuovi account** (l'ultima
-> versione numerata qui) sono consegnate e in produzione su https://strumfolio.com. La
+> **Stato:** da v1 a **v3.15 — il canzoniere di esempio torna automatico alla creazione
+> dell'account** (l'ultima versione numerata qui) sono consegnate e in produzione su
+> https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
 > sopra la pagina statica (va letta prima di toccare la lettura); la v1.4 ha portato
@@ -886,6 +887,47 @@ account vuoto, non un'imposizione automatica su chiunque si registri.
    successo naviga direttamente al nuovo canzoniere.
 
 Nessuna migrazione.
+
+### v3.15 — il canzoniere di esempio torna automatico alla creazione dell'account
+
+Rovescia il punto centrale della v3.14 qui sopra, deliberatamente e sapendo cosa costa:
+`provisionAccount` semina di nuovo il canzoniere di esempio in ogni account nuovo, invece
+di aspettare che qualcuno prema un bottone. Terzo giro completo su questa decisione — la
+v3.0 clonava in automatico, i piani l'hanno fatta togliere, la v3.14 l'ha riproposta come
+scelta esplicita, e questa la rimette in automatico.
+
+**Il costo è quello di sempre e non è sparito**: il piano free ha un solo canzoniere, quindi
+un account free nasce con l'unico slot già speso in contenuto che non ha chiesto, e deve
+cancellare l'esempio per farsi il suo. Accettato: atterrare su una schermata vuota è stato
+giudicato la peggiore delle due prime impressioni.
+
+1. **Cosa viene seminato**: le nove canzoni di pubblico dominio di `lib/songbooks/sample.ts`,
+   non il canzoniere marcato `isExampleTemplate` della v3.0. Quel flag e il suo indice unico
+   parziale restano dove sono, al servizio di `copySongbook`; il seeding non li legge.
+2. **Conta come un canzoniere normale del piano**, come già stabiliva la v3.14 punto 5 — non
+   uno slot extra come faceva il vecchio Example. Nulla sui piani diventa silenziosamente
+   falso.
+3. **Righe condivise, non duplicate**: l'inserimento vive in `lib/songbooks/seed.ts`
+   (`insertSampleSongbook`, modulo semplice, non `'use server'`), chiamato sia da
+   `addSampleSongbook` sia da `provisionAccount`, così i due non possono divergere.
+4. **Il seeding non è nella stessa transazione della riga account, e si mangia il proprio
+   errore.** Un account senza canzoniere di esempio funziona — l'empty-state offre ancora lo
+   stesso canzoniere su un bottone; una riga account annullata perché è fallito l'insert di
+   una canzone no: quell'indirizzo entrerebbe senza posto dove mettere niente, e non
+   riceverebbe nemmeno la mail di benvenuto.
+5. **Il tetto letto è quello del piano free**, non uno risolto da `entitlementsOf`: gira
+   dentro la callback di sign-in, prima che esista una sessione, e la riga è stata inserita
+   un'istruzione prima sul `default('free')` della colonna. Le due cose sono lo stesso fatto
+   scritto due volte, ed è detto nel commento.
+6. **`addSampleSongbook` resta**, con un mestiere più stretto: riprendere il canzoniere per
+   un account che si è svuotato, o per uno il cui seeding è fallito.
+7. **Testi corretti nello stesso cambiamento**: la Content & Copyright Notice diceva che
+   nulla entra nella collezione senza un gesto deliberato — ora falso, ed è una pagina
+   legale; più le due frasi su `/login` e la riga di PRODUCT.md.
+
+Verificato end-to-end sul database di sviluppo con un account usa-e-getta: un canzoniere,
+quattro sezioni nell'ordine giusto, nove canzoni ciascuna con la sua sezione, slug unici,
+e pulizia completa dopo. Nessuna migrazione.
 
 ## Vincoli d'ambiente
 

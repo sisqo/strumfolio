@@ -34,12 +34,13 @@ import {
  * table in this schema (`sign_ins`, `user_prefs`). An account is never renamed and never
  * changes hands: it is identified by who it belongs to, not by a name someone picked.
  *
- * A row here can exist before it owns anything, and since v3.3 that is the ordinary case:
- * a new account starts **empty** — `provisionAccount` no longer clones the Example
- * songbook into it — so this row is all there is until its owner makes their first
- * songbook. Deriving "the set of accounts" from `songbooks` instead would leave every such
- * account with no existence at all, and would give the admin's "every account" screen
- * nothing to list a person under until their first songbook exists.
+ * A row here can exist before it owns anything, and must keep working when it does. That
+ * is no longer the ordinary case — since 2026-08-30 `provisionAccount` seeds the example
+ * songbook into every new account — but it stays reachable in two ordinary ways: an owner
+ * who deletes their last songbook, and an account whose seeding failed (that write is
+ * deliberately allowed to fail without taking the account row with it). Deriving "the set
+ * of accounts" from `songbooks` instead would leave both with no existence at all, and
+ * would give the admin's "every account" screen nothing to list them under.
  */
 export const accounts = pgTable(
   'accounts',
@@ -233,8 +234,9 @@ export const songbooks = pgTable(
     name: text('name').notNull(),
     /**
      * The one songbook, anywhere in the installation, kept as the example to copy from.
-     * It is no longer cloned into new accounts — since v3.3 an account starts empty (see
-     * `provisionAccount`) — so what remains of it is a marked source for `copySongbook`.
+     * Not what a new account is seeded with, and never has been since v3.3: that is the
+     * fixed public-domain set in `lib/songbooks/sample.ts` (see `provisionAccount`), which
+     * does not read this flag. What remains of it is a marked source for `copySongbook`.
      * A partial unique index rather than application code is what keeps a second
      * flagged row from ever existing: moving the flag to another songbook is a plain
      * `UPDATE` on both rows, not a deploy, and the database itself refuses to leave two
@@ -556,6 +558,61 @@ export const userSongPrefs = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userEmail, table.songSlug] })],
+)
+
+/**
+ * An anchored comment: a private note pinned to one point of one song (v4.0).
+ *
+ * A second table rather than more columns on `userSongPrefs`, for two reasons that both
+ * had to hold. That row is one set of scalars per (reader, song) and a list does not fit
+ * in it; and its write path, `prefsQueue`, keeps at most one pending entry per song with
+ * last-write-wins — right for a capo tapped five times, destructive for two notes edited
+ * one after the other.
+ *
+ * `id` is `text` and minted by the *client*, not a `serial` or a database default. That is
+ * what lets a note written with no signal have a stable identity before any server has
+ * seen it, which the offline outbox keys by; a server-assigned id would leave every queued
+ * note anonymous until it drained.
+ *
+ * Not gated by any plan, deliberately, and the same reasoning `saveSongPrefs` gives for
+ * checking nothing: a note about how this one reader reads, on their own screen, is not a
+ * modification of anything shared.
+ */
+export const userSongComments = pgTable(
+  'user_song_comments',
+  {
+    id: text('id').primaryKey(),
+    userEmail: text('user_email')
+      .notNull()
+      .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
+    songSlug: text('song_slug')
+      .notNull()
+      .references(() => songs.slug, { onDelete: 'cascade' }),
+    /**
+     * Index into `SongDocument.blocks`, and the offset in that block's text.
+     *
+     * Nullable *together*: both null is the orphan state, a note whose text was rewritten
+     * or deleted under it (`lib/comments/reanchor.ts`). Nullable rather than a separate
+     * `orphaned` boolean so an orphan that still carries half an anchor cannot be
+     * represented at all.
+     */
+    blockIndex: integer('block_index'),
+    charOffset: integer('char_offset'),
+    /** `lyric` or `chord` — whether the note is about the syllable or the shape above it. */
+    target: text('target').notNull().default('lyric'),
+    /**
+     * The anchored text as it read when the note was written, for the rail's «on grace».
+     *
+     * Denormalized on purpose: recomputing it from the document works right up until the
+     * moment it matters most, since an orphan has no anchor left to recompute from and
+     * this is then the only surviving trace of what the note was about.
+     */
+    anchorLabel: text('anchor_label').notNull().default(''),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_song_comments_song_idx').on(table.userEmail, table.songSlug)],
 )
 
 /**
