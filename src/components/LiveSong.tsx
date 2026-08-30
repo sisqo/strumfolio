@@ -12,7 +12,7 @@ import { useMemo, useState } from 'react'
 
 import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
-import { ControlBar, formatSemitones, type NavSteps } from '@/components/ControlBar'
+import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { EditSongLink } from '@/components/EditSongLink'
 import { usePrefs } from '@/components/PrefsProvider'
 import { SongSheet } from '@/components/SongSheet'
@@ -22,6 +22,7 @@ import { chordTokens } from '@/lib/chordpro'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
 import { fromSource } from '@/lib/editor/document'
+import { transposeNoteText } from '@/lib/music/capo'
 
 /**
  * Where this song sits in the sequence it is being read in.
@@ -127,18 +128,14 @@ export function SongHeading({ place }: { place: Place | null }) {
  */
 function TransposeNote() {
   const { song: prefs } = usePrefs()
-  const { capo, semitones } = prefs
+  const text = transposeNoteText(prefs.capo, prefs.semitones)
 
-  if (capo === 0 && semitones === 0) return null
-
-  const facts: string[] = []
-  if (capo !== 0) facts.push(`capo on fret ${capo}`)
-  if (semitones !== 0) facts.push(`transposed ${formatSemitones(semitones)}`)
+  if (text === null) return null
 
   return (
     <p className="transpose-note mt-2.5">
       <IconNote size={13} />
-      {facts.join(', ')} · the chords are already what to play
+      {text}
     </p>
   )
 }

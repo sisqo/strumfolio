@@ -82,6 +82,36 @@ export function readKey(original: Key, semitones: number, capo: number): Key {
   return transposeKey(original, readShift(semitones, capo))
 }
 
+/**
+ * How far the song has been moved from the key it was written in, in full — used as
+ * the Key badge's accessible name, since the badge itself shows only the bare signed
+ * number.
+ */
+export function formatSemitones(semitones: number): string {
+  if (semitones === 0) return '0 semitones'
+  const sign = semitones > 0 ? '+' : '−'
+  const size = Math.abs(semitones)
+  return `${sign}${size} ${size === 1 ? 'semitone' : 'semitones'}`
+}
+
+/**
+ * The sentence that explains why the chords shown aren't the ones written — shared by
+ * the reading screen's own note (`TransposeNote`) and the booklet's per-song
+ * annotation, so the two can never drift into saying this two different ways.
+ *
+ * Null when neither capo nor transposition is set, because then there is nothing to
+ * explain.
+ */
+export function transposeNoteText(capo: number, semitones: number): string | null {
+  if (capo === 0 && semitones === 0) return null
+
+  const facts: string[] = []
+  if (capo !== 0) facts.push(`capo on fret ${capo}`)
+  if (semitones !== 0) facts.push(`transposed ${formatSemitones(semitones)}`)
+
+  return `${facts.join(', ')} · the chords are already what to play`
+}
+
 /** What a capo would do for the hands: how many of the song's chords come out easy. */
 export interface CapoOption {
   fret: number

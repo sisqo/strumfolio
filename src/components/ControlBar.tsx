@@ -19,7 +19,14 @@ import {
   IconTurtle,
   IconUndo,
 } from '@/components/icons'
-import { type CapoOption, FRET_PAGE, MAX_CAPO, fretWindowStart, suggestCapo } from '@/lib/music/capo'
+import {
+  type CapoOption,
+  FRET_PAGE,
+  MAX_CAPO,
+  formatSemitones,
+  fretWindowStart,
+  suggestCapo,
+} from '@/lib/music/capo'
 import { estimateKey } from '@/lib/music/key'
 import { C_MAJOR, type Key, transposeKey } from '@/lib/music/notes'
 import { INSTRUMENTS, INSTRUMENT_LABEL, type Instrument } from '@/lib/music/shapes'
@@ -517,17 +524,6 @@ function StrumToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
       {audience !== null && <span className="control-strum-count">{audience.following}</span>}
     </button>
   )
-}
-
-/**
- * How far the song has been moved from the key it was written in, in full — used as
- * the badge's accessible name, since the badge itself shows only the bare signed number.
- */
-export function formatSemitones(semitones: number): string {
-  if (semitones === 0) return '0 semitones'
-  const sign = semitones > 0 ? '+' : '−'
-  const size = Math.abs(semitones)
-  return `${sign}${size} ${size === 1 ? 'semitone' : 'semitones'}`
 }
 
 /** The bare signed number the Key badge shows: `formatSemitones` without the word. */

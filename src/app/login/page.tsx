@@ -323,7 +323,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Does the printed booklet use my own key and capo, or the song as written?',
-        a: "The song as written. A booklet is meant to be printed and handed to other people, so it's typeset in each song's own key — not whatever transposition or capo you personally have set for reading, which wouldn't mean anything on somebody else's copy.",
+        a: "The song as written, by default — a booklet is meant to be printed and handed to other people, so it's typeset in each song's own key, not whatever transposition or capo you personally have set for reading, which wouldn't mean anything on somebody else's copy. You can choose your own key and capo instead, one download at a time, for a personal copy — every song printed that way says so on its own page.",
       },
       {
         q: 'Can I print more than one songbook at a time?',

@@ -14,9 +14,15 @@
  * mockup's DOM shape would buy nothing — see its own README: match the
  * output, not the prototype's structure.
  *
- * Always the written key, never a reader's own transposition: a booklet is
- * printed for a room, not for the one person who happened to press the button,
- * and their capo or their `-2` has no business on somebody else's page.
+ * Written key by default: a booklet is printed for a room, not for the one person who
+ * happened to press the button, and their capo or their `-2` has no business on
+ * somebody else's page uninvited. A reader may still opt in, per download (never
+ * remembered — see `BookletPanel`), to their own capo/transposition for a personal
+ * copy; when they do, `BookletSong.personal` carries it and every affected page says so
+ * out loud (`transposeNote` below), the same sentence `TransposeNote` puts on the
+ * reading screen — including in the one case where the letters printed don't change at
+ * all (capo and transposition cancelling, see `music/capo.ts`'s own comment), because
+ * the note is what stops that from reading as a silent no-op.
  *
  * Colors are literal hex, not `var(--accent)` and friends: a PDF has no
  * stylesheet to read custom properties from, and this page's paper palette
@@ -93,6 +99,7 @@ import { SITE_URL } from '@/lib/brand'
 import type { Booklet, BookletSong } from './actions'
 import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
 import { type Notation, parseChord, transposeChord, formatChord } from '../music/chord'
+import { readKey, readShift, transposeNoteText } from '../music/capo'
 import { estimateKey } from '../music/key'
 import { C_MAJOR } from '../music/notes'
 
@@ -308,6 +315,13 @@ const styles = StyleSheet.create({
   songArtist: {
     fontSize: 11.25,
     color: MUTED,
+    marginTop: 4.5,
+  },
+  /** `TransposeNote`'s sentence, printed — see `prepare`'s own comment on why it must. */
+  personalNote: {
+    fontSize: 8.625,
+    fontStyle: 'italic',
+    color: ACCENT,
     marginTop: 4.5,
   },
   songLinks: {
@@ -571,23 +585,38 @@ function linksOf(song: BookletSong): string[] {
   return [song.link1, song.link2, song.link3].filter((link) => link !== null)
 }
 
-/** One song's parsed body, ready to lay out — computed once and reused for every line. */
+/**
+ * One song's parsed body, ready to lay out — computed once and reused for every line.
+ *
+ * `song.personal` is null both when the reader chose the written key for this download
+ * and when they asked for their own settings but never saved any for this particular
+ * song — either way `shift` comes out 0 and `spellingKey` comes out `written`, so this
+ * does not need to tell the two apart. `transposeNote` does still tell them apart: it is
+ * built straight from `song.personal`, never from `shift`, precisely so the one case
+ * where a capo and a transposition cancel on the page (`shift === 0` with a real capo
+ * set) still gets its sentence — see this file's own top comment.
+ */
 function prepare(song: BookletSong, notation: Notation) {
   const parsed = parseChordPro(song.body)
   const written = estimateKey(chordTokens(parsed)) ?? C_MAJOR
+
+  const personal = song.personal
+  const shift = personal === null ? 0 : readShift(personal.semitones, personal.capo)
+  const spellingKey = personal === null ? written : readKey(written, personal.semitones, personal.capo)
+  const transposeNote = personal === null ? null : transposeNoteText(personal.capo, personal.semitones)
 
   const chordLabel = (raw: string | null): string | null => {
     if (raw === null) return null
     const chord = parseChord(raw)
     if (chord === null) return raw
-    return formatChord(transposeChord(chord, 0, written), notation)
+    return formatChord(transposeChord(chord, shift, spellingKey), notation)
   }
 
   const roomForChords = parsed.sections.some((section) =>
     section.lines.some((line) => line.kind === 'lyrics' && line.hasChords),
   )
 
-  return { parsed, chordLabel, roomForChords }
+  return { parsed, chordLabel, roomForChords, transposeNote }
 }
 
 function BookletLine({
@@ -729,6 +758,7 @@ function BookletSongPage({
   sections,
   chordLabel,
   roomForChords,
+  transposeNote,
   isFirstPage,
   brandLine,
 }: {
@@ -741,6 +771,8 @@ function BookletSongPage({
   sections: Section[]
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
+  /** `TransposeNote`'s sentence for this song, or null when printed in the written key. */
+  transposeNote: string | null
   isFirstPage: boolean
   brandLine: boolean
 }) {
@@ -753,6 +785,7 @@ function BookletSongPage({
           <Text style={styles.songHeaderLabel}>{sectionName}</Text>
           <Text style={styles.songTitle}>{title}</Text>
           {artist !== null && <Text style={styles.songArtist}>{artist}</Text>}
+          {transposeNote !== null && <Text style={styles.personalNote}>{transposeNote}</Text>}
           {links.length > 0 && (
             <View style={styles.songLinks}>
               {links.map((link) => (
@@ -867,8 +900,13 @@ async function paginateSong(
   sectionName: string,
   notation: Notation,
   brandLine: boolean,
-): Promise<{ pages: Section[][]; chordLabel: (raw: string | null) => string | null; roomForChords: boolean }> {
-  const { parsed, chordLabel, roomForChords } = prepare(song, notation)
+): Promise<{
+  pages: Section[][]
+  chordLabel: (raw: string | null) => string | null
+  roomForChords: boolean
+  transposeNote: string | null
+}> {
+  const { parsed, chordLabel, roomForChords, transposeNote } = prepare(song, notation)
 
   const links = linksOf(song)
 
@@ -881,6 +919,7 @@ async function paginateSong(
       sections={sections}
       chordLabel={chordLabel}
       roomForChords={roomForChords}
+      transposeNote={transposeNote}
       isFirstPage={isFirstPage}
       brandLine={brandLine}
     />
@@ -897,7 +936,7 @@ async function paginateSong(
   // An empty song body still gets one (empty) page, so the index has somewhere to point.
   if (pages.length === 0) pages.push([])
 
-  return { pages, chordLabel, roomForChords }
+  return { pages, chordLabel, roomForChords, transposeNote }
 }
 
 /** Renders the booklet to a downloadable blob — the one thing the export panel needs. */
@@ -957,6 +996,7 @@ export async function bookletToBlob(booklet: Booklet, notation: Notation, brandL
             sections={sections}
             chordLabel={songPagination[index].chordLabel}
             roomForChords={songPagination[index].roomForChords}
+            transposeNote={songPagination[index].transposeNote}
             isFirstPage={pageIndex === 0}
             brandLine={brandLine}
           />

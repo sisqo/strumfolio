@@ -27,6 +27,12 @@ import { loadSongbooks } from '@/lib/songbooks/actions'
  * about itself (`brandLine`), and this side only draws it; a reader's own notation preference
  * (`usePrefs`) is applied here for the same reason it is applied on a song screen, being a
  * display choice rather than something stored in the songbook.
+ *
+ * `usePersonalSettings` is a different kind of choice from the notation above: it decides
+ * whether `loadBooklet` fetches this reader's own capo/transposition per song at all, which is
+ * why it travels as an argument to a server action rather than as a prop this side resolves on
+ * its own. Local `useState`, never a stored preference, and reset to `false` on every mount —
+ * see its own comment above for why that has to be the case.
  */
 export function BookletPanel() {
   const { global } = usePrefs()
@@ -43,6 +49,14 @@ export function BookletPanel() {
    */
   const [songbooks, setSongbooks] = useState<Songbook[] | null>(null)
   const [bookletSlug, setBookletSlug] = useState('')
+  /**
+   * Never persisted — not to the account, not to `localStorage` — and reset to off on
+   * every mount, on purpose: a booklet defaults to the written key, for the room, and
+   * this is the opt-in exception for a personal copy, asked again every time rather
+   * than remembered, so a reader can never hand someone else a copy in their own key
+   * or capo by forgetting a choice from a previous download.
+   */
+  const [usePersonalSettings, setUsePersonalSettings] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -66,7 +80,7 @@ export function BookletPanel() {
     setBusy(true)
     setNotice(null)
     try {
-      const result = await loadBooklet(bookletSlug)
+      const result = await loadBooklet(bookletSlug, usePersonalSettings)
       if (!result.ok) {
         /*
          * Two different refusals, because they have two different remedies: a plan without
@@ -115,11 +129,11 @@ export function BookletPanel() {
             <h2 className="section-title">Printable booklet</h2>
             <p className="mt-1.5 text-[0.90625rem] leading-[1.45] text-muted">
               One songbook as a typeset PDF — chords above the words, one song per page, in the
-              key it was written in — meant to be printed and handed out.
+              key it was written in by default — meant to be printed and handed out.
             </p>
           </div>
         </div>
-        <div className="flex flex-none flex-wrap items-center gap-2">
+        <div className="flex flex-none flex-col items-start gap-2">
           <label className="picker picker-raised">
             <span className="sr-only">Songbook to print</span>
             <select
@@ -139,6 +153,14 @@ export function BookletPanel() {
               )}
             </select>
             <IconChevronDown size={14} />
+          </label>
+          <label className="row cursor-pointer">
+            <input
+              type="checkbox"
+              checked={usePersonalSettings}
+              onChange={(event) => setUsePersonalSettings(event.target.checked)}
+            />
+            <span className="text-[0.875rem] text-ink">Use my own key and capo for this printout</span>
           </label>
           <button
             type="button"

@@ -10,21 +10,40 @@
  * written to disk.
  */
 
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 
+import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
-import { sections, songbooks, songs } from '@/lib/db/schema'
+import { sections, songbooks, songs, userSongPrefs } from '@/lib/db/schema'
 import { bookletBrandLine } from '@/lib/plans/entitlements'
 import type { LimitReason } from '@/lib/plans/types'
+import { clampCapo, clampSemitones } from '@/lib/prefs/types'
 import { editableSongbook } from '@/lib/songbooks/access'
 
+/** A reader's own transposition and capo for one song — see `BookletSong.personal` below. */
+export interface PersonalSettings {
+  semitones: number
+  capo: number
+}
+
 export interface BookletSong {
+  slug: string
   title: string
   artist: string | null
   link1: string | null
   link2: string | null
   link3: string | null
   body: string
+  /**
+   * The downloading reader's own settings for this song, only when they asked to print
+   * with them (see `usePersonalSettings` below) **and** actually have a saved row — null
+   * either way, and both cases render identically to the written key. Never the settings
+   * of whoever the songbook belongs to: this is always the address that is actually
+   * signed in, which matters the one time the two differ — a global owner printing a
+   * customer's songbook gets their own (almost always empty) settings, not the
+   * customer's, exactly like every other read of `user_song_prefs`.
+   */
+  personal: PersonalSettings | null
 }
 
 export interface BookletSection {
@@ -55,7 +74,30 @@ export type BookletResult =
   | { ok: true; booklet: Booklet; brandLine: boolean }
   | { ok: false; reason: 'not-found' | LimitReason }
 
-export async function loadBooklet(songbookSlug: string): Promise<BookletResult> {
+/**
+ * Every saved (semitones, capo) this reader has for the given songs, keyed by song
+ * slug — empty when they asked for the written key, so the common case pays no query
+ * at all.
+ */
+async function personalSettingsFor(
+  songSlugs: string[],
+): Promise<Map<string, PersonalSettings>> {
+  if (songSlugs.length === 0) return new Map()
+
+  const user = await currentUser()
+  if (user === null) return new Map()
+
+  const rows = await db()
+    .select({ songSlug: userSongPrefs.songSlug, semitones: userSongPrefs.semitones, capo: userSongPrefs.capo })
+    .from(userSongPrefs)
+    .where(and(eq(userSongPrefs.userEmail, user.email), inArray(userSongPrefs.songSlug, songSlugs)))
+
+  return new Map(
+    rows.map((row) => [row.songSlug, { semitones: clampSemitones(row.semitones), capo: clampCapo(row.capo) }]),
+  )
+}
+
+export async function loadBooklet(songbookSlug: string, usePersonalSettings = false): Promise<BookletResult> {
   const target = await editableSongbook(songbookSlug)
   if (!target.ok) return { ok: false, reason: 'not-found' }
 
@@ -77,6 +119,7 @@ export async function loadBooklet(songbookSlug: string): Promise<BookletResult> 
 
   const rows = await db()
     .select({
+      slug: songs.slug,
       title: songs.title,
       artist: songs.artist,
       link1: songs.link1,
@@ -91,6 +134,10 @@ export async function loadBooklet(songbookSlug: string): Promise<BookletResult> 
     .where(eq(songs.songbookSlug, songbookSlug))
     .orderBy(asc(sections.position), asc(songs.position), asc(songs.title))
 
+  const personalBySlug = usePersonalSettings
+    ? await personalSettingsFor(rows.map((row) => row.slug))
+    : new Map<string, PersonalSettings>()
+
   // Sections in the order their first song was seen, which is already the
   // position order the query asked for — a `Map` keeps that order and lets a
   // section with no songs yet simply have nothing to show, rather than an
@@ -103,12 +150,14 @@ export async function loadBooklet(songbookSlug: string): Promise<BookletResult> 
       bySection.set(row.sectionId, section)
     }
     section.songs.push({
+      slug: row.slug,
       title: row.title,
       artist: row.artist,
       link1: row.link1,
       link2: row.link2,
       link3: row.link3,
       body: row.body,
+      personal: personalBySlug.get(row.slug) ?? null,
     })
   }
 

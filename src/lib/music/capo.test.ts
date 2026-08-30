@@ -11,6 +11,7 @@ import {
   readKey,
   readShift,
   suggestCapo,
+  transposeNoteText,
 } from './capo'
 import { type Key, keyFor, transposeKey } from './notes'
 
@@ -80,6 +81,32 @@ describe('what the capo moves and what it leaves alone', () => {
     assert.equal(clampCapo(-3), 0)
     assert.equal(clampCapo(99), MAX_CAPO)
     assert.equal(clampCapo(2.4), 2)
+  })
+})
+
+describe('explaining a capo or a transposition in words', () => {
+  it('says nothing when neither is set', () => {
+    assert.equal(transposeNoteText(0, 0), null)
+  })
+
+  it('names whichever of the two moved the page', () => {
+    assert.equal(transposeNoteText(2, 0), 'capo on fret 2 · the chords are already what to play')
+    assert.equal(
+      transposeNoteText(0, -3),
+      'transposed −3 semitones · the chords are already what to play',
+    )
+  })
+
+  /**
+   * The case `readShift`'s own test file above cancels on the page: capo 2 and +2
+   * semitones print the written chords. The sentence still has to say a capo is on,
+   * or a reader would see the letters they wrote and think nothing had changed.
+   */
+  it('still speaks up when the capo and the transposition cancel on the page', () => {
+    assert.equal(
+      transposeNoteText(2, 2),
+      'capo on fret 2, transposed +2 semitones · the chords are already what to play',
+    )
   })
 })
 
