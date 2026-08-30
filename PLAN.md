@@ -8,9 +8,8 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v3.15 — il canzoniere di esempio torna automatico alla creazione
-> dell'account** (l'ultima versione numerata qui) sono consegnate e in produzione su
-> https://strumfolio.com. La
+> **Stato:** da v1 a **v4.0 — commenti ancorati** (l'ultima versione numerata qui) sono
+> consegnate e in produzione su https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
 > sopra la pagina statica (va letta prima di toccare la lettura); la v1.4 ha portato
@@ -940,6 +939,65 @@ Verificato end-to-end sul database di sviluppo con un account usa-e-getta: un ca
 quattro sezioni nell'ordine giusto, nove canzoni ciascuna con la sua sezione, slug unici,
 e pulizia completa dopo. Nessuna migrazione.
 
+### v4.0 — commenti ancorati
+
+Un **commento** è un appunto testuale privato che un lettore aggancia a un punto preciso di
+una canzone: una sillaba della riga di testo, oppure un accordo della riga sopra. Un
+interruttore a tre segmenti nell'header — nascosti, visibili, modalità aggiunta armata — e su
+schermo largo un rail di 328px che li elenca tutti. Numero maggiore e non v3.16 perché è la
+prima capacità nuova per chi legge dopo una lunga fila di ricontrolli: lo stesso numero è già
+scritto in `db/schema.ts` accanto alla tabella.
+
+Ha portato con sé l'**eliminazione della nota di canzone** (`user_song_prefs.note`,
+migrazione 0030), che il piano prevedeva invece dovesse convivere: un appunto agganciato alla
+parola di cui parla dice tutto quello che diceva la striscia sotto il titolo e in più dice
+*dove*, e due posti dove scrivere un promemoria sulla stessa canzone erano due posti dove
+cercarlo. Contate prima di toglierla: 48 righe di preferenze e **zero** note non vuote in
+tutta l'installazione — nessuno ne aveva mai scritta una.
+
+1. **L'ancora vive nelle coordinate dell'editor**, `(indice di blocco, offset nel testo)`,
+   non in quelle dell'AST di lettura. `parseChordPro` scarta righe vuote e direttive ignote,
+   quindi i suoi indici non risalgono al sorgente; `SongDocument.blocks` è 1:1 con le righe
+   del file. Lo snap a inizio sillaba riusa `nearestSnap`, la stessa euristica già decisa per
+   il tap sulla chord-row dell'editor.
+2. **`anchorMap.ts` è il ponte fra i due sistemi**, e serve perché non sono derivabili l'uno
+   dall'altro: `parseLyricLine` consuma gli spazi e non li conserva, quindi riunendo le parti
+   si recuperano le lettere ma non la spaziatura, e un offset ricavato così slitterebbe su
+   ogni riga scritta con due spazi. La mappa si costruisce dal sorgente, dove entrambe le
+   verità coesistono. Verificata contro tutte le canzoni reali di `content/`.
+3. **La regola dell'orfano è nuova, non ereditata.** `shiftChords` ha tre rami e il terzo
+   *collassa* l'ancora dentro lo span riscritto — giusto per un accordo, che è un punto e si
+   sposta di poco. Sbagliato per un commento, che è una frase *su* una parola: collassarlo
+   lascerebbe l'etichetta «on grace» accanto a un testo che non è più grace. Dove un accordo
+   collassa, un commento lascia la presa. `editedSpan` è stato estratto da `shiftChords` così
+   i due condividono la misura e divergono solo nella politica.
+4. **Quattro modi di perdere l'appiglio**, tutti decidibili senza euristiche: il blocco non
+   sopravvive, il blocco non è più `lyrics`, il testo sotto l'ancora è stato riscritto, o —
+   per una nota su un accordo — quell'accordo non c'è più. C'è anche un diff LCS a livello di
+   blocchi, perché `blockIndex` è posizionale e inserire una riga in cima sposta ogni
+   commento sotto: un caso che `shiftChords` non vede proprio, lavorando dentro una riga sola.
+5. **Il ri-ancoraggio gira al salvataggio**, l'unico momento in cui esistono entrambe le
+   versioni del sorgente, e **fuori dalla transazione**: portare le note attraverso una
+   modifica è una cortesia verso chi le ha scritte, e un suo fallimento non deve annullare la
+   modifica che il lettore ha chiesto.
+6. **Si scrive anche offline**, con un outbox persistente su `localStorage` con chiave l'id
+   del commento. Non riusa `prefsQueue`, che tiene una sola voce per canzone con
+   last-write-wins — cancellerebbe la prima di due note modificate di seguito — e che vive in
+   memoria, dove un reload offline perde ciò che attende. L'id è coniato dal client, perché
+   una nota scritta senza rete ha bisogno di un'identità prima che un server la veda.
+7. **`SongSheet` riceve le note come prop, mai da un contesto.** Ha quattro chiamanti e solo
+   uno può mostrarle: `FollowSession` rende lo stesso componente per l'ospite di Strum
+   Together, e «only you see these» è una promessa che si rompe nel momento in cui lo schermo
+   di un ospite le raccoglie da un contesto in cui si trova per caso. Passarle rende i tre
+   chiamanti muti per costruzione.
+8. **Nessun gating di piano**, per la stessa ragione che `saveSongPrefs` dà per non
+   controllare nulla: una nota su come questo lettore legge, sul proprio schermo, non è la
+   modifica di qualcosa di condiviso.
+
+Migrazioni 0029 (tabella) e 0030 (rimozione della nota). La 0030 è stata applicata in
+produzione dal console SQL di Neon, journal incluso — vedi `CLAUDE.md`, «When there is no
+terminal at all», per perché la riga di journal non è opzionale.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1012,6 +1070,32 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
    le rotte delle pagine avrebbe silenziosamente smesso di precachare le icone.
 9. **Gli script usano un `main()`**: `tsx` qui compila in CJS, dove il top-level await è un
    errore di build.
+10. **Il pallino di un commento sta dentro `.sheet-lyric`, e consuma larghezza.** Le board del
+   lettore lo disegnano inline dopo la parola; la prosa di `Comment Mode` §10 prometteva
+   invece un segno sulla linea di base della riga degli accordi, che «non spinge mai una
+   sillaba di lato». Vincono le board, più concrete — al prezzo dichiarato che con i commenti
+   visibili una riga può andare a capo diversamente. È anche l'argomento più forte a favore
+   dello stato «nascosti», che restituisce la riga esattamente com'era scritta.
+11. **Gli orfani si parcheggiano a piè di foglio, non a fine della loro sezione**, come il
+   piano chiedeva. Scrivendo il codice si è visto che è una domanda senza risposta: un orfano
+   è per definizione una nota a cui è stato tolto il `blockIndex`, quindi la sezione di
+   provenienza non è un fatto che i dati conservino ancora. Raccoglierli sotto un'unica
+   intestazione è la versione onesta — dichiara che la posizione è persa invece di
+   inventarne una che il pallino poi mentirebbe.
+12. **La modalità aggiunta non dipinge nulla sulle parole.** La prima versione dava a ogni
+   bersaglio una scatola tinta, e la pagina intera leggeva «è selezionato tutto» invece di
+   «armato». Lo stato lo dice la traccia tinta nell'header; sul foglio bastano puntatore,
+   hover e stato premuto. Conseguenza voluta: dopo aver salvato si torna a «visibili», perché
+   senza più un segno sul foglio il tocco successivo avrebbe scritto una seconda nota invece
+   di aprire la prima.
+13. **Il breakpoint del rail (75rem) è una scelta, non una misura.** Nel progetto Design non
+   esiste **una sola** `@media`: sono artboard a larghezza fissa. 48rem di foglio + 1rem di
+   gap + 20.5rem di rail fanno le 69.5rem che le board mostrano come contenuto; 75rem lascia
+   un margine di pagina alla larghezza in cui il rail entra per la prima volta.
+14. **I controlli dell'intestazione vanno a capo sotto le 40rem**, mentre le board disegnano
+   una riga sola a ogni larghezza. Sono artboard a larghezza fissa e quella del telefono è
+   larga 402px con un titolo corto: a 390px una traccia da 44px più una matita da 44px
+   lasciano al titolo una manciata di caratteri, e il titolo è ciò di cui la schermata parla.
 
 ## Decisioni
 
@@ -1254,3 +1338,24 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Copy del gate obbligatorio | «Choose ‹piano›», non «Upgrade to» | Chi non ha mai scelto non ha da cosa fare l'upgrade: la riga dice `free` solo perché è il default della colonna |
 | Date nella tabella pagamenti | `plain` su `/billing`, ISO su `/accounts` | Sotto una frase che scrive «22 September 2026», una riga «2026-08-23» sono due formati a un centimetro di distanza; l'operatore invece le confronta e le copia |
 | Downgrade programmato durante `grace` | Non corretto | È la regola dichiarata di `grace` (nessun confronto di data), e il webhook vero è ciò che tira fuori l'account da lì |
+
+### Commenti ancorati (v4.0)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Spazio di coordinate dell'ancora | Quelle del modello dell'editor, `(blockIndex, charOffset)` | `SongDocument.blocks` è 1:1 col sorgente; l'AST di lettura scarta righe vuote e direttive ignote e non sa più indirizzare una posizione nel file |
+| Ponte fra i due AST | `anchorMap.ts`, costruito dal sorgente | Non sono derivabili l'uno dall'altro: `parseLyricLine` consuma gli spazi, quindi riunendo le parti si recuperano le lettere ma non la spaziatura |
+| Un commento che perde l'appiglio | Diventa orfano ed è dichiarato tale | Non si perde prosa scritta a mano come effetto collaterale invisibile di una modifica, e l'etichetta «on ‹parola›» non mente mai |
+| Da dove viene quella regola | Scritta, non ereditata da `shiftChords` | Quella funzione collassa e non orfanizza mai: `editedSpan` è estratto perché le due condividano la misura e divergano solo nella politica |
+| Ri-ancoraggio: quando e dove | Al salvataggio, fuori dalla transazione | È l'unico momento in cui esistono entrambe le versioni del sorgente; e un suo fallimento non deve annullare la modifica che il lettore ha chiesto |
+| Coda di scrittura | Outbox persistente per-commento, non `prefsQueue` | Quella tiene una voce per canzone con last-write-wins e vive in memoria: cancellerebbe la prima di due note modificate di seguito, e un reload offline perde ciò che attende |
+| Chi conia l'id | Il client | Una nota scritta senza rete ha bisogno di un'identità prima che un server la veda — è ciò con cui l'outbox la indicizza |
+| Come `SongSheet` riceve le note | Prop, mai contesto | Ha quattro chiamanti e solo uno può mostrarle: passarle rende muti per costruzione gli altri tre, ospite di Strum Together incluso |
+| Gating di piano | Nessuno | Stessa categoria della trasposizione e del capotasto: non è la modifica di qualcosa di condiviso, è come questo lettore legge sul proprio schermo |
+| Colore della nota | Blu `--note`, token proprio | L'accento appartiene agli accordi: una nota non può mai essere scambiata per musica. Token separato da `--plan-standard`, che oggi porta gli stessi valori, perché significano cose diverse e un cambio di prezzi non deve ricolorare le annotazioni |
+| Numerazione dei pallini | Derivata al render, mai memorizzata | Un numero memorizzato andrebbe riscritto su ogni riga sotto un inserimento, e il numero che si vede è una proprietà della pagina, non della nota |
+| Interruttore: forma e posto | Traccia a tre segmenti, nell'header della canzone | Solo l'attivo porta una parola, così resta largo quanto un'etichetta più due icone; e non è un controllo del dock di lettura, appartiene all'intestazione accanto a Edit |
+| Card: dove si apre | Appuntata sotto il segno, a ogni larghezza | Il motivo per cui è appuntata lì è che le parole di cui parla restino visibili accanto: un pannello a piè di pagina è esattamente ciò che lo impedisce. Su schermo stretto si restringe la card, non si cambia strategia |
+| Sfondo della card | Non oscura, a nessuna larghezza | Spegnere la canzone per due righe di nota toglie proprio ciò che l'ancoraggio serviva a garantire |
+| Bottoni della card | `btn btn-primary` / `btn btn-quiet` veri | La prima versione se li disegnava e il Save usciva nel blu della nota, senza corrispondere a nessun'altra azione primaria dell'app: due set di stili erano due set da tenere in passo |
+| Nota di canzone (`user_song_prefs.note`) | Eliminata, migrazione 0030 | I commenti dicono quello che diceva lei e in più dicono *dove*; contate prima di toglierla, zero note non vuote in tutta l'installazione |

@@ -13,8 +13,13 @@ Tailwind v3, Postgres on Neon via Drizzle ORM, NextAuth v5, Serwist for the serv
 Deployed on Vercel (`sisqo` account), production at https://strumfolio.com. Full product
 framing lives in `PRODUCT.md`, the visual language in `DESIGN.md`, and the running log of
 decisions in `PLAN.md` — including plans/pricing/payments (v3.6), the mandatory
-plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), and `/emails` (v3.9). See
-`PLAN.md`'s own top note for the versions after v3.3 it does *not* yet cover.
+plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), `/emails` (v3.9), and
+anchored comments (v4.0, which also removed the per-song note). See `PLAN.md`'s own top
+note for the versions after v3.3 it does *not* yet cover.
+
+A feature still being built keeps its plan in a `PLAN-<feature>.md` of its own and is
+folded into `PLAN.md` as a version section once it ships — `PLAN.md` documents delivered
+work, so a version heading for something unwritten would be false where it stands.
 
 ## Commands
 

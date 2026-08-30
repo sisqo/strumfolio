@@ -4,7 +4,8 @@
 > decisioni già *consegnate e in produzione* (la sua stessa nota d'apertura lo dice), e
 > questa feature non è ancora scritta. Quando è chiusa, va ripiegato lì come sezione
 > `### Stampa nelle proprie impostazioni (v3.15)`, stesso formato di tabella già in uso.
-> Precedente diretto: `PLAN-comments.md`, stessa ragione, mai ancora ripiegato.
+> Precedente diretto: i commenti ancorati, tenuti allo stesso modo in un `PLAN-comments.md`
+> e ripiegati in `PLAN.md` come `### v4.0 — commenti ancorati` a feature consegnata.
 
 ## Cos'è
 
@@ -112,7 +113,7 @@ il filo che li porta dentro la generazione del PDF:
 | 2 | Meccanismo: **checkbox** visibile sopra "Download PDF", non un modale al click né due bottoni | Coerente con la semplicità attuale del pannello booklet (un `<select>` e un bottone); la scelta resta visibile prima di premere, senza un passaggio interrotto in più |
 | 3 | Annotazione **per canzone**, stesso testo/logica di `TransposeNote` a schermo, mostrata solo se capo o semitoni ≠ 0 | Autodescrittiva anche se la pagina è fotocopiata o separata dal resto; resta vera e visibile anche nel caso limite in cui capo e semitoni si annullano a vicenda e gli accordi stampati appaiono identici alla versione scritta |
 | 4 | Preferenze lette per l'**email realmente firmata**, non `accountOwnerEmail` | Coerente con come `user_song_prefs` funziona già ovunque (`src/lib/prefs/actions.ts`); un proprietario globale che scarica il canzoniere di un cliente prende le *proprie* preferenze (quasi sempre assenti → tonalità scritta), non quelle del cliente — nessuna gestione speciale necessaria, il fallback esistente basta |
-| 5 | Piano tenuto in un **file a sé** (`PLAN-booklet-personal-print.md`), non una sezione nuova di `PLAN.md` | `PLAN.md` documenta solo lavoro già consegnato; una voce `v3.15` per una feature non ancora scritta sarebbe falsa nella sua stessa collocazione. Stesso precedente di `PLAN-comments.md` |
+| 5 | Piano tenuto in un **file a sé** (`PLAN-booklet-personal-print.md`), non una sezione nuova di `PLAN.md` | `PLAN.md` documenta solo lavoro già consegnato; una voce `v3.15` per una feature non ancora scritta sarebbe falsa nella sua stessa collocazione. Stesso precedente dei commenti ancorati, il cui file a sé è poi confluito in `### v4.0` |
 
 ## Assunzioni prese senza chiedere
 
