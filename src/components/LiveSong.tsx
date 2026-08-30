@@ -57,12 +57,23 @@ export function SongHeading({ place }: { place: Place | null }) {
 
   return (
     <header className="mb-4">
-      <div className="flex items-start justify-between gap-3">
+      {/*
+        * The title and what you can do to the song.
+        *
+        * On a phone the two controls drop to a line of their own under the title, which
+        * the boards do not show — they draw one wide row — but a 44px notes track plus a
+        * 44px pencil beside a title leaves the title a few characters wide at 390px, and
+        * the title is the thing this screen is about. On anything wider they sit level
+        * with it, as drawn.
+        */}
+      <div className="song-heading-row">
         <h1 className="text-[1.6875rem] font-medium leading-[1.12] tracking-[-0.03em]">
           {song.title}
         </h1>
-        <HeadingNotes />
-        <EditSongLink slug={song.slug} placement="top" />
+        <div className="song-heading-actions">
+          <HeadingNotes />
+          <EditSongLink slug={song.slug} placement="top" />
+        </div>
       </div>
       <p className="mt-2.5 flex flex-wrap items-center gap-2 text-base text-muted">
         {song.artist !== null && <span>{song.artist}</span>}

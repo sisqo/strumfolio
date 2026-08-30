@@ -43,12 +43,32 @@ export function EditSongLink({
 
   if (!mayEdit || !online) return null
 
-  const link = (
-    <Link href={`/songs/${slug}/edit`} className={placement === 'top' ? 'btn btn-sm is-inset flex-none' : 'btn is-inset'}>
-      <IconPencil size={16} />
-      Edit
-    </Link>
-  )
+  /*
+   * Beside the title the label goes and only the pencil stays, which is what the phone
+   * board draws — and what makes this fit on a line it now shares with the notes track.
+   * The word survives in `aria-label`/`title`, the same trade `TopBar` already made for
+   * its own controls.
+   *
+   * Below the sheet it keeps the word: there is a whole line for it there, and that
+   * placement is the one a reader arrives at having scrolled the entire song, where an
+   * unlabelled icon would be a guess.
+   */
+  const link =
+    placement === 'top' ? (
+      <Link
+        href={`/songs/${slug}/edit`}
+        className="btn is-inset song-heading-edit"
+        aria-label="Edit this song"
+        title="Edit"
+      >
+        <IconPencil size={17} />
+      </Link>
+    ) : (
+      <Link href={`/songs/${slug}/edit`} className="btn is-inset">
+        <IconPencil size={16} />
+        Edit
+      </Link>
+    )
 
   if (placement === 'top') return link
 

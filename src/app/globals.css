@@ -599,6 +599,57 @@
     color: var(--faint);
   }
 
+  /* ---- The song's own header row --------------------------------------- */
+
+  /*
+   * Stacked on a phone, level on anything wider.
+   *
+   * At 390px a 44px notes track and a 44px pencil beside the title leave it a handful of
+   * characters, and the title is what the screen is about — so below ~40rem the two drop
+   * to a line of their own. The boards draw a single row at every width, but they are
+   * fixed-width artboards: the phone board is 402px wide and its title happens to be
+   * short.
+   */
+  .song-heading-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+  }
+
+  .song-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .song-heading-row {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .song-heading-actions {
+      flex: none;
+    }
+  }
+
+  /*
+   * Square, and exactly as tall as the notes track beside it (38px segments inside 3px of
+   * padding), so the header reads as one cluster rather than two controls that happen to
+   * be adjacent.
+   */
+  .btn.song-heading-edit {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+    border-radius: var(--r-sm);
+  }
+
   /* ---- The three-segment track ---------------------------------------- */
 
   .comments-toggle {
