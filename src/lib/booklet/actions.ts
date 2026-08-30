@@ -266,11 +266,23 @@ export async function loadBookletFooter(): Promise<string | null> {
   return row?.bookletFooter ?? null
 }
 
-/** How long a footer line may be — long enough for a real sentence, short enough that a
- *  page-wide footer never wraps. Enforced here, not in the schema: a cap this soft is UI,
- *  the same reasoning `user_song_comments.body`'s own length gives for staying unbounded
- *  at the column. */
-const MAX_FOOTER_LENGTH = 140
+/**
+ * How long a footer line may be. Measured rather than guessed: the footer strip is 469pt
+ * wide, and after the page number and its gap the line has about 443pt, which at 8.25pt
+ * Helvetica is 120 characters of ordinary sentence case and 91 of mixed capitals. The
+ * first cap here was 140 — a third more than the page could ever show, so a footer typed
+ * to the limit printed with its ending cut off.
+ *
+ * No character count can promise a fit, since 140 narrow letters fit where 56 capital Ws
+ * do not; the guarantee that the line never wraps into the words above it lives in
+ * `document.tsx`'s `Footer`, which holds it to a single line. This number's job is only
+ * to keep an ordinary footer well clear of that clamp, so being cut short is the answer
+ * to a deliberately extreme string rather than to a normal sentence.
+ *
+ * Enforced here, not in the schema: a cap this soft is UI, the same reasoning
+ * `user_song_comments.body`'s own length gives for staying unbounded at the column.
+ */
+const MAX_FOOTER_LENGTH = 100
 
 export type FooterSaveResult = 'saved' | 'not-in-plan' | 'no-destination' | 'failed'
 

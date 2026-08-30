@@ -246,7 +246,9 @@ export function BookletPanel() {
               className="form-field text-sm"
               value={footerRefused ? '' : footerDraft}
               readOnly={footerRefused}
-              maxLength={140}
+              // The same number `saveBookletFooter` trims to, and for the reason given
+              // there: it is what the printed strip can actually show.
+              maxLength={100}
               placeholder={footerRefused ? 'Upgrade to set your own line' : 'e.g. Property of The Wandering Chords'}
               onFocus={(event) => {
                 if (!footerRefused) return
