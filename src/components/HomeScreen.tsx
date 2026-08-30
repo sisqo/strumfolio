@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
@@ -13,6 +13,7 @@ import {
   IconBooks,
   IconChevronDown,
   IconChevronRight,
+  IconClose,
   IconCopy,
   IconGrip,
   IconInfo,
@@ -29,7 +30,9 @@ import { mergeIndex } from '@/lib/library/overlay'
 import { useLiveIndex } from '@/lib/library/useLiveSongs'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
 import { clearRecentlyOpened } from '@/lib/prefs/actions'
+import { closeSampleNote, sampleNoteClosed } from '@/lib/prefs/store'
 import { copySongbook } from '@/lib/songbooks/actions'
+import { isSampleSongbookSlug } from '@/lib/songbooks/sample'
 import { countBySlug, songbooksOf, writeMessage, type WriteResult } from '@/lib/songbooks/types'
 import type { SongIndexEntry } from '@/lib/search-index'
 
@@ -298,6 +301,14 @@ export function HomeScreen({
     [songs, state, homeOf],
   )
 
+  /**
+   * The seeded example songbook, while the account still has it — what the note above
+   * the list is about, and null once it has been deleted or renamed out of existence.
+   * Read off the slug rather than the name, which the reader may have changed; see
+   * `isSampleSongbookSlug`.
+   */
+  const sampleSlug = groups.find((group) => isSampleSongbookSlug(group.slug))?.slug ?? null
+
   const searching = deferred.trim() !== ''
 
   return (
@@ -514,7 +525,15 @@ export function HomeScreen({
               )}
             </div>
           ) : (
-            <ul className="row-list card mt-4">
+            <>
+              {/*
+                * Directly above the songbook it is about, which is also directly above
+                * the list: the seeded songbook is created at position 1 and new ones are
+                * appended after it, so it is always the first row here.
+                */}
+              <SampleSongbookNote slug={sampleSlug} />
+
+              <ul className="row-list card mt-4">
               {groups.map((group) => {
                 const isRenaming = renaming === group.slug
                 const isRemoving = removing === group.slug
@@ -886,7 +905,8 @@ export function HomeScreen({
                   </li>
                 )
               })}
-            </ul>
+              </ul>
+            </>
           )}
 
           {/*
@@ -946,6 +966,56 @@ export function HomeScreen({
       {sampleAdded !== null && (
         <SampleSongbookModal slug={sampleAdded} onClose={() => setSampleAdded(null)} />
       )}
+    </div>
+  )
+}
+
+/**
+ * Why there are songs in an account nobody has put anything into yet.
+ *
+ * Every new account is created with the example songbook already in it
+ * (`provisionAccount`), which answers the empty-first-screen problem and opens a
+ * smaller one: a repertoire app whose whole promise is "only what you put here"
+ * greeting a stranger with nine songs they did not add. This is the sentence that
+ * makes that deliberate rather than mysterious, and it says the important half last —
+ * they can go.
+ *
+ * Closable, and it stays closed: it has one job and it is done the first time it is
+ * read. Kept in `localStorage` rather than in the account, for the reason
+ * `closeSampleNote` gives — per device is the right grain for something read once.
+ *
+ * Renders nothing until the first effect has run. The stored answer cannot be read
+ * during render without the server and client markup disagreeing (this screen is
+ * server-rendered first), and a note that flashes up and vanishes on every load is
+ * worse than one that arrives a frame late.
+ */
+function SampleSongbookNote({ slug }: { slug: string | null }) {
+  const [shown, setShown] = useState(false)
+
+  useEffect(() => {
+    setShown(slug !== null && !sampleNoteClosed(slug))
+  }, [slug])
+
+  if (slug === null || !shown) return null
+
+  return (
+    <div className="notice notice-accent mt-4" role="status">
+      <IconInfo />
+      <span className="flex-1">
+        We&apos;ve added a few songs to get you started. Open one, change a chord, see how it
+        feels. Delete them whenever you like.
+      </span>
+      <button
+        type="button"
+        className="notice-close"
+        onClick={() => {
+          closeSampleNote(slug)
+          setShown(false)
+        }}
+        aria-label="Close this message"
+      >
+        <IconClose size={15} />
+      </button>
     </div>
   )
 }

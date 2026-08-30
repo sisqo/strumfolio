@@ -1420,6 +1420,7 @@
    * floor without the glyph drifting away from the corner it belongs in.
    */
   .notice-close {
+    position: relative;
     flex: none;
     align-self: flex-start;
     margin: -0.35rem -0.35rem -0.35rem 0;
@@ -1427,6 +1428,18 @@
     border-radius: var(--r-sm);
     color: inherit;
     opacity: 0.65;
+  }
+
+  /*
+   * The reach, grown past the painted button rather than by padding it out: the glyph
+   * has to stay tucked in the notice's corner, and a box big enough for a thumb would
+   * push the text off it. Measured 32.6×34.2 painted, 45.4×47 with this — the same
+   * trick `.chord-chip` and `.line-remove` already use for the same reason.
+   */
+  .notice-close::after {
+    content: '';
+    position: absolute;
+    inset: -0.4rem;
   }
 
   .notice-close:hover {

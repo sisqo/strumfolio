@@ -13,9 +13,28 @@
  */
 
 import { parseChordPro } from '@/lib/chordpro'
+import { slugify } from '@/lib/slug'
 
 /** The name every account's example songbook is created with. Renamable afterwards, like any other. */
 export const SAMPLE_SONGBOOK_NAME = 'Example songbook'
+
+/**
+ * Whether a songbook slug is one this app seeded rather than one a reader made.
+ *
+ * Asked of the **slug**, never of the name, and that is the whole reason this is
+ * reliable: a slug is minted once at creation and renaming deliberately never touches
+ * it (see `lib/slug.ts`), so this still answers correctly for someone who called their
+ * copy "Songs for Tuesday" the day after signing up. `uniqueSlug` may have added a
+ * numeric suffix, hence the prefix arm.
+ *
+ * Best-effort by nature: a reader who creates their own songbook and names it exactly
+ * "Example songbook" gets the same slug and the same answer. The only thing that hangs
+ * off it is a dismissible first-run note, so being generous there costs nothing.
+ */
+export function isSampleSongbookSlug(slug: string): boolean {
+  const base = slugify(SAMPLE_SONGBOOK_NAME)
+  return slug === base || slug.startsWith(`${base}-`)
+}
 
 /**
  * The first entry is an original Strumfolio composition, written for this purpose

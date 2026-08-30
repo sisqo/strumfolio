@@ -90,3 +90,27 @@ export function readSongPrefs(slug: string): SongPrefs {
 export function writeSongPrefs(slug: string, prefs: SongPrefs): void {
   write(SONG_KEY_PREFIX + slug, prefs)
 }
+
+/**
+ * Whether the note above the seeded example songbook has been closed.
+ *
+ * Deliberately here and not in the `user_prefs` table the rest of this module caches:
+ * this is a hint shown once at the very start of an account's life, and the cost of
+ * getting it wrong in either direction is one line of text. A column and a migration
+ * would buy "dismissed on the phone stays dismissed on the tablet" for a note that,
+ * on the second device, is being read for the first time anyway — and is arguably
+ * still worth showing there.
+ *
+ * Keyed by the songbook's own slug so an account that later deletes the example and
+ * takes it again from the empty state gets the note again with it, which is the same
+ * answer `addSampleSongbook` gives that gesture.
+ */
+const SAMPLE_NOTE_PREFIX = 'songs:sample-note-closed:'
+
+export function sampleNoteClosed(slug: string): boolean {
+  return read(SAMPLE_NOTE_PREFIX + slug) === true
+}
+
+export function closeSampleNote(slug: string): void {
+  write(SAMPLE_NOTE_PREFIX + slug, true)
+}

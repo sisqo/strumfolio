@@ -924,6 +924,17 @@ giudicato la peggiore delle due prime impressioni.
 7. **Testi corretti nello stesso cambiamento**: la Content & Copyright Notice diceva che
    nulla entra nella collezione senza un gesto deliberato — ora falso, ed è una pagina
    legale; più le due frasi su `/login` e la riga di PRODUCT.md.
+8. **Una nota chiudibile sopra la lista** dice perché quelle canzoni ci sono: «We've added a
+   few songs to get you started…». Un'app il cui patto è «qui c'è solo quello che ci metti
+   tu» che accoglie uno sconosciuto con nove brani non suoi deve spiegarsi, e la metà che
+   conta la dice per ultima — si possono cancellare. Sta sopra la lista, che è anche sopra
+   il canzoniere di cui parla: quello seminato nasce in posizione 1 e i successivi si
+   accodano, quindi è sempre la prima riga. Riconosciuto **dallo slug e non dal nome**
+   (`isSampleSongbookSlug`): lo slug è coniato una volta e il rename non lo tocca, quindi la
+   nota resta corretta per chi ribattezza il canzoniere il giorno dopo. La chiusura vive in
+   `localStorage` per dispositivo, non in `user_prefs`: è un cartello letto una volta, e sul
+   secondo dispositivo è la prima volta comunque. Chiave per slug, così chi cancella
+   l'esempio e lo riprende dall'empty-state si rivede anche la nota.
 
 Verificato end-to-end sul database di sviluppo con un account usa-e-getta: un canzoniere,
 quattro sezioni nell'ordine giusto, nove canzoni ciascuna con la sua sezione, slug unici,
