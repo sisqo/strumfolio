@@ -13,6 +13,7 @@ import { sendEmail } from './lib/email/send'
 import { welcomeEmail } from './lib/email/templates'
 import { checkRateLimit, requestIp } from './lib/rateLimit'
 import { notifyTelegram } from './lib/telegram/notify'
+import { registrationNotice } from './lib/telegram/registrationNotice'
 
 const LOGIN_RATE_LIMIT = 10
 const LOGIN_RATE_WINDOW_MS = 10 * 60 * 1000
@@ -135,7 +136,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const created = await provisionAccount(email, googleName)
       if (created) {
         await sendEmail({ to: email, ...welcomeEmail() })
-        await notifyTelegram('registration', `🆕 Nuova registrazione: ${email}`)
+        await notifyTelegram('registration', registrationNotice(email, googleName?.firstName, googleName?.lastName))
       }
       return true
     },

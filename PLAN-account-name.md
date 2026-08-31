@@ -302,3 +302,14 @@ Da correggere se una è sbagliata — nessuna è irreversibile.
   che i campi `firstName`/`lastName` compaiono nell'HTML servito di `/register`.
 - **Copy esatta del saluto** ("Hi, {firstName}") non rivista con l'utente, solo scelta
   in fase di implementazione per coerenza con `Lingua UI: Inglese`.
+
+## Seguito, dopo la consegna
+
+- **Il messaggio Telegram di nuova registrazione porta anche il nome, quando c'è**
+  (chiesto dall'utente dopo il deploy, non previsto dall'intervista originale — la voce
+  *Fuori scope* sopra sulle email transazionali non copriva Telegram, mai discusso
+  esplicitamente). Nuovo modulo puro `lib/telegram/registrationNotice.ts`, con test:
+  "🆕 Nuova registrazione: Francesco Limberti (email)" quando almeno una delle due metà
+  del nome è nota, altrimenti il solo indirizzo come prima — mai bloccato in attesa di
+  entrambe le metà, stessa apertura di `UserMenu`'s greeting che si accontenta del solo
+  `firstName`.

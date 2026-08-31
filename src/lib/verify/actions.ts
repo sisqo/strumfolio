@@ -22,6 +22,7 @@ import { credentials, pendingRegistrations } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { welcomeEmail } from '@/lib/email/templates'
 import { notifyTelegram } from '@/lib/telegram/notify'
+import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
 /**
  * Bound with `email` and `token` from the page's own searchParams (`action={verifyEmail
@@ -124,7 +125,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
     // path never runs through that callback at all (it signs in with `issueSessionCookie`
     // below, not `signIn`), so without this line every email/password registration was
     // invisible to "New registration" alerts while every Google one was not.
-    await notifyTelegram('registration', `🆕 Nuova registrazione: ${normalized}`)
+    await notifyTelegram('registration', registrationNotice(normalized, result.firstName, result.lastName))
   }
 
   /*
