@@ -268,14 +268,27 @@ solo dedotto dai commenti.
   zero "Coming soon"); Standard/Plus/Premium mostrano un "Coming soon"
   disabilitato ciascuno; il pannello Lifetime mostra "Coming soon" disabilitato
   — quattro `aria-disabled="true"` in tutto, contati.
-- **Ancora non verificato dal vivo**: gli stati che dipendono da un `currentPlan`
-  non nullo — "Your plan · Manage" su una card davvero posseduta, "Coming soon"
-  per un piano diverso da quello posseduto con un account reale, `LifetimeCta`
-  per chi è già su Lifetime. Forzare `signedIn` senza un'identità reale dietro
-  non può simulare *quale* piano risulta corrente, solo che l'account sia
-  "firmato". Questi restano verificati per lettura del codice e per `tsc`, non
-  per un rendering reale — stessa onestà già usata altrove in questa
-  conversazione per lo stesso limite d'ambiente.
+- **Chiuso anche l'ultimo buco**: forzando, sempre nella sola copia isolata,
+  anche `currentPlan` (oltre a `signedIn`) a `'standard'` e poi a `'lifetime'`
+  — i due valori che il riordino del punto 1 doveva far sopravvivere a
+  checkout spento. Con `'standard'`: Standard mostra "Your plan · Manage"
+  **senza** il link "Change billing cycle" (nascosto correttamente, dato che
+  `checkoutPlan` resta assente), Free mostra "Switch to Free" (un abbonato
+  pagante che può ancora scendere a Free), Plus e Premium mostrano "Coming
+  soon". Con `'lifetime'`: tutte e quattro le card mostrano "Included in
+  Lifetime", zero "Coming soon" residui. Il pannello `LifetimeCta` legge
+  `viewer.plan`/`viewer.subscriptionPlan` per conto proprio, non la variabile
+  locale forzata qui, quindi in questo giro resta su "Coming soon" anche col
+  secondo valore — non un problema: la sua stessa logica "già su Lifetime" è
+  un semplice if/return mai toccato dal riordino che ha causato i due bug,
+  già verificata a parte nel giro `signedIn`-forzato sopra.
+- **Ancora non verificato dal vivo**: nessuna combinazione con un account reale
+  autenticato — resta il limite d'ambiente già dichiarato (niente browser,
+  CAPTCHA sulla registrazione). Ogni ramo del blocco riordinato in
+  `PricingPlans.tsx`, però, è ormai stato osservato rendersi almeno una volta
+  in una build reale: `!signedIn`, `isCurrent` (con e senza link di cambio
+  ciclo), `isLifetime`, il bottone "Coming soon" nuovo, e le cinque frasi
+  dedicate a Free.
 - **Una svista propria da correggere qui**: durante la correzione dei due bug
   sopra, un `npx prettier --write` lanciato senza le opzioni del progetto (che
   non usa Prettier — solo ESLint, nessuna config Prettier nel repo) ha
