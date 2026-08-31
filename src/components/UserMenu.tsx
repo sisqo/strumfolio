@@ -96,7 +96,16 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, view])
 
-  if (!known || email === null) return null
+  /*
+   * A same-sized placeholder rather than nothing: `NavMenu` beside this renders on
+   * first paint, so an outright `null` here means the hamburger sits alone and then
+   * jumps left the moment identity resolves — one more piece of the "loads in
+   * pieces" feeling this bar should not have. The control itself still waits for
+   * `known` (this file's own top comment on why), only its footprint appears early.
+   */
+  if (!known || email === null) {
+    return <span className="skeleton avatar-button rounded-[var(--r-pill)]" aria-hidden />
+  }
 
   const initials = avatarInitials(email)
   const colorIndex = avatarColorIndex(email)

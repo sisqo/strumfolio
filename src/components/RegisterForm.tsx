@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { resetTurnstile, TurnstileWidget } from '@/components/TurnstileWidget'
 import { MIN_PASSWORD } from '@/lib/auth/types'
@@ -33,14 +33,28 @@ export function RegisterForm() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sentCount, setSentCount] = useState(0)
+  /**
+   * This form has no `action`, unlike the inline server actions on `/login` — it
+   * needs `onSubmit` for the phase switch, the controlled inputs, and the
+   * Turnstile-reset-on-failure dance above, none of which a plain form action
+   * gives it. That trade means it has no native fallback: a tap that lands before
+   * React attaches this handler falls through to the browser's own submit, a GET
+   * to this same URL with every field — password included — in the query string,
+   * which reads as the button doing nothing and silently drops what was typed.
+   * Starting the button disabled and enabling it once mounted closes that window
+   * instead of leaving it to how fast the bundle happens to load.
+   */
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => setReady(true), [])
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true)
     setError(null)
 
-    const formData = new FormData(event.currentTarget)
     try {
+      const formData = new FormData(event.currentTarget)
       const result = await register(formData)
       if (result.ok) {
         setPhase('sent')
@@ -173,7 +187,7 @@ export function RegisterForm() {
        */}
       <TurnstileWidget />
 
-      <button type="submit" className="btn btn-primary mt-1 w-full justify-center py-3" disabled={busy}>
+      <button type="submit" className="btn btn-primary mt-1 w-full justify-center py-3" disabled={busy || !ready}>
         {phase === 'form' ? 'Create account' : 'Resend email'}
       </button>
     </form>
