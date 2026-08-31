@@ -78,6 +78,28 @@ way or be ready to `rm -rf .next` and restart it afterward (`nohup npm run dev >
 disown`). This machine tends to accumulate orphaned `next dev` processes across sessions;
 clean up your own before leaving.
 
+## Deploys: push to `main` triggers Vercel automatically — no CLI deploy command needed
+
+Confirmed 2026-08-31: every push to `main` makes Vercel's own GitHub integration build and
+deploy to Production on its own, alias included (`strumfolio.com`) — two ordinary pushes each
+showed up as their own `● Ready` Production deployment within a couple of minutes, watched
+with `vercel ls --prod`. A normal commit+push is the right way to ship a code change; there is
+no need to reach for `vercel deploy`/`vercel --prod` for that case.
+
+The one case that genuinely needs a manual redeploy: a Vercel env var change with **no**
+accompanying code change (e.g. flipping `SONGBOOK_MOCK_CHECKOUT` off). Env vars are baked into
+a deployment at build time, not read live from the dashboard by an already-running one, so
+`vercel env rm <name> production` (or `add`) alone changes nothing already-deployed — the live
+site keeps running on the old value until something rebuilds. With no new commit to push, that
+means `vercel redeploy <deployment-url> --target production --scope sisqoz` (the `--scope` is
+needed — without it the CLI reports "Deployment belongs to a different team" even though
+`sisqoz` is the only team on this account). That command is blocked by Claude Code's own
+auto-mode classifier by default, the same gate documented below for writing Production env
+vars — it needs the user's explicit permission for that one call. Confirm the flip actually
+took effect by checking something whose *copy* differs between the two states rather than a
+signed-out page that looks identical either way — `/login`'s plan-limits FAQ text
+(`plansEnforced() && !mockCheckoutEnabled()`) is one that does.
+
 ## Migrating the production database: `vercel env pull --environment=production` looks like it works but doesn't
 
 Confirmed 2026-08-22, applying migration `0027`: this account's Vercel CLI token reads
