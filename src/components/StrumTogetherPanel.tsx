@@ -19,11 +19,14 @@ import { followUrl } from '@/lib/strumTogether/link'
  * where it opens from, what wraps it, how it is dismissed — stays with the caller;
  * this owns only what is inside.
  *
- * `onClose` is called for exactly one reason: a `plan-required` refusal opens
- * `FeaturePaywallModal`, whose own "See Standard" link navigates to `/pricing`, and whatever
- * opened this (the menu panel, the bar's popover) must not still be showing over that
- * navigation. Every other outcome — success, a session error, a failed stop — leaves
- * this panel open, since there is more here worth reading (the link, the retry).
+ * `onClose` is called for exactly one reason: as `FeaturePaywallModal`'s own `onUpgrade`,
+ * fired the instant its "See Standard" link is actually clicked, so whatever opened this
+ * (the menu panel, the bar's popover) closes right as the navigation to `/pricing` happens
+ * rather than staying open behind it. It must **not** fire the moment the refusal itself
+ * happens — this component (and the modal it renders) would unmount before ever painting,
+ * which is exactly what used to swallow the message entirely. Every other outcome —
+ * success, a session error, a failed stop, "Not now" on the paywall — leaves this panel
+ * open, since there is more here worth reading (the link, the retry).
  */
 export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
   const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useStrumTogether()
@@ -81,7 +84,6 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
      */
     if (result.reason === 'plan-required') {
       setPaywallOpen(true)
-      onClose()
     } else if (result.reason === 'no-session') {
       setError('Session expired. Reload the page and sign in again.')
     } else {
@@ -271,6 +273,7 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
         <FeaturePaywallModal
           feature={PAYWALL_FEATURES.lead.label}
           plan={PAYWALL_FEATURES.lead.minPlan}
+          onUpgrade={onClose}
           onDismiss={() => setPaywallOpen(false)}
         />
       )}

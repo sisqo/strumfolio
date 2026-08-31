@@ -35,7 +35,12 @@ export function FeaturePaywallModal({
 }: {
   feature: string
   plan: Plan
-  /** An optional side effect on top of the navigation itself — nothing today needs one. */
+  /**
+   * An optional side effect on top of the navigation itself, fired the instant this link
+   * is actually clicked — `StrumTogetherPanel` uses it to close the panel that opened this
+   * modal right as the `/pricing` navigation happens, rather than the moment the refusal
+   * itself does (which would unmount the modal before it ever painted).
+   */
   onUpgrade?: () => void
   onDismiss: () => void
 }) {
