@@ -73,6 +73,16 @@ async function readFirstName(email: string): Promise<string | null> {
  * `plan`/`planChosen` already read, just handed to the client as well now instead of only
  * used here. It equals `email` except for a global owner switched into another account
  * (`mayAccess`, `accounts/current.ts`); nobody else can make the two differ.
+ *
+ * `isGlobalOwner` rides along too rather than staying `mayShowAccountSwitcher`'s own
+ * server action — `RoleProvider` used to `Promise.all` the two, but that is still a
+ * second network round trip on every mount, not a second query: this check is one
+ * `isOwner` call against an env var, no database involved. Folding it in here is what
+ * turns "identity, and whether the switcher may show" back into the one request
+ * `currentUser()`'s own comment already promised for the first five fields — every
+ * `mayEdit`-gated button in the app waits on this same round trip to resolve before it
+ * can appear at all (see `RoleProvider`'s own "hide until known"), so one request
+ * arriving sooner is the whole of what shortens that wait.
  */
 export async function loadIdentity(): Promise<{
   email: string
@@ -82,6 +92,7 @@ export async function loadIdentity(): Promise<{
   subscriptionPlan: Plan | null
   planChosen: boolean
   firstName: string | null
+  isGlobalOwner: boolean
 } | null> {
   const user = await currentUser()
   if (user === null) return null
@@ -96,6 +107,7 @@ export async function loadIdentity(): Promise<{
     email: user.email,
     accountOwnerEmail: user.accountOwnerEmail,
     role: user.role,
+    isGlobalOwner: hasDatabase && isOwner(user.email, process.env.ALLOWED_EMAILS),
     plan: names.effective,
     subscriptionPlan: names.subscription,
     planChosen,

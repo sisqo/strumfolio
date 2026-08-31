@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation'
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { mayShowAccountSwitcher } from '@/lib/accounts/read'
 import { loadIdentity } from '@/lib/auth/actions'
 import type { Plan } from '@/lib/plans/types'
 import { type Role, canEdit } from '@/lib/roles'
@@ -134,13 +133,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const ask = useCallback(async () => {
     try {
-      const [identity, showSwitcher] = await Promise.all([loadIdentity(), mayShowAccountSwitcher()])
+      const identity = await loadIdentity()
       if (alive.current) {
         setEmail(identity?.email ?? null)
         setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)
         setRole(identity?.role ?? null)
         setFirstName(identity?.firstName ?? null)
-        setSwitcher(showSwitcher)
+        setSwitcher(identity?.isGlobalOwner ?? false)
         setPlan(identity?.plan ?? null)
         setSubscriptionPlan(identity?.subscriptionPlan ?? null)
         setPlanChosen(identity?.planChosen ?? true)

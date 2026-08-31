@@ -4,8 +4,8 @@
  * Reads about accounts as a whole, for the two screens that show more than the reader's
  * own — `/accounts`'s search and `/accounts/[email]`'s detail (PLAN.md, v3.8),
  * both restricted to global owners now that nobody else has more than one account to see
- * — and for `mayShowAccountSwitcher`, called directly from the client (`RoleProvider`),
- * which is why this needs the directive: without it, that call could not cross the
+ * — and for `listAllAccounts`, called directly from the client (`HomeScreen`'s copy-target
+ * list), which is why this needs the directive: without it, that call could not cross the
  * server/client boundary as a server action.
  */
 
@@ -387,19 +387,3 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
   }
 }
 
-/**
- * Whether the caller is a global owner, who can enter every account in the installation.
- * Nobody else ever has more than their own account to switch to (v3.1).
- *
- * The name is now narrower than what this answers, and is left alone deliberately: there is
- * no account switcher in a menu any more — the way into another account is `/accounts`,
- * reached from `AdminPanel`, whose Admin entry this is what decides the existence of. Renaming it
- * would touch `RoleProvider` and every reader of `isGlobalOwner` for no behavioural gain, so
- * the comment carries the correction instead.
- */
-export async function mayShowAccountSwitcher(): Promise<boolean> {
-  if (!hasDatabase) return false
-
-  const session = await auth()
-  return isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)
-}
