@@ -751,7 +751,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
                   <p className="lifetime-price">{euro(LIFETIME.amount)}</p>
                 </div>
 
-                {CHECKOUT_LIVE && <LifetimeCta href="/checkout/lifetime" viewer={viewer} />}
+                <LifetimeCta href="/checkout/lifetime" viewer={viewer} checkoutLive={CHECKOUT_LIVE} />
               </div>
             </div>
           </div>

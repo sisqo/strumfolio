@@ -22,6 +22,15 @@ import type { Plan } from '@/lib/plans/types'
 /** The one `unavailable` reason a reader can actually do something about — see the JSX below. */
 const SIGN_IN_REASON = 'Sign in to continue.'
 
+/**
+ * The `'disabled'` reason's own copy (`mockCheckoutEnabled()` off,
+ * `PLAN-checkout-coming-soon.md`) — worded and styled apart from the other two
+ * `unavailable` reasons in the JSX below: this one is not an error the reader caused,
+ * it is the same "not on sale yet" fact `/pricing`'s own cards now show as a disabled
+ * button, for whoever reaches this screen through an old or shared link instead.
+ */
+const COMING_SOON_REASON = "These plans aren't on sale yet — check back soon."
+
 /** The only other cycle there is — used to flip, never to pick, so a third cycle one day
     cannot silently compile. */
 const OTHER_CYCLE: Record<BillingPeriod, BillingPeriod> = { month: 'year', year: 'month' }
@@ -30,7 +39,12 @@ const FAKE_CARD = { name: '', number: ACCEPTED_TEST_CARD, expiry: '12 / 30', cvc
 
 type Status =
   | { state: 'loading' }
-  | { state: 'unavailable'; reason: string }
+  /**
+   * `kind` drives styling and the sign-in button below — carried alongside `reason` rather
+   * than recovered from it, so a future copy edit to `COMING_SOON_REASON` or `SIGN_IN_REASON`
+   * can't silently detach the message from the branch that decided it.
+   */
+  | { state: 'unavailable'; reason: string; kind: 'coming-soon' | 'sign-in' | 'error' }
   /** `live` is `liveSubscription`'s own answer, read server-side — see `loadCheckoutStatus`. */
   | { state: 'ready'; current: MockSubscriptionState; live: Plan | null }
 
@@ -121,15 +135,17 @@ export function CheckoutScreen({
      */
     void Promise.all([loadCheckoutStatus(), loadMostRecentCycleFor(plan)]).then(([result, mostRecentCycle]) => {
       if (!result.ok) {
-        setStatus({
-          state: 'unavailable',
-          reason:
-            result.reason === 'disabled'
-              ? 'Checkout is not available right now.'
-              : result.reason === 'no-session'
-                ? SIGN_IN_REASON
-                : 'No database is configured, so there is nothing to write to.',
-        })
+        setStatus(
+          result.reason === 'disabled'
+            ? { state: 'unavailable', reason: COMING_SOON_REASON, kind: 'coming-soon' }
+            : result.reason === 'no-session'
+              ? { state: 'unavailable', reason: SIGN_IN_REASON, kind: 'sign-in' }
+              : {
+                  state: 'unavailable',
+                  reason: 'No database is configured, so there is nothing to write to.',
+                  kind: 'error',
+                },
+        )
         return
       }
       setStatus({ state: 'ready', current: result.current, live: result.live })
@@ -239,7 +255,13 @@ export function CheckoutScreen({
 
       {status.state === 'unavailable' && (
         <>
-          <p className="notice notice-error mt-4" role="alert">
+          {/* `notice-accent`/`role="status"` for "coming soon" — it is the same neutral fact
+              /pricing's own cards now show, not an error the reader caused. The other two
+              reasons (no session, no database) keep `notice-error`/`role="alert"`, unchanged. */}
+          <p
+            className={`notice mt-4 ${status.kind === 'coming-soon' ? 'notice-accent' : 'notice-error'}`}
+            role={status.kind === 'coming-soon' ? 'status' : 'alert'}
+          >
             {status.reason}
           </p>
           {/* «Sign in to continue.» used to be the whole of this screen, with nothing to press
@@ -252,7 +274,7 @@ export function CheckoutScreen({
               legitimately on. Only for this one reason: the other two ("checkout is off", "no
               database") are not things a reader can act on, and a button would imply they
               were. */}
-          {status.reason === SIGN_IN_REASON && (
+          {status.kind === 'sign-in' && (
             <p className="mt-3">
               <Link href="/login" className="btn btn-primary btn-sm">
                 Sign in

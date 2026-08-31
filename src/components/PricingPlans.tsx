@@ -102,9 +102,11 @@ export interface PlanColumn {
    * set at all — see `mockCheckoutEnabled()` in `pricing/page.tsx` — so its mere presence is
    * the only thing this component has to check.
    *
-   * When it is absent on a paid column, the card simply ends after `audience` with no
-   * button at all — the design has no notice anywhere for "not on sale yet" and neither
-   * does this component; the absence of a button is the whole of what is said.
+   * When it is absent on a paid column the reader is not already on, the card shows an
+   * inert "Coming soon" button instead of a live one (`PLAN-checkout-coming-soon.md`) —
+   * `isCurrent`/`isLifetime` are checked before this, and stay true regardless of whether
+   * `checkoutPlan` is set, so an account genuinely on that plan or on Lifetime keeps
+   * seeing its own status rather than "Coming soon" for something it already has.
    */
   checkoutPlan?: string
 }
@@ -391,8 +393,26 @@ export function PricingPlans({
               </p>
               <p className="plan-audience">{column.audience}</p>
 
-              {column.checkoutPlan !== undefined && (
-                !signedIn ? (
+              {/*
+               * `column.cta === undefined` gates the whole block: Free's five states
+               * (`column.cta !== undefined` below) are a complete, self-contained set on
+               * their own — every branch here (`!signedIn`, `isCurrent`, `isLifetime`, the
+               * "Coming soon" fallback) has a Free-shaped twin down there already, worded
+               * for Free specifically (no `/billing` link on "Your plan", no billing to
+               * manage; no `checkoutPlan` link, since Free never has one). Without this
+               * gate every one of those states doubled up on the Free card — two "Sign up"
+               * buttons signed out, "Your plan · Manage" stacked on the plain "Your plan"
+               * Free's own block already shows, "Coming soon" floating above the real,
+               * clickable "Switch to Free" link.
+               *
+               * `column.checkoutPlan !== undefined` alone cannot be this gate any more —
+               * `isCurrent`/`isLifetime` below have to read as true even when checkout is
+               * switched off and `checkoutPlan` is absent, so an account genuinely on this
+               * plan or on Lifetime keeps seeing its own status rather than "Coming soon"
+               * for something it already has (`PLAN-checkout-coming-soon.md`).
+               */}
+              {column.cta === undefined &&
+                (!signedIn ? (
                   <Link href="/register" className="btn btn-primary btn-sm plan-cta w-full">
                     Sign up
                   </Link>
@@ -418,23 +438,31 @@ export function PricingPlans({
                       * it lands on now overrides this with the ledger's own opposite cycle for
                       * this exact plan the moment it loads (`CheckoutScreen`'s own comment),
                       * and only falls back to this guess when the ledger has nothing to say.
+                      *
+                      * Absent when `checkoutPlan` is: re-buying is a `mockPurchase` call same
+                      * as everything else this file offers, and `mockPurchase` itself refuses
+                      * with the checkout switched off — a link that only leads to "Coming
+                      * soon" would be the same theatre `PLAN.md` v3.12 already ruled out for a
+                      * downgrade that asked for a card without charging it.
                       */}
-                    <Link
-                      href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
-                      className="plan-cycle-link"
-                      /* A re-buy of the plan already held also clears a scheduled downgrade,
-                       * by design (`mockPurchase` reads it as changing your mind). The
-                       * checkout screen's own status line spells the pending change out
-                       * before anything is confirmed, so this only has to stop the link
-                       * itself from looking like it touches nothing but the cycle. */
-                      title="Switches this plan to the other billing cycle. If a downgrade or cancellation is scheduled, this cancels it."
-                    >
-                      Change billing cycle
-                    </Link>
+                    {column.checkoutPlan !== undefined && (
+                      <Link
+                        href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
+                        className="plan-cycle-link"
+                        /* A re-buy of the plan already held also clears a scheduled downgrade,
+                         * by design (`mockPurchase` reads it as changing your mind). The
+                         * checkout screen's own status line spells the pending change out
+                         * before anything is confirmed, so this only has to stop the link
+                         * itself from looking like it touches nothing but the cycle. */
+                        title="Switches this plan to the other billing cycle. If a downgrade or cancellation is scheduled, this cancels it."
+                      >
+                        Change billing cycle
+                      </Link>
+                    )}
                   </>
                 ) : isLifetime ? (
                   <p className="plan-current w-full">Included in Lifetime</p>
-                ) : (
+                ) : column.checkoutPlan !== undefined ? (
                   <Link
                     href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
                     className="btn btn-primary btn-sm plan-cta w-full"
@@ -454,8 +482,19 @@ export function PricingPlans({
                         ? `Switch to ${column.name}`
                         : `Upgrade to ${column.name}`}
                   </Link>
-                )
-              )}
+                ) : (
+                  /*
+                   * Checkout switched off (`PLAN-checkout-coming-soon.md`) and none of the
+                   * three states above apply — signed in, not already on this plan or on
+                   * Lifetime. Inert on purpose: no link, no action, nothing to press.
+                   * `.btn:disabled` (`globals.css`) already fades it, so no new CSS. Never
+                   * reached for Free: the outer `column.cta === undefined` above already
+                   * keeps this whole block off that card.
+                   */
+                  <button type="button" className="btn btn-sm plan-cta w-full" disabled aria-disabled="true">
+                    Coming soon
+                  </button>
+                ))}
 
               {column.cta !== undefined && pending && (
                 <>
@@ -630,8 +669,17 @@ export function PricingPlans({
  * be refused — `mockPurchase` already answers `not-applicable` there ("This account is
  * already on Lifetime — there is nothing left to buy."), so this is the one-step-earlier
  * version of the same fact, not a new rule.
+ *
+ * `checkoutLive` mirrors `PricingPlans`' own `checkoutPlan !== undefined` check
+ * (`PLAN-checkout-coming-soon.md`) — checked *after* "already on Lifetime" and *before*
+ * "Sign up" is reached is wrong on purpose to get right: "already on Lifetime" must win
+ * regardless of the flag (a real Lifetime holder always sees their own status), but "Sign
+ * up" must win over "Coming soon" for a signed-out visitor, the same reasoning
+ * `PricingPlans`' own cards apply — this panel is one of several registration entry
+ * points on the page and must never look closed to somebody who hasn't even signed up
+ * yet.
  */
-export function LifetimeCta({ href, viewer }: { href: string; viewer: Viewer }) {
+export function LifetimeCta({ href, viewer, checkoutLive }: { href: string; viewer: Viewer; checkoutLive: boolean }) {
   /* Handed the same server-decided `Viewer` the cards get, for the same reason — this panel
      was the fourth «Sign up» a signed-in reader saw before hydration. */
   const { email, plan, subscriptionPlan } = viewer
@@ -654,6 +702,14 @@ export function LifetimeCta({ href, viewer }: { href: string; viewer: Viewer }) 
    */
   if ((plan === null ? null : (subscriptionPlan ?? 'free')) === 'lifetime') {
     return <p className="plan-current mt-4">Your plan</p>
+  }
+
+  if (!checkoutLive) {
+    return (
+      <button type="button" className="btn btn-sm mt-4 w-full sm:w-auto" disabled aria-disabled="true">
+        Coming soon
+      </button>
+    )
   }
 
   return (
