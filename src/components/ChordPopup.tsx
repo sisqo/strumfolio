@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { ChordDiagram } from '@/components/ChordDiagram'
 import { IconChevronLeft, IconChevronRight, IconClose } from '@/components/icons'
@@ -104,13 +104,25 @@ export function ChordPopup({
 /**
  * Every candidate shape for the chord shown above, as a slideshow rather than a row of
  * miniatures: one shape at a time, at the same size the single diagram used to be,
- * swiped or dragged between like a gallery. Landing on the first slide and stopping
+ * swiped or dragged between like a gallery, with its neighbours peeking in at the edges
+ * so there is something to invite the swipe. Landing on the first slide and stopping
  * there is the reset to the default shape — there is no separate control for it, the
  * same reasoning `PLAN-chord-forms.md`'s Decision 6 gives for the row this replaces.
  *
- * Settling is decided from the scroll position itself, debounced: native touch/trackpad
- * scrolling already snaps to a slide, and the callback only fires once scrolling has
- * actually stopped, so a swipe in progress does not save a shape mid-gesture.
+ * The dots track the scroll position directly, once per animation frame — not the
+ * `active` prop, which only catches up once `onSettle`'s write has round-tripped through
+ * `SongPrefs` and back down as new props. Reading the prop instead read as a beat of lag
+ * on every swipe: real, and worth avoiding, since a reader mid-swipe wants to see the
+ * dot move under their thumb, not half a render cycle later.
+ *
+ * `onSettle` runs on every one of those frames too, not only once scrolling has fully
+ * stopped. A debounced "wait until scrolling stops, then fire once" version had a real
+ * bug: closing the popup cancels whatever is still pending, so a swipe followed quickly
+ * by the close button was silently thrown away — the shape looked chosen and then simply
+ * wasn't, the moment the card closed. Committing continuously removes the pending write
+ * there ever was to lose; `PrefsProvider`'s own no-op guard (deep-equal on
+ * `chordShapes`) and the save queue's "keeps only the latest value per song" both already
+ * exist for exactly this shape of caller, so firing on every frame costs nothing extra.
  */
 function ShapeCarousel({
   shapes,
@@ -122,55 +134,87 @@ function ShapeCarousel({
   /** The shape this song currently resolves to — where the carousel opens on. */
   active: ChordShape
   capo: number
-  /** Fired once scrolling settles on a slide, with the shape and its index. */
+  /** Fired continuously while scrolling, with the slide nearest the centre right now. */
   onSettle: (shape: ChordShape, index: number) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
-  const settleTimer = useRef<number | undefined>(undefined)
-  const activeIndex = Math.max(0, shapes.indexOf(active))
+  const frame = useRef<number | undefined>(undefined)
+  const openIndex = Math.max(0, shapes.indexOf(active))
+  const [liveIndex, setLiveIndex] = useState(openIndex)
+
+  /**
+   * The slide nearest the middle of the visible track right now — found from each
+   * slide's own `offsetLeft`, not from a slide-width-times-index formula. The slides
+   * peek their neighbours and sit on `gap`, so a single "width" is not enough to place
+   * them; comparing actual positions is correct regardless of how they are sized.
+   */
+  const nearestIndex = (track: HTMLDivElement): number => {
+    const center = track.scrollLeft + track.clientWidth / 2
+    let best = 0
+    let bestDistance = Infinity
+    for (let i = 0; i < track.children.length; i += 1) {
+      const slide = track.children[i] as HTMLElement
+      const distance = Math.abs(slide.offsetLeft + slide.offsetWidth / 2 - center)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = i
+      }
+    }
+    return best
+  }
+
+  const commit = () => {
+    const track = trackRef.current
+    if (track === null || track.children.length === 0) return
+    const index = nearestIndex(track)
+    setLiveIndex(index)
+    onSettle(shapes[index], index)
+  }
 
   // Opens on the shape already chosen for this song, no transition to watch happen.
   useLayoutEffect(() => {
     const track = trackRef.current
-    if (track === null) return
-    track.scrollLeft = activeIndex * track.clientWidth
+    const slide = track?.children[openIndex]
+    if (slide instanceof HTMLElement) slide.scrollIntoView({ inline: 'center', block: 'nearest' })
     // Only on mount — a swipe already in progress must not be reset by this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A frame already queued means a scroll position `commit` has not yet read is still
+  // waiting — closing the popup right now must still read and save it, not drop it.
   useEffect(
     () => () => {
-      if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current)
+      if (frame.current !== undefined) {
+        cancelAnimationFrame(frame.current)
+        commit()
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
 
   const scrollToIndex = (index: number) => {
-    const track = trackRef.current
-    if (track === null) return
-    track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' })
+    const slide = trackRef.current?.children[index]
+    if (slide instanceof HTMLElement) {
+      slide.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    }
   }
 
   const onScroll = () => {
-    if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current)
-    settleTimer.current = window.setTimeout(() => {
-      const track = trackRef.current
-      if (track === null || track.clientWidth === 0) return
-      const index = Math.max(
-        0,
-        Math.min(shapes.length - 1, Math.round(track.scrollLeft / track.clientWidth)),
-      )
-      onSettle(shapes[index], index)
-    }, 140)
+    if (frame.current !== undefined) return
+    frame.current = requestAnimationFrame(() => {
+      frame.current = undefined
+      commit()
+    })
   }
 
   return (
     <div className="chord-carousel">
-      {shapes.length > 1 && activeIndex > 0 && (
+      {shapes.length > 1 && liveIndex > 0 && (
         <button
           type="button"
           className="chord-carousel-nav is-prev"
-          onClick={() => scrollToIndex(activeIndex - 1)}
+          onClick={() => scrollToIndex(liveIndex - 1)}
           aria-label="Previous shape"
         >
           <IconChevronLeft size={18} />
@@ -186,11 +230,11 @@ function ShapeCarousel({
         ))}
       </div>
 
-      {shapes.length > 1 && activeIndex < shapes.length - 1 && (
+      {shapes.length > 1 && liveIndex < shapes.length - 1 && (
         <button
           type="button"
           className="chord-carousel-nav is-next"
-          onClick={() => scrollToIndex(activeIndex + 1)}
+          onClick={() => scrollToIndex(liveIndex + 1)}
           aria-label="Next shape"
         >
           <IconChevronRight size={18} />
@@ -203,9 +247,9 @@ function ShapeCarousel({
             <button
               key={fingeringText(shape.frets)}
               type="button"
-              className={index === activeIndex ? 'chord-carousel-dot is-on' : 'chord-carousel-dot'}
+              className={index === liveIndex ? 'chord-carousel-dot is-on' : 'chord-carousel-dot'}
               aria-label={index === 0 ? 'Standard shape' : `Alternative shape ${index + 1}`}
-              aria-current={index === activeIndex}
+              aria-current={index === liveIndex}
               onClick={() => scrollToIndex(index)}
             />
           ))}
