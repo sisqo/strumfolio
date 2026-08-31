@@ -265,7 +265,7 @@ export function BookletPanel() {
           </label>
           <button
             type="button"
-            className="btn btn-sm"
+            className="btn btn-primary btn-sm"
             disabled={busy || bookletSlug === ''}
             onClick={() => void downloadBooklet()}
           >
