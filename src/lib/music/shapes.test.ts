@@ -13,6 +13,7 @@ import {
   fingeringText,
   shapeFor,
   shapeNotes,
+  shapesFor,
 } from './shapes'
 
 /**
@@ -238,6 +239,78 @@ describe('shapeFor', () => {
 
   it('has nothing to draw for a suffix outside the table', () => {
     assert.equal(shapeOf('Calt'), null)
+  })
+})
+
+describe('shapesFor', () => {
+  const shapesOf = (token: string, instrument: Instrument = 'guitar') => {
+    const chord = parseChord(token)
+    assert.ok(chord !== null, `${token} did not parse`)
+    return shapesFor(chord, instrument)
+  }
+
+  it('agrees with shapeFor on which shape is the default', () => {
+    for (const instrument of INSTRUMENTS) {
+      for (const family of Object.keys(FAMILIES)) {
+        for (let root = 0; root < 12; root += 1) {
+          const chord = { root, rootName: 'C', suffix: family, bass: null, bassName: null }
+          const shapes = shapesFor(chord, instrument)
+          const best = shapeFor(chord, instrument)
+
+          assert.deepEqual(shapes[0] ?? null, best)
+        }
+      }
+    }
+  })
+
+  it('offers the open shape first, then the movable forms lowest fret first', () => {
+    assert.deepEqual(
+      shapesOf('C').map((shape) => fingeringText(shape.frets)),
+      ['x32010', 'x35553', '8 10 10 9 8 8'],
+    )
+  })
+
+  it('has nothing to offer beyond the one movable form when there is only one', () => {
+    // Bb has no open shape and no curated form landing on the same fingering as the other.
+    assert.equal(shapesOf('Bb').length, 2)
+  })
+
+  it('never lists the same fingering twice', () => {
+    for (const instrument of INSTRUMENTS) {
+      for (const family of Object.keys(FAMILIES)) {
+        for (let root = 0; root < 12; root += 1) {
+          const shapes = shapesFor(
+            { root, rootName: 'C', suffix: family, bass: null, bassName: null },
+            instrument,
+          )
+          const texts = shapes.map((shape) => fingeringText(shape.frets))
+          assert.equal(new Set(texts).size, texts.length, `${instrument} ${root}:${family}`)
+        }
+      }
+    }
+  })
+
+  it('keeps every ukulele alternative a real voicing of the chord', () => {
+    for (const family of Object.keys(FAMILIES)) {
+      for (let root = 0; root < 12; root += 1) {
+        const shapes = shapesFor({ root, rootName: 'C', suffix: family, bass: null, bassName: null }, 'ukulele')
+        for (const shape of shapes) assertVoicing(root, family, shape.frets, `${root}:${family}`, 'ukulele')
+      }
+    }
+  })
+
+  it('offers up to four distinct ukulele alternatives, not repeats of the winner', () => {
+    // Am7 on a reentrant tuning has several genuinely different low voicings.
+    assert.deepEqual(shapesOf('Am7', 'ukulele').map((shape) => fingeringText(shape.frets)), [
+      '0000',
+      '0030',
+      '2030',
+      '2033',
+    ])
+  })
+
+  it('has nothing to offer for a suffix outside the table', () => {
+    assert.deepEqual(shapesOf('Calt'), [])
   })
 })
 

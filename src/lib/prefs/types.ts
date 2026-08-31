@@ -95,6 +95,23 @@ export interface SongPrefs {
    * capo kept globally would silently change the chords of songs never opened.
    */
   capo: number
+  /**
+   * Which shape to draw instead of the default, for the chords of this song a reader has
+   * picked an alternative for — never a preference kept across songs, the same reasoning
+   * as `capo` just above.
+   *
+   * Keyed `${instrument}:${root}:${family}` — instrument because the two fingerboards
+   * share nothing, root and family because that is the chord *as it is shown right now*,
+   * after transposition and capo. Moving either later can make the key stop matching
+   * anything on the page; nothing here notices or cleans that up; the reader simply sees
+   * the default again until they pick once more.
+   *
+   * The value is the chosen shape's own fingering text (`fingeringText`, e.g. `'320003'`)
+   * rather than an index into `shapesFor`'s list — an index would point at a different
+   * shape the day that list's order changes, where a fingering that no longer appears
+   * just falls back to the default on its own.
+   */
+  chordShapes: Record<string, string>
 }
 
 /** Font sizes for the sheet, in pixels. The text reflows; it is not a viewport zoom. */
@@ -140,7 +157,24 @@ export function readAccidentals(value: unknown): Accidentals {
   return value === 'flat' ? 'flat' : 'sharp'
 }
 
-export const DEFAULT_SONG_PREFS: SongPrefs = { semitones: 0, scrollSpeed: 3, capo: 0 }
+/**
+ * Reads the chord-shape overrides from a value that came out of the database or the
+ * cache. An empty map for anything that is not a plain object of strings — a corrupted
+ * or hand-edited value is not worth failing the rest of a song's preferences over, and
+ * every key here is only ever a hint: `ChordPopup` falls back to the default shape the
+ * moment a key does not resolve to one of the chord's own candidates anyway.
+ */
+export function readChordShapes(value: unknown): Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+
+  const result: Record<string, string> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string') result[key] = entry
+  }
+  return result
+}
+
+export const DEFAULT_SONG_PREFS: SongPrefs = { semitones: 0, scrollSpeed: 3, capo: 0, chordShapes: {} }
 
 export function clampZoom(step: number): number {
   return Math.max(0, Math.min(ZOOM_STEPS.length - 1, Math.round(step)))

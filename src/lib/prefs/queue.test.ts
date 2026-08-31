@@ -93,9 +93,9 @@ describe('prefs write queue', () => {
   it('keeps only the latest value per target', async () => {
     const { queue, calls } = queueWith('saved')
 
-    queue.enqueueSong('x', { semitones: 1, scrollSpeed: 3, capo: 0 })
-    queue.enqueueSong('x', { semitones: 2, scrollSpeed: 3, capo: 0 })
-    queue.enqueueSong('x', { semitones: 3, scrollSpeed: 3, capo: 0 })
+    queue.enqueueSong('x', { semitones: 1, scrollSpeed: 3, capo: 0, chordShapes: {} })
+    queue.enqueueSong('x', { semitones: 2, scrollSpeed: 3, capo: 0, chordShapes: {} })
+    queue.enqueueSong('x', { semitones: 3, scrollSpeed: 3, capo: 0, chordShapes: {} })
     assert.equal(queue.size(), 1)
 
     await queue.flush()

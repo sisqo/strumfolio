@@ -18,7 +18,7 @@ import {
   readChord,
 } from '@/lib/music/chord'
 import { readShift } from '@/lib/music/capo'
-import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
+import { type ChordShape, type Instrument, fingeringText, pickShape } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
 
 const BLANK = ' '
@@ -73,7 +73,7 @@ export function pointOf(element: HTMLElement): CardPoint {
  * chords or not, so the spacing between lines is even.
  */
 export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNotes }) {
-  const { global, song: songPrefs } = usePrefs()
+  const { global, song: songPrefs, setChordShape } = usePrefs()
   const [shown, setShown] = useState<Chord | null>(null)
 
   /*
@@ -123,15 +123,30 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
   /*
    * The song's own chords, once, for the two modes that answer «where do the fingers go»
    * above the song instead of over every syllable. Null in the other two, which is what
-   * keeps `shapeFor` — a search, on a ukulele — from running at all for a reader reading
+   * keeps `pickShape` — a search, on a ukulele — from running at all for a reader reading
    * names.
    */
   const summary = useMemo(
     () =>
       global.chordDisplay === 'diagrams' || global.chordDisplay === 'fingerings'
-        ? summarise(song, shift, global.accidentals, global.notation, global.instrument)
+        ? summarise(
+            song,
+            shift,
+            global.accidentals,
+            global.notation,
+            global.instrument,
+            songPrefs.chordShapes,
+          )
         : null,
-    [song, shift, global.accidentals, global.notation, global.instrument, global.chordDisplay],
+    [
+      song,
+      shift,
+      global.accidentals,
+      global.notation,
+      global.instrument,
+      global.chordDisplay,
+      songPrefs.chordShapes,
+    ],
   )
 
   return (
@@ -163,6 +178,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
                   chordDisplay={global.chordDisplay}
                   instrument={global.instrument}
                   capo={songPrefs.capo}
+                  chordShapes={songPrefs.chordShapes}
                   roomForChords={roomForChords}
                   onPick={setShown}
                   notes={showNotes ? notes : undefined}
@@ -208,6 +224,8 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
           notation={global.notation}
           instrument={global.instrument}
           capo={songPrefs.capo}
+          chordShapes={songPrefs.chordShapes}
+          onChangeShape={setChordShape}
           onClose={() => setShown(null)}
         />
       )}
@@ -220,6 +238,9 @@ interface SummaryChord {
   /** As the sheet writes it — transposed, respelled, in the reader's own notation. */
   label: string
   shape: ChordShape
+  /** True once this song has a reader's own shape for this chord, and it is not the one
+   *  `pickShape` would draw by default — what the summary's own dot reads. */
+  overridden: boolean
   /** The same chord, kept whole rather than just its label — what a tap on this row
    *  hands to `ChordPopup`, the same object a tap on the sheet itself would produce. */
   chord: Chord
@@ -245,6 +266,7 @@ function summarise(
   accidentals: Accidentals,
   notation: Notation,
   instrument: Instrument,
+  chordShapes: Record<string, string>,
 ): SummaryChord[] {
   const found: SummaryChord[] = []
   const seen = new Set<string>()
@@ -254,14 +276,14 @@ function summarise(
     if (parsed === null) continue
 
     const chord = readChord(parsed, shift, accidentals)
-    const shape = shapeFor(chord, instrument)
-    if (shape === null) continue
+    const picked = pickShape(chord, instrument, chordShapes)
+    if (picked === null) continue
 
     const label = formatChord(chord, notation)
     if (seen.has(label)) continue
 
     seen.add(label)
-    found.push({ label, shape, chord })
+    found.push({ label, shape: picked.shape, overridden: picked.overridden, chord })
   }
 
   return found
@@ -305,9 +327,16 @@ function ChordSummary({
             type="button"
             className="chord-fingering"
             onClick={() => onPick(chord.chord)}
-            aria-label={`${chord.label}, show the fingering`}
+            aria-label={
+              chord.overridden
+                ? `${chord.label}, custom shape for this song, show the fingering`
+                : `${chord.label}, show the fingering`
+            }
           >
-            <span className="chord-fingering-name">{chord.label}</span>
+            <span className="chord-fingering-name">
+              {chord.label}
+              {chord.overridden && <OverrideDot />}
+            </span>
             <span className="chord-fingering-frets">{fingeringText(chord.shape.frets)}</span>
           </button>
         ))}
@@ -323,14 +352,31 @@ function ChordSummary({
           type="button"
           className="chord-strip-item"
           onClick={() => onPick(chord.chord)}
-          aria-label={`${chord.label}, show the fingering`}
+          aria-label={
+            chord.overridden
+              ? `${chord.label}, custom shape for this song, show the fingering`
+              : `${chord.label}, show the fingering`
+          }
         >
           <ChordDiagram shape={chord.shape} capo={capo} className="chord-strip-shape" />
-          <span className="chord-strip-name">{chord.label}</span>
+          <span className="chord-strip-name">
+            {chord.label}
+            {chord.overridden && <OverrideDot />}
+          </span>
         </button>
       ))}
     </div>
   )
+}
+
+/**
+ * The mark that says a chord in the summary above the song is not using its default
+ * shape — the reader picked a different one, from `ChordPopup`, for this song. `aria-hidden`
+ * because the fact is already in the button's own `aria-label`; a screen reader repeating
+ * "custom shape" as a second, separate node would say it twice.
+ */
+function OverrideDot() {
+  return <span className="chord-override-dot" aria-hidden />
 }
 
 function SheetLine({
@@ -341,6 +387,7 @@ function SheetLine({
   chordDisplay,
   instrument,
   capo,
+  chordShapes,
   roomForChords,
   onPick,
   notes,
@@ -355,6 +402,9 @@ function SheetLine({
   instrument: Instrument
   /** The fret the capo is on, for the shape's own capo bar — the shape unchanged, see `ChordDiagram`. */
   capo: number
+  /** This song's own choices of shape, so the inline diagram never disagrees with the
+   *  summary panel or the popup over the same chord. */
+  chordShapes: Record<string, string>
   roomForChords: boolean
   onPick: (chord: Chord) => void
   notes?: SheetNotes
@@ -437,6 +487,7 @@ function SheetLine({
                       chordDisplay={chordDisplay}
                       instrument={instrument}
                       capo={capo}
+                      chordShapes={chordShapes}
                       onPick={onPick}
                       note={
                         notes === undefined || anchor === undefined
@@ -558,6 +609,7 @@ function SheetChord({
   chordDisplay,
   instrument,
   capo,
+  chordShapes,
   onPick,
   note,
 }: {
@@ -568,6 +620,8 @@ function SheetChord({
   chordDisplay: ChordDisplay
   instrument: Instrument
   capo: number
+  /** This song's own choices of shape — see `SheetLine`'s own prop of the same name. */
+  chordShapes: Record<string, string>
   onPick: (chord: Chord) => void
   /**
    * What this slot does about notes. While `adding` is armed the tap places one instead of
@@ -609,8 +663,13 @@ function SheetChord({
    * Falls back to the name whenever there is no shape to draw — an exotic suffix
    * outside the table (`shapeFor`'s own comment) — rather than tapping leading
    * nowhere: the button still opens `ChordPopup`, which says as much on its own.
+   *
+   * Goes through `pickShape` rather than `shapeFor` directly so a reader's own choice for
+   * this chord, in this song, draws the same shape here as it does in the summary panel
+   * and in the popup — no badge here (out of scope, see `PLAN-chord-forms.md`), but the
+   * drawing itself must never disagree with the other two.
    */
-  const shape = chordDisplay === 'shape' ? shapeFor(chord, instrument) : null
+  const shape = chordDisplay === 'shape' ? (pickShape(chord, instrument, chordShapes)?.shape ?? null) : null
 
   return (
     <button

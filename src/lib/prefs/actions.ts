@@ -23,6 +23,7 @@ import {
   clampZoom,
   readAccidentals,
   readChordDisplay,
+  readChordShapes,
   readInstrument,
 } from './types'
 
@@ -132,6 +133,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           semitones: clampSemitones(songRows[0].semitones),
           scrollSpeed: clampSpeed(songRows[0].scrollSpeed),
           capo: clampCapo(songRows[0].capo),
+          chordShapes: readChordShapes(songRows[0].chordShapes),
         }
 
   return { global, song }
@@ -200,6 +202,7 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
     semitones: clampSemitones(prefs.semitones),
     scrollSpeed: clampSpeed(prefs.scrollSpeed),
     capo: clampCapo(prefs.capo),
+    chordShapes: readChordShapes(prefs.chordShapes),
   }
 
   try {

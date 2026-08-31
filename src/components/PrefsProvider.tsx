@@ -49,6 +49,13 @@ interface PrefsContextValue {
   setSemitones: (semitones: number) => void
   setScrollSpeed: (step: number) => void
   setCapo: (fret: number) => void
+  /**
+   * Sets, or with `null` clears, this song's chosen shape for one chord — `key` from
+   * `chordShapeKey`, `fingering` the chosen candidate's own `fingeringText`. Clearing
+   * rather than writing back the default's own fingering is what keeps "the key is
+   * present" the one signal both the popup's picker and the summary's dot read.
+   */
+  setChordShape: (key: string, fingering: string | null) => void
 }
 
 const PrefsContext = createContext<PrefsContextValue | null>(null)
@@ -219,7 +226,8 @@ export function PrefsProvider({
       if (
         next.semitones === prev.semitones &&
         next.scrollSpeed === prev.scrollSpeed &&
-        next.capo === prev.capo
+        next.capo === prev.capo &&
+        JSON.stringify(next.chordShapes) === JSON.stringify(prev.chordShapes)
       ) {
         return
       }
@@ -247,6 +255,13 @@ export function PrefsProvider({
         updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),
       setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: clampCapo(fret) })),
+      setChordShape: (key, fingering) =>
+        updateSong((prev) => {
+          const chordShapes = { ...prev.chordShapes }
+          if (fingering === null) delete chordShapes[key]
+          else chordShapes[key] = fingering
+          return { ...prev, chordShapes }
+        }),
     }),
     [readable, song, pending, updateGlobal, updateSong],
   )

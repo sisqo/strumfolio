@@ -15,6 +15,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   serial,
@@ -561,6 +562,15 @@ export const userSongPrefs = pgTable(
      * that exists already answers this — nobody had a capo on.
      */
     capo: integer('capo').notNull().default(0),
+    /**
+     * Which shape to draw instead of the default, for chords of this song a reader has
+     * picked an alternative for. Keyed `${instrument}:${root}:${family}`, valued with the
+     * chosen shape's own fingering text (`'320003'`) — see `SongPrefs.chordShapes` in
+     * `lib/prefs/types.ts` for why a fingering rather than an index into the candidate
+     * list. `'{}'` rather than nullable, same reasoning as `capo` above: every row that
+     * exists already answers this, with nothing chosen.
+     */
+    chordShapes: jsonb('chord_shapes').notNull().default({}),
     /**
      * When this reader last opened this song, for the home screen's "Recently
      * played" (v3.5). Null, not defaulted to now: a row can exist for reasons that

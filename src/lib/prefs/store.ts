@@ -26,6 +26,7 @@ import {
   clampZoom,
   readAccidentals,
   readChordDisplay,
+  readChordShapes,
   readInstrument,
 } from './types'
 
@@ -85,6 +86,7 @@ export function readSongPrefs(slug: string): SongPrefs {
         ? clampSpeed(cached.scrollSpeed)
         : DEFAULT_SONG_PREFS.scrollSpeed,
     capo: typeof cached.capo === 'number' ? clampCapo(cached.capo) : DEFAULT_SONG_PREFS.capo,
+    chordShapes: readChordShapes(cached.chordShapes),
   }
 }
 

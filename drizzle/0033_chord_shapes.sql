@@ -1,0 +1,12 @@
+-- Which shape to draw instead of the default, for chords of a song a reader has picked
+-- an alternative for. Keyed `${instrument}:${root}:${family}`, valued with the chosen
+-- shape's own fingering text (`'320003'`) — see `SongPrefs.chordShapes` in
+-- `lib/prefs/types.ts` for why a fingering rather than an index into the candidate list.
+-- Defaulted to an empty object rather than nullable, same reasoning as `capo`: every row
+-- that exists already answers this, with nothing chosen.
+--
+-- Snapshot warning (see 0031's and 0032's own notes, and PLAN.md Domande aperte #19):
+-- `db:generate` — even with `--custom` — still refuses to run, 0028/0029/0030 sharing one
+-- id and prevId. This file and its journal entry were written by hand, the same way
+-- 0024-0032 were.
+ALTER TABLE "user_song_prefs" ADD COLUMN "chord_shapes" jsonb DEFAULT '{}' NOT NULL;

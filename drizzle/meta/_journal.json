@@ -232,6 +232,13 @@
       "when": 1788113297127,
       "tag": "0032_accidentals",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788166988261,
+      "tag": "0033_chord_shapes",
+      "breakpoints": true
     }
   ]
 }
