@@ -39,6 +39,8 @@ export async function register(formData: FormData): Promise<RegisterResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
   const email = normalizeEmail(String(formData.get('email') ?? ''))
+  const firstName = String(formData.get('firstName') ?? '').trim()
+  const lastName = String(formData.get('lastName') ?? '').trim()
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirmPassword') ?? '')
   const captchaToken = String(formData.get('captchaToken') ?? '')
@@ -59,6 +61,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
   if (!ipAllowed || !emailAllowed) return { ok: false, reason: 'rate-limited' }
 
   if (!isEmailShape(email)) return { ok: false, reason: 'invalid-email' }
+  if (firstName === '' || lastName === '') return { ok: false, reason: 'invalid-name' }
   if (!isPasswordAcceptable(password)) return { ok: false, reason: 'weak-password' }
   if (password !== confirmPassword) return { ok: false, reason: 'password-mismatch' }
 
@@ -83,10 +86,10 @@ export async function register(formData: FormData): Promise<RegisterResult> {
      */
     await db()
       .insert(pendingRegistrations)
-      .values({ email, passwordHash, verificationTokenHash: hash, expiresAt })
+      .values({ email, firstName, lastName, passwordHash, verificationTokenHash: hash, expiresAt })
       .onConflictDoUpdate({
         target: pendingRegistrations.email,
-        set: { passwordHash, verificationTokenHash: hash, expiresAt },
+        set: { firstName, lastName, passwordHash, verificationTokenHash: hash, expiresAt },
       })
 
     const url = new URL('/verify', await requestOrigin())

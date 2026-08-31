@@ -22,7 +22,7 @@ import { isAdmitted } from '@/lib/roles'
 
 import { mayAccess, readAccountCookie, writeAccountCookie } from './current'
 import { validateGrant } from './grant'
-import type { AccountResult, GrantInput, GrantResult, SelfDeleteResult } from './types'
+import type { AccountResult, GrantInput, GrantResult, NameResult, SelfDeleteResult } from './types'
 
 /**
  * Validates access, then switches. Lands on the home page rather than wherever the
@@ -335,4 +335,59 @@ export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteR
   await signOut({ redirectTo: '/login' })
   // Unreachable: signOut with a redirectTo always throws to get there.
   return { ok: true }
+}
+
+/**
+ * Your own first and last name, for `/profile` to prefill its form. `null` only when
+ * there is nobody signed in — an existing account with no name yet reads back as two
+ * empty strings, not null, so the screen has a form to show rather than a loading state
+ * that never resolves (`PasswordScreen`'s `loadAccount` follows the same shape).
+ */
+export async function loadOwnName(): Promise<{ firstName: string; lastName: string } | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) return null
+
+  const target = normalizeEmail(email)
+  const rows = await db()
+    .select({ firstName: accounts.firstName, lastName: accounts.lastName })
+    .from(accounts)
+    .where(eq(accounts.ownerEmail, target))
+    .limit(1)
+
+  const row = rows[0]
+  return { firstName: row?.firstName ?? '', lastName: row?.lastName ?? '' }
+}
+
+/**
+ * Changes your own first and last name (`/profile`, `PLAN-account-name.md` point 5).
+ * Keyed on the signed-in address itself, never `accountOwnerEmail` — the same choice
+ * `setOwnPassword` (`lib/auth/actions.ts`) already makes for the same reason: this is a
+ * fact about *you*, not about whichever account a global owner happens to have
+ * switched into for support. Both fields are required, trimmed — this never writes an
+ * empty name back over one that already exists.
+ */
+export async function updateOwnName(firstName: string, lastName: string): Promise<NameResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) return { ok: false, reason: 'no-session' }
+
+  const trimmedFirst = firstName.trim()
+  const trimmedLast = lastName.trim()
+  if (trimmedFirst === '' || trimmedLast === '') return { ok: false, reason: 'invalid-name' }
+
+  try {
+    await db()
+      .update(accounts)
+      .set({ firstName: trimmedFirst, lastName: trimmedLast })
+      .where(eq(accounts.ownerEmail, normalizeEmail(email)))
+    return { ok: true }
+  } catch (error) {
+    console.error('updateOwnName failed', error)
+    return { ok: false, reason: 'failed' }
+  }
 }

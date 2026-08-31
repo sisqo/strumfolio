@@ -18,6 +18,15 @@ interface RoleContextValue {
    */
   accountOwnerEmail: string | null
   role: Role | null
+  /**
+   * The signed-in reader's own first name, for `UserMenu`'s greeting
+   * (`PLAN-account-name.md` point 6) — null while unknown, and also once known when
+   * the account genuinely has none yet, which is why `UserMenu` itself checks for an
+   * empty string too rather than trusting null alone. Always the address that is
+   * actually signed in, never `accountOwnerEmail`'s — a global owner switched into
+   * another account is still greeted by their own name.
+   */
+  firstName: string | null
   /** Whether the server has answered yet. Before that, nothing is offered. */
   known: boolean
   mayEdit: boolean
@@ -79,6 +88,7 @@ const RoleContext = createContext<RoleContextValue>({
   email: null,
   accountOwnerEmail: null,
   role: null,
+  firstName: null,
   known: false,
   mayEdit: false,
   isGlobalOwner: false,
@@ -113,6 +123,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null)
   const [accountOwnerEmail, setAccountOwnerEmail] = useState<string | null>(null)
   const [role, setRole] = useState<Role | null>(null)
+  const [firstName, setFirstName] = useState<string | null>(null)
   const [known, setKnown] = useState(false)
   const [switcher, setSwitcher] = useState(false)
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -128,6 +139,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         setEmail(identity?.email ?? null)
         setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)
         setRole(identity?.role ?? null)
+        setFirstName(identity?.firstName ?? null)
         setSwitcher(showSwitcher)
         setPlan(identity?.plan ?? null)
         setSubscriptionPlan(identity?.subscriptionPlan ?? null)
@@ -181,6 +193,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       email,
       accountOwnerEmail,
       role,
+      firstName,
       known,
       mayEdit: known && canEdit(role),
       isGlobalOwner: known && switcher,
@@ -188,7 +201,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       subscriptionPlan,
       planChosen,
     }),
-    [email, accountOwnerEmail, role, known, switcher, plan, subscriptionPlan, planChosen],
+    [email, accountOwnerEmail, role, firstName, known, switcher, plan, subscriptionPlan, planChosen],
   )
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>

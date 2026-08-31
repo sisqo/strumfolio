@@ -49,6 +49,18 @@ export const accounts = pgTable(
     ownerEmail: text('owner_email').primaryKey(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /**
+     * The account owner's own first and last name (`PLAN-account-name.md`) — nullable
+     * forever, with no backfill: unlike `planChosenAt` there is no retroactive value to
+     * write for a row that predates these two columns, so they simply stay `null` until
+     * something fills them in. Filled at registration for a new account (both the Google
+     * and the email/password path, see `provisionAccount`), and for an **existing**
+     * account only opportunistically — `provisionAccount`'s own update runs `WHERE
+     * first_name IS NULL`, so a later Google sign-in never overwrites a name the reader
+     * already set by hand on `/profile`.
+     */
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    /**
      * What this account has bought.
      *
      * `text` with a narrowing reader (`readPlan`, `lib/plans/`) rather than a pgEnum — the
@@ -449,6 +461,17 @@ export const credentials = pgTable('credentials', {
  */
 export const pendingRegistrations = pgTable('pending_registrations', {
   email: text('email').primaryKey(),
+  /**
+   * Carried through to `accounts.first_name`/`last_name` once `verifyEmail` turns this
+   * row into a real account (`PLAN-account-name.md`). Nullable at the column level on
+   * purpose, not `NOT NULL`: adding a `NOT NULL` column without a default would fail
+   * outright against a row already pending at deploy time (this table's 24h expiry
+   * window). `register()` is what actually requires both non-empty before it ever
+   * writes here — the same "not a CHECK, not a pgEnum" rule this schema already applies
+   * to every other constrained value (`instrument`, `notation`, `chordDisplay`).
+   */
+  firstName: text('first_name'),
+  lastName: text('last_name'),
   passwordHash: text('password_hash').notNull(),
   verificationTokenHash: text('verification_token_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

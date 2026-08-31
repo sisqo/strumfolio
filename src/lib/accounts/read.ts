@@ -295,6 +295,14 @@ export interface AccountDetail {
   signInCount: number
   lastSignInAt: string | null
   /**
+   * Null when the account has none yet — every account before `PLAN-account-name.md`,
+   * and any created since whose owner has not signed in with Google or visited
+   * `/profile`. The list at `/accounts` does not show either column (deliberately out
+   * of scope there); only this detail page does.
+   */
+  firstName: string | null
+  lastName: string | null
+  /**
    * Null when the plan columns can't be read — an unapplied migration, the same failure
    * `listAccountPlans()` absorbs for the list, never a missing account: that case is `null`
    * on the whole function instead, and the page answers `notFound()` for it.
@@ -339,6 +347,22 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
   const signIns = await listSignIns()
   const stats = signIns?.get(row.ownerEmail) ?? null
 
+  // Same defensive shape as the plan columns just below, and the same reason: named
+  // explicitly because migration 0034 added them, so a deploy that lands before that
+  // migration runs must still show the rest of this page rather than go down with it.
+  let name: { firstName: string | null; lastName: string | null } = { firstName: null, lastName: null }
+  try {
+    const nameRows = await db()
+      .select({ firstName: accounts.firstName, lastName: accounts.lastName })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, target))
+      .limit(1)
+    const nameRow = nameRows[0]
+    if (nameRow !== undefined) name = nameRow
+  } catch (error) {
+    console.error('getAccountDetail (name columns) failed', error)
+  }
+
   let plan: AccountPlanLine | null = null
   try {
     const planRows = await db()
@@ -357,6 +381,8 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
     createdAt: row.createdAt.toISOString(),
     signInCount: stats?.signInCount ?? 0,
     lastSignInAt: stats?.lastSignInAt ?? null,
+    firstName: name.firstName,
+    lastName: name.lastName,
     plan,
   }
 }

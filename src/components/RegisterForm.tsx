@@ -26,6 +26,8 @@ type Phase = 'form' | 'sent'
 export function RegisterForm() {
   const [phase, setPhase] = useState<Phase>('form')
   const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -74,6 +76,36 @@ export function RegisterForm() {
 
       {phase === 'form' ? (
         <>
+          <div className="grid grid-cols-2 gap-2.5">
+            <label className="block">
+              <span className="sr-only">First name</span>
+              <input
+                type="text"
+                name="firstName"
+                required
+                autoComplete="given-name"
+                placeholder="First name"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                className="form-field"
+              />
+            </label>
+
+            <label className="block">
+              <span className="sr-only">Last name</span>
+              <input
+                type="text"
+                name="lastName"
+                required
+                autoComplete="family-name"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                className="form-field"
+              />
+            </label>
+          </div>
+
           <label className="block">
             <span className="sr-only">Email</span>
             <input
@@ -120,6 +152,8 @@ export function RegisterForm() {
       ) : (
         <>
           <input type="hidden" name="email" defaultValue={email} />
+          <input type="hidden" name="firstName" defaultValue={firstName} />
+          <input type="hidden" name="lastName" defaultValue={lastName} />
           <input type="hidden" name="password" defaultValue={password} />
           <input type="hidden" name="confirmPassword" defaultValue={confirmPassword} />
         </>

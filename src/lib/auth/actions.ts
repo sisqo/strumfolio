@@ -10,6 +10,8 @@
  * The role is here because a screen has to know what to leave out.
  */
 
+import { eq } from 'drizzle-orm'
+
 import { auth } from '@/auth'
 import { normalizeEmail, isOwner } from '@/lib/allowlist'
 import {
@@ -20,10 +22,32 @@ import {
 import { hashPassword, isPasswordAcceptable, verifyPassword } from '@/lib/auth/password'
 import { currentUser } from '@/lib/auth/session'
 import type { PasswordResult } from '@/lib/auth/types'
-import { hasDatabase } from '@/lib/db/client'
+import { db, hasDatabase } from '@/lib/db/client'
+import { accounts } from '@/lib/db/schema'
 import { hasChosenPlan, planNamesOf } from '@/lib/plans/resolve'
 import type { Plan } from '@/lib/plans/types'
 import type { Role } from '@/lib/roles'
+
+/**
+ * The signed-in reader's own first name, for `loadIdentity` below — `user.email`, never
+ * `accountOwnerEmail`: `UserMenu`'s greeting is about who is actually looking, the same
+ * choice `avatarInitials` already makes for the same reason. Null on no database, no row,
+ * or a row that has none yet — `UserMenu` treats an empty string the same way.
+ */
+async function readFirstName(email: string): Promise<string | null> {
+  if (!hasDatabase) return null
+  try {
+    const rows = await db()
+      .select({ firstName: accounts.firstName })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, email))
+      .limit(1)
+    return rows[0]?.firstName ?? null
+  } catch (error) {
+    console.error('readFirstName failed', error)
+    return null
+  }
+}
 
 /**
  * The signed-in reader's address, role, plan and plan-choice state, or null when there is
@@ -57,13 +81,15 @@ export async function loadIdentity(): Promise<{
   plan: Plan | null
   subscriptionPlan: Plan | null
   planChosen: boolean
+  firstName: string | null
 } | null> {
   const user = await currentUser()
   if (user === null) return null
 
-  const [names, planChosen] = await Promise.all([
+  const [names, planChosen, firstName] = await Promise.all([
     planNamesOf(user.accountOwnerEmail),
     hasChosenPlan(user.accountOwnerEmail),
+    readFirstName(user.email),
   ])
 
   return {
@@ -73,6 +99,7 @@ export async function loadIdentity(): Promise<{
     plan: names.effective,
     subscriptionPlan: names.subscription,
     planChosen,
+    firstName,
   }
 }
 

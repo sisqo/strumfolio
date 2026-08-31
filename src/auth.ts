@@ -6,6 +6,7 @@ import { authConfig } from './auth.config'
 import { normalizeEmail } from './lib/allowlist'
 import { provisionAccount } from './lib/accounts/provision'
 import { readPasswordHash } from './lib/auth/credentials'
+import { splitName } from './lib/auth/nameSplit'
 import { verifyAgainstNothing, verifyPassword } from './lib/auth/password'
 import { recordSignIn } from './lib/auth/signIns'
 import { sendEmail } from './lib/email/send'
@@ -111,11 +112,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
        */
       const email = normalizeEmail(raw)
       await recordSignIn(email)
+
+      /*
+       * A name is only ever known here for Google (`PLAN-account-name.md` point 3): the
+       * credentials path has none to offer — its own account is created earlier, by
+       * `verifyEmail`, with the name captured at registration — so `provisionAccount`
+       * gets `undefined` and this is a plain no-op on that branch, existing account or
+       * not. `given_name`/`family_name` are the ordinary case; the split on `name` only
+       * runs when Google's profile omits them, which is rare but not impossible.
+       */
+      const googleName =
+        account?.provider === 'google'
+          ? profile?.given_name != null && profile?.family_name != null
+            ? { firstName: profile.given_name, lastName: profile.family_name }
+            : splitName(profile?.name)
+          : undefined
+
       // The returned boolean says whether this call is the one that created the account
       // (v3.2, PLAN.md point 7): true only the first time this address ever signs in
       // successfully, false on every later sign-in that finds the row already there —
       // exactly when, and only when, the welcome email belongs.
-      const created = await provisionAccount(email)
+      const created = await provisionAccount(email, googleName)
       if (created) {
         await sendEmail({ to: email, ...welcomeEmail() })
         await notifyTelegram('registration', `🆕 Nuova registrazione: ${email}`)

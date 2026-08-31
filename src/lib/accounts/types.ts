@@ -50,6 +50,23 @@ export const SELF_DELETE_MESSAGE: Record<SelfDeleteFailure, string> = {
 }
 
 /**
+ * Results for the one action every reader may take on their own first and last name
+ * (`/profile`, `PLAN-account-name.md` point 5) — a fourth union rather than new members
+ * on any of the above, for the same reason `SelfDeleteFailure` already states: none of
+ * `updateOwnName`'s reachable failures overlap with deleting or granting a plan.
+ */
+export type NameFailure = 'no-session' | 'no-database' | 'invalid-name' | 'failed'
+
+export type NameResult = { ok: true } | { ok: false; reason: NameFailure }
+
+export const NAME_MESSAGE: Record<NameFailure, string> = {
+  'no-session': 'Session expired. Reload the page and sign in again.',
+  'no-database': 'No database configured: your name cannot be saved.',
+  'invalid-name': 'Enter both your first and last name.',
+  failed: 'Save failed. Please try again.',
+}
+
+/**
  * What an operator typed into the grant panel, before anything has been checked.
  *
  * `plan` is a `string` and not a `Plan`, and the loose type is the point: this value arrives

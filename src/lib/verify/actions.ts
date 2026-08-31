@@ -40,9 +40,14 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
 
   const normalized = normalizeEmail(email)
 
-  let verified: boolean
+  /*
+   * Carries `firstName`/`lastName` back out alongside the plain ok/not-ok this used to
+   * be — `provisionAccount` below needs them, and the row they come from is deleted
+   * before this transaction ever returns (PLAN-account-name.md point 4).
+   */
+  let result: { ok: true; firstName: string | null; lastName: string | null } | { ok: false }
   try {
-    verified = await db().transaction(async (tx) => {
+    result = await db().transaction(async (tx) => {
       const rows = await tx
         .select()
         .from(pendingRegistrations)
@@ -50,9 +55,9 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
         .limit(1)
 
       const row = rows[0]
-      if (row === undefined) return false
-      if (hashToken(token) !== row.verificationTokenHash) return false
-      if (row.expiresAt.getTime() <= Date.now()) return false
+      if (row === undefined) return { ok: false }
+      if (hashToken(token) !== row.verificationTokenHash) return { ok: false }
+      if (row.expiresAt.getTime() <= Date.now()) return { ok: false }
 
       /*
        * Not `writePasswordHash` (`lib/auth/credentials.ts`): it calls `db()` on its own,
@@ -74,14 +79,14 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
 
       await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
 
-      return true
+      return { ok: true, firstName: row.firstName, lastName: row.lastName }
     })
   } catch (error) {
     console.error('verifyEmail failed', error)
     return
   }
 
-  if (!verified) return
+  if (!result.ok) return
 
   /*
    * Sequential, not nested in the transaction above — same single-connection reason.
@@ -92,8 +97,19 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
    * the boolean the welcome email below is gated on. This is "identical to every other
    * admission path" (PLAN.md's own words for this step) for exactly that reason: nobody
    * else pre-creates the row it is there to create.
+   *
+   * `firstName`/`lastName` can be null here only for a registration that was already
+   * pending across the deploy that added those columns (`register()` has required both,
+   * non-empty, ever since) — `undefined` in that rare case lets a later Google sign-in
+   * or a visit to `/profile` fill the name in instead of writing empty strings that
+   * would block `provisionAccount`'s own opportunistic fill from ever running.
    */
-  const created = await provisionAccount(normalized)
+  const created = await provisionAccount(
+    normalized,
+    result.firstName !== null && result.lastName !== null
+      ? { firstName: result.firstName, lastName: result.lastName }
+      : undefined,
+  )
 
   // Gated on provisionAccount's own true/false, not assumed from the transaction above:
   // that transaction only proves no `accounts` row existed a moment ago, not that this

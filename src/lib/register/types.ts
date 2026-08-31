@@ -13,6 +13,8 @@ export type RegisterFailure =
   | 'captcha-failed'
   | 'rate-limited'
   | 'invalid-email'
+  /** First or last name missing, or only whitespace — checked after trimming both. */
+  | 'invalid-name'
   | 'weak-password'
   | 'password-mismatch'
   /** A real account already exists for this address — never overwritten silently. */
@@ -26,6 +28,7 @@ export const REGISTER_MESSAGE: Record<RegisterFailure, string> = {
   'captcha-failed': 'Security check failed. Please try again.',
   'rate-limited': 'Too many attempts. Please try again later.',
   'invalid-email': 'Enter a valid email address.',
+  'invalid-name': 'Enter your first and last name.',
   'weak-password': `The password must be at least ${MIN_PASSWORD} characters.`,
   'password-mismatch': 'The passwords do not match.',
   'account-exists': 'An account already exists for this address. Sign in, or reset your password.',

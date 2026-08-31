@@ -276,6 +276,16 @@ export function IconKey(props: IconProps) {
   )
 }
 
+/** A single reader: head and shoulders — `/profile`, never the plural `IconUsers`. */
+export function IconUser(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" />
+    </Icon>
+  )
+}
+
 /** Settings: a gear, short teeth around a hub. */
 export function IconSettings(props: IconProps) {
   return (

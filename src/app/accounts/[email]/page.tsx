@@ -123,6 +123,11 @@ export default async function AccountDetailPage({ params }: Props) {
           <div className="min-w-0">
             <h1 className="screen-title truncate">{detail.ownerEmail}</h1>
             <p className="mt-1 text-sm text-muted">
+              {detail.firstName !== null && detail.lastName !== null
+                ? `${detail.firstName} ${detail.lastName}`
+                : '—'}
+            </p>
+            <p className="mt-1 text-sm text-muted">
               {detail.signInCount === 0
                 ? 'Never signed in'
                 : `${detail.signInCount} sign-in${detail.signInCount === 1 ? '' : 's'}`}

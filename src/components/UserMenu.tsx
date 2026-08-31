@@ -7,7 +7,15 @@ import { useEffect, useState } from 'react'
 import { NotationPicker } from '@/components/NotationPicker'
 import { useRole } from '@/components/RoleProvider'
 import { ThemePicker } from '@/components/ThemePicker'
-import { IconChevronLeft, IconChevronRight, IconKey, IconReceipt, IconSettings, IconTrash } from '@/components/icons'
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconKey,
+  IconReceipt,
+  IconSettings,
+  IconTrash,
+  IconUser,
+} from '@/components/icons'
 import { deleteMyAccount } from '@/lib/accounts/actions'
 import { SELF_DELETE_MESSAGE } from '@/lib/accounts/types'
 import { avatarColorIndex, avatarInitials } from '@/lib/avatar'
@@ -57,7 +65,7 @@ import { PLAN_LABEL } from '@/lib/plans/types'
  * take it this way before sign-out moved here (see its own history).
  */
 export function UserMenu({ children }: { children: React.ReactNode }) {
-  const { email, known, plan } = useRole()
+  const { email, known, plan, firstName } = useRole()
   const [open, setOpen] = useState(false)
   /**
    * A second screen inside this same panel, the same pattern this file already used
@@ -120,6 +128,14 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                     {initials}
                   </span>
                   <div className="user-menu-identity">
+                    {/*
+                     * Only when known and non-empty — nothing shown at all otherwise, the
+                     * same "no change until it's there" rule `PLAN-account-name.md` settled
+                     * on: an account with no name yet must look exactly as it does today.
+                     */}
+                    {firstName !== null && firstName !== '' && (
+                      <span className="user-menu-greeting">Hi, {firstName}</span>
+                    )}
                     <span className="user-menu-email">{email}</span>
                     {/*
                       * `plan` is null while unknown and null forever with the plans switched
@@ -144,6 +160,16 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                   Settings
                   <IconChevronRight size={15} className="ms-auto" />
                 </button>
+
+                {/*
+                 * Same reasoning as Change password/Billing beside it: an account question
+                 * with a screen of its own, reached from this panel and leaving it — never
+                 * annexed into Settings, which is preferences, not identity.
+                 */}
+                <Link href="/profile" className="menu-item" role="menuitem" onClick={close}>
+                  <IconUser size={17} />
+                  Edit profile
+                </Link>
 
                 <Link href="/password" className="menu-item" role="menuitem" onClick={close}>
                   <IconKey size={17} />

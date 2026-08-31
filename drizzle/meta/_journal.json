@@ -239,6 +239,13 @@
       "when": 1788166988261,
       "tag": "0033_chord_shapes",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788177820808,
+      "tag": "0034_account_name",
+      "breakpoints": true
     }
   ]
 }

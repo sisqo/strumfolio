@@ -19,7 +19,7 @@
  * is the caller's job, so this function does not need to know Resend exists.
  */
 
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 
 import { normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
@@ -55,8 +55,19 @@ import { insertSampleSongbook } from '@/lib/songbooks/seed'
  * succeed even if provisioning trips, the same reasoning `recordSignIn` already applies.
  * Both of those paths report `false`: nothing was created, so there is nothing to send
  * a welcome email about.
+ *
+ * `name`, when given, is a first/last name already known for this address — Google's
+ * profile (`auth.ts`), or a completed traditional registration (`verifyEmail`)
+ * (`PLAN-account-name.md`). On a brand-new account it is written in the same insert as
+ * `ownerEmail`. On an account that already exists it is **never** overwritten
+ * unconditionally: the update below runs `WHERE first_name IS NULL`, so a Google
+ * sign-in years after registration can fill a name that was never captured, but can
+ * never clobber one the reader corrected by hand on `/profile`.
  */
-export async function provisionAccount(email: string): Promise<boolean> {
+export async function provisionAccount(
+  email: string,
+  name?: { firstName: string; lastName: string },
+): Promise<boolean> {
   if (!hasDatabase) return false
 
   const ownerEmail = normalizeEmail(email)
@@ -71,7 +82,10 @@ export async function provisionAccount(email: string): Promise<boolean> {
         .limit(1)
       if (existing.length > 0) return false
 
-      await tx.insert(accounts).values({ ownerEmail })
+      await tx.insert(accounts).values({
+        ownerEmail,
+        ...(name !== undefined ? { firstName: name.firstName, lastName: name.lastName } : {}),
+      })
       return true
     })
   } catch (error) {
@@ -79,7 +93,21 @@ export async function provisionAccount(email: string): Promise<boolean> {
     return false
   }
 
-  if (!created) return false
+  if (!created) {
+    // The opportunistic fill above: only for an address whose account already existed,
+    // and only into a still-empty name — see this function's own header comment.
+    if (name !== undefined) {
+      try {
+        await db()
+          .update(accounts)
+          .set({ firstName: name.firstName, lastName: name.lastName })
+          .where(and(eq(accounts.ownerEmail, ownerEmail), isNull(accounts.firstName)))
+      } catch (error) {
+        console.error('provisionAccount could not backfill the name', error)
+      }
+    }
+    return false
+  }
 
   /*
    * Deliberately outside the transaction above, and deliberately swallowing its own
