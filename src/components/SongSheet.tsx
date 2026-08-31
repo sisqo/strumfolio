@@ -334,8 +334,8 @@ function ChordSummary({
             }
           >
             <span className="chord-fingering-name">
-              {chord.label}
               {chord.overridden && <OverrideDot />}
+              {chord.label}
             </span>
             <span className="chord-fingering-frets">{fingeringText(chord.shape.frets)}</span>
           </button>
@@ -360,8 +360,8 @@ function ChordSummary({
         >
           <ChordDiagram shape={chord.shape} capo={capo} className="chord-strip-shape" />
           <span className="chord-strip-name">
-            {chord.label}
             {chord.overridden && <OverrideDot />}
+            {chord.label}
           </span>
         </button>
       ))}
