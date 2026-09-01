@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { type ReactNode, useState } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
@@ -21,11 +20,15 @@ import { useOnline } from '@/lib/useOnline'
  * Calling it as a plain awaited function and doing the navigation here instead is what
  * makes `refresh()` (below) reachable at all.
  *
- * `router.refresh()` **before** `router.push('/')`, not after and not either alone:
- * `refresh()` is what invalidates the Router Cache so the navigation that follows
- * actually re-fetches rather than serving whatever `/` last rendered — doing it first is
- * what makes the already-on-`/` case work (where `push` alone is a no-op, same URL) for
- * the right reason instead of by luck of `/` not having been cached yet.
+ * `window.location.assign('/')`, not `next/navigation`'s `router.push`/`router.refresh` —
+ * tried first and found wanting: the account cookie changes, but `/` reads it inside a
+ * Server Component, and the client Router Cache can still hand back whatever `/` last
+ * rendered under the *previous* cookie regardless of which order `push`/`refresh` run in
+ * (both orders were tried against a real switch and both still showed the account being
+ * left, not the one being entered). Nothing in this app's public API invalidates another
+ * route's cache entry from outside it. A real navigation sidesteps the question entirely
+ * — the browser makes a fresh request, past the client-side cache altogether, the same
+ * as the "close the app, reopen it" workaround this exists to remove.
  */
 export function SwitchAccountButton({
   targetEmail,
@@ -43,7 +46,6 @@ export function SwitchAccountButton({
   confirmMessage?: string
   children: ReactNode
 }) {
-  const router = useRouter()
   const online = useOnline()
   const { refresh } = useRole()
   const [busy, setBusy] = useState(false)
@@ -54,12 +56,15 @@ export function SwitchAccountButton({
     setBusy(true)
     try {
       await switchAccount(targetEmail)
+      // Doubles as an ordering barrier, not only a badge update: it is a second
+      // server round-trip, so awaiting it before navigating also guarantees the new
+      // cookie has actually landed before the hard reload below reads it — the
+      // navigation would reload this provider from scratch either way, but not
+      // necessarily *after* the cookie write without this in between.
       await refresh()
-      router.refresh()
-      router.push('/')
-      // No `finally` resetting `busy`: every success path above ends in a navigation
-      // away from whatever this button sits on, so there is nothing left to restore —
-      // only a failed request needs the button clickable again.
+      window.location.assign('/')
+      // No `finally` resetting `busy`: the assignment above tears this page down:
+      // only a failed request before it ever leaves needs the button clickable again.
     } catch {
       setBusy(false)
     }
