@@ -77,6 +77,16 @@ export function giftWithdrawn(line: AccountPlanLine): boolean {
 }
 
 /**
+ * A gift, not a subscription, decides this account's limits right now — the list row's other
+ * gift flag, alongside `giftWithdrawn`. The two never coincide: this reads `source`, which
+ * `planStateFor` only ever sets to `'grant'` when a live gift is actually winning, and a gift
+ * that is winning cannot also be the withdrawn one.
+ */
+export function giftActive(line: AccountPlanLine): boolean {
+  return line.source === 'grant'
+}
+
+/**
  * The badge for one account: its plan's name and colour, or the "No plan" marker when there is
  * no plan to name. One function rather than each screen deciding, so `/accounts` and
  * `/accounts/[email]` cannot come to disagree about what a row *is*.
@@ -111,15 +121,16 @@ export function planBadge(line: AccountPlanLine): { label: string; className: st
 export function planDetail(line: AccountPlanLine): string {
   if (line.effectivePlan === 'free') return ''
 
-  const side = line.source === 'grant' ? 'gift' : 'subscription'
-  // Only on the subscription side, and only ahead of its own date: a scheduled downgrade on
-  // the subscription while a grant currently wins would not even take effect the day it
-  // fires, and naming it here would suggest a change to what the row is showing right now.
-  const pendingClause =
-    side === 'subscription' && line.pendingPlan !== null ? `, then ${PLAN_LABEL[line.pendingPlan]}` : ''
-  if (line.status === 'grace' && line.source === 'subscription') return 'subscription, payment retrying'
-  if (line.untilOn !== null) return `${side} until ${line.untilOn}${pendingClause}`
-  return line.source === 'grant' ? 'gift, no end' : `subscription${pendingClause}`
+  // The word "gift" is never spelled out here any more: the compact G badge beside the plan
+  // badge already says that (`giftActive`, the list row) — this is only ever the date, so a
+  // gift and a subscription answering the same question read the same way beside a badge that
+  // already told the two apart.
+  if (line.source === 'grant') return line.untilOn === null ? 'no end' : `until ${line.untilOn}`
+
+  if (line.status === 'grace') return 'subscription, payment retrying'
+  const pendingClause = line.pendingPlan !== null ? `, then ${PLAN_LABEL[line.pendingPlan]}` : ''
+  if (line.untilOn !== null) return `subscription until ${line.untilOn}${pendingClause}`
+  return `subscription${pendingClause}`
 }
 
 /**

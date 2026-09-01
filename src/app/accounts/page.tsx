@@ -9,7 +9,7 @@ import { TopBar } from '@/components/TopBar'
 import { auth } from '@/auth'
 import { listAccountPlans, listAllAccounts, listPendingRegistrations } from '@/lib/accounts/read'
 import type { AccountSummary } from '@/lib/accounts/read'
-import { giftWithdrawn, noPlanYet, planBadge, planDetail, stillAwaitingChoice } from '@/lib/accounts/planText'
+import { giftActive, giftWithdrawn, noPlanYet, planBadge, planDetail, stillAwaitingChoice } from '@/lib/accounts/planText'
 import { isOwner } from '@/lib/allowlist'
 import { forcedPlanNotice, plansEnforced } from '@/lib/plans/resolve'
 import { PLAN_LABEL, PLAN_VALUES } from '@/lib/plans/types'
@@ -313,12 +313,19 @@ export default async function AccountsPage({ searchParams }: Props) {
                             {stillAwaitingChoice(line) && (
                               <span className="badge plan-badge-unchosen">Awaiting choice</span>
                             )}
-                            {/* Otherwise this row is byte-for-byte a deliberate Free account —
-                                see `giftWithdrawn` on why the badge and the detail cannot say so.
-                                A single letter, not the full word: this list can run to many
-                                rows, and "G" beside the plan badge is enough to flag "there's a
-                                gift history here, open the row for the story" — the full
-                                sentence already lives on the detail page. */}
+                            {/* A gift, active or withdrawn, gets the same compact flag rather
+                                than a full phrase spelled out beside the plan badge — this list
+                                can run to many rows, and a single letter is enough to say
+                                "there's a gift story here, open the row for it". Color tells the
+                                two states apart: accent for one currently in force, the danger
+                                red already used elsewhere for "withdrawn" — never both on the
+                                same row, `giftActive`/`giftWithdrawn` are mutually exclusive. The
+                                full sentence either way lives on the detail page. */}
+                            {giftActive(line) && (
+                              <span className="badge" title="Gift" aria-label="Gift">
+                                G
+                              </span>
+                            )}
                             {giftWithdrawn(line) && (
                               <span className="badge plan-badge-unchosen" title="Gift withdrawn" aria-label="Gift withdrawn">
                                 G
