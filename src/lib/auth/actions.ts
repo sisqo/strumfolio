@@ -10,7 +10,7 @@
  * The role is here because a screen has to know what to leave out.
  */
 
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 import { auth } from '@/auth'
 import { normalizeEmail, isOwner } from '@/lib/allowlist'
@@ -23,9 +23,11 @@ import { hashPassword, isPasswordAcceptable, verifyPassword } from '@/lib/auth/p
 import { currentUser } from '@/lib/auth/session'
 import type { PasswordResult } from '@/lib/auth/types'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts } from '@/lib/db/schema'
+import { accounts, rateLimitHits } from '@/lib/db/schema'
+import { sendPasswordResetToken } from '@/lib/forgotPassword/actions'
 import { hasChosenPlan, planNamesOf } from '@/lib/plans/resolve'
 import type { Plan } from '@/lib/plans/types'
+import type { AdminActionResult } from '@/lib/accounts/types'
 import type { Role } from '@/lib/roles'
 
 /**
@@ -221,6 +223,72 @@ export async function setPasswordFor(email: string, password: string): Promise<P
     return { ok: true }
   } catch (error) {
     console.error('setPasswordFor failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Sends a password-reset email to an account on `/accounts/[email]`, instead of setting
+ * the password directly (`PasswordForm`) — for when the admin would rather let the
+ * account holder pick their own (`PLAN-account-admin.md`, point 9). Reuses
+ * `sendPasswordResetToken` (`lib/forgotPassword/actions.ts`) — the same token generation
+ * and email `requestPasswordReset` sends — but bypasses both its rate limit and its
+ * anti-enumeration masking: this page is already `isOwner`-gated for an address the
+ * operator already knows exists, so a fake `ok: true` here would only hide a real
+ * failure from the one person in a position to act on it.
+ */
+export async function sendPasswordResetFor(email: string): Promise<PasswordResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  try {
+    await sendPasswordResetToken(normalizeEmail(email))
+    return { ok: true }
+  } catch (error) {
+    console.error('sendPasswordResetFor failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Clears the login/registration/reset/feedback rate-limit buckets for one address, on
+ * `/accounts/[email]` (`PLAN-account-admin.md`, point 9) — for a legitimate reader
+ * blocked by accident ("it says try again later"). Only the **email**-keyed buckets,
+ * never the IP-keyed ones (`login:ip:*` and so on, `rateLimit.ts`): an IP can be shared
+ * (NAT, a public wifi network), and clearing it would unblock everyone else behind it
+ * too, not just the one account an operator has open. Lives here rather than in
+ * `rateLimit.ts` itself, deliberately: that file has no `isOwner` gate anywhere in it
+ * and is imported by code with no session to check, so an `isOwner`-gated action that
+ * takes an arbitrary address belongs with the rest of this file's admin actions instead.
+ */
+export async function clearRateLimitFor(email: string): Promise<AdminActionResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const address = normalizeEmail(email)
+
+  try {
+    await db()
+      .delete(rateLimitHits)
+      .where(
+        inArray(rateLimitHits.key, [
+          `login:email:${address}`,
+          `register:email:${address}`,
+          `reset:email:${address}`,
+          `feedback:${address}`,
+        ]),
+      )
+    return { ok: true }
+  } catch (error) {
+    console.error('clearRateLimitFor failed', error)
     return { ok: false, reason: 'failed' }
   }
 }

@@ -5,6 +5,7 @@ import Google from 'next-auth/providers/google'
 import { authConfig } from './auth.config'
 import { normalizeEmail } from './lib/allowlist'
 import { provisionAccount } from './lib/accounts/provision'
+import { isAccountSuspended } from './lib/accounts/read'
 import { readPasswordHash } from './lib/auth/credentials'
 import { splitName } from './lib/auth/nameSplit'
 import { verifyAgainstNothing, verifyPassword } from './lib/auth/password'
@@ -112,6 +113,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
        * `accounts`/`ALLOWED_EMAILS`.
        */
       const email = normalizeEmail(raw)
+
+      /*
+       * A suspended account gets no new session at all (`PLAN-account-admin.md`, point
+       * 9) — checked before `recordSignIn`, the same early-return shape as the
+       * `email_verified` check above it, so a blocked attempt leaves no sign-in count
+       * behind either. Blocks only the *next* sign-in: a session already issued keeps
+       * working until it naturally expires, since JWTs are not revocable server-side by
+       * design in this app (`lib/auth/session.ts`).
+       */
+      if (await isAccountSuspended(email)) return false
+
       await recordSignIn(email)
 
       /*

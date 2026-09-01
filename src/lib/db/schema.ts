@@ -224,6 +224,24 @@ export const accounts = pgTable(
      * null prints exactly as much as an empty string would.
      */
     bookletFooter: text('booklet_footer'),
+    /**
+     * Blocks new sign-ins for this address without touching anything else
+     * (`PLAN-account-admin.md`) — null means not suspended, a timestamp is when an
+     * operator flipped it on. Checked in `auth.ts`'s `signIn` callback, before
+     * `recordSignIn`, so a blocked attempt leaves no trace of having tried. Deliberately
+     * does not reach a session already issued: JWTs are not revocable server-side by
+     * design in this app, so this stops the *next* sign-in, not one already in progress.
+     * "Enter as this account" never checks this column — it does not call `signIn()` at
+     * all — so a suspended account stays reachable to the owner who suspended it.
+     */
+    suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+    /**
+     * A global owner's own note about this account — support context, an exception
+     * granted, a flag — never shown to the account's reader. Overwritable on purpose
+     * (`PLAN-account-admin.md`, decided in interview): a single field, not a timestamped
+     * log, chosen for simplicity over a full history of every past note.
+     */
+    internalNote: text('internal_note'),
   },
   (table) => [unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId)],
 )

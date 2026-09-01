@@ -14,6 +14,16 @@ export type NewsletterFrequency = 'weekly' | 'monthly'
  */
 export type NewsletterPrefs = { subscribed: boolean; frequency: NewsletterFrequency }
 
+/**
+ * The admin's read of one account's newsletter preference (`loadNewsletterSummaryFor`) —
+ * `NewsletterPrefs` plus the two dates, which only the admin fieldset shows; the
+ * self-service Settings toggle has no use for them.
+ */
+export interface NewsletterSummary extends NewsletterPrefs {
+  subscribedAt: string | null
+  unsubscribedAt: string | null
+}
+
 export type NewsletterFailure = 'no-session' | 'no-database' | 'failed'
 
 export type NewsletterResult = { ok: true } | { ok: false; reason: NewsletterFailure }

@@ -9,13 +9,13 @@
  * server/client boundary as a server action.
  */
 
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 
 import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { listSignIns } from '@/lib/auth/signIns'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts } from '@/lib/db/schema'
+import { accounts, pendingRegistrations, songbooks, songs } from '@/lib/db/schema'
 import { liveSubscription, planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
 import type { StoredPlan } from '@/lib/plans/entitlements'
 import { readPendingCycle } from '@/lib/plans/prices'
@@ -308,6 +308,14 @@ export interface AccountDetail {
    * on the whole function instead, and the page answers `notFound()` for it.
    */
   plan: AccountPlanLine | null
+  /**
+   * Null only when the two `0036` columns can't be read at all (an unapplied migration)
+   * — the same "wrap the whole group, not just the value" shape `plan` uses just above,
+   * so a genuinely unsuspended account (`suspendedAt: null` inside a present object) can
+   * never be confused with "couldn't tell" (this field itself null). The page hides the
+   * suspend/reactivate control entirely on the outer null, rather than guess.
+   */
+  admin: { suspendedAt: string | null; internalNote: string | null } | null
 }
 
 /**
@@ -376,6 +384,24 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
     console.error('getAccountDetail (plan columns) failed', error)
   }
 
+  // Same defensive shape as `name`/`plan` just above, and the same reason: migration
+  // 0036 added these two, so a deploy that lands before it runs must still show the
+  // rest of this page rather than go down with it.
+  let admin: { suspendedAt: string | null; internalNote: string | null } | null = null
+  try {
+    const adminRows = await db()
+      .select({ suspendedAt: accounts.suspendedAt, internalNote: accounts.internalNote })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, target))
+      .limit(1)
+    const adminRow = adminRows[0]
+    if (adminRow !== undefined) {
+      admin = { suspendedAt: adminRow.suspendedAt?.toISOString() ?? null, internalNote: adminRow.internalNote }
+    }
+  } catch (error) {
+    console.error('getAccountDetail (admin columns) failed', error)
+  }
+
   return {
     ownerEmail: row.ownerEmail,
     createdAt: row.createdAt.toISOString(),
@@ -384,6 +410,129 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
     firstName: name.firstName,
     lastName: name.lastName,
     plan,
+    admin,
+  }
+}
+
+/**
+ * Whether this address is currently suspended — a system check run on **every** sign-in
+ * attempt (`auth.ts`'s `signIn` callback), not an admin action with a target an operator
+ * chose, so it deliberately takes no `isOwner` gate of its own
+ * (`PLAN-account-admin.md`, Assunzioni). False on no database, no row, or a read that
+ * failed — the same fail-open direction every other read in this schema takes when it
+ * cannot answer: an unreadable suspension must never lock someone out who was never
+ * suspended.
+ */
+export async function isAccountSuspended(email: string): Promise<boolean> {
+  if (!hasDatabase) return false
+
+  try {
+    const rows = await db()
+      .select({ suspendedAt: accounts.suspendedAt })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, normalizeEmail(email)))
+      .limit(1)
+    return rows[0]?.suspendedAt !== null && rows[0]?.suspendedAt !== undefined
+  } catch (error) {
+    console.error('isAccountSuspended failed', error)
+    return false
+  }
+}
+
+export interface UsageSummary {
+  songbookCount: number
+  songCount: number
+  singAlongPeakDevices: number
+}
+
+/**
+ * Songbook count, song count and Strum Together peak followers for one account — the
+ * Usage & content fieldset on `/accounts/[email]` (`PLAN-account-admin.md`, point 8).
+ * `isOwner`-gated inside, same reason as every other function here that takes an
+ * explicit `ownerEmail`. Null on refusal or a failed read — the caller shows "data
+ * unavailable" for this one fieldset rather than losing the rest of the page over it,
+ * the same resilience `getAccountDetail`'s own defensive columns already practice.
+ */
+export async function usageSummaryFor(ownerEmail: string): Promise<UsageSummary | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
+  const target = normalizeEmail(ownerEmail)
+
+  try {
+    const songbookRows = await db().select({ slug: songbooks.slug }).from(songbooks).where(eq(songbooks.accountOwnerEmail, target))
+    const slugs = songbookRows.map((row) => row.slug)
+
+    const songCount =
+      slugs.length === 0
+        ? 0
+        : (await db().select({ slug: songs.slug }).from(songs).where(inArray(songs.songbookSlug, slugs))).length
+
+    const peakRows = await db()
+      .select({ singAlongPeakDevices: accounts.singAlongPeakDevices })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, target))
+      .limit(1)
+
+    return {
+      songbookCount: slugs.length,
+      songCount,
+      singAlongPeakDevices: peakRows[0]?.singAlongPeakDevices ?? 0,
+    }
+  } catch (error) {
+    console.error('usageSummaryFor failed', error)
+    return null
+  }
+}
+
+export interface PendingRegistrationSummary {
+  email: string
+  firstName: string | null
+  lastName: string | null
+  createdAt: string
+  expiresAt: string
+  /** Past `expiresAt` — shown as a badge, never filtered out: "Confirm now" bypasses this check anyway. */
+  expired: boolean
+}
+
+/**
+ * Every pending, unverified registration — the "Pending registrations" subsection atop
+ * `/accounts` (`PLAN-account-admin.md`, point 11), there precisely so an operator can find
+ * a stuck signup without already knowing its address. `isOwner`-gated, same reason as
+ * every other whole-installation read on this page.
+ */
+export async function listPendingRegistrations(): Promise<PendingRegistrationSummary[] | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
+  try {
+    const now = new Date()
+    const rows = await db()
+      .select({
+        email: pendingRegistrations.email,
+        firstName: pendingRegistrations.firstName,
+        lastName: pendingRegistrations.lastName,
+        createdAt: pendingRegistrations.createdAt,
+        expiresAt: pendingRegistrations.expiresAt,
+      })
+      .from(pendingRegistrations)
+      .orderBy(asc(pendingRegistrations.createdAt))
+
+    return rows.map((row) => ({
+      email: row.email,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+      expired: row.expiresAt.getTime() <= now.getTime(),
+    }))
+  } catch (error) {
+    console.error('listPendingRegistrations failed', error)
+    return null
   }
 }
 

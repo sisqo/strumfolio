@@ -12,17 +12,46 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { auth, signOut } from '@/auth'
-import { isOwner, normalizeEmail } from '@/lib/allowlist'
+import { isEmailShape, isOwner, normalizeEmail } from '@/lib/allowlist'
 import { deletePasswordHash } from '@/lib/auth/credentials'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts, sections, singAlongSessions, songbooks, songs } from '@/lib/db/schema'
+import {
+  accounts,
+  credentials,
+  newsletterPrefs,
+  paddleEvents,
+  pendingRegistrations,
+  sections,
+  signIns,
+  singAlongSessions,
+  songbooks,
+  songs,
+  userSongComments,
+  userSongPrefs,
+  userPrefs,
+} from '@/lib/db/schema'
+import { sendEmail } from '@/lib/email/send'
+import { welcomeEmail } from '@/lib/email/templates'
 import { paymentHistoryFor } from '@/lib/plans/history'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
 import { isAdmitted } from '@/lib/roles'
+import { notifyTelegram } from '@/lib/telegram/notify'
+import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
 import { mayAccess, readAccountCookie, writeAccountCookie } from './current'
 import { validateGrant } from './grant'
-import type { AccountResult, GrantInput, GrantResult, NameResult, SelfDeleteResult } from './types'
+import { provisionAccount } from './provision'
+import type {
+  AccountResult,
+  AdminActionResult,
+  AdminNameResult,
+  ConfirmPendingResult,
+  EmailChangeResult,
+  GrantInput,
+  GrantResult,
+  NameResult,
+  SelfDeleteResult,
+} from './types'
 
 /**
  * Validates access, then switches. Lands on the home page rather than wherever the
@@ -390,4 +419,325 @@ export async function updateOwnName(firstName: string, lastName: string): Promis
     console.error('updateOwnName failed', error)
     return { ok: false, reason: 'failed' }
   }
+}
+
+/**
+ * An admin correcting an account's first and last name, for the Identity fieldset on
+ * `/accounts/[email]` (`PLAN-account-admin.md`, point 4) — a separate action from
+ * `updateOwnName` above, authorized with `isOwner` directly rather than `asAdmin()`, the
+ * same distinction `setGrant`/`deleteAccount` already draw: an account's own owner is
+ * `admin` on that one account, which would let any customer rename themselves through
+ * this function too if it trusted the weaker check.
+ */
+export async function updateAccountName(ownerEmail: string, firstName: string, lastName: string): Promise<AdminNameResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const trimmedFirst = firstName.trim()
+  const trimmedLast = lastName.trim()
+  if (trimmedFirst === '' || trimmedLast === '') return { ok: false, reason: 'invalid' }
+
+  try {
+    const updated = await db()
+      .update(accounts)
+      .set({ firstName: trimmedFirst, lastName: trimmedLast })
+      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+      .returning({ ownerEmail: accounts.ownerEmail })
+    if (updated.length === 0) return { ok: false, reason: 'failed' }
+
+    revalidatePath('/accounts')
+    return { ok: true }
+  } catch (error) {
+    console.error('updateAccountName failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * A global owner's own note about an account — support context, an exception granted, a
+ * flag — never shown to the account's reader (`PLAN-account-admin.md`, point 3). An empty
+ * string clears it. `isOwner`-gated inside, same reason as every other action here that
+ * takes an explicit `ownerEmail`.
+ */
+export async function updateInternalNote(ownerEmail: string, note: string): Promise<AdminActionResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const trimmed = note.trim()
+
+  try {
+    await db()
+      .update(accounts)
+      .set({ internalNote: trimmed === '' ? null : trimmed })
+      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+
+    revalidatePath('/accounts')
+    return { ok: true }
+  } catch (error) {
+    console.error('updateInternalNote failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Suspends or reactivates an account (`PLAN-account-admin.md`, point 9) — blocks only
+ * **new** sign-ins, checked in `auth.ts`'s `signIn` callback via `isAccountSuspended`
+ * (`accounts/read.ts`). Does not interrupt a session already issued: JWTs are not
+ * revocable server-side in this app, so this stops the next attempt, not one already in
+ * progress — see Decision #11, `PLAN-account-admin.md`. "Enter as this account" never
+ * checks this column, so a suspended account stays reachable to whoever suspended it.
+ *
+ * No dedicated reason column: the context is expected to live in the internal note
+ * beside it, not a second free-text field for the same kind of fact.
+ */
+export async function setAccountSuspended(ownerEmail: string, suspended: boolean): Promise<AdminActionResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  try {
+    await db()
+      .update(accounts)
+      .set({ suspendedAt: suspended ? new Date() : null })
+      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+
+    revalidatePath('/accounts')
+    return { ok: true }
+  } catch (error) {
+    console.error('setAccountSuspended failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * The six tables with a foreign key to `accounts.ownerEmail`, none of them `onUpdate:
+ * 'cascade'` (`PLAN-account-admin.md`, "Fondamenta tecniche") — repointed by hand inside
+ * `changeAccountEmail`'s transaction rather than by adding that cascade to the schema,
+ * which would permanently remove the safety net that today refuses *any* accidental
+ * rewrite of `owner_email` from anywhere else in the codebase.
+ */
+async function reownFkTables(
+  tx: Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0],
+  oldEmail: string,
+  newEmail: string,
+): Promise<void> {
+  await tx.update(songbooks).set({ accountOwnerEmail: newEmail }).where(eq(songbooks.accountOwnerEmail, oldEmail))
+  await tx.update(userPrefs).set({ userEmail: newEmail }).where(eq(userPrefs.userEmail, oldEmail))
+  await tx.update(newsletterPrefs).set({ ownerEmail: newEmail }).where(eq(newsletterPrefs.ownerEmail, oldEmail))
+  await tx.update(userSongPrefs).set({ userEmail: newEmail }).where(eq(userSongPrefs.userEmail, oldEmail))
+  await tx.update(userSongComments).set({ userEmail: newEmail }).where(eq(userSongComments.userEmail, oldEmail))
+  await tx
+    .update(singAlongSessions)
+    .set({ broadcastAccountEmail: newEmail })
+    .where(eq(singAlongSessions.broadcastAccountEmail, oldEmail))
+}
+
+/**
+ * Whether any row in the six FK'd tables still references `oldEmail` — the safety check
+ * `changeAccountEmail` runs right before its final delete, so an incomplete `reownFkTables`
+ * (a new per-account table added later and forgotten here) aborts the rename with a real
+ * error instead of quietly cascade-deleting those orphaned rows along with the old account.
+ */
+async function anyRowStillReferences(
+  tx: Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0],
+  oldEmail: string,
+): Promise<boolean> {
+  const checks = await Promise.all([
+    tx.select({ x: songbooks.slug }).from(songbooks).where(eq(songbooks.accountOwnerEmail, oldEmail)).limit(1),
+    tx.select({ x: userPrefs.userEmail }).from(userPrefs).where(eq(userPrefs.userEmail, oldEmail)).limit(1),
+    tx.select({ x: newsletterPrefs.ownerEmail }).from(newsletterPrefs).where(eq(newsletterPrefs.ownerEmail, oldEmail)).limit(1),
+    tx.select({ x: userSongPrefs.userEmail }).from(userSongPrefs).where(eq(userSongPrefs.userEmail, oldEmail)).limit(1),
+    tx
+      .select({ x: userSongComments.userEmail })
+      .from(userSongComments)
+      .where(eq(userSongComments.userEmail, oldEmail))
+      .limit(1),
+    tx
+      .select({ x: singAlongSessions.ownerEmail })
+      .from(singAlongSessions)
+      .where(eq(singAlongSessions.broadcastAccountEmail, oldEmail))
+      .limit(1),
+  ])
+  return checks.some((rows) => rows.length > 0)
+}
+
+/**
+ * Renames an account's address (`PLAN-account-admin.md`, point 4) — a support request
+ * that will come ("I typo'd my email", "switch me to my work address"), which today has
+ * no answer short of deleting and recreating the account and losing everything in it.
+ *
+ * Implemented as an application-level transaction rather than by adding `onUpdate:
+ * 'cascade'` to the six foreign keys that point at `accounts.ownerEmail` — see this
+ * file's `reownFkTables` and "Fondamenta tecniche" in the plan doc for why that would be
+ * a worse, permanent trade. In order: refuse if the new address already has an account,
+ * a password, or a sign-in row (this **renames**, it never merges two accounts); drop
+ * any stale pending registration sitting on the *new* address, so its verification link
+ * can never later provision an account onto somebody else's; copy the `accounts` row to
+ * the new key with Drizzle's own typed row spread, so no column list has to be
+ * maintained by hand; repoint every FK'd table; carry `credentials`/`signIns`/
+ * `paddleEvents` along too, so the renamed account's password, sign-in history and
+ * payment history all keep working (Decision #10) — each is a plain `UPDATE` and a
+ * harmless no-op if that address never had a row there (e.g. a Google-only account has
+ * no `credentials` row to move); verify nothing still references the old address; only
+ * then delete the old row.
+ *
+ * `passwordResetTokens` is deliberately left untouched: an unconsumed token under the
+ * old address simply stops matching anything after the rename, which is a silent,
+ * harmless dead end, not a security hole.
+ */
+export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: string): Promise<EmailChangeResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const oldEmail = normalizeEmail(oldOwnerEmail)
+  const newEmail = normalizeEmail(newEmailRaw)
+
+  if (!isEmailShape(newEmail)) return { ok: false, reason: 'invalid-email' }
+  if (newEmail === oldEmail) return { ok: false, reason: 'same-email' }
+
+  try {
+    const oldRows = await db().select().from(accounts).where(eq(accounts.ownerEmail, oldEmail)).limit(1)
+    const oldRow = oldRows[0]
+    if (oldRow === undefined) return { ok: false, reason: 'not-found' }
+
+    const [existingAccount, existingCredentials, existingSignIn] = await Promise.all([
+      db().select({ x: accounts.ownerEmail }).from(accounts).where(eq(accounts.ownerEmail, newEmail)).limit(1),
+      db().select({ x: credentials.email }).from(credentials).where(eq(credentials.email, newEmail)).limit(1),
+      db().select({ x: signIns.email }).from(signIns).where(eq(signIns.email, newEmail)).limit(1),
+    ])
+    if (existingAccount.length > 0 || existingCredentials.length > 0 || existingSignIn.length > 0) {
+      return { ok: false, reason: 'target-exists' }
+    }
+
+    await db().transaction(async (tx) => {
+      await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, newEmail))
+
+      // `paddleSubscriptionId` carries its own unique constraint, and the row-spread insert
+      // below briefly leaves both the old and new `accounts` row alive at once — copying it
+      // as-is would collide with the old row's still-unreleased value. Clearing it here first
+      // (a no-op today: the mock checkout never sets this column, see `checkout.ts`) frees the
+      // value before the copy claims it, rather than skipping the column and losing it.
+      if (oldRow.paddleSubscriptionId !== null) {
+        await tx.update(accounts).set({ paddleSubscriptionId: null }).where(eq(accounts.ownerEmail, oldEmail))
+      }
+
+      await tx.insert(accounts).values({ ...oldRow, ownerEmail: newEmail })
+
+      await reownFkTables(tx, oldEmail, newEmail)
+
+      await tx.update(credentials).set({ email: newEmail }).where(eq(credentials.email, oldEmail))
+      await tx.update(signIns).set({ email: newEmail }).where(eq(signIns.email, oldEmail))
+      await tx.update(paddleEvents).set({ accountOwnerEmail: newEmail }).where(eq(paddleEvents.accountOwnerEmail, oldEmail))
+
+      if (await anyRowStillReferences(tx, oldEmail)) {
+        throw new Error(`changeAccountEmail: rows still reference ${oldEmail} after repointing`)
+      }
+
+      const deleted = await tx.delete(accounts).where(eq(accounts.ownerEmail, oldEmail)).returning({ x: accounts.ownerEmail })
+      if (deleted.length === 0) throw new Error('changeAccountEmail: old account row vanished mid-transaction')
+    })
+
+    revalidatePath('/accounts')
+    return { ok: true, newEmail }
+  } catch (error) {
+    console.error('changeAccountEmail failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Confirms a pending registration by hand, creating the account immediately without the
+ * verification link ever being clicked (`PLAN-account-admin.md`, point 11) — for one
+ * stuck behind an expired link, a spam filter, or an email that never arrived. Mirrors
+ * `verifyEmail`'s transaction (`verify/actions.ts`: insert into `credentials`, delete
+ * the pending row, `provisionAccount`, welcome email, Telegram notice) minus the
+ * token-hash/expiry checks that only mean something for the self-service link — an
+ * operator vouching for the address is what replaces them here. Kept as its own
+ * implementation rather than a shared helper with `verifyEmail`: that function's
+ * token/expiry check has to stay inside the same transaction as the row it reads, and
+ * splitting the two apart would reopen the exact race that transaction exists to close.
+ *
+ * Does not sign the operator in as the new account — no `issueSessionCookie`/redirect,
+ * unlike `verifyEmail`. This only creates the account; "Enter as this account" on its
+ * own detail page is how an operator would act as it afterwards.
+ *
+ * Accepted risk, stated once here because no code path can check it: this creates a
+ * real, immediately-usable account — login available at once, with the password chosen
+ * at registration, not by the operator — for an address that never proved control of its
+ * own inbox. The same kind of consciously-accepted exposure `PLAN-newsletter.md` already
+ * took for Google's default newsletter opt-in.
+ */
+export async function confirmPendingRegistration(email: string): Promise<ConfirmPendingResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const normalized = normalizeEmail(email)
+
+  let result:
+    | { ok: true; firstName: string | null; lastName: string | null; newsletterOptIn: boolean }
+    | { ok: false }
+  try {
+    result = await db().transaction(async (tx) => {
+      const rows = await tx
+        .select()
+        .from(pendingRegistrations)
+        .where(eq(pendingRegistrations.email, normalized))
+        .limit(1)
+
+      const row = rows[0]
+      if (row === undefined) return { ok: false }
+
+      await tx
+        .insert(credentials)
+        .values({ email: normalized, passwordHash: row.passwordHash })
+        .onConflictDoUpdate({
+          target: credentials.email,
+          set: { passwordHash: row.passwordHash, updatedAt: new Date() },
+        })
+
+      await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
+
+      return { ok: true, firstName: row.firstName, lastName: row.lastName, newsletterOptIn: row.newsletterOptIn }
+    })
+  } catch (error) {
+    console.error('confirmPendingRegistration failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+
+  if (!result.ok) return { ok: false, reason: 'not-found' }
+
+  const created = await provisionAccount(
+    normalized,
+    result.firstName !== null && result.lastName !== null
+      ? { firstName: result.firstName, lastName: result.lastName }
+      : undefined,
+    result.newsletterOptIn,
+  )
+
+  if (created) {
+    await sendEmail({ to: normalized, ...welcomeEmail() })
+    await notifyTelegram('registration', registrationNotice(normalized, result.firstName, result.lastName))
+  }
+
+  revalidatePath('/accounts')
+  return { ok: true }
 }

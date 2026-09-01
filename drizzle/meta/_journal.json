@@ -253,6 +253,13 @@
       "when": 1788200484046,
       "tag": "0035_newsletter",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788252154063,
+      "tag": "0036_account_admin",
+      "breakpoints": true
     }
   ]
 }

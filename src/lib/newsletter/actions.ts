@@ -16,12 +16,12 @@
 import { eq } from 'drizzle-orm'
 
 import { auth } from '@/auth'
-import { normalizeEmail } from '@/lib/allowlist'
+import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
 import { newsletterPrefs } from '@/lib/db/schema'
 
 import { nextStamps } from './stamps'
-import type { NewsletterFrequency, NewsletterPrefs, NewsletterResult } from './types'
+import type { NewsletterFrequency, NewsletterPrefs, NewsletterResult, NewsletterSummary } from './types'
 
 const DEFAULT_PREFS: NewsletterPrefs = { subscribed: false, frequency: 'monthly' }
 
@@ -110,4 +110,49 @@ async function loadRow(ownerEmail: string): Promise<{ subscribed: boolean } | nu
     .where(eq(newsletterPrefs.ownerEmail, ownerEmail))
     .limit(1)
   return rows[0] ?? null
+}
+
+/**
+ * One account's newsletter preference, for the admin's Newsletter fieldset on
+ * `/accounts/[email]` (`PLAN-account-admin.md`, point 7) — distinct from
+ * `loadNewsletterPrefs` above, which is keyed on `session.user.email` and would leak the
+ * *operator's own* preference instead of the account being viewed. `isOwner`-gated,
+ * since this takes an explicit target rather than reading the caller's own session.
+ *
+ * Null on refusal or a failed read (e.g. `0035` not yet applied where this runs) — the
+ * caller shows "data unavailable" for this one fieldset instead of losing the rest of
+ * the page, the same resilience `usageSummaryFor` (`accounts/read.ts`) practices.
+ */
+export async function loadNewsletterSummaryFor(ownerEmail: string): Promise<NewsletterSummary | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
+  try {
+    const rows = await db()
+      .select({
+        subscribed: newsletterPrefs.subscribed,
+        frequency: newsletterPrefs.frequency,
+        subscribedAt: newsletterPrefs.subscribedAt,
+        unsubscribedAt: newsletterPrefs.unsubscribedAt,
+      })
+      .from(newsletterPrefs)
+      .where(eq(newsletterPrefs.ownerEmail, normalizeEmail(ownerEmail)))
+      .limit(1)
+
+    const row = rows[0]
+    if (row === undefined) {
+      return { subscribed: false, frequency: 'monthly', subscribedAt: null, unsubscribedAt: null }
+    }
+    return {
+      subscribed: row.subscribed,
+      frequency: row.frequency as NewsletterFrequency,
+      subscribedAt: row.subscribedAt?.toISOString() ?? null,
+      unsubscribedAt: row.unsubscribedAt?.toISOString() ?? null,
+    }
+  } catch (error) {
+    console.error('loadNewsletterSummaryFor failed', error)
+    return null
+  }
 }

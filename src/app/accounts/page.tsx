@@ -2,11 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { ConfirmPendingRegistrationButton } from '@/components/ConfirmPendingRegistrationButton'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { auth } from '@/auth'
-import { listAccountPlans, listAllAccounts } from '@/lib/accounts/read'
+import { listAccountPlans, listAllAccounts, listPendingRegistrations } from '@/lib/accounts/read'
 import type { AccountSummary } from '@/lib/accounts/read'
 import { giftWithdrawn, noPlanYet, planBadge, planDetail, stillAwaitingChoice } from '@/lib/accounts/planText'
 import { isOwner } from '@/lib/allowlist'
@@ -121,7 +122,7 @@ export default async function AccountsPage({ searchParams }: Props) {
    * plan clause and nothing else. Widening `listAllAccounts` instead would put the whole screen
    * behind those same migrations.
    */
-  const [all, plans] = await Promise.all([listAllAccounts(), listAccountPlans()])
+  const [all, plans, pending] = await Promise.all([listAllAccounts(), listAccountPlans(), listPendingRegistrations()])
 
   /*
    * Read once, here, for the two notices below. `plansEnforced()` first and not merely
@@ -196,6 +197,30 @@ export default async function AccountsPage({ searchParams }: Props) {
           <p className="notice notice-error mb-2.5" role="status">
             SONGBOOK_PLANS is set: every account is being gated as <strong>{forced}</strong>, whatever it says here.
           </p>
+        )}
+
+        {/* Above the search form and its own filters, deliberately (`PLAN-account-admin.md`,
+            point 11): the list below is paginated at 25, so a section appended after it
+            would land at a different height on every page — the opposite of what this
+            exists for, which is discoverability without already knowing the address. */}
+        {pending !== null && pending.length > 0 && (
+          <section className="card mb-2.5 p-3.5">
+            <h2 className="section-title mb-2.5">Pending registrations</h2>
+            <ul className="card-stack">
+              {pending.map((row) => (
+                <li key={row.email} className="card flex flex-wrap items-center gap-3 px-4 py-3.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{row.email}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.8125rem] text-muted">
+                      Requested {row.createdAt.slice(0, 10)}
+                      {row.expired && <span className="badge plan-badge-unchosen">Expired</span>}
+                    </span>
+                  </span>
+                  <ConfirmPendingRegistrationButton email={row.email} />
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <form method="get" className="card flex flex-wrap items-end gap-2.5 p-3.5">
@@ -289,9 +314,15 @@ export default async function AccountsPage({ searchParams }: Props) {
                               <span className="badge plan-badge-unchosen">Awaiting choice</span>
                             )}
                             {/* Otherwise this row is byte-for-byte a deliberate Free account —
-                                see `giftWithdrawn` on why the badge and the detail cannot say so. */}
+                                see `giftWithdrawn` on why the badge and the detail cannot say so.
+                                A single letter, not the full word: this list can run to many
+                                rows, and "G" beside the plan badge is enough to flag "there's a
+                                gift history here, open the row for the story" — the full
+                                sentence already lives on the detail page. */}
                             {giftWithdrawn(line) && (
-                              <span className="badge plan-badge-unchosen">Gift withdrawn</span>
+                              <span className="badge plan-badge-unchosen" title="Gift withdrawn" aria-label="Gift withdrawn">
+                                G
+                              </span>
                             )}
                             {planDetail(line) !== '' && (
                               <span className="text-[0.8125rem] text-muted">{planDetail(line)}</span>

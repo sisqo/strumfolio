@@ -138,3 +138,94 @@ export const GRANT_MESSAGE: Record<GrantFailure, string> = {
   // Verbatim `ACCOUNT_MESSAGE.failed`: the same sentence for the same event on the same screen.
   failed: 'Save failed. Please try again.',
 }
+
+/**
+ * Results for the handful of admin actions on `/accounts/[email]` whose only three ways
+ * to fail are the same: not a global owner, no database, or something else went wrong
+ * (`updateInternalNote`, `setAccountSuspended`, `clearRateLimitFor`, `accounts/actions.ts`
+ * and `auth/actions.ts`). One union rather than three near-identical ones — each action
+ * still gets its own message map below, since the *reason* worth showing an operator is
+ * not the same across all three.
+ */
+export type AdminActionFailure = 'not-allowed' | 'no-database' | 'failed'
+
+export type AdminActionResult = { ok: true } | { ok: false; reason: AdminActionFailure }
+
+export const NOTE_MESSAGE: Record<AdminActionFailure, string> = {
+  'not-allowed': 'Only a global owner may edit the internal note.',
+  'no-database': 'No database configured: the note cannot be saved.',
+  failed: 'Save failed. Please try again.',
+}
+
+export const SUSPEND_MESSAGE: Record<AdminActionFailure, string> = {
+  'not-allowed': 'Only a global owner may suspend an account.',
+  'no-database': 'No database configured: the account cannot be suspended.',
+  failed: 'Save failed. Please try again.',
+}
+
+export const RATE_LIMIT_MESSAGE: Record<AdminActionFailure, string> = {
+  'not-allowed': 'Only a global owner may clear a rate limit.',
+  'no-database': 'No database configured: nothing to clear.',
+  failed: 'Clear failed. Please try again.',
+}
+
+/**
+ * Results for an admin correcting an account's first and last name — a union of its own
+ * rather than new members on `NameFailure`, which is the self-service `/profile` action
+ * and can never answer `not-allowed`: nobody is refused their own name.
+ */
+export type AdminNameFailure = 'not-allowed' | 'no-database' | 'invalid' | 'failed'
+
+export type AdminNameResult = { ok: true } | { ok: false; reason: AdminNameFailure }
+
+export const ADMIN_NAME_MESSAGE: Record<AdminNameFailure, string> = {
+  'not-allowed': 'Only a global owner may edit another account’s name.',
+  'no-database': 'No database configured: the name cannot be saved.',
+  invalid: 'Enter both a first and last name.',
+  failed: 'Save failed. Please try again.',
+}
+
+/**
+ * Results for renaming an account's address (`changeAccountEmail`). This is a **rename**,
+ * never a merge: `target-exists` is not a bug to work around, it is the whole reason this
+ * refuses instead of combining two accounts' content — see the action's own comment.
+ */
+export type EmailChangeFailure =
+  | 'not-allowed'
+  | 'no-database'
+  | 'invalid-email'
+  /** Retyped the account's own current address — nothing to change. */
+  | 'same-email'
+  /** The new address already has an account, a password, or a sign-in row of its own. */
+  | 'target-exists'
+  /** No row for the old address any more — another tab deleted or renamed it already. */
+  | 'not-found'
+  | 'failed'
+
+export type EmailChangeResult = { ok: true; newEmail: string } | { ok: false; reason: EmailChangeFailure }
+
+export const EMAIL_CHANGE_MESSAGE: Record<EmailChangeFailure, string> = {
+  'not-allowed': 'Only a global owner may change an account’s email.',
+  'no-database': 'No database configured: the email cannot be changed.',
+  'invalid-email': 'Enter a real email address.',
+  'same-email': 'That is already this account’s address.',
+  'target-exists': 'That address already belongs to another account.',
+  'not-found': 'This account no longer exists. Reload the page.',
+  failed: 'Save failed. Please try again.',
+}
+
+/**
+ * Results for confirming a pending registration by hand (`confirmPendingRegistration`),
+ * bypassing the verification link entirely — see the action's own comment on the risk
+ * this accepts.
+ */
+export type ConfirmPendingFailure = 'not-allowed' | 'no-database' | 'not-found' | 'failed'
+
+export type ConfirmPendingResult = { ok: true } | { ok: false; reason: ConfirmPendingFailure }
+
+export const CONFIRM_PENDING_MESSAGE: Record<ConfirmPendingFailure, string> = {
+  'not-allowed': 'Only a global owner may confirm a pending registration.',
+  'no-database': 'No database configured: nothing to confirm.',
+  'not-found': 'No pending registration for this address. It may already be confirmed.',
+  failed: 'Confirm failed. Please try again.',
+}

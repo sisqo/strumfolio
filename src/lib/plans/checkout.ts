@@ -35,7 +35,7 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
 
 import { auth } from '@/auth'
-import { isOwner } from '@/lib/allowlist'
+import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
@@ -67,6 +67,8 @@ export type MockCheckoutFailure =
   | 'invalid-plan'
   /** Nothing live to cancel/expire/downgrade, or the live plan is `lifetime`, which never is. */
   | 'not-applicable'
+  /** `forceExpireNow` only: the caller is not a global owner. */
+  | 'not-allowed'
   | 'failed'
 
 export interface MockSubscriptionState {
@@ -700,29 +702,47 @@ export async function clearPendingChange(): Promise<{ ok: true } | { ok: false; 
 }
 
 /**
- * Test-only: ends the live plan's entitlements **right now** instead of at its paid-until
- * date, by writing `planStatus: 'expired'` directly — the one way left, after `mockCancel`
- * started deferring to period end, to exercise the freeze path without waiting out a real
+ * Ends the live plan's entitlements **right now** instead of at its paid-until date, by
+ * writing `planStatus: 'expired'` directly — the one way left, after `mockCancel` started
+ * deferring to period end, to exercise the freeze/grace path without waiting out a real
  * calendar date. Clears any scheduled change too: there is nothing left for it to fire into.
  * Refuses `not-applicable` under the same two conditions `mockCancel` does.
  *
- * **No UI calls this any more.** It used to sit on `/billing` behind nothing but the words
- * "test only", which — with `SONGBOOK_MOCK_CHECKOUT` on in production — put "expire my plan
- * right now" in front of every paying customer, on the screen they open to manage what they
- * paid for. A label is not a permission. The action stays exported for scripts and tests; if a
- * button for it is ever wanted again it belongs behind `isOwner`, checked here as well as
- * wherever it is rendered, the way every other write in this file checks its own caller.
+ * Takes an explicit `ownerEmail` rather than reading `currentUser().accountOwnerEmail`, and
+ * checks `isOwner` inside itself before any read or write — restored to the admin's
+ * `/accounts/[email]` (`PLAN-account-admin.md`, point 5), where the page is already
+ * `isOwner`-gated, but this function does not lean on that alone: it used to sit on
+ * `/billing` behind nothing but the words "test only", which — with `SONGBOOK_MOCK_CHECKOUT`
+ * on in production — put "expire my plan right now" in front of every paying customer, on
+ * the screen they open to manage what they paid for (v3.11). A label is not a permission,
+ * which is why this checks its own caller the way every other write in this file does,
+ * rather than trusting whichever screen happens to render the button. The explicit target
+ * also avoids the self-scoped alternative — an operator having to "Enter as this account"
+ * first just to expire it — which is both an extra step and a real chance of expiring the
+ * wrong one. Zero callers before this change (confirmed by grep across the repo), so the
+ * signature change breaks nothing existing.
+ *
+ * `mockCheckoutEnabled()` still gates it, deliberately not bypassed for the admin path: it
+ * is the leva of a still-fake checkout system, not a second access control alongside
+ * `isOwner`. Once `SONGBOOK_MOCK_CHECKOUT` is off for good (real Paddle live), this stops
+ * working along with the rest of the mock checkout — correctly, since forcing
+ * `planStatus: 'expired'` locally with no real Paddle event behind it would desynchronize
+ * the account from its actual subscription state.
  */
-export async function forceExpireNow(): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
+export async function forceExpireNow(ownerEmail: string): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
   if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const user = await currentUser()
-  if (user === null) return { ok: false, reason: 'no-session' }
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const target = normalizeEmail(ownerEmail)
 
   try {
     const now = new Date()
-    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
+    const raw = await subscriptionColumnsOf(target)
     if (raw === null) return { ok: false, reason: 'failed' }
 
     const currentLive = liveSubscription(raw, now)
@@ -733,12 +753,12 @@ export async function forceExpireNow(): Promise<{ ok: true } | { ok: false; reas
     const updated = await db()
       .update(accounts)
       .set({ planStatus: 'expired', pendingPlan: null, pendingCycle: null })
-      .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
+      .where(eq(accounts.ownerEmail, target))
       .returning({ ownerEmail: accounts.ownerEmail })
     if (updated.length === 0) return { ok: false, reason: 'failed' }
 
-    await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'force_expired', plan: currentLive, cycle: null })
-    console.warn(`mock checkout: ${user.accountOwnerEmail} => forced expiry (test)`)
+    await logMockEvent({ accountOwnerEmail: target, action: 'force_expired', plan: currentLive, cycle: null })
+    console.warn(`mock checkout: ${target} => forced expiry (admin)`)
   } catch (error) {
     console.error('forceExpireNow failed', error)
     return { ok: false, reason: 'failed' }
