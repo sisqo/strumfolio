@@ -6472,10 +6472,75 @@
     display: none;
   }
 
-  /* The one control that is a destination rather than a nudge. */
+  /*
+   * The one control that is a destination rather than a nudge.
+   *
+   * `position: relative` anchors the broadcast-ring pulse below; `z-index: 1` makes
+   * that positioning also win the paint order against its non-positioned dock
+   * siblings (`.control-strum`, `.speed-full`), which is what lets the rings read as
+   * spilling out *over* them rather than being tucked underneath.
+   */
   .control-play {
+    position: relative;
+    z-index: 1;
     background: var(--accent);
     color: var(--on-accent);
+  }
+
+  /*
+   * The "this was just sent to your devices" cue on the play button — fires only
+   * while this reader's own Strum Together broadcast is live, see the `isLive` gate
+   * in `ControlBar.tsx`. `key`-remounted on every qualifying press, so a fresh
+   * animation always plays even in the back-to-back case (pause, then play again).
+   *
+   * Deliberately allowed to spill past the button's own box (`inset: -100%` gives
+   * each ring 2x the button's box to expand into, matching the ~1.9x scale below)
+   * rather than being clipped to it — including, on phone, above `.control-bar`'s
+   * own edge, where `.control-play` already pokes through it. See
+   * `PLAN-strum-together-play-feedback.md` for why that overlap is intended rather
+   * than an oversight.
+   */
+  .play-broadcast-rings {
+    position: absolute;
+    inset: -100%;
+    pointer-events: none;
+  }
+
+  .play-broadcast-ring {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 33.33%;
+    height: 33.33%;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: playBroadcastRing 720ms cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+  }
+
+  .play-broadcast-ring:nth-child(2) {
+    animation-delay: 130ms;
+  }
+
+  .play-broadcast-ring:nth-child(3) {
+    animation-delay: 260ms;
+  }
+
+  @keyframes playBroadcastRing {
+    from {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    to {
+      transform: scale(2.7);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .play-broadcast-rings {
+      display: none;
+    }
   }
 
   /* Opens the panel. Accent-soft: related to play, quieter than it. */

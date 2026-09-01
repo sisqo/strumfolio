@@ -108,7 +108,10 @@ export function ControlBar({
 }) {
   const { global, song, pending, setZoomStep, setInstrument, setScrollSpeed } = usePrefs()
   const { running, toggle } = useAutoScroll(song.scrollSpeed)
+  const { broadcast } = useStrumTogether()
   const [panel, setPanel] = useState<Panel>(null)
+  const [broadcastPulse, setBroadcastPulse] = useState(0)
+  const isLive = broadcast !== null && broadcast !== undefined
 
   useEffect(() => {
     if (panel === null) return
@@ -173,13 +176,32 @@ export function ControlBar({
                * change what anyone else's screen is showing. `broadcastPlay` no-ops on
                * its own when this reader has no broadcast running, so nothing here
                * checks for one first.
+               *
+               * The radar-ring effect below fires optimistically, gated on `isLive`
+               * (this reader's own broadcast, from `useStrumTogether`) rather than on
+               * `broadcastEnabled` alone — `broadcastEnabled` only means "not a guest",
+               * which stays true even while nothing is being broadcast, and showing the
+               * effect then would claim a broadcast that never happened. See
+               * `PLAN-strum-together-play-feedback.md` for the accepted residual risk
+               * (network failure, or a session gone idle server-side that this reader's
+               * own `broadcast` state hasn't caught up with yet).
                */
-              if (!running && broadcastEnabled) void broadcastPlay(songSlug, song.semitones).catch(() => {})
+              if (!running && broadcastEnabled) {
+                void broadcastPlay(songSlug, song.semitones).catch(() => {})
+                if (isLive) setBroadcastPulse((count) => count + 1)
+              }
               toggle()
             }}
             aria-pressed={running}
             aria-label={running ? 'Stop scrolling' : 'Start scrolling'}
           >
+            {broadcastPulse > 0 && (
+              <span key={broadcastPulse} className="play-broadcast-rings" aria-hidden="true">
+                <span className="play-broadcast-ring" />
+                <span className="play-broadcast-ring" />
+                <span className="play-broadcast-ring" />
+              </span>
+            )}
             {running ? <IconPause size={16} /> : <IconPlay size={16} />}
           </button>
 
