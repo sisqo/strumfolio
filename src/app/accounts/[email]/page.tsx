@@ -16,8 +16,9 @@ import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SendResetEmailButton } from '@/components/SendResetEmailButton'
 import { SuspendAccountButton } from '@/components/SuspendAccountButton'
+import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { TopBar } from '@/components/TopBar'
-import { loadAccountHistory, switchAccount } from '@/lib/accounts/actions'
+import { loadAccountHistory } from '@/lib/accounts/actions'
 import { getAccountDetail, usageSummaryFor } from '@/lib/accounts/read'
 import {
   NO_PLAN_LINE,
@@ -69,27 +70,6 @@ function readEmailParam(raw: string): string | null {
   } catch {
     return null
   }
-}
-
-/**
- * Switching into this account — moved here from the list row (PLAN.md, v3.8), same
- * `switchAccount` and the same `redirect('/')` inside it once the cookie is written. Local to
- * this file rather than a shared component: it is used in exactly the one place now that the
- * list only ever links to this page instead of offering it directly.
- */
-function EnterAccountForm({ ownerEmail }: { ownerEmail: string }) {
-  const enter = async () => {
-    'use server'
-    await switchAccount(ownerEmail)
-  }
-
-  return (
-    <form action={enter}>
-      <button type="submit" className="btn btn-primary">
-        Enter as this account
-      </button>
-    </form>
-  )
 }
 
 /**
@@ -151,7 +131,9 @@ export default async function AccountDetailPage({ params }: Props) {
               <IconCheck size={13} /> current
             </span>
           ) : (
-            <EnterAccountForm ownerEmail={detail.ownerEmail} />
+            <SwitchAccountButton targetEmail={detail.ownerEmail} className="btn btn-primary">
+              Enter as this account
+            </SwitchAccountButton>
           )}
         </header>
 

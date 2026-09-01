@@ -81,6 +81,19 @@ interface RoleContextValue {
    * everything else in this context.
    */
   planChosen: boolean
+  /**
+   * Re-reads identity from the server — for `SwitchAccountButton`, the one caller, right
+   * after `switchAccount` writes the account cookie. Nothing else here re-asks on that:
+   * a cookie write is not a navigation `usePathname` would see happen (writing it and
+   * moving to `/` are two separate steps now, `switchAccount`'s own comment), and mount/
+   * `online` are the only other triggers below — neither fires just because the cookie
+   * changed. Without this, `accountOwnerEmail`/`plan`/`role` kept reading the account
+   * left behind until something else remounted this provider (a hard reload), which is
+   * the bug this exists to close: the switch itself worked (the cookie changed, `/`
+   * re-rendered server-side with the right account), only this client-side copy of who
+   * is looking didn't know to ask again.
+   */
+  refresh: () => Promise<void>
 }
 
 const RoleContext = createContext<RoleContextValue>({
@@ -94,6 +107,7 @@ const RoleContext = createContext<RoleContextValue>({
   plan: null,
   subscriptionPlan: null,
   planChosen: true,
+  refresh: async () => {},
 })
 
 /**
@@ -199,8 +213,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       plan,
       subscriptionPlan,
       planChosen,
+      refresh: ask,
     }),
-    [email, accountOwnerEmail, role, firstName, known, switcher, plan, subscriptionPlan, planChosen],
+    [email, accountOwnerEmail, role, firstName, known, switcher, plan, subscriptionPlan, planChosen, ask],
   )
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>

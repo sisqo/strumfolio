@@ -1,9 +1,8 @@
 'use client'
 
+import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { useRole } from '@/components/RoleProvider'
-import { switchAccount } from '@/lib/accounts/actions'
 import { avatarInitials } from '@/lib/avatar'
-import { useOnline } from '@/lib/useOnline'
 
 /**
  * The impersonated account's monogram, shown in `TopBar` right next to the reader's own
@@ -16,23 +15,12 @@ import { useOnline } from '@/lib/useOnline'
  * an exit control (PLAN-viewing-as-exit.md), no faster way back than navigating to
  * `/accounts/<own email>` and clicking "Enter as this account" there again.
  *
- * A `<form>` bound to `switchAccount` rather than a plain `onClick` calling it directly:
- * `switchAccount` ends in `redirect('/')`, and `redirect()` thrown across the client/server
- * boundary from a server action invoked as a bare function is not something to lean on
- * (`forgotPassword/actions.ts`'s own comment on that exact pitfall) — a `<form action>` is
- * the path Next actually supports a redirecting action over, the same one
- * `EnterAccountForm` (`accounts/[email]/page.tsx`) already uses for the mirror action,
- * entering an account. `switchAccount.bind(null, email)` is that same form-action shape,
- * just bound to the signed-in reader's own address instead of a route param — the form
- * still calls it with an implicit `FormData` argument on submit, which it already ignores
- * the same way `EnterAccountForm`'s own bound action does.
- *
- * The confirm step is deliberate, not the app's usual "reversible things need no dialog"
- * default (`SuspendAccountButton`'s own comment argues that side): this sits in a crowded
- * corner of a bar rendered on every screen, and an accidental tap would drop the
- * impersonated view with no warning. `onSubmit`, not the click itself, is what a native
- * `window.confirm()` can actually gate — cancelling it calls `preventDefault` before the
- * action ever runs.
+ * `SwitchAccountButton` does the actual switch — this only supplies the target (the
+ * reader's own address, to exit back to), the monogram, and the one thing specific to
+ * this direction: a confirm step, deliberate rather than the app's usual "reversible
+ * things need no dialog" default (`SuspendAccountButton`'s own comment argues that side).
+ * This sits in a crowded corner of a bar rendered on every screen, and an accidental tap
+ * would drop the impersonated view with no warning.
  *
  * `'use client'`, reading `useRole()` the same way `AdminPanel`/`UserMenu` already do —
  * deliberately not something `TopBar` itself resolves server-side: see that component's own
@@ -41,29 +29,17 @@ import { useOnline } from '@/lib/useOnline'
  */
 export function ViewingAsPill() {
   const { known, email, accountOwnerEmail } = useRole()
-  const online = useOnline()
   if (!known || email === null || accountOwnerEmail === null || email === accountOwnerEmail) return null
 
-  const exit = switchAccount.bind(null, email)
-
   return (
-    <form
-      action={exit}
-      onSubmit={(event) => {
-        if (!window.confirm(`Exit ${accountOwnerEmail}'s account and return to your own?`)) {
-          event.preventDefault()
-        }
-      }}
+    <SwitchAccountButton
+      targetEmail={email}
+      className="viewing-as-avatar"
+      title={`Viewing ${accountOwnerEmail} — click to exit to admin`}
+      ariaLabel={`Exit ${accountOwnerEmail}'s account and return to your own`}
+      confirmMessage={`Exit ${accountOwnerEmail}'s account and return to your own?`}
     >
-      <button
-        type="submit"
-        className="viewing-as-avatar"
-        disabled={!online}
-        title={`Viewing ${accountOwnerEmail} — click to exit to admin`}
-        aria-label={`Exit ${accountOwnerEmail}'s account and return to your own`}
-      >
-        {avatarInitials(accountOwnerEmail)}
-      </button>
-    </form>
+      {avatarInitials(accountOwnerEmail)}
+    </SwitchAccountButton>
   )
 }

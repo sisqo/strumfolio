@@ -9,7 +9,6 @@
 
 import { eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
 import { auth, signOut } from '@/auth'
 import { isEmailShape, isOwner, normalizeEmail } from '@/lib/allowlist'
@@ -54,18 +53,20 @@ import type {
 } from './types'
 
 /**
- * Validates access, then switches. Lands on the home page rather than wherever the
- * reader was: the song or songbook on screen belongs to the account being left, and has
- * no reason to exist — or to mean the same thing — on the one being entered. Applies
- * equally in either direction: entering another account (`EnterAccountForm`) and
- * exiting back to one's own (`ViewingAsPill`) are the same call with a different
- * argument, nothing else distinguishes them.
- *
- * `Promise<void>`, not a result: no caller has ever branched on success/failure (both
- * form actions here discard it the same way, `EnterAccountForm`'s own included), and
- * `redirect()` below already is the signal a form action can act on — a returned value
- * would only be reachable on the failure path, which needs no UI here beyond staying
- * put.
+ * Validates access, then writes the cookie. Navigating home afterwards is deliberately
+ * not this function's job — `SwitchAccountButton`, the one caller, does it — because a
+ * plain cookie write is not the only thing that has to happen once this settles:
+ * `RoleProvider`'s client-side identity (`email`/`accountOwnerEmail`/`role`/`plan` in
+ * `TopBar`, `UserMenu`, `ViewingAsPill`) is never re-read on its own just because the
+ * cookie changed — layouts persist across a client-side navigation, so nothing remounts
+ * `RoleProvider` and nothing tells it to ask again. This used to end in `redirect('/')`
+ * itself, which is exactly what made that impossible to fix from the caller's side: a
+ * `redirect()` thrown from inside a Server Action leaves no reliable point for the
+ * caller to run anything once it settles (`forgotPassword/actions.ts`'s own comment on
+ * that same pitfall) — including the one thing that actually needed to run, refreshing
+ * `RoleProvider`. So the redirect moved out to `SwitchAccountButton`, right after the
+ * refresh it exists to make possible; this function is left with only the write a
+ * caller can't get wrong.
  */
 export async function switchAccount(accountOwnerEmail: string): Promise<void> {
   const session = await auth()
@@ -78,7 +79,6 @@ export async function switchAccount(accountOwnerEmail: string): Promise<void> {
   }
 
   await writeAccountCookie(accountOwnerEmail)
-  redirect('/')
 }
 
 /**
