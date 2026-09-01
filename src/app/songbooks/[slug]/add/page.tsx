@@ -11,7 +11,6 @@ import { songbookAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
-import { requirePlanChoice } from '@/lib/plans/gate'
 import { snapshot } from '@/lib/songbooks/snapshot'
 
 interface Props {
@@ -49,8 +48,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AddSongPage({ params }: Props) {
   const { slug } = await params
-
-  await requirePlanChoice()
 
   const resolved = await resolveSongbook(slug)
   if (resolved === null) notFound()

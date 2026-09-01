@@ -8,8 +8,8 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v4.1 — i controlli sul brano** (l'ultima versione numerata qui) sono
-> consegnate e in produzione su https://strumfolio.com. La
+> **Stato:** da v1 a **v4.2 — sesto ricontrollo dei piani** (l'ultima versione numerata qui)
+> sono consegnate e in produzione su https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
 > sopra la pagina statica (va letta prima di toccare la lettura); la v1.4 ha portato
@@ -1170,6 +1170,35 @@ mobile è l'unica aggiornata — `Song Reader.dc.html` mostra ancora il pannello
 chip valgono a ogni larghezza: due set di controlli divergenti costano più di una board
 ferma.
 
+### v4.2 — sesto ricontrollo dei piani
+
+Un sesto giro, innescato da una verifica end-to-end vera — login reale contro un account
+appena creato, non solo lettura di codice — invece che da un audit sui file. Ha trovato un
+solo difetto, ma sulle due rotte più importanti del gate. Rationale completo per riga in
+*Decisioni*.
+
+- **Il gate di scelta piano non reindirizzava affatto su `/` e su `songbooks/[slug]`
+  (+ `/add`)**, le due sole rotte fra le quattro gatate con un `loading.tsx` proprio.
+  `redirect()` lanciato dal corpo async di una pagina diventa un vero redirect HTTP solo se
+  non è ancora partito alcun byte di risposta; un `loading.tsx` fratello rompe esattamente
+  questo, perché Next avvolge la pagina in una Suspense boundary e manda subito uno shell
+  200 prima che quel corpo — e quindi `requirePlanChoice` — sia mai eseguito. Il redirect
+  degradava così a una navigazione lato client dentro lo stream RSC, che un mismatch
+  nell'ordine degli hook di React durante quella stessa transizione insabbiava del tutto:
+  un account nuovo atterrava su `/` e ci restava, gate o non gate. Confermato con un `curl`
+  puro — 200 dove ci si aspettava 307 — quindi non un problema di JavaScript client ma del
+  redirect server-side stesso, e non visibile da una lettura del codice, che isolata è
+  sempre risultata corretta (`hasChosenPlan`/`requirePlanChoice` rispondevano giusto,
+  interrogati direttamente). Corretto spostando le due chiamate — `requirePlanChoice`, e su
+  `/` anche il redirect a `/login` per un account non più ammesso — in due nuovi layout
+  scoped esattamente a quelle rotte: un layout sta fuori dalla Suspense boundary che il
+  `loading.tsx` del suo stesso segmento introduce, quindi `redirect()` lì resta un vero
+  redirect. `songs/[slug]` e `songs/[slug]/edit` non hanno `loading.tsx` e non erano
+  toccate — lasciate come stavano, con un avviso nel commento di `gate.ts` per chi
+  aggiungesse un `loading.tsx` lì in futuro senza spostare la chiamata insieme.
+
+Nessuna migrazione.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1531,3 +1560,12 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Sfondo della card | Non oscura, a nessuna larghezza | Spegnere la canzone per due righe di nota toglie proprio ciò che l'ancoraggio serviva a garantire |
 | Bottoni della card | `btn btn-primary` / `btn btn-quiet` veri | La prima versione se li disegnava e il Save usciva nel blu della nota, senza corrispondere a nessun'altra azione primaria dell'app: due set di stili erano due set da tenere in passo |
 | Nota di canzone (`user_song_prefs.note`) | Eliminata, migrazione 0030 | I commenti dicono quello che diceva lei e in più dicono *dove*; contate prima di toglierla, zero note non vuote in tutta l'installazione |
+
+### Sesto ricontrollo dei piani (v4.2)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Dove si era rotto il gate | `redirect()` dentro `page.tsx`, su una rotta con `loading.tsx` fratello | Confermato con un `curl` puro (niente JS in mezzo): 200 dove ci si aspettava 307, quindi il difetto è nel redirect server-side stesso, non in una regressione lato client presa da sola |
+| Come corretto | Le due chiamate spostate in un `layout.tsx` scoped alla singola rotta, non toccato `gate.ts`/`resolve.ts` | Un layout sta fuori dalla Suspense boundary che il `loading.tsx` del suo stesso segmento introduce; spostarle in un layout più ampio avrebbe riproposto il loop di redirect che la v3.11 aveva già escluso per `/pricing`/`/checkout/[plan]` |
+| `songs/[slug]` e `songs/[slug]/edit` | Lasciate come stavano | Nessuna delle due ha un `loading.tsx` proprio, quindi non erano toccate dal difetto — ma un `loading.tsx` aggiunto lì in futuro riproporrebbe lo stesso bug se la chiamata non si sposta insieme; avviso lasciato nel commento di `gate.ts` |
+| Come verificato | Login reale (`curl` e browser) contro un account appena creato, non solo lettura del codice | `hasChosenPlan`/`requirePlanChoice` rispondevano già giusto interrogati direttamente: il difetto viveva nell'interazione con Next, visibile solo eseguendo davvero il percorso |

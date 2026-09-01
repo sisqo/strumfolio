@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation'
-
 import { Footer } from '@/components/Footer'
 import { SongbookProvider } from '@/components/SongbookProvider'
 import { HomeScreen } from '@/components/HomeScreen'
@@ -16,7 +14,6 @@ import type { RecentSong } from '@/lib/data/db'
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
-import { requirePlanChoice } from '@/lib/plans/gate'
 import { entitlementsOf } from '@/lib/plans/resolve'
 import { toIndexEntry } from '@/lib/search-index'
 
@@ -28,23 +25,13 @@ export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   /*
-   * `middleware.ts` already refuses anyone with no session at all before this ever
-   * runs. What it does not catch is a session that is still valid but no longer
-   * admitted anywhere — every membership pulled, no owner status either — which
-   * `currentUser` alone can tell, by asking the database this page needs to ask
-   * anyway. Back to `/login` is the truthful next step: there is no account left to
-   * show, and signing in again is what would explain that.
+   * The "not admitted any more" redirect to `/login` and the mandatory plan-choice gate
+   * both used to live here, but moved to `layout.tsx` beside this file — see its own
+   * comment for why a redirect thrown from inside this page's body was silently not
+   * redirecting at all. `user` is still resolved here too, cheaply (`currentUser` reads
+   * no database of its own), for this page's own data needs below.
    */
   const user = hasDatabase ? await currentUser() : null
-  if (hasDatabase && user === null) redirect('/login')
-
-  /*
-   * The mandatory plan-choice gate (PLAN.md, v3.7). Still checked here — `/` is the page every
-   * sign-in path lands on — but no longer *only* here: `requirePlanChoice` carries the same
-   * check, and the reasoning about layouts and loops, to the deep-link routes that used to skip
-   * it entirely. `user` is passed in because this page has already resolved it.
-   */
-  await requirePlanChoice(user)
 
   const [songs, songbooks, sections] =
     user === null

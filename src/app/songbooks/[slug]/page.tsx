@@ -18,7 +18,6 @@ import {
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { repository } from '@/lib/data'
 import { hasDatabase } from '@/lib/db/client'
-import { requirePlanChoice } from '@/lib/plans/gate'
 import { toIndexRow } from '@/lib/search-index'
 
 interface Props {
@@ -66,10 +65,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SongbookPage({ params }: Props) {
   const { slug } = await params
-
-  /* The other real deep-link target that used to skip the plan-choice gate — see
-   * `requirePlanChoice`'s own comment, and `songs/[slug]` for the same call. */
-  await requirePlanChoice()
 
   const resolved = await resolveSongbook(slug)
   if (resolved === null) notFound()
