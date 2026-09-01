@@ -56,16 +56,25 @@ import type {
 /**
  * Validates access, then switches. Lands on the home page rather than wherever the
  * reader was: the song or songbook on screen belongs to the account being left, and has
- * no reason to exist — or to mean the same thing — on the one being entered.
+ * no reason to exist — or to mean the same thing — on the one being entered. Applies
+ * equally in either direction: entering another account (`EnterAccountForm`) and
+ * exiting back to one's own (`ViewingAsPill`) are the same call with a different
+ * argument, nothing else distinguishes them.
+ *
+ * `Promise<void>`, not a result: no caller has ever branched on success/failure (both
+ * form actions here discard it the same way, `EnterAccountForm`'s own included), and
+ * `redirect()` below already is the signal a form action can act on — a returned value
+ * would only be reachable on the failure path, which needs no UI here beyond staying
+ * put.
  */
-export async function switchAccount(accountOwnerEmail: string): Promise<{ ok: boolean }> {
+export async function switchAccount(accountOwnerEmail: string): Promise<void> {
   const session = await auth()
   const email = session?.user?.email
-  if (!email) return { ok: false }
+  if (!email) return
 
   const normalized = normalizeEmail(email)
   if (!mayAccess(normalized, accountOwnerEmail, process.env.ALLOWED_EMAILS)) {
-    return { ok: false }
+    return
   }
 
   await writeAccountCookie(accountOwnerEmail)

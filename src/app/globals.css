@@ -5361,35 +5361,41 @@
   }
 
   /*
-   * "Viewing: ‹email›" (`TopBar.tsx`) — only a global owner switched into another account's
-   * view ever sees this, right beside their own brand mark and, further along the same bar,
-   * their own email in `UserMenu`. `--accent-soft`/`--accent` rather than `--danger-soft`:
-   * this is not a warning, it is the one piece of context that keeps a real control (Switch)
-   * from reading as a bug the moment the plan badge next to it stops matching the email above
-   * it. `min-width: 0` overrides the flex item's own default `auto`, which is what lets a
-   * long address actually shrink and ellipsize instead of forcing `ThemeToggle`/`UserMenu`/
-   * `NavMenu` off a narrow screen to make room for its full, un-shrunk width.
+   * The impersonated account's monogram (`ViewingAsPill.tsx`) — only a global owner
+   * switched into another account's view ever sees this, sitting right beside their own
+   * `.avatar-button` so the two read side by side: this one, not me. Same footprint as
+   * `.avatar-button` on purpose (it is the same kind of control, a click target with a
+   * monogram), but `--danger-soft`/`--danger` instead of one of the six deterministic
+   * `--avatar-N` — this is the one avatar that must never blend in as "just another
+   * account colour", it has to read as the odd one out. That pairing is not just a
+   * stronger warning tone than `--accent-soft`/`--accent` (this rule's own choice before
+   * the pill became a real exit control): unlike the six `--avatar-N`, deliberately never
+   * redefined per theme above, `--danger` itself changes in dark mode, so the soft/on-soft
+   * pair is what keeps the text readable in both themes — a solid `--danger` fill with
+   * white text would sink to unreadable contrast under dark mode's paler `--danger`.
    */
-  .viewing-as-pill {
+  .viewing-as-avatar {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    min-width: 0;
-    max-width: 11rem;
-    height: 1.75rem;
-    padding: 0 0.75rem;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: var(--r-pill);
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 0.75rem;
-    font-weight: 500;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
 
-  @media (min-width: 640px) {
-    .viewing-as-pill {
-      max-width: 16rem;
+  .viewing-as-avatar:disabled {
+    opacity: 0.5;
+  }
+
+  @media (hover: hover) {
+    .viewing-as-avatar:not(:disabled):hover {
+      background: color-mix(in srgb, var(--danger-soft) 80%, var(--danger));
     }
   }
 
