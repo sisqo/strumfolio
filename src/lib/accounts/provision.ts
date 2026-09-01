@@ -23,7 +23,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 
 import { normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts } from '@/lib/db/schema'
+import { accounts, newsletterPrefs } from '@/lib/db/schema'
 import { PLANS } from '@/lib/plans/types'
 import { insertSampleSongbook } from '@/lib/songbooks/seed'
 
@@ -63,10 +63,17 @@ import { insertSampleSongbook } from '@/lib/songbooks/seed'
  * unconditionally: the update below runs `WHERE first_name IS NULL`, so a Google
  * sign-in years after registration can fill a name that was never captured, but can
  * never clobber one the reader corrected by hand on `/profile`.
+ *
+ * `newsletterOptIn`, when given, is whether this address asked for the newsletter —
+ * a registration checkbox (`verifyEmail`), or `true` unconditionally for Google
+ * (`auth.ts`, `PLAN-newsletter.md`). Unlike `name` there is no opportunistic fill on
+ * an existing account: a missing `newsletterPrefs` row simply reads as "not
+ * subscribed" (`loadNewsletterPrefs`), nothing to backfill from here.
  */
 export async function provisionAccount(
   email: string,
   name?: { firstName: string; lastName: string },
+  newsletterOptIn?: boolean,
 ): Promise<boolean> {
   if (!hasDatabase) return false
 
@@ -128,6 +135,25 @@ export async function provisionAccount(
     await insertSampleSongbook(ownerEmail, PLANS.free.songs)
   } catch (error) {
     console.error('provisionAccount could not seed the example songbook', error)
+  }
+
+  /*
+   * Also outside the transaction above, and also swallowing its own failure, for the
+   * same reason `insertSampleSongbook` is: an account whose `newsletterPrefs` insert
+   * trips (e.g. the `0035` migration not yet applied where this deploys) is still a
+   * working account, just one that reads as "not subscribed" until that row exists.
+   */
+  try {
+    await db()
+      .insert(newsletterPrefs)
+      .values({
+        ownerEmail,
+        subscribed: newsletterOptIn ?? false,
+        frequency: 'monthly',
+        subscribedAt: newsletterOptIn === true ? new Date() : null,
+      })
+  } catch (error) {
+    console.error('provisionAccount could not seed the newsletter preference', error)
   }
 
   return true

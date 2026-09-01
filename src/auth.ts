@@ -129,11 +129,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             : splitName(profile?.name)
           : undefined
 
+      /*
+       * Google sign-ups are subscribed to the newsletter without a separate consent
+       * step (`PLAN-newsletter.md`, decided in interview) — the credentials branch
+       * passes `undefined`, a no-op either way since that account already exists by
+       * the time this callback runs (`verifyEmail` created it, see `provisionAccount`'s
+       * own comment on `newsletterOptIn`).
+       */
+      const newsletterOptIn = account?.provider === 'google' ? true : undefined
+
       // The returned boolean says whether this call is the one that created the account
       // (v3.2, PLAN.md point 7): true only the first time this address ever signs in
       // successfully, false on every later sign-in that finds the row already there —
       // exactly when, and only when, the welcome email belongs.
-      const created = await provisionAccount(email, googleName)
+      const created = await provisionAccount(email, googleName, newsletterOptIn)
       if (created) {
         await sendEmail({ to: email, ...welcomeEmail() })
         await notifyTelegram('registration', registrationNotice(email, googleName?.firstName, googleName?.lastName))

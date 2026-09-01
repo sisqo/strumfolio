@@ -472,6 +472,13 @@ export const pendingRegistrations = pgTable('pending_registrations', {
    */
   firstName: text('first_name'),
   lastName: text('last_name'),
+  /**
+   * Carried through to `newsletterPrefs.subscribed` once `verifyEmail` turns this row
+   * into a real account (`PLAN-newsletter.md`). A plain boolean, unlike
+   * `firstName`/`lastName` above, always has a safe default — no risk to a row
+   * already pending at deploy time.
+   */
+  newsletterOptIn: boolean('newsletter_opt_in').notNull().default(false),
   passwordHash: text('password_hash').notNull(),
   verificationTokenHash: text('verification_token_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -551,6 +558,36 @@ export const userPrefs = pgTable('user_prefs', {
    * state would be a thing it has no way to show. See `readChord` for what it does.
    */
   accidentals: text('accidentals').notNull().default('sharp'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+/**
+ * Newsletter consent: one row per account (`PLAN-newsletter.md`). A table of its own
+ * rather than a few more columns on `userPrefs` — consent to be emailed is a
+ * different concern from a reading preference like zoom or notation, and this one
+ * needs its own timestamps to know when a reader last changed their mind.
+ *
+ * `frequency` is plain `text`, not a pgEnum/CHECK, same convention as `notation`/
+ * `chordDisplay`/`accidentals` above: only `'weekly'`/`'monthly'` are valid today,
+ * enforced in TypeScript wherever this is written, not by the database.
+ *
+ * `ownerEmail` cascades on `accounts.ownerEmail` like `userPrefs.userEmail` — a
+ * consent row has no reason to outlive the account it is about.
+ *
+ * Created for every new account by `provisionAccount`, deliberately outside the
+ * transaction that inserts `accounts` (same treatment as `insertSampleSongbook`): a
+ * failure here must never take the account row down with it. A row absent for any
+ * other reason (that insert failing, or an account older than this table) reads as
+ * "not subscribed, monthly" — see `loadNewsletterPrefs`.
+ */
+export const newsletterPrefs = pgTable('newsletter_prefs', {
+  ownerEmail: text('owner_email')
+    .primaryKey()
+    .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
+  subscribed: boolean('subscribed').notNull().default(false),
+  frequency: text('frequency').notNull().default('monthly'),
+  subscribedAt: timestamp('subscribed_at', { withTimezone: true }),
+  unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

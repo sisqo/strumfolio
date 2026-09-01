@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { unstable_rethrow } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import { NewsletterPrefs } from '@/components/NewsletterPrefs'
 import { NotationPicker } from '@/components/NotationPicker'
 import { useRole } from '@/components/RoleProvider'
 import { ThemePicker } from '@/components/ThemePicker'
@@ -241,6 +242,14 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                  */}
                 <ThemePicker />
                 <NotationPicker />
+                {/*
+                 * Newsletter consent (`PLAN-newsletter.md`) — grouped here on the same
+                 * reasoning as theme/notation above: answered once for the whole account,
+                 * not per song. Renders nothing until its own read resolves, so it never
+                 * shifts the menu's height while ThemePicker/NotationPicker (synchronous,
+                 * local state) have already painted.
+                 */}
+                <NewsletterPrefs />
 
                 <div className="menu-divider" />
 

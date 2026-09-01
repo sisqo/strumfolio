@@ -44,6 +44,8 @@ export async function register(formData: FormData): Promise<RegisterResult> {
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirmPassword') ?? '')
   const captchaToken = String(formData.get('captchaToken') ?? '')
+  // A checkbox sends nothing at all when unchecked, never a falsy value.
+  const newsletterOptIn = formData.get('newsletterOptIn') === 'on'
 
   const ip = await requestIp()
 
@@ -86,10 +88,14 @@ export async function register(formData: FormData): Promise<RegisterResult> {
      */
     await db()
       .insert(pendingRegistrations)
-      .values({ email, firstName, lastName, passwordHash, verificationTokenHash: hash, expiresAt })
+      .values({ email, firstName, lastName, newsletterOptIn, passwordHash, verificationTokenHash: hash, expiresAt })
       .onConflictDoUpdate({
         target: pendingRegistrations.email,
-        set: { firstName, lastName, passwordHash, verificationTokenHash: hash, expiresAt },
+        // `newsletterOptIn` in both halves, not just `values`: registering again on a
+        // still-pending address is the documented "the email never arrived" path — a
+        // checkbox changed on that second attempt must actually be saved, not silently
+        // discarded because only the insert branch carried it.
+        set: { firstName, lastName, newsletterOptIn, passwordHash, verificationTokenHash: hash, expiresAt },
       })
 
     const url = new URL('/verify', await requestOrigin())

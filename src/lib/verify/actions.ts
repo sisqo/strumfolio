@@ -42,11 +42,14 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
   const normalized = normalizeEmail(email)
 
   /*
-   * Carries `firstName`/`lastName` back out alongside the plain ok/not-ok this used to
-   * be — `provisionAccount` below needs them, and the row they come from is deleted
-   * before this transaction ever returns (PLAN-account-name.md point 4).
+   * Carries `firstName`/`lastName`/`newsletterOptIn` back out alongside the plain
+   * ok/not-ok this used to be — `provisionAccount` below needs them, and the row they
+   * come from is deleted before this transaction ever returns (PLAN-account-name.md
+   * point 4, PLAN-newsletter.md point 5).
    */
-  let result: { ok: true; firstName: string | null; lastName: string | null } | { ok: false }
+  let result:
+    | { ok: true; firstName: string | null; lastName: string | null; newsletterOptIn: boolean }
+    | { ok: false }
   try {
     result = await db().transaction(async (tx) => {
       const rows = await tx
@@ -80,7 +83,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
 
       await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
 
-      return { ok: true, firstName: row.firstName, lastName: row.lastName }
+      return { ok: true, firstName: row.firstName, lastName: row.lastName, newsletterOptIn: row.newsletterOptIn }
     })
   } catch (error) {
     console.error('verifyEmail failed', error)
@@ -110,6 +113,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
     result.firstName !== null && result.lastName !== null
       ? { firstName: result.firstName, lastName: result.lastName }
       : undefined,
+    result.newsletterOptIn,
   )
 
   // Gated on provisionAccount's own true/false, not assumed from the transaction above:

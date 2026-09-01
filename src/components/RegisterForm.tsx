@@ -30,6 +30,7 @@ export function RegisterForm() {
   const [lastName, setLastName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [newsletterOptIn, setNewsletterOptIn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sentCount, setSentCount] = useState(0)
@@ -162,6 +163,20 @@ export function RegisterForm() {
               className="form-field"
             />
           </label>
+
+          {/* `.toggle-switch`, not a bare checkbox — same reasoning as `AppSettingsForm`'s
+              own note: this is saved to the account, a real Toggle (DESIGN.md §5). */}
+          <label className="row cursor-pointer">
+            <input
+              type="checkbox"
+              role="switch"
+              name="newsletterOptIn"
+              className="toggle-switch"
+              checked={newsletterOptIn}
+              onChange={(event) => setNewsletterOptIn(event.target.checked)}
+            />
+            <span className="text-sm text-ink">Subscribe to the newsletter</span>
+          </label>
         </>
       ) : (
         <>
@@ -170,6 +185,7 @@ export function RegisterForm() {
           <input type="hidden" name="lastName" defaultValue={lastName} />
           <input type="hidden" name="password" defaultValue={password} />
           <input type="hidden" name="confirmPassword" defaultValue={confirmPassword} />
+          <input type="hidden" name="newsletterOptIn" defaultValue={newsletterOptIn ? 'on' : ''} />
         </>
       )}
 
