@@ -18,6 +18,12 @@
  * decoration around one `role="img"` label: nothing here is interactive, and
  * `prefers-reduced-motion` shows the finished line — both chords placed, no bar,
  * no splashes — instead of playing anything.
+ *
+ * Under the two lines sits the still `+ line` row the graphic editor always keeps
+ * at the foot of a song (`.editor-add-line`). It takes no part in the loop; it is
+ * there because the card would otherwise end where no real song's card does, and
+ * this demo now stands inside a whole editor screen (`EditorPhone`) rather than
+ * alone on the page.
  */
 
 /** The eight directions a splash throws a spark in. */
