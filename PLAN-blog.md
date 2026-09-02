@@ -458,12 +458,16 @@ cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
 - **Pagine per categoria**: da riconsiderare quando gli articoli saranno abbastanza da
   riempirle — indicativamente trenta, con almeno cinque per categoria. Il campo ora è una
   lista chiusa, quindi accenderle è aggiungere una rotta, non ripassare gli articoli.
-- **Il mock prevede fotografie, il blog non ne ha.** Ogni `image-slot` del disegno
-  descrive uno scatto («Hands on a capo, close up», «Capo clamped on the second fret»), e
-  al loro posto ci sono copertine tipografiche generate. Reggono, ma sono un sostituto: la
-  banda da 380px dell'articolo è disegnata per una foto che la riempie, e una copertina
-  chiara ha avuto bisogno di un filo di bordo per non dissolversi nella pagina. Se
-  arriveranno foto vere, quel bordo va tolto e le copertine vanno rifatte al taglio.
+- **Il mock prevedeva fotografie; le copertine tipografiche sono diventate la scelta.**
+  Ogni `image-slot` del disegno descrive uno scatto («Hands on a capo, close up»), e al loro
+  posto sono state generate copertine tipografiche. Nate come sostituto, dopo cinque
+  articoli nello stesso stile non lo sono più: sono l'identità visiva del blog, e hanno un
+  vantaggio che una foto di repertorio non ha — mostrano il prodotto (accordi sopra le
+  parole, la tabella suona/suoni) invece di illustrarlo. Restano due conseguenze da
+  ricordare: la banda da 380px ritaglia, quindi il contenuto di una copertina deve stare fra
+  y 108 e 522 del file 1200×630, e il filo di bordo sull'immagine dell'articolo esiste
+  perché una copertina chiara altrimenti si dissolve nella pagina. Se un giorno arrivano
+  foto vere, quel bordo va tolto.
 - **L'indice si vede pieno solo da otto articoli in su.** Con due, la riga da tre resta
   chiusa e «Earlier» tiene una riga sola. È il comportamento deciso e testato, non un
   difetto, ma il disegno dà il meglio quando c'è di che riempirlo.
