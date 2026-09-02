@@ -168,6 +168,11 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
 
   return (
     <>
+      {/*
+        * Nothing under here may be translated — see `layout.tsx` for the page-wide half of
+        * this. Said again on each container because that is the part Firefox honours today:
+        * it ignores the answer at the top of the document, but not the one on the element.
+        */}
       {summary !== null && summary.length > 0 && (
         <ChordSummary
           chords={summary}
@@ -178,6 +183,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
       )}
 
       <div
+        translate="no"
         className={showNotes && notes.mode === 'adding' ? 'song-sheet is-adding' : 'song-sheet'}
         style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}
       >
@@ -337,7 +343,7 @@ function ChordSummary({
 }) {
   if (as === 'fingerings') {
     return (
-      <div className="chord-fingerings" aria-label="The chords in this song">
+      <div translate="no" className="chord-fingerings" aria-label="The chords in this song">
         {chords.map((chord) => (
           <button
             key={chord.label}
@@ -362,7 +368,7 @@ function ChordSummary({
   }
 
   return (
-    <div className="chord-strip" aria-label="The chords in this song">
+    <div translate="no" className="chord-strip" aria-label="The chords in this song">
       {chords.map((chord) => (
         <button
           key={chord.label}

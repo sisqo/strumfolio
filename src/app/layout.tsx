@@ -60,6 +60,17 @@ export const metadata: Metadata = {
     images: ['/brand/og-image.png'],
   },
   /**
+   * «Never offer to translate this page», in the one dialect that asks for it.
+   *
+   * Chrome and Edge read this tag; the `translate="no"` below is the standard attribute
+   * and the one that actually protects the words. The two do different jobs — the tag
+   * stops the bar from coming up at all, the attribute stops the rewriting — and neither
+   * makes the other redundant. Written here rather than by hand because every tag in this
+   * head comes from this object: a `<meta>` in the JSX below would render in the body.
+   */
+  other: { google: 'notranslate' },
+
+  /**
    * Declared rather than left to convention.
    *
    * `/favicon.ico` would be found by guesswork anyway, but only the tags say which
@@ -138,9 +149,22 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  /*
+   * `translate="no"` twice, deliberately.
+   *
+   * `lang` stays `en` because the interface really is English — what must not happen is a
+   * browser rewriting it, and the song with it: chord names are one and two letters long,
+   * and an `A` translated is not a chord any more. The sheet and the editor say it again
+   * on their own containers (`SongSheet`, `GraphicEditor`), which is what holds if a reader
+   * asks for the translation regardless; this pair is what keeps it from being offered.
+   *
+   * On `<body>` as well as `<html>` because Firefox honours neither today
+   * (bugzilla 1969828, still open) but is reported there to look at the body — unverified,
+   * kept because it costs one attribute.
+   */
   return (
-    <html lang="en">
-      <body className={`${sans.variable} ${mono.variable} antialiased`}>
+    <html lang="en" translate="no">
+      <body translate="no" className={`${sans.variable} ${mono.variable} antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
 
         {/*

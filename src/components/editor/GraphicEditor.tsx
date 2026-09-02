@@ -169,8 +169,14 @@ export function GraphicEditor({
     input.setSelectionRange(target.at, target.at)
   }, [source])
 
+  /*
+   * The one screen where a browser translation is not merely wrong but broken: the chords
+   * are positioned by a hidden copy of the words (see `ChordRow`'s own comment), so words
+   * rewritten underneath them take every chord off the syllable it was naming — the sheet
+   * would still read as a song, only with the wrong chord over every word.
+   */
   return (
-    <div>
+    <div translate="no">
       {doc.blocks.map((block, index) => (
         <Fragment key={index}>
           <BlockRow
