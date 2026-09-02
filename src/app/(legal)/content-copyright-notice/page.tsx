@@ -9,7 +9,7 @@ export default function ContentCopyrightNoticePage() {
   return (
     <>
       <h1>Content &amp; Copyright Notice</h1>
-      <p className="legal-updated">Last updated: 23 August 2026</p>
+      <p className="legal-updated">Last updated: 3 September 2026</p>
 
       <p>
         Strumfolio (strumfolio.com) is a tool for managing your own personal song collection, run by an
@@ -83,11 +83,23 @@ export default function ContentCopyrightNoticePage() {
         with it afterwards is yours to answer for rather than something the Service authorizes.
       </p>
 
-      <h2>4. Copyright concerns</h2>
+      <h2>4. Copyright concerns and other notices about content</h2>
       <p>
-        If you believe that content stored by a user of Strumfolio infringes your copyright, contact us
-        at <a href={`mailto:${CONTACT}`}>{CONTACT}</a> with details of the content, the work you claim
-        is infringed, and your contact information.
+        If you believe that content stored by a user of Strumfolio infringes your copyright, or is
+        otherwise illegal, contact us at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. A notice we can
+        act on says why you consider the content infringing or illegal, identifies it as precisely as
+        you can (the account or the link through which you saw it, and the work concerned), gives your
+        name and an email address we can reply to, and states that you believe in good faith that
+        what you say is accurate. We confirm that we have received it, and every notice is read by a
+        person.
+      </p>
+      <p>
+        Strumfolio stores content on behalf of its users, which makes it a hosting service under the
+        EU Digital Services Act (Regulation (EU) 2022/2065). The address above is our single point of
+        contact for those notices, for the people who send them, for the account holders they concern,
+        and for authorities; we read English and Italian. When we restrict or disable an account
+        because of a notice, we tell the account holder what we did, on what facts and on what ground,
+        and how to reply — and their reply reaches the same address.
       </p>
       <p>
         Content on Strumfolio lives inside private, individual accounts that we do not routinely access

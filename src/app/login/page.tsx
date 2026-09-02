@@ -602,7 +602,25 @@ export default async function LoginPage({ searchParams }: Props) {
               </form>
             </div>
 
+            {/*
+              * Same acceptance line as `/register`, because the Google button above is the same
+              * button: a first successful Google sign-in *is* a registration (`provisionAccount`,
+              * see `/register`'s own comment), so an account can be born here having agreed to
+              * nothing unless this line says it.
+              */}
             <p className="mt-4 text-center text-xs text-muted">
+              By signing in you agree to our{' '}
+              <Link href="/terms-of-service" className="text-accent hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and acknowledge our{' '}
+              <Link href="/privacy-policy" className="text-accent hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
+            <p className="mt-2 text-center text-xs text-muted">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="text-accent hover:underline">
                 Register

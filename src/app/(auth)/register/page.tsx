@@ -46,7 +46,26 @@ export default function RegisterPage() {
           <RegisterForm />
         </div>
 
+        {/*
+          * The acceptance line. The footer's links alone cannot show that anyone agreed to
+          * anything — a reader has to be told, at the moment of creating the account, what
+          * creating it commits them to. Below the card and not inside the form, because both
+          * ways in — the Google button and the email form — create an account, and a line inside
+          * one of them would leave the other looking exempt.
+          */}
         <p className="mt-4 text-center text-xs text-muted">
+          By creating an account you agree to our{' '}
+          <Link href="/terms-of-service" className="text-accent hover:underline">
+            Terms of Service
+          </Link>{' '}
+          and acknowledge our{' '}
+          <Link href="/privacy-policy" className="text-accent hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="mt-2 text-center text-xs text-muted">
           Already have an account?{' '}
           <Link href="/login" className="text-accent hover:underline">
             Sign in

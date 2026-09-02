@@ -358,6 +358,25 @@ export function CheckoutScreen({
             >
               {scheduling ? `Move to ${PLAN_LABEL[plan]} at the end of the period` : 'Complete purchase'}
             </button>
+
+            {/*
+              * The two sentences a consumer-law checkout has to carry at the button, not in a
+              * footer link: that pressing it accepts the billing terms, and that access begins
+              * now — the express request that lets the fourteen-day withdrawal period run
+              * alongside use rather than before it (Terms §8, which is where the promise that
+              * the refund is still the full amount lives). Absent on a scheduled change, which
+              * charges nothing and starts nothing today.
+              */}
+            {!scheduling && (
+              <p className="mt-3 text-xs leading-[1.5] text-muted">
+                By completing the purchase you agree to the{' '}
+                <Link href="/terms-of-service" className="text-accent hover:underline">
+                  Terms of Service
+                </Link>
+                , including the billing and refund terms, and you ask for your plan to start right
+                away. You still have 14 days to change your mind and get the full amount back.
+              </p>
+            )}
           </div>
         </>
       )}
