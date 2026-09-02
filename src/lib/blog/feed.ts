@@ -89,7 +89,7 @@ export function renderFeed(posts: readonly PostSummary[]): string {
     <title>${escapeXml(APP_NAME)} — Blog</title>
     <link>${ORIGIN}/blog</link>
     <description>${escapeXml(
-      'Guides for musicians who keep their own lyrics and chords — transposing, capos, ChordPro, and getting a repertoire in order.',
+      'Guides for musicians who keep their own lyrics and chords — transposing, capos, ChordPro, and comparisons of the apps that show them.',
     )}</description>
     <language>en</language>
     <atom:link href="${ORIGIN}/blog/feed.xml" rel="self" type="application/rss+xml" />${lastBuildDate}

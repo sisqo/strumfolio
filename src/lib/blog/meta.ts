@@ -31,8 +31,13 @@
  *
  * Adding one is a single line here. That is the intended cost: a new category is a decision
  * about how the blog is organised, not a thing to invent while writing a headline.
+ *
+ * «Comparisons» is the one that is not a subject: the first four say what an article is about,
+ * and this one says what kind of article it is — a piece weighing this app against another,
+ * written for somebody who arrived already holding a name. It covers both the «alternative to
+ * X» pieces and the round-ups, which are the same promise at two widths.
  */
-export const CATEGORIES = ['Guide', 'Capo', 'Keys', 'Chords'] as const
+export const CATEGORIES = ['Guide', 'Capo', 'Keys', 'Chords', 'Comparisons'] as const
 
 export type Category = (typeof CATEGORIES)[number]
 

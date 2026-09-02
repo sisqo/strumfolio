@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { byNewest, isCalendarDate, isCategory, isValidSlug, parsePostMeta } from './meta'
+import { CATEGORIES, byNewest, isCalendarDate, isCategory, isValidSlug, parsePostMeta } from './meta'
 
 /** The smallest article that passes, for tests that vary one field at a time. */
 const valid = {
@@ -87,12 +87,18 @@ describe('parsePostMeta', () => {
     assert.throws(() => parsePostMeta('a-post', { ...valid, category: 42 }), /must be one of/)
   })
 
+  /* Read off `CATEGORIES` rather than retyped: a list written twice is a list that goes
+   * stale the first time a category is added, and the message is the whole point of the
+   * check — it has to name what is actually allowed today. */
   it('names the allowed categories in the error, so the fix needs no source diving', () => {
-    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 'Nope' }), /Guide, Capo, Keys, Chords/)
+    assert.throws(
+      () => parsePostMeta('a-post', { ...valid, category: 'Nope' }),
+      new RegExp(CATEGORIES.join(', ')),
+    )
   })
 
   it('keeps every category the list allows', () => {
-    for (const category of ['Guide', 'Capo', 'Keys', 'Chords']) {
+    for (const category of CATEGORIES) {
       assert.equal(parsePostMeta('a-post', { ...valid, category }).category, category)
     }
   })
@@ -120,8 +126,7 @@ describe('isCalendarDate', () => {
 
 describe('isCategory', () => {
   it('is the closed list and nothing else', () => {
-    assert.equal(isCategory('Guide'), true)
-    assert.equal(isCategory('Chords'), true)
+    for (const category of CATEGORIES) assert.equal(isCategory(category), true, category)
 
     assert.equal(isCategory('guide'), false)
     assert.equal(isCategory('Chord'), false)

@@ -16,8 +16,19 @@ import { shelve } from '@/lib/blog/shelves'
  */
 const BLOG_TITLE = 'Playing notes'
 
+/**
+ * The lede, and also this page's meta description — one sentence doing both jobs.
+ *
+ * **Widened by one clause from what the mock drew.** The design's line was «Short guides on
+ * capo, keys and chord shapes — the parts of a song sheet that change depending on who is
+ * holding the instrument», written when the blog was imagined as guides and nothing else. It
+ * now also carries comparisons of the apps a musician might be choosing between, and a lede
+ * that promises only capo and keys over an index whose top three entries are app comparisons
+ * is a page arguing with itself — in the hero and, worse, in the search snippet. The mock's
+ * closing image is kept, because it is the good half of the sentence.
+ */
 const DESCRIPTION =
-  'Short guides on capo, keys and chord shapes — the parts of a song sheet that change depending on who is holding the instrument.'
+  'Guides on capo, keys and chord shapes, and comparisons of the apps that show them — written for whoever is holding the instrument.'
 
 /**
  * `openGraph` repeated rather than inherited, for the reason `/pricing` and `/changelog` each

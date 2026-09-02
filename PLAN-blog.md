@@ -372,6 +372,55 @@ Cosa cambia rispetto a quanto descritto sopra:
 - **L'articolo del mock è stato portato per intero** (`capo-second-fret.mdx`): la sua copia
   è completa nel disegno, quindi riprodurla è seguire il mock, non inventare contenuto.
 
+## Piano editoriale a ondate (3 settembre 2026)
+
+Deciso dall'utente e riportato qui perché era una delle *Domande aperte* di questo
+documento («nessuna scelta di parole chiave a monte»). Sei ondate, ordinate per
+dipendenza di sviluppo prima che per volume di ricerca:
+
+| Ondata | Contenuto | Tipo | Stato |
+|---|---|---|---|
+| 1 | Alternativa a OnSong | Pagina pura | **consegnata** |
+| 1 | Alternativa a SongBook ChordPro | Pagina pura | **consegnata** |
+| 1 | Alternativa a JustChords | Pagina pura | **consegnata** |
+| 2 | Free ChordPro converter + «How to convert chord sheets to ChordPro» | Tool + articolo | da fare |
+| 3 | Free chord transposer online | Tool | da fare |
+| 4 | Capo calculator | Tool | da fare |
+| 5 | Setlist length calculator | Tool | da fare |
+| 6 | Best chord chart apps for gigging musicians | Best-of | da fare |
+| 6 | Best offline chord chart apps (no wifi) | Best-of | da fare |
+| 6 | Best apps for solo acoustic performers | Best-of | da fare |
+
+L'ondata 1 non ha dipendenze di sviluppo — si scrive e si pubblica — ed è per questo che
+va per prima. Le ondate 2-5 sono **strumenti interattivi**, cioè lavoro di prodotto e non
+di scrittura: ognuna è una pagina che fa qualcosa, non una che spiega qualcosa. L'ondata 6
+si appoggia alle precedenti e le linka internamente, quindi arriva per ultima.
+
+### Cosa è servito per l'ondata 1
+
+- **Nuova categoria `Comparisons`**, quinta della lista chiusa. È l'unica che non nomina un
+  argomento ma un *genere*: un pezzo che pesa questa app contro un'altra, scritto per chi
+  arriva già con un nome in mano. Copre anche i best-of dell'ondata 6.
+- **I due test che inchiodavano la lista** delle categorie ora la leggono da `CATEGORIES`,
+  così aggiungerne una non ne rompe due.
+- **La lede del blog è stata allargata di una clausola** rispetto al mock. Il disegno
+  prometteva solo guide su capotasto, tonalità e accordi; con tre confronti su cinque
+  articoli quella riga litigava con l'indice che sta sopra — e, peggio, con lo snippet in
+  SERP, visto che è la stessa stringa. La stessa frase nel canale RSS è stata allineata.
+
+### La regola di scrittura per un confronto
+
+Ogni pagina «alternativa a X» dichiara, nell'ordine: cosa X fa bene (in dettaglio e senza
+sconti), la cosa che spinge la gente a cercare un'alternativa, cosa cambia qui, e **una
+sezione esplicita «quando restare con X»** con i casi reali in cui Strumfolio è la scelta
+peggiore — PDF, annotazioni, pedali, MIDI, tracce, proiezione, metronomo, accordatore.
+Non è cortesia: una pagina di confronto che non ammette un limite non viene creduta su
+nessun altro punto, e chi la legge sta decidendo se fidarsi.
+
+I fatti sui concorrenti sono stati **verificati sulle loro pagine ufficiali** al momento
+della scrittura, non ricordati, e i prezzi portano la data. Vanno ricontrollati quando
+cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
+
 ## Domande aperte
 
 - **La home del sito, per un crawler, è `/login`.** `/` richiede una sessione e
@@ -396,12 +445,13 @@ Cosa cambia rispetto a quanto descritto sopra:
   di redirect di Google OAuth documentate in `CLAUDE.md`. Senza, la sitemap esiste ma
   nessuno l'ha mai presentata a Google. Va aggiunta alla checklist dei sei posti
   quando sarà fatta.
-- **Nessuna scelta di parole chiave a monte.** L'impianto è pronto a ricevere
-  articoli; quali articoli, su quali ricerche, e in che ordine, è una decisione
-  editoriale non ancora presa. In inglese va cercata deliberatamente la coda lunga
-  vicina al prodotto (`ChordPro`, stampa di un canzoniere, condivisione con la band)
-  invece delle teste presidiate dai grandi — vedi il contro-argomento nella
-  decisione 2.
+- ~~**Nessuna scelta di parole chiave a monte.**~~ Risolta: vedi *Piano editoriale a
+  ondate* sopra. Resta aperto il seguito — le ondate 2-5 sono strumenti da costruire, non
+  articoli da scrivere, e ognuna va pianificata come lavoro di prodotto.
+- **I fatti sui concorrenti invecchiano.** Le tre pagine dell'ondata 1 citano piattaforme,
+  prezzi e funzioni verificati a settembre 2026. Un prezzo cambiato o una versione Android
+  in arrivo rende falsa una pagina che continua a posizionarsi: vanno riviste, non
+  dimenticate. I prezzi portano già la data nel testo, che è il minimo.
 - **L'italiano, se mai servirà, si pagherà per intero**: rotte, `hreflang`, `lang` per
   pagina, e ogni articolo già scritto da tradurre. Rifiutato consapevolmente due
   volte; qui solo per memoria del costo.
