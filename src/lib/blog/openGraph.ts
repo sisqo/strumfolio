@@ -62,7 +62,9 @@ export function postMetadata(meta: PostMeta): Metadata {
       locale: 'en_US',
       type: 'article',
       publishedTime: meta.date,
-      tags: meta.tags,
+      /* OpenGraph's `article:tag` takes a list; the blog has one category per piece, so the
+       * list is that one value rather than a second field invented to fill the plural. */
+      tags: [meta.category],
       images: [{ url: image, width: CARD_WIDTH, height: CARD_HEIGHT, alt: meta.title }],
     },
     twitter: {

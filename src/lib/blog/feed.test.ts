@@ -10,7 +10,7 @@ const post = (overrides: Partial<PostSummary['meta']> = {}): PostSummary => ({
     title: 'What ChordPro is',
     description: 'A plain-text format for lyrics and chords.',
     date: '2026-09-02',
-    tags: [],
+    category: 'Guide',
     cover: null,
     draft: false,
     ...overrides,
@@ -85,10 +85,9 @@ describe('renderFeed', () => {
     assert.doesNotMatch(xml, /lastBuildDate/)
   })
 
-  it('writes each tag as a category', () => {
-    const xml = renderFeed([post({ tags: ['chordpro', 'import'] })])
+  it('writes the article category', () => {
+    const xml = renderFeed([post({ category: 'Capo' })])
 
-    assert.match(xml, /<category>chordpro<\/category>/)
-    assert.match(xml, /<category>import<\/category>/)
+    assert.match(xml, /<category>Capo<\/category>/)
   })
 })

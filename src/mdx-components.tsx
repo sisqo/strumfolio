@@ -1,6 +1,8 @@
 import type { MDXComponents } from 'mdx/types'
 
 import { BlogChord } from '@/components/BlogChord'
+import { BlogChordTable } from '@/components/BlogChordTable'
+import { BlogQuote } from '@/components/BlogQuote'
 
 /**
  * What an `.mdx` article can use without importing it, and how its plain markdown renders.
@@ -15,12 +17,15 @@ import { BlogChord } from '@/components/BlogChord'
  * the design of the blog's prose out of the stylesheet and into a component map, where it
  * would be the only piece of this app's typography not living beside the rest of it.
  *
- * What does belong here is the one thing an article cannot express in markdown: a chord that
- * must survive a browser translating the page around it.
+ * What does belong here is what an article cannot express in markdown at all: a chord that
+ * must survive a browser translating the page around it, the two-row chord table the design
+ * gives the capo piece, and the single accented line an article stops on.
  */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
     Chord: BlogChord,
+    ChordTable: BlogChordTable,
+    Quote: BlogQuote,
   }
 }

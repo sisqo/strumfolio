@@ -318,21 +318,40 @@ correction that needs it. Naming a chord opens a bar *under* the line rather tha
 *over* it, since the line's own horizontal scroll clips vertically on purpose — every
 control on that bar sits at the same 44px floor as the reading control bar.
 
-### Article prose (`/blog`)
+### The blog (`/blog`)
 
-The one surface in Strumfolio somebody reads for several minutes rather than glancing at
-between phrases, and it is set for that: 1.0625rem at a 1.7 line height in a 48rem column,
-looser than any screen inside the app. Spacing is always a *top* margin on each block, never
-a bottom one, so two blocks never sum their margins and the first block after a heading is
-not a special case. Headings are 1.5rem and 1.1875rem at 500 — the same restrained weight the
-app's own titles use — and a quote is a rule down the accent-coloured side rather than large
-italics, which is the quieter of the two and the one that suits a page of explanation.
+Drawn from the `Blog.dc.html` handoff and the one surface in Strumfolio that is a **page**
+rather than a screen: 1100px wide for the index and its hero band, 720px for the words. It
+keeps its own bar (mark, a «Blog» capsule, Pricing, a Sign in capsule) and its own foot
+(centred, © and four links, no version and no commit hash) — the app's `PublicHeader` and
+`Footer` answer a signed-in reader's questions, and a visitor arriving from a search has
+different ones.
 
-A chord written inside an article gets the accent on `accent-soft`, in mono, because **the
-accent belongs to the chords** here exactly as it does on the sheet. It is also the one
-element on a blog page marked `translate="no"`: the article itself is deliberately
-translatable — the blog exists to be found by musicians who may not read English easily — and
-an `A` rewritten as `La` mid-sentence is the one thing that must not follow.
+The index divides into three shapes that only appear once they can be filled: one wide
+featured card, a row of three, then a compact «Earlier» list. Each article carries exactly one
+**category** — small caps in the accent, a capsule on the featured card and plain type
+everywhere else.
+
+**Article prose.** 17px on a 1.72 line height, in `--blog-prose`, an ink some twenty levels
+softer than the app's own: this is the one place somebody reads for several minutes rather
+than glancing between phrases. The opening paragraph is set at 19px in full ink. Spacing is
+always a *top* margin, so two blocks never sum their margins. Headings are 25px and 19px at
+500 — the app's restrained weight. Three elements are the blog's alone: the two-row chord
+table (what the room hears above what the hand holds, the played row in the accent), the
+single pulled-out line on a warm tint behind an accent rule, and the closing panel, which is a
+warm near-black **in both themes** — after a page of paper it has to read as a different kind
+of object, and following the theme would make it a card among cards in light and invisible in
+dark.
+
+A chord written in an article is the accent on `accent-soft`, in mono, and is the one element
+on a blog page marked `translate="no"`: the article itself is deliberately translatable — the
+blog exists to be found by musicians who may not read English easily — and an `A` rewritten as
+`La` mid-sentence is the one thing that must not follow. Chord names are spelled the way the
+app spells them (`F#m`, `Bb`), not with typographic ♯ and ♭: an article teaching somebody what
+their own sheet says has to print what the sheet actually prints.
+
+The mock is drawn in light only. The dark theme is written by hand against the night tokens,
+because both themes here are designed rather than inverted.
 
 ## 6. Do's and Don'ts
 

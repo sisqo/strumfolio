@@ -74,7 +74,7 @@ export function renderFeed(posts: readonly PostSummary[]): string {
       <guid isPermaLink="true">${url}</guid>
       <description>${escapeXml(meta.description)}</description>
       <pubDate>${rfc822(meta.date)}</pubDate>
-${meta.tags.map((tag) => `      <category>${escapeXml(tag)}</category>`).join('\n')}
+      <category>${escapeXml(meta.category)}</category>
     </item>`
     })
     .join('\n')

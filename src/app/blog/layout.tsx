@@ -1,16 +1,11 @@
-import { PublicHeader } from '@/components/PublicHeader'
+import { BlogHeader } from '@/components/BlogHeader'
 
 /**
- * The frame around the blog: the same public bar every signed-out page wears, at
- * `/changelog`'s own 48rem — a column of prose is a column of prose, and the two should not
- * be two widths.
+ * The frame around the blog.
  *
- * The brand mark stays, for `/changelog`'s reason exactly: somebody who arrived here from a
- * search engine has no other way to find out whose site this is, and the mark in the corner
- * is the only way home on a page that is otherwise all text. No `cta` — `/login` and
- * `/pricing` point at each other because each is the thing the other does not say, while an
- * article's own invitation belongs at the end of it, where somebody has finished reading (see
- * `BlogCta`), not in the chrome above it where it competes with the headline.
+ * `BlogHeader` rather than `PublicHeader`: the design gives this surface its own bar, with the
+ * section named beside the mark and two doors out of it — see that component for what it does
+ * differently and why.
  *
  * **Nothing here turns translation on, and that is the point worth recording.** The blog is
  * readable by a browser's translator because the root layout no longer forbids it for the
@@ -20,14 +15,14 @@ import { PublicHeader } from '@/components/PublicHeader'
  * argument and for the rule that replaced it, which is that a surface printing a chord name
  * marks itself.
  *
- * On this side, that rule means: an article's prose translates like any other page, and a
- * chord written inside one opts out on its own — see `BlogChord`.
+ * On this side, that rule means: an article's prose translates like any other page, and the
+ * chords inside one opt out on their own — see `BlogChord` and `BlogChordTable`.
  */
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <PublicHeader width="48rem" />
+    <div className="blog">
+      <BlogHeader />
       {children}
-    </>
+    </div>
   )
 }

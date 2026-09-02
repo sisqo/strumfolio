@@ -20,6 +20,22 @@
  * exists for the same reason.
  */
 
+/**
+ * The categories an article may declare — a closed list, deliberately.
+ *
+ * The design prints exactly one of these on every card, under every headline and on each
+ * "Read next" tile, in small caps and in the accent colour. A free-text field would render
+ * whatever was typed, so `Chord` and `Chords` would become two categories that look like one
+ * and a lowercase `capo` would print as a typo in a place the eye goes first. A closed list
+ * makes that a build error instead.
+ *
+ * Adding one is a single line here. That is the intended cost: a new category is a decision
+ * about how the blog is organised, not a thing to invent while writing a headline.
+ */
+export const CATEGORIES = ['Guide', 'Capo', 'Keys', 'Chords'] as const
+
+export type Category = (typeof CATEGORIES)[number]
+
 /** An article's own declarations, after checking — the shape the rest of the blog reads. */
 export interface PostMeta {
   /**
@@ -35,8 +51,8 @@ export interface PostMeta {
   description: string
   /** `YYYY-MM-DD`, a real calendar date. */
   date: string
-  /** Labels only — there are no tag pages. See `PLAN-blog.md` on why not yet. */
-  tags: string[]
+  /** One of `CATEGORIES` — the small-caps label the design prints beside every article. */
+  category: Category
   /** An absolute path under `public/`, or null to fall back to the generated card. */
   cover: string | null
   /** Excluded from the index, the sitemap, the feed, and from being built at all. */
@@ -53,7 +69,7 @@ export interface PostMeta {
  */
 const DESCRIPTION_MAX = 160
 
-/** Lowercase words joined by single hyphens — what both a URL and a tag have to be. */
+/** Lowercase words joined by single hyphens — what a URL has to be. */
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 function fail(slug: string, problem: string): never {
@@ -123,34 +139,26 @@ export function parsePostMeta(slug: string, raw: unknown): PostMeta {
     fail(slug, `\`date\` must be a real date as YYYY-MM-DD, not ${JSON.stringify(date)}`)
   }
 
-  const tags = parseTags(slug, fields.tags)
+  const category = parseCategory(slug, fields.category)
 
   const cover = parseCover(slug, fields.cover)
 
   const draft = fields.draft ?? false
   if (typeof draft !== 'boolean') fail(slug, '`draft` must be true or false when present')
 
-  return { slug, title, description, date, tags, cover, draft }
+  return { slug, title, description, date, category, cover, draft }
 }
 
-function parseTags(slug: string, value: unknown): string[] {
-  if (value === undefined) return []
-  if (!Array.isArray(value)) fail(slug, '`tags` must be an array of strings when present')
+function parseCategory(slug: string, value: unknown): Category {
+  if (typeof value !== 'string' || !isCategory(value)) {
+    fail(slug, `\`category\` must be one of ${CATEGORIES.join(', ')} — got ${JSON.stringify(value)}`)
+  }
+  return value
+}
 
-  const tags = value.map((tag) => {
-    if (typeof tag !== 'string' || !KEBAB.test(tag)) {
-      fail(slug, `tag ${JSON.stringify(tag)} must be lowercase words joined by hyphens`)
-    }
-    return tag
-  })
-
-  /*
-   * A duplicate tag would print twice on the article and count twice the day tag pages exist.
-   * Cheap to catch here, invisible everywhere else.
-   */
-  if (new Set(tags).size !== tags.length) fail(slug, '`tags` contains the same tag twice')
-
-  return tags
+/** Exported so the closed list can be checked without going through a whole meta block. */
+export function isCategory(value: string): value is Category {
+  return (CATEGORIES as readonly string[]).includes(value)
 }
 
 function parseCover(slug: string, value: unknown): string | null {

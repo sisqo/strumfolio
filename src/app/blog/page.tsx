@@ -2,13 +2,22 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 
-import { Footer } from '@/components/Footer'
+import { BlogFooter } from '@/components/BlogFooter'
 import { APP_NAME } from '@/lib/brand'
 import { postDate } from '@/lib/blog/date'
-import { CARD_HEIGHT, CARD_WIDTH, postPath } from '@/lib/blog/openGraph'
+import { CARD_HEIGHT, CARD_WIDTH, postPath, socialImage } from '@/lib/blog/openGraph'
 import { listPosts } from '@/lib/blog/posts'
+import { shelve } from '@/lib/blog/shelves'
 
-const DESCRIPTION = `Guides for musicians who keep their own lyrics and chords — transposing, capos, ChordPro, playing together, and getting a repertoire in order.`
+/**
+ * The blog is called «Playing notes», and the word Blog is only the section it lives in — the
+ * pill in the bar. Both come straight from the design, which prints the two separately and
+ * uses the publication's name again in the article's «All notes» link back here.
+ */
+const BLOG_TITLE = 'Playing notes'
+
+const DESCRIPTION =
+  'Short guides on capo, keys and chord shapes — the parts of a song sheet that change depending on who is holding the instrument.'
 
 /**
  * `openGraph` repeated rather than inherited, for the reason `/pricing` and `/changelog` each
@@ -16,11 +25,11 @@ const DESCRIPTION = `Guides for musicians who keep their own lyrics and chords �
  * page that names its own title and stops there ships a link card with no image.
  */
 export const metadata: Metadata = {
-  title: 'Blog',
+  title: BLOG_TITLE,
   description: DESCRIPTION,
   alternates: { canonical: '/blog' },
   openGraph: {
-    title: `${APP_NAME} — Blog`,
+    title: `${APP_NAME} — ${BLOG_TITLE}`,
     description: DESCRIPTION,
     url: '/blog',
     locale: 'en_US',
@@ -30,7 +39,7 @@ export const metadata: Metadata = {
 }
 
 /**
- * Every published article, newest first.
+ * Every published article.
  *
  * Static: the list comes from files in `content/blog/`, read at build time, so there is no
  * `dynamic` and nothing to ask a database. Deliberately **not** in
@@ -40,69 +49,109 @@ export const metadata: Metadata = {
  */
 export default async function BlogIndexPage() {
   const posts = await listPosts()
+  const { featured, grid, earlier } = shelve(posts)
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
-      <header className="mb-10">
-        <h1 className="landing-title">Blog</h1>
-        <p className="mt-4 text-[1.03125rem] leading-[1.6] text-muted">{DESCRIPTION}</p>
-      </header>
+    <>
+      <div className="blog-hero">
+        {/* Two painted layers, both inert: a warm glow from the top edge, and the ruled lines
+            of a stave fading out under the headline. Drawn in CSS rather than shipped as an
+            image — see `.blog-hero-glow`/`.blog-hero-stave` for the gradients themselves. */}
+        <div aria-hidden className="blog-hero-glow" />
+        <div aria-hidden className="blog-hero-stave" />
 
-      {posts.length === 0 ? (
-        /* The state this ships in, before the first article is written. An honest sentence
-         * rather than an empty page, since the route is live and linked from the footer the
-         * moment it exists. */
-        <p className="text-[0.9375rem] leading-[1.55] text-muted">Nothing published yet. Soon.</p>
-      ) : (
-        <ul className="flex flex-col gap-8">
-          {posts.map(({ meta, readingTime }) => (
-            <li key={meta.slug}>
-              <article className="blog-card">
-                {meta.cover !== null && (
-                  <Link href={postPath(meta.slug)} className="blog-card-cover" tabIndex={-1} aria-hidden>
-                    {/*
-                     * `next/image` rather than a bare `<img>`: these are the only photographic
-                     * assets this app serves, they are the heaviest thing on the page, and the
-                     * index shows one per article. `sizes` says what the layout already knows —
-                     * one 48rem column — so the browser never fetches the 1200px original for a
-                     * phone.
-                     */}
-                    <Image
-                      src={meta.cover}
-                      alt=""
-                      width={CARD_WIDTH}
-                      height={CARD_HEIGHT}
-                      sizes="(min-width: 48rem) 44rem, 100vw"
-                    />
-                  </Link>
-                )}
+        <div className="blog-hero-inner">
+          <h1 className="blog-hero-title">{BLOG_TITLE}</h1>
+          <p className="blog-hero-lede">{DESCRIPTION}</p>
+        </div>
+      </div>
 
-                <h2 className="blog-card-title">
-                  <Link href={postPath(meta.slug)}>{meta.title}</Link>
-                </h2>
+      <main className="blog-main">
+        {featured === null ? (
+          /* The state this ships in, before the first article is written. An honest sentence
+           * rather than an empty page, since the route is live and linked from the footer the
+           * moment it exists. */
+          <p className="blog-empty">Nothing published yet. Soon.</p>
+        ) : (
+          <Link href={postPath(featured.meta.slug)} className="blog-featured">
+            <span className="blog-featured-image">
+              <Image
+                src={socialImage(featured.meta)}
+                alt=""
+                width={CARD_WIDTH}
+                height={CARD_HEIGHT}
+                sizes="(min-width: 60rem) 36rem, 100vw"
+                priority
+              />
+            </span>
 
-                <p className="blog-card-description">{meta.description}</p>
+            <span className="blog-featured-body">
+              <span className="blog-category blog-category-pill">{featured.meta.category}</span>
+              <span className="blog-featured-title">{featured.meta.title}</span>
+              <span className="blog-featured-description">{featured.meta.description}</span>
+              <span className="flex-1" />
+              <span className="blog-meta">
+                <time dateTime={featured.meta.date}>{postDate(featured.meta.date)}</time>
+                <span aria-hidden>&middot;</span>
+                <span>{featured.readingTime} min read</span>
+              </span>
+            </span>
+          </Link>
+        )}
 
-                <p className="blog-meta">
-                  <time dateTime={meta.date}>{postDate(meta.date)}</time>
-                  <span aria-hidden>&middot;</span>
-                  <span>{readingTime} min read</span>
-                  {meta.tags.length > 0 && (
-                    <>
-                      <span aria-hidden>&middot;</span>
-                      {/* Labels, not links: there are no tag pages yet, and a tag that looks
-                          like a link and is not is worse than one that looks like a word. */}
-                      <span>{meta.tags.join(', ')}</span>
-                    </>
-                  )}
-                </p>
-              </article>
-            </li>
-          ))}
-        </ul>
-      )}
+        {grid.length > 0 && (
+          <div className="blog-grid">
+            {grid.map(({ meta, readingTime }) => (
+              <Link key={meta.slug} href={postPath(meta.slug)} className="blog-card">
+                <span className="blog-card-image">
+                  <Image
+                    src={socialImage(meta)}
+                    alt=""
+                    width={CARD_WIDTH}
+                    height={CARD_HEIGHT}
+                    sizes="(min-width: 60rem) 22rem, 100vw"
+                  />
+                </span>
 
-      <Footer />
-    </main>
+                <span className="blog-card-body">
+                  <span className="blog-category">{meta.category}</span>
+                  <span className="blog-card-title">{meta.title}</span>
+                  <span className="blog-card-description">{meta.description}</span>
+                  <span className="flex-1" />
+                  <span className="blog-card-meta">
+                    <time dateTime={meta.date}>{postDate(meta.date)}</time> &middot; {readingTime} min
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {earlier.length > 0 && (
+          <>
+            <div className="blog-earlier-head">
+              <h2 className="blog-earlier-title">Earlier</h2>
+              {/* The year of the oldest thing on the list, which is what the column of dates
+                  below is counting back towards. */}
+              <span className="blog-earlier-year">{earlier[earlier.length - 1].meta.date.slice(0, 4)}</span>
+            </div>
+
+            <div className="blog-earlier">
+              {earlier.map(({ meta, readingTime }) => (
+                <Link key={meta.slug} href={postPath(meta.slug)} className="blog-earlier-row">
+                  <time dateTime={meta.date} className="blog-earlier-date">
+                    {postDate(meta.date)}
+                  </time>
+                  <span className="blog-earlier-headline">{meta.title}</span>
+                  <span className="blog-earlier-time">{readingTime} min</span>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+
+        <BlogFooter />
+      </main>
+    </>
   )
 }

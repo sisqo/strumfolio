@@ -310,6 +310,59 @@ Da correggere se una è sbagliata — nessuna è irreversibile.
 - **Nessun numero di versione fissato** per il fold-in in `PLAN.md` — verificare
   l'ordine reale al momento della consegna.
 
+## Ridisegno sul mock `Blog.dc.html` (3 settembre 2026)
+
+Arrivato un mock di Claude Design per il blog — progetto Strumfolio, file `Blog.dc.html`,
+letto via MCP — dopo che l'impianto era già spedito. `CLAUDE.md` dice di seguirlo alla
+lettera, e così è stato fatto: quasi tutto ciò che questo documento descriveva come
+*aspetto* è stato rifatto, mentre l'impianto sotto (MDX in `content/blog/`, validatore
+puro, sitemap, robots, feed, guardiano a prefisso, precache escluso) è rimasto intatto.
+
+Cosa cambia rispetto a quanto descritto sopra:
+
+- **Il blog si chiama «Playing notes»**; «Blog» resta solo il nome della sezione, la
+  pillola accanto al marchio. Entrambi dal mock, che li stampa separati.
+- **Testata propria** (`BlogHeader`) al posto di `PublicHeader`: marchio, pillola,
+  «Pricing», capsula «Sign in». Due scostamenti deliberati dal disegno: quei due sono
+  `<span>` nel prototipo e qui sono link veri, e l'interruttore del tema c'è (il mock è
+  disegnato solo in chiaro — vedi sotto).
+- **Piè di pagina proprio** (`BlogFooter`): centrato, © e quattro link, senza versione né
+  hash di commit. Il mock elenca «Brand», che però è pagina riservata ai proprietari e
+  darebbe 404 a tutto il pubblico del blog: al suo posto Changelog. Deciso in intervista.
+- **Larghezze**: 1100px per indice e banda immagine, 720px per la prosa.
+- **`tags: string[]` diventa `category`**, una sola, da una **lista chiusa**
+  (`Guide | Capo | Keys | Chords`). Il mock la stampa in maiuscoletto accento in quattro
+  posti diversi; un campo a testo libero avrebbe spedito `Chord` e `Chords` come due
+  categorie che sembrano una.
+- **L'indice ha tre ripiani** — in evidenza, riga di tre, «Earlier» — che compaiono solo
+  quando c'è abbastanza da riempirli (`lib/blog/shelves.ts`, con test). Il mock è disegnato
+  pieno, con otto articoli; con due, una griglia da tre che ne mostra uno non sembra vuota,
+  sembra rotta.
+- **Nuovi elementi d'articolo**: tabella accordi a due righe, riga estratta, pannello
+  scuro di chiusura, «Read next». I primi due sono componenti MDX (`<ChordTable>`,
+  `<Quote>`), perché markdown non sa esprimere né la riga in accento né il
+  `translate="no"` che ogni nome di accordo deve portare.
+- **Due temi, non uno.** Il mock è disegnato solo in chiaro; il chiaro lo riproduce
+  colore per colore, lo scuro è scritto a mano sui token notturni. Deciso in intervista
+  contro l'alternativa «solo chiaro»: `PRODUCT.md` dice che i due temi sono progettati,
+  non invertiti. L'unica eccezione è il pannello di chiusura, volutamente quasi-nero in
+  entrambi.
+- **Colori nuovi, ma non nel palette globale**: sei variabili `--blog-*` definite su
+  `.blog`, non in `:root`. Sono passi deliberati e misurati rispetto ai token esistenti
+  (bordi dieci livelli più chiari di `--line`, inchiostro di lettura venti più chiaro di
+  `--ink`), e promuoverli offrirebbe a ogni altra superficie una seconda linea e un
+  secondo inchiostro senza motivo per preferirli.
+- **Le alterazioni si scrivono come le scrive l'app** (`F#m`, `Bb`), non con ♯ e ♭ come
+  nel mock. È l'unico punto in cui la copia disegnata non è stata seguita: `notes.ts`
+  stampa ASCII, quindi un articolo che insegna «il tuo foglio dirà F#m» deve stampare ciò
+  che il foglio stampa davvero. Come effetto secondario risolve anche la copertura dei
+  glifi, che Outfit non ha.
+- **Le copertine restano tipografiche**, non fotografiche. Il mock prevede foto («Hands on
+  a capo, close up»); non ce ne sono, e le copertine generate sono un sostituto — vedi
+  *Domande aperte*.
+- **L'articolo del mock è stato portato per intero** (`capo-second-fret.mdx`): la sua copia
+  è completa nel disegno, quindi riprodurla è seguire il mock, non inventare contenuto.
+
 ## Domande aperte
 
 - **La home del sito, per un crawler, è `/login`.** `/` richiede una sessione e
@@ -343,5 +396,15 @@ Da correggere se una è sbagliata — nessuna è irreversibile.
 - **L'italiano, se mai servirà, si pagherà per intero**: rotte, `hreflang`, `lang` per
   pagina, e ogni articolo già scritto da tradurre. Rifiutato consapevolmente due
   volte; qui solo per memoria del costo.
-- **Pagine tag**: da riconsiderare quando gli articoli saranno abbastanza da riempirle
-  — indicativamente trenta, con almeno cinque articoli per tag.
+- **Pagine per categoria**: da riconsiderare quando gli articoli saranno abbastanza da
+  riempirle — indicativamente trenta, con almeno cinque per categoria. Il campo ora è una
+  lista chiusa, quindi accenderle è aggiungere una rotta, non ripassare gli articoli.
+- **Il mock prevede fotografie, il blog non ne ha.** Ogni `image-slot` del disegno
+  descrive uno scatto («Hands on a capo, close up», «Capo clamped on the second fret»), e
+  al loro posto ci sono copertine tipografiche generate. Reggono, ma sono un sostituto: la
+  banda da 380px dell'articolo è disegnata per una foto che la riempie, e una copertina
+  chiara ha avuto bisogno di un filo di bordo per non dissolversi nella pagina. Se
+  arriveranno foto vere, quel bordo va tolto e le copertine vanno rifatte al taglio.
+- **L'indice si vede pieno solo da otto articoli in su.** Con due, la riga da tre resta
+  chiusa e «Earlier» tiene una riga sola. È il comportamento deciso e testato, non un
+  difetto, ma il disegno dà il meglio quando c'è di che riempirlo.

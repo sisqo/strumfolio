@@ -1,34 +1,33 @@
 import Link from 'next/link'
 
-import { APP_NAME } from '@/lib/brand'
-
 /**
- * The invitation at the end of every article.
+ * The invitation at the end of every article — the dark panel the mock closes the piece with.
  *
- * The blog exists to be found by musicians who have never heard of this app; an article that
- * teaches somebody something and then lets them leave has done the expensive half of the work
- * and skipped the cheap half. So this sits after the last paragraph of every article, without
- * exception — one component rather than a paragraph each writer improvises, so that changing
- * what the blog asks for is one edit and not a sweep through everything ever published.
+ * It is the one element on a blog page that does not follow the reader's theme: a warm
+ * near-black band on `#3a2415` in light and in dark alike, with cream type and a cream
+ * capsule. That is deliberate and it is the point of the design — after a page of paper it
+ * reads as a different kind of object, which is what a reader has to notice for an offer to
+ * land at all. Following the theme would make it a slightly different card among cards in
+ * light, and invisible against the page in dark.
  *
- * At the end and not floating over the text, and no banner in the middle: `PRODUCT.md`'s
- * anti-references are ad-heavy chord sites, and a blog that interrupts its own article to
- * sell is the same mistake in a smaller size. Somebody who read to the bottom has earned a
- * plain offer, and somebody who did not was never going to take it.
+ * The copy is the mock's, and it says something true about the product rather than about the
+ * article: keys and capos are separate controls, which is the thing the featured piece spends
+ * six minutes explaining. One component, so changing what the blog asks for is one edit and
+ * not a sweep through everything ever published.
  *
- * `/login` rather than `/pricing`: it is the page that explains what this is, and it is where
- * signing up actually happens. `/pricing` is a page for somebody already convinced.
+ * `/login` and not `/pricing`: it is where signing up actually happens, and `/pricing` is a
+ * page for somebody already convinced.
  */
 export function BlogCta() {
   return (
     <aside className="blog-cta">
-      <p className="blog-cta-title">Your songs, ready when you are</p>
-      <p className="blog-cta-body">
-        {APP_NAME} keeps your own lyrics and chords readable on stage — transpose to the key you sing in, set a capo,
-        scroll hands-free, and play with no signal. Free to use, with paid plans for bigger repertoires.
-      </p>
-      <Link href="/login" className="btn btn-primary blog-cta-action">
-        Try {APP_NAME}
+      <div className="blog-cta-text">
+        <p className="blog-cta-title">Set the key once, let everyone pick their own capo.</p>
+        <p className="blog-cta-body">Strumfolio keeps them apart on every sheet, on every screen.</p>
+      </div>
+
+      <Link href="/login" className="blog-cta-action">
+        Start free
       </Link>
     </aside>
   )

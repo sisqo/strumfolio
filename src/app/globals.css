@@ -8627,109 +8627,537 @@
   /* ---------------------------------------------------------------------------
    * The blog.
    *
-   * Written by hand against the tokens above rather than with a typography plugin,
-   * for the reason every other surface in this app is: `DESIGN.md` is the living
-   * source for the scale and both themes are tuned separately, while a plugin
-   * arrives with a scale of its own that would have to be overridden variable by
-   * variable until nothing of it was left. Everything below reads `--ink`,
-   * `--muted`, `--line` and `--accent`, so the dark theme follows with no rules of
-   * its own.
+   * Drawn from the `Blog.dc.html` handoff, literally: every size, radius and
+   * colour below is the mock's own. The light theme is that drawing; the dark
+   * theme is not in it and is written here by hand against the night tokens,
+   * because this app's two themes are designed rather than inverted
+   * (`PRODUCT.md`) and a marketing page that flashes white at somebody reading
+   * in the dark is the one failure a blog cannot afford.
+   *
+   * The blog carries a handful of colours the app does not, and they are scoped
+   * to `.blog` rather than added to the palette in `:root`: they exist because
+   * this is a page of long-form prose on a wide ground, which no screen inside
+   * the app is, and promoting them to global tokens would offer every other
+   * surface a second line colour and a second ink with no reason to prefer
+   * either. Each is a deliberate step away from an existing token, not a near
+   * miss — the borders sit a measured ten levels lighter than `--line`, and the
+   * prose ink some twenty lighter than `--ink`, which is what keeps a page of
+   * text from reading as harsh.
    * ------------------------------------------------------------------------ */
 
-  /* The byline under a headline, and the same line under each card on the index:
-   * date, reading time, tags. Muted and small — it is what somebody skims past on
-   * the way into the piece. */
-  .blog-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--muted);
-    font-size: 0.8125rem;
-  }
+  .blog {
+    /* Card and section borders: lighter than the app's `--line`, which is drawn
+       for controls sitting close together rather than for a 1100px card. */
+    --blog-line: #e6e3dc;
+    /* One step lighter again, for the rows of the «Earlier» list, where a
+       separator every 54px would otherwise draw more than the titles do. */
+    --blog-line-soft: #efece5;
+    /* Body ink for long-form reading — softer than `--ink`, which is set for
+       glancing at a screen rather than for a thousand words. */
+    --blog-prose: #2c3038;
+    /* The accent, one shade down: hover on the sign-in capsule, and the type
+       inside the pulled-out line. */
+    --blog-accent-strong: #7c3b0b;
+    --blog-quote-bg: #fbf5ed;
+    /* The closing panel is a warm near-black in *both* themes — see `BlogCta`. */
+    --blog-cta-bg: #3a2415;
+    --blog-cta-ink: #fffaf4;
+    --blog-footer-link: #a8aab0;
 
-  .blog-card-title {
-    font-size: 1.375rem;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-  }
-
-  .blog-card-title a {
+    background: var(--bg);
     color: var(--ink);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .blog {
+      --blog-line: #333842;
+      --blog-line-soft: #262a31;
+      --blog-prose: #d9dde3;
+      --blog-accent-strong: #f8c88a;
+      --blog-quote-bg: #241d15;
+      --blog-footer-link: #6b727c;
+    }
+  }
+
+  :root[data-theme='dark'] .blog {
+    --blog-line: #333842;
+    --blog-line-soft: #262a31;
+    --blog-prose: #d9dde3;
+    --blog-accent-strong: #f8c88a;
+    --blog-quote-bg: #241d15;
+    --blog-footer-link: #6b727c;
+  }
+
+  /* The blog's own bar — see `BlogHeader.tsx`. */
+  .blog-bar {
+    border-bottom: 1px solid var(--blog-line);
+  }
+
+  .blog-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    max-width: 68.75rem;
+    margin: 0 auto;
+    padding: 1rem 2.5rem;
+  }
+
+  .blog-bar-brand {
+    display: flex;
+    align-items: center;
+  }
+
+  /*
+   * Size only — **never `display`**.
+   *
+   * Both lockups are in the markup and `img.lockup-dark { display: none }` above is what
+   * picks one. That selector and this one carry the identical specificity (one class, one
+   * element), so a `display` here would win purely by sitting later in the sheet and both
+   * marks would print side by side. It is the exact failure `.auth-lockup`'s comment warns
+   * about, and it shipped here once before this line was written this way.
+   */
+  .blog-bar-brand img {
+    height: 1.375rem;
+    width: auto;
+  }
+
+  .blog-bar-pill {
+    margin-left: 0.875rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.78125rem;
+    font-weight: 500;
+  }
+
+  .blog-bar-link {
+    margin-left: 0.5rem;
+    color: var(--muted);
+    font-size: 0.90625rem;
+    font-weight: 500;
     text-decoration: none;
   }
 
-  .blog-card-title a:hover {
-    color: var(--accent);
+  .blog-bar-link:hover {
+    color: var(--ink);
   }
 
-  .blog-card-description {
-    margin-top: 0.5rem;
+  .blog-bar-cta {
+    display: inline-flex;
+    align-items: center;
+    height: 2.5rem;
+    margin-left: 1rem;
+    padding: 0 1.25rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.90625rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .blog-bar-cta:hover {
+    background: var(--blog-accent-strong);
+    /* In dark the "stronger" accent is *lighter*, so the ink has to follow it back
+       down or the capsule loses its contrast on hover. */
+    color: var(--bg);
+  }
+
+  /* The masthead. Two inert painted layers over the page colour: a warm glow from
+     the top edge, and the ruled lines of a stave fading out under the headline —
+     the one ornament on the blog, and it is a picture of what the site is about. */
+  .blog-hero {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .blog-hero-glow,
+  .blog-hero-stave {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .blog-hero-glow {
+    background: radial-gradient(60% 80% at 50% 0%, rgb(151 73 15 / 12%), transparent 65%);
+  }
+
+  :root:not([data-theme='light']) .blog-hero-glow {
+    background: radial-gradient(60% 80% at 50% 0%, rgb(240 178 104 / 10%), transparent 65%);
+  }
+
+  :root[data-theme='dark'] .blog-hero-glow {
+    background: radial-gradient(60% 80% at 50% 0%, rgb(240 178 104 / 10%), transparent 65%);
+  }
+
+  .blog-hero-stave {
+    opacity: 0.5;
+    background: repeating-linear-gradient(to bottom, rgb(22 24 29 / 5%) 0 1px, transparent 1px 13px);
+    mask-image: radial-gradient(45% 60% at 50% 20%, #000, transparent 75%);
+  }
+
+  :root:not([data-theme='light']) .blog-hero-stave {
+    background: repeating-linear-gradient(to bottom, rgb(236 238 241 / 6%) 0 1px, transparent 1px 13px);
+  }
+
+  :root[data-theme='dark'] .blog-hero-stave {
+    background: repeating-linear-gradient(to bottom, rgb(236 238 241 / 6%) 0 1px, transparent 1px 13px);
+  }
+
+  .blog-hero-inner {
+    position: relative;
+    max-width: 68.75rem;
+    margin: 0 auto;
+    padding: 3.75rem 2.5rem 0;
+    text-align: center;
+  }
+
+  .blog-hero-title {
+    font-size: 2.875rem;
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .blog-hero-lede {
+    max-width: 34rem;
+    margin: 1rem auto 0;
+    color: var(--muted);
+    font-size: 1.03125rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .blog-main {
+    max-width: 68.75rem;
+    margin: 0 auto;
+    padding: 2.75rem 2.5rem 4.5rem;
+  }
+
+  .blog-empty {
     color: var(--muted);
     font-size: 0.9375rem;
     line-height: 1.55;
   }
 
-  .blog-card .blog-meta {
-    margin-top: 0.625rem;
+  /* The category label: small caps in the accent, the one thing every card, every
+     byline and every «Read next» tile has in common. */
+  .blog-category {
+    color: var(--accent);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  /* The cover on the index. `aria-hidden` on the link that wraps it, so the ratio
-   * is all this rule has to hold: the picture must not jump the layout while it
-   * loads, and it must crop rather than letterbox when the column is narrower than
-   * 1200×630. */
-  .blog-card-cover {
-    display: block;
-    margin-bottom: 0.875rem;
+  /* On the featured card it is set in a capsule instead, which is the only place
+     the design gives it a fill. */
+  .blog-category-pill {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    height: 1.5rem;
+    padding: 0 0.6875rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+  }
+
+  .blog-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--faint);
+    font-size: 0.8125rem;
+  }
+
+  /* The newest article, given the width of the page. */
+  .blog-featured {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.5rem;
+    background: var(--surface);
     overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    aspect-ratio: 1200 / 630;
+    color: inherit;
+    text-decoration: none;
   }
 
-  .blog-card-cover img,
-  .article-cover {
+  .blog-featured-image {
+    position: relative;
     display: block;
+    min-height: 20rem;
+    background: var(--surface-2);
+  }
+
+  .blog-featured-image img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  .article-cover {
-    height: auto;
-    margin-bottom: 2rem;
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
+  .blog-featured-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 2.25rem 2.25rem 2rem;
+  }
+
+  .blog-featured-title {
+    font-size: 1.875rem;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    text-wrap: pretty;
+  }
+
+  .blog-featured:hover .blog-featured-title {
+    color: var(--accent);
+  }
+
+  .blog-featured-description {
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .blog-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.125rem;
+    margin-top: 1.125rem;
+  }
+
+  .blog-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.25rem;
+    background: var(--surface);
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .blog-card-image {
+    position: relative;
+    display: block;
+    height: 10rem;
+    background: var(--surface-2);
+  }
+
+  .blog-card-image img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .blog-card-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 1.25rem 1.25rem 1.125rem;
+  }
+
+  .blog-card-title {
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    text-wrap: pretty;
+  }
+
+  .blog-card:hover .blog-card-title {
+    color: var(--accent);
+  }
+
+  .blog-card-description {
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .blog-card-meta {
+    color: var(--faint);
+    font-size: 0.78125rem;
+  }
+
+  .blog-earlier-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 3.5rem;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--blog-line);
+  }
+
+  .blog-earlier-title {
+    font-size: 1.375rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .blog-earlier-year {
+    color: var(--faint);
+    font-size: 0.84375rem;
+  }
+
+  .blog-earlier {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .blog-earlier-row {
+    display: grid;
+    grid-template-columns: 8.125rem 1fr 5.625rem;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding: 1.0625rem 0.25rem;
+    border-bottom: 1px solid var(--blog-line-soft);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .blog-earlier-row:hover {
+    background: var(--surface-3);
+  }
+
+  .blog-earlier-date,
+  .blog-earlier-time {
+    color: var(--faint);
+    font-size: 0.78125rem;
+  }
+
+  .blog-earlier-time {
+    text-align: right;
+  }
+
+  .blog-earlier-headline {
+    font-size: 0.96875rem;
+    font-weight: 500;
+    text-wrap: pretty;
+  }
+
+  /* ---- The article ---- */
+
+  .blog-article-head {
+    max-width: 45rem;
+    margin: 0 auto;
+    padding: 3.25rem 2.5rem 0;
+  }
+
+  .blog-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    color: var(--accent);
+    font-size: 0.84375rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .blog-back:hover {
+    color: var(--blog-accent-strong);
+  }
+
+  .blog-article-title {
+    margin-top: 1.375rem;
+    font-size: 2.5rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    text-wrap: pretty;
+  }
+
+  .blog-article-meta {
+    margin-top: 1.25rem;
+    font-size: 0.84375rem;
+  }
+
+  .blog-article-hero {
+    max-width: 68.75rem;
+    margin: 2rem auto 0;
+    padding: 0 2.5rem;
   }
 
   /*
-   * The prose itself.
+   * The hero band, at the mock's own 380px.
    *
-   * 1.0625rem and a 1.7 line height: longer measure and looser leading than the app's
-   * own screens, because this is the one place in Strumfolio somebody reads for several
-   * minutes rather than glancing at between phrases.
+   * The hairline is the one addition to what was drawn, and it is there because of what
+   * fills the band: the mock's slot holds a photograph, which needs no edge because it
+   * *is* one, while a cover drawn on the app's own paper would otherwise dissolve into
+   * the page and read as loose text floating under the headline rather than as a picture.
    *
-   * Spacing is written as a top margin on each block and never as a bottom one, so two
-   * blocks never add their margins together and the first block after a heading is not
-   * a special case.
+   * `cover` crops to the band, so a cover's own artwork has to keep clear of the top and
+   * bottom of the 1200×630 file — roughly the outer 90px each way at this width. Covers in
+   * `public/blog/` are laid out for that.
+   */
+  .blog-article-hero img {
+    display: block;
+    width: 100%;
+    height: 23.75rem;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.5rem;
+    object-fit: cover;
+  }
+
+  .blog-article {
+    max-width: 45rem;
+    margin: 0 auto;
+    padding: 2.5rem 2.5rem 4.5rem;
+  }
+
+  /*
+   * The prose.
+   *
+   * 17px on a 1.72 line height in a 720px column — looser than any screen inside
+   * the app, because this is the one place in Strumfolio somebody reads for
+   * several minutes rather than glancing at between phrases.
+   *
+   * Spacing is always a *top* margin on each block, never a bottom one, so two
+   * blocks never sum their margins and the first block after a heading is not a
+   * special case.
    */
   .article-body {
-    color: var(--ink);
+    color: var(--blog-prose);
     font-size: 1.0625rem;
-    line-height: 1.7;
+    line-height: 1.72;
   }
 
   .article-body > * + * {
-    margin-top: 1.25rem;
+    margin-top: 1.375rem;
+  }
+
+  /*
+   * The opening paragraph, set larger and in full ink.
+   *
+   * Applied by position rather than by anything the writer types, which is the
+   * trade: an article that opens with a heading or a component instead of a
+   * paragraph simply does not get a lede, silently. That is the right failure —
+   * the alternative is a `lede` flag in every article's front matter that is
+   * wrong the first time a piece is restructured.
+   */
+  .article-body > p:first-child {
+    color: var(--ink);
+    font-size: 1.1875rem;
+    line-height: 1.62;
   }
 
   .article-body h2 {
     margin-top: 2.5rem;
-    font-size: 1.5rem;
+    font-size: 1.5625rem;
     font-weight: 500;
+    line-height: 1.2;
     letter-spacing: -0.02em;
-    line-height: 1.3;
+    color: var(--ink);
   }
 
   .article-body h3 {
@@ -8737,6 +9165,7 @@
     font-size: 1.1875rem;
     font-weight: 500;
     letter-spacing: -0.01em;
+    color: var(--ink);
   }
 
   .article-body a {
@@ -8745,6 +9174,7 @@
   }
 
   .article-body strong {
+    color: var(--ink);
     font-weight: 600;
   }
 
@@ -8769,18 +9199,18 @@
     color: var(--faint);
   }
 
-  /* An aside, not a pull quote: a rule down the side rather than large italics,
-   * which is the quieter of the two and the one that suits a page of explanation. */
+  /* An ordinary markdown quote — an aside, kept quiet. The one line an article is
+     remembered by gets `.blog-quote` instead. */
   .article-body blockquote {
-    border-left: 2px solid var(--accent);
+    border-left: 2px solid var(--blog-line);
     padding-left: 1.125rem;
     color: var(--muted);
   }
 
   .article-body pre {
     overflow-x: auto;
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border: 1px solid var(--blog-line);
+    border-radius: 1rem;
     background: var(--surface);
     padding: 1rem 1.125rem;
     font-family: var(--font-mono), ui-monospace, monospace;
@@ -8789,9 +9219,9 @@
   }
 
   .article-body :not(pre) > code {
+    border: 1px solid var(--blog-line);
     border-radius: 0.375rem;
     background: var(--surface);
-    border: 1px solid var(--line);
     padding: 0.1em 0.35em;
     font-family: var(--font-mono), ui-monospace, monospace;
     font-size: 0.875em;
@@ -8800,20 +9230,20 @@
   .article-body hr {
     margin-top: 2.5rem;
     border: 0;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--blog-line);
   }
 
   .article-body img {
     width: 100%;
     height: auto;
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
+    border: 1px solid var(--blog-line);
+    border-radius: 1.25rem;
   }
 
   /*
    * A chord written inside an article — see `BlogChord.tsx`, which is where the
-   * `translate="no"` that justifies the component lives. The accent, because that is
-   * this app's rule everywhere: the accent belongs to chords first.
+   * `translate="no"` that justifies the component lives. The accent, because that
+   * is this app's rule everywhere: the accent belongs to chords first.
    */
   .blog-chord {
     border-radius: 0.375rem;
@@ -8826,34 +9256,256 @@
     white-space: nowrap;
   }
 
-  /*
-   * The invitation at the foot of every article. A surface with a rule around it, set
-   * apart from the prose but not shouting over it — the reader has finished, and this
-   * is an offer rather than an interruption.
-   */
-  .blog-cta {
-    margin-top: 3rem;
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
+  /* The two-row chord table — see `BlogChordTable.tsx`. */
+  .blog-chord-table {
+    margin-top: 1.625rem;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.25rem;
     background: var(--surface);
-    padding: 1.5rem;
+    padding: 1.375rem 1.5rem;
+  }
+
+  .blog-chord-table-label {
+    color: var(--faint);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .blog-chord-table-grid {
+    display: grid;
+    grid-template-columns: 5.5rem repeat(var(--blog-chord-columns), 1fr);
+    gap: 0.75rem 0.5rem;
+    margin-top: 1rem;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .blog-chord-table-row-label {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 0.84375rem;
+    color: var(--faint);
+  }
+
+  .blog-chord-table-played {
+    color: var(--accent);
+  }
+
+  .blog-chord-table-note {
+    margin-top: 1rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  /* The single pulled-out line — see `BlogQuote.tsx`. */
+  .blog-quote {
+    margin-top: 1.375rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 1rem 1rem 0;
+    background: var(--blog-quote-bg);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .blog-quote p {
+    color: var(--blog-accent-strong);
+    font-size: 1.15625rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  /* The closing panel — dark in both themes on purpose, see `BlogCta.tsx`. */
+  .blog-cta {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 2.75rem;
+    border-radius: 1.25rem;
+    background: var(--blog-cta-bg);
+    color: var(--blog-cta-ink);
+    padding: 1.5rem 1.75rem;
+  }
+
+  .blog-cta-text {
+    flex: 1;
   }
 
   .blog-cta-title {
     font-size: 1.125rem;
     font-weight: 500;
-    letter-spacing: -0.01em;
   }
 
   .blog-cta-body {
-    margin-top: 0.5rem;
-    color: var(--muted);
-    font-size: 0.9375rem;
+    margin-top: 0.375rem;
+    color: rgb(255 250 244 / 72%);
+    font-size: 0.90625rem;
     line-height: 1.55;
   }
 
   .blog-cta-action {
-    margin-top: 1.125rem;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 2.75rem;
+    padding: 0 1.5rem;
+    border-radius: 999px;
+    background: var(--blog-cta-ink);
+    color: var(--blog-accent-strong);
+    font-size: 0.90625rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  /* The panel is dark in both themes, so the capsule's hover cannot follow the
+     theme either — it is always the warmer cream. */
+  .blog-cta-action:hover {
+    background: #ffe9d1;
+    color: #7c3b0b;
+  }
+
+  .blog-read-next {
+    margin-top: 3rem;
+    padding-top: 1.625rem;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  .blog-read-next-title {
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
+  .blog-read-next-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.875rem;
+    margin-top: 1rem;
+  }
+
+  .blog-read-next-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4375rem;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.125rem;
+    background: var(--surface);
+    padding: 1.125rem 1.25rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .blog-read-next-card:hover {
+    background: var(--surface-3);
+  }
+
+  .blog-read-next-headline {
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .blog-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+    margin-top: 3rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--blog-line);
+  }
+
+  .blog-footer-credit {
+    color: var(--faint);
+    font-size: 0.84375rem;
+  }
+
+  .blog-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem 0.875rem;
+    font-size: 0.84375rem;
+  }
+
+  .blog-footer-links a {
+    color: var(--blog-footer-link);
+    text-decoration: none;
+  }
+
+  .blog-footer-links a:hover {
+    color: var(--muted);
+  }
+
+  /* Below the width the three-column grid and the two-column cards were drawn for,
+     everything becomes one column. The mock is a 1280px canvas and says nothing
+     about a phone; these are the only rules here with no drawing behind them. */
+  @media (max-width: 60rem) {
+    .blog-featured,
+    .blog-grid,
+    .blog-read-next-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .blog-featured-image {
+      min-height: 0;
+      aspect-ratio: 1200 / 630;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .blog-bar-inner,
+    .blog-hero-inner,
+    .blog-main,
+    .blog-article-head,
+    .blog-article,
+    .blog-article-hero {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+
+    .blog-bar-link {
+      display: none;
+    }
+
+    .blog-hero-title {
+      font-size: 2.125rem;
+    }
+
+    .blog-article-title {
+      font-size: 1.875rem;
+    }
+
+    .blog-article-hero img {
+      height: 13rem;
+    }
+
+    .blog-featured-body {
+      padding: 1.5rem 1.375rem 1.375rem;
+    }
+
+    .blog-featured-title {
+      font-size: 1.5rem;
+    }
+
+    .blog-earlier-row {
+      grid-template-columns: 1fr auto;
+      gap: 0.25rem 1rem;
+    }
+
+    .blog-earlier-date {
+      order: 2;
+    }
+
+    .blog-earlier-headline {
+      grid-column: 1 / -1;
+    }
+
+    .blog-cta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 }
 

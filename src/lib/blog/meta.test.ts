@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { byNewest, isCalendarDate, isValidSlug, parsePostMeta } from './meta'
+import { byNewest, isCalendarDate, isCategory, isValidSlug, parsePostMeta } from './meta'
 
 /** The smallest article that passes, for tests that vary one field at a time. */
 const valid = {
   title: 'What ChordPro is, and why your lyrics should live in it',
   description: 'A plain-text format for lyrics and chords that every app can read, explained in five minutes.',
   date: '2026-09-02',
+  category: 'Guide',
 }
 
 describe('parsePostMeta', () => {
@@ -16,7 +17,7 @@ describe('parsePostMeta', () => {
 
     assert.equal(meta.slug, 'chordpro-explained')
     assert.equal(meta.title, valid.title)
-    assert.deepEqual(meta.tags, [])
+    assert.equal(meta.category, 'Guide')
     assert.equal(meta.cover, null)
     assert.equal(meta.draft, false)
   })
@@ -34,7 +35,7 @@ describe('parsePostMeta', () => {
     )
   })
 
-  for (const field of ['title', 'description', 'date']) {
+  for (const field of ['title', 'description', 'date', 'category']) {
     it(`refuses an article with no ${field}`, () => {
       const missing = { ...valid, [field]: undefined }
 
@@ -74,16 +75,26 @@ describe('parsePostMeta', () => {
     assert.throws(() => parsePostMeta('Capo_Explained', valid), /lowercase words joined by hyphens/)
   })
 
-  it('refuses tags that are not kebab-case, and repeated tags', () => {
-    assert.throws(() => parsePostMeta('a-post', { ...valid, tags: ['Capo'] }), /lowercase words/)
-    assert.throws(() => parsePostMeta('a-post', { ...valid, tags: ['capo', 'capo'] }), /same tag twice/)
-    assert.throws(() => parsePostMeta('a-post', { ...valid, tags: 'capo' }), /must be an array/)
+  /*
+   * The closed list earns its keep here: every one of these would render as a label the
+   * design prints in small caps beside the headline, and every one is a mistake a free-text
+   * field would have shipped without a word.
+   */
+  it('refuses a category outside the list, however close', () => {
+    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 'Chord' }), /must be one of/)
+    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 'capo' }), /must be one of/)
+    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 'Tutorial' }), /must be one of/)
+    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 42 }), /must be one of/)
   })
 
-  it('keeps the tags it was given, in order', () => {
-    const meta = parsePostMeta('a-post', { ...valid, tags: ['chordpro', 'import'] })
+  it('names the allowed categories in the error, so the fix needs no source diving', () => {
+    assert.throws(() => parsePostMeta('a-post', { ...valid, category: 'Nope' }), /Guide, Capo, Keys, Chords/)
+  })
 
-    assert.deepEqual(meta.tags, ['chordpro', 'import'])
+  it('keeps every category the list allows', () => {
+    for (const category of ['Guide', 'Capo', 'Keys', 'Chords']) {
+      assert.equal(parsePostMeta('a-post', { ...valid, category }).category, category)
+    }
   })
 
   it('refuses a cover that is not an absolute path', () => {
@@ -104,6 +115,17 @@ describe('isCalendarDate', () => {
     assert.equal(isCalendarDate('2025-02-29'), false, '2025 is not a leap year')
     assert.equal(isCalendarDate('2026-9-2'), false)
     assert.equal(isCalendarDate(''), false)
+  })
+})
+
+describe('isCategory', () => {
+  it('is the closed list and nothing else', () => {
+    assert.equal(isCategory('Guide'), true)
+    assert.equal(isCategory('Chords'), true)
+
+    assert.equal(isCategory('guide'), false)
+    assert.equal(isCategory('Chord'), false)
+    assert.equal(isCategory(''), false)
   })
 })
 
