@@ -133,6 +133,10 @@ export function EditorDemo() {
           </div>
           <div className="demo-words">Transpose it, play it, my way</div>
         </div>
+
+        {/* The row the graphic editor always keeps at the foot of a song: there is
+            never a button for "add a verse", there is always one more line. */}
+        <span className="editor-add-line">+ line</span>
       </div>
     </div>
   )

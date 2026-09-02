@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { signIn } from '@/auth'
-import { EditorDemo } from '@/components/EditorDemo'
+import { EditorPhone } from '@/components/EditorPhone'
 import { Footer } from '@/components/Footer'
 import {
   IconBooks,
@@ -26,6 +26,7 @@ import {
   IconUsers,
 } from '@/components/icons'
 import { LandingCounters } from '@/components/LandingCounters'
+import { ReaderPhone } from '@/components/ReaderPhone'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
@@ -125,6 +126,32 @@ const EDITOR_POINTS: SpotlightPoint[] = [
     icon: <IconCode size={18} />,
     title: 'Plain ChordPro underneath',
     text: 'Every edit writes standard ChordPro. Read the source anytime, export a song or your whole library — nothing here is locked in.',
+  },
+]
+
+/**
+ * What the reading band says beside the living reader (`ReaderPhone`). Three points,
+ * one per thing a musician changes with the instrument already in their hands: the key
+ * and the fret that answers it, how much of a chord the sheet draws, and who is turning
+ * the page. Every claim is shipped behaviour — the per-fret open-chord count is
+ * `easeByFret`, the four ways of drawing a chord are `CHORD_DISPLAY_TITLE`, the
+ * full-size box is `ChordPopup`, and the pace is `SCROLL_SPEEDS`.
+ */
+const READER_POINTS: SpotlightPoint[] = [
+  {
+    icon: <IconTuningFork size={18} />,
+    title: 'The key moves, the capo answers',
+    text: "Each fret shows how many of the song's chords it leaves open, so the shapes you read are the shapes you already know.",
+  },
+  {
+    icon: <IconChordShape size={18} />,
+    title: 'As much of a chord as you need',
+    text: 'Diagrams before the song, fingerings on one line, shapes drawn on the syllable, or just the names — and any chord opens full size with a tap.',
+  },
+  {
+    icon: <IconSliders size={18} />,
+    title: 'Set the pace, then let go',
+    text: 'Auto-scroll follows the speed you set, so the page keeps moving while both hands stay on the instrument.',
   },
 ]
 
@@ -692,7 +719,45 @@ export default async function LoginPage({ searchParams }: Props) {
           </div>
 
           <div className="editor-tour-demo">
-            <EditorDemo />
+            <EditorPhone />
+          </div>
+        </div>
+      </section>
+
+      {/*
+        * The reading screen, mirrored against the editor band above it: there the phone
+        * leads and the words follow, here the words lead and the phone follows, so two
+        * bands of the same shape do not read as one long column.
+        *
+        * It comes second of the pair on purpose. The editor answers "how does my song
+        * get in here"; this answers "what happens when I play it" — and the second
+        * question is only worth asking once the first has been.
+        */}
+      <section className="landing-width mt-11 lg:mt-14">
+        <div className="reader-tour-grid">
+          <div>
+            <span className="landing-kicker">Reading, on stage</span>
+            <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
+            <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
+              Transpose with a tap and the whole sheet reletters with you — chords,
+              diagrams, fingerings, all in the new key.
+            </p>
+
+            <div className="editor-points">
+              {READER_POINTS.map((point) => (
+                <div key={point.title} className="editor-point">
+                  <span className="editor-point-icon">{point.icon}</span>
+                  <div>
+                    <h3 className="editor-point-title">{point.title}</h3>
+                    <p className="editor-point-text">{point.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <ReaderPhone />
           </div>
         </div>
       </section>
