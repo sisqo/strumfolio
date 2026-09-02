@@ -11,6 +11,36 @@ export type PitchClass = number
 export const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 export const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 
+/**
+ * The same twelve, as a German chord sheet prints them: `H` for the note the tables
+ * above call `B`, and `B` for the one they call `Bb`.
+ *
+ * Two cells differ and no others, which is the whole of the notation as it appears on a
+ * chart. The classical German spellings — `Cis`, `Dis`, `Es`, `As`, `Ais` — are
+ * deliberately not used, and the reason is that this app never prints a note on its own:
+ * it prints a chord, which is a note plus a suffix, and those two do not compose. `A#m`
+ * is a chord a German player reads; `Aism` is a word no songbook prints.
+ *
+ * `B` therefore names different pitches in the two notations, and that asymmetry is why
+ * these are display tables with no counterpart on the reading side — see `readRoots`,
+ * which has no German case precisely because a source's `[B]` could not be told apart
+ * from an international one.
+ */
+export const GERMAN_SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'H']
+export const GERMAN_FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'B', 'H']
+
+/**
+ * The seven degrees of the major scale and the five chromatic steps between them, as a
+ * Nashville chart numbers them.
+ *
+ * Flats for the three degrees borrowed from the parallel minor and a sharp for the raised
+ * fourth: that is the convention, not a preference, so this is the one table in the app
+ * `GlobalPrefs.accidentals` does not reach. A reader's ♯/♭ answer says how to spell a
+ * *letter*, and there are no letters here — `b3` is what a chart calls the flat third
+ * whether or not the same reader wants to see `A#` rather than `Bb` elsewhere.
+ */
+const DEGREE_NAMES = ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', '7']
+
 const NATURAL_PITCH_CLASS: Record<string, PitchClass> = {
   C: 0,
   D: 2,
@@ -167,6 +197,26 @@ export function noteToItalian(name: string): string {
   const match = /^([A-G])([#b]*)$/.exec(name)
   if (!match) return name
   return ITALIAN_NOTE[match[1]] + match[2]
+}
+
+/**
+ * Rewrites an international note name in German: `B` becomes `H`, `Bb` becomes `B`.
+ *
+ * Goes through the pitch class rather than substituting letters the way `noteToItalian`
+ * does, because German is not a letter-for-letter map: `Bb` loses its accidental
+ * entirely, so there is nothing to carry over. The round trip also settles the spellings
+ * no reading screen produces but a source may still hold — `Cb` comes out `H`, the same
+ * enharmonic answer the rest of the app gives it (see `readChord`).
+ */
+export function noteToGerman(name: string): string {
+  const pc = noteToPitchClass(name)
+  if (pc === null) return name
+  return (name.includes('b') ? GERMAN_FLAT_NAMES : GERMAN_SHARP_NAMES)[pc]
+}
+
+/** Which degree of `tonic` a pitch class is, as a Nashville chart numbers it. */
+export function degreeOf(pc: PitchClass, tonic: PitchClass): string {
+  return DEGREE_NAMES[mod12(pc - tonic)]
 }
 
 export interface Key {

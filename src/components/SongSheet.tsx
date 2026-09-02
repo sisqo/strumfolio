@@ -12,12 +12,13 @@ import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
 import {
   type Accidentals,
   type Chord,
-  type Notation,
+  type Spelling,
   formatChord,
   parseChord,
   readChord,
 } from '@/lib/music/chord'
 import { readShift } from '@/lib/music/capo'
+import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, pickShape } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
 
@@ -84,14 +85,30 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
    * comes out of the instrument — see `lib/music/capo.ts`, where the two shifts are named
    * and tested.
    *
-   * **Nothing here estimates a key any more**, and that is the only line of this comment
-   * that is new. The estimate existed for one decision — a moved chord has to be spelled
-   * sharp or flat, and the key it lands in settled which — and since v4.1 the reader
-   * settles it directly (`readChord`, `GlobalPrefs.accidentals`). Computing it anyway and
-   * discarding the answer would cost a scan of the song per render and, worse, leave a
-   * comment here that claimed the key decided the letters when it no longer does.
+   * **Nothing here estimates a key to decide a letter with**, which is worth keeping
+   * straight now that something below does estimate one. That estimate existed for exactly
+   * one decision — a moved chord has to be spelled sharp or flat, and the key it lands in
+   * settled which — and since v4.1 the reader settles it directly (`readChord`,
+   * `GlobalPrefs.accidentals`). No spelling on this page consults a key.
    */
   const shift = readShift(songPrefs.semitones, songPrefs.capo)
+
+  /**
+   * How the chords get written down: the reader's notation, and — for Nashville numbers
+   * only — which note this song calls `1`.
+   *
+   * The tonic is a *guess* (`estimateKey`), and this is the only place in the app that
+   * asks for one. Two things keep it honest. It is paid for lazily, so the twelve-by-two
+   * scan behind it never runs for a reader reading letters — `spellingFor` takes the
+   * tokens as a function for that reason. And it is memoised on the shift as well as the
+   * song, because the tonic has to travel with the chords: a Nashville sheet whose tonic
+   * stayed behind would renumber itself every time the reader transposed, which is the
+   * one thing the notation promises never to do.
+   */
+  const spelling = useMemo(
+    () => spellingFor(global.notation, () => chordTokens(song), shift),
+    [global.notation, song, shift],
+  )
 
   /**
    * Whether to leave room for chords above every line, decided for the whole song
@@ -133,7 +150,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
             song,
             shift,
             global.accidentals,
-            global.notation,
+            spelling,
             global.instrument,
             songPrefs.chordShapes,
           )
@@ -142,7 +159,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
       song,
       shift,
       global.accidentals,
-      global.notation,
+      spelling,
       global.instrument,
       global.chordDisplay,
       songPrefs.chordShapes,
@@ -173,7 +190,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
                   key={lineIndex}
                   line={line}
                   shift={shift}
-                  notation={global.notation}
+                  spelling={spelling}
                   accidentals={global.accidentals}
                   chordDisplay={global.chordDisplay}
                   instrument={global.instrument}
@@ -221,7 +238,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
       {shown !== null && (
         <ChordPopup
           chord={shown}
-          notation={global.notation}
+          spelling={spelling}
           instrument={global.instrument}
           capo={songPrefs.capo}
           chordShapes={songPrefs.chordShapes}
@@ -264,7 +281,7 @@ function summarise(
   song: ParsedSong,
   shift: number,
   accidentals: Accidentals,
-  notation: Notation,
+  spelling: Spelling,
   instrument: Instrument,
   chordShapes: Record<string, string>,
 ): SummaryChord[] {
@@ -279,7 +296,7 @@ function summarise(
     const picked = pickShape(chord, instrument, chordShapes)
     if (picked === null) continue
 
-    const label = formatChord(chord, notation)
+    const label = formatChord(chord, spelling)
     if (seen.has(label)) continue
 
     seen.add(label)
@@ -382,7 +399,7 @@ function OverrideDot() {
 function SheetLine({
   line,
   shift,
-  notation,
+  spelling,
   accidentals,
   chordDisplay,
   instrument,
@@ -396,7 +413,7 @@ function SheetLine({
   line: Line
   /** Transposition and capo together: how far the written chords move to reach the page. */
   shift: number
-  notation: Notation
+  spelling: Spelling
   accidentals: Accidentals
   chordDisplay: ChordDisplay
   instrument: Instrument
@@ -419,7 +436,7 @@ function SheetLine({
    * Verbatim, in the app's own monospace — the same font the ChordPro editor
    * measures words in (`layout.tsx`'s own comment on `--font-mono`), not a
    * chord-notation matter: transposing moves a chord's name, not where a finger
-   * sits on a fret, so a tab ignores `shift`/`notation`/`currentKey` entirely.
+   * sits on a fret, so a tab ignores `shift`/`spelling`/`currentKey` entirely.
    */
   if (line.kind === 'tab') {
     return <pre className="sheet-tab">{line.rows.join('\n')}</pre>
@@ -482,7 +499,7 @@ function SheetLine({
                     <SheetChord
                       raw={part.chord}
                       shift={shift}
-                      notation={notation}
+                      spelling={spelling}
                       accidentals={accidentals}
                       chordDisplay={chordDisplay}
                       instrument={instrument}
@@ -604,7 +621,7 @@ function CommentBadge({
 function SheetChord({
   raw,
   shift,
-  notation,
+  spelling,
   accidentals,
   chordDisplay,
   instrument,
@@ -615,7 +632,7 @@ function SheetChord({
 }: {
   raw: string | null
   shift: number
-  notation: Notation
+  spelling: Spelling
   accidentals: Accidentals
   chordDisplay: ChordDisplay
   instrument: Instrument
@@ -657,7 +674,7 @@ function SheetChord({
 
   // Moved and spelled in one step; see `readChord` for why no key is consulted.
   const chord = readChord(parsed, shift, accidentals)
-  const label = formatChord(chord, notation)
+  const label = formatChord(chord, spelling)
 
   /*
    * Falls back to the name whenever there is no shape to draw — an exotic suffix

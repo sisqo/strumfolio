@@ -1,9 +1,11 @@
 'use client'
 
 import { usePrefs } from '@/components/PrefsProvider'
+import { NOTATIONS, NOTATION_LABEL, NOTATION_TITLE } from '@/lib/prefs/types'
 
 /**
- * Do/Re/Mi or C/D/E — the alphabet the chords on the sheet are spelled in.
+ * Which alphabet the chords on the sheet are spelled in — Do/Re/Mi, C/D/E, the German
+ * H/B convention, or Nashville numbers.
  *
  * It used to sit inline in the reading panel, right after Key and Capo and before
  * Show, because it reads like a property of the song: pick a notation and every
@@ -19,6 +21,12 @@ import { usePrefs } from '@/components/PrefsProvider'
  * That was decided anyway — a guest reads in whatever notation the *leader* has set
  * on their own account, pushed in every poll (`PushBroadcastNotation` in
  * `FollowSession.tsx`), with nowhere on their own screen to override it.
+ *
+ * **Four answers now, in two rows** (`.segment.is-wrap`), and the two new ones are labelled
+ * by the thing that gives them away rather than by name: `C D H` is where German differs
+ * from international at all, and `1 4 5` is the progression every player recognises as
+ * numbers. Neither says much to a reader who does not already want it, which is the right
+ * trade at this size — `NOTATION_TITLE` is what a screen reader and a hover get instead.
  */
 export function NotationPicker() {
   const { global, setNotation } = usePrefs()
@@ -26,27 +34,20 @@ export function NotationPicker() {
   return (
     <div className="px-1.5 pb-1 pt-2">
       <p className="group-label mb-2">Notation</p>
-      <span className="segment w-full" role="group" aria-label="Chord notation">
-        <button
-          type="button"
-          className={
-            global.notation === 'int' ? 'segment-button is-on flex-1' : 'segment-button flex-1'
-          }
-          aria-pressed={global.notation === 'int'}
-          onClick={() => setNotation('int')}
-        >
-          C D E
-        </button>
-        <button
-          type="button"
-          className={
-            global.notation === 'it' ? 'segment-button is-on flex-1' : 'segment-button flex-1'
-          }
-          aria-pressed={global.notation === 'it'}
-          onClick={() => setNotation('it')}
-        >
-          Do Re Mi
-        </button>
+      <span className="segment is-wrap w-full" role="group" aria-label="Chord notation">
+        {NOTATIONS.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className={global.notation === entry ? 'segment-button is-on' : 'segment-button'}
+            aria-pressed={global.notation === entry}
+            aria-label={NOTATION_TITLE[entry]}
+            title={NOTATION_TITLE[entry]}
+            onClick={() => setNotation(entry)}
+          >
+            {NOTATION_LABEL[entry]}
+          </button>
+        ))}
       </span>
     </div>
   )

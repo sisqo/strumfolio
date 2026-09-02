@@ -127,11 +127,12 @@ import {
   sectionWeight,
   splitRowsForColumns,
 } from './layout'
-import { type Line, type Section, parseChordPro } from '../chordpro'
+import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
 import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '../music/chord'
 import { readShift, transposeNoteText } from '../music/capo'
+import { spellingFor } from '../music/key'
 
 // React-pdf hyphenates long words by default (a title wrapping as "ani-mati"),
 // which reads as a typo rather than typesetting. A song title or chord chart
@@ -748,6 +749,14 @@ function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals
   const shift = personal === null ? 0 : readShift(personal.semitones, personal.capo)
   const transposeNote = personal === null ? null : transposeNoteText(personal.capo, personal.semitones)
 
+  /*
+   * Per song, and it has to be: a `Spelling` carries the tonic Nashville numbers count
+   * from, and a booklet is many songs in many keys. Built here rather than passed down from
+   * `bookletToBlob` for that reason — the notation is the reader's and travels the whole
+   * document, the tonic belongs to whichever song is being laid out.
+   */
+  const spelling = spellingFor(notation, () => chordTokens(parsed), shift)
+
   const chordLabel = (raw: string | null): string | null => {
     if (raw === null) return null
     const chord = parseChord(raw)
@@ -758,7 +767,7 @@ function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals
      * someone who reads flats says `Bb` where their phone says `Bb`. This used to estimate
      * the song's key to decide the accidental; nothing does any more — see `readChord`.
      */
-    return formatChord(readChord(chord, shift, accidentals), notation)
+    return formatChord(readChord(chord, shift, accidentals), spelling)
   }
 
   const roomForChords = parsed.sections.some((section) =>

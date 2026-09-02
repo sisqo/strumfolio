@@ -29,6 +29,37 @@ export type ChordDisplay = 'name' | 'shape' | 'diagrams' | 'fingerings'
  */
 export const CHORD_DISPLAYS: ChordDisplay[] = ['diagrams', 'fingerings', 'shape', 'name']
 
+/**
+ * Every notation a reader can pick, in the order `NotationPicker` draws them: the two
+ * alphabets that can also be *read* from a source first (`readRoots`), then the two that
+ * only ever get written out.
+ */
+export const NOTATIONS: Notation[] = ['int', 'it', 'de', 'nash']
+
+/** The label each one wears on its own button, short enough for a quarter of a menu. */
+export const NOTATION_LABEL: Record<Notation, string> = {
+  int: 'C D E',
+  it: 'Do Re Mi',
+  de: 'C D H',
+  nash: '1 4 5',
+}
+
+/**
+ * What the button would say if it had room — its accessible name, and the only place the
+ * four are named in words.
+ *
+ * `C D H` and `1 4 5` are legible to the reader who wants them and opaque to everyone
+ * else, which is the right trade for a button this size but leaves a screen reader
+ * announcing three letters. German is named by the thing that distinguishes it, because
+ * "German" alone would not say why a chord sheet in it looks almost identical.
+ */
+export const NOTATION_TITLE: Record<Notation, string> = {
+  int: 'International: C, D, E',
+  it: 'Italian: Do, Re, Mi',
+  de: 'German: H for B, B for B flat',
+  nash: 'Nashville numbers: each chord as its degree of the key',
+}
+
 export const CHORD_DISPLAY_LABEL: Record<ChordDisplay, string> = {
   name: 'names',
   fingerings: 'fingerings',
@@ -155,6 +186,22 @@ export function readChordDisplay(value: unknown): ChordDisplay {
  */
 export function readAccidentals(value: unknown): Accidentals {
   return value === 'flat' ? 'flat' : 'sharp'
+}
+
+/**
+ * Reads a notation from a value that came out of the database, the cache, or a Strum
+ * Together broadcast. International for anything unrecognised, matching both the column's
+ * default and `DEFAULT_GLOBAL_PREFS`.
+ *
+ * It exists because the four places that used to narrow this inline did it by asking
+ * whether the value was `int` and answering `it` if not — which was a correct pair of
+ * answers while there were two notations and silently the wrong one the moment there were
+ * four: a reader who had chosen German would have been handed Italian by their own cache,
+ * with no error anywhere. One of those four also defaulted to `it` where the other three
+ * defaulted to `int`; that disagreement goes with them.
+ */
+export function readNotation(value: unknown): Notation {
+  return NOTATIONS.find((entry) => entry === value) ?? 'int'
 }
 
 /**

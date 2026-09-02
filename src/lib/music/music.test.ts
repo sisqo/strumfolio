@@ -221,7 +221,7 @@ describe('transposeChord', () => {
     const chord = transposeChord(parseChord('C/E')!, 2, transposeKey(C, 2))
     assert.equal(chord.root, 2)
     assert.equal(chord.bass, 6)
-    assert.equal(formatChord(chord, 'int'), 'D/F#')
+    assert.equal(formatChord(chord, { notation: 'int', tonic: 0 }), 'D/F#')
   })
 
   it('wraps around the octave', () => {
@@ -318,6 +318,102 @@ describe('international notation', () => {
   })
 })
 
+/**
+ * German notation: two letters different from international, and every suffix the same.
+ *
+ * `Bb` losing its accidental to become `B` is the whole notation in one row, and the row
+ * after it is the price — a German `Bm7` is the chord international notation calls `Bbm7`,
+ * so the same three characters mean different chords in the two alphabets. That is the
+ * notation working as intended, and it is also why nothing *reads* German: see the note at
+ * the top of `chord.ts`.
+ */
+describe('German notation', () => {
+  const cases: [string, string][] = [
+    ['C', 'C'],
+    ['B', 'H'],
+    ['Bb', 'B'],
+    ['Bm', 'Hm'],
+    ['B7', 'H7'],
+    ['Bbm7', 'Bm7'],
+    ['A#', 'A#'],
+    ['Eb', 'Eb'],
+    ['F#m', 'F#m'],
+    ['Cmaj7', 'Cmaj7'],
+    ['Csus4', 'Csus4'],
+    ['C/B', 'C/H'],
+    ['F/Bb', 'F/B'],
+    // Pitch class 11 either way, the same answer `readChord` gives it.
+    ['Cb', 'H'],
+  ]
+
+  for (const [source, expected] of cases) {
+    it(`renders ${source} as ${expected}`, () => {
+      assert.equal(renderChord(source, 0, 'de', C), expected)
+    })
+  }
+
+  it('reads an Italian source into German like any other', () => {
+    assert.equal(renderChord('sib', 0, 'de', C), 'B')
+    assert.equal(renderChord('si', 0, 'de', C), 'H')
+  })
+})
+
+/**
+ * Nashville numbers, every case below in the key of C: the chord's degree in place of its
+ * letter, and the symbolic suffixes Italian also took.
+ */
+describe('Nashville numbers', () => {
+  const cases: [string, string][] = [
+    ['C', '1'],
+    ['Dm', '2-'],
+    ['Em', '3-'],
+    ['F', '4'],
+    ['G', '5'],
+    // No separator between the digits: charts print it this way, see `formatDegrees`.
+    ['G7', '57'],
+    ['Am', '6-'],
+    ['Bdim', '7°'],
+    ['Cmaj7', '1△7'],
+    ['Am7', '6-7'],
+    ['Csus4', '1sus4'],
+    // The four borrowed degrees, spelled by the convention and not by the reader.
+    ['Db', 'b2'],
+    ['Eb', 'b3'],
+    ['Ab', 'b6'],
+    ['Bb', 'b7'],
+    ['F#', '#4'],
+    // A slash bass is a degree too.
+    ['C/E', '1/3'],
+    ['F/A', '4/6'],
+    ['G/B', '5/7'],
+  ]
+
+  for (const [source, expected] of cases) {
+    it(`renders ${source} as ${expected}`, () => {
+      assert.equal(renderChord(source, 0, 'nash', C), expected)
+    })
+  }
+
+  /**
+   * The ♯/♭ control is the one thing on the reading screen a degree ignores, and this is
+   * the assertion that says so: `readChord` spells the same pitch class `A#` or `Bb`
+   * depending on what the reader asked for, and both come out `b7` because a degree is not
+   * a letter (`DEGREE_NAMES`).
+   */
+  it('numbers a chord the same whichever accidental the reader asked for', () => {
+    const nash = { notation: 'nash' as const, tonic: 0 }
+    assert.equal(formatChord(readChord(parseChord('Bb')!, 0, 'sharp'), nash), 'b7')
+    assert.equal(formatChord(readChord(parseChord('Bb')!, 0, 'flat'), nash), 'b7')
+    assert.equal(formatChord(readChord(parseChord('F#')!, 0, 'flat'), nash), '#4')
+  })
+
+  it('numbers against the tonic it is given, not against C', () => {
+    // The same chord is the tonic of one song and the fourth of another.
+    assert.equal(formatChord(parseChord('G')!, { notation: 'nash', tonic: 7 }), '1')
+    assert.equal(formatChord(parseChord('G')!, { notation: 'nash', tonic: 2 }), '4')
+  })
+})
+
 describe('renderChord', () => {
   it('passes non-chord tokens through unchanged', () => {
     assert.equal(renderChord('x2', 2, 'it', C), 'x2')
@@ -327,7 +423,7 @@ describe('renderChord', () => {
 describe('readChord', () => {
   /** Parse, move, spell — exactly what the sheet does to every chord on it. */
   const read = (raw: string, semitones: number, accidentals: 'sharp' | 'flat') =>
-    formatChord(readChord(parseChord(raw)!, semitones, accidentals), 'int')
+    formatChord(readChord(parseChord(raw)!, semitones, accidentals), { notation: 'int', tonic: 0 })
 
   it('overrides the source spelling with nothing transposed', () => {
     // The whole reason this exists: rule 1 would have kept both as written.
@@ -364,6 +460,9 @@ describe('readChord', () => {
   })
 
   it('speaks Italian through formatChord like any other chord', () => {
-    assert.equal(formatChord(readChord(parseChord('A#')!, 0, 'flat'), 'it'), 'Sib')
+    assert.equal(
+      formatChord(readChord(parseChord('A#')!, 0, 'flat'), { notation: 'it', tonic: 0 }),
+      'Sib',
+    )
   })
 })

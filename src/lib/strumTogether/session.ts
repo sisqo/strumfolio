@@ -35,6 +35,7 @@ import { UNGATED } from '@/lib/plans/entitlements'
 import { deviceCapOf } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 import type { LimitReason } from '@/lib/plans/types'
+import { readNotation } from '@/lib/prefs/types'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { DEVICE_COOKIE, admits, holdsSlot, needsHeartbeat, staleBefore } from './devices'
@@ -833,12 +834,18 @@ export async function pollBroadcast(
    * A guest reads the same chord alphabet the leader does, never a choice of their own
    * (see `PushBroadcastNotation` in `FollowSession.tsx`) — so this is the one field here
    * that is not merely echoing what the leader's own client already sent, and it is why
-   * the join above exists at all. Anything other than the literal `'it'` reads as `'int'`,
-   * which is both the column's default and `DEFAULT_GLOBAL_PREFS.notation` — so a leader
-   * who has never touched their notation setting and a leader with no `user_prefs` row at
-   * all land on the same answer.
+   * the join above exists at all. Anything unrecognised reads as `'int'`, which is both
+   * the column's default and `DEFAULT_GLOBAL_PREFS.notation` — so a leader who has never
+   * touched their notation setting and a leader with no `user_prefs` row at all land on
+   * the same answer.
+   *
+   * A leader reading Nashville numbers broadcasts those too, and the guest's sheet numbers
+   * them against its *own* estimate of the song's key rather than against anything sent
+   * here (`spellingFor`). Nothing has to be sent: both sides run the same estimate over the
+   * same song, so both arrive at the same tonic, and the numbers are the one thing a
+   * transposition cannot move anyway.
    */
-  const notation: Notation = row.notation === 'it' ? 'it' : 'int'
+  const notation: Notation = readNotation(row.notation)
 
   const showing = { ok: true as const, songSlug: row.songSlug, semitones: row.semitones, notation }
   if (deviceId === null) return showing

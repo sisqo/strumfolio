@@ -18,7 +18,8 @@ import {
   readShift,
   suggestCapo,
 } from '@/lib/music/capo'
-import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '@/lib/music/chord'
+import { type Accidentals, type Spelling, formatChord, parseChord, readChord } from '@/lib/music/chord'
+import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
 import {
   CHORD_DISPLAYS,
@@ -144,7 +145,14 @@ export function SongControls({
     const shift = readShift(song.semitones, song.capo)
     return {
       total: distinctChordCount(chords),
-      items: previewChords(chords, shift, global.accidentals, global.notation, global.instrument, 3),
+      items: previewChords(
+        chords,
+        shift,
+        global.accidentals,
+        spellingFor(global.notation, () => chords, shift),
+        global.instrument,
+        3,
+      ),
     }
   }, [menu, chords, song.semitones, song.capo, global.accidentals, global.notation, global.instrument])
 
@@ -499,7 +507,7 @@ function previewChords(
   tokens: string[],
   shift: number,
   accidentals: Accidentals,
-  notation: Notation,
+  spelling: Spelling,
   instrument: Instrument,
   max: number,
 ): ChordPreviewItem[] {
@@ -513,7 +521,7 @@ function previewChords(
     if (parsed === null) continue
 
     const chord = readChord(parsed, shift, accidentals)
-    const label = formatChord(chord, notation)
+    const label = formatChord(chord, spelling)
     if (seen.has(label)) continue
     seen.add(label)
 

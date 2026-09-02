@@ -4,8 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { ChordDiagram } from '@/components/ChordDiagram'
 import { IconChevronLeft, IconChevronRight, IconClose } from '@/components/icons'
-import { type Chord, type Notation, formatChord } from '@/lib/music/chord'
-import { noteToItalian } from '@/lib/music/notes'
+import { type Chord, type Spelling, formatChord, formatNoteName } from '@/lib/music/chord'
 import { type ChordShape, type Instrument, chordNoteNames, fingeringText, pickShape } from '@/lib/music/shapes'
 
 /**
@@ -15,10 +14,15 @@ import { type ChordShape, type Instrument, chordNoteNames, fingeringText, pickSh
  * notation — because that is the chord to play, not the one the file was written
  * with. When the suffix is outside the table there is still something useful to
  * say, so the notes are always listed and the diagram is what may be missing.
+ *
+ * The heading follows the sheet all the way into Nashville numbers, so a reader who tapped
+ * `5` is answered about `5`. The notes underneath stay letters even there, and
+ * `formatNoteName` is where that is argued: a chord has a degree, the notes inside it do
+ * not.
  */
 export function ChordPopup({
   chord,
-  notation,
+  spelling,
   instrument,
   capo,
   chordShapes,
@@ -26,7 +30,8 @@ export function ChordPopup({
   onClose,
 }: {
   chord: Chord
-  notation: Notation
+  /** The reader's notation, and the tonic Nashville numbers need — see `SongSheet`. */
+  spelling: Spelling
   /** Whose fingerings to draw. The chord itself is the same on either. */
   instrument: Instrument
   /** The fret the capo is on: the shape is the same, but it starts from there. */
@@ -46,9 +51,7 @@ export function ChordPopup({
   }, [onClose])
 
   const picked = pickShape(chord, instrument, chordShapes)
-  const notes = chordNoteNames(chord).map((note) =>
-    notation === 'it' ? noteToItalian(note) : note,
-  )
+  const notes = chordNoteNames(chord).map((note) => formatNoteName(note, spelling.notation))
 
   return (
     <div className="chord-overlay" role="dialog" aria-modal="true" aria-label="Chord shape">
@@ -59,7 +62,7 @@ export function ChordPopup({
           <IconClose size={18} />
         </button>
 
-        <p className="chord-name">{formatChord(chord, notation)}</p>
+        <p className="chord-name">{formatChord(chord, spelling)}</p>
 
         {picked === null ? (
           <p className="mt-1 text-sm text-muted">
@@ -92,8 +95,8 @@ export function ChordPopup({
 
         {chord.bassName !== null && (
           <p className="mt-2 text-xs text-muted">
-            Bass {notation === 'it' ? noteToItalian(chord.bassName) : chord.bassName}, to be
-            played beneath this shape.
+            Bass {formatNoteName(chord.bassName, spelling.notation)}, to be played beneath
+            this shape.
           </p>
         )}
       </div>

@@ -7235,6 +7235,25 @@
   }
 
   /*
+   * Two rows of two inside the one pill, for a choice with four answers rather than the
+   * two every other `.segment` in the app offers.
+   *
+   * The notation picker is the only user, and it wraps rather than splitting into two
+   * pills or shrinking to four columns: two pills read as two separate questions, and a
+   * quarter of the account menu's width is about 70px, which `Do Re Mi` does not fit at
+   * this font size. The basis is half the row less the container's own gap, so exactly
+   * two land per line; `gap` covers both axes here, so the wrapped row is spaced like the
+   * columns with nothing further to set.
+   */
+  .segment.is-wrap {
+    flex-wrap: wrap;
+  }
+
+  .segment.is-wrap > .segment-button {
+    flex: 1 1 calc(50% - 0.1875rem);
+  }
+
+  /*
    * 2.75rem (44px) square, the same minimum this app already gives `.btn` — these are
    * tapped repeatedly, with a guitar in the other hand, and the previous 38×34px ran
    * noticeably smaller than every other control in the app.

@@ -28,6 +28,7 @@ import {
   readChordDisplay,
   readChordShapes,
   readInstrument,
+  readNotation,
 } from './types'
 
 const GLOBAL_KEY = 'songs:prefs'
@@ -61,7 +62,7 @@ export function readGlobalPrefs(): GlobalPrefs {
   return {
     zoomStep:
       typeof cached.zoomStep === 'number' ? clampZoom(cached.zoomStep) : DEFAULT_GLOBAL_PREFS.zoomStep,
-    notation: cached.notation === 'int' || cached.notation === 'it' ? cached.notation : 'it',
+    notation: readNotation(cached.notation),
     instrument: readInstrument(cached.instrument),
     chordDisplay: readChordDisplay(cached.chordDisplay),
     accidentals: readAccidentals(cached.accidentals),

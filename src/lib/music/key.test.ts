@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { readKey } from './capo'
-import { renderChord } from './chord'
-import { estimateKey } from './key'
+import { formatChord, parseChord, readChord, renderChord } from './chord'
+import { estimateKey, spellingFor } from './key'
 import { C_MAJOR } from './notes'
 
 describe('estimateKey', () => {
@@ -65,5 +65,85 @@ describe('the estimate decides the accidentals', () => {
     const key = written(['Bb', 'Eb', 'F', 'Bb'])
     assert.equal(readKey(key, 0, 1).name, 'A')
     assert.equal(readKey(C_MAJOR, 0, 1).name, 'B')
+  })
+})
+
+describe('spellingFor', () => {
+  /*
+   * The thunk is the guard, so the test makes it a trap: three of the four notations must
+   * not so much as look at the song, and the only way to assert "did not scan" is to make
+   * scanning throw.
+   */
+  it('asks the song nothing when the notation has letters of its own', () => {
+    const trap = (): string[] => {
+      throw new Error('estimated a key for a notation that has no use for one')
+    }
+
+    for (const notation of ['int', 'it', 'de'] as const) {
+      const spelling = spellingFor(notation, trap, 3)
+      assert.equal(spelling.notation, notation)
+      assert.equal(spelling.tonic, 0)
+    }
+  })
+
+  it('numbers from the song own key rather than from C', () => {
+    assert.equal(spellingFor('nash', () => ['Am', 'F', 'C', 'G', 'Am'], 0).tonic, 9)
+    assert.equal(spellingFor('nash', () => ['Bb', 'Eb', 'F', 'Gm7', 'Bb'], 0).tonic, 10)
+  })
+
+  /*
+   * The bug this exists to catch: the chords reaching `formatChord` have been moved and the
+   * tonic has to make the same trip. Leave it behind and every number in a transposed song
+   * is wrong by the size of the transposition, with nothing on screen to say so.
+   */
+  it('moves the tonic by the same shift as the chords', () => {
+    const tokens = () => ['Am', 'F', 'C', 'G', 'Am']
+    assert.equal(spellingFor('nash', tokens, 2).tonic, 11)
+    assert.equal(spellingFor('nash', tokens, -2).tonic, 7)
+    assert.equal(spellingFor('nash', tokens, 3).tonic, 0)
+    assert.equal(spellingFor('nash', tokens, 12).tonic, 9)
+  })
+
+  it('lands on C for a song with no chords, which has nothing to number anyway', () => {
+    assert.equal(spellingFor('nash', () => [], 0).tonic, 0)
+    assert.equal(spellingFor('nash', () => ['Ritornello', 'x2'], 0).tonic, 0)
+  })
+})
+
+/**
+ * The property the notation rests on, and the reason a numbered chart is worth having: a
+ * transposition or a capo moves every letter on the page and not one of the numbers.
+ *
+ * Asserted as an invariance over the whole sheet rather than as a worked example or two,
+ * because the failure it guards against is uniform — every chord wrong by the same amount,
+ * which is exactly what a spot check of one chord against a hand-computed degree would
+ * also show as "wrong by the same amount" and be read as a bad expectation.
+ */
+describe('a Nashville sheet reads the same at every shift', () => {
+  const tokens = ['Am', 'F', 'C', 'G', 'E7']
+
+  /** Exactly what the sheet does: one `Spelling` for the song, every chord through it. */
+  const sheet = (shift: number, accidentals: 'sharp' | 'flat' = 'sharp'): string[] => {
+    const spelling = spellingFor('nash', () => tokens, shift)
+    return tokens.map((token) =>
+      formatChord(readChord(parseChord(token)!, shift, accidentals), spelling),
+    )
+  }
+
+  it('numbers a minor-key song from its own tonic', () => {
+    assert.deepEqual(sheet(0), ['1-', 'b6', 'b3', 'b7', '57'])
+  })
+
+  it('prints those same degrees at every transposition and capo', () => {
+    const written = sheet(0)
+
+    for (const shift of [-12, -7, -5, -3, -1, 1, 2, 4, 6, 7, 11, 12]) {
+      assert.deepEqual(sheet(shift), written, `shift ${shift} renumbered the sheet`)
+    }
+  })
+
+  it('prints them the same for a reader who asked for flats', () => {
+    assert.deepEqual(sheet(0, 'flat'), sheet(0, 'sharp'))
+    assert.deepEqual(sheet(5, 'flat'), sheet(5, 'sharp'))
   })
 })

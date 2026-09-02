@@ -23,7 +23,10 @@ function onPage(token: string, written: Key, semitones: number, capo: number): s
   assert.ok(chord !== null)
 
   const shift = readShift(semitones, capo)
-  return formatChord(transposeChord(chord, shift, readKey(written, semitones, capo)), 'int')
+  return formatChord(transposeChord(chord, shift, readKey(written, semitones, capo)), {
+    notation: 'int',
+    tonic: 0,
+  })
 }
 
 describe('what the capo moves and what it leaves alone', () => {

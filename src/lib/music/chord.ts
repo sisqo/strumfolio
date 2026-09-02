@@ -21,20 +21,59 @@
  * The root is read in either notation — `[re]` and `[D]` are the same chord — and
  * stored international, so the three rules above are about spelling the accidental,
  * not about which language the source used.
+ *
+ * **Two notations can be read; four can be shown.** German and Nashville numbers arrived
+ * as display only, and not for want of effort: German `[B]` is the pitch international
+ * notation calls `Bb`, so the same token in a source would mean two different chords with
+ * nothing in the file to say which, and a Nashville source would carry no key to number
+ * against. Reading stays at Italian and international — see `readRoots` — while every
+ * notation below is a way of writing down what was read.
  */
 
 import {
   type Key,
   type PitchClass,
   type RootRead,
+  degreeOf,
   mod12,
+  noteToGerman,
   noteToItalian,
   noteToPitchClass,
   readRoots,
   spellPitchClass,
 } from './notes'
 
-export type Notation = 'it' | 'int'
+/**
+ * The alphabet the chords on the page are written in.
+ *
+ * `it` and `int` are Do-Re-Mi and C-D-E. `de` is the German convention, which differs
+ * from `int` in two letters and is why it exists at all (`GERMAN_SHARP_NAMES`). `nash`
+ * is the odd one out and the reason `Spelling` below exists: it prints no letters, only
+ * each chord's degree of the key, so it is the one notation that cannot be applied to a
+ * chord in isolation.
+ */
+export type Notation = 'it' | 'int' | 'de' | 'nash'
+
+/**
+ * Everything the display of a chord turns on: which alphabet, and — for Nashville
+ * numbers alone — which note is `1`.
+ *
+ * One object rather than a second parameter next to every `notation`, because the tonic
+ * is meaningless in three of the four notations and mandatory in the fourth: a caller
+ * threading a bare `Notation` has no way to be told it now owes an answer, where a
+ * caller threading this cannot build one without giving it. `spellingFor` in `key.ts` is
+ * the only thing that does build one, which is where the cost of knowing a tonic is
+ * decided and paid.
+ */
+export interface Spelling {
+  notation: Notation
+  /**
+   * The tonic **as it appears on the page**: the song's own, moved by the same shift the
+   * chords were. Read only when `notation` is `nash` — see `formatDegrees` for why
+   * moving it is what makes the numbers come out right.
+   */
+  tonic: PitchClass
+}
 
 /**
  * Which way the page writes an accidental — the reader's own answer, rule 3 above.
@@ -188,8 +227,14 @@ const ITALIAN_SUFFIX: [RegExp, string][] = [
   [/^m/, '-'],
 ]
 
+/**
+ * Italian and Nashville share this table, which is not a shortcut: both notations answer
+ * "what does this chord *do*" rather than "what is it called", and both took the jazz
+ * symbols for it. German takes the international suffixes untouched — only its letters
+ * differ, and a German chart writes `Am` and `H7` like everyone else.
+ */
 function formatSuffix(suffix: string, notation: Notation): string {
-  if (notation === 'int') return suffix
+  if (notation === 'int' || notation === 'de') return suffix
 
   for (const [pattern, replacement] of ITALIAN_SUFFIX) {
     const match = pattern.exec(suffix)
@@ -198,14 +243,52 @@ function formatSuffix(suffix: string, notation: Notation): string {
   return suffix
 }
 
-function formatNote(name: string, notation: Notation): string {
-  return notation === 'it' ? noteToItalian(name) : name
+/**
+ * One note name — not a chord — in the reader's notation: the popup's list of what sits
+ * under the fingers, and the bass it names in words.
+ *
+ * Nashville falls through to the international letters, deliberately. A chord has a
+ * degree; a single note inside one does not, and numbering them would print the shape's
+ * own intervals (`1 3 5` for every major chord in the song) as though they were degrees
+ * of the key — the same digits, meaning something else entirely.
+ */
+export function formatNoteName(name: string, notation: Notation): string {
+  if (notation === 'it') return noteToItalian(name)
+  if (notation === 'de') return noteToGerman(name)
+  return name
 }
 
-export function formatChord(chord: Chord, notation: Notation): string {
-  const root = formatNote(chord.rootName, notation)
-  const suffix = formatSuffix(chord.suffix, notation)
-  const bass = chord.bassName === null ? '' : `/${formatNote(chord.bassName, notation)}`
+/**
+ * A chord as a Nashville chart writes it: which degree of the key it sits on, in place of
+ * any letter.
+ *
+ * **Transposition and capo are invisible here, and that is the point of the system.** The
+ * tonic handed in has already been moved by the same shift as the chord (`spellingFor`),
+ * so the two shifts cancel and the song reads with identical numbers at every key and
+ * every fret — a chart that survives being sung a tone lower is what numbering it was
+ * for. Hand it an unmoved tonic instead and every number in a transposed song comes out
+ * wrong by the size of the transposition, with nothing on screen to say so, which is why
+ * `music.test.ts` holds the invariance rather than a worked example or two.
+ *
+ * A fifth with a seventh on it prints `57`, and no separator is inserted to keep the two
+ * digits apart: charts print it that way, the suffixes that would otherwise collide with
+ * a digit are already symbols (`-`, `△`), and a hairline space above a syllable is either
+ * invisible at the small zoom steps or one more thing to align at the large ones.
+ */
+function formatDegrees(chord: Chord, tonic: PitchClass): string {
+  const root = degreeOf(chord.root, tonic)
+  const suffix = formatSuffix(chord.suffix, 'nash')
+  const bass = chord.bass === null ? '' : `/${degreeOf(chord.bass, tonic)}`
+  return root + suffix + bass
+}
+
+export function formatChord(chord: Chord, spelling: Spelling): string {
+  if (spelling.notation === 'nash') return formatDegrees(chord, spelling.tonic)
+
+  const root = formatNoteName(chord.rootName, spelling.notation)
+  const suffix = formatSuffix(chord.suffix, spelling.notation)
+  const bass =
+    chord.bassName === null ? '' : `/${formatNoteName(chord.bassName, spelling.notation)}`
   return root + suffix + bass
 }
 
@@ -255,6 +338,10 @@ export function readChord(chord: Chord, semitones: number, accidentals: Accident
 /**
  * Convenience for the common path: parse, transpose and format in one go.
  * `targetKey` is the key the song is in *after* transposition.
+ *
+ * It needs no `Spelling` handed in because it already holds the one thing a Nashville
+ * reading would ask for: `targetKey` is the key the chord lands in, which is the moved
+ * tonic `formatDegrees` wants, by that name.
  */
 export function renderChord(
   raw: string,
@@ -264,5 +351,8 @@ export function renderChord(
 ): string {
   const chord = parseChord(raw)
   if (!chord) return raw
-  return formatChord(transposeChord(chord, semitones, targetKey), notation)
+  return formatChord(transposeChord(chord, semitones, targetKey), {
+    notation,
+    tonic: targetKey.pc,
+  })
 }

@@ -114,8 +114,11 @@ export default function HelpPage() {
           </ul>
           <p>
             Tap any chord on the sheet to see it up close, drawn for whichever instrument you
-            picked. Chord names as Do-Re-Mi or as C-D-E is not here but in your account menu,
-            under Settings: it is how you read every song rather than something about this one.
+            picked. Which alphabet the chords are written in is not here but in your account
+            menu, under Settings — it is how you read every song rather than something about
+            this one. There are four: Do-Re-Mi, C-D-E, the German convention (H for B, B for B
+            flat), and Nashville numbers, where each chord is written as its degree of the key
+            and so reads the same however far you have transposed the song.
           </p>
 
           <h2 id="strum-together">5. Strum Together</h2>

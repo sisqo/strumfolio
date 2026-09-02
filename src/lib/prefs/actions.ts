@@ -25,6 +25,7 @@ import {
   readChordDisplay,
   readChordShapes,
   readInstrument,
+  readNotation,
 } from './types'
 
 /**
@@ -112,7 +113,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
       ? null
       : {
           zoomStep: clampZoom(globalRows[0].zoomStep),
-          notation: globalRows[0].notation === 'int' ? ('int' as const) : ('it' as const),
+          notation: readNotation(globalRows[0].notation),
           instrument: await allowedInstrument(readInstrument(globalRows[0].instrument), user),
           chordDisplay: readChordDisplay(globalRows[0].chordDisplay),
           accidentals: readAccidentals(globalRows[0].accidentals),
@@ -173,7 +174,7 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
 
   const values = {
     zoomStep: clampZoom(prefs.zoomStep),
-    notation: prefs.notation === 'int' ? 'int' : 'it',
+    notation: readNotation(prefs.notation),
     instrument,
     chordDisplay: readChordDisplay(prefs.chordDisplay),
     accidentals: readAccidentals(prefs.accidentals),

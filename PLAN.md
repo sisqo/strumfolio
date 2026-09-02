@@ -8,7 +8,7 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v4.2 — sesto ricontrollo dei piani** (l'ultima versione numerata qui)
+> **Stato:** da v1 a **v4.3 — due notazioni in più** (l'ultima versione numerata qui)
 > sono consegnate e in produzione su https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
@@ -179,10 +179,27 @@ sonare.
 
 ### Notazione
 
-Il toggle IT/INT cambia insieme alfabeto delle note e stile delle sigle, due tabelle
+Quattro alfabeti (v4.3), di cui **due leggibili anche in ingresso e quattro scrivibili**.
+
+La scelta IT/INT cambia insieme alfabeto delle note e stile delle sigle, due tabelle
 separate coerenti ciascuna con la propria convenzione: `Cm7b5` ↔ `Do-7b5`, `Bb` ↔ `Sib`,
 `Cmaj7` ↔ `Do△7`. In internazionale il display coincide col sorgente ChordPro; in italiano
 no, di proposito.
+
+La **tedesca** differisce dall'internazionale in due lettere e in nient'altro: `H` per la
+nota che l'internazionale chiama `B`, e `B` per quella che chiama `Bb`; le sigle restano
+internazionali (`Hm`, `H7`, `Bm7`). Le grafie classiche `Cis`/`Es`/`Ais` sono scartate di
+proposito — corrette per una nota isolata, non compongono con una sigla: `Aism` non lo
+stampa nessuno. Conseguenza inevitabile: `Bm7` tedesco è l'accordo che l'internazionale
+chiama `Bbm7`, cioè le stesse tre lettere valgono accordi diversi nei due alfabeti.
+
+I **numeri di Nashville** non stampano lettere affatto: ogni accordo è il proprio grado
+della tonalità (`1`, `4`, `57`, `6-`, `b7`), con le sigle simboliche dell'italiano perché
+entrambe le notazioni rispondono a «cosa *fa* questo accordo» e non a «come si chiama».
+Trasposizione e capotasto sono invisibili — tonica e accordi si spostano dello stesso
+shift, che si annulla — ed è esattamente la proprietà per cui un cifrato numerato esiste.
+È l'unica notazione che ha bisogno di una tonica, quindi l'unica per cui `estimateKey`
+torna sul percorso di lettura dopo la v4.1.
 
 ### Diagrammi degli accordi
 
@@ -293,7 +310,7 @@ rimossi dal repo quando entra il repertorio vero, o risorgeranno a ogni ripristi
 | Velocità auto-scroll | per brano | `user_song_prefs` |
 | Capotasto | per brano | `user_song_prefs` |
 | Zoom | globale | `user_prefs` |
-| Notazione IT/INT | globale | `user_prefs` |
+| Notazione (IT/INT/tedesca/Nashville, v4.3) | globale | `user_prefs` |
 | Strumento (chitarra/ukulele) | globale | `user_prefs` |
 | Come si mostrano gli accordi | globale | `user_prefs` |
 | Alterazioni ♯/♭ (v4.1) | globale | `user_prefs` |
@@ -1199,6 +1216,46 @@ solo difetto, ma sulle due rotte più importanti del gate. Rationale completo pe
 
 Nessuna migrazione.
 
+### v4.3 — due notazioni in più
+
+Tedesca e numeri di Nashville, entrambe **solo in uscita**. Si scelgono dove si
+sceglievano già le altre due — menu account, `NotationPicker`, ora quattro bottoni in due
+righe — restano un fatto di chi legge e non del brano, e arrivano a un ospite di Strum
+Together come le altre. Dettaglio delle due notazioni in *Motore musicale*, rationale per
+riga in *Decisioni*.
+
+- **La tedesca non entra nel parsing, e non per pigrizia.** `[B]` tedesco è il `Bb`
+  internazionale, quindi lo stesso token in un sorgente significherebbe due accordi diversi
+  senza niente nel file che dica quale: `readRoots` resta a italiano e internazionale. Un
+  canzoniere *scritto* in tedesco richiederebbe un campo che dichiari la notazione della
+  trascrizione, e toccherebbe la protezione che tiene `[Es]` dal far sparire una parola dal
+  testo.
+- **Il Nashville richiede una tonica, che nessuno salva dalla v4.1.** La fornisce
+  `estimateKey`, riportata sul percorso di lettura dopo essere stata tenuta in naftalina
+  proprio «per il giorno in cui una schermata rivolesse una tonalità». Il *rischio* di quella
+  stima cambia forma, e il commento in testa a `key.ts` lo dice adesso: non più
+  un'alterazione scritta al contrario, ma **la rinumerazione di tutto il brano** — e la
+  confusione fra relativa maggiore e minore, che lì era classificata innocua perché le due
+  si scrivono uguali, è una costante di tre gradi su ogni accordo. Ventuno concordanze su
+  ventuno contro i brani che avevano una tonalità salvata: abbastanza per numerarci un
+  cifrato, e se sbagliasse davvero la correzione è una tonica dichiarabile da chi legge, non
+  una stima migliore.
+- **`Spelling` (`{ notation, tonic }`) sostituisce il `Notation` nudo** dove veniva passato
+  (spartito, popup, menu accordi, libretto): la tonica è priva di senso in tre notazioni su
+  quattro e obbligatoria nella quarta, e un chiamante che passa un `Notation` non ha modo di
+  accorgersi di doverla. La costruisce solo `spellingFor`, che prende i token **come
+  funzione** perché le tre notazioni con lettere proprie non paghino la scansione del brano.
+- **`readNotation` al posto di quattro narrowing scritte a mano** (`prefs/store.ts`,
+  `prefs/actions.ts` ×2, `strumTogether/session.ts`): chiedevano `=== 'int'` e rispondevano
+  `'it'` altrimenti, che è una coppia di risposte corretta con due notazioni e silenziosamente
+  sbagliata con quattro — chi avesse scelto la tedesca si sarebbe visto restituire l'italiana
+  dalla propria cache, dalla propria riga di database e dal broadcast, senza un errore da
+  nessuna parte. Una delle quattro ripiegava anche su `'it'` dove le altre tre ripiegavano su
+  `'int'`; quella discordanza se ne va con loro.
+
+Nessuna migrazione: `notation` è `text` senza enum né CHECK, per la stessa convenzione che
+`schema.ts` dichiara per `instrument`/`chordDisplay`.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1569,3 +1626,16 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Come corretto | Le due chiamate spostate in un `layout.tsx` scoped alla singola rotta, non toccato `gate.ts`/`resolve.ts` | Un layout sta fuori dalla Suspense boundary che il `loading.tsx` del suo stesso segmento introduce; spostarle in un layout più ampio avrebbe riproposto il loop di redirect che la v3.11 aveva già escluso per `/pricing`/`/checkout/[plan]` |
 | `songs/[slug]` e `songs/[slug]/edit` | Lasciate come stavano | Nessuna delle due ha un `loading.tsx` proprio, quindi non erano toccate dal difetto — ma un `loading.tsx` aggiunto lì in futuro riproporrebbe lo stesso bug se la chiamata non si sposta insieme; avviso lasciato nel commento di `gate.ts` |
 | Come verificato | Login reale (`curl` e browser) contro un account appena creato, non solo lettura del codice | `hasChosenPlan`/`requirePlanChoice` rispondevano già giusto interrogati direttamente: il difetto viveva nell'interazione con Next, visibile solo eseguendo davvero il percorso |
+
+### Due notazioni in più (v4.3)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Quale variante di tedesca | `H`/`B` con i glifi `#`/`b`, non `Cis`/`Es`/`Ais` | Le grafie classiche sono corrette per una nota isolata e non compongono con una sigla (`Aism`, `Dism`); la variante con i glifi è quella che i songbook tedeschi stampano davvero e tiene comunque la differenza che conta |
+| Tedesca in lettura | No, solo in scrittura | `B` nomina altezze diverse nelle due notazioni, quindi `[B]` in un sorgente sarebbe ambiguo senza un campo che dichiari la notazione della trascrizione; aggiungerlo tocca `readRoots`/`VALID_SUFFIX`, cioè la protezione che tiene `[Es]` dal far sparire una parola dal testo |
+| Alterazioni dei gradi Nashville | Tabella fissa (`b2 b3 #4 b6 b7`), non la scelta ♯/♭ di chi legge | È la convenzione del sistema, non una preferenza: `b3`/`b6`/`b7` sono i gradi prestati dal minore parallelo e `#4` quello che porta alla dominante. Un grado non è una lettera, quindi la regola 3 non lo riguarda. Costo accettato e non minimizzato: col Nashville attivo il chip ♯/♭ non cambia niente sullo spartito, e resta vivo solo sui nomi delle note nel popup |
+| Separatore fra grado e sigla numerica | Nessuno: `57` | È ciò che stampano i cifrati veri; le sigle che collidono con una cifra sono già simboli (`-`, `△`), e uno spazio sottile sopra una sillaba è invisibile agli zoom piccoli e una cosa in più da allineare a quelli grandi |
+| Tonica per il Nashville | Stimata (`estimateKey`), non un campo salvato | Rimetterla come campo è una colonna, una migrazione e un controllo per brano, e la v4.1 l'aveva tolta di proposito; la stima ha ventuno concordanze su ventuno contro i brani che ne avevano una |
+| Dove nasce la `Spelling` | Per brano, dentro chi rende (`SongSheet`, `prepare` del libretto), non passata dall'alto | Un libretto è molti brani in molte tonalità: la notazione è di chi legge e attraversa tutto il documento, la tonica appartiene al singolo brano che si sta impaginando |
+| Token passati a `spellingFor` come funzione | Sì, thunk e non array | Con un array la scansione si paga anche per chi legge lettere, ed è esattamente l'errore contro cui il commento in testa a `key.ts` mette in guardia; il thunk lascia la decisione in un punto solo invece che in tre chiamanti che devono ricordarsi una guardia |
+| Etichette dei bottoni | `C D H` e `1 4 5` | Dicono la differenza invece del nome: la tedesca si riconosce dall'`H`, il Nashville dal giro che ogni musicista legge come numeri. Opache per chi non le cerca, che a questa dimensione è il compromesso giusto — `NOTATION_TITLE` è quello che sentono screen reader e hover |
