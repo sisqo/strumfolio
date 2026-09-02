@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 
 import { SITE_URL } from '@/lib/brand'
 import { listPosts } from '@/lib/blog/posts'
-import { PUBLIC_ROUTES } from '@/lib/publicRoutes'
+import { BLOG_PREFIX, PUBLIC_ROUTES } from '@/lib/publicRoutes'
 
 /**
  * What this site offers to a search engine — the first thing it has ever offered, since this
@@ -36,9 +36,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...pages,
-    { url: `${origin}/blog` },
+    { url: `${origin}${BLOG_PREFIX}` },
     ...posts.map((post) => ({
-      url: `${origin}/blog/${post.meta.slug}`,
+      url: `${origin}${BLOG_PREFIX}/${post.meta.slug}`,
       /* The date the article states about itself. Not the file's mtime, which changes when a
        * typo is fixed and, on a clean build checkout, is the moment of the checkout for every
        * file at once — telling Google the whole archive was rewritten this morning. */

@@ -111,14 +111,24 @@ export async function listPosts(): Promise<PostSummary[]> {
   const slugs = await listSlugs()
   const loaded = await Promise.all(slugs.map(async (slug) => await loadPost(slug)))
 
-  const published = loaded.filter((post) => !post.meta.draft)
+  const published = loaded
+    .filter((post) => !post.meta.draft)
+    .map(({ meta, readingTime }): PostSummary => ({ meta, readingTime }))
 
-  return byNewest(published.map((post) => post.meta)).map((meta) => {
-    const post = published.find((candidate) => candidate.meta.slug === meta.slug)
-    /* `published` is what `meta` was derived from, so this cannot miss; the check is here so
-     * the non-null assertion this would otherwise need does not have to be. */
-    if (post === undefined) throw new Error(`Unreachable: no loaded post for ${meta.slug}`)
-    return { meta: post.meta, readingTime: post.readingTime }
+  /*
+   * Ordered by `byNewest`, which is where the rule lives and where a test pins it — including
+   * the tie-break that keeps two articles published the same day in the same order on this
+   * machine and in the build container.
+   *
+   * It sorts the metas, so the summaries are recovered through a `Map` rather than by
+   * searching the list once per article: `flatMap` over a lookup that cannot miss, written as
+   * a lookup that may, so nothing here needs a non-null assertion to typecheck.
+   */
+  const bySlug = new Map(published.map((post) => [post.meta.slug, post]))
+
+  return byNewest(published.map((post) => post.meta)).flatMap((meta) => {
+    const post = bySlug.get(meta.slug)
+    return post === undefined ? [] : [post]
   })
 }
 

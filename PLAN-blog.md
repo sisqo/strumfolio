@@ -290,6 +290,16 @@ Da correggere se una è sbagliata — nessuna è irreversibile.
   notizia, e una data nell'URL la fa sembrare vecchia il secondo anno.
 - **Bozze**: `draft: true` nei metadati, filtrate in `posts.ts` — non una cartella
   separata, così promuovere una bozza è cambiare una riga e non spostare un file.
+  **Verificato con una bozza vera prima di consegnare**, non dedotto: non riceve
+  pagina, il suo URL e quello della sua card danno 404, e non compare né in indice, né
+  in sitemap, né nel feed. Verificato anche il rovescio, che è meno ovvio e va detto:
+  una bozza **malfatta ferma il build** come un articolo pubblicato, perché la
+  validazione gira su tutti i file prima che il filtro scelga quali pubblicare
+  (`content/blog/a-draft-in-progress.mdx: `date` must be a real date…`). È il
+  comportamento voluto — l'errore arriva mentre si sta ancora scrivendo, che è il
+  momento in cui costa meno — ma è l'opposto di ciò che la parola «bozza» lascia
+  intendere, quindi va saputo: una bozza in lavorazione non può avere una data
+  segnaposto inventata.
 - **Ordine dell'indice**: per data decrescente, e a parità di data per slug, così il
   build è riproducibile.
 - **Le pagine del blog restano statiche**: nessun `force-dynamic`, nessun dato per
