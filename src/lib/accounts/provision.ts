@@ -65,10 +65,13 @@ import { insertSampleSongbook } from '@/lib/songbooks/seed'
  * never clobber one the reader corrected by hand on `/profile`.
  *
  * `newsletterOptIn`, when given, is whether this address asked for the newsletter —
- * a registration checkbox (`verifyEmail`), or `true` unconditionally for Google
- * (`auth.ts`, `PLAN-newsletter.md`). Unlike `name` there is no opportunistic fill on
- * an existing account: a missing `newsletterPrefs` row simply reads as "not
- * subscribed" (`loadNewsletterPrefs`), nothing to backfill from here.
+ * the registration toggle, carried through `verifyEmail`. Google sign-ins (`auth.ts`)
+ * pass nothing, and the row is then written as not subscribed: they used to pass `true`
+ * unconditionally (`PLAN-newsletter.md`), reversed on 2026-09-03 because a default is
+ * not the consent the Privacy Policy declares as the basis for the newsletter. Unlike
+ * `name` there is no opportunistic fill on an existing account: a missing
+ * `newsletterPrefs` row simply reads as "not subscribed" (`loadNewsletterPrefs`),
+ * nothing to backfill from here.
  */
 export async function provisionAccount(
   email: string,

@@ -70,8 +70,8 @@ export default function PrivacyPolicyPage() {
         <strong>Newsletter preference.</strong> Whether you asked to receive our newsletter and how
         often, with the dates you subscribed or unsubscribed. You can change it at any time from the
         settings inside the app. We have not sent a newsletter yet; every issue will carry a link to
-        unsubscribe. If you register with Google, the preference starts switched on, and the settings
-        are where you turn it off.
+        unsubscribe. If you register with Google, nothing asks you at sign-up: the preference starts
+        switched off, and the settings are where you turn it on.
       </p>
       <p>
         <strong>Preferences.</strong> Display and reading settings you choose — theme, zoom, scroll
@@ -119,9 +119,10 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Notifications to us.</strong> A few events send a short message to the developer,
         through a private Telegram chat, so that the Service can be run without watching a
-        dashboard: a new registration (name and email address), a purchase, scheduled downgrade or
-        cancellation (email address and plan), and a piece of feedback (email address and the first
-        words of the message). See section 4 on what this means for your data.
+        dashboard: that an account was created, that a plan was bought (which plan, and the amount),
+        scheduled for a downgrade or cancelled, and that a piece of feedback arrived. These messages
+        contain <strong>no personal data</strong> — no name, no email address, none of your words —
+        only the kind of event.
       </p>
       <p>
         For details on cookies, local storage and the offline cache, see our{' '}
@@ -179,10 +180,6 @@ export default function PrivacyPolicyPage() {
             </td>
           </tr>
           <tr>
-            <td>Notify the developer of registrations, purchases and feedback</td>
-            <td>Legitimate interest in operating the service and reacting promptly — Art. 6(1)(f)</td>
-          </tr>
-          <tr>
             <td>Measure aggregate traffic and performance</td>
             <td>Legitimate interest in maintaining and improving the service — Art. 6(1)(f)</td>
           </tr>
@@ -224,14 +221,11 @@ export default function PrivacyPolicyPage() {
           recovery, which processes your IP address and browser signals to tell a person from a
           script.
         </li>
-        <li>
-          <strong>Telegram</strong> (Telegram FZ-LLC) — the channel for the short operational
-          notifications described in section 2, which carry your email address, your name at
-          registration, your plan on a purchase, and the first words of a piece of feedback. Telegram
-          is a messaging service, not a data platform: these messages are stored in the
-          developer&apos;s own chat and nowhere else, and are not used for anything but reading them.
-        </li>
       </ul>
+      <p>
+        The operational notifications described in section 2 travel through Telegram, but carry no
+        personal data, so Telegram processes none of yours.
+      </p>
       <p>Two providers are different, because they are independent data controllers for their part:</p>
       <ul>
         <li>
@@ -264,11 +258,9 @@ export default function PrivacyPolicyPage() {
         under Chapter V GDPR: the EU-U.S. Data Privacy Framework where the provider is certified
         (Vercel, Google and Cloudflare are), and the European Commission&apos;s Standard Contractual
         Clauses in the remaining cases. Paddle.com Market Ltd is established in the United Kingdom,
-        which the European Commission recognises as providing adequate protection. Telegram is
-        established outside the EEA and offers none of these safeguards, which is why the notifications
-        sent through it are kept to the minimum described in section 4 and are never used for anything
-        else. You can obtain a copy of the safeguards in place, or further details about them, by
-        writing to the contact address above.
+        which the European Commission recognises as providing adequate protection. You can obtain a
+        copy of the safeguards in place, or further details about them, by writing to the contact
+        address above.
       </p>
 
       <h2>6. How long we keep your data</h2>
@@ -291,12 +283,11 @@ export default function PrivacyPolicyPage() {
         <strong>Short-lived data.</strong> A pending registration expires 24 hours after the
         verification email is sent, and a password-reset link after one hour. The counters that limit
         repeated attempts hold an IP address or an email address for the ten-minute window they
-        measure, and are reset by the next attempt after it. Strum Together session data is deleted
+        measure, and are deleted within a day. Strum Together session data is deleted
         as soon as the leader ends the session, and a session that is never explicitly ended stops
         being usable after eight hours of inactivity; a participant&apos;s device stops counting two
-        minutes after it was last seen, and the device cookie in its browser lasts one year. The
-        Telegram notifications stay in the developer&apos;s chat until deleted. Analytics data is
-        aggregated and retained in non-identifying form.
+        minutes after it was last seen, and the device cookie in its browser lasts one year.
+        Analytics data is aggregated and retained in non-identifying form.
       </p>
 
       <h2>7. Your rights</h2>
@@ -323,8 +314,8 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Your right to object.</strong> Where we process your data on the basis of our
-        legitimate interest — namely to keep the Service secure, to notify the developer of what
-        happens on it, and to measure aggregate traffic and performance — <strong>you have the right
+        legitimate interest — namely to keep the Service secure and to measure aggregate traffic and
+        performance — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate
         compelling legitimate grounds that override your interests, rights and freedoms. To object,

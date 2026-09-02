@@ -24,7 +24,6 @@ import { notifyTelegram } from '@/lib/telegram/notify'
 import {
   FEEDBACK_CATEGORY_LABEL,
   MESSAGE_MAX,
-  excerpt,
   feedbackProblem,
   screenshotTooLarge,
   type FeedbackCategory,
@@ -95,13 +94,17 @@ export async function submitFeedback(
     })
 
     /*
-     * Category and a short excerpt go straight into the one line of text, the same way
-     * every other `notifyTelegram` call bakes its own facts in rather than passing a bare
-     * event name — see that function's own comment.
+     * Category and priority go straight into the one line of text, the same way every other
+     * `notifyTelegram` call bakes its own facts in rather than passing a bare event name —
+     * see that function's own comment. The sender's address and the first words of the
+     * message used to be here too, and left on 2026-09-03: both are personal data, both are
+     * already in the email this action has just sent to the inbox, and a Telegram line that
+     * carries neither is the reason the Privacy Policy can say Telegram processes none —
+     * see `registrationNotice`'s header.
      */
     await notifyTelegram(
       'feedback',
-      `💬 Feedback (${FEEDBACK_CATEGORY_LABEL[category]}${priority ? ', priority' : ''}): ${user.email} — "${excerpt(trimmedMessage, 80)}"`,
+      `💬 Feedback (${FEEDBACK_CATEGORY_LABEL[category]}${priority ? ', priority' : ''}) — il messaggio è in inbox`,
     )
 
     return { ok: true }

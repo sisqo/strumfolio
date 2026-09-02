@@ -40,7 +40,11 @@ tutto. **Non** è richiesto costruire l'invio reale della newsletter — vedi so
   richiesta nel flusso OAuth. Deciso esplicitamente dall'utente anche dopo un
   contro-argomento sul rischio di consenso non valido sotto GDPR (il consenso al
   marketing dovrebbe derivare da un'azione affermativa, non da un default) — vedi
-  *Domande aperte*.
+  *Domande aperte*. **Rivisto il 2026-09-03, insieme alle pagine legali**: chi entra
+  con Google **non** è più iscritto di default (`auth.ts` non passa più
+  `newsletterOptIn`), perché la Privacy Policy dichiara il consenso come base giuridica
+  della newsletter e un default non lo è; l'iscrizione si attiva dalle impostazioni.
+  Il backfill degli account preesistenti (punto successivo) resta com'è nei dati.
 - **Gestione da loggato: dentro la vista Settings annidata di `UserMenu`**, insieme a
   tema e notazione — non una pagina dedicata come `/profile`. Coerente con l'uso
   attuale di quella vista per preferenze "decise una volta per l'account".
@@ -121,7 +125,9 @@ tutto. **Non** è richiesto costruire l'invio reale della newsletter — vedi so
 
 **4. `auth.ts` — callback `signIn`.**
    - Ramo `'google'`: passa `newsletterOptIn: true` fisso, nessuna nuova UI nel
-     flusso OAuth (deciso in intervista).
+     flusso OAuth (deciso in intervista). **Dal 2026-09-03 non passa più nulla**: la
+     riga nasce `subscribed = false` come per chi lascia spento il toggle in
+     registrazione — vedi la revisione in *Cosa cambia*.
    - Ramo credenziali: continua a chiamare `provisionAccount(email)` senza il terzo
      parametro — non crea mai un account nuovo (lo crea già `verifyEmail`), quindi
      resta un no-op anche per la newsletter, stesso ragionamento già documentato per
@@ -194,8 +200,10 @@ tutto. **Non** è richiesto costruire l'invio reale della newsletter — vedi so
 - **Nessuna superficie admin dedicata** (lista iscritti, export) — nessuna richiesta
   esplicita; un global owner può comunque leggere `newsletter_prefs` via SQL diretto
   se necessario nel frattempo.
-- **Nessuna schermata intermedia post-login per gli utenti Google** — l'iscrizione di
-  default è silenziosa, nessun nuovo step nel flusso OAuth (deciso in intervista).
+- **Nessuna schermata intermedia post-login per gli utenti Google** — nessun nuovo step
+  nel flusso OAuth (deciso in intervista). Era la ragione per cui l'iscrizione avveniva
+  in silenzio; dal 2026-09-03 non avviene affatto, e il posto per attivarla sono le
+  impostazioni.
 - **Nessuna personalizzazione delle email transazionali esistenti** (benvenuto,
   verifica) per menzionare la newsletter — non richiesto.
 
@@ -207,7 +215,7 @@ tutto. **Non** è richiesto costruire l'invio reale della newsletter — vedi so
 | 2 | Tabella dedicata `newsletterPrefs`, non un'estensione di `userPrefs`/`accounts` | Il consenso alle comunicazioni è concettualmente diverso dalle preferenze di lettura o dai dati del piano; una tabella propria lascia spazio a crescere senza sporcare le altre |
 | 3 | Form di registrazione: solo checkbox sì/no, frequenza scelta dopo nelle impostazioni | Tiene il form di registrazione minimale; la frequenza è un dettaglio rifinibile una volta iscritti |
 | 4 | Frequenze supportate: Weekly / Monthly | Due sole cadenze, sufficienti oggi e facili da estendere in futuro (colonna testo libero, stessa convenzione di notation/chordDisplay) |
-| 5 | Google: **iscritto di default**, nessuna azione esplicita richiesta | Scelta esplicita dell'utente anche dopo un contro-argomento sul rischio di consenso non valido sotto GDPR — accettato consapevolmente, vedi *Domande aperte* |
+| 5 | Google: **iscritto di default**, nessuna azione esplicita richiesta — **rovesciato il 2026-09-03**: non iscritto, si attiva dalle impostazioni | Scelta esplicita dell'utente anche dopo un contro-argomento sul rischio di consenso non valido sotto GDPR — accettato consapevolmente, poi rovesciato con la riscrittura delle pagine legali, che dichiarano il consenso come base della newsletter; vedi *Domande aperte* |
 | 6 | Superficie di gestione: dentro la vista Settings annidata di `UserMenu`, non una pagina dedicata | Coerente con l'uso attuale di quella vista per preferenze "decise una volta per l'account" (tema, notazione); nessuna nuova rotta |
 | 7 | Insert di `newsletterPrefs` **fuori** dalla transazione che crea `accounts` | Stesso trattamento di `insertSampleSongbook`: una scrittura secondaria non deve poter far fallire la creazione dell'account, specialmente se la migrazione non è ancora applicata ovunque |
 | 8 | Account già esistenti: **backfill a `subscribed = true`** nella stessa migrazione, non lasciati "non iscritti" | Stessa logica già scelta per Google estesa a tutta la base utenti attuale — deciso esplicitamente dall'utente, non un'assunzione |
@@ -241,7 +249,12 @@ Da correggere se una è sbagliata — nessuna è irreversibile.
   L'esposizione copre quindi l'intera base utenti attuale più ogni futuro arrivo via
   Google, non solo i nuovi arrivi — resta un rischio reale se il prodotto dovesse mai
   trattare dati di utenti UE in modo più formale, da rivalutare se mai diventa un
-  problema concreto, non bloccato ora.
+  problema concreto, non bloccato ora. **Aggiornamento 2026-09-03**: la metà "futuri
+  arrivi via Google" è chiusa (non più iscritti di default, vedi sopra). Resta aperta
+  la metà "backfill": le righe `newsletter_prefs` già scritte a `subscribed = true`
+  senza alcuna azione dell'interessato sono ancora lì, e prima del primo invio reale
+  vanno o azzerate o confermate con una richiesta esplicita — una newsletter spedita
+  su quella base non ha il consenso che la Privacy Policy dichiara.
 - **Link di disiscrizione "one-click" da email (token, nessun login)**: dichiarato
   fuori scope perché non esiste ancora alcuna email di newsletter reale, ma sarà
   necessario quando l'invio verrà costruito — la tabella `newsletterPrefs` come

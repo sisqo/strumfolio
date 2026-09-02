@@ -129,7 +129,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
     // path never runs through that callback at all (it signs in with `issueSessionCookie`
     // below, not `signIn`), so without this line every email/password registration was
     // invisible to "New registration" alerts while every Google one was not.
-    await notifyTelegram('registration', registrationNotice(normalized, result.firstName, result.lastName))
+    await notifyTelegram('registration', registrationNotice())
   }
 
   /*

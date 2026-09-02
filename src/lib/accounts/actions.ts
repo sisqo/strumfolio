@@ -744,7 +744,7 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
 
   if (created) {
     await sendEmail({ to: normalized, ...welcomeEmail() })
-    await notifyTelegram('registration', registrationNotice(normalized, result.firstName, result.lastName))
+    await notifyTelegram('registration', registrationNotice())
   }
 
   revalidatePath('/accounts')

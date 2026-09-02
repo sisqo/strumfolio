@@ -1,21 +1,22 @@
 /**
- * The label a "new registration" Telegram notice uses for whoever just signed up
- * (`auth.ts`'s `signIn` callback, `verify/actions.ts`'s `verifyEmail`) — pure and
- * synchronous so it can be tested with `node:test`, the same reason `nameSplit.ts`
- * lives apart from the callback that calls it.
+ * The text of a "new registration" Telegram notice — and, since 2026-09-03, nothing in it
+ * that names the person. It used to print the full name and the email address, and the
+ * Privacy Policy then had to list Telegram (Telegram FZ-LLC, established outside the EEA,
+ * with none of the Chapter V safeguards on offer) as a processor of exactly those two
+ * fields, for a message whose only job is to say that *something* happened. The identity
+ * was never what the ping was for: `/accounts`, sorted newest first, is the link below and
+ * shows it behind a sign-in. The same rule now holds for every other `notifyTelegram` call
+ * (`plans/checkout.ts`, `feedback/actions.ts`): the event and, where it helps, the plan or
+ * the amount — never an address, a name, or a reader's own words.
+ *
+ * Still a function in its own file, with a test, rather than a string at the call sites:
+ * three places send this notice (`auth.ts`, `verify/actions.ts`, `accounts/actions.ts`),
+ * and the guarantee worth pinning is that none of them can put personal data back in by
+ * accident — a function with no parameters cannot be handed an email.
  */
 
-/**
- * The full name when at least one half is known, the bare email otherwise — the
- * format this notice used before `PLAN-account-name.md`, unchanged for anyone with no
- * name yet. Either half missing or empty is dropped rather than printed as a gap
- * (`splitName` can hand back a first name with no last name at all).
- */
-export function registrationNotice(
-  email: string,
-  firstName: string | null | undefined,
-  lastName: string | null | undefined,
-): string {
-  const name = [firstName, lastName].filter((part): part is string => part != null && part !== '').join(' ')
-  return name === '' ? `🆕 Nuova registrazione: ${email}` : `🆕 Nuova registrazione: ${name} (${email})`
+import { SITE_URL } from '@/lib/brand'
+
+export function registrationNotice(): string {
+  return `🆕 Nuova registrazione — https://${SITE_URL}/accounts?sort=createdAt&dir=desc`
 }

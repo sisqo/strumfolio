@@ -11,11 +11,50 @@
  * guarantee — not something a security boundary could tolerate.
  */
 
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 import { headers } from 'next/headers'
 
 import { db, hasDatabase } from '@/lib/db/client'
 import { rateLimitHits } from '@/lib/db/schema'
+
+/**
+ * How long a row may outlive the window it measured before it is deleted. Every caller's
+ * window is ten minutes, so a day never touches a live window — and it is the figure the
+ * Privacy Policy states (§6: an IP address or email address in these counters is deleted
+ * within a day), so the two must move together.
+ */
+const PURGE_AFTER_MS = 24 * 60 * 60 * 1000
+
+/** How often one process bothers to purge — see `purgeStaleHits`. */
+const PURGE_EVERY_MS = 60 * 60 * 1000
+
+let lastPurgeAt = 0
+
+/**
+ * Deletes the rows whose window closed more than `PURGE_AFTER_MS` ago.
+ *
+ * Until 2026-09-03 nothing ever removed a row from this table: a key was overwritten by
+ * the next hit on the same key and otherwise kept for good, so every IP address that ever
+ * tried to sign in stayed here indefinitely — a retention the Privacy Policy could not
+ * honestly describe. There is no cron anywhere in this repo (CLAUDE.md), so the purge runs
+ * here, at read time, the same way `resolveSubscription` collapses an expired plan at the
+ * moment somebody asks. Once an hour per process rather than on every call: a serverless
+ * instance is short-lived, so in practice this is once per instance, and a sign-in attempt
+ * does not pay for a DELETE it did not need. Fails silently, like `checkRateLimit` itself:
+ * a purge that cannot run must never decide whether a request goes through.
+ */
+async function purgeStaleHits(now: Date): Promise<void> {
+  if (now.getTime() - lastPurgeAt < PURGE_EVERY_MS) return
+  lastPurgeAt = now.getTime()
+
+  try {
+    await db()
+      .delete(rateLimitHits)
+      .where(lt(rateLimitHits.windowStart, new Date(now.getTime() - PURGE_AFTER_MS)))
+  } catch (error) {
+    console.error('purgeStaleHits failed', error)
+  }
+}
 
 /**
  * The caller's address, Vercel's way (first hop in `x-forwarded-for`), or null with no
@@ -49,6 +88,8 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
 
   try {
     const now = new Date()
+    await purgeStaleHits(now)
+
     const rows = await db()
       .select({ windowStart: rateLimitHits.windowStart, count: rateLimitHits.count })
       .from(rateLimitHits)

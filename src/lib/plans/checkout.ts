@@ -488,9 +488,11 @@ export async function mockPurchase(
       /* The amount is what makes this line worth reading on a phone: «premium/year» says what
        * was bought, «€99» says what came in. `una tantum` for lifetime, which has no cycle to
        * bill again. A plan with no price to name (none today — `free` is not sold here) simply
-       * omits the clause rather than printing an empty one. */
+       * omits the clause rather than printing an empty one. No email address, here or in any
+       * other Telegram line of this file, since 2026-09-03 — see `registrationNotice`'s header
+       * for why the ledger row above keeps the address and the ping does not. */
       const paidClause = amount === null ? '' : ` · ${euro(amount)}${billedCycle === null ? ' una tantum' : ''}`
-      await notifyTelegram('purchase', `💰 Acquisto: ${user.accountOwnerEmail} → ${label}${paidClause}`)
+      await notifyTelegram('purchase', `💰 Acquisto: ${label}${paidClause}`)
 
       /*
        * The thank-you, sent only on this branch: a scheduled downgrade below is not a purchase
@@ -525,7 +527,7 @@ export async function mockPurchase(
 
     await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'scheduled_change', plan, cycle })
     console.warn(`mock checkout: ${user.accountOwnerEmail} => ${plan}/${cycle} scheduled`)
-    await notifyTelegram('downgrade', `📉 Downgrade programmato: ${user.accountOwnerEmail} → ${plan}/${cycle}`)
+    await notifyTelegram('downgrade', `📉 Downgrade programmato → ${plan}/${cycle}`)
 
     /*
      * The customer's own copy of what was just arranged — the counterpart of the receipt the
@@ -631,7 +633,7 @@ export async function mockCancel(): Promise<
     console.warn(`mock checkout: ${user.accountOwnerEmail} => cancel ${immediate ? 'now' : 'scheduled'}`)
     await notifyTelegram(
       'cancellation',
-      `🚫 Cancellazione ${immediate ? 'immediata' : 'programmata'}: ${user.accountOwnerEmail} (era ${currentLive})`,
+      `🚫 Cancellazione ${immediate ? 'immediata' : 'programmata'} (era ${currentLive})`,
     )
 
     /*
@@ -692,7 +694,7 @@ export async function clearPendingChange(): Promise<{ ok: true } | { ok: false; 
     // The one write in this file that used to notify nobody: an operator would see a
     // scheduled downgrade or cancellation come in and never learn if the customer reversed
     // it — the same event name as the `paddle_events` row just logged above.
-    await notifyTelegram('kept_current', `↩️ Piano confermato: ${user.accountOwnerEmail} resta su ${readPlan(updated[0].plan)}`)
+    await notifyTelegram('kept_current', `↩️ Piano confermato: resta su ${readPlan(updated[0].plan)}`)
   } catch (error) {
     console.error('clearPendingChange failed', error)
     return { ok: false, reason: 'failed' }

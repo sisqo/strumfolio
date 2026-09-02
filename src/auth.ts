@@ -142,22 +142,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           : undefined
 
       /*
-       * Google sign-ups are subscribed to the newsletter without a separate consent
-       * step (`PLAN-newsletter.md`, decided in interview) — the credentials branch
-       * passes `undefined`, a no-op either way since that account already exists by
-       * the time this callback runs (`verifyEmail` created it, see `provisionAccount`'s
-       * own comment on `newsletterOptIn`).
+       * No newsletter opt-in is passed here, on purpose, since 2026-09-03. Google sign-ups
+       * used to be subscribed by default (`PLAN-newsletter.md`, decided in interview and
+       * since reversed): the OAuth flow has no step in which a person can *ask* for a
+       * newsletter, and consent to marketing email has to be an affirmative act — the
+       * Privacy Policy names consent as the legal basis, and a default is not one. A Google
+       * reader who wants it turns it on in the settings (`NewsletterPrefs`). The credentials
+       * branch never carried a value here either: that account already exists by the time
+       * this callback runs (`verifyEmail` created it, opt-in included — see
+       * `provisionAccount`'s own comment on `newsletterOptIn`).
        */
-      const newsletterOptIn = account?.provider === 'google' ? true : undefined
 
       // The returned boolean says whether this call is the one that created the account
       // (v3.2, PLAN.md point 7): true only the first time this address ever signs in
       // successfully, false on every later sign-in that finds the row already there —
       // exactly when, and only when, the welcome email belongs.
-      const created = await provisionAccount(email, googleName, newsletterOptIn)
+      const created = await provisionAccount(email, googleName)
       if (created) {
         await sendEmail({ to: email, ...welcomeEmail() })
-        await notifyTelegram('registration', registrationNotice(email, googleName?.firstName, googleName?.lastName))
+        await notifyTelegram('registration', registrationNotice())
       }
       return true
     },
