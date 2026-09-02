@@ -112,6 +112,20 @@ function isDirective(line: string): boolean {
 }
 
 /**
+ * A row of guitar/bass tablature: a string name — "e", "B", "G", "D", "A", "E",
+ * optionally sharped/flatted for a drop tuning — followed by "|" and a run of
+ * fret numbers, dashes and the usual articulation marks (h/p/b/s/r/x, slides,
+ * bends, grace notes). The trailing `-{2,}` check is what tells this apart from
+ * a chord line that happens to open with a bare "A" or "G": a run of rest dashes
+ * is the one thing every real tab row has and no chord or lyric line ever does.
+ */
+const TAB_ROW = /^\s{0,4}[A-Ga-g](?:[#b]|\d)?\s*\|[-\d\s/\\()~.<>^hHpPbBrRsStTxX|]*$/
+
+export function isTabRow(line: string): boolean {
+  return TAB_ROW.test(line) && /-{2,}/.test(line)
+}
+
+/**
  * Detects whether the text is already ChordPro.
  *
  * The test is whether any bracketed token reads as a chord — not merely whether
@@ -150,12 +164,34 @@ export function convert(text: string): Converted {
       continue
     }
 
+    // A tab block is verbatim, never split at spaces or read for chords, so it
+    // has to be pulled out before the chord-line merge below ever sees it —
+    // otherwise a chord line sitting above it (e.g. naming the harmony over an
+    // intro lick) gets spliced straight into the dashes as bracketed chords.
+    if (isTabRow(line)) {
+      sawChords = true
+      out.push('{start_of_tab}', line)
+      while (i + 1 < lines.length && isTabRow(lines[i + 1].replace(/\s+$/, ''))) {
+        i++
+        out.push(lines[i].replace(/\s+$/, ''))
+      }
+      out.push('{end_of_tab}')
+      continue
+    }
+
     if (isChordLine(line)) {
       sawChords = true
       const next = lines[i + 1] ?? ''
 
-      // A chord line pairs with the words underneath, unless there are none.
-      if (next.trim() !== '' && !isChordLine(next) && sectionLabel(next) === null && !isDirective(next)) {
+      // A chord line pairs with the words underneath, unless there are none —
+      // or unless what follows is tab, which stands on its own.
+      if (
+        next.trim() !== '' &&
+        !isChordLine(next) &&
+        sectionLabel(next) === null &&
+        !isDirective(next) &&
+        !isTabRow(next)
+      ) {
         out.push(merge(line, next.replace(/\s+$/, '')))
         i++
       } else {

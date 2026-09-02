@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { parseChordPro, plainLyrics } from '../chordpro'
-import { convert, isChordLine, looksLikeChordPro } from './convert'
+import { convert, isChordLine, isTabRow, looksLikeChordPro } from './convert'
 
 describe('isChordLine', () => {
   it('accepts a line of nothing but chords', () => {
@@ -39,6 +39,21 @@ describe('isChordLine', () => {
     assert.equal(isChordLine('x2'), false)
     assert.equal(isChordLine(''), false)
     assert.equal(isChordLine('   '), false)
+  })
+})
+
+describe('isTabRow', () => {
+  it('accepts a row of guitar tablature', () => {
+    assert.equal(isTabRow('e|------------------3-3----------------3-3---------|'), true)
+    assert.equal(isTabRow('A|-----0h2-----------------------------2-2---------|'), true)
+    assert.equal(isTabRow('D|---------0--2-----2-2---2-----2--0---0-0---------| x2'), true)
+    assert.equal(isTabRow('E|-(3)---------------------------------3-3---------|'), true)
+  })
+
+  it('rejects a chord or lyric line, even one starting with a string letter', () => {
+    assert.equal(isTabRow('Em7                G'), false)
+    assert.equal(isTabRow('A cold steel rail'), false)
+    assert.equal(isTabRow('  (omit 1st time)'), false)
   })
 })
 
@@ -118,6 +133,45 @@ describe('convert', () => {
 
     assert.equal(parsed.sections.length, 2)
     assert.equal(plainLyrics(parsed), 'Certe notti la\nmacchina')
+  })
+
+  it('wraps a tab block in start_of_tab/end_of_tab instead of merging the chord line into it', () => {
+    const result = convert(
+      [
+        '                    Em7                G',
+        'e|------------------3-3----------------3-3---------|',
+        'B|------------------3-3----------------3-3---------|',
+        'A|-----0h2-----------------------------2-2---------|',
+      ].join('\n'),
+    )
+    assert.equal(result.format, 'chords-above')
+    assert.equal(
+      result.body,
+      [
+        '[Em7] [G]',
+        '{start_of_tab}',
+        'e|------------------3-3----------------3-3---------|',
+        'B|------------------3-3----------------3-3---------|',
+        'A|-----0h2-----------------------------2-2---------|',
+        '{end_of_tab}',
+      ].join('\n'),
+    )
+  })
+
+  it('keeps a lone tab block verbatim even with no chord line above it', () => {
+    const result = convert(
+      ['e|------------------3-3---------|', 'A|-----0h2--------------------- |'].join('\n'),
+    )
+    assert.equal(result.format, 'chords-above')
+    assert.equal(
+      result.body,
+      [
+        '{start_of_tab}',
+        'e|------------------3-3---------|',
+        'A|-----0h2--------------------- |',
+        '{end_of_tab}',
+      ].join('\n'),
+    )
   })
 
   it('loses no lyrics in the round trip', () => {
