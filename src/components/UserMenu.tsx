@@ -351,6 +351,12 @@ function DeleteMyAccountView({ email, onBack }: { email: string; onBack: () => v
         >
           Delete my account
         </button>
+
+        {/* `--muted`, not `--faint`: this is a sentence meant to be read, and `--faint`
+            measures under 4.5:1 against every surface — see its own note in globals.css. */}
+        <p className="mt-2.5 px-0.5 text-[0.78125rem] leading-[1.45] text-muted">
+          Stays disabled until the address matches.
+        </p>
       </div>
     </>
   )
