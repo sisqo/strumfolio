@@ -6,10 +6,19 @@
 > l'ordine di fold-in reale al momento (altri `PLAN-<feature>.md` potrebbero essere
 > stati consegnati nel frattempo), non assumere che il numero di versione successivo
 > sia libero. Precedente diretto per la forma del documento: `PLAN-newsletter.md`.
+>
+> **Ordine di lettura.** Il corpo qui sotto è la prima consegna, scritta prima che
+> arrivasse un mock. La sezione *Ridisegno sul mock `Blog.dc.html`* più in basso la
+> **sostituisce su tutto ciò che si vede** — nome, testata, piè di pagina, larghezze,
+> schema dei metadati, temi. Dove i due divergono vale il ridisegno; i punti superati
+> sono segnati sul posto. L'impianto (MDX, validatore, sitemap, robots, feed, guardiano,
+> precache) è invece rimasto quello descritto qui.
 
 ## Cos'è
 
-Oggi non esiste alcun blog nel repo — la parola non compare in nessun file di `src/`
+> *Stato al momento della prima stesura, tenuto perché spiega da dove si partiva.*
+
+Non esisteva alcun blog nel repo — la parola non compariva in nessun file di `src/`
 né in alcun documento. Non esistono nemmeno `sitemap.xml` e `robots.txt`: nessuna
 delle due rotte è mai stata scritta, quindi **oggi Strumfolio non dichiara a Google
 nulla di sé**. Le pagine pubbliche esistenti (`/login`, `/pricing`, `/changelog`, le
@@ -50,13 +59,13 @@ due non vanno confusi né fusi.
   persa si ricrea con un **validatore puro che fa fallire il build** su un articolo
   malfatto (punto 3 dell'impianto).
 - **Metadati: titolo, slug, description, data** obbligatori, più **copertina** e
-  **tag**. Il tempo di lettura si calcola dal testo, non si scrive. `draft: true`
-  esclude l'articolo da indice, sitemap, feed e `generateStaticParams`.
-- **Tag: solo etichette, nessuna pagina tag.** Si vedono sull'articolo e filtrano
-  l'indice, ma non esiste `/blog/tag/<x>` e non ci sono voci extra in sitemap: con
-  pochi articoli quelle pagine sarebbero sottili, e Google tratta male le pagine
-  sottili. Il campo però nasce subito, così accenderle quando gli articoli saranno
-  trenta è aggiungere una rotta, non tornare su ogni articolo già scritto.
+  ~~**tag**~~ → **`category`**, superato dal ridisegno: una sola categoria da lista
+  chiusa, non un elenco. Il tempo di lettura si calcola dal testo, non si scrive.
+  `draft: true` esclude l'articolo da indice, sitemap, feed e `generateStaticParams`.
+- ~~**Tag: solo etichette, nessuna pagina tag.**~~ Superato dal ridisegno, che sostituisce
+  l'elenco con una categoria unica — ma la conclusione regge identica: nessuna rotta
+  `/blog/tag/<x>` né voce extra in sitemap, perché con pochi articoli quelle pagine
+  sarebbero sottili e Google tratta male le pagine sottili.
 - **Copertina: un file per articolo, con una card generata di riserva.** Nessun post
   resta senza card social, e non serve procurarsi un'immagine per poter pubblicare.
 - **Traduzione: il blog si lascia tradurre.** Il `layout.tsx` di root vieta la
@@ -96,7 +105,7 @@ due non vanno confusi né fusi.
      title: 'What ChordPro is, and why your lyrics should live in it',
      description: '…',        // lo snippet in SERP: obbligatorio
      date: '2026-09-02',      // ISO, giorno incluso
-     tags: ['chordpro', 'import'],
+     category: 'Guide',      // superato: era `tags: [...]` — vedi il ridisegno
      cover: '/blog/chordpro-explained.webp',   // opzionale
      draft: false,
    }
@@ -105,8 +114,8 @@ due non vanno confusi né fusi.
 **3. Lettura e validazione — `src/lib/blog/`.**
    - `meta.ts`, **modulo puro e testabile**: `parsePostMeta(slug, raw): PostMeta`
      verifica presenza e forma di ogni campo (data ISO reale, description non vuota e
-     entro il limite utile in SERP, slug coerente col nome del file, tag in
-     kebab-case) e **lancia** su un articolo malfatto. Chiamato da `loadPost`, quindi
+     entro il limite utile in SERP, slug coerente col nome del file, categoria
+     dentro la lista chiusa) e **lancia** su un articolo malfatto. Chiamato da `loadPost`, quindi
      un articolo rotto fa fallire `next build`, non un lettore. È la garanzia che
      `tsc` non può dare sugli `.mdx`, ricreata dove può vivere.
    - `readingTime.ts`, puro anch'esso: parole/minuto sul sorgente dell'articolo.
