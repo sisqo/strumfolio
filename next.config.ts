@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
+import createMDX from '@next/mdx'
 import withSerwistInit from '@serwist/next'
 import type { NextConfig } from 'next'
 
@@ -72,6 +73,17 @@ function publicEntries(): PrecacheEntry[] {
        * every install to sit unread — see `src/lib/launchScreens.ts` for what they are.
        */
       .filter((relativePath) => !/^brand[\\/]launch[\\/]/.test(relativePath))
+      /*
+       * `public/blog/` is skipped for the same family of reasons as the two above, arrived at
+       * from the marketing side: an article's cover is a 1200×630 picture drawn for a link
+       * preview and for a page a *visitor* reads before they have an account, and nothing
+       * inside the installed app ever renders one. Precaching them would make every install
+       * download the whole archive's artwork — growing with every article published — to show
+       * a reader nothing. The blog is kept out of the page precache too, in
+       * `scripts/precache-routes.ts`, and out of the runtime caches by `middleware.ts`; this
+       * is the third of the three, and the one that would otherwise grow without limit.
+       */
+      .filter((relativePath) => !/^blog[\\/]/.test(relativePath))
       .filter((relativePath) => statSync(path.join(publicDir, relativePath)).isFile())
       .map((relativePath) => {
         const contents = readFileSync(path.join(publicDir, relativePath))
@@ -152,10 +164,26 @@ const nextConfig: NextConfig = {
   },
 }
 
+/**
+ * Teaches the bundler to import an `.mdx` file as a React component — the blog's articles,
+ * which live in `content/blog/` and are imported by `lib/blog/posts.ts`.
+ *
+ * **`pageExtensions` is deliberately left alone.** Adding `mdx` to it is what the @next/mdx
+ * README suggests, and it is what makes an `.mdx` file *inside `src/app/` become a route*.
+ * Nothing here wants that: the articles are content imported as modules, not pages, and
+ * leaving route resolution exactly as it was means no file dropped into the app directory can
+ * turn into a URL by accident. What this wrapper is used for is the loader rule alone.
+ */
+const withMDX = createMDX({})
+
+/*
+ * Serwist stays the outer wrapper: it reads the finished config to build the service worker,
+ * so anything that adds to the config has to have run by the time it does.
+ */
 export default withSerwistInit({
   swSrc: 'src/app/sw.ts',
   swDest: 'public/sw.js',
   additionalPrecacheEntries: [...pageEntries(), ...publicEntries()],
   // Only ship a service worker from a real build; in dev it gets in the way.
   disable: process.env.NODE_ENV === 'development',
-})(nextConfig)
+})(withMDX(nextConfig))

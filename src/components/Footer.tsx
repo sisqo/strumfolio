@@ -70,6 +70,12 @@ export function Footer() {
         {/* A reader looking for "what's new" has nowhere else to look, and a release note is
             worth nothing if only the person who wrote it can find it. */}
         <Link href="/changelog">Changelog</Link>
+        <span aria-hidden>&middot;</span>
+        {/* The one place the blog is linked from inside the app. It is written for people who
+            have not arrived yet — a visitor lands on an article from a search, not from here —
+            so this row, which every screen already carries, is the whole of its billing:
+            `PublicHeader` holds one CTA and it is spent on the pair /login and /pricing. */}
+        <Link href="/blog">Blog</Link>
       </nav>
     </footer>
   )

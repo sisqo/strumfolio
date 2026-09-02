@@ -2,6 +2,7 @@ import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authConfig } from '@/auth.config'
+import { SESSION_FREE_PATHS, isBlogPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
 const { auth } = NextAuth(authConfig)
@@ -49,6 +50,17 @@ function isPublicAsset(pathname: string): boolean {
     pathname === '/sw.js.map' ||
     pathname.startsWith('/swe-worker-') ||
     pathname === '/manifest.webmanifest' ||
+    /*
+     * The two files a crawler asks for before it asks for anything else. They fall under
+     * this middleware's matcher like any page — it excludes only `_next/static`,
+     * `_next/image` and `favicon.ico` — so without these two lines both would answer a
+     * redirect to `/login`, and a sitemap that redirects to a sign-in form is worse than no
+     * sitemap at all: it tells Google every URL it advertises is unreachable. Assets rather
+     * than pages, because that is what they are to whoever fetches them: no session, no
+     * theme, nothing about the reader in the response.
+     */
+    pathname === '/sitemap.xml' ||
+    pathname === '/robots.txt' ||
     pathname.startsWith('/brand/')
   )
 }
@@ -103,22 +115,43 @@ export default auth((request) => {
    * bot needs with no session), but the page that indexes it now falls straight through to
    * the guard at the bottom like any other page inside the app — it requires a session, the
    * same as `/help` or `/booklet`.
+   *
+   * The list itself moved to `lib/publicRoutes.ts` when the blog arrived, and the move is not
+   * tidying: `app/sitemap.ts` has to answer the same question — which paths a visitor with no
+   * session can reach — and the two answers must be one answer. A page admitted here and
+   * missing there is invisible to search; a page listed there and missing here is advertised
+   * to Google as a redirect to `/login`. That file also records which of these are worth
+   * indexing at all, which is a different question from this one: `/verify` and the two
+   * password paths are reachable without a session only because they are opened from an
+   * email, and there is nothing in any of them for a crawler.
    */
-  if (
-    pathname === '/login' ||
-    pathname === '/pricing' ||
-    pathname === '/changelog' ||
-    pathname === '/register' ||
-    pathname === '/verify' ||
-    pathname === '/forgot-password' ||
-    pathname === '/reset-password' ||
-    pathname === '/privacy-policy' ||
-    pathname === '/terms-of-service' ||
-    pathname === '/cookie-policy' ||
-    pathname === '/content-copyright-notice'
-  ) {
+  if (SESSION_FREE_PATHS.has(pathname)) {
     if (request.auth) return
 
+    const response = NextResponse.next()
+    response.headers.set(ANONYMOUS_HEADER, '1')
+    return response
+  }
+
+  /**
+   * The blog: the index, every article, each article's generated social card, and the feed.
+   *
+   * A prefix test rather than another entry in `PUBLIC_ROUTES`, because the set is not fixed —
+   * an article written tomorrow is a path this file cannot name today, and an exact-match list
+   * would answer every one of them with a redirect to `/login`. That is the whole feature
+   * failing silently: the pages exist, the sitemap advertises them, and every crawler that
+   * follows one is handed a sign-in form.
+   *
+   * Marked anonymous **unconditionally**, like `/follow` and unlike `/pricing` and
+   * `/changelog` above. Those two branch on `request.auth` so a signed-in reader may keep a
+   * cached copy; here there is nothing to gain from it and something to lose. The blog serves
+   * one identical page to everybody — no session is read, no account named — so a "that
+   * reader's copy" does not exist to be worth storing, and what the header buys instead is
+   * that a corrected article is never served from an install-time cache hours after the
+   * correction. `scripts/precache-routes.ts` keeps the blog out of the precache for the same
+   * reason; this makes sure the runtime caches stay out of it too.
+   */
+  if (isBlogPath(pathname)) {
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
     return response

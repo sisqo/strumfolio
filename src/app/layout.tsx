@@ -59,16 +59,13 @@ export const metadata: Metadata = {
     description: APP_PAYOFF,
     images: ['/brand/og-image.png'],
   },
-  /**
-   * «Never offer to translate this page», in the one dialect that asks for it.
-   *
-   * Chrome and Edge read this tag; the `translate="no"` below is the standard attribute
-   * and the one that actually protects the words. The two do different jobs — the tag
-   * stops the bar from coming up at all, the attribute stops the rewriting — and neither
-   * makes the other redundant. Written here rather than by hand because every tag in this
-   * head comes from this object: a `<meta>` in the JSX below would render in the body.
+  /*
+   * There is deliberately no `other: { google: 'notranslate' }` here any more, and no
+   * `translate="no"` on the elements below — see the comment above the JSX for the whole
+   * argument. The short version: this document is the blog as well as the app, and a blanket
+   * ban set at the root cannot be lifted by a child, because `<html>` and `<body>` are only
+   * ever written here.
    */
-  other: { google: 'notranslate' },
 
   /**
    * Declared rather than left to convention.
@@ -150,21 +147,32 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   /*
-   * `translate="no"` twice, deliberately.
+   * **No `translate="no"` here**, and the absence is the decision — it used to sit on both
+   * elements, with a `notranslate` meta tag beside it in the head.
    *
-   * `lang` stays `en` because the interface really is English — what must not happen is a
-   * browser rewriting it, and the song with it: chord names are one and two letters long,
-   * and an `A` translated is not a chord any more. The sheet and the editor say it again
-   * on their own containers (`SongSheet`, `GraphicEditor`), which is what holds if a reader
-   * asks for the translation regardless; this pair is what keeps it from being offered.
+   * What it was protecting is real and has not changed: chord names are one and two letters
+   * long, and an `A` rewritten as `La` is not a chord any more. What changed is that this
+   * document is no longer only the app. `/blog` is written to be found by musicians who have
+   * never heard of Strumfolio, in English, and a share of them do not read English
+   * comfortably — refusing them the browser's own translation is refusing exactly the reader
+   * the blog exists to reach. A ban declared here could not be lifted for them: `<html>` and
+   * `<body>` are written in this file and nowhere else, so no child layout can take an
+   * attribute off them, and `other` merges key by key rather than being replaced (verified on
+   * the served HTML, not assumed — an empty `other` in a child changes nothing).
    *
-   * On `<body>` as well as `<html>` because Firefox honours neither today
-   * (bugzilla 1969828, still open) but is reported there to look at the body — unverified,
-   * kept because it costs one attribute.
+   * So the protection sits where the risk is instead of over everything: `SongSheet` marks
+   * the sheet, the fingering grids and the chord strip, and `GraphicEditor` marks the editor —
+   * all four already did, as the belt to this file's braces, and they are now the whole of it.
+   * The cost accepted knowingly: a browser may offer to translate the interface around a song,
+   * which for a reader who needs it is a gain, while the words and chords inside those
+   * containers stay untouched. The rule for anything new: **a surface that prints a chord name
+   * or a key marks itself.**
+   *
+   * `lang` stays `en`, which is simply true of every page here, blog included.
    */
   return (
-    <html lang="en" translate="no">
-      <body translate="no" className={`${sans.variable} ${mono.variable} antialiased`}>
+    <html lang="en">
+      <body className={`${sans.variable} ${mono.variable} antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
 
         {/*

@@ -1,0 +1,80 @@
+export const meta = {
+  title: 'What ChordPro is, and why your lyrics should live in it',
+  description:
+    'ChordPro is a plain-text format for lyrics and chords that every app can read. Here is what it looks like and why it outlives the app you type it in.',
+  date: '2026-09-02',
+  tags: ['chordpro', 'import'],
+  cover: '/blog/chordpro-explained.webp',
+  draft: false,
+}
+
+Most people keep their songs in whatever was nearest: a notes app, a screenshot of somebody
+else's tab, a document where the chords are held above the right syllable by a row of spaces
+and a prayer. It works until the day the font changes, or the phone does, and every chord
+slides half a line to the left.
+
+ChordPro is the fix, and it is older than most of the apps that read it. It is a plain-text
+format — no proprietary file, no account, no export button — in which a chord is written in
+square brackets, inline, at the exact point in the word where you change your hand.
+
+## What it looks like
+
+```
+{title: The Last Bus Home}
+{artist: Nina Kovač}
+{key: Am}
+
+[Am]The last bus home is [F]late
+and I am [C]singing any[G]way
+```
+
+That is the whole idea. The brackets sit *inside* the line, glued to the syllable they belong
+to, so nothing can drift: <Chord>Am</Chord> is on "The", <Chord>F</Chord> is on "late", and
+they stay there whether the line is rendered at twelve points on a phone or forty on a tablet
+propped against a music stand.
+
+The lines in curly braces are directives — metadata about the song rather than the song
+itself. You will meet a handful of them constantly:
+
+- `{title: …}` and `{artist: …}` — what the song is called and whose it is.
+- `{key: …}` — the key it is written in, which is what lets an app transpose *relative* to
+  something instead of guessing.
+- `{capo: …}` — where the capo goes, if it goes anywhere.
+- `{comment: …}` — a note to yourself, printed alongside the words.
+
+Anything an app does not understand, it is expected to ignore rather than choke on. That is
+deliberate, and it is most of why the format has lasted.
+
+## Why the brackets beat the spaces
+
+The "chords above the words" layout everybody starts with is not really a format — it is a
+picture of one. It depends on the text being monospaced, on nobody wrapping a long line, and
+on every future reader having the same column width you did. Change any of the three and the
+information is gone, because the information *was* the alignment.
+
+ChordPro stores the relationship instead of a picture of it. Once a chord is attached to a
+syllable rather than to a column, an app can do things that are impossible in a screenshot:
+
+- **Transpose.** Every chord moves by the same interval, and the words do not move at all.
+- **Apply a capo** and show the shapes your hand actually plays, not the ones the recording
+  is in.
+- **Reflow** on a narrow screen without the chords ending up over the wrong word.
+- **Switch notation**, so an Italian musician reads <Chord>La</Chord> where an English one
+  reads <Chord>A</Chord> — the same file, two readers.
+
+None of that is clever. It is all downstream of one decision: write down which syllable, not
+which column.
+
+## It outlives the app
+
+The quiet argument for ChordPro is not any feature. It is that the file is readable by a
+human being with a text editor, twenty years from now, on a device nobody has designed yet.
+A repertoire is a thing you build slowly and expect to keep; storing it in a format only one
+company can open is how people lose a decade of work when that company is bought.
+
+If your songs are already in the spaces-and-prayer layout, they are not lost — the conversion
+is mechanical, and a decent importer will do it for you and show you the result before it
+saves anything, because the conversion is a heuristic and it will not always guess right.
+
+What matters is where they end up: in a format that will still be a format when the app has
+changed hands, or names, or gone.

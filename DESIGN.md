@@ -318,6 +318,22 @@ correction that needs it. Naming a chord opens a bar *under* the line rather tha
 *over* it, since the line's own horizontal scroll clips vertically on purpose — every
 control on that bar sits at the same 44px floor as the reading control bar.
 
+### Article prose (`/blog`)
+
+The one surface in Strumfolio somebody reads for several minutes rather than glancing at
+between phrases, and it is set for that: 1.0625rem at a 1.7 line height in a 48rem column,
+looser than any screen inside the app. Spacing is always a *top* margin on each block, never
+a bottom one, so two blocks never sum their margins and the first block after a heading is
+not a special case. Headings are 1.5rem and 1.1875rem at 500 — the same restrained weight the
+app's own titles use — and a quote is a rule down the accent-coloured side rather than large
+italics, which is the quieter of the two and the one that suits a page of explanation.
+
+A chord written inside an article gets the accent on `accent-soft`, in mono, because **the
+accent belongs to the chords** here exactly as it does on the sheet. It is also the one
+element on a blog page marked `translate="no"`: the article itself is deliberately
+translatable — the blog exists to be found by musicians who may not read English easily — and
+an `A` rewritten as `La` mid-sentence is the one thing that must not follow.
+
 ## 6. Do's and Don'ts
 
 ### Do:
