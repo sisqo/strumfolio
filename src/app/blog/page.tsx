@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 
-import { SiteFooter } from '@/components/SiteFooter'
+import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
 import { postDate } from '@/lib/blog/date'
 import { CARD_HEIGHT, CARD_WIDTH, pageImage, postPath } from '@/lib/blog/openGraph'
@@ -161,7 +161,7 @@ export default async function BlogIndexPage() {
           </>
         )}
 
-        <SiteFooter />
+        <Footer />
       </main>
     </>
   )

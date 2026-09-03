@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { BlogCta } from '@/components/BlogCta'
-import { SiteFooter } from '@/components/SiteFooter'
 import { BlogReadNext } from '@/components/BlogReadNext'
+import { Footer } from '@/components/Footer'
 import { IconChevronLeft } from '@/components/icons'
 import { postDate } from '@/lib/blog/date'
 import { CARD_HEIGHT, CARD_WIDTH, pageImage, postMetadata } from '@/lib/blog/openGraph'
@@ -111,7 +111,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         <BlogReadNext posts={readNext} />
 
-        <SiteFooter />
+        <Footer />
       </main>
     </>
   )

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 import { BlogCta } from '@/components/BlogCta'
 import { ChordProConverter } from '@/components/ChordProConverter'
-import { SiteFooter } from '@/components/SiteFooter'
+import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
 
@@ -118,7 +118,7 @@ export default function ChordProConverterPage() {
 
         <BlogCta />
 
-        <SiteFooter />
+        <Footer />
       </main>
     </>
   )
