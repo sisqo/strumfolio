@@ -46,6 +46,18 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/forgot-password', indexable: false },
   { path: '/reset-password', indexable: false },
 
+  /*
+   * The free tools: small single-purpose pages that do their whole job in the browser, before
+   * anybody signs in. They are the reason somebody arrives, so they are indexed.
+   *
+   * **A new tool needs a line here and will not work without one.** These are exact matches
+   * rather than a `/tools/` prefix on purpose — one entry gives both the guard and the
+   * sitemap their answer, which is what this module exists for — and the cost is that a route
+   * added without one answers a redirect to `/login`. That failure is loud the first time the
+   * page is opened, which is the trade being made.
+   */
+  { path: '/tools/chordpro-converter', indexable: true },
+
   /* The four legal documents. Reachable by somebody with no session forever — a visitor
    * deciding whether to sign up, a store reviewer, a data protection authority — and worth
    * indexing for the same reason. */

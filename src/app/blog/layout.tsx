@@ -1,9 +1,9 @@
-import { BlogHeader } from '@/components/BlogHeader'
+import { SiteHeader } from '@/components/SiteHeader'
 
 /**
  * The frame around the blog.
  *
- * `BlogHeader` rather than `PublicHeader`: the design gives this surface its own bar, with the
+ * `SiteHeader` rather than `PublicHeader`: the design gives this surface its own bar, with the
  * section named beside the mark and two doors out of it — see that component for what it does
  * differently and why.
  *
@@ -21,7 +21,7 @@ import { BlogHeader } from '@/components/BlogHeader'
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="blog">
-      <BlogHeader />
+      <SiteHeader section="Blog" />
       {children}
     </div>
   )

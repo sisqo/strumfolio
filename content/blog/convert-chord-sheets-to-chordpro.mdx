@@ -1,0 +1,111 @@
+export const meta = {
+  title: 'How to convert chord sheets to ChordPro',
+  description:
+    'Turning chords-above-the-words into ChordPro takes one paste. Here is what the conversion actually does, where it goes wrong, and how to check it.',
+  date: '2026-09-03',
+  category: 'Guide',
+  cover: '/blog/convert-chord-sheets-to-chordpro.webp',
+  draft: false,
+}
+
+If you have collected chord sheets for any length of time, you have a folder of text files that
+all look the same: a line of chord names, then the words underneath, the two held together by a
+row of spaces. It is the oldest format on the internet and it works perfectly until the moment
+anything about the display changes.
+
+Converting that to ChordPro takes one paste. What follows is what the conversion is doing, so
+you can tell when it has got it wrong.
+
+## The short version
+
+Paste the sheet into the [free ChordPro converter](/tools/chordpro-converter) and read the
+result. It runs in your browser, there is nothing to sign up for, and nothing is uploaded.
+
+That is genuinely the whole procedure. The rest of this article is about the part nobody tells
+you: the conversion is a guess, and you should know which guess it is making.
+
+## What changes, exactly
+
+Here is a sheet in the format almost everything is published in:
+
+```
+Am                   F
+The last bus home is late
+    C            G
+and I am singing anyway
+```
+
+And the same thing as ChordPro:
+
+```
+[Am]The last bus home is [F]late
+and [C]I am singing [G]anyway
+```
+
+The chord names have not changed and the words have not changed. What changed is what the chord
+is attached to. In the first version <Chord>F</Chord> is at column 21 and happens to have "late"
+underneath it. In the second it is *in* the line, immediately before the word it belongs to.
+
+That is the whole idea, and every useful thing follows from it. A chord tied to a syllable can be
+transposed, capo'd, reflowed on a phone, or reprinted at any size, and it stays over the word it
+was always over. A chord tied to column 21 survives none of those.
+
+## The guess the converter is making
+
+To convert a sheet, something has to decide which lines are chords and which are words. There is
+no marker — both are just text.
+
+The rule is: a line is a chord line if every token on it parses as a chord name. That gets it
+right nearly always, and *nearly* is the interesting part. A line reading <Chord>A</Chord> on its
+own could be a chord or the first word of a sentence. A line of `Do Re Mi` is three chords in
+Italian notation and three syllables in English.
+
+So the conversion is a heuristic. It is a good one, and it will still be wrong on some sources —
+which is why the converter shows you the output instead of handing you a file, and why the
+import screen inside the app keeps the converted song editable before it saves anything.
+
+## How to check it in five seconds
+
+Read the output and look at where the brackets landed. You are checking one thing: **is each
+chord immediately before the syllable you actually change hands on?**
+
+The failure has a signature. A misaligned source produces brackets inside words —
+`hom[F]e`, `sing[C]ing` — because the chord's column fell in the middle of a word rather than
+at its start. If you see that, the original sheet's spacing was off by a few characters, and the
+fix is to nudge the chord line in the input rather than to fight the output.
+
+## Things that are not chord sheets
+
+A few kinds of file look close enough to confuse a converter and are worth knowing about:
+
+- **Tab.** Six lines of `e|---3---0---` are not chords above words, and converting them as if
+  they were produces nonsense. A good converter leaves tab rows alone; this one does.
+- **Lyrics with no chords at all.** Nothing to convert — the words come through unchanged, which
+  is the right answer rather than an error.
+- **Something already in ChordPro.** Also nothing to do. The converter says so instead of
+  bracketing the brackets.
+
+## More than one song in the paste
+
+ChordPro marks a song's start with a `{title: …}` directive, which means a file holding a whole
+songbook can be split on those boundaries without guessing. If you paste several songs at once,
+the converter will say how many it found, and importing the same paste into Strumfolio splits
+them into separate songs rather than one very long one.
+
+## A note for people leaving another app
+
+If your sheets came out of OnSong, MobileSheets or SongbookPro, they may already be ChordPro —
+but in that app's own dialect, where the same directive means different things. `{a: …}` is the
+artist in OnSong and the *album* in MobileSheets. `{st: …}` is a subtitle in the specification
+and was redefined by OnSong to mean the artist.
+
+Read with the wrong table, each of those puts a correct value under the wrong heading, silently.
+It is worth checking that whatever you import with knows the difference — [Strumfolio's importer
+does](/blog/onsong-alternative), and refuses to guess when nothing identifies the source.
+
+## Why bother at all
+
+Because the file outlives the app. A `.chopro` file is plain text: it opens in any editor, it
+goes into version control, and it will still be readable when the app you typed it in has changed
+hands or names or gone. That argument is worth its own article, and it has
+[one](/blog/chordpro-explained).

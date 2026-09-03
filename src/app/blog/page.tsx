@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 
-import { BlogFooter } from '@/components/BlogFooter'
+import { SiteFooter } from '@/components/SiteFooter'
 import { APP_NAME } from '@/lib/brand'
 import { postDate } from '@/lib/blog/date'
 import { CARD_HEIGHT, CARD_WIDTH, postPath, socialImage } from '@/lib/blog/openGraph'
@@ -64,20 +64,20 @@ export default async function BlogIndexPage() {
 
   return (
     <>
-      <div className="blog-hero">
+      <div className="site-hero">
         {/* Two painted layers, both inert: a warm glow from the top edge, and the ruled lines
             of a stave fading out under the headline. Drawn in CSS rather than shipped as an
-            image — see `.blog-hero-glow`/`.blog-hero-stave` for the gradients themselves. */}
-        <div aria-hidden className="blog-hero-glow" />
-        <div aria-hidden className="blog-hero-stave" />
+            image — see `.site-hero-glow`/`.site-hero-stave` for the gradients themselves. */}
+        <div aria-hidden className="site-hero-glow" />
+        <div aria-hidden className="site-hero-stave" />
 
-        <div className="blog-hero-inner">
-          <h1 className="blog-hero-title">{BLOG_TITLE}</h1>
-          <p className="blog-hero-lede">{DESCRIPTION}</p>
+        <div className="site-hero-inner">
+          <h1 className="site-hero-title">{BLOG_TITLE}</h1>
+          <p className="site-hero-lede">{DESCRIPTION}</p>
         </div>
       </div>
 
-      <main className="blog-main">
+      <main className="site-main">
         {featured === null ? (
           /* The state this ships in, before the first article is written. An honest sentence
            * rather than an empty page, since the route is live and linked from the footer the
@@ -161,7 +161,7 @@ export default async function BlogIndexPage() {
           </>
         )}
 
-        <BlogFooter />
+        <SiteFooter />
       </main>
     </>
   )

@@ -383,7 +383,7 @@ dipendenza di sviluppo prima che per volume di ricerca:
 | 1 | Alternativa a OnSong | Pagina pura | **consegnata** |
 | 1 | Alternativa a SongBook ChordPro | Pagina pura | **consegnata** |
 | 1 | Alternativa a JustChords | Pagina pura | **consegnata** |
-| 2 | Free ChordPro converter + «How to convert chord sheets to ChordPro» | Tool + articolo | da fare |
+| 2 | Free ChordPro converter + «How to convert chord sheets to ChordPro» | Tool + articolo | **consegnata** |
 | 3 | Free chord transposer online | Tool | da fare |
 | 4 | Capo calculator | Tool | da fare |
 | 5 | Setlist length calculator | Tool | da fare |
@@ -407,6 +407,36 @@ si appoggia alle precedenti e le linka internamente, quindi arriva per ultima.
   prometteva solo guide su capotasto, tonalità e accordi; con tre confronti su cinque
   articoli quella riga litigava con l'indice che sta sopra — e, peggio, con lo snippet in
   SERP, visto che è la stessa stringa. La stessa frase nel canale RSS è stata allineata.
+
+### Cosa è servito per l'ondata 2
+
+Il primo strumento, e quindi la prima pagina pubblica che *fa* qualcosa invece di spiegarla.
+
+- **Rotta propria, non un articolo**: `/tools/chordpro-converter`, con un `layout.tsx` che
+  farà da casa anche ai tre strumenti successivi. Non sta sotto `/blog` perché non è un
+  pezzo di scrittura e non passa da `shelve()` né dal template dell'articolo.
+- **Gira tutto nel browser.** `lib/import/convert.ts` era già una funzione pura — solo
+  `actions.ts` porta `'use server'` — quindi la pagina importa **lo stesso modulo che usa la
+  schermata di import** dell'app, non una copia semplificata scritta per il marketing. È la
+  differenza fra mostrare cosa farà l'app e promettere qualcosa che l'app non fa.
+- **Niente account, niente upload, niente salvato**, ed è scritto sulla pagina: chi incolla
+  parole non ancora uscite ha tutto il diritto di chiederselo.
+- **La testata e il piè di pagina sono diventati del sito**, non del blog: `BlogHeader` e
+  `BlogFooter` sono ora `SiteHeader` (con la pillola della sezione come prop) e `SiteFooter`.
+  Con loro le primitive di layout condivise — `blog-bar*`, `blog-hero*`, `blog-main`,
+  `blog-footer*` — sono diventate `site-*`, perché un nome che dice «blog» su una pagina che
+  non è il blog è una bugia che il prossimo lettore paga.
+- **Una lezione dall'esempio.** Il campione dietro «Use an example» era allineato a occhio e
+  il motore, correttamente, produceva `hom[F]e`: un accordo sta sopra la sillaba su cui cade
+  la sua colonna, quindi le colonne dell'esempio sono portanti. Ricontate e verificate
+  eseguendo il motore vero sul sorgente del componente. Se si tocca quell'esempio, si guarda
+  l'output, non l'aspetto.
+
+Restano da fare per gli strumenti successivi: una pagina indice `/tools` (oggi con un solo
+strumento sarebbe sottile, e `/tools` non è fra i percorsi pubblici — quindi risponde un
+redirect a `/login`, che va sistemato quando la pagina esisterà) e la voce «Tools» in un piè
+di pagina o in una navigazione, che oggi non c'è: allo strumento si arriva dalla ricerca e
+dall'articolo che lo accompagna.
 
 ### La regola di scrittura per un confronto
 

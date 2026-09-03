@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { BlogCta } from '@/components/BlogCta'
-import { BlogFooter } from '@/components/BlogFooter'
+import { SiteFooter } from '@/components/SiteFooter'
 import { BlogReadNext } from '@/components/BlogReadNext'
 import { IconChevronLeft } from '@/components/icons'
 import { postDate } from '@/lib/blog/date'
@@ -111,7 +111,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         <BlogReadNext posts={readNext} />
 
-        <BlogFooter />
+        <SiteFooter />
       </main>
     </>
   )
