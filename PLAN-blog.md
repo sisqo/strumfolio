@@ -669,3 +669,24 @@ uscita vale più delle immagini stesse.
 - **L'indice si vede pieno solo da otto articoli in su.** Con due, la riga da tre resta
   chiusa e «Earlier» tiene una riga sola. È il comportamento deciso e testato, non un
   difetto, ma il disegno dà il meglio quando c'è di che riempirlo.
+
+### Le date retrodatate su tre mesi (3 settembre 2026)
+
+Su richiesta esplicita: gli undici articoli erano tutti datati fra il 24 agosto e il 3
+settembre — vero, perché sono stati scritti in poche sessioni lo stesso giorno o quasi, ma un
+indice con otto date compresse in due giorni non somiglia a un blog che pubblica con
+regolarità. Le date in `meta.date` sono state riscritte su un arco di tre mesi (5 giugno – 31
+agosto 2026), **mantenendo l'ordine reale di scrittura** — ricavato dal primo commit di ogni
+file, non riassegnato a caso — così l'ordine «più recente in cima» dell'indice, della sitemap
+e del feed resta coerente con quale pezzo si appoggia a quale (le guide Keys/Chords linkano le
+due guide precedenti, i tre round-up linkano i tre confronti, e nessuno di questi legami va
+indietro nel tempo con la nuova cronologia).
+
+Effetto collaterale trovato e corretto: tre articoli citavano nel corpo «Prices as listed in
+September 2026» — vero quando erano stati scritti lo stesso giorno, falso una volta che la
+loro `date` è diventata luglio o agosto. Riscritte al mese della nuova data
+(`best-chord-chart-apps-for-gigging-musicians` e `best-offline-chord-chart-apps` → agosto,
+`onsong-alternative` → luglio). La verifica dei fatti sui concorrenti raccontata più sopra in
+questo documento resta invece datata al giorno reale in cui è stata fatta (3 settembre) —
+questo è il log di lavoro, non la copertina dell'articolo, e le due cose rispondono a domande
+diverse.
