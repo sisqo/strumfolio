@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-import { BlogCta } from '@/components/BlogCta'
+import { PromoPanel } from '@/components/PromoPanel'
 import { ChordProConverter } from '@/components/ChordProConverter'
 import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
@@ -116,7 +116,7 @@ export default function ChordProConverterPage() {
           </p>
         </div>
 
-        <BlogCta />
+        <PromoPanel />
 
         <Footer />
       </main>

@@ -58,6 +58,11 @@
    */
   --accent: #97490f;
   --accent-soft: #f4e7d9;
+  /* The promotional panel's own tint and edge — a step warmer and lighter than
+     `--accent-soft`, drawn for a block of prose rather than for a badge. In root, not
+     scoped: the panel closes articles, tool pages and whatever public surface comes next. */
+  --promo-bg: #fbf5ed;
+  --promo-line: #f0dfc9;
   /* Text on an accent fill. Not white: warm, so the fill does not look printed. */
   --on-accent: #fffaf4;
   --danger: #9d2820;
@@ -178,6 +183,8 @@
     --edge: var(--line);
     --accent: #f0b268;
     --accent-soft: #2a2118;
+    --promo-bg: #241d15;
+    --promo-line: #3a2e20;
     --on-accent: #1b1206;
     --danger: #ff9a90;
     --danger-soft: #2f1a18;
@@ -228,6 +235,8 @@
   --edge: var(--line);
   --accent: #f0b268;
   --accent-soft: #2a2118;
+  --promo-bg: #241d15;
+  --promo-line: #3a2e20;
   --on-accent: #1b1206;
   --danger: #ff9a90;
   --danger-soft: #2f1a18;
@@ -10042,9 +10051,6 @@
        inside the pulled-out line. */
     --blog-accent-strong: #7c3b0b;
     --blog-quote-bg: #fbf5ed;
-    /* The closing panel is a warm near-black in *both* themes — see `BlogCta`. */
-    --blog-cta-bg: #3a2415;
-    --blog-cta-ink: #fffaf4;
 
     background: var(--bg);
     color: var(--ink);
@@ -10699,53 +10705,162 @@
     text-wrap: pretty;
   }
 
-  /* The closing panel — dark in both themes on purpose, see `BlogCta.tsx`. */
-  .blog-cta {
+  /* ---------------------------------------------------------------------------
+   * The promotional panel — see `PromoPanel.tsx`.
+   *
+   * Replaces the dark band the first design closed an article with. This one is a
+   * warm tint on the same paper family, which is why it needs a border where the
+   * dark band did not: it is a step away from the page, not a different material.
+   * ------------------------------------------------------------------------ */
+
+  .promo {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.875rem;
+    align-items: center;
+    margin-top: 3.25rem;
+    border: 1px solid var(--promo-line);
+    border-radius: 1.625rem;
+    background: var(--promo-bg);
+    padding: 2.125rem 2.25rem;
+  }
+
+  /* With the phone standing in it, the right column is fixed and the panel loses its
+     right padding — the device bleeds to the edge — and gains the clearance the
+     overflowing top of it needs. */
+  .promo.has-phone {
+    grid-template-columns: 1fr 18.5rem;
+    padding: 2.125rem 0 2.125rem 2.25rem;
+    margin-top: 6.125rem;
+    margin-bottom: 4.375rem;
+  }
+
+  /*
+   * Inside an article the panel breaks out of the reading column.
+   *
+   * The bleed lives here rather than on `.promo` because it is a fact about the page,
+   * not about the panel: an article's words sit in 720px and a tool page's in 1100px,
+   * and a panel that carried its own negative margins would overflow the wider one.
+   */
+  .blog-article > .promo {
+    margin-left: -6.875rem;
+    margin-right: -6.875rem;
+  }
+
+  .promo-body {
     display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    margin-top: 2.75rem;
-    border-radius: 1.25rem;
-    background: var(--blog-cta-bg);
-    color: var(--blog-cta-ink);
-    padding: 1.5rem 1.75rem;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
   }
 
-  .blog-cta-text {
-    flex: 1;
+  .promo-eyebrow {
+    color: var(--accent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
   }
 
-  .blog-cta-title {
-    font-size: 1.125rem;
+  .promo-title {
+    color: var(--ink);
+    font-size: 1.625rem;
     font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+    text-wrap: pretty;
   }
 
-  .blog-cta-body {
-    margin-top: 0.375rem;
-    color: rgb(255 250 244 / 72%);
-    font-size: 0.90625rem;
+  /* The second half of the headline, in the accent. The one place on the site the accent
+     carries words rather than marking a chord — and it is a product name's promise, which
+     is the closest thing to a chord this panel has. */
+  .promo-title-accent {
+    color: var(--accent);
+  }
+
+  .promo-lede {
+    color: var(--muted);
+    font-size: 0.9375rem;
     line-height: 1.55;
+    text-wrap: pretty;
   }
 
-  .blog-cta-action {
-    display: inline-flex;
+  .promo-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-top: 0.125rem;
+  }
+
+  .promo-reason {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    color: var(--blog-prose, var(--ink));
+    font-size: 0.90625rem;
+    line-height: 1.45;
+  }
+
+  .promo-reason strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* Nudged down onto the first line's baseline: a tick aligned to the text box sits high
+     of the words it belongs to. */
+  .promo-tick {
     flex: none;
+    color: var(--accent);
+    transform: translateY(2px);
+  }
+
+  .promo-actions {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    height: 2.75rem;
+    gap: 1.125rem;
+    margin-top: 0.375rem;
+  }
+
+  .promo-action {
+    display: inline-flex;
+    align-items: center;
+    height: 2.625rem;
     padding: 0 1.5rem;
     border-radius: 999px;
-    background: var(--blog-cta-ink);
-    color: var(--blog-accent-strong);
+    background: var(--accent);
+    color: var(--on-accent);
     font-size: 0.90625rem;
     font-weight: 600;
     text-decoration: none;
   }
 
-  /* The panel is dark in both themes, so the capsule's hover cannot follow the
-     theme either — it is always the warmer cream. */
-  .blog-cta-action:hover {
-    background: #ffe9d1;
-    color: #7c3b0b;
+  .promo-action:hover {
+    background: var(--blog-accent-strong, var(--accent));
+    /* In dark the «stronger» accent is lighter, so the ink follows it down. */
+    color: var(--bg);
+  }
+
+  .promo-note {
+    color: var(--faint);
+    font-size: 0.84375rem;
+  }
+
+  /* The device column. Written now and unused until the asset lands — see `PromoPanel.tsx`. */
+  .promo-phone {
+    position: relative;
+    align-self: stretch;
+    min-height: 18.125rem;
+  }
+
+  .promo-phone img {
+    position: absolute;
+    right: 1.625rem;
+    top: -5rem;
+    display: block;
+    width: 18.75rem;
+    height: auto;
+    filter: drop-shadow(0 22px 40px rgb(58 36 21 / 26%));
   }
 
   .blog-read-next {
@@ -10971,9 +11086,21 @@
       grid-column: 1 / -1;
     }
 
-    .blog-cta {
-      flex-direction: column;
-      align-items: flex-start;
+    /* One column below the two-column breakpoint, and the device column — when it
+       exists — stops reserving its width. */
+    .promo,
+    .promo.has-phone {
+      grid-template-columns: 1fr;
+    }
+
+    .promo.has-phone {
+      padding-right: 2.25rem;
+    }
+
+    /* No bleed on a narrow screen: there is no margin left to break out of. */
+    .blog-article > .promo {
+      margin-left: 0;
+      margin-right: 0;
     }
   }
 }

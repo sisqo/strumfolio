@@ -3,7 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { BlogCta } from '@/components/BlogCta'
+import { PromoPanel } from '@/components/PromoPanel'
 import { BlogReadNext } from '@/components/BlogReadNext'
 import { Footer } from '@/components/Footer'
 import { IconChevronLeft } from '@/components/icons'
@@ -107,7 +107,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <Body />
         </div>
 
-        <BlogCta />
+        <PromoPanel />
 
         <BlogReadNext posts={readNext} />
 

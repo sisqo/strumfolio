@@ -455,6 +455,32 @@ I fatti sui concorrenti sono stati **verificati sulle loro pagine ufficiali** al
 della scrittura, non ricordati, e i prezzi portano la data. Vanno ricontrollati quando
 cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
 
+## Elemento promozionale ridisegnato (3 settembre 2026)
+
+Il mock `Blog.dc.html` ha sostituito la CTA di chiusura. Era una fascia scura con una frase
+e un bottone; ora è un pannello chiaro caldo che dice **cosa è il prodotto** in tre righe.
+
+- **`BlogCta` → `PromoPanel`, condiviso** («messo a comune»): non prende props, non appartiene
+  a nessuna superficie, e lo usano sia gli articoli sia le pagine strumento. Chiude anche
+  qualunque superficie pubblica futura.
+- **Il bleed non è del pannello ma della pagina.** Nel mock il pannello sfonda la colonna di
+  testo con margini negativi; ma la colonna di un articolo è 720px e quella di una pagina
+  strumento 1100px, quindi un pannello che portasse i propri margini negativi sborderebbe
+  dalla seconda. La regola vive su `.blog-article > .promo`.
+- **I numeri si leggono, non si scrivono.** «1 songbook, 30 songs, no card» viene da
+  `PLANS.free` tramite `limitLabel`, estratto dall'helper locale di `/login` in
+  `lib/plans/limits.ts` con i suoi test: la stessa frase ora compare su ogni articolo e su
+  ogni strumento, quindi un numero stantio qui è stantio in più posti che altrove.
+- **Due token nuovi in `:root`**, non scopati a `.blog`: `--promo-bg` e `--promo-line`. È il
+  caso che giustifica la promozione a globale — il pannello non è del blog.
+- **Il telefono manca ancora.** `uploads/smartphone2.png` torna dal MCP con
+  `truncated: true` (il tool taglia a 256 KiB), e l'unico telefono già nel repo —
+  `brand/device-mockup.webp` — è uno scatto di gruppo su bianco, non ritagliabile in qualcosa
+  che galleggi su una tinta. La colonna e il suo spazio di rispetto sono **già scritti**
+  (`.promo-phone`, `.promo.has-phone`): serve il file in `public/promo/` e l'`<Image>` nel
+  componente, nient'altro. Nel frattempo il pannello è a una colonna, forma che il disegno
+  tiene comunque sotto i 60rem.
+
 ## Domande aperte
 
 - **La home del sito, per un crawler, è `/login`.** `/` richiede una sessione e

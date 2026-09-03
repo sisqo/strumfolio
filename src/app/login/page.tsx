@@ -28,6 +28,7 @@ import {
 import { LandingCounters } from '@/components/LandingCounters'
 import { ReaderPhone } from '@/components/ReaderPhone'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
+import { limitLabel } from '@/lib/plans/limits'
 import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 
@@ -51,13 +52,7 @@ const DESCRIPTION =
  * The alternative is the one this page has just been repaired for: numbers in prose that were
  * true when they were written.
  */
-function count(value: number | null, unit: string): string {
-  /* `null` is genuinely unlimited in `PlanLimits`, never a large number, so it is a word here
-   * rather than a digit — and taking the null case rather than asserting it away is what keeps
-   * this sentence true if a cap is ever lifted rather than raised. */
-  if (value === null) return `unlimited ${unit}s`
-  return `${value} ${unit}${value === 1 ? '' : 's'}`
-}
+const count = limitLabel
 
 /** The three short facts in the hero's pill row — glanceable before anyone reads a word. */
 interface HeroPill {
