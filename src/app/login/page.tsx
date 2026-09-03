@@ -655,34 +655,6 @@ export default async function LoginPage({ searchParams }: Props) {
       </section>
 
       {/*
-        * Cross-device, ahead of Strum Together: the mockup is what makes "every screen"
-        * a claim a visitor can see rather than take on faith, and it is the one section
-        * on this page that leans on an image rather than an icon and a sentence.
-        */}
-      <section className="landing-width mt-11 lg:mt-14">
-        <div className="device-tour-grid">
-          <div>
-            <span className="landing-kicker">No install, anywhere</span>
-            <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
-            <p className="mt-2.5 text-sm leading-[1.5] text-muted">
-              Organise your songbooks at the desk on Windows or Mac, then open the same library on
-              whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
-              playing if there is no signal.
-            </p>
-          </div>
-
-          <Image
-            src="/brand/device-mockup.webp"
-            alt="Strumfolio open on a laptop, tablet and phone"
-            width={2400}
-            height={1668}
-            sizes="(min-width: 1024px) 55vw, 90vw"
-            className="h-auto w-full"
-          />
-        </div>
-      </section>
-
-      {/*
         * The visual editor, ahead of everything else this page has to say: it is the
         * thing no other app in this category does — the sheet itself is the editor —
         * and instead of describing it, the demo beside the copy IS it, built with the
@@ -818,10 +790,39 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
       </section>
 
-      {/* More top margin than every other section on this page: the solid fill of the
-          Strum Together band above it is a hard edge to sit close to, where the sections
-          on either side of it only have to separate from the plain page. */}
+      {/*
+        * Cross-device, right below Strum Together: the mockup is what makes "every
+        * screen" a claim a visitor can see rather than take on faith, and it is the one
+        * section on this page that leans on an image rather than an icon and a sentence.
+        *
+        * More top margin than a plain section-to-section gap: the solid fill of the
+        * Strum Together band above it is a hard edge to sit close to, where the sections
+        * on either side of it only have to separate from the plain page.
+        */}
       <section className="landing-width mt-14 lg:mt-20">
+        <div className="device-tour-grid">
+          <div>
+            <span className="landing-kicker">No install, anywhere</span>
+            <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
+            <p className="mt-2.5 text-sm leading-[1.5] text-muted">
+              Organise your songbooks at the desk on Windows or Mac, then open the same library on
+              whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
+              playing if there is no signal.
+            </p>
+          </div>
+
+          <Image
+            src="/brand/device-mockup.webp"
+            alt="Strumfolio open on a laptop, tablet and phone"
+            width={2400}
+            height={1668}
+            sizes="(min-width: 1024px) 55vw, 90vw"
+            className="h-auto w-full"
+          />
+        </div>
+      </section>
+
+      <section className="landing-width mt-11 lg:mt-14">
         <div className="text-center">
           <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
           <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
