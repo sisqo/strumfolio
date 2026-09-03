@@ -422,7 +422,11 @@ Il primo strumento, e quindi la prima pagina pubblica che *fa* qualcosa invece d
 - **Niente account, niente upload, niente salvato**, ed è scritto sulla pagina: chi incolla
   parole non ancora uscite ha tutto il diritto di chiederselo.
 - **La testata e il piè di pagina sono diventati del sito**, non del blog: `BlogHeader` e
-  `BlogFooter` sono ora `SiteHeader` (con la pillola della sezione come prop) e `SiteFooter`.
+  `BlogFooter` sono ora `SiteHeader` (con la pillola della sezione come prop) e — fino al
+  commit `0db9552` — `SiteFooter`. **Quel piede è poi stato rimosso**: blog e strumenti usano
+  di nuovo il `Footer` dell'app, versione e hash del commit compresi, per non avere due piedi
+  diversi sullo stesso sito. Supera la decisione presa in intervista («piede del mock con
+  Changelog al posto di Brand»).
   Con loro le primitive di layout condivise — `blog-bar*`, `blog-hero*`, `blog-main`,
   `blog-footer*` — sono diventate `site-*`, perché un nome che dice «blog» su una pagina che
   non è il blog è una bugia che il prossimo lettore paga.
@@ -499,10 +503,16 @@ uscita vale più delle immagini stesse.
   un'anteprima di WhatsApp una fotografia muta larga trecento pixel vale meno di un titolo
   leggibile con il marchio sopra. Non costa nulla — la rotta `og` era già prerenderizzata
   per ogni articolo, perché era già il ripiego.
-- **Le guide portano fotografie, i confronti tengono le card disegnate.** Due ragioni, non
-  una: la card «where it runs» *è* l'argomento di quegli articoli, e sono le uniche immagini
-  senza volti — mettere la faccia di una persona sotto «An OnSong alternative» si legge come
-  un endorsement che nessuno ha dato.
+- ~~**Le guide portano fotografie, i confronti tengono le card disegnate.**~~ Superata: su
+  richiesta esplicita, **ogni articolo porta una fotografia**, scegliendo il meglio fra quelle
+  disponibili anche quando il soggetto non è quello ideale — si migliorano più avanti. Dove
+  possibile i confronti hanno ritagli **senza volto** (mani, strumento, scrivania), che è la
+  mitigazione che resta del rilievo originale: la faccia di una persona sotto «An OnSong
+  alternative» si legge come un endorsement che nessuno ha dato.
+- **Le card disegnate «where it runs» non sono state buttate**: vivono in
+  `public/blog/<slug>-where-it-runs.webp`, in attesa di un componente `<Figure>` che le
+  rimetta *dentro* l'articolo, dove il confronto piattaforma-per-piattaforma sta meglio che in
+  copertina.
 - **Quattro delle undici erano generate con l'IA, e sbagliate.** In una, le corde
   attraversano la buca e svaniscono: nessun ponte, nessuna selletta, e meccaniche sulla
   fascia. Su un prodotto per musicisti quel dettaglio è visto in mezzo secondo dal pubblico
