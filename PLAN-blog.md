@@ -510,8 +510,14 @@ uscita vale più delle immagini stesse.
   prima di usare una foto di repertorio** — ponte, paletta, numero di corde, mani. Le tre
   scelte sono fotografie vere; una di esse riprende un libro di accordi stampato in
   notazione tedesca (`G/H`, `A7/E`), che è esattamente ciò di cui parlano gli articoli.
-- **Manca il capotasto.** Nessuna delle undici lo mostra, ed è il soggetto che il mock
-  chiedeva per nome. L'articolo sul capotasto porta intanto una foto di mano sulla tastiera.
+- **Il capotasto è arrivato dopo**, in una seconda consegna. La foto era usabile solo
+  ritagliata stretta sul manico: nell'inquadratura piena la persona **indossa una mascherina
+  sanitaria**, che data lo scatto al 2020-22 e su una pagina del 2026 è l'unica cosa che si
+  guarda. Tagliata sul capotasto e sulla mano, la mascherina esce e il verde resta uno sfondo
+  sfocato. Terza cosa da controllare su una foto di repertorio, dopo l'IA e gli strumenti
+  sbagliati: **cosa data lo scatto** — mascherine, telefoni riconoscibili, monitor spessi.
+  Nota: a quell'angolazione il tasto sotto il capotasto si legge come primo *o* secondo, non
+  è decidibile. Su una copertina non conta nessuno, ma il titolo dice «second fret».
 - Le originali (2-7 MB) **non entrano nel repo**: vengono ritagliate a 1200×630 e convertite
   in WebP, 48-104 KB l'una.
 
