@@ -61,7 +61,19 @@ function isPublicAsset(pathname: string): boolean {
      */
     pathname === '/sitemap.xml' ||
     pathname === '/robots.txt' ||
-    pathname.startsWith('/brand/')
+    pathname.startsWith('/brand/') ||
+    /*
+     * `public/promo/` — the device mockup the promotional panel stands beside. Same treatment
+     * as `/brand/` and for the same reason: it is fetched by whoever opens a public page, and
+     * by link-preview bots, neither of which carries this app's session cookie.
+     *
+     * Worth knowing why the *blog's* cover images need no line here: they live under
+     * `/blog/`, so the article branch below already lets them through. Anything put in a new
+     * folder under `public/` gets no such accident and answers a redirect to `/login` —
+     * which is a broken image, and, through `next/image`, a 500 from the optimiser rather
+     * than anything that names the cause.
+     */
+    pathname.startsWith('/promo/')
   )
 }
 

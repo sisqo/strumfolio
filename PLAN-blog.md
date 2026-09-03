@@ -473,13 +473,19 @@ e un bottone; ora è un pannello chiaro caldo che dice **cosa è il prodotto** i
   ogni strumento, quindi un numero stantio qui è stantio in più posti che altrove.
 - **Due token nuovi in `:root`**, non scopati a `.blog`: `--promo-bg` e `--promo-line`. È il
   caso che giustifica la promozione a globale — il pannello non è del blog.
-- **Il telefono manca ancora.** `uploads/smartphone2.png` torna dal MCP con
-  `truncated: true` (il tool taglia a 256 KiB), e l'unico telefono già nel repo —
-  `brand/device-mockup.webp` — è uno scatto di gruppo su bianco, non ritagliabile in qualcosa
-  che galleggi su una tinta. La colonna e il suo spazio di rispetto sono **già scritti**
-  (`.promo-phone`, `.promo.has-phone`): serve il file in `public/promo/` e l'`<Image>` nel
-  componente, nient'altro. Nel frattempo il pannello è a una colonna, forma che il disegno
-  tiene comunque sotto i 60rem.
+- **Il telefono c'è**, consegnato a parte dalla cartella condivisa: `uploads/smartphone2.png`
+  non passa dal MCP del design, che taglia i file a 256 KiB e lo restituisce con
+  `truncated: true` — 209 KB di PNG diventano ~285 KB in base64. Convertito in WebP con
+  l'alfa intatto (46 KB) in `public/promo/song-screen.webp`.
+- **Due cose che quella cartella nuova ha richiesto**, entrambe della stessa famiglia già
+  documentata qui:
+  - `public/promo/` **escluso dal precache** in `next.config.ts`, come `public/blog/`: è un
+    asset di marketing che l'app installata non disegna mai.
+  - `/promo/` aggiunto a `isPublicAsset()` in `middleware.ts`. Senza, il guardiano
+    rispondeva **307 verso `/login`** e `next/image` restituiva un **500** — un'immagine
+    rotta il cui errore non nomina la causa. Nota utile: le copertine del blog non hanno
+    bisogno di quella riga perché stanno sotto `/blog/`, che il ramo degli articoli già
+    ammette; qualunque *nuova* cartella sotto `public/` non ha quella fortuna.
 
 ## Domande aperte
 

@@ -84,6 +84,14 @@ function publicEntries(): PrecacheEntry[] {
        * is the third of the three, and the one that would otherwise grow without limit.
        */
       .filter((relativePath) => !/^blog[\\/]/.test(relativePath))
+      /*
+       * `public/promo/` is skipped for the same reason as `public/blog/` right above: it holds
+       * the device mockup the promotional panel stands beside on articles and tool pages —
+       * a marketing asset a *visitor* sees before they have an account, and one the installed
+       * app never draws. Precaching it would make every install download it to show a reader
+       * nothing.
+       */
+      .filter((relativePath) => !/^promo[\\/]/.test(relativePath))
       .filter((relativePath) => statSync(path.join(publicDir, relativePath)).isFile())
       .map((relativePath) => {
         const contents = readFileSync(path.join(publicDir, relativePath))

@@ -10846,7 +10846,7 @@
     font-size: 0.84375rem;
   }
 
-  /* The device column. Written now and unused until the asset lands — see `PromoPanel.tsx`. */
+  /* The device column — see `PromoPanel.tsx`. */
   .promo-phone {
     position: relative;
     align-self: stretch;

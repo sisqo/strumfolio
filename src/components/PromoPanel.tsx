@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 
 import { APP_NAME } from '@/lib/brand'
@@ -75,7 +76,7 @@ function Tick() {
 
 export function PromoPanel() {
   return (
-    <aside className="promo">
+    <aside className="promo has-phone">
       <div className="promo-body">
         <span className="promo-eyebrow">{APP_NAME}</span>
 
@@ -107,18 +108,29 @@ export function PromoPanel() {
       </div>
 
       {/*
-        * The phone the design stands in the right-hand column, overflowing the panel's top
-        * edge, is not here yet: `uploads/smartphone2.png` in the handoff is larger than the
-        * design MCP will hand over in one piece (it comes back `truncated: true`), and the
-        * only phone already in this repo — `brand/device-mockup.webp` — is a three-device
-        * group shot on white, which cannot be cut into something that floats on a tint.
+        * The device, standing in its own column and overflowing the panel's top edge — the
+        * design's own arrangement, and the reason `.promo.has-phone` drops the panel's right
+        * padding and buys clearance above and below it.
         *
-        * The column and its clearance are written and waiting in `globals.css`
-        * (`.promo-phone`, and `.promo.has-phone`'s extra padding): dropping the file into
-        * `public/promo/` and rendering the `<Image>` here is the whole of the remaining work.
-        * Until then the panel is one column, which is a shape the design also holds — the
-        * grid falls back to it below 60rem anyway.
+        * It lives in `public/promo/` rather than `public/brand/`, and that folder is excluded
+        * from the precache in `next.config.ts`: it is a marketing asset a visitor sees before
+        * they have an account, and the installed app never draws it — precaching it would put
+        * 46 KB on every install to show a reader nothing.
+        *
+        * `aria-hidden`, not an empty alt: it is a picture of the product the three lines
+        * beside it have just described, so a screen reader announcing it again adds a second
+        * telling of the same thing rather than information the words left out.
         */}
+      <div className="promo-phone" aria-hidden>
+        <Image
+          src="/promo/song-screen.webp"
+          alt=""
+          width={950}
+          height={1562}
+          sizes="(min-width: 60rem) 19rem, 60vw"
+        />
+      </div>
+
     </aside>
   )
 }
