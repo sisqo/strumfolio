@@ -486,6 +486,26 @@ ancora. I tre pezzi si linkano fra loro e verso ciò che è già pubblicato (i t
   `git archive` di quello stash in una copia sotto lo scratchpad, poi `tsc`/`npm test`/`npm run
   build`/`npm run lint` lì — tutti verdi, i nove articoli compaiono tutti in `generateStaticParams`.
 
+### Le prime due guide per Keys e Chords (3 settembre 2026)
+
+Fuori dal piano a ondate sopra — quello copriva solo Guide («ChordPro» e la conversione) e Capo
+(«Capo on the second fret»), lasciando **Keys** e **Chords** senza un solo articolo mentre
+Comparisons ne aveva già sei. Scelta dell'utente, non del piano: chiudere quel buco prima di
+aggiungere altro a Comparisons.
+
+- `transposing-to-fit-your-voice.mdx` (Keys) e `a-chord-is-a-set-of-notes.mdx` (Chords), stesso
+  registro delle due guide già pubblicate — nessun nome di prodotto in corpo, la conversione
+  resta al `PromoPanel` di chiusura, come già `chordpro-explained.mdx` e `capo-second-fret.mdx`
+  non nominano Strumfolio nemmeno una volta.
+- Si linkano a vicenda e verso le due guide esistenti (`capo-second-fret`, `chordpro-explained`),
+  non verso Comparisons: un lettore in cerca di un concetto non deve atterrare su una pagina che
+  vende un concorrente.
+- `cover: null` anche qui, stessa ragione dell'ondata 6: nessuna fotografia disponibile in questa
+  sessione, e il ripiego di `openGraph.ts` esiste apposta per questo.
+- Verificato allo stesso modo: `git stash create` sui due file nuovi, `git archive` in una copia
+  isolata sotto lo scratchpad (il repo aveva di nuovo un `next dev` acceso sulla stessa cartella),
+  `tsc`/`npm test`/`npm run build`/`npm run lint` lì, tutti verdi.
+
 ## Elemento promozionale ridisegnato (3 settembre 2026)
 
 Il mock `Blog.dc.html` ha sostituito la CTA di chiusura. Era una fascia scura con una frase

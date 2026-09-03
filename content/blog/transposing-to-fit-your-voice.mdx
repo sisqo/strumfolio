@@ -1,0 +1,70 @@
+export const meta = {
+  title: 'Transposing a song to fit your voice, without rewriting the chart',
+  description:
+    'Moving a song to a new key changes what everyone plays, not what the song is. Why relative transposition and Nashville numbers both exist for the same reason.',
+  date: '2026-09-03',
+  category: 'Keys',
+  cover: null,
+  draft: false,
+}
+
+A recording sits in one key because somebody's voice sat there on the day it was recorded.
+Yours might not. Transposing is the fix: move every chord in the song up or down by the same
+interval, and the melody keeps its exact shape — the same distances between notes — just
+starting somewhere else.
+
+Nothing about the song changes. The words are the same, the progression is the same, the
+feel is the same. Only where it sits moves.
+
+## The key on the page is a fact, not an instruction
+
+A chart that says `{key: G}` is not telling you to play in G. It is recording what key the
+song was written or first recorded in — a fact about its history, the same kind of fact as who
+wrote it. [ChordPro](/blog/chordpro-explained) even keeps it as its own line for exactly this
+reason: once the original key is written down, everything else can be described *relative to
+it* instead of guessed at.
+
+That distinction is worth keeping straight, because it changes what "transpose by two" means.
+It does not mean "go find the key two steps from wherever you happen to be." It means "move
+two steps from the key this chart says it was written in" — the same instruction, on any song,
+regardless of what key that song started in. A chart that only ever shows you the new key's
+name (`now it's in A`) hides that arithmetic; one that shows the distance from the written key
+(`+2`) hands it to you.
+
+## Degrees instead of names
+
+There is a notation built entirely around that same idea, taken further: instead of naming
+each chord, it numbers it. In the key of G, <Chord>G</Chord> is written `1`, <Chord>C</Chord> is
+`4`, <Chord>D</Chord> is `5` — the degree of the scale each chord starts on, not a letter at
+all. It is how Nashville session players read a chart they have never seen before, from an
+artist who might change key between the soundcheck and the show.
+
+The reason it works is that a number describes a *relationship*, not a pitch. `1 4 5 1` is the
+same instruction whether the song ends up in G, in D, or in Bb — nothing on the page has to
+change, because nothing on the page named an absolute note to begin with. Writing a chart in
+letters and one in numbers are two descriptions of the same fact, at two different distances
+from the actual sound.
+
+## The same idea, from a different control
+
+There is a second way to change what your hands do without changing what the room hears, and
+it looks like the opposite of transposing: a capo. [Capo on the second fret](/blog/capo-second-fret)
+covers it in full, but the short version belongs here too, because it is easy to conflate the
+two the first time you meet them — *"moving the key changes the song for everyone in the room;
+moving the capo changes only what you read."* Transposing changes the sound; a capo changes
+only the shape your hand holds to reach a sound that was never in question.
+
+They answer different questions, and a chart that keeps them as two separate facts — the
+song's key, and where a capo goes — lets one player choose a capo position while somebody else
+plays the same progression barre, with neither of them touching the other's part.
+
+## Why the written key still matters once you've moved
+
+It would be simpler, on the page, to just overwrite the key every time somebody transposes and
+forget what it used to be. The reason not to: the written key is the one fact a chart cannot
+recover on its own once it is gone. Everything else — the new key, the capo position, which
+degree each chord is — can be recomputed from it at any moment. Lose it, and a "+2" stops
+meaning anything, because nobody can say two steps from *what*.
+
+So the key that gets printed at the top of a song is worth treating as data, not decoration —
+the one number every other transposition on that chart is measured against.
