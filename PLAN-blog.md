@@ -436,11 +436,18 @@ Il primo strumento, e quindi la prima pagina pubblica che *fa* qualcosa invece d
   eseguendo il motore vero sul sorgente del componente. Se si tocca quell'esempio, si guarda
   l'output, non l'aspetto.
 
-Restano da fare per gli strumenti successivi: una pagina indice `/tools` (oggi con un solo
-strumento sarebbe sottile, e `/tools` non è fra i percorsi pubblici — quindi risponde un
-redirect a `/login`, che va sistemato quando la pagina esisterà) e la voce «Tools» in un piè
-di pagina o in una navigazione, che oggi non c'è: allo strumento si arriva dalla ricerca e
-dall'articolo che lo accompagna.
+Resta da fare per gli strumenti successivi una **pagina indice `/tools`**: oggi con un solo
+strumento sarebbe sottile, quindi quell'indirizzo è un redirect al convertitore (vedi
+`app/tools/page.tsx`), e diventa un indice vero — e `indexable` — quando arriva il secondo.
+
+La voce **«Tools» è nel piè di pagina** dell'app, accanto a «Blog» e puntata a `/tools`, cioè
+all'indirizzo durevole e non all'unico strumento di oggi: il giorno che diventa un indice, la
+riga non va ritrovata e cambiata. Aggiungerla ha però fatto emergere un difetto che c'era già
+in potenza: i separatori erano elementi flex a sé, quindi una riga andata a capo poteva
+**iniziare con un puntino** — «· Tools» su un telefono. Ora ogni voce si porta il proprio
+separatore in coda (`.app-footer-item::after`, con `content: '·' / ''` perché un lettore di
+schermo legga un elenco di link e non una fila di puntini), e un capoverso non può più
+aprirsi con uno.
 
 ### La regola di scrittura per un confronto
 

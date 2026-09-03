@@ -6867,6 +6867,19 @@
     color: var(--muted);
   }
 
+  /*
+   * The separator between entries, drawn rather than written.
+   *
+   * `/ ''` gives it empty alternative text, so a screen reader reads the row as a list of
+   * links and not as «Privacy middle dot Terms middle dot…» — the job the `aria-hidden` on
+   * the old separator elements was doing. And because it belongs to the item before it, a row
+   * that wraps can never open with a stray dot.
+   */
+  .app-footer-item:not(:last-child)::after {
+    content: '·' / '';
+    margin-left: 0.5rem;
+  }
+
   @media (hover: hover) {
     .app-footer-credit a:hover {
       color: var(--ink);

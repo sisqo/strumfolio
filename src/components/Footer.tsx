@@ -49,13 +49,23 @@ export function Footer() {
        * (`middleware.ts`, `src/app/brand/page.tsx`), it no longer belongs beside four links
        * every one of which — legal documents and the changelog — every visitor must reach.
        */}
-      <nav className="app-footer-legal" aria-label="Legal and changelog">
-        <Link href="/privacy-policy">Privacy</Link>
-        <span aria-hidden>&middot;</span>
-        <Link href="/terms-of-service">Terms</Link>
-        <span aria-hidden>&middot;</span>
-        <Link href="/cookie-policy">Cookies</Link>
-        <span aria-hidden>&middot;</span>
+      {/*
+        * Each entry carries its own trailing separator (drawn by CSS on `.app-footer-item`)
+        * rather than sitting beside a separator of its own. The dots used to be flex items in
+        * their own right, which meant a wrapped row could *begin* with one — «· Tools» on a
+        * second line, which is what a phone showed the moment this row grew a seventh entry.
+        * A separator glued to the end of the item before it cannot start a line.
+        */}
+      <nav className="app-footer-legal" aria-label="Site and legal">
+        <span className="app-footer-item">
+          <Link href="/privacy-policy">Privacy</Link>
+        </span>
+        <span className="app-footer-item">
+          <Link href="/terms-of-service">Terms</Link>
+        </span>
+        <span className="app-footer-item">
+          <Link href="/cookie-policy">Cookies</Link>
+        </span>
         {/*
           * «Content copyright», not «Copyright», since the credit line above now opens with a
           * © of its own: that one is this site's, while this is the notice about the songs
@@ -65,17 +75,34 @@ export function Footer() {
           * a footer label wants to be scannable, and an ampersand among middle dots reads as
           * one more separator.
           */}
-        <Link href="/content-copyright-notice">Content copyright</Link>
-        <span aria-hidden>&middot;</span>
+        <span className="app-footer-item">
+          <Link href="/content-copyright-notice">Content copyright</Link>
+        </span>
         {/* A reader looking for "what's new" has nowhere else to look, and a release note is
             worth nothing if only the person who wrote it can find it. */}
-        <Link href="/changelog">Changelog</Link>
-        <span aria-hidden>&middot;</span>
+        <span className="app-footer-item">
+          <Link href="/changelog">Changelog</Link>
+        </span>
         {/* The one place the blog is linked from inside the app. It is written for people who
             have not arrived yet — a visitor lands on an article from a search, not from here —
             so this row, which every screen already carries, is the whole of its billing:
             `PublicHeader` holds one CTA and it is spent on the pair /login and /pricing. */}
-        <Link href="/blog">Blog</Link>
+        <span className="app-footer-item">
+          <Link href="/blog">Blog</Link>
+        </span>
+        {/*
+          * The free tools, for the same reason the blog is here: they are written to be found
+          * from a search, so nothing inside the app pointed at them and a visitor who landed
+          * on one had no way to the rest.
+          *
+          * Pointed at `/tools` rather than at the one tool that exists today. That address is
+          * a redirect for now (`app/tools/page.tsx` explains why it is not yet an index — one
+          * card is a thin page), and aiming the durable label at the durable address means the
+          * day it becomes a real index this line does not have to be found and changed.
+          */}
+        <span className="app-footer-item">
+          <Link href="/tools">Tools</Link>
+        </span>
       </nav>
     </footer>
   )
