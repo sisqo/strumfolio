@@ -2799,167 +2799,101 @@
   }
 
   /*
-   * One feature raised above the rest, on the public page: Strum Together gets its own
-   * panel rather than a card among the ones below, because it is the one thing here two
-   * people are doing at once rather than one person doing alone. Solid `--accent` now
-   * rather than `--accent-soft` (v3.4) — the panel that used to say "worth a second
-   * look" the way `.notice-accent` does now says it as loudly as the sign-in button
-   * itself, which is the point of raising this one feature above the rest of the tour.
-   * `--on-accent` inverts together with `--accent` in dark mode (a light tan fill takes
-   * near-black text, not white), so every child below reaches for it with no theme
-   * check of its own — only the translucency amounts are hand-picked to match the
-   * mockup.
+   * Strum Together's own band, on the public page: raised above the plain feature grid
+   * below it because it is the one thing here two people are doing at once rather than
+   * one person doing alone — but a *panel*, not a fill, per a later Claude Design mock.
+   * It used to be the page's one fully `--accent`-filled surface; the mock puts it on
+   * the same warm, bordered tint `.promo` already closes an article with —
+   * `--promo-bg`/`--promo-line`, defined once in `:root` for exactly this ("whatever
+   * public surface comes next"). Reaching for that pair instead of `--accent-soft` is
+   * what keeps this band and `.promo` reading as the same material if they ever end up
+   * on the same page, and it is themed for free: both tokens already carry a dark-mode
+   * value.
    */
-  .feature-spotlight {
-    position: relative;
+  .strum-tour {
+    padding: 1.75rem 1.5rem;
+    border: 1px solid var(--promo-line);
+    border-radius: 1.75rem;
+    background: var(--promo-bg);
     overflow: hidden;
-    padding: 1.75rem 1.375rem;
-    background: var(--accent);
-    border-radius: var(--r-2xl);
-    color: color-mix(in srgb, var(--on-accent) 92%, transparent);
   }
 
   @media (min-width: 1024px) {
-    .feature-spotlight {
-      padding: 2.75rem 3rem;
+    .strum-tour {
+      padding: 3.25rem 3rem 2.75rem;
     }
   }
 
-  /* The big, near-invisible mark behind the copy — decoration, not content. */
-  .feature-spotlight-mark {
-    position: absolute;
-    top: -4.375rem;
-    right: -4rem;
-    color: color-mix(in srgb, var(--on-accent) 14%, transparent);
-    pointer-events: none;
+  .strum-tour-head {
+    max-width: 42rem;
+    margin-inline: auto;
+    text-align: center;
   }
 
-  @media (min-width: 1024px) {
-    .feature-spotlight-mark {
-      top: -5.25rem;
-      right: -4.375rem;
-    }
-  }
-
-  .feature-spotlight-inner {
-    position: relative;
-    display: grid;
-    gap: 1.375rem;
-  }
-
-  @media (min-width: 1024px) {
-    .feature-spotlight-inner {
-      grid-template-columns: 1fr 1fr;
-      gap: 3.5rem;
-      align-items: start;
-    }
-  }
-
-  .feature-spotlight-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 3.625rem;
-    height: 3.625rem;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--on-accent) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--on-accent) 26%, transparent);
-    color: var(--on-accent);
-  }
-
-  @media (min-width: 1024px) {
-    .feature-spotlight-icon {
-      width: 4rem;
-      height: 4rem;
-    }
-  }
-
-  .feature-spotlight-icon svg {
-    width: 26px;
-    height: 26px;
-  }
-
-  .feature-spotlight-title {
-    margin-top: 1rem;
-    color: var(--on-accent);
-    font-size: 1.375rem;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-  }
-
-  @media (min-width: 1024px) {
-    .feature-spotlight-title {
-      margin-top: 1.125rem;
-      font-size: 2.125rem;
-    }
-  }
-
-  .feature-spotlight-text {
+  .strum-tour-title {
     margin: 0.75rem 0 0;
-    max-width: 26rem;
+    color: var(--ink);
+    font-size: 1.625rem;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  @media (min-width: 1024px) {
+    .strum-tour-title {
+      font-size: 2.375rem;
+      line-height: 1.08;
+      letter-spacing: -0.028em;
+    }
+  }
+
+  .strum-tour-text {
+    margin: 0.875rem 0 0;
+    color: var(--muted);
     font-size: 0.9375rem;
     line-height: 1.55;
+    text-wrap: pretty;
   }
 
   @media (min-width: 1024px) {
-    .feature-spotlight-text {
-      font-size: 0.96875rem;
+    .strum-tour-text {
+      font-size: 1rem;
     }
   }
 
-  /* The three points, as rows of one translucent list rather than a grid of three
-     columns — the 1px gaps between rows are the only border they get, carried by the
-     list's own background showing through. */
-  .feature-spotlight-points {
+  /* The three closing claims: a plain row-per-item stack on a phone (no room for three
+     columns under 82px-wide phones), three columns from `lg` — the same switch
+     `.reader-tour-grid` makes, for the same reason. No icon, unlike `.editor-point`
+     beside it: the phones above already are the illustration. */
+  .strum-tour-points {
     display: grid;
-    gap: 2px;
-    margin-top: 1.375rem;
-    border-radius: var(--r-panel);
-    overflow: hidden;
-    background: color-mix(in srgb, var(--on-accent) 14%, transparent);
+    gap: 1.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--promo-line);
   }
 
   @media (min-width: 1024px) {
-    .feature-spotlight-points {
-      margin-top: 0;
+    .strum-tour-points {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2.5rem;
     }
   }
 
-  .feature-spotlight-point {
-    display: flex;
-    gap: 0.875rem;
-    padding: 1.125rem 1.25rem;
-    background: color-mix(in srgb, var(--on-accent) 8%, transparent);
-  }
-
-  .feature-spotlight-point-icon {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.8125rem;
-    background: color-mix(in srgb, var(--on-accent) 18%, transparent);
-    color: var(--on-accent);
-  }
-
-  .feature-spotlight-point-icon svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .feature-spotlight-point-title {
+  .strum-tour-point-title {
     margin: 0;
-    color: var(--on-accent);
-    font-size: 0.9375rem;
+    color: var(--ink);
+    font-size: 0.96875rem;
     font-weight: 500;
   }
 
-  .feature-spotlight-point-text {
-    margin: 0.3125rem 0 0;
-    font-size: 0.84375rem;
+  .strum-tour-point-text {
+    margin: 0.375rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
     line-height: 1.5;
+    text-wrap: pretty;
   }
 
   /* ---- The visual editor, shown live (login) --------------------------- */
@@ -3680,7 +3614,10 @@
     .editor-demo *::after,
     .reader-demo *,
     .reader-demo *::before,
-    .reader-demo *::after {
+    .reader-demo *::after,
+    .strum-demo *,
+    .strum-demo *::before,
+    .strum-demo *::after {
       animation: none !important;
     }
 
@@ -5046,6 +4983,1049 @@
     100% {
       opacity: 0;
       scale: 1.7;
+    }
+  }
+
+  /* ---- Strum Together, three phones (login) ----------------------------- */
+
+  /*
+   * `StrumTogetherStage`: two followers scanning in and settling behind a leader who is
+   * mid-broadcast — the third moving picture on this page, after `EditorPhone` and
+   * `ReaderPhone`, and built the same way for the same reason: real classes
+   * (`.song-chips`, `.song-sheet`, `.sheet-*`, `.notice`) inside three `PhoneFrame`s
+   * rather than a screenshot, one 20s clock, nothing here interactive or focusable.
+   *
+   * Three phones need a scale this page's other two demos never had to choose, which is
+   * `.phone-fit.is-stage` (two classes, so it outguns `.phone-fit`'s own bare-selector
+   * breakpoints regardless of source order) instead of the shared one: solo below `lg`,
+   * where the followers are simply not rendered — "one phone leads" still reads with
+   * one phone — and three across from `lg` up, smaller again because three now share
+   * the row `.phone-fit` alone ever gave one.
+   */
+  .strum-stage {
+    position: relative;
+    margin-top: 1.75rem;
+    overflow: hidden;
+  }
+
+  @media (min-width: 1024px) {
+    .strum-stage {
+      margin-top: 2.5rem;
+    }
+  }
+
+  .strum-stage-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .strum-stage-device {
+    flex: none;
+  }
+
+  .strum-stage-device.is-leader {
+    z-index: 2;
+  }
+
+  /* Not rendered below `lg` at all — see `.phone-fit.is-stage`'s own comment above. */
+  .strum-stage-device.is-follower {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .strum-stage-device.is-follower {
+      display: flex;
+    }
+  }
+
+  .strum-stage-device.is-left,
+  .strum-stage-device.is-right {
+    z-index: 1;
+    transform-origin: bottom center;
+  }
+
+  .strum-stage-device.is-left {
+    margin-right: -1.75rem;
+    animation: st-device-in-l 20s ease infinite;
+  }
+
+  .strum-stage-device.is-right {
+    margin-left: -1.75rem;
+    animation: st-device-in-r 20s ease infinite;
+  }
+
+  @media (min-width: 1024px) {
+    .strum-stage-device.is-left {
+      --tuck-y: -3rem;
+      margin-right: -2.75rem;
+    }
+
+    .strum-stage-device.is-right {
+      --tuck-y: -3rem;
+      margin-left: -2.75rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .strum-stage-device.is-left {
+      --tuck-y: -3.5rem;
+      margin-right: -3.25rem;
+    }
+
+    .strum-stage-device.is-right {
+      --tuck-y: -3.5rem;
+      margin-left: -3.25rem;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .strum-stage-device.is-left {
+      --tuck-y: -4rem;
+      margin-right: -3.75rem;
+    }
+
+    .strum-stage-device.is-right {
+      --tuck-y: -4rem;
+      margin-left: -3.75rem;
+    }
+  }
+
+  .phone-fit.is-stage {
+    --phone-scale: 0.78;
+  }
+
+  @media (min-width: 480px) {
+    .phone-fit.is-stage {
+      --phone-scale: 0.92;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .phone-fit.is-stage {
+      --phone-scale: 0.58;
+    }
+
+    .phone-fit.is-stage.is-follower {
+      --phone-scale: 0.46;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .phone-fit.is-stage {
+      --phone-scale: 0.66;
+    }
+
+    .phone-fit.is-stage.is-follower {
+      --phone-scale: 0.53;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .phone-fit.is-stage {
+      --phone-scale: 0.74;
+    }
+
+    .phone-fit.is-stage.is-follower {
+      --phone-scale: 0.6;
+    }
+  }
+
+  /*
+   * Every element below is written with its *settled* pose as the plain, un-animated
+   * rule — both phones joined, the sheet closed, the leader mid-playback, the sheet
+   * scrolled to the payoff line — and the keyframes are what pulls it away from that
+   * pose for the entrance. That is what `prefers-reduced-motion: reduce` needs to be
+   * true for free: stripping `animation` (see the shared rule above) leaves exactly
+   * this pose, which is the outcome the feature promises rather than its opening frame —
+   * unlike `ReaderPhone`, which rests on the screen as it opens. The two demos differ
+   * because the coherent single frame differs: one gesture at rest reads fine as "the
+   * reading screen, untouched"; three phones at rest read better already joined than
+   * mid-scan. Only the purely transient pieces — the scan overlay, the scrim, the sheet,
+   * every tap ripple — carry `demo-transient` instead, the same escape hatch the other
+   * two demos already use for the same reason.
+   */
+  .strum-stage-device.is-left,
+  .strum-stage-device.is-right {
+    opacity: 1;
+    scale: 0.84;
+    translate: 0 var(--tuck-y, -3rem);
+  }
+
+  /* ---- Strum Together: the header row, live badge and count ------------- */
+
+  .st-live-badge {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.375rem;
+    height: 1.625rem;
+    padding: 0 0.625rem 0 0.5rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--promo-line);
+    background: var(--promo-bg);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .st-live-badge.is-leader {
+    animation: st-live 20s ease infinite;
+  }
+
+  .st-live-dot {
+    display: inline-flex;
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: st-dot 1.6s ease-in-out infinite;
+  }
+
+  .st-live-sep {
+    color: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .st-live-count {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .st-count-0,
+  .st-count-1 {
+    opacity: 0;
+  }
+
+  .st-count-1,
+  .st-count-2 {
+    position: absolute;
+    inset-inline-start: 0;
+  }
+
+  .st-count-2 {
+    opacity: 1;
+  }
+
+  .st-count-0 {
+    animation: st-count-0 20s ease infinite;
+  }
+
+  .st-count-1 {
+    animation: st-count-1 20s ease infinite;
+  }
+
+  .st-count-2 {
+    animation: st-count-2 20s ease infinite;
+  }
+
+  /* ---- Strum Together: the scanning screen (followers only) -------------- */
+
+  /* A camera viewfinder is dark on any phone regardless of the reader's own theme, so this
+     and the ring/text below it are literal colours rather than `--ink`/`--bg` — those flip
+     in dark mode (`--ink` turns near-white), which would paint this screen white instead. */
+  .st-scan {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.375rem;
+    padding: 2.5rem 2.125rem;
+    background: #16181d;
+    text-align: center;
+  }
+
+  .st-scan.is-left {
+    animation: st-scan-screen-l 20s ease infinite;
+  }
+
+  .st-scan.is-right {
+    animation: st-scan-screen-r 20s ease infinite;
+  }
+
+  .st-scan-frame {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 11.75rem;
+    height: 11.75rem;
+    flex: none;
+    border-radius: 1.375rem;
+    overflow: hidden;
+  }
+
+  .st-scan-lock {
+    position: absolute;
+    inset: 0;
+    border: 2px solid #f6f5f2;
+    border-radius: 1.375rem;
+    opacity: 0.35;
+  }
+
+  .st-scan-lock.is-left {
+    animation: st-scan-lock-l 20s ease infinite;
+  }
+
+  .st-scan-lock.is-right {
+    animation: st-scan-lock-r 20s ease infinite;
+  }
+
+  /* The QR's own quiet zone stays literal white — a scanner reads contrast against
+     paper, not against this reader's theme. */
+  .st-scan-qr {
+    padding: 0.625rem;
+    border-radius: 0.875rem;
+    background: #fff;
+  }
+
+  .st-scan-qr img {
+    display: block;
+    width: 8.25rem;
+    height: 8.25rem;
+  }
+
+  .st-scan-line {
+    position: absolute;
+    inset-inline: 0.75rem;
+    height: 5px;
+    border-radius: 3px;
+    background: #ffc98d;
+    box-shadow: 0 0 20px 6px rgb(255 201 141 / 55%);
+  }
+
+  .st-scan-line.is-left {
+    animation: st-scan-line-l 20s ease-in-out infinite;
+  }
+
+  .st-scan-line.is-right {
+    animation: st-scan-line-r 20s ease-in-out infinite;
+  }
+
+  .st-scan-text {
+    margin: 0;
+    font-size: 0.90625rem;
+    line-height: 1.5;
+    color: rgb(246 245 242 / 78%);
+  }
+
+  .st-scan-text small {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    color: rgb(246 245 242 / 45%);
+  }
+
+  /* ---- Strum Together: the leader's bar, sheet and QR -------------------- */
+
+  .st-strum {
+    position: relative;
+    background: var(--promo-bg);
+    color: var(--accent);
+    animation: st-bc-btn 20s ease infinite;
+  }
+
+  .st-play-icon,
+  .st-pause-icon {
+    grid-area: 1 / 1;
+    display: inline-flex;
+  }
+
+  .st-play-icon {
+    opacity: 0;
+    animation: st-play-icon 20s ease infinite;
+  }
+
+  .st-pause-icon {
+    animation: st-pause-icon 20s ease infinite;
+  }
+
+  .st-tap {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .st-tap-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    border-radius: 999px;
+    border: 2px solid var(--accent);
+    opacity: 0;
+  }
+
+  .st-tap-ring.is-bc {
+    width: 2.5rem;
+    height: 2.5rem;
+    animation: st-tap-bc 20s ease infinite;
+  }
+
+  .st-tap-ring.is-play {
+    width: 3rem;
+    height: 3rem;
+    animation: st-tap-play 20s ease infinite;
+  }
+
+  /* The confirmation burst on the play button — two expanding rings and six radiating
+     spokes, the same radar-ping language `StrumToggle`'s own live pill already uses for
+     "broadcasting", not a new visual idiom. Purely decorative: `pointer-events: none`
+     inherited from `.st-tap`, and the whole group is `demo-transient`. */
+  .st-burst-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 4.875rem;
+    height: 4.875rem;
+    border-radius: 999px;
+    border: 3px solid var(--accent);
+    opacity: 0;
+    animation: st-ring 20s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+  }
+
+  .st-burst-ring.is-second {
+    border-width: 2px;
+    animation-name: st-ring2;
+  }
+
+  .st-burst-spoke-wrap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+  }
+
+  .st-burst-spoke {
+    position: absolute;
+    left: -2px;
+    bottom: 0;
+    width: 4px;
+    height: 1.25rem;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0;
+    animation: st-burst 20s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+  }
+
+  .st-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    background: var(--dim);
+    opacity: 0;
+    animation: st-scrim 20s ease infinite;
+  }
+
+  .st-sheet {
+    position: absolute;
+    inset-inline: 0.75rem;
+    /* Clears `.rd-bar` rather than covering it — the real `.strum-panel` popover this stands
+       in for anchors above the control strip that opens it, never over it. */
+    bottom: 6.5rem;
+    z-index: 30;
+    padding: 1.125rem 1.125rem 1rem;
+    border: 1px solid var(--edge);
+    border-radius: 1.625rem;
+    background: var(--surface);
+    box-shadow: var(--shadow-panel);
+    opacity: 0;
+    translate: 0 1.375rem;
+    animation: st-sheet 20s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+  }
+
+  .st-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5625rem;
+    color: var(--accent);
+  }
+
+  .st-sheet-title {
+    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .st-sheet-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-pill);
+    color: var(--faint);
+  }
+
+  .st-sheet-text {
+    margin: 0.625rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .st-sheet-body {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.875rem;
+  }
+
+  .st-sheet-qr {
+    flex: none;
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    background: #fff;
+  }
+
+  .st-sheet-qr img {
+    display: block;
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  .st-sheet-link {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: break-word;
+    font-family: ui-monospace, 'Geist Mono', monospace;
+    font-size: 0.71875rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .st-sheet-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4375rem;
+    margin-top: 0.625rem;
+    padding: 0.5625rem 0;
+    border-radius: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-size: 0.84375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .st-sheet-count {
+    position: relative;
+    margin: 0.625rem 0 0;
+    font-size: 0.78125rem;
+    color: var(--faint);
+  }
+
+  .st-sheet-stop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+    padding: 0.6875rem 0;
+    border-radius: var(--r-lg);
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.90625rem;
+    font-weight: 500;
+  }
+
+  /* ---- Strum Together: the follower's banner ------------------------------ */
+
+  .st-banner {
+    position: relative;
+    z-index: 20;
+    margin-inline: 12px;
+  }
+
+  /* ---- Strum Together: the synced scroll ---------------------------------- */
+
+  .st-scroll {
+    translate: 0 -11rem;
+    animation: st-scroll 20s ease-in-out infinite;
+  }
+
+  .st-scroll-follow {
+    translate: 0 -11rem;
+    animation: st-scroll-follow 20s ease-in-out infinite;
+  }
+
+  /* ---- Strum Together: the clock ------------------------------------------ */
+
+  @keyframes st-device-in-l {
+    0%,
+    9% {
+      opacity: 0;
+      scale: 0.88;
+      translate: -2.5rem 1rem;
+      z-index: 3;
+    }
+
+    11.5%,
+    22% {
+      opacity: 1;
+      scale: 0.92;
+      translate: -1.25rem 0;
+      z-index: 3;
+    }
+
+    22.5% {
+      z-index: 1;
+    }
+
+    25.5%,
+    100% {
+      opacity: 1;
+      scale: 0.84;
+      translate: 0 var(--tuck-y, -3rem);
+      z-index: 1;
+    }
+  }
+
+  @keyframes st-device-in-r {
+    0%,
+    17% {
+      opacity: 0;
+      scale: 0.88;
+      translate: 2.5rem 1rem;
+      z-index: 3;
+    }
+
+    19.5%,
+    30% {
+      opacity: 1;
+      scale: 0.92;
+      translate: 1.25rem 0;
+      z-index: 3;
+    }
+
+    30.5% {
+      z-index: 1;
+    }
+
+    33.5%,
+    100% {
+      opacity: 1;
+      scale: 0.84;
+      translate: 0 var(--tuck-y, -3rem);
+      z-index: 1;
+    }
+  }
+
+  @keyframes st-scan-screen-l {
+    0%,
+    22% {
+      opacity: 1;
+    }
+
+    25%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes st-scan-screen-r {
+    0%,
+    30% {
+      opacity: 1;
+    }
+
+    33%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* Fixed colours throughout, like `.st-scan` itself: `--success` swaps to a dark green in
+     light mode, which loses almost all contrast against this screen's always-dark backing. */
+  @keyframes st-scan-lock-l {
+    0%,
+    20% {
+      border-color: #f6f5f2;
+    }
+
+    21%,
+    100% {
+      border-color: #7aa874;
+    }
+  }
+
+  @keyframes st-scan-lock-r {
+    0%,
+    28% {
+      border-color: #f6f5f2;
+    }
+
+    29%,
+    100% {
+      border-color: #7aa874;
+    }
+  }
+
+  @keyframes st-scan-line-l {
+    0%,
+    11.5% {
+      opacity: 0;
+      translate: 0 -4rem;
+    }
+
+    12.5% {
+      opacity: 1;
+      translate: 0 -4rem;
+    }
+
+    16% {
+      opacity: 1;
+      translate: 0 4rem;
+    }
+
+    19.5% {
+      opacity: 1;
+      translate: 0 -4rem;
+    }
+
+    20.5% {
+      opacity: 1;
+      translate: 0 0;
+    }
+
+    21.5%,
+    100% {
+      opacity: 0;
+      translate: 0 0;
+    }
+  }
+
+  @keyframes st-scan-line-r {
+    0%,
+    19.5% {
+      opacity: 0;
+      translate: 0 -4rem;
+    }
+
+    20.5% {
+      opacity: 1;
+      translate: 0 -4rem;
+    }
+
+    24% {
+      opacity: 1;
+      translate: 0 4rem;
+    }
+
+    27.5% {
+      opacity: 1;
+      translate: 0 -4rem;
+    }
+
+    28.5% {
+      opacity: 1;
+      translate: 0 0;
+    }
+
+    29.5%,
+    100% {
+      opacity: 0;
+      translate: 0 0;
+    }
+  }
+
+  @keyframes st-live {
+    0%,
+    8% {
+      opacity: 0;
+      scale: 0.9;
+    }
+
+    11%,
+    100% {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+
+  @keyframes st-dot {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @keyframes st-count-0 {
+    0%,
+    20% {
+      opacity: 1;
+    }
+
+    21%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes st-count-1 {
+    0%,
+    20% {
+      opacity: 0;
+    }
+
+    21%,
+    28% {
+      opacity: 1;
+    }
+
+    29%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes st-count-2 {
+    0%,
+    28% {
+      opacity: 0;
+    }
+
+    29%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes st-bc-btn {
+    0%,
+    5% {
+      background: transparent;
+      color: var(--faint);
+    }
+
+    7%,
+    100% {
+      background: var(--promo-bg);
+      color: var(--accent);
+    }
+  }
+
+  @keyframes st-tap-bc {
+    0%,
+    4% {
+      opacity: 0;
+      scale: 0.35;
+    }
+
+    4.8% {
+      opacity: 0.85;
+      scale: 0.7;
+    }
+
+    7.2%,
+    100% {
+      opacity: 0;
+      scale: 1.7;
+    }
+  }
+
+  @keyframes st-scrim {
+    0%,
+    6% {
+      opacity: 0;
+    }
+
+    9%,
+    30% {
+      opacity: 1;
+    }
+
+    33%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes st-sheet {
+    0%,
+    6% {
+      opacity: 0;
+      translate: 0 1.375rem;
+    }
+
+    9%,
+    30% {
+      opacity: 1;
+      translate: 0 0;
+    }
+
+    33%,
+    100% {
+      opacity: 0;
+      translate: 0 1.375rem;
+    }
+  }
+
+  @keyframes st-play-icon {
+    0%,
+    36.5% {
+      opacity: 1;
+    }
+
+    37.5%,
+    97% {
+      opacity: 0;
+    }
+
+    98%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes st-pause-icon {
+    0%,
+    36.5% {
+      opacity: 0;
+    }
+
+    37.5%,
+    97% {
+      opacity: 1;
+    }
+
+    98%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes st-tap-play {
+    0%,
+    35% {
+      opacity: 0;
+      scale: 0.35;
+    }
+
+    35.8% {
+      opacity: 0.9;
+      scale: 0.7;
+    }
+
+    38.5%,
+    100% {
+      opacity: 0;
+      scale: 1.8;
+    }
+  }
+
+  @keyframes st-ring {
+    0%,
+    36% {
+      opacity: 0;
+      scale: 0.55;
+    }
+
+    37% {
+      opacity: 0.75;
+      scale: 0.6;
+    }
+
+    44%,
+    100% {
+      opacity: 0;
+      scale: 2.6;
+    }
+  }
+
+  @keyframes st-ring2 {
+    0%,
+    38% {
+      opacity: 0;
+      scale: 0.55;
+    }
+
+    39% {
+      opacity: 0.55;
+      scale: 0.6;
+    }
+
+    46.5%,
+    100% {
+      opacity: 0;
+      scale: 3.1;
+    }
+  }
+
+  @keyframes st-burst {
+    0%,
+    36% {
+      opacity: 0;
+      scale: 1 0.35;
+      translate: 0 -0.25rem;
+    }
+
+    37% {
+      opacity: 1;
+    }
+
+    38.5% {
+      opacity: 1;
+      scale: 1 1;
+      translate: 0 -2.125rem;
+    }
+
+    43%,
+    100% {
+      opacity: 0;
+      scale: 1 0.6;
+      translate: 0 -2.875rem;
+    }
+  }
+
+  @keyframes st-scroll {
+    0%,
+    39% {
+      translate: 0 0;
+    }
+
+    93%,
+    96% {
+      translate: 0 -11rem;
+    }
+
+    99.5%,
+    100% {
+      translate: 0 0;
+    }
+  }
+
+  @keyframes st-scroll-follow {
+    0%,
+    40.5% {
+      translate: 0 0;
+    }
+
+    94%,
+    96.5% {
+      translate: 0 -11rem;
+    }
+
+    99.8%,
+    100% {
+      translate: 0 0;
     }
   }
 
@@ -10934,6 +11914,116 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.25rem;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * The controls a tool wears above its panes: the transposer's semitone
+   * stepper and ♯/♭ choice, the capo calculator's instrument switch.
+   *
+   * Deliberately *not* the app's own `.chip-*` controls, which are sized for a
+   * thumb on a stage and carry the reading panel's weight with them. These sit
+   * on a page somebody is reading at a desk, above a box of text, and the row
+   * has to stay quieter than the thing it acts on.
+   * ------------------------------------------------------------------------ */
+
+  .tool-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem 2.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tool-control {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .tool-control-label {
+    color: var(--faint);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .tool-control-note {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  .tool-stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--blog-line);
+    border-radius: 0.75rem;
+    background: var(--bg);
+  }
+
+  .tool-step {
+    border: 0;
+    background: none;
+    padding: 0.375rem 0.75rem;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .tool-step:hover {
+    color: var(--accent);
+  }
+
+  /* Tabular width so stepping from 9 to 10 — or from +2 to −2 — does not move
+     the buttons either side of the number. */
+  .tool-step-value {
+    min-width: 2.25rem;
+    border-left: 1px solid var(--blog-line);
+    border-right: 1px solid var(--blog-line);
+    padding: 0.375rem 0;
+    color: var(--accent);
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .tool-segments {
+    display: flex;
+    border: 1px solid var(--blog-line);
+    border-radius: 0.75rem;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .tool-segment {
+    border: 0;
+    background: none;
+    padding: 0.375rem 0.875rem;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .tool-segment + .tool-segment {
+    border-left: 1px solid var(--blog-line);
+  }
+
+  .tool-segment:hover {
+    color: var(--ink);
+  }
+
+  /* The lit segment. A tint rather than the filled accent the app's own segmented
+     controls use: two of these sit in one row here, and two filled capsules
+     would read as two separate decisions rather than one row of settings. */
+  .tool-segment.is-on {
+    background: var(--promo-bg);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   .tool-pane {

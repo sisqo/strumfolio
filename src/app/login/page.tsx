@@ -13,11 +13,8 @@ import {
   IconChevronRight,
   IconChordShape,
   IconCode,
-  IconDevices,
   IconGoogle,
   IconImport,
-  IconLeads,
-  IconLink,
   IconOnStage,
   IconPencil,
   IconPrint,
@@ -27,6 +24,7 @@ import {
 } from '@/components/icons'
 import { LandingCounters } from '@/components/LandingCounters'
 import { ReaderPhone } from '@/components/ReaderPhone'
+import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
 import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
@@ -150,19 +148,23 @@ const READER_POINTS: SpotlightPoint[] = [
   },
 ]
 
-const STRUM_TOGETHER_POINTS: SpotlightPoint[] = [
+interface StrumPoint {
+  title: string
+  text: string
+}
+
+/** The three closing claims under the Strum Together stage — no icon, unlike the two
+ *  spotlights above it: three phones already mid-demo are the illustration. */
+const STRUM_TOGETHER_POINTS: StrumPoint[] = [
   {
-    icon: <IconLeads size={18} />,
     title: 'One leader, no confusion',
     text: "Whoever's playing controls the song — line, section, chord — for everyone.",
   },
   {
-    icon: <IconDevices size={18} />,
     title: 'Every screen, in sync',
     text: 'Each person reads clearly, on their own device, always on the same line.',
   },
   {
-    icon: <IconLink size={18} />,
     title: 'Just a link away',
     text: 'No sign-up, no setup. Share a link, and anyone can join in seconds.',
   },
@@ -733,59 +735,34 @@ export default async function LoginPage({ searchParams }: Props) {
         * Strum Together, raised above the feature tour below rather than folded into
         * it: it is the one thing on this page two people are doing at once. It reads
         * second of the two spotlights now — the editor band above leads, being the
-        * claim no competitor can match — but keeps the loud accent fill to itself. See
-        * `.feature-spotlight`'s own comment in globals.css for why the fill is what
-        * marks it out.
+        * claim no competitor can match — but on the same warm, bordered panel `.promo`
+        * closes an article with, not the fill this band used to carry alone. See
+        * `.strum-tour`'s own comment in globals.css for why the tokens moved.
         *
         * More top margin than a plain section-to-section gap, matching the section
-        * below it and for the same reason (see that section's own comment): the solid
-        * fill starts a hard edge right here too, not only where it ends, and the editor
-        * band above only has to separate from the plain page.
+        * below it: this keeps both bands close together, since the second is
+        * what makes "every screen" a claim a visitor can see rather than take on faith.
         */}
       <section className="landing-width mt-14 lg:mt-20">
-        <div className="feature-spotlight">
-          <svg
-            className="feature-spotlight-mark"
-            width="300"
-            height="300"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={0.6}
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none" />
-            <path d="M8.5 19a3.5 3.5 0 0 1 7 0" />
-            <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
-          </svg>
+        <div className="strum-tour">
+          <div className="strum-tour-head">
+            <span className="landing-kicker">Strum Together</span>
+            <h2 className="strum-tour-title">One phone leads. Everyone else just plays.</h2>
+            <p className="strum-tour-text">
+              Share a link or a QR code. Whoever opens it follows the same song, in the same
+              key, scrolling on its own.
+            </p>
+          </div>
 
-          <div className="feature-spotlight-inner">
-            <div>
-              <span className="feature-spotlight-icon">
-                <IconBroadcast size={26} />
-              </span>
+          <StrumTogetherStage />
 
-              <h2 className="feature-spotlight-title">Strum Together</h2>
-
-              <p className="feature-spotlight-text">
-                Passing a songbook around, or crowding over one phone — it gets old fast.
-                With Strum Together, everyone follows the same song from their own device,
-                automatically — whoever&apos;s playing, however many, and everyone who&apos;s
-                singing along.
-              </p>
-            </div>
-
-            <div className="feature-spotlight-points">
-              {STRUM_TOGETHER_POINTS.map((point) => (
-                <div key={point.title} className="feature-spotlight-point">
-                  <span className="feature-spotlight-point-icon">{point.icon}</span>
-                  <div>
-                    <h3 className="feature-spotlight-point-title">{point.title}</h3>
-                    <p className="feature-spotlight-point-text">{point.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="strum-tour-points">
+            {STRUM_TOGETHER_POINTS.map((point) => (
+              <div key={point.title}>
+                <h3 className="strum-tour-point-title">{point.title}</h3>
+                <p className="strum-tour-point-text">{point.text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -794,10 +771,6 @@ export default async function LoginPage({ searchParams }: Props) {
         * Cross-device, right below Strum Together: the mockup is what makes "every
         * screen" a claim a visitor can see rather than take on faith, and it is the one
         * section on this page that leans on an image rather than an icon and a sentence.
-        *
-        * More top margin than a plain section-to-section gap: the solid fill of the
-        * Strum Together band above it is a hard edge to sit close to, where the sections
-        * on either side of it only have to separate from the plain page.
         */}
       <section className="landing-width mt-14 lg:mt-20">
         <div className="device-tour-grid">

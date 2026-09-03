@@ -18,10 +18,23 @@
  *
  * Nothing here is announced: the chrome is `aria-hidden`, and each screen carries its
  * own single `role="img"` and label for what it is showing.
+ *
+ * `fitClassName` adds a modifier alongside `.phone-fit`'s own — its only caller is
+ * `StrumTogetherStage`, which needs three of these at once and so cannot take
+ * `.phone-fit`'s solo-phone scale breakpoints (tuned for one phone filling the
+ * column). `.phone-fit.is-stage` in globals.css outguns the bare selector on
+ * specificity alone, which is what lets a second scale schedule coexist with the
+ * first without touching it.
  */
-export function PhoneFrame({ children }: { children: React.ReactNode }) {
+export function PhoneFrame({
+  children,
+  fitClassName,
+}: {
+  children: React.ReactNode
+  fitClassName?: string
+}) {
   return (
-    <div className="phone-fit">
+    <div className={fitClassName === undefined ? 'phone-fit' : `phone-fit ${fitClassName}`}>
       <div className="phone-frame">
         {/* Volume rocker, mute switch and the side button — the four notches that read
             as a phone rather than as a rounded rectangle. */}
