@@ -130,7 +130,14 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
           {/* Catches the tap that means "never mind". */}
           <div className="menu-overlay" onClick={close} aria-hidden />
 
-          <div className="menu-panel" role="menu">
+          {/*
+            * Widened for Settings (and the delete screen nested under it) on the same
+            * pattern `NavMenu` already uses for Strum Together: `Do Re Mi` in
+            * `NotationPicker`'s segmented control does not fit a quarter of the default
+            * panel width (see `.segment.is-wrap`'s own comment), so the view that holds
+            * it needs the room the plain link list in `main` never did.
+            */}
+          <div className={view === 'main' ? 'menu-panel' : 'menu-panel is-wide'} role="menu">
             {view === 'main' && (
               <>
                 <div className="user-menu-header">
