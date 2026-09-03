@@ -387,9 +387,9 @@ dipendenza di sviluppo prima che per volume di ricerca:
 | 3 | Free chord transposer online | Tool | da fare |
 | 4 | Capo calculator | Tool | da fare |
 | 5 | Setlist length calculator | Tool | da fare |
-| 6 | Best chord chart apps for gigging musicians | Best-of | da fare |
-| 6 | Best offline chord chart apps (no wifi) | Best-of | da fare |
-| 6 | Best apps for solo acoustic performers | Best-of | da fare |
+| 6 | Best chord chart apps for gigging musicians | Best-of | **consegnata** |
+| 6 | Best offline chord chart apps (no wifi) | Best-of | **consegnata** |
+| 6 | Best apps for solo acoustic performers | Best-of | **consegnata** |
 
 L'ondata 1 non ha dipendenze di sviluppo — si scrive e si pubblica — ed è per questo che
 va per prima. Le ondate 2-5 sono **strumenti interattivi**, cioè lavoro di prodotto e non
@@ -461,6 +461,30 @@ nessun altro punto, e chi la legge sta decidendo se fidarsi.
 I fatti sui concorrenti sono stati **verificati sulle loro pagine ufficiali** al momento
 della scrittura, non ricordati, e i prezzi portano la data. Vanno ricontrollati quando
 cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
+
+### Cosa è servito per l'ondata 6 (3 settembre 2026)
+
+I tre round-up sono arrivati prima degli strumenti 3-5, non dopo come l'ordine dichiarato sopra
+li aveva pianificati — scelta esplicita dell'utente, non una deriva. Conseguenza diretta: **nessun
+link a un trasposer, un capo calculator o un setlist calculator**, perché nessuno dei tre esiste
+ancora. I tre pezzi si linkano fra loro e verso ciò che è già pubblicato (i tre confronti 1-a-1,
+`convert-chord-sheets-to-chordpro`), non verso strumenti immaginari.
+
+- **Categoria `Comparisons` per tutti e tre**, come il piano stesso prevedeva già («copre anche i
+  best-of dell'ondata 6») — non serviva una categoria nuova.
+- **`cover: null` per tutti e tre.** Le fotografie Adobe Stock delle consegne precedenti sono
+  arrivate dalla cartella condivisa Parallels, non raggiungibile in questa sessione; piuttosto che
+  aspettare un'immagine, si è usato il ripiego che `openGraph.ts` già prevede per questo caso
+  esatto — la card generata al posto della copertina. Coerente con la regola scritta lì: «una
+  scrittura non deve mai aspettare che qualcuno procuri un'immagine».
+- **Fatti sui concorrenti nuovi rispetto ai tre confronti già pubblicati** (Ultimate Guitar: Chords
+  & Tabs, Songsterr) verificati sulle rispettive schede App Store — la fonte ufficiale più
+  affidabile trovata, dato che le pagine `ultimate-guitar.com`/`songsterr.com` stesse hanno
+  restituito solo frammenti. Prezzi datati settembre 2026 nel testo, come ogni altro confronto qui.
+- **Verificato con una build isolata prima di scrivere qui**: `git stash create` sui tre file
+  nuovi (senza toccarli nel working tree, che un `next dev` teneva occupato sulla stessa cartella),
+  `git archive` di quello stash in una copia sotto lo scratchpad, poi `tsc`/`npm test`/`npm run
+  build`/`npm run lint` lì — tutti verdi, i nove articoli compaiono tutti in `generateStaticParams`.
 
 ## Elemento promozionale ridisegnato (3 settembre 2026)
 
