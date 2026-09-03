@@ -57,6 +57,9 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
    * page is opened, which is the trade being made.
    */
   { path: '/tools/chordpro-converter', indexable: true },
+  /* The bare prefix, which today only redirects to the one tool — see `app/tools/page.tsx`.
+   * Not indexable while it is a redirect; it becomes so when it becomes a real index. */
+  { path: '/tools', indexable: false },
 
   /* The four legal documents. Reachable by somebody with no session forever — a visitor
    * deciding whether to sign up, a store reviewer, a data protection authority — and worth

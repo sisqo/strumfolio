@@ -31,7 +31,15 @@ export function SiteFooter() {
         &copy; {COPYRIGHT_YEAR} {SITE_URL}
       </p>
 
-      <nav className="site-footer-links" aria-label="Legal and changelog">
+      {/*
+        * Blog and Tools first: this footer sits on both of them, and it is the only chrome
+        * that carries a link between the two — the bar above names where you are and offers
+        * the way in, not the way sideways. A crawler that reaches either page finds the other
+        * from here, which is what makes the two halves of the public site one site.
+        */}
+      <nav className="site-footer-links" aria-label="Site and legal">
+        <Link href="/blog">Blog</Link>
+        <Link href="/tools/chordpro-converter">Tools</Link>
         <Link href="/privacy-policy">Privacy</Link>
         <Link href="/terms-of-service">Terms</Link>
         <Link href="/cookie-policy">Cookies</Link>
