@@ -18,13 +18,21 @@ export interface Converted {
   body: string
 }
 
-interface Token {
+export interface Token {
   text: string
   /** Zero-based column where the token starts. */
   col: number
 }
 
-function tokens(line: string): Token[] {
+/**
+ * The non-space runs of a line, each with the column it starts in.
+ *
+ * Exported for `music/sheet.ts`, which transposes a chord line in place and has to put every
+ * chord back in the column it came from — the same fact `merge` below reads to decide which
+ * syllable a chord belongs over. One scanner, because two would be two ideas of where a
+ * token starts, and the whole chords-above layout is columns.
+ */
+export function tokens(line: string): Token[] {
   const found: Token[] = []
   const pattern = /\S+/g
 
@@ -60,10 +68,25 @@ export function isChordLine(line: string): boolean {
   if (found.length === 0) return false
   if (!found.every((token) => parseChord(token.text) !== null)) return false
 
-  const allBareNotes = found.every((token) => BARE_ITALIAN.test(token.text))
-  if (allBareNotes && !/\S {2,}\S/.test(line)) return false
+  return !looksLikeSungNotes(line)
+}
 
-  return true
+/**
+ * A line of bare note words with no wide gap in it: `la la la la`, sung rather than played.
+ *
+ * The tiebreaker described above, as a predicate of its own so that a second reader can ask
+ * the same question of a differently-spaced copy of the same line. `music/sheet.ts` is that
+ * reader: it normalises a chart's commas and bar lines into spaces before asking
+ * `isChordLine` anything, and that normalisation *invents* the wide gap this guard treats as
+ * evidence — `do, re, mi` becomes `do  re  mi` and would be read as three chords. So it asks
+ * this of the original spacing instead, and the guard has to be reachable to be asked.
+ */
+export function looksLikeSungNotes(line: string): boolean {
+  const found = tokens(line)
+  if (found.length === 0) return false
+  if (!found.every((token) => BARE_ITALIAN.test(token.text))) return false
+
+  return !/\S {2,}\S/.test(line)
 }
 
 /** A bracketed or colon-terminated label, e.g. `[Verse 1]` or `Ritornello:`. */

@@ -12116,6 +12116,232 @@
     line-height: 1.55;
   }
 
+  /* ---------------------------------------------------------------------------
+   * The index of tools: four cards, text only.
+   *
+   * No pictures, unlike the blog's cards — a tool has nothing to photograph, and
+   * a made-up illustration on each would be four pictures of nothing. The name
+   * and the sentence are the whole card.
+   * ------------------------------------------------------------------------ */
+
+  .tool-index {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tool-index-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    border: 1px solid var(--blog-line);
+    border-radius: 1.25rem;
+    background: var(--surface);
+    padding: 1.5rem;
+    text-decoration: none;
+  }
+
+  .tool-index-card:hover {
+    border-color: var(--accent);
+  }
+
+  .tool-index-name {
+    color: var(--ink);
+    font-size: 1.1875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .tool-index-what {
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  /* Pushed to the bottom so the four cards agree on where their last line sits,
+     whatever length the sentence above it ran to. */
+  .tool-index-go {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* A dropdown and a time field, dressed as the stepper beside them: same border,
+     same radius, same paper. `appearance` is left alone deliberately — the native
+     control is what gives a phone its own clock and its own picker wheel, and
+     redrawing those to match a desktop is how a control stops working on the
+     device it matters most on. */
+  .tool-select {
+    border: 1px solid var(--blog-line);
+    border-radius: 0.75rem;
+    background: var(--bg);
+    padding: 0.375rem 0.625rem;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * The setlist calculator's answer: three numbers, then the per-song table.
+   * ------------------------------------------------------------------------ */
+
+  .setlist-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2.5rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--blog-line);
+    padding-top: 1.5rem;
+  }
+
+  .setlist-total {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  /* The one number somebody came for, at the size that says so. Tabular, so a
+     total that changes as a control is stepped does not shuffle the label under
+     it sideways. */
+  .setlist-total-value {
+    color: var(--accent);
+    font-size: 1.75rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+
+  .setlist-total-label {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  /* The title column takes the slack; every other column stays as narrow as its
+     digits. */
+  .setlist-table .setlist-title {
+    width: 100%;
+    font-weight: 400;
+  }
+
+  .setlist-assumed {
+    margin-left: 0.5rem;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-variant-numeric: normal;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  /* A line whose length could not be read. Underlined rather than coloured red:
+     nothing failed, the tool simply did not understand one line, and the row is
+     still counted at the default. */
+  .setlist-table tr.is-unreadable .setlist-title {
+    text-decoration: underline dotted var(--faint);
+    text-underline-offset: 0.2em;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * The capo calculator's table: one row per fret, the suggested one lit.
+   *
+   * A table and not a row of chips, because there are three facts per fret and
+   * two of them are text — and because a person comparing frets is comparing
+   * down a column, which is what a table is for.
+   * ------------------------------------------------------------------------ */
+
+  /* The chord column can outgrow a phone: it scrolls inside its own box rather
+     than making the page scroll sideways. */
+  .capo-table-wrap {
+    margin-top: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .capo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .capo-table-caption {
+    margin-bottom: 0.75rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    text-align: left;
+  }
+
+  .capo-table th,
+  .capo-table td {
+    border-bottom: 1px solid var(--blog-line);
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    vertical-align: baseline;
+  }
+
+  .capo-table thead th {
+    color: var(--faint);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .capo-table tbody th {
+    color: var(--ink);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .capo-count {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Mono, and with the gaps the component puts between names preserved: these are
+     chord names being scanned as a set, and a proportional face makes two of them
+     look like one word. */
+  .capo-chords {
+    color: var(--ink);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    white-space: pre;
+  }
+
+  /* The suggested fret. A warm band rather than a border, so the row reads as
+     the answer without the table growing a second grid. */
+  .capo-table tr.is-best th,
+  .capo-table tr.is-best td {
+    background: var(--promo-bg);
+  }
+
+  .capo-table tr.is-best .capo-chords,
+  .capo-table tr.is-best .capo-count {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .capo-badge {
+    margin-left: 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--accent);
+    padding: 0.0625rem 0.375rem;
+    color: var(--on-accent);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: 0.075em;
+  }
+
   /* The words under the tool. Same prose rules as an article, in the same reading
      column — a tool page that explains itself is still a page of writing. */
   .tool-prose {
@@ -12130,7 +12356,8 @@
     .blog-featured,
     .blog-grid,
     .blog-read-next-grid,
-    .tool-panes {
+    .tool-panes,
+    .tool-index {
       grid-template-columns: 1fr;
     }
 

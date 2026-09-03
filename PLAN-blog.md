@@ -384,9 +384,9 @@ dipendenza di sviluppo prima che per volume di ricerca:
 | 1 | Alternativa a SongBook ChordPro | Pagina pura | **consegnata** |
 | 1 | Alternativa a JustChords | Pagina pura | **consegnata** |
 | 2 | Free ChordPro converter + «How to convert chord sheets to ChordPro» | Tool + articolo | **consegnata** |
-| 3 | Free chord transposer online | Tool | da fare |
-| 4 | Capo calculator | Tool | da fare |
-| 5 | Setlist length calculator | Tool | da fare |
+| 3 | Free chord transposer online | Tool | **consegnata** |
+| 4 | Capo calculator | Tool | **consegnata** |
+| 5 | Setlist length calculator | Tool | **consegnata** |
 | 6 | Best chord chart apps for gigging musicians | Best-of | **consegnata** |
 | 6 | Best offline chord chart apps (no wifi) | Best-of | **consegnata** |
 | 6 | Best apps for solo acoustic performers | Best-of | **consegnata** |
@@ -465,10 +465,12 @@ cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
 ### Cosa è servito per l'ondata 6 (3 settembre 2026)
 
 I tre round-up sono arrivati prima degli strumenti 3-5, non dopo come l'ordine dichiarato sopra
-li aveva pianificati — scelta esplicita dell'utente, non una deriva. Conseguenza diretta: **nessun
-link a un trasposer, un capo calculator o un setlist calculator**, perché nessuno dei tre esiste
-ancora. I tre pezzi si linkano fra loro e verso ciò che è già pubblicato (i tre confronti 1-a-1,
-`convert-chord-sheets-to-chordpro`), non verso strumenti immaginari.
+li aveva pianificati — scelta esplicita dell'utente, non una deriva. Conseguenza diretta al
+momento della scrittura: **nessun link a un trasposer, un capo calculator o un setlist
+calculator**, perché nessuno dei tre esisteva. I tre pezzi si linkavano fra loro e verso ciò che
+era già pubblicato (i tre confronti 1-a-1, `convert-chord-sheets-to-chordpro`), non verso
+strumenti immaginari. **Superato lo stesso giorno**: i tre strumenti sono stati costruiti poche
+ore dopo e i link mancanti aggiunti — vedi *I tre strumenti rimasti* sotto.
 
 - **Categoria `Comparisons` per tutti e tre**, come il piano stesso prevedeva già («copre anche i
   best-of dell'ondata 6») — non serviva una categoria nuova.
@@ -690,3 +692,75 @@ loro `date` è diventata luglio o agosto. Riscritte al mese della nuova data
 questo documento resta invece datata al giorno reale in cui è stata fatta (3 settembre) —
 questo è il log di lavoro, non la copertina dell'articolo, e le due cose rispondono a domande
 diverse.
+
+### I tre strumenti rimasti, e `/tools` che diventa un indice vero (3 settembre 2026)
+
+Chiude il piano a ondate: `/tools/chord-transposer` (ondata 3), `/tools/capo-calculator`
+(ondata 4), `/tools/setlist-length-calculator` (ondata 5). Con quattro strumenti, `/tools`
+smette di essere un redirect al convertitore e diventa l'indice che quel file stesso diceva di
+voler diventare «quando arriva il secondo» — `indexable: true` compreso, che è l'unica cosa che
+serviva perché entrasse anche in sitemap (`sitemap.ts` filtra su quel campo e non va toccato).
+
+**La regola che ha guidato tutto: nessuna aritmetica nuova.** I due strumenti musicali chiamano
+i moduli che usa l'app, non copie scritte per il marketing:
+
+- Il transposer passa da un modulo nuovo, `lib/music/sheet.ts`, che però delega ogni decisione:
+  `readChord` per muovere un accordo, `isChordLine`/`isTabRow` di `import/convert.ts` per
+  decidere cosa *è* una riga di accordi, `parseChordPro` per un file già ChordPro. Aggiunge una
+  cosa sola che l'app non ha mai avuto bisogno di fare: riscrivere il **testo** di un foglio,
+  colonne comprese.
+- Il capo calculator è `lib/music/capoAdvice.ts`, che è quasi solo una facciata su
+  `easeByFret` e `suggestCapo` di `capo.ts` — gli stessi che disegnano i pallini nel pannello di
+  lettura. Un test lo inchioda esplicitamente: *«agrees with the app about which fret to
+  suggest»*. Due prodotti che consigliano tasti diversi per la stessa canzone sarebbero peggio
+  di nessun consiglio.
+- Il setlist calculator è l'unico con logica propria (`lib/tools/setlist.ts`, cartella nuova):
+  la durata di un set è una domanda che l'app non fa mai — niente in un canzoniere memorizza una
+  durata — quindi tenerlo in `lib/music/` avrebbe implicato una funzione che non esiste.
+
+**Il capo dato via gratis, e perché non è un buco nel gate.** `PLANS.free` ha
+`smartCapo: false`: il capo calcolato è a pagamento nell'app, e `songbook-chordpro-alternative.mdx`
+lo dice a chiare lettere. La risoluzione è la stessa che il convertitore ha già preso: si regala
+il *calcolo* su una canzone incollata una volta, si vende il *contesto* — un tasto ricordato per
+canzone, su tutto il repertorio, su ogni dispositivo, accanto al foglio che lo usa. Nessuna
+lettura di entitlement su queste pagine, deliberatamente: uno strumento che non tocca i brani di
+nessuno non può farne uscire.
+
+**Tre difetti trovati dai test, non dal ragionamento** — e sono la ragione per cui le regole
+stanno in moduli puri e non nei componenti:
+
+1. **Le colonne.** Riscrivere `A` come `Bb` sposta di un carattere ogni accordo successivo della
+   riga, cioè lo mette sopra la sillaba sbagliata, in silenzio. Il test che lo prende non
+   confronta stringhe ma **ordini**: `convert(transpose(x))` contro `transpose(convert(x))` —
+   se l'attacco accordo-sillaba è sopravvissuto, i due sono identici. Resta un caso che il
+   formato non può salvare (un nome che cresce con un solo spazio davanti al successivo): è
+   `crowded`, e la pagina lo dice invece di far sembrare un bug.
+2. **`do, re, mi` letto come accordi.** Per leggere `Am, F, C, G` — l'incollata più comune su un
+   transposer — le virgole vanno normalizzate in spazi; ma così si *inventa* il buco di due
+   spazi che `isChordLine` usa per distinguere una riga di accordi da `la la la` cantato. La
+   guardia è stata estratta in `looksLikeSungNotes` (esportata da `convert.ts`, un'idea sola in
+   un posto solo) e viene interrogata sulla spaziatura **originale**.
+3. **`Take 4` letto come quattro minuti.** Nel setlist calculator una durata è solo la forma con
+   i due punti (`3:45`). Un numero nudo a fine riga è molto più spesso la fine di un titolo —
+   `Interlude 2`, `Blues No. 5` — e mangiarlo avrebbe accorciato il set in modo invisibile.
+   Rifiutati per la stessa ragione `3.45` e `4m10s`: una forma sola, dichiarata sulla pagina, e
+   tutto il resto cade sulla durata predefinita dove **si vede** che è un'assunzione.
+
+Dettagli minori che valgono per il prossimo strumento:
+
+- **Una riga in `publicRoutes.ts` per ogni strumento, o la pagina risponde 307 verso `/login`** —
+  e `next build` non lo vede. È scritto in maiuscolo in quel file; è vero.
+- Il gap di un set è `n − 1`, non `n`: un intervallo sta *fra* due canzoni. Su venti pezzi con
+  trenta secondi di pausa, sbagliarlo sono trenta secondi di finzione.
+- Orologio a mano, niente `Date` né `Intl`: `prices.ts` documenta perché, e un set che inizia
+  alle 22:30 e finisce alle 00:45 è esattamente il caso che renderebbe interessante un `Date`.
+- Le durate e gli orari si arrotondano **per eccesso**: uno slot è una promessa a chi ha le
+  chiavi del locale, e la direzione in cui sbagliare è tardi.
+- I controlli degli strumenti (`.tool-controls`, `.tool-segments`, `.tool-select`) sono
+  deliberatamente **non** i `.chip-*` dell'app: quelli sono dimensionati per un pollice su un
+  palco, questi stanno su una pagina che si legge alla scrivania.
+
+Ancora aperto, e non fatto qui: gli strumenti stampano lettere internazionali soltanto. Le
+quattro notazioni (italiana, tedesca, numeri di Nashville) che l'app offre e che gli articoli
+citano sarebbero un `Spelling` invece di un `Accidentals` nella firma di `transposeSheet` — un
+differenziatore vero rispetto a ogni transposer online, e un secondo giro di lavoro.

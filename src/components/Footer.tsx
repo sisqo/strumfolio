@@ -95,10 +95,10 @@ export function Footer() {
           * from a search, so nothing inside the app pointed at them and a visitor who landed
           * on one had no way to the rest.
           *
-          * Pointed at `/tools` rather than at the one tool that exists today. That address is
-          * a redirect for now (`app/tools/page.tsx` explains why it is not yet an index — one
-          * card is a thin page), and aiming the durable label at the durable address means the
-          * day it becomes a real index this line does not have to be found and changed.
+          * Pointed at `/tools` rather than at any one tool, which is what made this line
+          * survive the change it was written for: the address was a redirect to the only tool
+          * that existed when the label was added, and now that four of them are listed there
+          * the index is a real page — and nobody had to find this line and edit it.
           */}
         <span className="app-footer-item">
           <Link href="/tools">Tools</Link>
