@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { SiteFooter } from '@/components/SiteFooter'
 import { APP_NAME } from '@/lib/brand'
 import { postDate } from '@/lib/blog/date'
-import { CARD_HEIGHT, CARD_WIDTH, postPath, socialImage } from '@/lib/blog/openGraph'
+import { CARD_HEIGHT, CARD_WIDTH, pageImage, postPath } from '@/lib/blog/openGraph'
 import { listPosts } from '@/lib/blog/posts'
 import { shelve } from '@/lib/blog/shelves'
 
@@ -87,7 +87,7 @@ export default async function BlogIndexPage() {
           <Link href={postPath(featured.meta.slug)} className="blog-featured">
             <span className="blog-featured-image">
               <Image
-                src={socialImage(featured.meta)}
+                src={pageImage(featured.meta)}
                 alt=""
                 width={CARD_WIDTH}
                 height={CARD_HEIGHT}
@@ -116,7 +116,7 @@ export default async function BlogIndexPage() {
               <Link key={meta.slug} href={postPath(meta.slug)} className="blog-card">
                 <span className="blog-card-image">
                   <Image
-                    src={socialImage(meta)}
+                    src={pageImage(meta)}
                     alt=""
                     width={CARD_WIDTH}
                     height={CARD_HEIGHT}

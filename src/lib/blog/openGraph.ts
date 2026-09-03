@@ -25,15 +25,33 @@ export function postPath(slug: string): string {
 }
 
 /**
- * The image that represents an article when its link is shared.
+ * The picture on the page: the wide band above an article, and the article's card on the
+ * index.
  *
- * The article's own cover when it has one; otherwise the card drawn from its title by
- * `blog/[slug]/og`. The fallback is what makes a cover optional rather than mandatory — a
- * piece of writing should never wait on somebody sourcing a picture, and an article shared
- * with no card at all looks broken in a way that costs more than a plain card does.
+ * Its own cover when it has one — a photograph on the guides, the drawn «where it runs» card
+ * on the comparisons — and otherwise the card generated from the title. The fallback is what
+ * makes a cover optional rather than mandatory: a piece of writing should never wait on
+ * somebody sourcing a picture.
+ */
+export function pageImage(meta: PostMeta): string {
+  return meta.cover ?? `${postPath(meta.slug)}/og`
+}
+
+/**
+ * The image that represents an article when its link is shared — **always the generated
+ * card**, never the cover.
+ *
+ * This is the one place the two deliberately differ. A cover earns its place on the page by
+ * being warm and human; in a link preview it is a photograph with no words on it, three
+ * hundred pixels wide in a chat, next to a title the app may or may not render. The generated
+ * card carries the headline, the mark and the colours, and it is legible at that size — which
+ * is the only thing a social card has to be.
+ *
+ * It costs nothing extra: `blog/[slug]/og` is prerendered for every article at build time
+ * anyway, because it always was the fallback.
  */
 export function socialImage(meta: PostMeta): string {
-  return meta.cover ?? `${postPath(meta.slug)}/og`
+  return `${postPath(meta.slug)}/og`
 }
 
 /**

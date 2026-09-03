@@ -8,7 +8,7 @@ import { SiteFooter } from '@/components/SiteFooter'
 import { BlogReadNext } from '@/components/BlogReadNext'
 import { IconChevronLeft } from '@/components/icons'
 import { postDate } from '@/lib/blog/date'
-import { CARD_HEIGHT, CARD_WIDTH, postMetadata, socialImage } from '@/lib/blog/openGraph'
+import { CARD_HEIGHT, CARD_WIDTH, pageImage, postMetadata } from '@/lib/blog/openGraph'
 import { listPosts, loadPost, publishedSlugs } from '@/lib/blog/posts'
 import { pickReadNext } from '@/lib/blog/shelves'
 
@@ -81,7 +81,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           belongs to the page while the prose belongs to a column narrow enough to read. */}
       <div className="blog-article-hero">
         <Image
-          src={socialImage(meta)}
+          src={pageImage(meta)}
           /*
            * Empty alt on purpose: the cover repeats the headline directly above it, and a
            * screen reader announcing the title twice serves nobody. A picture that carries

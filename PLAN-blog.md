@@ -488,6 +488,33 @@ cambiano: un confronto sbagliato sui fatti è peggio di nessun confronto.
 - **Pagine per categoria**: da riconsiderare quando gli articoli saranno abbastanza da
   riempirle — indicativamente trenta, con almeno cinque per categoria. Il campo ora è una
   lista chiusa, quindi accenderle è aggiungere una rotta, non ripassare gli articoli.
+### Immagini: fotografie sulle guide, disegni sui confronti (3 settembre 2026)
+
+Sono arrivate undici immagini Adobe Stock nella cartella condivisa, e la regola che ne è
+uscita vale più delle immagini stesse.
+
+- **La copertina della pagina e la card social sono ora due cose diverse.**
+  `pageImage()` disegna la banda dell'articolo e le schede dell'indice; `socialImage()`
+  restituisce **sempre** la card generata, anche quando esiste una copertina. Motivo: in
+  un'anteprima di WhatsApp una fotografia muta larga trecento pixel vale meno di un titolo
+  leggibile con il marchio sopra. Non costa nulla — la rotta `og` era già prerenderizzata
+  per ogni articolo, perché era già il ripiego.
+- **Le guide portano fotografie, i confronti tengono le card disegnate.** Due ragioni, non
+  una: la card «where it runs» *è* l'argomento di quegli articoli, e sono le uniche immagini
+  senza volti — mettere la faccia di una persona sotto «An OnSong alternative» si legge come
+  un endorsement che nessuno ha dato.
+- **Quattro delle undici erano generate con l'IA, e sbagliate.** In una, le corde
+  attraversano la buca e svaniscono: nessun ponte, nessuna selletta, e meccaniche sulla
+  fascia. Su un prodotto per musicisti quel dettaglio è visto in mezzo secondo dal pubblico
+  esatto che si sta cercando di convincere. **Regola per il futuro: ingrandire lo strumento
+  prima di usare una foto di repertorio** — ponte, paletta, numero di corde, mani. Le tre
+  scelte sono fotografie vere; una di esse riprende un libro di accordi stampato in
+  notazione tedesca (`G/H`, `A7/E`), che è esattamente ciò di cui parlano gli articoli.
+- **Manca il capotasto.** Nessuna delle undici lo mostra, ed è il soggetto che il mock
+  chiedeva per nome. L'articolo sul capotasto porta intanto una foto di mano sulla tastiera.
+- Le originali (2-7 MB) **non entrano nel repo**: vengono ritagliate a 1200×630 e convertite
+  in WebP, 48-104 KB l'una.
+
 - **Il mock prevedeva fotografie; le copertine tipografiche sono diventate la scelta.**
   Ogni `image-slot` del disegno descrive uno scatto («Hands on a capo, close up»), e al loro
   posto sono state generate copertine tipografiche. Nate come sostituto, dopo cinque
