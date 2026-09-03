@@ -506,6 +506,48 @@ aggiungere altro a Comparisons.
   isolata sotto lo scratchpad (il repo aveva di nuovo un `next dev` acceso sulla stessa cartella),
   `tsc`/`npm test`/`npm run build`/`npm run lint` lì, tutti verdi.
 
+### Le cinque copertine rimaste a `cover: null` ora hanno una fotografia (3 settembre 2026)
+
+La cartella condivisa Parallels è tornata raggiungibile nella stessa giornata, con undici nuove
+`AdobeStock_*.jpeg` dentro `Stock Images/` — undici, lo stesso numero della consegna originale.
+Confrontandole una per una con le sei copertine già pubblicate, **quattro erano duplicati esatti**
+di foto già convertite in webp: `AdobeStock_306290332` → `chordpro-explained.webp`,
+`AdobeStock_614894374` → `convert-chord-sheets-to-chordpro.webp`, `AdobeStock_110361062` →
+`onsong-alternative.webp`, `AdobeStock_1942088121` → `justchords-alternative.webp`. Scartate senza
+riconvertirle: la stessa foto non deve comparire su due articoli diversi.
+
+Delle sette rimaste, **due sono state scartate per il soggetto**: una è un fotomontaggio
+«AI content generator» — mani su una tastiera con un'interfaccia «Prompt / Generate» in overlay,
+niente a che fare con un chord chart; l'altra è una cantante con un microfono e un telefono alzato
+davanti al viso, in un contesto di band — il volto occupa il centro dell'inquadratura in un modo
+che nessun ritaglio 1200×630 riesce a escludere senza perdere anche il soggetto (microfono,
+telefono). Restano disponibili per una consegna futura se emerge un articolo a cui calzano meglio.
+
+Le cinque restanti sono andate ai cinque articoli che erano rimasti su `cover: null`:
+
+| Articolo | AdobeStock | Soggetto |
+|---|---|---|
+| `a-chord-is-a-set-of-notes` | 1524649459 | Mani su capotasto/paletta, nessun volto in scatto |
+| `transposing-to-fit-your-voice` | 2110212061 | Chitarra + tablet con lo spartito appoggiato sul tavolo |
+| `best-apps-for-solo-acoustic-performers` | 2157706090 | Una persona sola, due chitarre, un device su un treppiede |
+| `best-offline-chord-chart-apps` | 1960237145 | Chitarra e mani in spiaggia — l'unico posto fra gli undici scatti che evoca «niente rete» |
+| `best-chord-chart-apps-for-gigging-musicians` | 2096527530 | Cuffie su un mixer — il meno calzante dei cinque, stesso genere di scelta già presa per SongBook |
+
+Tre delle cinque **avevano un volto nell'inquadratura originale** (2110212061, 2157706090,
+1960237145) e sono state ritagliate per escluderlo del tutto, non solo attenuarlo — coerente con
+`3959016`/`dab48a5`. Il primo tentativo di ritaglio per gli ultimi due (basato su una stima a
+occhio delle coordinate sulla miniatura) **non escludeva il volto**: verificato ritagliando prima
+strisce di prova (`-gravity South -crop 100%x60%+0+0`, poi `40%`) e guardandole prima di convertire
+il file finale — il volto della persona seduta a gambe incrociate finiva escluso solo sotto il 60%
+dell'altezza originale, non al 44% stimato a occhio; le due facce sulla spiaggia solo sotto il 40%.
+Lezione per la prossima volta: **ritagliare e guardare la striscia di prova prima di convertire**,
+non fidarsi della stima sulla miniatura ridotta.
+
+Ritagli con ImageMagick (`convert -crop WxH+X+Y -resize 1200x630 -quality 82`), non `sharp`: il
+modulo è risolvibile nell'ambiente ma non è una dipendenza di questo repo, e `convert` era già
+installato sulla macchina. Dimensioni finali 24-83 KB, dentro l'intervallo delle sei copertine già
+in `public/blog/` (36-104 KB).
+
 ## Elemento promozionale ridisegnato (3 settembre 2026)
 
 Il mock `Blog.dc.html` ha sostituito la CTA di chiusura. Era una fascia scura con una frase
