@@ -11136,6 +11136,11 @@
     font-size: 0.90625rem;
     font-weight: 500;
     text-decoration: none;
+    /* A pill's label wraps rather than shrinks when the bar runs out of room —
+       "Sign in" breaking to two lines reads as broken, not as responsive. Shrinking
+       the row's spacing at 40rem (below) keeps it from ever reaching that point. */
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .site-bar-cta:hover {
@@ -11249,7 +11254,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.625rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.8125rem;
   }
 
@@ -11324,6 +11329,14 @@
     text-decoration: none;
   }
 
+  /* Both cards clip their cover image to the card's own radius, which means the
+     default outline-offset moat has nowhere to sit — an offset ring would fall
+     outside the clip and disappear. Inset it instead of dropping `overflow: hidden`. */
+  .blog-card:focus-visible,
+  .blog-featured:focus-visible {
+    outline-offset: -2px;
+  }
+
   .blog-card-image {
     position: relative;
     display: block;
@@ -11367,7 +11380,7 @@
   }
 
   .blog-card-meta {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -11387,7 +11400,7 @@
   }
 
   .blog-earlier-year {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.84375rem;
   }
 
@@ -11413,7 +11426,7 @@
 
   .blog-earlier-date,
   .blog-earlier-time {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -11461,6 +11474,15 @@
   .blog-article-meta {
     margin-top: 1.25rem;
     font-size: 0.84375rem;
+  }
+
+  /* The 404 — see `blog/not-found.tsx`. Same column, same back link as a real article;
+     only the title and this one line change. */
+  .blog-not-found-message {
+    margin-top: 1rem;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.55;
   }
 
   .blog-article-hero {
@@ -11648,7 +11670,7 @@
   }
 
   .blog-chord-table-label {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.71875rem;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -11660,6 +11682,10 @@
     grid-template-columns: 5.5rem repeat(var(--blog-chord-columns), 1fr);
     gap: 0.75rem 0.5rem;
     margin-top: 1rem;
+    /* The mock draws four chords, and nothing caps how many a future article could
+       pass — scroll the grid inside its own box rather than let a wide one push the
+       720px reading column, the same guard `.capo-table-wrap` gives the tools' table. */
+    overflow-x: auto;
     font-family: var(--font-mono), ui-monospace, monospace;
     font-size: 1rem;
     color: var(--ink);
@@ -11668,7 +11694,7 @@
   .blog-chord-table-row-label {
     font-family: var(--font-sans), system-ui, sans-serif;
     font-size: 0.84375rem;
-    color: var(--faint);
+    color: var(--muted);
   }
 
   .blog-chord-table-played {
@@ -11835,7 +11861,7 @@
   }
 
   .promo-note {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.84375rem;
   }
 
@@ -12378,8 +12404,33 @@
       padding-right: 1.25rem;
     }
 
+    /* The bar has five things to fit in ~350px of clear width once the mark is drawn
+       at full size — too tight for all of them at once. Rather than drop Pricing (the
+       header's own docstring calls it one of "the two doors out"), shrink the mark
+       and tighten every gap so the row keeps both doors instead of hiding one. */
+    .site-bar-brand img {
+      height: 1.125rem;
+    }
+
+    .site-bar-inner {
+      gap: 0.25rem;
+    }
+
+    .site-bar-pill {
+      margin-left: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.71875rem;
+    }
+
     .site-bar-link {
-      display: none;
+      margin-left: 0.375rem;
+      font-size: 0.8125rem;
+    }
+
+    .site-bar-cta {
+      margin-left: 0.5rem;
+      padding: 0 0.875rem;
+      font-size: 0.8125rem;
     }
 
     .site-hero-title {
