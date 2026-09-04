@@ -32,10 +32,9 @@
  * whole design.
  */
 
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
-
 import { randomUUID } from 'crypto'
 
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
@@ -98,11 +97,6 @@ export interface MockSubscriptionState {
   discount: LiveDiscount | null
 }
 
-/**
- * The raw subscription columns for one account, read as `SubscriptionColumns` — the narrow
- * shape `liveSubscription`/`resolveSubscription` actually need, with no grant fields to fill
- * with filler values this file never uses (see that interface's own comment).
- */
 /**
  * The three coupon columns, resolved — read **separately from the subscription ones, and
  * guarded**, which is the whole reason this is its own function.
@@ -688,16 +682,26 @@ export async function mockPurchase(
           amount,
           cycle: billedCycle,
           endsOn,
-          /* `durationCopy` and not a sentence written here: the checkout screen showed exactly
-             this line before the button, and two wordings of one promise is how the two come
-             to differ. */
+          /*
+           * `durationCopy` and not a sentence written here: the checkout screen showed exactly
+           * this line before the button, and two wordings of one promise is how the two come to
+           * differ.
+           *
+           * `billedCycle === null` — the Lifetime — gates the **duration only**, never the
+           * whole clause. A Lifetime has no renewal to revert, so there is nothing to describe;
+           * it still has a code and a full price, and dropping those left the one purchase that
+           * is permanent as the single confirmation that never said what its €139.99 came off.
+           */
           coupon:
-            coupon === null || fullAmount === null || amount === null || billedCycle === null
+            coupon === null || fullAmount === null || amount === null
               ? null
               : {
                   code: coupon.code,
                   fullAmount,
-                  duration: durationCopy(fullAmount, amount, coupon.discountMonths, billedCycle),
+                  duration:
+                    billedCycle === null
+                      ? null
+                      : durationCopy(fullAmount, amount, coupon.discountMonths, billedCycle),
                 },
         }),
       })

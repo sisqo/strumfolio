@@ -66,7 +66,32 @@ export function PaymentHistoryTable({
                 {dates === 'plain' ? formatPlanDate(line.occurredAt) : line.occurredAt.toISOString().slice(0, 10)}
               </td>
               <td className="py-1.5 pr-3">{describeEvent(line)}</td>
-              <td className="whitespace-nowrap py-1.5">{line.amount !== null ? euro(line.amount) : '—'}</td>
+              <td className="whitespace-nowrap py-1.5">
+                {/*
+                  * The listino struck before the amount taken, and the code under it — the same
+                  * "was, now" order the cards on /pricing use. Without this a reduced line reads
+                  * as a plain €24.49 with nothing to say why, which is the one question a
+                  * payment history exists to answer.
+                  *
+                  * Every figure comes from the event's own payload, never re-derived from
+                  * `PRICES` — see `logMockEvent`'s `amount`. A later re-price cannot rewrite a
+                  * line that has already happened.
+                  */}
+                {line.fullAmount !== null && line.fullAmount !== line.amount && (
+                  <>
+                    <span className="sr-only">Was </span>
+                    <s className="mr-1 text-muted">{euro(line.fullAmount)}</s>
+                    <span className="sr-only">, now </span>
+                  </>
+                )}
+                {line.amount !== null ? euro(line.amount) : '—'}
+                {line.couponCode !== null && (
+                  <span className="block text-[0.75rem] text-muted">
+                    {line.couponCode}
+                    {line.couponPercent !== null && ` −${line.couponPercent}%`}
+                  </span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

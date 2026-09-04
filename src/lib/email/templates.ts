@@ -224,7 +224,7 @@ export function purchaseEmail(input: {
    * rather than disputed is that the customer was told in writing, at the moment they paid,
    * and not only on a page they had already navigated away from.
    */
-  coupon?: { code: string; fullAmount: string; duration: string } | null
+  coupon?: { code: string; fullAmount: string; duration: string | null } | null
 }): EmailTemplate {
   const { planLabel, amount, cycle, endsOn, coupon } = input
   const subject = `Your ${planLabel} plan is active — thanks`
@@ -242,8 +242,18 @@ export function purchaseEmail(input: {
    * their account. `duration` is the same sentence the checkout screen showed, passed through
    * rather than rewritten here: two wordings of one promise is how the two come to differ.
    */
+  /*
+   * `duration` is `null` for the Lifetime, which has no cycle and therefore no reversion to
+   * describe — and the code and the full price still have to be named. An earlier version
+   * dropped the whole clause whenever there was no cycle, which meant the one purchase that
+   * is permanent, and the one nobody can escape by cancelling a renewal, was the single
+   * confirmation that never said what the €139.99 had come off.
+   */
   const couponClause =
-    coupon == null ? '' : ` You used ${coupon.code}, off the full price of ${euro(coupon.fullAmount)}. ${coupon.duration}`
+    coupon == null
+      ? ''
+      : ` You used ${coupon.code}, off the full price of ${euro(coupon.fullAmount)}.` +
+        (coupon.duration === null ? '' : ` ${coupon.duration}`)
   const renewalClause =
     endsOn === null
       ? 'There is nothing to renew — it stays yours, for good.'

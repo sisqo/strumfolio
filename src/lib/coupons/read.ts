@@ -21,7 +21,7 @@ import { and, count, desc, eq, isNull } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
 import { couponCampaigns, couponRedemptions } from '@/lib/db/schema'
-import type { BillingPeriod, CheckoutPlan } from '@/lib/plans/prices'
+import type { CheckoutPlan } from '@/lib/plans/prices'
 
 import { campaignStatus } from './discount'
 import type { CampaignFacts } from './discount'
@@ -395,41 +395,3 @@ export async function activeCoupon(input: {
     return null
   }
 }
-
-/** Whether any live campaign accepts a typed code — what decides if the banner offers an input. */
-export async function anyCodeEnterable(): Promise<boolean> {
-  if (!hasDatabase) return false
-
-  try {
-    const now = new Date()
-    const rows = await db().select(COLUMNS).from(couponCampaigns).where(isNull(couponCampaigns.archivedAt))
-
-    const counts = await redemptionCounts()
-    return rows.some((row) => {
-      const campaign = toCampaign(row, counts.get(row.id) ?? 0, now)
-      return entryAllowsCode(campaign.entry) && isRedeemable(campaign.status)
-    })
-  } catch (error) {
-    console.error('anyCodeEnterable failed', error)
-    return false
-  }
-}
-
-/** The prices a campaign turns a plan into, on both cycles — computed on the server, printed as strings. */
-export interface CouponPricing {
-  percent: string
-  months: number | null
-  appliesToLifetime: boolean
-  code: string
-}
-
-export function pricingOf(campaign: Campaign): CouponPricing {
-  return {
-    percent: campaign.discountPercent,
-    months: campaign.discountMonths,
-    appliesToLifetime: campaign.appliesToLifetime,
-    code: campaign.code,
-  }
-}
-
-export type { BillingPeriod }
