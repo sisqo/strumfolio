@@ -18,19 +18,30 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconChorus,
+  IconClipboard,
   IconCode,
   IconComment,
+  IconCopy,
   IconEye,
   IconInfo,
   IconPencil,
   IconPlus,
   IconRemoveLine,
+  IconScissors,
+  IconSelect,
   IconTab,
   IconTrash,
   IconUndo,
 } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
 import type { Song } from '@/lib/data/types'
+import {
+  type LineRange,
+  copyRange,
+  pasteAt,
+  pasteOver,
+  removeRange,
+} from '@/lib/editor/clipboard'
 import { type SongDocument, fromSource, readLyricLine, toSource } from '@/lib/editor/document'
 import { addChord, insertTab, removeLine, toggleComment, toggleSection } from '@/lib/editor/edits'
 import { deleteSong, saveSong } from '@/lib/import/actions'
@@ -88,6 +99,12 @@ const COMMANDS: {
   },
 ]
 
+/** How many lines a taken run holds, said in words. */
+function lineCount(range: LineRange): string {
+  const count = range.to - range.from + 1
+  return `${count} line${count === 1 ? '' : 's'}`
+}
+
 /** Where a raw offset in the source falls, in line-and-letter terms. */
 function caretFromRaw(source: string, rawAt: number): Caret {
   const before = source.slice(0, rawAt)
@@ -131,6 +148,12 @@ export function EditorScreen({ song }: { song: Song }) {
 
   const [caret, setCaret] = useState<Caret>({ line: 0, at: 0 })
   const [editing, setEditing] = useState<{ line: number; chord: number } | null>(null)
+  /** The run of whole lines taken, by block index — see `clipboard.ts` for why. */
+  const [picked, setPicked] = useState<LineRange | null>(null)
+  /** The selection mode: the way a touch takes a run, where a drag has no room. */
+  const [picking, setPicking] = useState(false)
+  /** Where the last clipboard command left the caret, for the rows to honour. */
+  const [focus, setFocus] = useState<Caret | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -190,6 +213,14 @@ export function EditorScreen({ song }: { song: Song }) {
     setFuture((entries) => (entries.length === 0 ? entries : []))
     lastKind.current = kind
     setSource(next)
+    /*
+     * And it is no longer where the taken run can point either: the run is a pair of
+     * block indices, and an edit that reshapes the document moves the lines out from
+     * under them. A run aimed at the wrong lines is worse than no run at all — it is
+     * the same failure `caret.line` already had once, where `Delete line` quietly took
+     * a different line than the one on screen.
+     */
+    setPicked(null)
   }
 
   const undo = () => {
@@ -200,8 +231,10 @@ export function EditorScreen({ song }: { song: Song }) {
     setFuture((entries) => [...entries, source])
     lastKind.current = null
     setSource(previous)
-    // The chord it pointed at may not exist in the state coming back.
+    // The chord it pointed at may not exist in the state coming back, and neither
+    // need the lines the run was holding.
     setEditing(null)
+    setPicked(null)
     setNotice(null)
   }
 
@@ -214,8 +247,102 @@ export function EditorScreen({ song }: { song: Song }) {
     lastKind.current = null
     setSource(next)
     setEditing(null)
+    setPicked(null)
     setNotice(null)
   }
+
+  /*
+   * What a taken run of lines answers to.
+   *
+   * The document arithmetic is none of this screen's business — it lives in
+   * `clipboard.ts`, pure and tested — so each of these is a gesture turned into one
+   * call and one `change`. One: a paste of twenty lines has to be a single step of
+   * Undo, and it would be twenty if it were built by applying an edit per line.
+   */
+  const takenLines = async () => {
+    if (picked === null) return false
+
+    try {
+      await navigator.clipboard.writeText(copyRange(doc, picked))
+      return true
+    } catch {
+      /*
+       * Writing the clipboard is the half every browser allows inside a gesture, so
+       * this is the unexpected case — and there is no fallback to offer, because there
+       * is no native selection here for the browser's own copy to have taken instead.
+       */
+      setError('This browser would not let the page write to the clipboard. Copy from the source mode instead.')
+      return false
+    }
+  }
+
+  const removeTaken = () => {
+    if (picked === null) return
+
+    const removed = picked.to - picked.from + 1
+    // The row that takes the run's place, or the last one when the run ran to the foot.
+    const line = Math.max(0, Math.min(picked.from, doc.blocks.length - removed - 1))
+    const landing = { line, at: 0 }
+
+    change(toSource(removeRange(doc, picked)), null)
+    setCaret(landing)
+    setFocus(landing)
+    setNotice(null)
+  }
+
+  const copyTaken = async () => {
+    if (picked !== null && (await takenLines())) setNotice(`${lineCount(picked)} copied.`)
+  }
+
+  const cutTaken = async () => {
+    // The lines go only once the clipboard has them: a cut that copied nothing and
+    // deleted anyway is the one failure here with no way back.
+    if (await takenLines()) removeTaken()
+  }
+
+  /**
+   * Pasted text, over the run if one is taken and at the caret otherwise.
+   *
+   * `pasteAt` reads the kind of the line it lands on and decides from that — a
+   * comment stays whole, a still-blank row is replaced, words are split at the caret
+   * and handed the tail back. See its own comment for why `splitLine` alone would not
+   * have done.
+   */
+  const pasteText = (text: string) => {
+    const landed = picked === null ? pasteAt(doc, caret, text) : pasteOver(doc, picked, text)
+    if (landed === null) return
+
+    change(toSource(landed.document), null)
+    setCaret(landed.caret)
+    setFocus(landed.caret)
+    setNotice(null)
+  }
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text !== '') pasteText(text)
+    } catch {
+      /*
+       * Reading is the half browsers guard: iOS asks the reader to confirm every
+       * time, and Firefox does not offer it to a page at all. The shortcut always
+       * works, so saying so beats a button that quietly does nothing.
+       */
+      setError('This browser will not let the page read the clipboard. Use ⌘V or Ctrl+V instead.')
+    }
+  }
+
+  /*
+   * The four, as a table for the same reason `COMMANDS` is one: they differ only in an
+   * icon, a name and one call. Local rather than module-level, because each closes
+   * over the run currently taken.
+   */
+  const takenCommands = [
+    { label: 'Copy', icon: IconCopy, act: () => void copyTaken() },
+    { label: 'Cut', icon: IconScissors, act: () => void cutTaken() },
+    { label: 'Paste', icon: IconClipboard, act: () => void pasteFromClipboard() },
+    { label: 'Delete lines', icon: IconRemoveLine, act: removeTaken },
+  ]
 
   /**
    * Ctrl/Cmd+Z and its two spellings of redo, everywhere on the screen — the
@@ -223,29 +350,93 @@ export function EditorScreen({ song }: { song: Song }) {
    * the shortcut must be claimed before the browser spends it there. Registered
    * once, reading the latest closures through a ref, because `source` changes on
    * every keystroke and re-subscribing at that rate says the wrong thing.
+   *
+   * The commands of a taken run come through the same door, and for a sharper version
+   * of the same reason: with every line blurred there is no native selection, so ⌘C
+   * and ⌘X would put nothing on the clipboard and Backspace would reach nothing at
+   * all. Each is guarded by `taken`, which is only ever true while no line has focus.
    */
-  const keys = useRef({ undo, redo })
+  const keys = useRef({ undo, redo, taken: false, graphic: true, copyTaken, cutTaken, removeTaken, pasteText })
   useEffect(() => {
-    keys.current = { undo, redo }
+    keys.current = {
+      undo,
+      redo,
+      taken: picked !== null,
+      graphic: mode === 'graphic',
+      copyTaken,
+      cutTaken,
+      removeTaken,
+      pasteText,
+    }
   })
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const now = keys.current
+
+      if (now.taken) {
+        if (event.key === 'Escape') {
+          setPicked(null)
+          return
+        }
+
+        // A run the Delete key ignored would not be a selection, only a tint.
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+          event.preventDefault()
+          now.removeTaken()
+          return
+        }
+      }
+
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return
 
       const key = event.key.toLowerCase()
       if (key === 'z') {
         event.preventDefault()
-        if (event.shiftKey) keys.current.redo()
-        else keys.current.undo()
+        if (event.shiftKey) now.redo()
+        else now.undo()
       } else if (key === 'y') {
         event.preventDefault()
-        keys.current.redo()
+        now.redo()
+      } else if (now.taken && (key === 'c' || key === 'x')) {
+        event.preventDefault()
+        if (key === 'c') void now.copyTaken()
+        else void now.cutTaken()
       }
     }
 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  /**
+   * Every paste that reaches the graphic mode, in one place.
+   *
+   * On the window rather than on the rows: with a run taken the focus is on the sheet
+   * and not in any line, and ⌘V has to arrive all the same. What it must *not* do is
+   * take over the pastes that are already right — a tab is a real textarea whose own
+   * paste keeps the newlines, and one line pasted into a line of words arrives through
+   * `onChange` exactly as typing does, with `setLineText` carrying the chords along.
+   * Those two are handed straight back to the browser.
+   */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const now = keys.current
+      if (!now.graphic) return
+
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target?.closest('.tab-input') != null) return
+
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (text === '') return
+      if (!now.taken && !/[\r\n]/.test(text) && target?.closest('.line-input') != null) return
+
+      event.preventDefault()
+      now.pasteText(text)
+    }
+
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
   }, [])
 
   /*
@@ -459,36 +650,108 @@ export function EditorScreen({ song }: { song: Song }) {
 
         {mode !== 'preview' && (
           <div className="editor-tools">
-            <div className="editor-tools-scroll">
-              {/*
-                * Only this one keeps its word. It is the command reached for most, it
-                * is the one whose icon — a plus — says least on its own, and one label
-                * in the row is what tells you the rest are commands too.
-                */}
-              <button
-                type="button"
-                className="btn btn-inset btn-sm"
-                disabled={!canChord}
-                onClick={insertChord}
-                title={canChord ? undefined : 'Put the cursor on a line of words first'}
+            {/*
+              * One strip, two jobs — rather than a strip that grows five buttons that
+              * spend their lives disabled. With a run of lines taken, the commands of
+              * the line the cursor is on have nothing to act on: every one of them
+              * reads `caret.line`, and with several lines held they cannot say which.
+              * So they stand down and the run's own commands take the row.
+              */}
+            {picked !== null ? (
+              <div
+                className="editor-tools-scroll"
+                role="group"
+                aria-label={`Commands for the ${lineCount(picked)} taken`}
               >
-                <IconPlus size={15} />
-                Chord
-              </button>
+                {takenCommands.map((entry) => (
+                  <button
+                    key={entry.label}
+                    type="button"
+                    className="btn btn-inset btn-sm btn-square"
+                    title={entry.label}
+                    aria-label={entry.label}
+                    onClick={entry.act}
+                  >
+                    <entry.icon size={16} />
+                  </button>
+                ))}
 
-              {COMMANDS.map((entry) => (
+                {/*
+                  * The way out keeps its word, the way `+ Chord` does in the resting
+                  * strip: one label is what says the rest of the row are commands.
+                  */}
                 <button
-                  key={entry.label}
                   type="button"
-                  className="btn btn-inset btn-sm btn-square"
-                  title={entry.label}
-                  aria-label={entry.label}
-                  onClick={() => command(entry.act(caret.line))}
+                  className="btn btn-inset btn-sm"
+                  onClick={() => {
+                    setPicked(null)
+                    setPicking(false)
+                  }}
                 >
-                  <entry.icon size={16} />
+                  <IconCheck size={14} />
+                  Done
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="editor-tools-scroll" role="group" aria-label="Commands for this line">
+                {/*
+                  * Only this one keeps its word. It is the command reached for most, it
+                  * is the one whose icon — a plus — says least on its own, and one label
+                  * in the row is what tells you the rest are commands too.
+                  */}
+                <button
+                  type="button"
+                  className="btn btn-inset btn-sm"
+                  disabled={!canChord}
+                  onClick={insertChord}
+                  title={canChord ? undefined : 'Put the cursor on a line of words first'}
+                >
+                  <IconPlus size={15} />
+                  Chord
+                </button>
+
+                {COMMANDS.map((entry) => (
+                  <button
+                    key={entry.label}
+                    type="button"
+                    className="btn btn-inset btn-sm btn-square"
+                    title={entry.label}
+                    aria-label={entry.label}
+                    onClick={() => command(entry.act(caret.line))}
+                  >
+                    <entry.icon size={16} />
+                  </button>
+                ))}
+
+                {/*
+                  * The door into a run of lines, and at a touch the only one there is:
+                  * a mouse takes one by dragging across the words, but on a phone the
+                  * gestures over a line are already spent — a vertical drag scrolls the
+                  * page and a horizontal one on the chord row moves a chord. So this
+                  * says out loud what a drag cannot ask for there.
+                  */}
+                {mode === 'graphic' && (
+                  <button
+                    type="button"
+                    className={`btn btn-inset btn-sm btn-square${picking ? ' is-on' : ''}`}
+                    title="Select lines"
+                    aria-label="Select lines"
+                    aria-pressed={picking}
+                    onClick={() => {
+                      setPicking(!picking)
+                      /*
+                       * A chord name field left open keeps `.chord-bar` rendered under
+                       * its row: chord controls sitting inside a run that the next
+                       * command may move or take away.
+                       */
+                      setEditing(null)
+                    }}
+                  >
+                    <IconSelect size={16} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -525,9 +788,13 @@ export function EditorScreen({ song }: { song: Song }) {
           source={source}
           caret={caret}
           editing={editing}
+          selection={picked}
+          picking={picking}
+          focus={focus}
           onChange={change}
           onCaret={setCaret}
           onEditing={setEditing}
+          onSelection={setPicked}
         />
       )}
 

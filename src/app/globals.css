@@ -11350,16 +11350,94 @@
   }
 
   /*
+   * A command in the strip that is a state rather than an act: the selection mode
+   * stays on until it is turned off. Solid accent, which is the one thing this app
+   * means by «on» — `.segment-button.is-on` says it the same way. Scoped to the strip
+   * so it cannot claim every `.btn` in the app.
+   */
+  .editor-tools .btn.is-on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+
+  /*
+   * The song, on a sheet of paper — the same white the reading page lays its words
+   * on, and the same white the source mode has always had (`.editor-raw`). Only the
+   * graphic mode was left sitting on the page's own grey, and that was an omission
+   * rather than a decision: one of the three modes was dressed differently from the
+   * other two for no reason anybody could name.
+   *
+   * A closed panel and not `.song-card` itself: that one is `min-height:
+   * calc(100dvh - 4.375rem)` with no bottom border, so it runs off the foot of the
+   * screen — right for a page you only read, wrong here, where `+ line`, the
+   * delete-song row and the footer all come after the words.
+   *
+   * `border-radius` is 1.5rem rather than `--r-xl` for the reason `.song-card`'s own
+   * comment gives: this is the largest surface on the screen and the one thing on it
+   * you are meant to read. No shadow, for the same reason — paper laid on the app,
+   * not a card floating over it. `--edge` is transparent in the light theme and
+   * becomes `--line` in the dark one, so that one border is already the right answer
+   * to both: white on grey says «sheet» where a contour has to say it instead.
+   */
+  .editor-sheet {
+    margin-block-start: 0.75rem;
+    /* `.song-card`'s own three values, bottom included: the same paper. */
+    padding: 1.25rem 1.125rem 1.125rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: 1.5rem;
+  }
+
+  /*
+   * While a run of lines is being taken — dragged across with a mouse, or picked in
+   * the selection mode — the words must stop behaving like words: no native
+   * highlight fighting the block one, and at a touch no vertical pan, because the
+   * pan *is* the gesture now.
+   */
+  .editor-sheet.is-picking {
+    touch-action: none;
+  }
+
+  .editor-sheet.is-picking,
+  .editor-sheet.is-taking {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /*
    * One line of the song. The chords sit in a row above the words, and the words
    * are a real input — the native caret and the phone keyboard are worth more here
    * than any custom text handling.
+   *
+   * `position: relative` is for the selection band below, which is painted as an
+   * overlay on this box. It does not disturb the chords: those hang off
+   * `.chord-anchor`, which is relative itself and nearer.
    */
   .editor-line {
+    position: relative;
     display: flex;
     align-items: stretch;
     gap: 0.5rem;
     border-inline-start: 2px solid transparent;
     padding-inline-start: 0.5rem;
+  }
+
+  /*
+   * A line inside the taken run.
+   *
+   * An overlay rather than a `background`, because the chorus and bridge tint sits
+   * on this very element: a second background would replace it, and a chorus line
+   * would stop saying «chorus» exactly while it is about to be moved. Painted here
+   * and not inside `.line-scroll`, which clips vertically on purpose — the same clip
+   * that sent `.chord-bar` out to full width below the row.
+   */
+  .editor-line.is-taken::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    pointer-events: none;
   }
 
   .editor-line.is-focused {

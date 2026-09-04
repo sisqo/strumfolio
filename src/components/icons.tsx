@@ -695,6 +695,32 @@ export function IconCopy(props: IconProps) {
   )
 }
 
+/** Cut: the scissors, for a run of lines leaving the song for the clipboard. */
+export function IconScissors(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <path d="M20 4 8.1 15.9" />
+      <path d="m14.5 14.5 5.5 5.5" />
+      <path d="m8.1 8.1 3.9 3.9" />
+    </Icon>
+  )
+}
+
+/** A marquee: taking hold of a run of lines rather than a letter. */
+export function IconSelect(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+      <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
+      <path d="M8 20H6a2 2 0 0 1-2-2v-2" />
+      <path d="M11 4h2M11 20h2M4 11v2M20 11v2" />
+    </Icon>
+  )
+}
+
 /** A four-point sparkle: the feedback sheet's "Feature request" card. */
 export function IconSparkle(props: IconProps) {
   return (

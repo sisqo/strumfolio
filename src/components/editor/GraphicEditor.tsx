@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { IconCheck } from '@/components/icons'
+import type { LineRange } from '@/lib/editor/clipboard'
 import {
   type Block,
   type SectionKind,
@@ -91,6 +92,30 @@ function chipAt(row: HTMLElement, clientX: number): { chord: number; gap: number
   return best
 }
 
+/**
+ * Which line a point falls on, by height alone.
+ *
+ * The x is deliberately not read: a run of lines is taken by dragging *down*, and the
+ * pointer wanders off the words while it does — over a chord, past the right edge,
+ * outside the sheet. Only the band a row occupies decides. Between two rows the row
+ * above owns the gap (a `.chord-bar` can open one, and it carries no `data-line`), and
+ * past either end the run simply stops at the first or last line rather than nowhere.
+ */
+function lineAtY(sheet: HTMLElement, clientY: number): number | null {
+  let previous: number | null = null
+
+  for (const row of sheet.querySelectorAll<HTMLElement>('[data-line]')) {
+    const line = Number(row.dataset.line)
+    const box = row.getBoundingClientRect()
+
+    if (clientY < box.top) return previous ?? line
+    if (clientY <= box.bottom) return line
+    previous = line
+  }
+
+  return previous
+}
+
 export interface Caret {
   /** Index of the block the cursor is in. */
   line: number
@@ -132,22 +157,39 @@ export function GraphicEditor({
   source,
   caret,
   editing,
+  selection,
+  picking,
+  focus,
   onChange,
   onCaret,
   onEditing,
+  onSelection,
 }: {
   source: string
   caret: Caret
   /** The chord open for typing, owned above because the toolbar opens one too. */
   editing: { line: number; chord: number } | null
+  /** The run of whole lines being worked on, if any — owned above for the same reason. */
+  selection: LineRange | null
+  /** The selection mode, which is how a touch takes a run: see `onPointerDown`. */
+  picking: boolean
+  /** Where a paste, a cut or a delete decided upstream left its caret. */
+  focus: Caret | null
   onChange: (source: string, kind: string | null) => void
   onCaret: (caret: Caret) => void
   onEditing: (editing: { line: number; chord: number } | null) => void
+  onSelection: (selection: LineRange | null) => void
 }) {
   const doc = fromSource(source)
   const sections = sectionsOf(doc.blocks)
   const suggestions = chordVocabulary(doc.blocks).slice(0, 8)
   const wanted = useRef<{ line: number; at: number } | null>(null)
+  /** The last `focus` honoured, so a re-render does not take the caret back. */
+  const landed = useRef<Caret | null>(null)
+  const sheet = useRef<HTMLDivElement | null>(null)
+  /** The run being dragged out: where it started, and whether it has left that line. */
+  const taking = useRef<{ id: number; anchor: number; crossed: boolean } | null>(null)
+  const [crossing, setCrossing] = useState(false)
 
   const apply = (next: SongDocument, kind: string | null = null) => onChange(toSource(next), kind)
 
@@ -156,8 +198,18 @@ export function GraphicEditor({
    * before it: splitting a line means the caret belongs at the start of the new one.
    */
   useEffect(() => {
-    const target = wanted.current
+    /*
+     * Two ways a caret asks to be somewhere, one mechanism to put it there. The edits
+     * on this screen set `wanted` as they make them; a paste, a cut or a delete is
+     * decided in `EditorScreen`, which owns the commands that offer them, and arrives
+     * as `focus` — compared by identity against the last one honoured, since that prop
+     * stays set until the next command and must not steal the caret on every render.
+     */
+    const arrived = focus !== null && focus !== landed.current
+    const target = arrived ? focus : wanted.current
     if (target === null) return
+
+    if (arrived) landed.current = focus
     wanted.current = null
 
     const input = document.querySelector<HTMLInputElement>(
@@ -167,7 +219,7 @@ export function GraphicEditor({
 
     input.focus()
     input.setSelectionRange(target.at, target.at)
-  }, [source])
+  }, [source, focus])
 
   /*
    * The one screen where a browser translation is not merely wrong but broken: the chords
@@ -176,7 +228,114 @@ export function GraphicEditor({
    * would still read as a song, only with the wrong chord over every word.
    */
   return (
-    <div translate="no">
+    <div
+      ref={sheet}
+      className={`editor-sheet${picking ? ' is-picking' : ''}${crossing ? ' is-taking' : ''}`}
+      translate="no"
+      /*
+       * Focusable, though nothing here is typed into it: with every input blurred —
+       * which is what a taken run wants, so the phone keyboard goes away and no caret
+       * blinks inside a line that is about to move — something still has to be the
+       * element ⌘V arrives at. `EditorScreen` listens for that paste, and for the rest
+       * of the keys, on the window.
+       */
+      tabIndex={-1}
+      onFocus={(event) => {
+        // Focus back in the words means the run is no longer what is being worked on.
+        if (event.target !== event.currentTarget && selection !== null) onSelection(null)
+      }}
+      onPointerDown={(event) => {
+        const target = event.target as HTMLElement
+
+        /*
+         * A press on the chord row is *not* turned away, though that row has drags of
+         * its own: what arbitrates between them is the direction, not the target.
+         * Moving a chord is horizontal — the row's own machine will not start one
+         * until the pointer has travelled 6px sideways, and `touch-action: pan-y`
+         * says as much — while taking a run of lines is by definition vertical, since
+         * nothing happens here until the pointer is on a *different* line. So both
+         * listen, and only one of them can ever be the gesture being made. Without
+         * this the whole strip above the words was dead to a selection drag, which on
+         * a line of lyrics is most of its height.
+         *
+         * A tab is a textarea of its own, and its own selection is the right one.
+         */
+        if (!picking && target.closest('.tab-input') !== null) return
+        if (target.closest('.chord-bar') !== null) return
+        if (target.closest('.line-remove') !== null) return
+        if (target.closest('.editor-add-line') !== null) return
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+
+        const row = target.closest<HTMLElement>('[data-line]')
+        if (row === null) return
+        const anchor = Number(row.dataset.line)
+
+        // Shift widens the run already taken. Widens only: narrowing it needs to know
+        // which end was anchored, and a fresh drag says that better than a modifier.
+        if (event.shiftKey && selection !== null) {
+          event.preventDefault()
+          onSelection({
+            from: Math.min(selection.from, anchor),
+            to: Math.max(selection.to, anchor),
+          })
+          return
+        }
+
+        if (picking) {
+          // No input takes focus in this mode: the tap on a line *is* the selection,
+          // and a caret blinking inside a taken run would be saying two things.
+          event.preventDefault()
+          onSelection({ from: anchor, to: anchor })
+          sheet.current?.focus({ preventScroll: true })
+        }
+
+        taking.current = { id: event.pointerId, anchor, crossed: picking }
+      }}
+      onPointerMove={(event) => {
+        const held = taking.current
+        if (held === null || event.pointerId !== held.id) return
+
+        const line = lineAtY(event.currentTarget, event.clientY)
+        if (line === null) return
+
+        if (!held.crossed) {
+          // Inside the line it began on, this is still the browser's own selection,
+          // letter by letter. Nothing here happens until the drag leaves that line.
+          if (line === held.anchor) return
+
+          held.crossed = true
+          setCrossing(true)
+
+          /*
+           * The words stop being words at the crossing: the highlight inside the input
+           * has to go, or two highlights describe the same drag differently. The
+           * capture is taken here and not at the press, so it cannot interfere with
+           * that native selection while the drag is still inside one line — and it is
+           * what keeps the moves arriving once the pointer leaves the sheet.
+           */
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+          window.getSelection()?.removeAllRanges()
+          /*
+           * `preventScroll`, and it is not a nicety: this focus is plumbing — something
+           * has to be the element ⌘V arrives at — and a default `focus()` scrolls the
+           * sheet into view, which moves the whole song under a finger that is in the
+           * middle of pointing at a line. Measured: a drag of three lines took ten.
+           */
+          sheet.current?.focus({ preventScroll: true })
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }
+
+        onSelection({ from: Math.min(held.anchor, line), to: Math.max(held.anchor, line) })
+      }}
+      onPointerUp={() => {
+        taking.current = null
+        setCrossing(false)
+      }}
+      onPointerCancel={() => {
+        taking.current = null
+        setCrossing(false)
+      }}
+    >
       {doc.blocks.map((block, index) => (
         <Fragment key={index}>
           <BlockRow
@@ -184,6 +343,8 @@ export function GraphicEditor({
             index={index}
             section={sections[index]}
             focused={caret.line === index}
+            taken={selection !== null && index >= selection.from && index <= selection.to}
+            picking={picking}
             editing={editing !== null && editing.line === index ? editing.chord : null}
             suggestions={suggestions}
             onEditChord={(chord) => {
@@ -294,6 +455,8 @@ function BlockRow({
   index,
   section,
   focused,
+  taken,
+  picking,
   editing,
   suggestions,
   onEditChord,
@@ -314,6 +477,9 @@ function BlockRow({
   index: number
   section: SectionKind
   focused: boolean
+  /** Inside the run of lines being worked on. */
+  taken: boolean
+  picking: boolean
   editing: number | null
   suggestions: string[]
   onEditChord: (chord: number | null) => void
@@ -330,7 +496,9 @@ function BlockRow({
   onBackspaceOut: () => void
   onTabText: (text: string) => void
 }) {
-  const classes = `editor-line is-${section}${focused ? ' is-focused' : ''}`
+  const classes = `editor-line is-${section}${focused ? ' is-focused' : ''}${
+    taken ? ' is-taken' : ''
+  }`
 
   /**
    * A blank line, shown as a placeholder rather than a fixed label: a genuine blank
@@ -530,6 +698,7 @@ function BlockRow({
               chords={block.chords}
               editing={editing}
               focused={focused}
+              picking={picking}
               onEdit={onEditChord}
               onName={onChordName}
               onAddAt={onAddChord}
@@ -824,6 +993,7 @@ function ChordRow({
   chords,
   editing,
   focused,
+  picking,
   onEdit,
   onName,
   onAddAt,
@@ -835,6 +1005,8 @@ function ChordRow({
   chords: { at: number; name: string }[]
   editing: number | null
   focused: boolean
+  /** While a run of lines is being taken, this row is not a chord row. */
+  picking: boolean
   onEdit: (chord: number | null) => void
   onName: (chord: number, name: string) => void
   onAddAt: (at: number) => void
@@ -968,6 +1140,9 @@ function ChordRow({
   }
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    // In the selection mode every press on a line belongs to the run being taken,
+    // and the sheet above reads it — including the presses that land up here.
+    if (picking) return
     // With a name field open, a tap on the row is a way out, not a new chord:
     // the field commits on the blur this press causes, and nothing more happens.
     if (editing !== null) return
@@ -1056,6 +1231,18 @@ function ChordRow({
   }
 
   /*
+   * Something else took the pointer mid-drag, and there is only one thing that does:
+   * the sheet, when the drag left this line and became a run of lines being taken.
+   * The move events stop arriving here at that moment, so without this the chord
+   * would stay dressed as one being dragged, over a line the run may be about to move.
+   */
+  const onLostPointerCapture = () => {
+    if (pointer.current === null) return
+    pointer.current = null
+    setDragging(null)
+  }
+
+  /*
    * A line with no words: an intro, a solo, a turnaround.
    *
    * Written `[re] [la] [re] [sol]`, so its "words" are single spaces — and a space is
@@ -1071,6 +1258,9 @@ function ChordRow({
         ref={rowRef}
         className="chord-row"
         onClick={(event) => {
+          // Same standing-down as the pointer machine below: while a run is being
+          // taken, a press on a line is part of the run and nothing else.
+          if (picking) return
           // With a name field open, a tap out here only dismisses it (the blur
           // this click causes commits it); nothing new gets added.
           if (editing !== null) return
@@ -1154,6 +1344,7 @@ function ChordRow({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
       role="presentation"
     >
       <span className="chord-ghost">{pieces}</span>
