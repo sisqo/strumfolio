@@ -12488,10 +12488,13 @@
       padding-right: 1.25rem;
     }
 
-    /* The bar has five things to fit in ~350px of clear width once the mark is drawn
-       at full size — too tight for all of them at once. Rather than drop Pricing (the
-       header's own docstring calls it one of "the two doors out"), shrink the mark
-       and tighten every gap so the row keeps both doors instead of hiding one. */
+    /* The bar has five things to fit in the 358px a 390px phone leaves clear, and at
+       their drawn sizes they need some thirty more than that — measured, with the mark
+       at its full 1.375rem. Rather than drop Pricing (the header's own docstring calls
+       it one of "the two doors out"), shrink the mark and tighten every gap so the row
+       keeps both doors instead of hiding one. This is the one width at which the mark
+       here and the mark on `/pricing` differ, and the difference is not buyable with a
+       cleverer rule: the row would have to lose something. */
     .site-bar-brand img {
       height: 1.125rem;
     }
