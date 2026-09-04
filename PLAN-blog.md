@@ -338,7 +338,15 @@ Cosa cambia rispetto a quanto descritto sopra:
 - **Piè di pagina proprio** (`BlogFooter`): centrato, © e quattro link, senza versione né
   hash di commit. Il mock elenca «Brand», che però è pagina riservata ai proprietari e
   darebbe 404 a tutto il pubblico del blog: al suo posto Changelog. Deciso in intervista.
-- **Larghezze**: 1100px per indice e banda immagine, 720px per la prosa.
+- **Larghezze**: 70rem per indice e banda immagine, 720px per la prosa. Il mock disegna
+  1100px su una tela da 1280, ma 70rem (1120px) è la larghezza che `/login` e `/pricing`
+  già avevano: venti pixel di scarto fra due pagine che questa barra collega — «Pricing» è
+  una delle sue due porte — non si leggono come una decisione, si leggono come un
+  disallineamento del marchio. È l'unico numero della sezione preso dal repo e non dal
+  disegno; vive su `--site-width` in `globals.css`, che spiega il perché sul posto. Il
+  margine da 40px resta quello del mock, quindi il marchio qui è 24px più dentro di quanto
+  lo disegni `PublicHeader` col suo da 16px: la barra si allinea alla pagina che ha sotto,
+  non alla barra della pagina accanto.
 - **`tags: string[]` diventa `category`**, una sola, da una **lista chiusa**
   (`Guide | Capo | Keys | Chords`). Il mock la stampa in maiuscoletto accento in quattro
   posti diversi; un campo a testo libero avrebbe spedito `Chord` e `Chords` come due
@@ -560,7 +568,7 @@ e un bottone; ora è un pannello chiaro caldo che dice **cosa è il prodotto** i
   qualunque superficie pubblica futura.
 - **Il bleed non è del pannello ma della pagina.** Nel mock il pannello sfonda la colonna di
   testo con margini negativi; ma la colonna di un articolo è 720px e quella di una pagina
-  strumento 1100px, quindi un pannello che portasse i propri margini negativi sborderebbe
+  strumento 1120px, quindi un pannello che portasse i propri margini negativi sborderebbe
   dalla seconda. La regola vive su `.blog-article > .promo`.
 - **I numeri si leggono, non si scrivono.** «1 songbook, 30 songs, no card» viene da
   `PLANS.free` tramite `limitLabel`, estratto dall'helper locale di `/login` in

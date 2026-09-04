@@ -274,6 +274,7 @@ What goes over the page while something is open on top of it. Two weights of one
 - **Background:** white/surface at the first level; drops back to the page color (`bg`) the moment a card is nested inside another card or the song sheet, so two white surfaces never touch and read as one.
 - **Shadow Strategy:** see Elevation — `--shadow-1` at rest, `--shadow-2` for a card that leads somewhere.
 - **Border:** `--edge` (transparent in light, hairline in dark) on every card, control-bar, and panel.
+- **Page width — two measures, and a third only for prose:** `70rem` for the wide public pages (`/login` via `.landing-width`, `/pricing`, and the blog/tools shell via `--site-width`), `48rem` (`max-w-3xl`) for every screen inside the app and for the legal pages. A page's own bar matches the page rather than the bar next door: `PublicHeader` takes its cap as a prop (`--top-bar-width`), and the blog's `SiteHeader` sits at `--site-width`. The third measure is `45rem`, the blog's reading column, and it is the one width answering to the line length of a thousand words instead of to the page — a new page width, on the other hand, has to earn itself, because one that misses an existing width by a few pixels reads as a misalignment and not as a decision.
 
 ### Inputs / Fields
 - **Style:** white/surface fill (or page-colored when nested inside a card, matching the card ladder), hairline `--edge` border, `1.125rem` (lg) radius, resting shadow. 16px minimum font size, specifically to stop iOS auto-zooming a field on focus.
@@ -321,7 +322,10 @@ control on that bar sits at the same 44px floor as the reading control bar.
 ### The blog (`/blog`)
 
 Drawn from the `Blog.dc.html` handoff and the one surface in Strumfolio that is a **page**
-rather than a screen: 1100px wide for the index and its hero band, 720px for the words. It
+rather than a screen: the shell's own 70rem for the index and its hero band, 720px for the
+words. The mock draws that band at 1100px on a 1280px canvas and it ships at 70rem instead —
+the width `/login` and `/pricing` already had, since twenty pixels of difference between two
+pages one bar links together reads as a misalignment rather than as a choice. It
 keeps `SiteHeader` (mark, a «Blog» capsule, Pricing, a Sign in capsule) rather than
 `PublicHeader` — a visitor arriving from a search is deciding neither between reading and
 paying, so the bar names the section and offers both doors instead of spending its one CTA

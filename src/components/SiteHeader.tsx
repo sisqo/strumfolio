@@ -18,10 +18,17 @@ import { APP_NAME } from '@/lib/brand'
  * you are already on is a dead control, and it stays true on an article, which is part of the
  * blog, and on a tool, which is one of the tools.
  *
- * Everything below is drawn to the mock: 1100px inner width, 16px/40px padding, the pill at
- * 12.5px on `accent-soft`, «Pricing» quiet at 14.5px, and the «Sign in» capsule 40px tall.
+ * Everything below is drawn to the mock: 16px/40px padding, the pill at 12.5px on
+ * `accent-soft`, «Pricing» quiet at 14.5px, and the «Sign in» capsule 40px tall.
  *
- * Two departures from what the mock literally shows, both deliberate:
+ * Three departures from what the mock literally shows, all deliberate:
+ *
+ * - **The bar is 70rem wide, not the mock's 1100px** — `--site-width` in globals.css, where
+ *   the reasoning lives. Short version: 70rem is what `/login` and `/pricing` already are,
+ *   and «Pricing» is a door this bar offers, so arriving there should not move the mark.
+ *   The 40px gutter *is* the mock's and stays, which leaves the mark 24px further in here
+ *   than `PublicHeader` draws it at its own 16px — the bar lines up with the page under it
+ *   rather than with the bar on the page next door.
  *
  * - **`Sign in` and `Pricing` are links.** They are `<span>`s in the prototype because a
  *   `.dc.html` mock has nowhere to go; shipping them as drawn would be a call-to-action that

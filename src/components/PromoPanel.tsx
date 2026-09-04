@@ -19,7 +19,7 @@ import { PLANS } from '@/lib/plans/types'
  * props, reads its numbers from `PLANS`, and belongs to no single surface — the articles and
  * the free tools both close with it, and anything public added later can too. The one thing it
  * does *not* own is how far it bleeds out of the column it sits in: an article's prose column
- * is 720px and a tool page's is 1100px, so the break-out is a rule of the page (see
+ * is 720px and a tool page's is 1120px, so the break-out is a rule of the page (see
  * `.blog-article > .promo` in globals.css) and not of the panel.
  *
  * The numbers are read rather than typed, the rule `/login` already follows for the same

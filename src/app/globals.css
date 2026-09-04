@@ -11012,11 +11012,12 @@
    * The blog.
    *
    * Drawn from the `Blog.dc.html` handoff, literally: every size, radius and
-   * colour below is the mock's own. The light theme is that drawing; the dark
-   * theme is not in it and is written here by hand against the night tokens,
-   * because this app's two themes are designed rather than inverted
-   * (`PRODUCT.md`) and a marketing page that flashes white at somebody reading
-   * in the dark is the one failure a blog cannot afford.
+   * colour below is the mock's own, with one exception named on `--site-width`
+   * just below. The light theme is that drawing; the dark theme is not in it and
+   * is written here by hand against the night tokens, because this app's two
+   * themes are designed rather than inverted (`PRODUCT.md`) and a marketing page
+   * that flashes white at somebody reading in the dark is the one failure a blog
+   * cannot afford.
    *
    * The blog carries a handful of colours the app does not, and they are scoped
    * to `.blog` rather than added to the palette in `:root`: they exist because
@@ -11031,8 +11032,28 @@
 
   .blog,
   .tool-page {
+    /*
+     * The wide column: the bar, the hero, the index, the article's image band.
+     *
+     * **The one number here that is not the mock's own.** The drawing says
+     * 1100px on a 1280px canvas; this says 70rem, which is what `/login`
+     * (`.landing-width`) and `/pricing` already are. 1100 missed 1120 by twenty
+     * pixels, and twenty pixels is not a decision anybody reads as one — it
+     * reads as the two surfaces failing to line up, which is exactly what it
+     * looked like when a visitor clicked «Pricing» out of this bar and the mark
+     * shifted under the pointer. A third page width would have to earn itself;
+     * this one had nothing to say that 70rem does not.
+     *
+     * A token rather than the number written out at each of the four rules that
+     * want it, because four copies of a width are how the twenty pixels got
+     * there in the first place. The reading column (45rem) is deliberately its
+     * own measure and stays written where it is used — it answers to the line
+     * length of prose, not to the page.
+     */
+    --site-width: 70rem;
+
     /* Card and section borders: lighter than the app's `--line`, which is drawn
-       for controls sitting close together rather than for a 1100px card. */
+       for controls sitting close together rather than for a 1120px card. */
     --blog-line: #e6e3dc;
     /* One step lighter again, for the rows of the «Earlier» list, where a
        separator every 54px would otherwise draw more than the titles do. */
@@ -11078,7 +11099,7 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    max-width: 68.75rem;
+    max-width: var(--site-width);
     margin: 0 auto;
     padding: 1rem 2.5rem;
   }
@@ -11193,7 +11214,7 @@
 
   .site-hero-inner {
     position: relative;
-    max-width: 68.75rem;
+    max-width: var(--site-width);
     margin: 0 auto;
     padding: 3.75rem 2.5rem 0;
     text-align: center;
@@ -11216,7 +11237,7 @@
   }
 
   .site-main {
-    max-width: 68.75rem;
+    max-width: var(--site-width);
     margin: 0 auto;
     padding: 2.75rem 2.5rem 4.5rem;
   }
@@ -11486,7 +11507,7 @@
   }
 
   .blog-article-hero {
-    max-width: 68.75rem;
+    max-width: var(--site-width);
     margin: 2rem auto 0;
     padding: 0 2.5rem;
   }
@@ -11758,7 +11779,7 @@
    * Inside an article the panel breaks out of the reading column.
    *
    * The bleed lives here rather than on `.promo` because it is a fact about the page,
-   * not about the panel: an article's words sit in 720px and a tool page's in 1100px,
+   * not about the panel: an article's words sit in 720px and a tool page's in 1120px,
    * and a panel that carried its own negative margins would overflow the wider one.
    */
   .blog-article > .promo {
