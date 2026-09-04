@@ -322,10 +322,14 @@ control on that bar sits at the same 44px floor as the reading control bar.
 
 Drawn from the `Blog.dc.html` handoff and the one surface in Strumfolio that is a **page**
 rather than a screen: 1100px wide for the index and its hero band, 720px for the words. It
-keeps its own bar (mark, a «Blog» capsule, Pricing, a Sign in capsule) and its own foot
-(centred, © and four links, no version and no commit hash) — the app's `PublicHeader` and
-`Footer` answer a signed-in reader's questions, and a visitor arriving from a search has
-different ones.
+keeps `SiteHeader` (mark, a «Blog» capsule, Pricing, a Sign in capsule) rather than
+`PublicHeader` — a visitor arriving from a search is deciding neither between reading and
+paying, so the bar names the section and offers both doors instead of spending its one CTA
+on a single one. Its foot is the same shared `Footer` every internal page prints (© year,
+version, commit hash, then Privacy/Terms/Cookies/Content copyright/Changelog/Blog/Tools),
+not a lighter one of its own — `SiteHeader` and `Footer` are both `messo a comune`, shared
+with `/tools`, and `PublicHeader` stays reserved for the pages built to sell (`/login`,
+`/pricing`).
 
 The index divides into three shapes that only appear once they can be filled: one wide
 featured card, a row of three, then a compact «Earlier» list. Each article carries exactly one
@@ -336,12 +340,16 @@ everywhere else.
 softer than the app's own: this is the one place somebody reads for several minutes rather
 than glancing between phrases. The opening paragraph is set at 19px in full ink. Spacing is
 always a *top* margin, so two blocks never sum their margins. Headings are 25px and 19px at
-500 — the app's restrained weight. Three elements are the blog's alone: the two-row chord
-table (what the room hears above what the hand holds, the played row in the accent), the
-single pulled-out line on a warm tint behind an accent rule, and the closing panel, which is a
-warm near-black **in both themes** — after a page of paper it has to read as a different kind
-of object, and following the theme would make it a card among cards in light and invisible in
-dark.
+500 — the app's restrained weight. Two elements are the blog's alone: the two-row chord
+table (what the room hears above what the hand holds, the played row in the accent) and the
+single pulled-out line on a warm tint behind an accent rule.
+
+The closing panel, `PromoPanel`, used to be a third and no longer is — it replaced the old
+dark-band CTA and is shared with `/tools` now, so it belongs to no single surface. Its
+theming isn't near-black in both themes either: `--promo-bg` is a warm cream tint on the
+same paper family in light, close enough to the page to read as a step away rather than a
+different material, and drops to a genuine near-black only in dark, where a shadow-only step
+would disappear against a page that's already near-black.
 
 A chord written in an article is the accent on `accent-soft`, in mono, and is the one element
 on a blog page marked `translate="no"`: the article itself is deliberately translatable — the
@@ -367,7 +375,7 @@ because both themes here are designed rather than inverted.
 ### Don't:
 - **Don't** build anything resembling the ad-heavy, cluttered chord/tab site aesthetic (Ultimate Guitar and similar) — no ad slots, no popups, no competing calls to action around the reading surface.
 - **Don't** default to a generic flat-dark developer-tool look (near-black surface, single neon accent) — Strumfolio's dark theme is warm and hand-tuned, not a formulaic inversion.
-- **Don't** use a side-stripe (`border-left`/`border-right` > 1px) as a decorative colored accent — the sheet's own chorus/bridge indent is the one place this app uses one that way, a diluted accent tint rather than a flat color bar. The editor's focused-line marker (`.editor-line.is-focused`) is a second, narrower exception: a functional focus indicator, not a decoration, earning the same pass a browser's own focus ring would.
+- **Don't** use a side-stripe (`border-left`/`border-right` > 1px) as a decorative colored accent — the sheet's own chorus/bridge indent is the one place this app uses one that way, a diluted accent tint rather than a flat color bar. The editor's focused-line marker (`.editor-line.is-focused`) is a second, narrower exception: a functional focus indicator, not a decoration, earning the same pass a browser's own focus ring would. The blog's pulled quote (`.blog-quote`, a solid 3px accent rule on `--blog-quote-bg`) is a third: it marks the one line an article is remembered by, the same job the sheet's own indent does for a chorus.
 - **Don't** give a disabled primary button a faded/opacity treatment — drop the fill to the flat disabled state instead.
 - **Don't** let a translucent or blurred surface sit over the song sheet — the top bar tried this and it let lyrics show through; use a solid page-colored background instead.
 - **Don't** introduce a second display font or a bold weight above 600 outside chord names — Outfit at 400/500 carries the whole system.
