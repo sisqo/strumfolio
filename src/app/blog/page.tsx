@@ -84,7 +84,7 @@ export default async function BlogIndexPage() {
            * moment it exists. */
           <p className="blog-empty">Nothing published yet. Soon.</p>
         ) : (
-          <Link href={postPath(featured.meta.slug)} className="blog-featured">
+          <Link href={postPath(featured.meta.slug)} className="blog-featured" aria-label={featured.meta.title}>
             <span className="blog-featured-image">
               <Image
                 src={pageImage(featured.meta)}
@@ -98,7 +98,10 @@ export default async function BlogIndexPage() {
 
             <span className="blog-featured-body">
               <span className="blog-category blog-category-pill">{featured.meta.category}</span>
-              <span className="blog-featured-title">{featured.meta.title}</span>
+              {/* A real heading so a screen reader's skim-by-heading finds the article title —
+                  `aria-label` on the link above keeps the link's own announced name just the
+                  title rather than the whole card's concatenated text. */}
+              <h2 className="blog-featured-title">{featured.meta.title}</h2>
               <span className="blog-featured-description">{featured.meta.description}</span>
               <span className="flex-1" />
               <span className="blog-meta">
@@ -113,7 +116,7 @@ export default async function BlogIndexPage() {
         {grid.length > 0 && (
           <div className="blog-grid">
             {grid.map(({ meta, readingTime }) => (
-              <Link key={meta.slug} href={postPath(meta.slug)} className="blog-card">
+              <Link key={meta.slug} href={postPath(meta.slug)} className="blog-card" aria-label={meta.title}>
                 <span className="blog-card-image">
                   <Image
                     src={pageImage(meta)}
@@ -126,7 +129,7 @@ export default async function BlogIndexPage() {
 
                 <span className="blog-card-body">
                   <span className="blog-category">{meta.category}</span>
-                  <span className="blog-card-title">{meta.title}</span>
+                  <h2 className="blog-card-title">{meta.title}</h2>
                   <span className="blog-card-description">{meta.description}</span>
                   <span className="flex-1" />
                   <span className="blog-card-meta">
@@ -149,11 +152,16 @@ export default async function BlogIndexPage() {
 
             <div className="blog-earlier">
               {earlier.map(({ meta, readingTime }) => (
-                <Link key={meta.slug} href={postPath(meta.slug)} className="blog-earlier-row">
+                <Link
+                  key={meta.slug}
+                  href={postPath(meta.slug)}
+                  className="blog-earlier-row"
+                  aria-label={meta.title}
+                >
                   <time dateTime={meta.date} className="blog-earlier-date">
                     {postDate(meta.date)}
                   </time>
-                  <span className="blog-earlier-headline">{meta.title}</span>
+                  <h3 className="blog-earlier-headline">{meta.title}</h3>
                   <span className="blog-earlier-time">{readingTime} min</span>
                 </Link>
               ))}
