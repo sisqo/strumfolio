@@ -190,8 +190,10 @@ export default async function DesignSystemPage() {
 
           <h3 className="brand-subhead">Plan badges — a declared exception</h3>
           <p className="brand-text">
-            Five saturated colors, one per plan, live only on <code className="brand-code">/accounts</code> — the
-            operator screen, which has no song sheet and no chords to compete with. Everywhere a reader (rather
+            A warm ramp, one colour per paid plan — cool grey-blue to the brand terracotta for Premium — lives only
+            on <code className="brand-code">/accounts</code>, the operator screen, which has no song sheet and no
+            chords to compete with. Free and No plan stay on the ink ramp; the row&rsquo;s Status column tells them
+            apart. Everywhere a reader (rather
             than an operator) sees a plan name — the account menu, <code className="brand-code">/pricing</code>,{' '}
             <code className="brand-code">/billing</code> — stays on the single accent-colored{' '}
             <code className="brand-code">.badge</code> shown further down.
@@ -202,7 +204,8 @@ export default async function DesignSystemPage() {
                 {plan.plan}
               </span>
             ))}
-            <span className="badge plan-badge-unchosen">Unchosen</span>
+            <span className="badge plan-badge-unchosen">Awaiting choice</span>
+            <span className="badge plan-badge-none">No plan</span>
             <span className="badge plan-badge-free">Free</span>
           </div>
 

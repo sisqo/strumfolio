@@ -8,7 +8,7 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v4.3 — due notazioni in più** (l'ultima versione numerata qui)
+> **Stato:** da v1 a **v4.4 — la lista `/accounts` ridisegnata** (l'ultima versione numerata qui)
 > sono consegnate e in produzione su https://strumfolio.com. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
@@ -1256,6 +1256,61 @@ riga in *Decisioni*.
 Nessuna migrazione: `notation` è `text` senza enum né CHECK, per la stessa convenzione che
 `schema.ts` dichiara per `instrument`/`chordDisplay`.
 
+### v4.4 — la lista `/accounts` ridisegnata
+
+Da `Accounts.dc.html` (Claude Design), riprodotto valore per valore: la lista della v3.8 —
+una card per riga, un form a sei controlli e un bottone Search — diventa **una tabella** a
+sei colonne (monogramma e indirizzo, regalo, piano, stato, accessi, View), con **quattro
+tab** al posto dei filtri e ricerca e ordinamento sulla stessa riga. Nessuna migrazione,
+nessuna server action nuova: cambia solo come la pagina legge e mostra ciò che `read.ts`
+già restituiva. Rationale per riga in *Decisioni*.
+
+- **I tab sono domande, i filtri erano colonne.** All / Needs attention / Paying / Gifted
+  sostituiscono il `<select>` per piano e le due caselle "Without a plan only"/"Gift
+  withdrawn only". «Chi devo guardare», «chi paga», «a chi ho regalato» sono le domande che
+  un operatore fa davvero alla lista; «chi è su Plus» non lo era. Ogni predicato vive in
+  `planText.ts`, accanto al testo di riga con cui deve concordare — `isPaying` legge
+  `subscriptionPlan`, mai `effectivePlan`, perché un regalo non è un pagamento.
+- **"Needs attention" è definito dal colore, non da una seconda lista.** `rowStatus`
+  restituisce `{ text, tone }` e il tab è letteralmente «le righe con `tone: 'alert'`»: uno
+  stato aggiunto lì finisce nel tab senza che nessuno se lo ricordi. Sono rossi solo i due
+  stati in cui l'account mostra un badge pagato ma chi lo possiede non può usarlo — piano
+  assegnato con scelta ancora da fare (`stillAwaitingChoice`) e carta che sta fallendo
+  (`grace`). Regalo ritirato, abbonamento scaduto, mai entrato sono *fatti*, in grigio.
+- **La colonna Status non ripete né il piano né la parola "gift".** La colonna Gift
+  (icona) distingue regalo e abbonamento, quindi i due rispondono allo stesso modo alla
+  stessa domanda: «Until 2027-03-14». Le tre righe che su ogni colonna di piano sono
+  indistinguibili da un Free scelto (regalo ritirato, regalo finito, abbonamento scaduto)
+  ottengono qui la loro frase — l'unico posto in cui la lista le distingue ancora, ora che
+  la casella "Gift withdrawn only" non c'è più.
+- **"No plan" è neutro.** Il mock tiene Free e No plan entrambi sulla scala dell'inchiostro
+  e li distingue nella colonna Status ("Never signed in" tenue, "Awaiting choice" grigio):
+  non aver scelto è lo stato ordinario di ogni account nuovo, non un errore. Nuova classe
+  `.plan-badge-none`; `planBadge` la restituisce anche alla pagina di dettaglio, che quindi
+  concorda con la lista senza saperlo.
+- **La rampa dei piani cambia, e cambia per tutti gli schermi operatore.** I token
+  `--plan-*` passano dai quattro saturi originali alla rampa calda del mock (grigio-blu,
+  marrone, il terracotta del brand per Premium, prugna per Lifetime); le controparti scure
+  sono tarate a mano, come tutto il tema scuro. I token esistevano dichiaratamente solo per
+  `/accounts`, quindi ricolorarli è il modo minimo di far combaciare la lista con il mock
+  tenendo la pagina di dettaglio e `/design-system` d'accordo con lei. `--plan-premium`
+  vale quanto `--accent` ma resta una variabile a sé: l'accento è il colore dell'app, questo
+  è il nome di un piano.
+- **Le registrazioni in sospeso diventano una pillola rossa accanto al titolo**, che porta
+  alle righe stesse, spostate *sotto* la lista (`PLAN-account-admin.md`, punto 11, che le
+  voleva sopra per scopribilità: la pillola nell'intestazione si trova prima di qualunque
+  sezione, e assolve lo stesso compito). I bottoni "Confirm now" restano sulle righe.
+- **Un solo ordinamento al posto della coppia `sort`×`dir`**: il mock disegna un menu
+  singolo e un `<select>` imposta un parametro solo. Sei ordini, ciascuno una direzione che
+  qualcuno vuole (A–Z, Z–A, più recenti, più vecchi, entrati di recente, più accessi) — non
+  ogni direzione di ogni chiave. Il `<select>` invia al cambio (`AutoSubmitSelect`, l'unico
+  componente client della pagina); la ricerca invia con Invio; il tab viaggia come campo
+  nascosto così una nuova ricerca resta sotto il tab in cui si era.
+- **L'unica deviazione dal mock, dichiarata**: l'avviso «Plans are off in this deployment»
+  è rimasto. Il mock non lo disegna ma lo porta ancora nei propri dati (`plansOff`), il che
+  legge come blocco non renderizzato più che come rimozione; e in produzione non compare mai
+  (`SONGBOOK_PLANS=on`), quindi tenerlo non costa nulla sullo schermo che il mock ritrae.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1639,3 +1694,20 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Dove nasce la `Spelling` | Per brano, dentro chi rende (`SongSheet`, `prepare` del libretto), non passata dall'alto | Un libretto è molti brani in molte tonalità: la notazione è di chi legge e attraversa tutto il documento, la tonica appartiene al singolo brano che si sta impaginando |
 | Token passati a `spellingFor` come funzione | Sì, thunk e non array | Con un array la scansione si paga anche per chi legge lettere, ed è esattamente l'errore contro cui il commento in testa a `key.ts` mette in guardia; il thunk lascia la decisione in un punto solo invece che in tre chiamanti che devono ricordarsi una guardia |
 | Etichette dei bottoni | `C D H` e `1 4 5` | Dicono la differenza invece del nome: la tedesca si riconosce dall'`H`, il Nashville dal giro che ogni musicista legge come numeri. Opache per chi non le cerca, che a questa dimensione è il compromesso giusto — `NOTATION_TITLE` è quello che sentono screen reader e hover |
+
+### La lista `/accounts` ridisegnata (v4.4)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| Filtri | Quattro tab (All, Needs attention, Paying, Gifted) al posto di `plan`/`unactivated`/`withdrawn` | Domande che un operatore fa alla lista, non colonne del database; «chi è su Plus» non era una domanda che qualcuno facesse. Costo accettato: il filtro per singolo piano e "Gift withdrawn only" spariscono, e le righe con regalo ritirato si riconoscono solo dal testo di stato |
+| Definizione di "Needs attention" | Le righe il cui `rowStatus` ha `tone: 'alert'` | Una sola fonte di verità fra il colore della colonna e il contenuto del tab; uno stato nuovo entra nel tab da solo |
+| Quali stati sono rossi | Solo `stillAwaitingChoice` e `grace` | Sono i due in cui il badge dice "pagato" e l'account non può usare il piano; scaduto, ritirato, mai entrato sono fatti compiuti, non cose da fare |
+| Conteggi dei tab | Sul risultato della ricerca, non sull'installazione | «All 3 · Paying 1» accanto a tre righe è una risposta; i totali dell'installazione accanto alle stesse tre righe sarebbero un enigma |
+| `listAccountPlans() === null` | I tre tab di piano restano senza numero e rispondono lista vuota; "All" invariato | Mettere una riga sotto "Paying" perché la colonna era illeggibile sarebbe una bugia sull'unico schermo fatto per essere creduto; "All" resta la lista non filtrata di sempre |
+| Badge "No plan" | Neutro (`.plan-badge-none`), non più `--danger` | Il mock distingue Free e No plan dalla colonna Status, non dal colore; "Awaiting choice" resta rosso solo nel caso residuo con piano assegnato |
+| Colori dei piani | Token `--plan-*` ricolorati sulla rampa calda del mock, per tutti gli schermi operatore | I token erano dichiarati «solo `/accounts`»: ricolorarli tiene lista, dettaglio e `/design-system` d'accordo senza una seconda palette per lo stesso concetto |
+| `--plan-premium` uguale ad `--accent` | Stessi valori, variabile distinta | Stesso ragionamento di `--note` vs `--plan-standard`: significano cose diverse e un ritocco all'uno non deve trascinare l'altro |
+| Registrazioni in sospeso | Pillola rossa accanto al titolo → sezione sotto la lista | La scopribilità che il punto 11 di `PLAN-account-admin.md` cercava mettendole in cima la dà la pillola, che si vede prima di qualunque sezione; la lista torna a essere la prima cosa della pagina |
+| Ordinamento | Un parametro `sort` a sei valori, `<select>` che invia al cambio | Il mock disegna un menu solo e un select imposta un parametro solo; sei direzioni volute, non ogni direzione di ogni chiave |
+| Tabella su telefono | Scorre in orizzontale dentro il proprio bordo | È uno schermo da scrivania: le sei colonne del mock sono il punto, e comprimerle in due righe per riga era la lista della v3.8 |
+| Avviso "Plans are off" | Tenuto, benché il mock non lo disegni | Il mock lo porta ancora nei dati (`plansOff`), che legge come blocco non renderizzato; in produzione non compare mai, quindi tenerlo non tocca lo schermo ritratto |

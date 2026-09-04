@@ -14,6 +14,7 @@ colors:
   ink-muted: "#5c626c"
   ink-faint: "#8d939c"
   paper-line: "#dcdad4"
+  paper-line-soft: "#e6e3dc"
   night-bg: "#101216"
   night-surface: "#181b21"
   night-surface-raised: "#21252c"
@@ -22,6 +23,7 @@ colors:
   night-ink-muted: "#99a0aa"
   night-ink-faint: "#5f666f"
   night-line: "#2b2f37"
+  night-line-soft: "#262a32"
   danger: "#9d2820"
   danger-soft: "#fbe7e4"
   danger-night: "#ff9a90"
@@ -30,22 +32,22 @@ colors:
   success-soft: "#e1f3e6"
   success-night: "#6fd88f"
   success-night-soft: "#17281c"
-  plan-standard: "#2f5f8f"
-  plan-standard-soft: "#e3edf6"
-  plan-standard-night: "#8ec2f2"
-  plan-standard-night-soft: "#182430"
-  plan-plus: "#6b3fa0"
-  plan-plus-soft: "#efe6f7"
-  plan-plus-night: "#cba6ec"
-  plan-plus-night-soft: "#251b30"
-  plan-premium: "#8a6d1f"
-  plan-premium-soft: "#f5eed7"
-  plan-premium-night: "#e0c368"
-  plan-premium-night-soft: "#2c2515"
-  plan-lifetime: "#1f6f5c"
-  plan-lifetime-soft: "#dcf0ea"
-  plan-lifetime-night: "#6bd6bd"
-  plan-lifetime-night-soft: "#162925"
+  plan-standard: "#4a6b7c"
+  plan-standard-soft: "#e8eef2"
+  plan-standard-night: "#9fbccb"
+  plan-standard-night-soft: "#1b262d"
+  plan-plus: "#8a6a52"
+  plan-plus-soft: "#f0e9e2"
+  plan-plus-night: "#cdb096"
+  plan-plus-night-soft: "#292019"
+  plan-premium: "#97490f"
+  plan-premium-soft: "#f4e7d9"
+  plan-premium-night: "#f0b268"
+  plan-premium-night-soft: "#2a2118"
+  plan-lifetime: "#7a3f6b"
+  plan-lifetime-soft: "#efe3ef"
+  plan-lifetime-night: "#d1a3c4"
+  plan-lifetime-night-soft: "#2a1f28"
 typography:
   screen-title:
     fontFamily: "Outfit, system-ui, sans-serif"
@@ -194,11 +196,17 @@ A warm, restrained palette: one reserved accent, everything else a step on a pap
 
 ### Plan Badges — a declared exception to the Chord-First Rule
 
-`/accounts` (the operator screen, `PLAN.md` v3.7) is the one place in the app with five
-distinct, fully-saturated badge colors — one per plan (`plan-standard`, `plan-plus`,
-`plan-premium`, `plan-lifetime`, each with its own `-soft`/`-night`/`-night-soft` pair, Free
-left uncolored on the neutral ink ramp since there is nothing bought to name), plus the
-existing `danger`/`danger-soft` reused for the "Not activated" state. This is a **declared**
+`/accounts` (the operator screen, `PLAN.md` v3.7, redrawn after `Accounts.dc.html` in v4.4)
+is the one place in the app with a second color family: a warm ramp, one color per paid
+plan, cool to warm in the order the plans are sold — a grey-blue `plan-standard`, a brown
+`plan-plus`, `plan-premium` on the brand terracotta itself (the accent's own two values, kept
+as a separate token because "the app's color" and "one plan's name" must be able to move
+apart), a plum `plan-lifetime` — each with its own `-soft`/`-night`/`-night-soft` pair. Free
+and "No plan" both stay on the neutral ink ramp (`surface-raised` and `surface-nested`
+respectively) since there is nothing bought to name; the row's Status column, not a color,
+tells them apart. `danger`/`danger-soft` is reused only for "Awaiting choice", the residual
+row that shows a paid badge while its owner has not passed the plan gate. The same ramp
+colors the row's monogram avatar, so the two marks on a row tell one story. This is a **declared**
 exception to the Chord-First Rule above, not a drift from it: the rule exists to stop a UI
 element from competing with the chords on the song sheet for a reader's attention, and an
 operator's account list has no sheet and no chords on it to compete with — the letter of "one

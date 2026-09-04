@@ -70,6 +70,14 @@ export function IconChevronDown(props: IconProps) {
   )
 }
 
+export function IconChevronUp(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 14 6-6 6 6" />
+    </Icon>
+  )
+}
+
 /** Back to where it started: a counterclockwise arrow. */
 export function IconUndo(props: IconProps) {
   return (
@@ -492,6 +500,19 @@ export function IconClose(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="M6 6l12 12M18 6 6 18" />
+    </Icon>
+  )
+}
+
+/** A wrapped box with its bow: a plan somebody was given, on the `/accounts` list. */
+export function IconGift(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10.5v8a1.5 1.5 0 0 0 1.5 1.5h13a1.5 1.5 0 0 0 1.5-1.5v-8" />
+      <rect x="2.5" y="7" width="19" height="3.5" rx="1.5" />
+      <path d="M12 7v13" />
+      <path d="M12 7H9a2 2 0 1 1 0-4c2 0 3 4 3 4z" />
+      <path d="M12 7h3a2 2 0 1 0 0-4c-2 0-3 4-3 4z" />
     </Icon>
   )
 }

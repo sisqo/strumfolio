@@ -48,6 +48,12 @@
   --muted: #5c626c;
   --faint: #8d939c;
   --line: #dcdad4;
+  /*
+   * A hairline lighter than `--line`, from `Accounts.dc.html`: the edge of a table and the
+   * dividers inside it, where `--line` is the edge of a control you press. The two sit on the
+   * same screen a few pixels apart, and drawn in one colour the table read as a control.
+   */
+  --line-soft: #e6e3dc;
   /* Invisible here. In dark it becomes --line: see the note above. */
   --edge: transparent;
   /*
@@ -89,27 +95,33 @@
    * Badges"): the one place besides `--danger`/`--success` where the app reaches for a color
    * that is not `--accent`. Free carries no variable of its own — it stays on the neutral ink
    * ramp, since there is nothing bought to name.
+   *
+   * A warm ramp since `Accounts.dc.html` (v4.4), cool to warm in the order the plans are
+   * sold: a grey-blue Standard, a brown Plus, Premium on the brand terracotta itself, a plum
+   * Lifetime. Premium's pair holds `--accent`'s own two values on purpose and stays its own
+   * variable anyway — the accent is what the whole app is drawn in, this is what one plan is
+   * called, and a re-tint of either must not drag the other with it.
    */
-  --plan-standard: #2f5f8f;
-  --plan-standard-soft: #e3edf6;
+  --plan-standard: #4a6b7c;
+  --plan-standard-soft: #e8eef2;
 
   /*
    * A note's blue — the one thing on the sheet deliberately *not* the chord accent, so a
    * note can never be misread as part of the music.
    *
-   * Its own pair rather than a reuse of `--plan-standard`, which today holds the same two
-   * values: they mean different things, and a repricing that restyled every annotation in
-   * the app would be the drift this separation exists to prevent. The collision is only
-   * ever visible on /pricing, where no sheet is rendered.
+   * Its own pair rather than a reuse of `--plan-standard`, which held the same two values
+   * until the warm ramp above moved the plan off this blue: they mean different things, and
+   * a repricing that restyled every annotation in the app would be the drift this separation
+   * exists to prevent — as that re-tint went on to prove, leaving the note exactly as it was.
    */
   --note: #2f5f8f;
   --note-soft: #e3edf6;
-  --plan-plus: #6b3fa0;
-  --plan-plus-soft: #efe6f7;
-  --plan-premium: #8a6d1f;
-  --plan-premium-soft: #f5eed7;
-  --plan-lifetime: #1f6f5c;
-  --plan-lifetime-soft: #dcf0ea;
+  --plan-plus: #8a6a52;
+  --plan-plus-soft: #f0e9e2;
+  --plan-premium: #97490f;
+  --plan-premium-soft: #f4e7d9;
+  --plan-lifetime: #7a3f6b;
+  --plan-lifetime-soft: #efe3ef;
 
   /*
    * The user menu's monogram avatar (v3.3): which of these six an address draws is
@@ -194,6 +206,7 @@
     --muted: #99a0aa;
     --faint: #5f666f;
     --line: #2b2f37;
+    --line-soft: #262a32;
     --edge: var(--line);
     --accent: #f0b268;
     --accent-soft: #2a2118;
@@ -209,18 +222,18 @@
     --danger-soft: #2f1a18;
     --success: #6fd88f;
     --success-soft: #17281c;
-    --plan-standard: #8ec2f2;
-    --plan-standard-soft: #182430;
+    --plan-standard: #9fbccb;
+    --plan-standard-soft: #1b262d;
     /* Warmer and less saturated than the plan blue: the dark theme here is hand-tuned,
        not an inversion, and a note sits *inside* running text rather than on a card. */
     --note: #8fbde4;
     --note-soft: #1a2530;
-    --plan-plus: #cba6ec;
-    --plan-plus-soft: #251b30;
-    --plan-premium: #e0c368;
-    --plan-premium-soft: #2c2515;
-    --plan-lifetime: #6bd6bd;
-    --plan-lifetime-soft: #162925;
+    --plan-plus: #cdb096;
+    --plan-plus-soft: #292019;
+    --plan-premium: #f0b268;
+    --plan-premium-soft: #2a2118;
+    --plan-lifetime: #d1a3c4;
+    --plan-lifetime-soft: #2a1f28;
 
     /*
      * Dark separates by border, not by shadow — so the two card shadows go, and
@@ -251,6 +264,7 @@
   --muted: #99a0aa;
   --faint: #5f666f;
   --line: #2b2f37;
+  --line-soft: #262a32;
   --edge: var(--line);
   --accent: #f0b268;
   --accent-soft: #2a2118;
@@ -264,16 +278,16 @@
   --danger-soft: #2f1a18;
   --success: #6fd88f;
   --success-soft: #17281c;
-  --plan-standard: #8ec2f2;
-  --plan-standard-soft: #182430;
+  --plan-standard: #9fbccb;
+  --plan-standard-soft: #1b262d;
   --note: #8fbde4;
   --note-soft: #1a2530;
-  --plan-plus: #cba6ec;
-  --plan-plus-soft: #251b30;
-  --plan-premium: #e0c368;
-  --plan-premium-soft: #2c2515;
-  --plan-lifetime: #6bd6bd;
-  --plan-lifetime-soft: #162925;
+  --plan-plus: #cdb096;
+  --plan-plus-soft: #292019;
+  --plan-premium: #f0b268;
+  --plan-premium-soft: #2a2118;
+  --plan-lifetime: #d1a3c4;
+  --plan-lifetime-soft: #2a1f28;
 
   --shadow-1: none;
   --shadow-2: none;
@@ -8960,6 +8974,442 @@
   .plan-badge-unchosen {
     background: var(--danger-soft);
     color: var(--danger);
+  }
+  /* "No plan" itself, since `Accounts.dc.html`: the ink ramp one step under Free's, not the
+     red above — nothing chosen is the ordinary state of every new account, and the list's
+     Status column is what says whether that is news (`rowStatus`, `planText.ts`). */
+  .plan-badge-none {
+    background: var(--surface-3);
+    color: var(--muted);
+  }
+
+  /* ---- /accounts ------------------------------------------------------- */
+
+  /*
+   * The operator's account list, from `Accounts.dc.html`, matched value for value: every
+   * size, radius and colour below is the mock's, mapped onto this palette's tokens (the mock
+   * was drawn in them — `#f6f5f2`, `#5c626c`, `#dcdad4`, `#f1efe9` all resolved to a variable
+   * that already existed; `--line-soft` and the plan ramp are the two things it added).
+   *
+   * Its own classes rather than `.card`/`.btn`/`.badge` plus utilities, because the mock's
+   * table, pills and chips are all a size smaller than those: a 32px pager button next to a
+   * 44px `.btn` is not a variant, it is a different control, and utilities overriding four
+   * properties of `.btn` each time would be the harder thing to read.
+   */
+  .accounts-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+
+  /* The pending registrations, as a red pill beside the title — a link to the rows below. */
+  .accounts-pending {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.125rem;
+    padding: 0 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--danger) 12%, var(--danger-soft));
+    border-radius: var(--r-pill);
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  /*
+   * The two deployment notices. Not `.notice`: the mock draws these in ink on a tinted
+   * ground with a hairline of the tint's own hue, where `.notice-error` colours the text
+   * itself — a whole paragraph in red is a warning, and this is a fact about the deployment.
+   */
+  .accounts-notice {
+    margin-top: 0.625rem;
+    padding: 0.6875rem 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .accounts-notice strong {
+    font-weight: 600;
+  }
+
+  .accounts-notice.is-error {
+    border-color: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));
+    background: var(--danger-soft);
+  }
+
+  .accounts-notice.is-accent {
+    border-color: color-mix(in srgb, var(--accent) 14%, var(--accent-soft));
+    background: var(--accent-soft);
+  }
+
+  /* Tabs on the left, search and sort on the right, one hairline under all of it. */
+  .accounts-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 1.375rem;
+    padding-bottom: 0.125rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .accounts-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  /*
+   * `margin-bottom: -1px` drops the active tab's 2px underline onto the toolbar's own
+   * hairline, so the two read as one line with a thicker, accent-coloured stretch.
+   */
+  .accounts-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    padding: 0.5625rem 0.625rem;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 0.875rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .accounts-tab.is-active {
+    border-bottom-color: var(--accent);
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .accounts-tab-count {
+    color: var(--faint);
+    font-size: 0.78125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* "Needs attention"'s count, only while there is something to attend to. */
+  .accounts-tab-alert {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .accounts-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: auto;
+  }
+
+  /* The search box is the label: the icon, the field and the border are one control. */
+  .accounts-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 11rem;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.6875rem;
+    background: var(--surface);
+    color: var(--faint);
+  }
+
+  .accounts-search:focus-within {
+    border-color: var(--accent);
+  }
+
+  .accounts-search svg {
+    flex: none;
+  }
+
+  .accounts-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.84375rem;
+    outline: 0;
+    appearance: none;
+  }
+
+  .accounts-search input::placeholder {
+    color: var(--faint);
+  }
+
+  /*
+   * The sort order: a native select with its own arrow hidden, and this palette's chevron
+   * drawn over it — the one way to get a theme-aware arrow on a `<select>`. The select keeps
+   * the whole box as its hit area; the chevron only decorates.
+   */
+  .accounts-sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 2.25rem;
+    color: var(--faint);
+  }
+
+  .accounts-sort select {
+    height: 100%;
+    padding: 0 1.75rem 0 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.6875rem;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.84375rem;
+    appearance: none;
+  }
+
+  .accounts-sort select:focus {
+    border-color: var(--accent);
+    outline: 0;
+  }
+
+  .accounts-sort svg {
+    position: absolute;
+    right: 0.75rem;
+    pointer-events: none;
+  }
+
+  /*
+   * The table. Scrolls sideways inside its own rounded edge on a phone rather than
+   * collapsing columns: an operator's list is a desktop screen first, and the mock's six
+   * columns are the point of it.
+   */
+  .accounts-table {
+    overflow-x: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: 1rem;
+    background: var(--surface);
+  }
+
+  .accounts-grid {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) 30px 104px 170px 46px 56px;
+    gap: 0.75rem;
+    align-items: center;
+    min-width: 40rem;
+    padding: 0.6875rem 0.875rem;
+  }
+
+  /* The pending registrations reuse the table with their own four columns. */
+  .accounts-grid.is-pending {
+    grid-template-columns: minmax(10rem, 1fr) 7rem 10rem auto;
+  }
+
+  .accounts-table-head {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--bg);
+    color: var(--faint);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .accounts-table-head a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* The header the list is currently ordered by, a step darker than the others. */
+  .accounts-table-head .is-sorted {
+    color: var(--muted);
+  }
+
+  /*
+   * "Sign-ins" in caps and tracked is wider than the 46px its numbers need. Kept on one
+   * line and hung from the column's right edge — a grid item wider than its track with
+   * `justify-self: end` overflows toward the start, into the gap — so the header's right
+   * edge still sits over the digits below it.
+   */
+  .accounts-table-head .text-right {
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  .accounts-row {
+    border-bottom: 1px solid var(--surface-3);
+  }
+
+  .accounts-row:last-child {
+    border-bottom: 0;
+  }
+
+  .accounts-who {
+    display: flex;
+    align-items: center;
+    gap: 0.5625rem;
+    min-width: 0;
+  }
+
+  /* The monogram, coloured by plan — `.plan-badge-*` supplies the pair, this the shape. */
+  .accounts-avatar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    border-radius: 50%;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .accounts-email {
+    overflow: hidden;
+    font-size: 0.90625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .accounts-gift {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3125rem;
+    height: 1.3125rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* The plan chip — `.badge`'s shape a size down, colour from `.plan-badge-*` as ever. */
+  .accounts-plan {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: var(--r-pill);
+    font-size: 0.78125rem;
+    font-weight: 500;
+  }
+
+  .accounts-status {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .accounts-status.is-alert {
+    color: var(--danger);
+  }
+
+  .accounts-status.is-faint {
+    color: var(--faint);
+  }
+
+  .accounts-count {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .accounts-view {
+    color: var(--accent);
+    font-size: 0.84375rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .accounts-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.875rem;
+    font-size: 0.84375rem;
+  }
+
+  /* Previous/Next: a pill two sizes under `.btn`, and kept in place when there is nowhere to go. */
+  .accounts-page-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 2rem;
+    padding: 0 0.9375rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .accounts-page-btn.is-off {
+    opacity: 0.45;
+  }
+
+  @media (hover: hover) {
+    .accounts-pending:hover {
+      background: color-mix(in srgb, var(--danger-soft) 88%, var(--danger));
+    }
+
+    .accounts-tab:not(.is-active):hover {
+      color: var(--ink);
+    }
+
+    .accounts-sort select:hover,
+    .accounts-page-btn:not(.is-off):hover {
+      background: var(--surface-3);
+    }
+
+    .accounts-row:hover {
+      background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+    }
+
+    .accounts-view:hover {
+      color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+    }
+  }
+
+  /*
+   * Under 40rem the tools drop to their own line; the tabs then carry the hairline the
+   * toolbar drew, so the active underline still lands on a line rather than in mid-air.
+   */
+  @media (max-width: 40rem) {
+    .accounts-toolbar {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .accounts-tabs {
+      flex-basis: 100%;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .accounts-tools {
+      width: 100%;
+      margin-left: 0;
+      padding-top: 0.625rem;
+    }
+
+    .accounts-search {
+      flex: 1;
+      width: auto;
+    }
   }
 
   /*

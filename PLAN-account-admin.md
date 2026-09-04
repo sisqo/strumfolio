@@ -340,6 +340,9 @@ questo piano è più bloccata da questo.
    in coda finirebbe a un'altezza diversa su ogni pagina ed è lo scenario opposto a
    quello voluto — la ragione della sotto-sezione è proprio la scopribilità senza già
    conoscere l'indirizzo, quindi va in cima, prima dei filtri, di solito vuota.
+   *(Superato dalla v4.4, `PLAN.md`: da `Accounts.dc.html` la scopribilità la dà una
+   pillola rossa «N pending registrations» accanto al titolo, e la sezione con i bottoni
+   "Confirm now" sta sotto la lista, raggiunta dalla pillola.)*
    - Nuova funzione `listPendingRegistrations()` (es. in `src/lib/register/actions.ts`
      o `src/lib/accounts/read.ts`): legge tutte le righe `pendingRegistrations`
      (email, nome se presente, `createdAt`, `expiresAt`) — nessun filtro per
