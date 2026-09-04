@@ -17,6 +17,9 @@ function paidRow(over: Partial<PaymentHistoryLine> = {}): PaymentHistoryLine {
     plan: 'standard',
     cycle: 'year',
     amount: '19',
+    couponCode: null,
+    couponPercent: null,
+    fullAmount: null,
     ...over,
   }
 }

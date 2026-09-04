@@ -19,6 +19,9 @@ export type Section =
   | 'profile'
   | 'accounts'
   | 'emails'
+  /* Beside `emails` because the menu draws them as neighbours, and because both are about
+     what leaves the installation rather than about the installation itself. */
+  | 'coupons'
   | 'pages'
   | 'design-system'
   | 'app-settings'

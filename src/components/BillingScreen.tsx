@@ -14,7 +14,7 @@ import {
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
-import { cancelQuestion, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
+import { cancelQuestion, discountLine, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { LIMIT_MESSAGE, PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 type Status =
@@ -191,6 +191,22 @@ export function BillingScreen() {
      the same shape `CheckoutScreen` uses. */
   const ready = status.state === 'ready' ? status : null
   const payment = ready === null ? null : lastPaymentLine(ready.current, ready.history)
+  /*
+   * The coupon still in force, and what the price goes back to when it ends.
+   *
+   * `fullAmount` from the ledger and not from `PRICES`: what a price reverts to is what the
+   * listino said on the day of the purchase, and a later re-price must not rewrite it. The
+   * same purchase row `lastPaymentLine` above quotes, so the two lines can never describe
+   * different transactions.
+   */
+  const discount =
+    ready === null
+      ? null
+      : discountLine(
+          ready.current.discount,
+          ready.history.find((line) => line.action === 'purchase' && line.plan === ready.current.plan)?.fullAmount ??
+            null,
+        )
 
   return (
     <>
@@ -231,6 +247,9 @@ export function BillingScreen() {
                 on why this comes out of the ledger rather than a column. Absent, rather than
                 hedged, whenever there is no purchase row to quote. */}
             {payment !== null && <p className="mt-1 text-sm text-muted">{payment}</p>}
+            {/* Under what was paid, because it explains that figure — a reader who sees €24.49
+                beside a €34.99 listino has one question, and this is its answer. */}
+            {discount !== null && <p className="mt-1 text-sm text-muted">{discount}</p>}
 
             {/*
               * The freeze, said before it bites. Inside the plan card rather than at the top of

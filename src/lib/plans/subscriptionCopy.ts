@@ -180,3 +180,36 @@ export function scheduledChangeDay(status: PlanStatus, expiresAt: Date | null): 
 
   return formatPlanDate(expiresAt)
 }
+
+/**
+ * The discount line under the plan on `/billing`: the code, the reduction, when it ends, and
+ * what the price goes back to.
+ *
+ * **The only place a customer can re-read the promise `/pricing` made**, which is why it names
+ * all four facts rather than just the code. A campaign that discounts three months means a
+ * charge rising from €2.44 to €3.49 at the fourth period; the commercial deck accepts that
+ * attrition, and what makes it acceptable rather than disputed is that it is written where the
+ * customer can find it afterwards.
+ *
+ * Takes `MockSubscriptionState.discount`, which has already been resolved through
+ * `liveDiscount` — so this function never has to know that `discountEndsAt` is a date nobody
+ * writes on the day it passes. `null` in, `null` out, and `/billing` renders nothing.
+ *
+ * `fullAmount` comes from the ledger (`lastPaymentLine`'s own source) rather than from `PRICES`:
+ * what the price reverts to is what the listino said when the purchase happened, and a
+ * re-price must not rewrite it.
+ */
+export function discountLine(
+  discount: { code: string; percent: string; endsAt: Date | null } | null,
+  fullAmount: string | null,
+): string | null {
+  if (discount === null) return null
+
+  const reduction = `${discount.code} −${discount.percent}%`
+  if (discount.endsAt === null) {
+    return `${reduction}, for as long as this plan runs.`
+  }
+
+  const until = `${reduction} until ${formatPlanDate(discount.endsAt)}`
+  return fullAmount === null ? `${until}.` : `${until}, then ${euro(fullAmount)}.`
+}

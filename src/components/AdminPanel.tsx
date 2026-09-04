@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { IconEye, IconLink, IconNote, IconSettings, IconShield, IconSliders, IconSwitchAccount } from '@/components/icons'
+import { IconEye, IconLink, IconNote, IconReceipt, IconSettings, IconShield, IconSliders, IconSwitchAccount } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
 
 /**
@@ -29,6 +29,11 @@ import type { Section } from '@/components/TopBar'
 const ENTRIES: { section: Section; href: string; label: string; icon: typeof IconShield }[] = [
   { section: 'accounts', href: '/accounts', label: 'Accounts', icon: IconSwitchAccount },
   { section: 'emails', href: '/emails', label: 'Emails', icon: IconEye },
+  /* Between Emails and Pages: like both of them it is a thing the outside world sees, and
+     unlike App settings at the foot of this menu it acts on data rather than on the
+     installation's own knobs. `IconReceipt` because a campaign is about what is charged, and
+     it is the one commerce mark this menu does not already spend on something else. */
+  { section: 'coupons', href: '/coupons', label: 'Coupons', icon: IconReceipt },
   /* Bookmarks to pages nothing else links to, `/thanks?preview=` among them — see that
      page's own list and its own comment on what belongs there. */
   { section: 'pages', href: '/pages', label: 'Pages', icon: IconLink },

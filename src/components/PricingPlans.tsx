@@ -38,6 +38,24 @@ export interface ColumnPrice {
   amount: string
   /** «/yr», «/mo», or `''` for Free, which has nothing to bill and so nothing to suffix. */
   suffix: string
+  /**
+   * The listino, struck through, beside `amount` — present **only** while a coupon is applied,
+   * and absent otherwise so the page shows no struck price at all without one.
+   *
+   * That conditionality is the whole legal argument, not a rendering nicety: the commercial
+   * deck refuses struck prices outright («un prezzo di riferimento mai praticato è
+   * contestabile»), and what answers it is that €34.99 is genuinely what a reader without a
+   * coupon pays. See `PLAN-coupons.md`'s «Il barrato, e il suo limite».
+   */
+  was?: string
+  /**
+   * The small lines under the price: what the discount costs and for how long, and on the
+   * monthly card the real first-year total. Composed on the server by `lib/coupons/discount.ts`
+   * and arriving as finished sentences, like every other string in this component — this file
+   * must never import `@/lib/plans/types`, and the coupon arithmetic sits downstream of
+   * `prices.ts`, so computing any of it here would reopen that bundle door.
+   */
+  notes?: string[]
 }
 
 export interface PlanColumn {
@@ -195,6 +213,7 @@ export function PricingPlans({
   rows,
   tableTitle,
   viewer,
+  couponCode,
 }: {
   columns: PlanColumn[]
   /** The comparison table's own rows, rendered below the cards. */
@@ -203,8 +222,23 @@ export function PricingPlans({
   tableTitle: string
   /** Who is reading, decided by the server before this renders — see `Viewer`. */
   viewer: Viewer
+  /**
+   * The coupon in force, carried into every checkout link this component draws.
+   *
+   * Redundant with the cookie in the ordinary case, and deliberately so: the cookie is written
+   * by `rememberUrlCoupon` from an effect, so a reader who arrives from an advertisement and
+   * presses «Upgrade» before that round trip lands — or who has JavaScript switched off
+   * entirely — would otherwise reach a checkout at full price, one click after seeing the
+   * discount. `/checkout` re-derives the discount from this exactly as `/pricing` does, so the
+   * parameter carries a pointer and never a price.
+   */
+  couponCode?: string
 }) {
   const [period, setPeriod] = useState<BillingPeriod>('month')
+
+  /* Built once rather than at each of the three links below, so a fourth cannot forget it. */
+  const checkoutQuery = (cycle: BillingPeriod) =>
+    couponCode === undefined ? `?cycle=${cycle}` : `?cycle=${cycle}&coupon=${encodeURIComponent(couponCode)}`
 
   /*
    * The reader's own state is what makes this the one page that also serves an existing
@@ -386,11 +420,34 @@ export function PricingPlans({
 
               <h3 className="plan-name">{column.name}</h3>
               <p className="plan-price">
+                {/*
+                  * The struck listino before the price it was reduced to, never after — so the
+                  * eye reads "was, now" in that order whichever of the two is visually larger.
+                  * The same rule `.lifetime-original` states for the Lifetime block.
+                  *
+                  * `<s>` and not a `text-decoration` class alone: the strike is the whole
+                  * meaning here, and a purely visual one leaves a screen reader announcing two
+                  * prices with nothing to say which is being charged. The `sr-only` words are
+                  * what actually name them, because «was» read aloud is clearer than any
+                  * inflection a strike can carry.
+                  */}
+                {column.price[period].was !== undefined && (
+                  <>
+                    <span className="sr-only">Was </span>
+                    <s className="plan-price-was">{column.price[period].was}</s>{' '}
+                    <span className="sr-only">, now </span>
+                  </>
+                )}
                 {column.price[period].amount}
                 {column.price[period].suffix !== '' && (
                   <span className="plan-price-period">{column.price[period].suffix}</span>
                 )}
               </p>
+              {column.price[period].notes?.map((note) => (
+                <p key={note} className="plan-price-note">
+                  {note}
+                </p>
+              ))}
               <p className="plan-audience">{column.audience}</p>
 
               {/*
@@ -447,7 +504,7 @@ export function PricingPlans({
                       */}
                     {column.checkoutPlan !== undefined && (
                       <Link
-                        href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
+                        href={`/checkout/${column.checkoutPlan}${checkoutQuery(period)}`}
                         className="plan-cycle-link"
                         /* A re-buy of the plan already held also clears a scheduled downgrade,
                          * by design (`mockPurchase` reads it as changing your mind). The
@@ -464,7 +521,7 @@ export function PricingPlans({
                   <p className="plan-current w-full">Included in Lifetime</p>
                 ) : column.checkoutPlan !== undefined ? (
                   <Link
-                    href={`/checkout/${column.checkoutPlan}?cycle=${period}`}
+                    href={`/checkout/${column.checkoutPlan}${checkoutQuery(period)}`}
                     className="btn btn-primary btn-sm plan-cta w-full"
                   >
                     {/*
@@ -595,6 +652,18 @@ export function PricingPlans({
                     >
                       <span className="plan-table-name">{column.name}</span>
                       <span className="plan-table-price">
+                        {/* The strike reaches the table too, because the design repeats each
+                            plan's price in this header and a discounted card above an
+                            undiscounted header is the page disagreeing with itself. No notes
+                            here: a duration sentence in a column heading would wrap the table
+                            wider than a laptop, and the card two sections up already said it. */}
+                        {column.price[period].was !== undefined && (
+                          <>
+                            <span className="sr-only">Was </span>
+                            <s className="plan-table-was">{column.price[period].was}</s>{' '}
+                            <span className="sr-only">, now </span>
+                          </>
+                        )}
                         {column.price[period].amount}
                         {column.price[period].suffix}
                       </span>

@@ -242,6 +242,27 @@ export const accounts = pgTable(
      * log, chosen for simplicity over a full history of every past note.
      */
     internalNote: text('internal_note'),
+    /*
+     * The coupon this account is living under right now — the *live* answer to "what will this
+     * account pay next", as opposed to `coupon_redemptions`, which is the ledger of what it
+     * already paid. Written together, in one transaction, by `mockPurchase` alone, and always
+     * written: a purchase with no coupon has to clear what the last one left rather than
+     * inherit it.
+     *
+     * Read only through `liveDiscount` (`lib/coupons/discount.ts`), never in the clear, for the
+     * reason `planExpiresAt` above is read through `resolveSubscription`: `discountEndsAt` is a
+     * date that passes on its own, with no request there to observe it, so a screen reading the
+     * raw column would go on promising a discount that ended last month. Same relationship,
+     * different columns.
+     *
+     * `couponPercent` is `text`, like every amount in `prices.ts` and for its stated reason —
+     * this schema has no `numeric` column anywhere in it, and `readPercent` is the one place
+     * the string becomes a number.
+     */
+    couponCode: text('coupon_code'),
+    couponPercent: text('coupon_percent'),
+    /** `null` while a coupon holds forever, and whenever `couponCode` is null. */
+    discountEndsAt: timestamp('discount_ends_at', { withTimezone: true }),
   },
   (table) => [unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId)],
 )
@@ -922,3 +943,168 @@ export const appSettings = pgTable('app_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text('updated_by'),
 })
+
+/**
+ * A promotional campaign: one percentage, one public code, one window of time.
+ *
+ * **Twenty-one columns, where `PLAN-coupons.md`'s reference document has twenty-five.** The
+ * four that are not here are decisions, and the plan spells each out — briefly: a campaign
+ * covers the monthly and the yearly cycle *by construction* (`discountMonths` is what says for
+ * how long, and the yearly rounds up to whole years), so `applies_to_monthly` and
+ * `applies_to_annual` would only ever have allowed a campaign whose banner promised a discount
+ * half the cards on `/pricing` did not show; `publicly_enterable` and `url_applicable` are one
+ * `entry` enum, because two booleans have four states and one of the four is a campaign nobody
+ * can use; and `partner_name` is a weaker copy of `notes`, which already exists to say why a
+ * campaign exists.
+ *
+ * `appliesToLifetime` is the one `applies_to_*` that survives, and it survives because it is
+ * not a duration question at all: a Lifetime is bought once and has no renewal to hold a price
+ * on. Off by default — an abbonamento discount costs N months, a Lifetime discount costs
+ * forever — and it is the switch that gives `usageLimitLifetime` its separate, stricter ceiling.
+ *
+ * **No `status` column, deliberately**, against the reference document's own schema. Status is
+ * computed at every read by `campaignStatus` (`lib/coupons/discount.ts`) from the dates, the
+ * ceilings and `archivedAt` — which is the only lifecycle fact stored here. The architecture of
+ * this repository says so loudly in two other places: `resolveSubscription` collapses a
+ * scheduled downgrade "at every read site instead of a cron job — there is no background job
+ * anywhere in this repo", and `lifetimeOpen()` in `app/pricing/page.tsx` was deliberately
+ * converted from a module constant to a function so it could not freeze. A stored status needs
+ * the reconciliation job this repository has nowhere to put.
+ *
+ * The three `paddleDiscountId*` columns and `lastSyncedAt` are empty and will stay empty until
+ * a Paddle client exists. Present now rather than added later for `PlanPrice.paddleId`'s own
+ * stated reason: an empty field is a visible gap in a table, and a missing field is not. The
+ * translation, when it is written, is mechanical — a monthly entity with
+ * `maximum_recurring_intervals = discountMonths`, an annual one with `ceil(discountMonths / 12)`,
+ * and a Lifetime one only if `appliesToLifetime`.
+ *
+ * `createdBy` has **no foreign key**, for the reason `appSettings.updatedBy` and
+ * `paddleEvents.accountOwnerEmail` have none: the record of who ran a campaign should survive
+ * that person's account being deleted.
+ */
+export const couponCampaigns = pgTable(
+  'coupon_campaigns',
+  {
+    id: text('id').primaryKey(),
+    /** Internal, never shown to a reader: «Lancio T4 — Google Ads». */
+    name: text('name').notNull(),
+    /**
+     * The public code, stored already upper-cased — `normalizeCode` does it on the way in, the
+     * same discipline `normalizeEmail` applies to an address, so that uniqueness is a database
+     * constraint and not a `where upper(code) = …` repeated at every call site.
+     */
+    code: text('code').notNull(),
+    /** `paid` | `partner` | `winback` | `launch` — a reporting dimension; it precompiles nothing. */
+    channel: text('channel').notNull(),
+    notes: text('notes'),
+    /** `'0.01'` … `'100'`, as a string for `couponPercent`'s reason above. */
+    discountPercent: text('discount_percent').notNull(),
+    /**
+     * How many months the discount holds after it is redeemed — at least 1, or `null` for
+     * forever. **One field in months, not two in billing cycles**, which is the whole reason
+     * the reference document's three-discount terna (`ABC`, `ABC-Y`, `ABC-LT`) is not built:
+     * that existed only because Paddle's `maximum_recurring_intervals` counts cycles, and a
+     * single number of months derives the cycle count for each cycle instead —
+     * `discountCycles` in `lib/coupons/discount.ts`.
+     *
+     * The consequence worth knowing before setting it: the yearly cycle rounds **up** to whole
+     * years, always in the customer's favour, so `1` here discounts a whole first year.
+     */
+    discountMonths: integer('discount_months'),
+    appliesToLifetime: boolean('applies_to_lifetime').notNull().default(false),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * The last moment the code can be redeemed, or `null` for "until somebody archives it".
+     *
+     * Nullable **by decision**, and the decision has a cost that is written down rather than
+     * enforced: a campaign with no end date can quietly become the permanent price, which is
+     * exactly what makes a struck-through listino contestable. `PLAN-coupons.md` replaces the
+     * missing constraint with visibility — `/coupons` marks every active campaign that has no
+     * expiry, and counts the days the default one has been running.
+     */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    usageLimitSubscription: integer('usage_limit_subscription'),
+    /** Separate from the subscription ceiling, and required whenever `appliesToLifetime` is on. */
+    usageLimitLifetime: integer('usage_limit_lifetime'),
+    /**
+     * `url` | `code` | `both` — how this campaign can be reached. An enum rather than the two
+     * booleans the reference document has, so "reachable no way at all" is unrepresentable
+     * instead of merely forbidden.
+     */
+    entry: text('entry').notNull().default('both'),
+    /** The campaign `?promo=1` resolves to — at most one, enforced by the partial unique index below. */
+    isDefault: boolean('is_default').notNull().default(false),
+    /** The only stored lifecycle fact. A campaign is never deleted; the redemptions reference it. */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    paddleDiscountIdMonthly: text('paddle_discount_id_monthly'),
+    paddleDiscountIdAnnual: text('paddle_discount_id_annual'),
+    paddleDiscountIdLifetime: text('paddle_discount_id_lifetime'),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    unique('coupon_campaigns_code').on(table.code),
+    /*
+     * At most one live default campaign, as a database fact rather than a convention in the
+     * action that sets it. Every row admitted by the predicate has `isDefault` true, so
+     * uniqueness on that one column admits exactly one of them; `archivedAt is null` is what
+     * makes it possible to archive the current default and flag another.
+     *
+     * **Written by hand in `drizzle/0037_coupons.sql`**, like every migration since 0028 — see
+     * that file's own header. Which also disposes of the risk of drizzle-kit dropping the
+     * `where` clause and leaving a unique index on `is_default` outright, a constraint that
+     * would forbid a second *non-default* campaign and not show up until there were two.
+     */
+    uniqueIndex('coupon_campaigns_one_default')
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} and ${table.archivedAt} is null`),
+  ],
+)
+
+/**
+ * One account's redemption of one campaign — the ledger of what was actually charged, as
+ * opposed to the three `accounts.coupon*` columns, which say what will be charged next.
+ *
+ * The unique index is the load-bearing part. A campaign is redeemable once per account, which
+ * is what makes `usageLimitSubscription` a ceiling that can be *verified* — `timesUsed` is a
+ * `count(*)` over this table, not an estimate — and it is the only thing standing between a
+ * ceiling of 500 and a single account burning all of it, which with `SONGBOOK_MOCK_CHECKOUT`
+ * switched on costs nothing at all.
+ *
+ * `campaignId` has a foreign key because a campaign is never deleted, only archived (the
+ * guardrail is in `PLAN-coupons.md`). `accountOwnerEmail` deliberately has none, for
+ * `paddleEvents.accountOwnerEmail`'s reason: `deleteAccount` has to stay possible, and a key
+ * here would either cascade away the record of what somebody paid or make a paid account
+ * undeletable. One consequence, accepted rather than worked around: an account deleted and
+ * recreated cannot redeem the same campaign twice, which closes the delete-and-retry loop.
+ *
+ * Amounts are `text`, and both of them are stored rather than one being derived: `fullAmount`
+ * is what the listino said on the day, and re-deriving it later from `PRICES` is how a
+ * re-price silently rewrites history that has already happened.
+ */
+export const couponRedemptions = pgTable(
+  'coupon_redemptions',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => couponCampaigns.id),
+    accountOwnerEmail: text('account_owner_email').notNull(),
+    /** A copy, so a redemption reads on its own without joining a campaign that may be archived. */
+    code: text('code').notNull(),
+    discountPercent: text('discount_percent').notNull(),
+    plan: text('plan').notNull(),
+    /** `null` for the Lifetime, which is bought once and has no cycle. */
+    cycle: text('cycle'),
+    fullAmount: text('full_amount').notNull(),
+    paidAmount: text('paid_amount').notNull(),
+    /** `null` for the Lifetime, and for a campaign whose discount never ends. */
+    discountEndsAt: timestamp('discount_ends_at', { withTimezone: true }),
+    redeemedAt: timestamp('redeemed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('coupon_redemptions_once').on(table.campaignId, table.accountOwnerEmail),
+    index('coupon_redemptions_campaign').on(table.campaignId),
+  ],
+)

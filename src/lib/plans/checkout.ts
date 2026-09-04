@@ -34,11 +34,20 @@
 
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
 
+import { randomUUID } from 'crypto'
+
+import { cookies } from 'next/headers'
+
 import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
+import { discountEnd, discountedAmount, durationCopy, liveDiscount } from '@/lib/coupons/discount'
+import type { LiveDiscount } from '@/lib/coupons/discount'
+import { activeCoupon, redeemability } from '@/lib/coupons/read'
+import type { Campaign } from '@/lib/coupons/read'
+import { COUPON_COOKIE } from '@/lib/coupons/types'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts } from '@/lib/db/schema'
+import { accounts, couponRedemptions } from '@/lib/db/schema'
 import { notifyTelegram } from '@/lib/telegram/notify'
 
 import { liveSubscription, resolveSubscription } from './entitlements'
@@ -48,7 +57,7 @@ import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
 import { entitlementsOf, mockCheckoutEnabled } from './resolve'
 import { euro, isCheckoutPlan, periodEnd, readPendingCycle } from './prices'
-import type { BillingPeriod } from './prices'
+import type { BillingPeriod, CheckoutPlan } from './prices'
 import { PLAN_LABEL, PLAN_RANK, readPendingPlan, readPlan, readPlanStatus } from './types'
 import type { Plan, PlanStatus } from './types'
 import { sendEmail } from '@/lib/email/send'
@@ -77,6 +86,16 @@ export interface MockSubscriptionState {
   expiresAt: Date | null
   /** A downgrade or cancellation (`'free'`) already scheduled, ahead of `expiresAt`. */
   pendingPlan: Plan | null
+  /**
+   * The coupon still in force on this account, or `null`.
+   *
+   * Already resolved through `liveDiscount` by the time it reaches this shape, which is the
+   * whole point of it being here rather than three raw columns: `discountEndsAt` is a date
+   * that passes with no request there to observe it, so anything reading the columns directly
+   * would keep promising a reduction that had ended. The same reason `plan`, `status` and
+   * `expiresAt` above arrive resolved rather than raw.
+   */
+  discount: LiveDiscount | null
 }
 
 /**
@@ -84,7 +103,14 @@ export interface MockSubscriptionState {
  * shape `liveSubscription`/`resolveSubscription` actually need, with no grant fields to fill
  * with filler values this file never uses (see that interface's own comment).
  */
-async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<SubscriptionColumns | null> {
+/**
+ * The subscription columns, plus the coupon ones — one query rather than two, because every
+ * caller of this needs both and a second read is a second chance for the plan and the discount
+ * to be reported from different instants.
+ */
+async function subscriptionColumnsOf(
+  accountOwnerEmail: string,
+): Promise<{ subscription: SubscriptionColumns; discount: LiveDiscount | null } | null> {
   const rows = await db()
     .select({
       plan: accounts.plan,
@@ -92,6 +118,9 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
       expiresAt: accounts.planExpiresAt,
       pendingPlan: accounts.pendingPlan,
       pendingCycle: accounts.pendingCycle,
+      couponCode: accounts.couponCode,
+      couponPercent: accounts.couponPercent,
+      discountEndsAt: accounts.discountEndsAt,
     })
     .from(accounts)
     .where(eq(accounts.ownerEmail, accountOwnerEmail))
@@ -101,11 +130,15 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
   if (row === undefined) return null
 
   return {
-    plan: readPlan(row.plan),
-    status: readPlanStatus(row.status),
-    expiresAt: row.expiresAt,
-    pendingPlan: readPendingPlan(row.pendingPlan),
-    pendingCycle: readPendingCycle(row.pendingCycle),
+    subscription: {
+      plan: readPlan(row.plan),
+      status: readPlanStatus(row.status),
+      expiresAt: row.expiresAt,
+      pendingPlan: readPendingPlan(row.pendingPlan),
+      pendingCycle: readPendingCycle(row.pendingCycle),
+    },
+    /* Never the raw columns — see `MockSubscriptionState.discount` and `liveDiscount`. */
+    discount: liveDiscount(row, new Date()),
   }
 }
 
@@ -137,15 +170,21 @@ export async function loadCheckoutStatus(): Promise<
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
-  const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-  if (raw === null) return { ok: false, reason: 'no-session' }
+  const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
+  if (stored === null) return { ok: false, reason: 'no-session' }
 
   const now = new Date()
-  const resolved = resolveSubscription(raw, now)
+  const resolved = resolveSubscription(stored.subscription, now)
   return {
     ok: true,
-    current: { plan: resolved.plan, status: resolved.status, expiresAt: resolved.expiresAt, pendingPlan: resolved.pendingPlan },
-    live: liveSubscription(raw, now),
+    current: {
+      plan: resolved.plan,
+      status: resolved.status,
+      expiresAt: resolved.expiresAt,
+      pendingPlan: resolved.pendingPlan,
+      discount: stored.discount,
+    },
+    live: liveSubscription(stored.subscription, now),
   }
 }
 
@@ -197,11 +236,11 @@ export async function loadPurchaseSummary(): Promise<
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
-  const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-  if (raw === null) return { ok: false, reason: 'no-session' }
+  const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
+  if (stored === null) return { ok: false, reason: 'no-session' }
 
   const now = new Date()
-  const resolved = resolveSubscription(raw, now)
+  const resolved = resolveSubscription(stored.subscription, now)
   return {
     ok: true,
     current: {
@@ -209,10 +248,11 @@ export async function loadPurchaseSummary(): Promise<
       status: resolved.status,
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
+      discount: stored.discount,
     },
     /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the
      * thank-you page is the one screen a lapsed plan could still be congratulated on. */
-    live: liveSubscription(raw, now),
+    live: liveSubscription(stored.subscription, now),
   }
 }
 
@@ -372,6 +412,38 @@ export async function activatePlanChoice(): Promise<{ ok: true } | { ok: false; 
  * `readPlan`, which would fall back to `'free'` and write that to a paying account's row
  * with no error for a typo to be seen in.
  */
+/**
+ * The campaign this purchase may actually redeem, re-read from the server's own cookie.
+ *
+ * The one place a coupon becomes money, and therefore the one place it is decided. Nothing
+ * client-side reaches this: the code comes from the request's own cookie jar, the campaign from
+ * the table, and `redeemability` re-checks every gate — state, window, both ceilings, whether
+ * the campaign covers this plan at all, and whether this account has redeemed it before.
+ *
+ * `null` for every refusal, and the purchase then proceeds at the listino. That is deliberate:
+ * declining to sell a plan because a discount lapsed between two page loads would be the more
+ * surprising behaviour of the two, and the screen has no discount left to show by the time
+ * anybody reloads it.
+ *
+ * Never throws — a coupon system being unreachable must not be a reason a plan cannot be
+ * bought.
+ */
+async function redeemableCouponFor(plan: CheckoutPlan, accountOwnerEmail: string): Promise<Campaign | null> {
+  try {
+    const cookie = (await cookies()).get(COUPON_COOKIE)?.value ?? null
+    if (cookie === null) return null
+
+    const campaign = await activeCoupon({ cookie })
+    if (campaign === null) return null
+
+    const allowed = await redeemability(campaign, plan, accountOwnerEmail)
+    return allowed.ok ? campaign : null
+  } catch (error) {
+    console.error('redeemableCouponFor failed', error)
+    return null
+  }
+}
+
 export async function mockPurchase(
   plan: string,
   cycle: BillingPeriod,
@@ -385,8 +457,9 @@ export async function mockPurchase(
 
   try {
     const now = new Date()
-    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (raw === null) return { ok: false, reason: 'failed' }
+    const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
+    if (stored === null) return { ok: false, reason: 'failed' }
+    const raw = stored.subscription
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === 'lifetime') return { ok: false, reason: 'not-applicable' }
@@ -421,6 +494,26 @@ export async function mockPurchase(
        the sentence and the decision to be read off different answers. */
     const resolved = resolveSubscription(raw, now)
     const nothingPaidThrough = resolved.expiresAt === null
+
+    /*
+     * The coupon, read **here** rather than passed in as an argument, and that is the security
+     * boundary of this whole feature rather than a style preference. `CheckoutScreen` is a
+     * client component: a code travelling as an argument is a code any caller can post, and
+     * with the mock checkout live that is a self-service discount of any percentage anybody
+     * likes. So the cookie is read server-side, the campaign is re-read from the table, and
+     * `redeemability` re-checks its state, its window, both ceilings, whether it covers this
+     * plan, and whether this account has had it already.
+     *
+     * The screen's own `coupon` prop decides only what is *printed*. If the two ever disagree —
+     * a stale link, a campaign archived between the two page loads, a tampered prop — the
+     * reader sees one price and is charged the one this line computed, which is the right way
+     * round for that disagreement to fall.
+     *
+     * A refused coupon is not an error: the purchase proceeds at the listino. Refusing to sell
+     * because a discount lapsed would be the more surprising behaviour, and the screen has
+     * already re-rendered without a banner by the time anybody reloads.
+     */
+    const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)
     const isUpgradeOrSame =
       plan === 'lifetime' || currentLive === null || nothingPaidThrough || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
 
@@ -438,7 +531,20 @@ export async function mockPurchase(
        */
       const billedCycle = plan === 'lifetime' ? null : cycle
       const expiresAt = billedCycle === null ? null : periodEnd(billedCycle, now)
-      const amount = amountFor(plan, billedCycle)
+      /*
+       * The listino, and then what is actually taken. Two names because both are recorded: the
+       * ledger keeps `fullAmount` so a history line can show the strike, and re-deriving it
+       * later from `PRICES` is how a re-price rewrites what somebody already paid.
+       *
+       * `discountEnd` is computed from the **billed cycle**, so one campaign of three months
+       * lands twelve months out on a yearly purchase and three on a monthly one — see
+       * `discountedMonths`, and the pair of adjacent functions it warns about.
+       */
+      const fullAmount = amountFor(plan, billedCycle)
+      const amount =
+        coupon === null || fullAmount === null ? fullAmount : discountedAmount(fullAmount, coupon.discountPercent)
+      const discountEndsAt =
+        coupon === null || billedCycle === null ? null : discountEnd(coupon.discountMonths, billedCycle, now)
 
       const updated = await db()
         .update(accounts)
@@ -471,16 +577,63 @@ export async function mockPurchase(
            * clock of its own to share — don't "unify" the two into one form without that in mind.
            */
           planChosenAt: sql`coalesce(${accounts.planChosenAt}, ${now.toISOString()})`,
+          /*
+           * The live answer to "what will this account pay next" — always written, `null`
+           * included, because a purchase without a coupon has to *clear* whatever the last one
+           * left behind rather than inherit it.
+           *
+           * Never cleared when `discountEndsAt` passes: that date arrives with no request there
+           * to observe it, so the columns are read through `liveDiscount` instead, exactly as
+           * `planExpiresAt` is read through `resolveSubscription`.
+           */
+          couponCode: coupon?.code ?? null,
+          couponPercent: coupon?.discountPercent ?? null,
+          discountEndsAt,
         })
         .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
         .returning({ ownerEmail: accounts.ownerEmail })
       if (updated.length === 0) return { ok: false, reason: 'failed' }
+
+      /*
+       * The redemption row, which is what makes `usage_limit` a ceiling that can be verified
+       * rather than estimated — `coupon_redemptions_once` is unique per account per campaign,
+       * so the count is Paddle's `times_used` computed rather than mirrored.
+       *
+       * Written after the plan, not before: an insert that fails must not leave an account
+       * marked as discounted with no record of the redemption, whereas the reverse order at
+       * worst loses one row of bookkeeping on a purchase that really happened. The whole
+       * statement is wrapped because a unique-index collision here — two tabs, the same
+       * instant — is a race, not a fault, and the plan has already been sold.
+       */
+      if (coupon !== null && fullAmount !== null && amount !== null) {
+        try {
+          await db().insert(couponRedemptions).values({
+            id: randomUUID(),
+            campaignId: coupon.id,
+            accountOwnerEmail: user.accountOwnerEmail,
+            code: coupon.code,
+            discountPercent: coupon.discountPercent,
+            plan,
+            cycle: billedCycle,
+            fullAmount,
+            paidAmount: amount,
+            discountEndsAt,
+          })
+        } catch (error) {
+          console.error('coupon redemption not recorded', error)
+        }
+      }
 
       await logMockEvent({
         accountOwnerEmail: user.accountOwnerEmail,
         action: 'purchase',
         plan,
         cycle: billedCycle,
+        amount,
+        coupon:
+          coupon === null || fullAmount === null
+            ? null
+            : { code: coupon.code, percent: coupon.discountPercent, fullAmount },
       })
 
       const label = `${plan}${billedCycle === null ? '' : `/${billedCycle}`}`
@@ -511,7 +664,23 @@ export async function mockPurchase(
       const endsOn = expiresAt === null ? null : formatPlanDate(expiresAt)
       await sendEmail({
         to: user.accountOwnerEmail,
-        ...purchaseEmail({ planLabel: PLAN_LABEL[plan], amount, cycle: billedCycle, endsOn }),
+        ...purchaseEmail({
+          planLabel: PLAN_LABEL[plan],
+          amount,
+          cycle: billedCycle,
+          endsOn,
+          /* `durationCopy` and not a sentence written here: the checkout screen showed exactly
+             this line before the button, and two wordings of one promise is how the two come
+             to differ. */
+          coupon:
+            coupon === null || fullAmount === null || amount === null || billedCycle === null
+              ? null
+              : {
+                  code: coupon.code,
+                  fullAmount,
+                  duration: durationCopy(fullAmount, amount, coupon.discountMonths, billedCycle),
+                },
+        }),
       })
 
       return { ok: true, effect: 'immediate' }
@@ -590,8 +759,9 @@ export async function mockCancel(): Promise<
 
   try {
     const now = new Date()
-    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (raw === null) return { ok: false, reason: 'failed' }
+    const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
+    if (stored === null) return { ok: false, reason: 'failed' }
+    const raw = stored.subscription
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {
@@ -617,7 +787,24 @@ export async function mockCancel(): Promise<
       .update(accounts)
       .set(
         immediate
-          ? { plan: 'free', planStatus: 'active', planExpiresAt: null, pendingPlan: null, pendingCycle: null }
+          ? {
+              plan: 'free',
+              planStatus: 'active',
+              planExpiresAt: null,
+              pendingPlan: null,
+              pendingCycle: null,
+              /*
+               * Cleared with the plan, because there is no longer a price for a discount to
+               * apply to — leaving them would make `/billing` promise a reduction off €0.
+               *
+               * The *scheduled* branch below deliberately leaves them alone: that account is
+               * still paying, still on its plan, and still owed the discount until the period
+               * it has already been billed for runs out.
+               */
+              couponCode: null,
+              couponPercent: null,
+              discountEndsAt: null,
+            }
           : { pendingPlan: 'free', pendingCycle: null },
       )
       .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
@@ -744,8 +931,9 @@ export async function forceExpireNow(ownerEmail: string): Promise<{ ok: true } |
 
   try {
     const now = new Date()
-    const raw = await subscriptionColumnsOf(target)
-    if (raw === null) return { ok: false, reason: 'failed' }
+    const stored = await subscriptionColumnsOf(target)
+    if (stored === null) return { ok: false, reason: 'failed' }
+    const raw = stored.subscription
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {

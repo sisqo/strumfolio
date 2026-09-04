@@ -87,56 +87,52 @@ export interface PlanPrice {
   paddleId: string
 }
 
+/*
+ * The listino, as the commercial configuration deck closes it («Il listino è chiuso su tutti
+ * i piani e cicli», `Strumfolio_Configurazione_Commerciale.pdf` v1.0, September 2026) —
+ * replacing the €19/€2.49 · €39/€4.99 · €69/€8.99 table that shipped before coupons existed.
+ *
+ * The `.99` endings are not decoration: the deck's own promo column is these amounts less
+ * 30%, and `discountedAmount` (`lib/coupons/discount.ts`) reproduces all seven of its figures
+ * exactly, which is what makes that table a test fixture rather than a claim. Change an amount
+ * here and `discount.test.ts` says which row of the deck stopped being true.
+ */
 export const PRICES: Record<PaidPlan, Record<BillingPeriod, PlanPrice>> = {
   standard: {
-    year: { amount: '19', paddleId: '' },
-    month: { amount: '2.49', paddleId: '' },
+    year: { amount: '34.99', paddleId: '' },
+    month: { amount: '3.49', paddleId: '' },
   },
   plus: {
-    year: { amount: '39', paddleId: '' },
-    month: { amount: '4.99', paddleId: '' },
+    year: { amount: '69.99', paddleId: '' },
+    month: { amount: '6.99', paddleId: '' },
   },
   premium: {
-    year: { amount: '69', paddleId: '' },
-    month: { amount: '8.99', paddleId: '' },
+    year: { amount: '99.99', paddleId: '' },
+    month: { amount: '9.99', paddleId: '' },
   },
 }
 
 /**
- * Premium bought once, with no renewal date — and the day it stops being for sale.
+ * Premium bought once, with no renewal date.
  *
- * The closing date is data and not a sentence in the page's JSX, because it is the one fact
- * on that page with an expiry: it appears in the copy, and one day it decides whether the
- * block is rendered at all. A date typed into a paragraph cannot be compared with anything.
+ * **Three fields left this constant when coupons landed**, and the removal is the decision
+ * rather than a tidy-up: `originalAmount` (`'249'`, the struck anchor beside `'189'`),
+ * `closesOn` and `closesOnLabel`. This plan had a promotional mechanism entirely of its own —
+ * one struck price, one hard-coded closing date, one pill — and `lib/coupons/` is now that
+ * mechanism for every plan at once. €199.99 is the listino, flat; €139.99 exists only while a
+ * campaign covers the Lifetime (`applies_to_lifetime`), and the date beside it is that
+ * campaign's `expires_at`, not a constant anybody has to remember to move.
  *
- * `closesOn` is the last day the offer is in the catalogue, inclusive, and `closesOnLabel` is
- * how that same day is written for a reader. Two fields rather than one formatted at render
- * time deliberately: `toLocaleDateString` would put the page's wording at the mercy of the
- * runtime's locale data, and this page is English wherever it is read.
- *
- * **What actually reads this, and what it cannot do.** `LIFETIME_OPEN` in
- * `app/pricing/page.tsx` compares this date and renders the lifetime block, and the lifetime
- * clause of the page's meta description, only while it holds. That page is statically
- * generated, so the comparison is evaluated when the page is built and not when it is read:
- * the block leaves on the first build after 31 December 2026, not at midnight. So there is a
- * duty here that no code discharges — **take the block out by hand on that day**, or accept
- * that it lives until the next deploy. It is written here rather than only there because this
- * is the field somebody edits when the date moves, and the date moving is when the duty moves
- * with it.
+ * What replaces `closesOn` for the other question it answered — whether the Lifetime is in
+ * the catalogue at all — is the `lifetime.on_sale` row in `app_settings`
+ * (`lib/settings/types.ts`), read per request. `lifetimeOpen()` in `app/pricing/page.tsx` had
+ * already been converted from a module constant to a function precisely because a date in the
+ * code closes an offer on the first deploy after that day rather than on that day; a switch an
+ * owner flips finishes the job the conversion started.
  */
 export const LIFETIME = {
-  amount: '189',
-  /**
-   * The struck-through anchor beside `amount` — never charged, never stored anywhere a
-   * purchase touches (`checkout.ts` writes only `plan`/`planStatus`/`planExpiresAt`, the same
-   * three columns every other plan writes, with no price of any kind among them). Its only
-   * job is the one line on `/pricing` that shows both numbers at once.
-   */
-  originalAmount: '249',
+  amount: '199.99',
   paddleId: '',
-  /** ISO, so a comparison is a comparison and not a parse of prose. */
-  closesOn: '2026-12-31',
-  closesOnLabel: '31 December 2026',
 } as const
 
 /** `19` → `€19`. One place, so no page has to decide where the symbol goes. */

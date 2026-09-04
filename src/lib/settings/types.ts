@@ -95,3 +95,27 @@ export function writeBooleanSetting(value: boolean): string {
 export function isNotifyEvent(value: string): value is NotifyEvent {
   return (NOTIFY_EVENTS as readonly string[]).includes(value)
 }
+
+/**
+ * Whether the Lifetime plan is in the catalogue at all.
+ *
+ * This is what `LIFETIME.closesOn` used to decide, and the reason it moved here is written in
+ * `prices.ts` beside the field's own removal: a date compiled into the code takes the offer
+ * off the page on the first deploy after that day, not on that day. `lifetimeOpen()` in
+ * `app/pricing/page.tsx` had already been converted from a `const` to a function over exactly
+ * that bug; a row in this table is the version of the fix that does not need a deploy at all.
+ *
+ * Not prefixed `notify.` — this is the first setting in here that is not a notification, which
+ * is precisely the growth `appSettings`' own comment in `schema.ts` says the key/value shape
+ * exists for. The prefix is what keeps the two families from ever colliding.
+ */
+export const LIFETIME_ON_SALE_KEY = 'lifetime.on_sale'
+
+/**
+ * On until somebody turns it off, like every switch above it — and for the stronger version of
+ * their reason. The Lifetime is in the catalogue today; an unreadable `app_settings`, or this
+ * migration not yet applied, has to look exactly like today rather than like a plan silently
+ * withdrawn from sale. `readBooleanSetting`'s own comment is the general form of this: the
+ * failure nobody notices is the one where a thing quietly stops.
+ */
+export const LIFETIME_ON_SALE_DEFAULT = true

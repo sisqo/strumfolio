@@ -4,13 +4,14 @@ import { notFound } from 'next/navigation'
 import { AppSettingsForm } from '@/components/AppSettingsForm'
 import { DeviceLaunchCheck } from '@/components/DeviceLaunchCheck'
 import { Footer } from '@/components/Footer'
+import { LifetimeOnSaleForm } from '@/components/LifetimeOnSaleForm'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { auth } from '@/auth'
 import { isOwner } from '@/lib/allowlist'
 import { loadSettingAuthor } from '@/lib/settings/actions'
-import { loadNotifySettings } from '@/lib/settings/read'
-import { NOTIFY_EVENTS, NOTIFY_LABEL } from '@/lib/settings/types'
+import { loadLifetimeOnSale, loadNotifySettings } from '@/lib/settings/read'
+import { LIFETIME_ON_SALE_KEY, NOTIFY_EVENTS, NOTIFY_LABEL, notifyKey } from '@/lib/settings/types'
 
 export const metadata: Metadata = { title: 'App settings' }
 
@@ -28,7 +29,10 @@ export const dynamic = 'force-dynamic'
  * `/app-settings` and not `/settings`: two things called Settings in the same header would be
  * a coin flip for whoever is looking for one of them.
  *
- * Only the four Telegram notification switches to begin with. What decides whether something
+ * Two families of switch now: the Telegram notifications this screen was built for, and
+ * whether the Lifetime plan is in the catalogue — which arrived with coupons, when
+ * `LIFETIME.closesOn` was removed from `prices.ts` and the offer needed something other than a
+ * date compiled into the code to close it. What decides whether something
  * belongs here is not "is it configuration" but **"is it a secret"**: the bot token, the API
  * keys, the database URL and `ALLOWED_EMAILS` all stay in the environment, and none of them is
  * a candidate later either. A screen that can display a credential in order to edit it is a
@@ -44,14 +48,27 @@ export default async function AppSettingsPage() {
   const session = await auth()
   if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) notFound()
 
-  const { settings, available } = await loadNotifySettings()
-  const authors = await Promise.all(NOTIFY_EVENTS.map((event) => loadSettingAuthor(event)))
+  const [{ settings, available }, lifetimeOnSale] = await Promise.all([
+    loadNotifySettings(),
+    loadLifetimeOnSale(),
+  ])
+
+  /*
+   * `loadSettingAuthor` takes the row key rather than a notify event, since the Lifetime
+   * switch is not one — so `notifyKey` is applied here, at the one place that knows these
+   * particular keys are notification keys.
+   */
+  const authored: { label: string; key: string }[] = [
+    ...NOTIFY_EVENTS.map((event) => ({ label: NOTIFY_LABEL[event], key: notifyKey(event) })),
+    { label: 'Lifetime in the catalogue', key: LIFETIME_ON_SALE_KEY },
+  ]
+  const authors = await Promise.all(authored.map((entry) => loadSettingAuthor(entry.key)))
 
   /* Only the switches somebody has actually touched have an author; the rest are untouched
-     defaults, and saying "never changed" for each of them would be four lines of nothing. */
-  const touched = NOTIFY_EVENTS.map((event, index) => ({ event, author: authors[index] })).filter(
-    (entry) => entry.author !== null,
-  )
+     defaults, and saying "never changed" for each of them would be five lines of nothing. */
+  const touched = authored
+    .map((entry, index) => ({ label: entry.label, author: authors[index] }))
+    .filter((entry) => entry.author !== null)
 
   return (
     <PrefsProvider songSlug={null}>
@@ -76,6 +93,20 @@ export default async function AppSettingsPage() {
         </section>
 
         {/*
+          * Above "This device" rather than below it: this one changes what strangers see on a
+          * public page, and that outranks a diagnostic about the phone in the owner's hand.
+          */}
+        <section className="card mb-5 p-4">
+          <h2 className="section-title mb-1">Lifetime</h2>
+          <p className="mb-3 text-[0.8125rem] leading-[1.45] text-muted">
+            Whether the pay-once plan is still for sale. This used to be a date in the code, which took the offer
+            off the page on the first deploy after that day rather than on the day itself.
+          </p>
+
+          <LifetimeOnSaleForm initial={lifetimeOnSale} />
+        </section>
+
+        {/*
           * Not a setting — nothing here is stored or changed — but it belongs on this screen
           * rather than a page of its own: it answers a question only the owner ever asks, about
           * the device in their hand, and it exists because the iOS launch screens shipped
@@ -94,9 +125,9 @@ export default async function AppSettingsPage() {
           <section className="card p-4">
             <h2 className="section-title mb-2.5">Last changed</h2>
             <ul className="flex flex-col gap-1.5 text-sm text-muted">
-              {touched.map(({ event, author }) => (
-                <li key={event}>
-                  {NOTIFY_LABEL[event]} — {author?.at.slice(0, 16).replace('T', ' ')}
+              {touched.map(({ label, author }) => (
+                <li key={label}>
+                  {label} — {author?.at.slice(0, 16).replace('T', ' ')}
                   {author?.by !== null && author?.by !== undefined ? ` by ${author.by}` : ''}
                 </li>
               ))}

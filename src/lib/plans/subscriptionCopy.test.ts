@@ -13,7 +13,7 @@ const PAST = new Date('2026-05-03T00:00:00Z')
 const FUTURE = new Date('2027-05-03T00:00:00Z')
 
 function state(over: Partial<MockSubscriptionState> = {}): MockSubscriptionState {
-  return { plan: 'standard', status: 'active', expiresAt: FUTURE, pendingPlan: null, ...over }
+  return { plan: 'standard', status: 'active', expiresAt: FUTURE, pendingPlan: null, discount: null, ...over }
 }
 
 /**
@@ -141,6 +141,9 @@ function paidRow(over: Partial<PaymentHistoryLine> = {}): PaymentHistoryLine {
     plan: 'standard',
     cycle: 'year',
     amount: '19',
+    couponCode: null,
+    couponPercent: null,
+    fullAmount: null,
     ...over,
   }
 }

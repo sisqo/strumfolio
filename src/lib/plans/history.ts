@@ -49,6 +49,17 @@ export interface PaymentHistoryLine {
   cycle: BillingPeriod | null
   /** Euro, as `PRICES`/`LIFETIME` already print it — a fake charge, never a real one. */
   amount: string | null
+  /**
+   * The coupon redeemed on this line, and what the listino said at the time.
+   *
+   * Read back out of the payload, never re-derived: that is the whole reason `logMockEvent`
+   * takes an explicit `amount` now rather than calling `amountFor` itself — a later re-price
+   * must not rewrite what somebody already paid, nor what they were shown it was reduced from.
+   * `null` on every line that had no coupon, which is most of them.
+   */
+  couponCode: string | null
+  couponPercent: string | null
+  fullAmount: string | null
 }
 
 /**
@@ -92,6 +103,23 @@ export async function logMockEvent(input: {
   action: MockEventAction
   plan: Plan
   cycle: BillingPeriod | null
+  /**
+   * What was actually charged, as opposed to what the catalogue says today.
+   *
+   * **Passed in rather than recomputed, since coupons landed**, and the change is worth the
+   * paragraph. This used to write `amountFor(input.plan, input.cycle)` — a fresh read of
+   * `PRICES` — which was correct only for as long as nobody was ever charged anything but the
+   * listino. With a discount it reported the full price for a purchase that took less; and
+   * because `paymentHistoryFor` reads this payload back rather than recomputing, a re-price
+   * would have rewritten history that had already happened.
+   *
+   * Omitted for the actions where nothing is charged (`cancelled_now`, `force_expired`,
+   * `kept_current`), which fall back to the catalogue exactly as before — those are records of
+   * a plan changing, not of money moving.
+   */
+  amount?: string | null
+  /** The campaign redeemed, when one was — so a history line can say why it cost less. */
+  coupon?: { code: string; percent: string; fullAmount: string } | null
 }): Promise<void> {
   const now = new Date()
   await db().insert(paddleEvents).values({
@@ -105,7 +133,16 @@ export async function logMockEvent(input: {
       action: input.action,
       plan: input.plan,
       cycle: input.cycle,
-      amount: amountFor(input.plan, input.cycle),
+      /* `undefined` means "nothing was charged here, ask the catalogue"; an explicit `null`
+         from the caller means the same and is preserved as such. See the field's comment. */
+      amount: input.amount === undefined ? amountFor(input.plan, input.cycle) : input.amount,
+      ...(input.coupon == null
+        ? {}
+        : {
+            couponCode: input.coupon.code,
+            couponPercent: input.coupon.percent,
+            fullAmount: input.coupon.fullAmount,
+          }),
     }),
   })
 }
@@ -141,13 +178,26 @@ export async function paymentHistoryFor(accountOwnerEmail: string): Promise<Paym
     let plan: Plan | null = null
     let cycle: BillingPeriod | null = null
     let amount: string | null = null
+    let couponCode: string | null = null
+    let couponPercent: string | null = null
+    let fullAmount: string | null = null
     try {
       const parsed: unknown = JSON.parse(row.payload)
       if (parsed !== null && typeof parsed === 'object') {
-        const { plan: rawPlan, cycle: rawCycle, amount: rawAmount } = parsed as Record<string, unknown>
+        const {
+          plan: rawPlan,
+          cycle: rawCycle,
+          amount: rawAmount,
+          couponCode: rawCode,
+          couponPercent: rawPercent,
+          fullAmount: rawFull,
+        } = parsed as Record<string, unknown>
         if (typeof rawPlan === 'string') plan = readPlan(rawPlan)
         if (rawCycle === 'year' || rawCycle === 'month') cycle = rawCycle
         if (typeof rawAmount === 'string') amount = rawAmount
+        if (typeof rawCode === 'string') couponCode = rawCode
+        if (typeof rawPercent === 'string') couponPercent = rawPercent
+        if (typeof rawFull === 'string') fullAmount = rawFull
       }
     } catch {
       // Not a payload this file wrote — occurredAt/receivedAt and the bare event type are
@@ -161,6 +211,9 @@ export async function paymentHistoryFor(accountOwnerEmail: string): Promise<Paym
       plan,
       cycle,
       amount,
+      couponCode,
+      couponPercent,
+      fullAmount,
     }
   })
 }

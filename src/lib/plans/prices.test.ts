@@ -70,15 +70,19 @@ describe('PRICES', () => {
 })
 
 describe('LIFETIME', () => {
-  it('carries a closing date that parses, and a label that says the same day', () => {
-    const closes = new Date(LIFETIME.closesOn)
-    assert.equal(Number.isNaN(closes.getTime()), false, LIFETIME.closesOn)
-    assert.match(LIFETIME.closesOnLabel, new RegExp(String(closes.getUTCFullYear())))
-  })
-
-  it('prices the struck-through anchor above what is actually charged', () => {
-    assert.match(LIFETIME.originalAmount, /^\d+(\.\d{2})?$/)
-    assert.ok(Number(LIFETIME.originalAmount) > Number(LIFETIME.amount))
+  /*
+   * Three fields left this constant when coupons landed — `originalAmount`, `closesOn` and
+   * `closesOnLabel` — and the two tests that pinned them left with them, deliberately rather
+   * than being adapted: there is nothing they could assert now. The struck anchor beside the
+   * Lifetime price is a coupon campaign's doing (`lib/coupons/`), and whether the plan is in
+   * the catalogue at all is the `lifetime.on_sale` row in `app_settings`. The facts moved, so
+   * the assertions moved: `discount.test.ts` holds the first, and there is no date left to
+   * parse for the second.
+   */
+  it('is a plain one-time price, with no promotional mechanism of its own', () => {
+    assert.match(LIFETIME.amount, /^\d+(\.\d{2})?$/)
+    assert.equal('originalAmount' in LIFETIME, false, 'the struck anchor comes from a campaign now')
+    assert.equal('closesOn' in LIFETIME, false, 'the catalogue switch is a setting now')
   })
 })
 

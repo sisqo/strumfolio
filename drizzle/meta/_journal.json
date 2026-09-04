@@ -260,6 +260,13 @@
       "when": 1788252154063,
       "tag": "0036_account_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788510304700,
+      "tag": "0037_coupons",
+      "breakpoints": true
     }
   ]
 }

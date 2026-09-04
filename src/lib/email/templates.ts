@@ -213,8 +213,20 @@ export function purchaseEmail(input: {
    * was not part of that pretence but a plain claim about a date, and the wrong one.
    */
   endsOn: string | null
+  /**
+   * The coupon redeemed, when one was — the code, what the listino said, and the sentence
+   * `durationCopy` composed for the screen the customer just left.
+   *
+   * **This is the disclosure that matters most in the whole message**, and the reason it is a
+   * field rather than something the caller folds into `amount`. A campaign that discounts three
+   * months and then reverts means a charge going up from €2.44 to €3.49 at the fourth period —
+   * the commercial deck calls that attrition and accepts it — and what makes it acceptable
+   * rather than disputed is that the customer was told in writing, at the moment they paid,
+   * and not only on a page they had already navigated away from.
+   */
+  coupon?: { code: string; fullAmount: string; duration: string } | null
 }): EmailTemplate {
-  const { planLabel, amount, cycle, endsOn } = input
+  const { planLabel, amount, cycle, endsOn, coupon } = input
   const subject = `Your ${planLabel} plan is active — thanks`
 
   /* «€9.49 per month», «€149, once», or nothing at all if there is no figure to name. */
@@ -224,6 +236,14 @@ export function purchaseEmail(input: {
       : cycle === null
         ? `We've received your payment of ${euro(amount)}.`
         : `We've received your payment of ${euro(amount)} for the first ${cycle}.`
+  /*
+   * Names the listino as well as the code, so the reduction is checkable rather than asserted
+   * — «with FOUNDER30, off €34.99» is a sentence a customer can hold up against what left
+   * their account. `duration` is the same sentence the checkout screen showed, passed through
+   * rather than rewritten here: two wordings of one promise is how the two come to differ.
+   */
+  const couponClause =
+    coupon == null ? '' : ` You used ${coupon.code}, off the full price of ${euro(coupon.fullAmount)}. ${coupon.duration}`
   const renewalClause =
     endsOn === null
       ? 'There is nothing to renew — it stays yours, for good.'
@@ -234,7 +254,7 @@ export function purchaseEmail(input: {
 
   const html = layout(`
     ${heading(`Thanks — you're on ${planLabel}`)}
-    ${paragraph(`${paidClause} ${planLabel} is active on your account right now. ${renewalClause}`)}
+    ${paragraph(`${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}`)}
     ${paragraph('Next: make a songbook, put your first songs in it, and take it with you — on stage, in rehearsal, even with no signal.')}
     ${button('Start your songbook', startUrl)}
     ${paragraph(`Your payment history and this plan's settings are in <a href="${billingUrl}" style="color:${ACCENT};">Billing</a>.`)}
@@ -242,7 +262,7 @@ export function purchaseEmail(input: {
 
   const text = `Thanks — you're on ${planLabel}
 
-${paidClause} ${planLabel} is active on your account right now. ${renewalClause}
+${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}
 
 Next: make a songbook, put your first songs in it, and take it with you — on stage, in rehearsal, even with no signal.
 

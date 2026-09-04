@@ -6646,6 +6646,49 @@
     color: color-mix(in srgb, var(--on-accent) 68%, transparent);
   }
 
+  /*
+   * The listino, struck, before the price it was reduced to.
+   *
+   * Present only while a coupon is applied — there is no rule here that can draw a strike
+   * without one, because `ColumnPrice.was` is absent without one. That conditionality is the
+   * legal argument, not a styling choice; see `ColumnPrice`'s own comment.
+   *
+   * `text-decoration-thickness` named explicitly: the default on a 28px number is a hairline
+   * that reads as a rendering artefact rather than a deletion, and the whole meaning of this
+   * element is that the number is not the one being charged.
+   */
+  .plan-price-was {
+    margin-right: 0.375rem;
+    color: var(--muted);
+    font-size: 1.125rem;
+    font-weight: 400;
+    text-decoration: line-through;
+    text-decoration-thickness: 0.09em;
+  }
+
+  .plan-card.is-featured .plan-price-was {
+    color: color-mix(in srgb, var(--on-accent) 58%, transparent);
+  }
+
+  /*
+   * What the discount costs and for how long, and — on the monthly card — the real first-year
+   * total. Between the price and the audience line, so the qualification arrives before the
+   * reader has moved on from the number it qualifies.
+   *
+   * Smaller than `.plan-audience` on purpose: this is the small print of the price above it,
+   * not a second selling sentence, and one of the two things it says is that the price goes up.
+   */
+  .plan-price-note {
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.78125rem;
+    line-height: 1.4;
+  }
+
+  .plan-card.is-featured .plan-price-note {
+    color: color-mix(in srgb, var(--on-accent) 78%, transparent);
+  }
+
   .plan-audience {
     flex: 1;
     color: var(--muted);
@@ -6858,6 +6901,101 @@
     color: var(--muted);
     font-size: 0.875rem;
     font-weight: 400;
+  }
+
+  /* The strike reaches the table header too — the design repeats each plan's price there, and
+     a discounted card above an undiscounted header is the page disagreeing with itself. No
+     duration line here: a sentence in a column heading would wrap the table wider than a
+     laptop, and the card two sections up has already said it. */
+  .plan-table-was {
+    margin-right: 0.25rem;
+    text-decoration: line-through;
+    text-decoration-thickness: 0.09em;
+    opacity: 0.7;
+  }
+
+  /*
+   * The coupon bar: the fixed element on `/pricing` and `/checkout` that either offers a code
+   * to type or names the one in force.
+   *
+   * One class for both states, differing by `.is-on`, because they occupy the same slot in the
+   * page and a reader who has just pressed «Use» should see the same box answer rather than a
+   * different box appear. `flex-wrap` so the code, the sentence and the button stack on a
+   * phone instead of squeezing the input below usefulness.
+   */
+  .coupon-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--edge);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    /* Light mode draws every bordered surface through `box-shadow` because `--edge` is
+       deliberately transparent there — the same reason Free's own button on this page has to
+       name a border colour explicitly. Without this the box has no edge at all on light. */
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+  }
+
+  /* Applied: the accent's soft tint, the same one `.notice-accent` uses for a neutral fact
+     rather than something the reader did wrong. */
+  .coupon-bar.is-on {
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    box-shadow: none;
+  }
+
+  .coupon-bar-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+  }
+
+  .coupon-bar-text {
+    flex: 1;
+    min-width: 8rem;
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* Narrow on purpose: a coupon code is at most 24 characters, and a full-width field in a
+     one-field form reads as a search box. `min-width` keeps it usable on a phone where the
+     flex row has wrapped. */
+  .coupon-bar-field {
+    flex: 0 1 11rem;
+    min-width: 9rem;
+    height: 2.25rem;
+    letter-spacing: 0.05em;
+  }
+
+  .coupon-bar-action {
+    flex: none;
+  }
+
+  /* The check in the accent's soft tint — the glyph this app already means "settled" with,
+     the same one `.trust-note-icon` on this page uses, rather than a second mark drawn here. */
+  .coupon-bar-mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+
+  /* Its own line, full width, so a refusal never squeezes the field it is about. */
+  .coupon-bar-error {
+    flex: 1 0 100%;
+    color: var(--danger);
+    font-size: 0.8125rem;
+    line-height: 1.4;
   }
 
   /*

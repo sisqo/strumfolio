@@ -17,10 +17,19 @@
  * before touching the database at all.
  */
 
+import { eq } from 'drizzle-orm'
+
 import { db, hasDatabase } from '@/lib/db/client'
 import { appSettings } from '@/lib/db/schema'
 
-import { NOTIFY_DEFAULTS, NOTIFY_EVENTS, notifyKey, readBooleanSetting } from './types'
+import {
+  LIFETIME_ON_SALE_DEFAULT,
+  LIFETIME_ON_SALE_KEY,
+  NOTIFY_DEFAULTS,
+  NOTIFY_EVENTS,
+  notifyKey,
+  readBooleanSetting,
+} from './types'
 import type { NotifySettings } from './types'
 
 export interface LoadedNotifySettings {
@@ -67,5 +76,35 @@ export async function loadNotifySettings(): Promise<LoadedNotifySettings> {
      */
     console.error('loadNotifySettings failed', error)
     return { settings: NOTIFY_DEFAULTS, available: false }
+  }
+}
+
+/**
+ * Whether the Lifetime plan is on sale right now — the read that replaced `lifetimeOpen()`'s
+ * comparison against a date in `prices.ts`.
+ *
+ * Same three-exit discipline as `loadNotifySettings` above, and it matters more here than
+ * there: this answer decides whether a whole section of `/pricing` renders, so a throw would
+ * take the price list down with it. Every failure resolves to `LIFETIME_ON_SALE_DEFAULT`,
+ * which is "in the catalogue" — the state the app was in before this row existed.
+ *
+ * Read fresh on every call, no caching, for `loadNotifySettings`' own reason and one of its
+ * own: an owner who switches the Lifetime off expects the next reload to stop selling it, and
+ * a cache is how a withdrawn plan keeps taking money.
+ */
+export async function loadLifetimeOnSale(): Promise<boolean> {
+  if (!hasDatabase) return LIFETIME_ON_SALE_DEFAULT
+
+  try {
+    const rows = await db()
+      .select({ value: appSettings.value })
+      .from(appSettings)
+      .where(eq(appSettings.key, LIFETIME_ON_SALE_KEY))
+      .limit(1)
+
+    return readBooleanSetting(rows[0]?.value, LIFETIME_ON_SALE_DEFAULT)
+  } catch (error) {
+    console.error('loadLifetimeOnSale failed', error)
+    return LIFETIME_ON_SALE_DEFAULT
   }
 }

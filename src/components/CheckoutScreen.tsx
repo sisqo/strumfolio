@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { discountedAmount, durationCopy, firstYearCopy } from '@/lib/coupons/discount'
 import { loadCheckoutStatus, loadMostRecentCycleFor, mockPurchase, type MockSubscriptionState } from '@/lib/plans/checkout'
 import { euro, LIFETIME, periodEnd, PRICES, yearlyTotalOfMonthly } from '@/lib/plans/prices'
 import type { BillingPeriod, CheckoutPlan, PaidPlan } from '@/lib/plans/prices'
@@ -98,9 +99,30 @@ function earlierRenewal(
  * (`BillingScreen`), the once place for both; this screen's own job is narrower than that
  * and stays narrow, with a link across for anyone who arrived here already holding a plan.
  */
+/**
+ * The campaign in force, resolved on the server by the page and handed down as a prop.
+ *
+ * A prop and not a read from here, for `Viewer`'s own reason on /pricing: a client component
+ * cannot answer before hydration, and the wrong answer it would give until then is a full
+ * price on the one screen where the number is about to be charged. It is also why this shape
+ * is three plain fields rather than the `Campaign` row type — this file is `'use client'`, and
+ * `lib/coupons/read.ts` imports `@/lib/db`.
+ *
+ * **Nothing here is trusted by the write.** `mockPurchase` re-reads the cookie server-side and
+ * re-validates the campaign itself; these three fields decide what the screen *says*, never
+ * what it charges. A tampered prop therefore shows a wrong price and buys at the right one.
+ */
+export interface CheckoutCoupon {
+  code: string
+  percent: string
+  months: number | null
+  appliesToLifetime: boolean
+}
+
 export function CheckoutScreen({
   plan,
   initialCycle = 'month',
+  coupon = null,
 }: {
   plan: CheckoutPlan
   /** Carried over from /pricing's own toggle by the page, so arriving from Monthly there
@@ -110,6 +132,8 @@ export function CheckoutScreen({
       an existing customer re-buying the plan they already hold to change its cycle, where the
       *right* cycle is never this prop's guess but the ledger's own opposite of it. */
   initialCycle?: BillingPeriod
+  /** The campaign this arrival carries, or `null`. See `CheckoutCoupon`. */
+  coupon?: CheckoutCoupon | null
 }) {
   const router = useRouter()
   const [status, setStatus] = useState<Status>({ state: 'loading' })
@@ -177,6 +201,11 @@ export function CheckoutScreen({
    * status — the JSX cannot narrow a union inside a `&&`, and repeating `status.state ===
    * 'ready' && …` at each of the four places that need it is how two of them come to disagree.
    */
+  /* Only when the campaign actually covers the Lifetime — `appliesToLifetime` is off by
+     default, so no strike is the ordinary case. */
+  const lifetimePrice =
+    coupon !== null && coupon.appliesToLifetime ? discountedAmount(LIFETIME.amount, coupon.percent) : null
+
   const ready = status.state === 'ready' ? status : null
   const scheduling = ready !== null && willSchedule(plan, ready.current, ready.live)
   const movedRenewal = ready === null ? null : earlierRenewal(plan, cycle, ready.current, ready.live)
@@ -341,9 +370,27 @@ export function CheckoutScreen({
             <h2 className="section-title">{scheduling ? 'What changes' : 'Pay'}</h2>
 
             {plan === 'lifetime' ? (
-              <p className="mt-3 text-2xl font-medium">{euro(LIFETIME.amount)}, once</p>
+              <p className="mt-3 text-2xl font-medium">
+                {/* Discounted only when the campaign actually covers the Lifetime —
+                    `appliesToLifetime` is off by default, so the ordinary case is the plain
+                    listino with no strike at all. */}
+                {lifetimePrice !== null && (
+                  <>
+                    <span className="sr-only">Was </span>
+                    <s className="mr-1.5 text-lg font-normal text-muted">{euro(LIFETIME.amount)}</s>
+                    <span className="sr-only">, now </span>
+                  </>
+                )}
+                {euro(lifetimePrice ?? LIFETIME.amount)}, once
+              </p>
             ) : (
-              <PaidCheckoutFields plan={plan} cycle={cycle} onCycle={setCycle} scheduling={scheduling} />
+              <PaidCheckoutFields
+                plan={plan}
+                cycle={cycle}
+                onCycle={setCycle}
+                scheduling={scheduling}
+                coupon={coupon}
+              />
             )}
 
             {/* Absent entirely on a scheduled change: asking for a card, and declining a wrong
@@ -454,6 +501,7 @@ function PaidCheckoutFields({
   cycle,
   onCycle,
   scheduling,
+  coupon,
 }: {
   plan: PaidPlan
   cycle: BillingPeriod
@@ -461,8 +509,11 @@ function PaidCheckoutFields({
   /** Whether this change is scheduled rather than bought now — the price is then what this
       account will be billed *from that date*, not an amount anybody is paying today. */
   scheduling: boolean
+  /** The campaign in force, resolved on the server and handed down — see `CheckoutCoupon`. */
+  coupon: CheckoutCoupon | null
 }) {
   const price = PRICES[plan][cycle]
+  const discounted = coupon === null ? null : discountedAmount(price.amount, coupon.percent)
 
   return (
     <>
@@ -481,11 +532,42 @@ function PaidCheckoutFields({
       </div>
 
       <p className="mt-3 text-2xl font-medium">
-        {euro(price.amount)} per {cycle}
+        {/* The struck listino before the price charged, never after — the same order
+            `.plan-price-was` on /pricing states, and the `sr-only` words are what tell a
+            screen reader which of the two numbers is being taken. */}
+        {discounted !== null && (
+          <>
+            <span className="sr-only">Was </span>
+            <s className="mr-1.5 text-lg font-normal text-muted">{euro(price.amount)}</s>
+            <span className="sr-only">, now </span>
+          </>
+        )}
+        {euro(discounted ?? price.amount)} per {cycle}
       </p>
       {scheduling && <p className="mt-1 text-sm text-muted">Billed from the day this takes effect, not today.</p>}
+
+      {/* What the discount costs and for how long — the disclosure this screen cannot do
+          without, since it is the last thing read before the money moves. */}
+      {discounted !== null && (
+        <p className="mt-1 text-sm text-muted">
+          {durationCopy(price.amount, discounted, coupon?.months ?? null, cycle)}
+        </p>
+      )}
+
       {cycle === 'month' && (
-        <p className="mt-1 text-sm text-muted">{yearlyTotalOfMonthly(price.amount)} over a year.</p>
+        <p className="mt-1 text-sm text-muted">
+          {/*
+            * With a coupon this has to be the *blended* first year, not twelve times the
+            * discounted price: three months at €2.44 plus nine at €3.49 is €38.73, and €29.28
+            * would be false one line under the sentence that says «then €3.49». Same rule
+            * /pricing's own monthly card follows, through the same function — the two screens
+            * must never disagree on the same number.
+            */}
+          {discounted === null
+            ? `${yearlyTotalOfMonthly(price.amount)} over a year.`
+            : (firstYearCopy(price.amount, discounted, coupon?.months ?? null) ??
+              `${yearlyTotalOfMonthly(discounted)} over a year.`)}
+        </p>
       )}
     </>
   )

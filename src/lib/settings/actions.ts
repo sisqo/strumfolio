@@ -27,12 +27,26 @@ import { isOwner } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
 import { appSettings } from '@/lib/db/schema'
 
-import { isNotifyEvent, notifyKey, writeBooleanSetting } from './types'
+import { LIFETIME_ON_SALE_KEY, NOTIFY_EVENTS, isNotifyEvent, notifyKey, writeBooleanSetting } from './types'
 
 export type SettingFailure = 'no-session' | 'not-owner' | 'no-database' | 'invalid-event' | 'failed'
 
-export async function setNotifySetting(
-  event: string,
+/**
+ * One switched setting, written.
+ *
+ * Not exported, which is what lets it be shared at all: this module carries `'use server'`, so
+ * every *export* must be an async function reachable as an RPC endpoint — a private helper is
+ * exempt, and a second copy of the upsert is what the alternative would have cost. The two
+ * callers differ only in which key they name and in what a wrong value would do to a reader;
+ * neither difference belongs in the write.
+ *
+ * The whole ownership check lives here rather than at each call site for the same reason it
+ * lived in `setNotifySetting` before: a server action is reachable by anything holding a
+ * session cookie, so the page's own `notFound()` is a courtesy to the reader and never the
+ * fence. Vocabulary checks stay at the call sites, where the vocabulary is known.
+ */
+async function writeSetting(
+  key: string,
   value: boolean,
 ): Promise<{ ok: true } | { ok: false; reason: SettingFailure }> {
   const session = await auth()
@@ -40,9 +54,6 @@ export async function setNotifySetting(
   if (!email) return { ok: false, reason: 'no-session' }
   if (!isOwner(email, process.env.ALLOWED_EMAILS)) return { ok: false, reason: 'not-owner' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
-  if (!isNotifyEvent(event)) return { ok: false, reason: 'invalid-event' }
-
-  const key = notifyKey(event)
 
   try {
     /*
@@ -63,25 +74,54 @@ export async function setNotifySetting(
     return { ok: true }
   } catch (error) {
     /*
-     * The expected instance is migration `0028` not applied yet: the table is not there, so the
-     * write cannot land. Reported as a failure rather than swallowed — unlike the *read*, which
-     * has to fall back silently (see `read.ts`), a save that did not save must say so, or the
-     * screen would claim a change it did not make.
+     * The expected instance is a migration not applied yet: the table or the row's meaning is
+     * not there, so the write cannot land. Reported as a failure rather than swallowed — unlike
+     * the *read*, which has to fall back silently (see `read.ts`), a save that did not save must
+     * say so, or the screen would claim a change it did not make.
      */
-    console.error('setNotifySetting failed', error)
+    console.error(`writeSetting failed for ${key}`, error)
     return { ok: false, reason: 'failed' }
   }
 }
 
-/** Who last changed this setting, and when — for the one line `/app-settings` shows under the switches. */
-export async function loadSettingAuthor(event: string): Promise<{ by: string | null; at: string } | null> {
-  if (!hasDatabase || !isNotifyEvent(event)) return null
+export async function setNotifySetting(
+  event: string,
+  value: boolean,
+): Promise<{ ok: true } | { ok: false; reason: SettingFailure }> {
+  if (!isNotifyEvent(event)) return { ok: false, reason: 'invalid-event' }
+  return writeSetting(notifyKey(event), value)
+}
+
+/**
+ * Whether the Lifetime plan is on sale — the one setting on this screen that is not a
+ * notification, and the one that changes what a visitor can buy.
+ *
+ * Shares `writeSetting` with the notification switches rather than repeating the upsert: the
+ * two differ only in which key they write and in what a wrong value would cost, and neither
+ * difference lives in the write itself.
+ */
+export async function setLifetimeOnSale(value: boolean): Promise<{ ok: true } | { ok: false; reason: SettingFailure }> {
+  return writeSetting(LIFETIME_ON_SALE_KEY, value)
+}
+
+/**
+ * Who last changed this setting, and when — for the one line `/app-settings` shows under the
+ * switches.
+ *
+ * Takes the row **key**, not a notify event, since the Lifetime switch is not one. The key is
+ * still checked against the closed set rather than passed through: this reads a table whose
+ * other rows are nobody's business to render, and an unchecked key would make this a general
+ * "read any setting" endpoint reachable by any session.
+ */
+export async function loadSettingAuthor(key: string): Promise<{ by: string | null; at: string } | null> {
+  const known = [LIFETIME_ON_SALE_KEY, ...NOTIFY_EVENTS.map(notifyKey)]
+  if (!hasDatabase || !known.includes(key)) return null
 
   try {
     const rows = await db()
       .select({ updatedBy: appSettings.updatedBy, updatedAt: appSettings.updatedAt })
       .from(appSettings)
-      .where(eq(appSettings.key, notifyKey(event)))
+      .where(eq(appSettings.key, key))
       .limit(1)
 
     const row = rows[0]

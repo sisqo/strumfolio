@@ -1,16 +1,29 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 
+import { CouponBar } from '@/components/CouponBar'
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
-import type { ComparisonRow, PlanColumn } from '@/components/PricingPlans'
+import type { ColumnPrice, ComparisonRow, PlanColumn } from '@/components/PricingPlans'
 import { isOwner } from '@/lib/allowlist'
 import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
+import {
+  bannerCopy,
+  discountedAmount,
+  durationCopy,
+  firstYearCopy,
+} from '@/lib/coupons/discount'
+import { activeCoupon } from '@/lib/coupons/read'
+import type { Campaign } from '@/lib/coupons/read'
+import { COUPON_COOKIE } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
-import type { PaidPlan } from '@/lib/plans/prices'
+import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
+import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { loadLifetimeOnSale } from '@/lib/settings/read'
 import { PLAN_VALUES, PLANS } from '@/lib/plans/types'
 import type { BookletTier, FeatureRequestTier, Plan } from '@/lib/plans/types'
 import { mustChooseNow } from '@/lib/plans/viewer'
@@ -19,32 +32,21 @@ import type { Viewer } from '@/lib/plans/viewer'
 const SHARE_TITLE = `${APP_NAME} — Plans and pricing`
 
 /*
- * Whether the lifetime offer is still in the catalogue — the comparison `LIFETIME.closesOn`
- * was created for.
+ * Whether the lifetime offer is still in the catalogue.
  *
- * **Read when the page is read, since v3.13** — a function rather than the module-scope
- * constant this was, and the change is worth the paragraph it costs. While the page was
- * statically generated `new Date()` froze at build time: the block did not vanish at midnight
- * on the closing day, it vanished on the first deploy after it, and the standing duty beside
- * `closesOn` was for a human to remember. The page now reads the session (see the page's own
- * comment below), so it is rendered per request anyway; the reader's own clock comes free with
- * that, and the offer closes on the day it says it closes. A duty removed rather than moved.
+ * **A stored setting since coupons landed**, replacing a `lifetimeOpen()` that compared today
+ * against `LIFETIME.closesOn`. The history is worth keeping because the destination is the
+ * same one that comparison was already walking towards: it had been converted from a module
+ * constant to a function precisely so it could not freeze at build time, and the duty it still
+ * left behind — a human remembering to redeploy on the closing day — is what a row in
+ * `app_settings` finally discharges. See `loadLifetimeOnSale` and the `lifetime.on_sale` key.
  *
- * A function and not a constant precisely so it cannot drift back: a `const` here would be
- * evaluated once per server process, which on a long-lived instance is a subtler version of
- * the same bug — right for the first reader of the day and wrong for the last.
- *
- * A string comparison, not `Date` arithmetic: `closesOn` is stored ISO precisely so that a
- * comparison is a comparison and not a parse of prose, and `<=` keeps the closing day itself
- * open, which is what "in the catalogue until" says. UTC on both sides, which for a date that
- * matters to the day and not to the hour is the only reading that does not depend on where
- * the server happens to be.
+ * The clock is no longer part of this answer at all, which is the point: an owner closes the
+ * offer on the day they decide to, not on the first deploy after a date compiled into the code.
  */
-function lifetimeOpen(): boolean {
-  return new Date().toISOString().slice(0, 10) <= LIFETIME.closesOn
-}
 
 /*
+ * Every number in this sentence is interpolated/*
  * Every number in this sentence is interpolated, like every number on the page below it:
  * a meta description is the one place a stale price is invisible to whoever changed the
  * real one, because nothing on the screen shows it.
@@ -53,24 +55,28 @@ function lifetimeOpen(): boolean {
  * thing this page says is that there is no trial — the free plan has no end date. That
  * distinction is the same one `DESCRIPTION` on /login now makes.
  *
- * The lifetime clause is gated on `lifetimeOpen()` for the same reason the block itself is,
- * and this is the half that is easy to miss: a meta description is the one place a closed
- * offer would keep being advertised with nothing on the screen to show it. This sentence is
- * what a shared link renders as a card, so leaving it ungated would put "€189 once, until 31
- * December 2026" in front of readers who cannot buy it, in the place nobody thinks to look.
+ * The lifetime clause is gated on the same setting the block itself is, and this is the half
+ * that is easy to miss: a meta description is the one place a withdrawn offer would keep being
+ * advertised with nothing on the screen to show it. This sentence is what a shared link renders
+ * as a card, so leaving it ungated would put "€199.99 once for Premium for life" in front of
+ * readers who cannot buy it, in the place nobody thinks to look.
  *
- * A function, and `generateMetadata` below rather than a `metadata` constant, for the reason
- * `lifetimeOpen` is a function: this sentence and the block on the screen have to close on the
- * same day, and a constant evaluated at module load cannot.
+ * **No coupon reaches this sentence, and that is a decision.** `generateMetadata` receives no
+ * `searchParams`, so it cannot see one — and it should not: a link somebody copies while a
+ * campaign is applied would otherwise advertise a discounted price to everyone who opens it,
+ * including readers the campaign was never for. Written down here so it does not later read as
+ * an oversight.
+ *
+ * Async, and `generateMetadata` below rather than a `metadata` constant, because the answer is
+ * now a database read: the clause and the block on the screen have to agree, and a constant
+ * evaluated at module load cannot ask.
  */
-function describe(): string {
+function describe(lifetimeOnSale: boolean): string {
   return (
     `Four plans, priced in euro with tax included: a free plan with no end date, then ` +
     `${euro(PRICES.standard.year.amount)}, ${euro(PRICES.plus.year.amount)} or ` +
     `${euro(PRICES.premium.year.amount)} a year` +
-    (lifetimeOpen()
-      ? ` — or ${euro(LIFETIME.amount)} once for Premium for life, until ${LIFETIME.closesOnLabel}.`
-      : `.`)
+    (lifetimeOnSale ? ` — or ${euro(LIFETIME.amount)} once for Premium for life.` : `.`)
   )
 }
 
@@ -87,8 +93,8 @@ function describe(): string {
  * layout's own `openGraph.images` does not carry over once a page declares its own
  * `openGraph` object — Next replaces the block wholesale rather than merging into it.
  */
-export function generateMetadata(): Metadata {
-  const description = describe()
+export async function generateMetadata(): Promise<Metadata> {
+  const description = describe(await loadLifetimeOnSale())
 
   return {
     title: 'Pricing',
@@ -156,12 +162,23 @@ const LIFETIME_WHAT =
   'becomes later.'
 
 /*
- * "Promo", added ahead of the redesign's own badge beside the price rather than above it —
- * the badge now sits at the same height as the number it qualifies instead of underneath it,
- * and "price valid until" on its own read as though €189 itself were about to change, when
- * what actually closes on that date is the offer, not the plan.
+ * The badge beside the Lifetime price — now a function of the campaign discounting it, where
+ * it used to interpolate `LIFETIME.closesOnLabel`.
+ *
+ * `null` whenever no coupon covers the Lifetime, which is the ordinary state: the badge exists
+ * to qualify a struck price, so with nothing struck there is nothing to qualify. That is the
+ * same conditionality `ColumnPrice.was` carries and for the same reason.
+ *
+ * Beside the price rather than above it — the redesign's own call, so the two read as one fact
+ * ("this number, until this date") instead of a price with a caveat trailing after it. And
+ * still "promo price valid until" and never "price valid until": what ends on that date is the
+ * offer, not the plan.
  */
-const LIFETIME_PILL = `Promo price valid until ${LIFETIME.closesOnLabel}`
+function lifetimePill(coupon: Campaign | null): string | null {
+  if (coupon === null || !coupon.appliesToLifetime) return null
+  if (coupon.expiresAt === null) return `Promo price with ${coupon.code}`
+  return `Promo price valid until ${formatPlanDate(coupon.expiresAt)}`
+}
 
 /*
  * What replaces the whole of "If a plan ends" — the section heading, the cancelling
@@ -199,10 +216,36 @@ const TRUST_NOTE_REST = 'If a subscription ends, your songs stay readable and ex
  */
 const CHECKOUT_LIVE = mockCheckoutEnabled()
 
-/** A paid column, worded once for the three that differ only in their amounts and their audience. */
-function paidColumn(name: string, plan: PaidPlan, audience: string): PlanColumn {
-  const { year, month } = PRICES[plan]
+/**
+ * One price slot — the number a card shows, and everything a coupon adds beside it.
+ *
+ * With no coupon this is exactly what it always was: the amount and its suffix, and **no
+ * struck price at all**. That absence is the legal argument rather than a rendering choice —
+ * the commercial deck rejects struck prices outright, and what answers it is that the listino
+ * is genuinely what a reader without a coupon pays. See `ColumnPrice.was`.
+ *
+ * With one, three things arrive: the discounted amount, the listino struck through, and the
+ * sentences underneath. `firstYearCopy` is monthly-only on purpose — the yearly card's own
+ * duration line already names both prices and the year they change, so a second line about
+ * twelve months would be the same fact twice.
+ */
+function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null): ColumnPrice {
+  const full = PRICES[plan][cycle].amount
+  const suffix = cycle === 'year' ? '/yr' : '/mo'
+  if (coupon === null) return { amount: euro(full), suffix }
 
+  const discounted = discountedAmount(full, coupon.discountPercent)
+  const notes = [durationCopy(full, discounted, coupon.discountMonths, cycle)]
+  if (cycle === 'month') {
+    const firstYear = firstYearCopy(full, discounted, coupon.discountMonths)
+    if (firstYear !== null) notes.push(firstYear)
+  }
+
+  return { amount: euro(discounted), suffix, was: euro(full), notes }
+}
+
+/** A paid column, worded once for the three that differ only in their amounts and their audience. */
+function paidColumn(name: string, plan: PaidPlan, audience: string, coupon: Campaign | null): PlanColumn {
   return {
     name,
     /* Always `plan`, unlike `checkoutPlan` below — a reader's own rank comparison against
@@ -215,10 +258,15 @@ function paidColumn(name: string, plan: PaidPlan, audience: string): PlanColumn 
      * plus a second line under it disclosing the renewal, on every paid column. Neither the
      * "per year"/"per month" wording nor the renewal disclosure has a home in this design,
      * on any column, so both are gone rather than kept unrendered.
+     *
+     * The lines a coupon adds are a different matter and do have a home: they are what says
+     * how long the discount lasts and what comes after it, which is the one disclosure this
+     * page cannot do without — an increase from €2.44 to €3.49 at the fourth charge is
+     * exactly what gets disputed when it was never written down.
      */
     price: {
-      year: { amount: euro(year.amount), suffix: '/yr' },
-      month: { amount: euro(month.amount), suffix: '/mo' },
+      year: priceSlot(plan, 'year', coupon),
+      month: priceSlot(plan, 'month', coupon),
     },
     audience,
     /* Standard and Premium both buy something — the faint tint `.is-paid` draws for both,
@@ -228,12 +276,22 @@ function paidColumn(name: string, plan: PaidPlan, audience: string): PlanColumn 
   }
 }
 
-const COLUMNS: PlanColumn[] = [
+/**
+ * The four cards' worth of copy, per request.
+ *
+ * A function where this was a module-scope `COLUMNS` constant, and the page's own comment about
+ * "only this overlay varies per request" has been updated with it: a coupon changes what every
+ * paid card *says*, not merely which one is ringed, so the prices cannot be computed once per
+ * process any more. The words themselves are still written exactly once, here.
+ */
+function columnsFor(coupon: Campaign | null): PlanColumn[] {
+  return [
   {
     name: 'Free',
     slug: 'free',
     /* Both states are the same, so the free column does not move under a toggle that has
-       nothing to say about it — no suffix either, the same reason. */
+       nothing to say about it — no suffix either, the same reason. A coupon never touches it:
+       there is no price to discount. */
     price: {
       year: { amount: euro('0'), suffix: '' },
       month: { amount: euro('0'), suffix: '' },
@@ -256,6 +314,7 @@ const COLUMNS: PlanColumn[] = [
     'standard',
     `You lead, one screen follows. ${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, ` +
       'a printed booklet.',
+    coupon,
   ),
   {
     ...paidColumn(
@@ -263,6 +322,7 @@ const COLUMNS: PlanColumn[] = [
       'plus',
       `Unlimited songbooks and songs, up to ${PLANS.plus.devices} other screens, printed booklet with no ` +
         'credit line.',
+      coupon,
     ),
     /*
      * The one column raised above the rest — see `.plan-card.is-featured`'s own comment on
@@ -287,8 +347,10 @@ const COLUMNS: PlanColumn[] = [
     'Premium',
     'premium',
     'The whole room follows, unlimited songs, printed booklet with no credit line.',
+    coupon,
   ),
-]
+  ]
+}
 
 const INCLUDED = 'Included'
 
@@ -624,7 +686,11 @@ const ROWS: ComparisonRow[] = [
  * The reader's own theme, like every other page now — a comparison table that reads
  * correctly in both themes anyway, drawn entirely in tokens.
  */
-export default async function PricingPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string; coupon?: string; promo?: string }>
+}) {
   /*
    * The whole reason this page is no longer static. `loadIdentity` is the same read
    * `RoleProvider` makes from the client, called here instead so that every card, the lifetime
@@ -644,7 +710,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
    * "wrong input degrades to no claim" instinct `readPlan` states for a database column,
    * applied here to a URL instead.
    */
-  const { plan: planParam } = await searchParams
+  const { plan: planParam, coupon: couponParam, promo: promoParam } = await searchParams
   const highlightPlan: Plan | null = PLAN_VALUES.includes(planParam as Plan) ? (planParam as Plan) : null
   const viewer: Viewer = {
     email: identity?.email ?? null,
@@ -662,22 +728,62 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
     subscriptionPlan: identity?.subscriptionPlan ?? null,
   }
 
-  /* Read once per request, like `CHECKOUT_LIVE` above — both the block and the metadata's own
-     clause have to agree on the same day, and `describe()` asks the same function. */
-  const lifetimeIsOpen = lifetimeOpen()
+  /*
+   * The coupon this request is arriving with, and whether the Lifetime is on sale — read
+   * together, because `bannerCopy` needs both to decide whether to say «subscriptions».
+   *
+   * `activeCoupon` is what settles precedence: an explicit `?coupon=CODE` beats `?promo=1`,
+   * and the cookie is the fallback. **Nothing here trusts any of the three** — the code is a
+   * pointer, and the campaign's state, window, ceilings and `entry` are all re-read from the
+   * table on every request. See `lib/coupons/read.ts`' own header.
+   */
+  const cookieCode = (await cookies()).get(COUPON_COOKIE)?.value ?? null
+  const [coupon, lifetimeIsOpen] = await Promise.all([
+    activeCoupon({
+      coupon: typeof couponParam === 'string' ? couponParam : undefined,
+      promo: typeof promoParam === 'string' ? promoParam : undefined,
+      cookie: cookieCode,
+    }),
+    loadLifetimeOnSale(),
+  ])
 
   /*
-   * `COLUMNS` stays the module-scope constant above — every reader in the same identity
-   * state still gets the same four cards' worth of copy — and only this overlay varies per
-   * request, by `highlightPlan` alone. A `.map()` over the static array rather than moving
-   * `COLUMNS` itself into the function: nothing else about a column depends on the request,
-   * and duplicating that whole literal per request would cost more than this one field is
-   * worth explaining twice.
+   * The URL brought a coupon the cookie does not hold yet — handed to `CouponBar`, which
+   * writes it once from an effect. Compared against the cookie so a reader reloading
+   * `/pricing?promo=1` does not repeat the write on every load; `undefined` the rest of the
+   * time, which is what makes that effect a no-op.
    */
+  const persist = coupon !== null && coupon.code !== cookieCode ? coupon.code : undefined
+
+  /*
+   * The Lifetime's own two coupon facts, derived once so the block below reads as markup.
+   * `null` on both whenever no campaign covers the Lifetime, which is the default state of
+   * `applies_to_lifetime` and therefore the ordinary one.
+   */
+  const lifetimeDiscount =
+    coupon !== null && coupon.appliesToLifetime ? discountedAmount(LIFETIME.amount, coupon.discountPercent) : null
+  const lifetimePillText = lifetimePill(coupon)
+
+  /*
+   * The banner's sentence, composed from the campaign's own facts — never a stored string. See
+   * `bannerCopy`: a banner assembled from what the discount actually does cannot promise
+   * something it does not, and a hand-written headline can. `lifetimeIsOpen` is what decides
+   * whether the word «subscriptions» is worth saying: with the Lifetime withdrawn there is
+   * nothing for the coupon to be excluding.
+   */
+  const couponBanner = coupon === null ? null : bannerCopy(coupon, lifetimeIsOpen, formatPlanDate)
+
+  /*
+   * Two overlays on the copy written once in `columnsFor`: the coupon, which changes what
+   * every paid card *says*, and `highlightPlan`, which changes only which one is ringed. The
+   * first is why this is a function call per request rather than the module-scope `COLUMNS`
+   * constant it used to be — see `columnsFor`'s own comment.
+   */
+  const priced = columnsFor(coupon)
   const columns =
     highlightPlan === null
-      ? COLUMNS
-      : COLUMNS.map((column) => (column.slug === highlightPlan ? { ...column, highlighted: true } : column))
+      ? priced
+      : priced.map((column) => (column.slug === highlightPlan ? { ...column, highlighted: true } : column))
 
   return (
     <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
@@ -712,8 +818,23 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
         </p>
       </div>
 
+      {/*
+        * Above the cards, not below them: it is the reason the numbers underneath say what they
+        * say, and a reader who scrolls past four discounted prices before finding out why has
+        * already formed the wrong idea about the listino.
+        */}
       <section className="mt-8">
-        <PricingPlans columns={columns} rows={ROWS} tableTitle="What changes between plans" viewer={viewer} />
+        <CouponBar applied={couponBanner} persist={persist} />
+      </section>
+
+      <section className="mt-5">
+        <PricingPlans
+          columns={columns}
+          rows={ROWS}
+          tableTitle="What changes between plans"
+          viewer={viewer}
+          couponCode={coupon?.code}
+        />
       </section>
 
       {/*
@@ -742,16 +863,27 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
               </div>
 
               <div className="flex-none sm:text-right">
-                <p className="lifetime-original">{euro(LIFETIME.originalAmount)}</p>
+                {/*
+                  * The struck anchor, and **only** when a campaign actually covers the
+                  * Lifetime. It used to be `LIFETIME.originalAmount`, an unconditional €249
+                  * that nobody was ever charged — which is precisely the reference the
+                  * commercial deck calls contestable. Now there is either a real campaign
+                  * behind the strike or no strike at all.
+                  */}
+                {lifetimeDiscount !== null && <p className="lifetime-original">{euro(LIFETIME.amount)}</p>}
                 {/* The badge beside the price rather than under it — the redesign's own call,
                     so the two read as one fact ("this number, until this date") instead of a
                     price with a caveat trailing after it. */}
                 <div className="mt-1 flex items-center justify-end gap-3">
-                  <span className="lifetime-pill">{LIFETIME_PILL}</span>
-                  <p className="lifetime-price">{euro(LIFETIME.amount)}</p>
+                  {lifetimePillText !== null && <span className="lifetime-pill">{lifetimePillText}</span>}
+                  <p className="lifetime-price">{euro(lifetimeDiscount ?? LIFETIME.amount)}</p>
                 </div>
 
-                <LifetimeCta href="/checkout/lifetime" viewer={viewer} checkoutLive={CHECKOUT_LIVE} />
+                <LifetimeCta
+                  href={coupon === null ? '/checkout/lifetime' : `/checkout/lifetime?coupon=${encodeURIComponent(coupon.code)}`}
+                  viewer={viewer}
+                  checkoutLive={CHECKOUT_LIVE}
+                />
               </div>
             </div>
           </div>
