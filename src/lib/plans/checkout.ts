@@ -104,13 +104,52 @@ export interface MockSubscriptionState {
  * with filler values this file never uses (see that interface's own comment).
  */
 /**
- * The subscription columns, plus the coupon ones — one query rather than two, because every
- * caller of this needs both and a second read is a second chance for the plan and the discount
- * to be reported from different instants.
+ * The three coupon columns, resolved — read **separately from the subscription ones, and
+ * guarded**, which is the whole reason this is its own function.
+ *
+ * `settings/read.ts` states the rule this follows in as many words: the ordinary state of
+ * affairs between deploying code and applying its migration is that the column is not there
+ * yet, and a read must survive it. Selected in the same query as the subscription columns,
+ * a missing `coupon_code` takes down `loadCheckoutStatus` and `loadPurchaseSummary` — neither
+ * of which has a `try` of its own — and with them `/billing`, `/checkout` and `/thanks`, which
+ * is the entire payment surface. Split out, the cost of a migration not yet applied is one
+ * missing line on `/billing`.
+ *
+ * That also makes the deploy order stop mattering, which matters here more than usual:
+ * production's `DATABASE_URL` is unreachable from this CLI (see `CLAUDE.md`), so `0037` is
+ * applied by hand from the Neon console, and code and schema cannot be made to land together.
+ *
+ * Never the raw columns out of this — see `liveDiscount`, and `MockSubscriptionState.discount`.
  */
-async function subscriptionColumnsOf(
-  accountOwnerEmail: string,
-): Promise<{ subscription: SubscriptionColumns; discount: LiveDiscount | null } | null> {
+async function liveDiscountOf(accountOwnerEmail: string): Promise<LiveDiscount | null> {
+  try {
+    const rows = await db()
+      .select({
+        couponCode: accounts.couponCode,
+        couponPercent: accounts.couponPercent,
+        discountEndsAt: accounts.discountEndsAt,
+      })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, accountOwnerEmail))
+      .limit(1)
+
+    const row = rows[0]
+    return row === undefined ? null : liveDiscount(row, new Date())
+  } catch (error) {
+    /* Logged, never rethrown, and resolving to "no discount" — the same direction
+       `loadNotifySettings` takes for the same reason: a screen without one line is a smaller
+       loss than a screen that does not render. */
+    console.error('liveDiscountOf failed', error)
+    return null
+  }
+}
+
+/**
+ * The raw subscription columns for one account, read as `SubscriptionColumns` — the narrow
+ * shape `liveSubscription`/`resolveSubscription` actually need, with no grant fields to fill
+ * with filler values this file never uses (see that interface's own comment).
+ */
+async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<SubscriptionColumns | null> {
   const rows = await db()
     .select({
       plan: accounts.plan,
@@ -118,9 +157,6 @@ async function subscriptionColumnsOf(
       expiresAt: accounts.planExpiresAt,
       pendingPlan: accounts.pendingPlan,
       pendingCycle: accounts.pendingCycle,
-      couponCode: accounts.couponCode,
-      couponPercent: accounts.couponPercent,
-      discountEndsAt: accounts.discountEndsAt,
     })
     .from(accounts)
     .where(eq(accounts.ownerEmail, accountOwnerEmail))
@@ -130,36 +166,14 @@ async function subscriptionColumnsOf(
   if (row === undefined) return null
 
   return {
-    subscription: {
-      plan: readPlan(row.plan),
-      status: readPlanStatus(row.status),
-      expiresAt: row.expiresAt,
-      pendingPlan: readPendingPlan(row.pendingPlan),
-      pendingCycle: readPendingCycle(row.pendingCycle),
-    },
-    /* Never the raw columns — see `MockSubscriptionState.discount` and `liveDiscount`. */
-    discount: liveDiscount(row, new Date()),
+    plan: readPlan(row.plan),
+    status: readPlanStatus(row.status),
+    expiresAt: row.expiresAt,
+    pendingPlan: readPendingPlan(row.pendingPlan),
+    pendingCycle: readPendingCycle(row.pendingCycle),
   }
 }
 
-/**
- * What the checkout/billing screen needs on arrival: whether it may show at all, what this
- * account already holds, and — the part no screen may work out for itself — whether that
- * holding is still **live**.
- *
- * `live` is `liveSubscription`'s own answer at the one instant this read uses, and it exists
- * because the three screens that render `current` were each deciding "is this plan still on"
- * from `status` alone. That is not the rule: a row keeps `planStatus: 'active'` for ever, and
- * nothing in this repository renews anything, so *every* plan bought here eventually sits at
- * `active` with a `planExpiresAt` in the past while the gates have already dropped the account
- * to free. `/billing` then said "Standard, active until 3 May 2026", `/thanks` said "You're in"
- * over the same past date, and "Cancel my plan" offered an action `mockCancel` would refuse.
- * One answer, computed where the clock and the rule already live — the same reason
- * `subscriptionCopy.ts` exists for the sentence itself.
- *
- * Null means nothing is running: expired, or lapsed by date. `grace` is deliberately non-null
- * — a failing card is not a lapsed customer, and `liveSubscription` carries that rule.
- */
 export async function loadCheckoutStatus(): Promise<
   | { ok: false; reason: 'disabled' | 'no-session' | 'no-database' }
   | { ok: true; current: MockSubscriptionState; live: Plan | null }
@@ -170,11 +184,14 @@ export async function loadCheckoutStatus(): Promise<
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
-  const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
-  if (stored === null) return { ok: false, reason: 'no-session' }
+  const [raw, discount] = await Promise.all([
+    subscriptionColumnsOf(user.accountOwnerEmail),
+    liveDiscountOf(user.accountOwnerEmail),
+  ])
+  if (raw === null) return { ok: false, reason: 'no-session' }
 
   const now = new Date()
-  const resolved = resolveSubscription(stored.subscription, now)
+  const resolved = resolveSubscription(raw, now)
   return {
     ok: true,
     current: {
@@ -182,9 +199,9 @@ export async function loadCheckoutStatus(): Promise<
       status: resolved.status,
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
-      discount: stored.discount,
+      discount,
     },
-    live: liveSubscription(stored.subscription, now),
+    live: liveSubscription(raw, now),
   }
 }
 
@@ -236,11 +253,14 @@ export async function loadPurchaseSummary(): Promise<
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
-  const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
-  if (stored === null) return { ok: false, reason: 'no-session' }
+  const [raw, discount] = await Promise.all([
+    subscriptionColumnsOf(user.accountOwnerEmail),
+    liveDiscountOf(user.accountOwnerEmail),
+  ])
+  if (raw === null) return { ok: false, reason: 'no-session' }
 
   const now = new Date()
-  const resolved = resolveSubscription(stored.subscription, now)
+  const resolved = resolveSubscription(raw, now)
   return {
     ok: true,
     current: {
@@ -248,11 +268,11 @@ export async function loadPurchaseSummary(): Promise<
       status: resolved.status,
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
-      discount: stored.discount,
+      discount,
     },
     /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the
      * thank-you page is the one screen a lapsed plan could still be congratulated on. */
-    live: liveSubscription(stored.subscription, now),
+    live: liveSubscription(raw, now),
   }
 }
 
@@ -457,9 +477,8 @@ export async function mockPurchase(
 
   try {
     const now = new Date()
-    const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (stored === null) return { ok: false, reason: 'failed' }
-    const raw = stored.subscription
+    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
+    if (raw === null) return { ok: false, reason: 'failed' }
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === 'lifetime') return { ok: false, reason: 'not-applicable' }
@@ -759,9 +778,8 @@ export async function mockCancel(): Promise<
 
   try {
     const now = new Date()
-    const stored = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (stored === null) return { ok: false, reason: 'failed' }
-    const raw = stored.subscription
+    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
+    if (raw === null) return { ok: false, reason: 'failed' }
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {
@@ -931,9 +949,8 @@ export async function forceExpireNow(ownerEmail: string): Promise<{ ok: true } |
 
   try {
     const now = new Date()
-    const stored = await subscriptionColumnsOf(target)
-    if (stored === null) return { ok: false, reason: 'failed' }
-    const raw = stored.subscription
+    const raw = await subscriptionColumnsOf(target)
+    if (raw === null) return { ok: false, reason: 'failed' }
 
     const currentLive = liveSubscription(raw, now)
     if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {
