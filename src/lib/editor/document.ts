@@ -51,6 +51,9 @@ export type Block =
    */
   | { kind: 'tab'; startDirective: string; endDirective: string | null; rows: string[] }
 
+/** `Block` narrowed to the one kind that has words and chords of its own. */
+export type LyricsBlock = Extract<Block, { kind: 'lyrics' }>
+
 export interface SongDocument {
   blocks: Block[]
   /** Preserved so a file written on Windows is not rewritten wholesale. */

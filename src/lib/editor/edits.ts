@@ -9,6 +9,7 @@
 import {
   type Block,
   type ChordAt,
+  type LyricsBlock,
   type SongDocument,
   sectionsOf,
   shiftChords,
@@ -230,6 +231,46 @@ export function removeChord(document: SongDocument, index: number, chord: number
 }
 
 /** Enter in the middle of a line: the chords go with their side of the cut. */
+/**
+ * One line of words cut in two at a letter, chords following their syllables.
+ *
+ * Split out of `splitLine` because a paste needs the very same rule at the seam it
+ * opens (`clipboard.ts`), and two copies of it would be two ideas of where a chord
+ * lands — the kind of disagreement nothing on screen would announce.
+ */
+export function splitLyrics(block: LyricsBlock, at: number): [LyricsBlock, LyricsBlock] {
+  const kept: ChordAt[] = []
+  const moved: ChordAt[] = []
+
+  for (const chord of block.chords) {
+    // A chord exactly at the cut belongs to the syllable that follows it.
+    if (chord.at < at) kept.push(chord)
+    else moved.push({ ...chord, at: chord.at - at })
+  }
+
+  return [
+    { kind: 'lyrics', text: block.text.slice(0, at), chords: kept },
+    { kind: 'lyrics', text: block.text.slice(at), chords: moved },
+  ]
+}
+
+/**
+ * Two lines of words as one, the second's chords moved along by the first's length.
+ *
+ * The other half of the same pair: `joinLines` joins by index inside a document, and
+ * a paste has to close the two seams it opens with the identical arithmetic.
+ */
+export function joinLyrics(a: LyricsBlock, b: LyricsBlock): LyricsBlock {
+  return {
+    kind: 'lyrics',
+    text: a.text + b.text,
+    chords: [
+      ...a.chords,
+      ...b.chords.map((chord) => ({ ...chord, at: chord.at + a.text.length })),
+    ],
+  }
+}
+
 export function splitLine(document: SongDocument, index: number, at: number): SongDocument {
   const block = document.blocks[index]
   if (block === undefined) return document
@@ -237,21 +278,7 @@ export function splitLine(document: SongDocument, index: number, at: number): So
   const blocks = [...document.blocks]
 
   if (block.kind === 'lyrics') {
-    const kept: ChordAt[] = []
-    const moved: ChordAt[] = []
-
-    for (const chord of block.chords) {
-      // A chord exactly at the cut belongs to the syllable that follows it.
-      if (chord.at < at) kept.push(chord)
-      else moved.push({ ...chord, at: chord.at - at })
-    }
-
-    blocks.splice(
-      index,
-      1,
-      { kind: 'lyrics', text: block.text.slice(0, at), chords: kept },
-      { kind: 'lyrics', text: block.text.slice(at), chords: moved },
-    )
+    blocks.splice(index, 1, ...splitLyrics(block, at))
   } else if (block.kind === 'comment') {
     blocks.splice(
       index,
@@ -280,17 +307,11 @@ export function joinLines(document: SongDocument, index: number): SongDocument {
   if (previous === null || block === undefined) return document
   if (block.kind !== 'lyrics' && block.kind !== 'blank') return document
 
-  const current = block.kind === 'lyrics' ? block : { text: '', chords: [] as ChordAt[] }
+  const current: LyricsBlock =
+    block.kind === 'lyrics' ? block : { kind: 'lyrics', text: '', chords: [] }
 
   const blocks = [...document.blocks]
-  blocks.splice(index - 1, 2, {
-    kind: 'lyrics',
-    text: previous.text + current.text,
-    chords: [
-      ...previous.chords,
-      ...current.chords.map((chord) => ({ ...chord, at: chord.at + previous.text.length })),
-    ],
-  })
+  blocks.splice(index - 1, 2, joinLyrics(previous, current))
 
   return { ...document, blocks }
 }
