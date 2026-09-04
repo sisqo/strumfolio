@@ -63,6 +63,20 @@
      scoped: the panel closes articles, tool pages and whatever public surface comes next. */
   --promo-bg: #fbf5ed;
   --promo-line: #f0dfc9;
+  /*
+   * The ticket stub's three warm tones, from `Coupon Overlay.dc.html` — the only colours that
+   * mock introduces which this palette did not already have. Everything else in it
+   * (`--promo-bg`, `--promo-line`, `--accent`, `--ink`, `--muted`, `--faint`, `--on-accent`)
+   * was an exact match, which is what says the design was drawn in this app's promo family
+   * rather than beside it.
+   *
+   * `--ticket-mute` is the «OFF» label, deliberately lighter than `--faint`: it sits under a
+   * 38px numeral and is the one piece of type on the bar meant to be read second.
+   * `--ticket-edge` is the code chip's dashed border, `--ticket-perf` the perforation.
+   */
+  --ticket-mute: #c9a97f;
+  --ticket-edge: #d8b489;
+  --ticket-perf: #e0cbb0;
   /* Text on an accent fill. Not white: warm, so the fill does not look printed. */
   --on-accent: #fffaf4;
   --danger: #9d2820;
@@ -185,6 +199,11 @@
     --accent-soft: #2a2118;
     --promo-bg: #241d15;
     --promo-line: #3a2e20;
+    /* The mock is light-only; these are this palette's own dark counterparts, pitched so the
+       stub reads as warm paper on dark rather than as a lit panel. */
+    --ticket-mute: #8a6f4b;
+    --ticket-edge: #5c4830;
+    --ticket-perf: #4a3a26;
     --on-accent: #1b1206;
     --danger: #ff9a90;
     --danger-soft: #2f1a18;
@@ -237,6 +256,9 @@
   --accent-soft: #2a2118;
   --promo-bg: #241d15;
   --promo-line: #3a2e20;
+  --ticket-mute: #8a6f4b;
+  --ticket-edge: #5c4830;
+  --ticket-perf: #4a3a26;
   --on-accent: #1b1206;
   --danger: #ff9a90;
   --danger-soft: #2f1a18;
@@ -6996,6 +7018,359 @@
     color: var(--danger);
     font-size: 0.8125rem;
     line-height: 1.4;
+  }
+
+  /*
+   * The offer overlay — `Coupon Overlay.dc.html`, matched value for value.
+   *
+   * `fixed` where the mock has `absolute`: in the mock it is positioned inside an artboard, and
+   * the whole point of the design is that it stays at the foot of the viewport while the page
+   * behind it scrolls. `left`/`right: 44px` is the mock's own inset, dropped to the page gutter
+   * on a phone where 44px of each side would leave the code chip nowhere to go.
+   *
+   * `z-index: 40` and not the mock's 20: this app already draws modals and the reading bar, and
+   * 20 sits under `.control-bar`. Above the page, below anything that takes focus.
+   */
+  .coupon-overlay {
+    position: fixed;
+    right: 0.875rem;
+    bottom: 0;
+    left: 0.875rem;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* The bar itself is interactive; the strip of nothing beside the collapsed tab is not, so
+       it must not swallow a click meant for the page underneath. */
+    pointer-events: none;
+  }
+
+  .coupon-overlay > * {
+    pointer-events: auto;
+  }
+
+  @media (min-width: 48rem) {
+    .coupon-overlay {
+      right: 2.75rem;
+      left: 2.75rem;
+    }
+  }
+
+  @keyframes coupon-rise {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* `transform`, not the mock's `translate` shorthand: Safari shipped that property later than
+     the versions this PWA is installed on, and a bar that never arrives is worse than one that
+     arrives without sliding. */
+  .coupon-ticket {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--promo-line);
+    border-bottom: none;
+    border-radius: var(--r-panel) var(--r-panel) 0 0;
+    background: var(--promo-bg);
+    box-shadow: 0 -12px 50px -22px rgb(58 36 21 / 45%);
+    animation: coupon-rise 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+
+  /* The stub: paper white against the bar's cream, which is what makes the perforation read as
+     a tear rather than a divider. */
+  .coupon-ticket-stub {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 8.5rem;
+    padding: 0.875rem 0;
+    background: var(--surface);
+  }
+
+  .coupon-figure {
+    color: var(--accent);
+    font-size: 2.375rem;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 0.9;
+  }
+
+  /* Half the numeral, so «30%» reads as one figure and not as two words. */
+  .coupon-percent-sign {
+    font-size: 0.5em;
+  }
+
+  .coupon-off {
+    margin-top: 0.125rem;
+    color: var(--ticket-mute);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+  }
+
+  .coupon-duration {
+    margin-top: 0.4375rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--promo-line);
+    color: var(--accent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .coupon-perforation {
+    flex: none;
+    width: 2px;
+    background: repeating-linear-gradient(180deg, var(--ticket-perf) 0 7px, transparent 7px 14px);
+  }
+
+  .coupon-ticket-body {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 1.375rem;
+    min-width: 0;
+    padding: 0.9375rem 1.5rem;
+  }
+
+  .coupon-lines {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .coupon-headline {
+    display: block;
+    color: var(--ink);
+    font-size: 1.03125rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .coupon-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.84375rem;
+  }
+
+  .coupon-deadline {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.3125rem;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .coupon-deadline-text {
+    font-weight: 500;
+  }
+
+  .coupon-actions {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  /*
+   * The code chip. A dashed border is the one place in this app that pattern appears, and it is
+   * carrying meaning rather than decoration: it says «this is a coupon», the same way the
+   * perforation does, and it is what makes an unlabelled string of capitals legible as a code.
+   */
+  .coupon-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    height: 2.75rem;
+    padding: 0 0.875rem;
+    border: 1px dashed var(--ticket-edge);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .coupon-code:hover {
+    border-color: var(--accent);
+  }
+
+  .coupon-code-text {
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.90625rem;
+    letter-spacing: 0.1em;
+  }
+
+  .coupon-code-copy {
+    color: var(--accent);
+    font-size: 0.78125rem;
+    font-weight: 600;
+  }
+
+  /* Not `.btn`: the mock draws a full pill at 44px with the accent's own fill, where `.btn`
+     carries this app's smaller radius and a raised shadow. */
+  .coupon-cta {
+    display: inline-flex;
+    align-items: center;
+    height: 2.75rem;
+    padding: 0 1.375rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.90625rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* The mock's own `#7c3b0b`, expressed the way this file already darkens the accent
+     elsewhere — so dark mode, where the accent is a light amber, darkens rather than
+     brightening on hover instead of needing a second literal. */
+  .coupon-cta:hover {
+    background: color-mix(in srgb, var(--accent) 85%, black);
+    color: var(--on-accent);
+  }
+
+  .coupon-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--r-pill);
+    background: none;
+    color: var(--faint);
+    cursor: pointer;
+  }
+
+  .coupon-close:hover {
+    background: var(--promo-line);
+    color: var(--muted);
+  }
+
+  /* The collapsed tab: the same ticket, reduced to the one fact worth interrupting for. */
+  .coupon-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5625rem;
+    padding: 0.5rem 1rem 0.625rem;
+    border: 1px solid var(--promo-line);
+    border-bottom: none;
+    border-radius: var(--r-sm) var(--r-sm) 0 0;
+    background: var(--surface);
+    box-shadow: 0 -10px 34px -18px rgb(58 36 21 / 45%);
+    cursor: pointer;
+    font: inherit;
+    animation: coupon-rise 220ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+
+  .coupon-tab:hover {
+    border-color: var(--ticket-edge);
+  }
+
+  .coupon-tab-figure {
+    color: var(--accent);
+    font-size: 1.1875rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .coupon-tab-figure .coupon-percent-sign {
+    font-size: 0.6em;
+  }
+
+  .coupon-tab-label {
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  /*
+   * Under 40rem the mock's single row cannot hold: the stub, two lines of prose, a code chip, a
+   * pill and a × across a phone leaves the prose at two words a line. The stub goes horizontal
+   * across the top — the numeral, «OFF» and the duration in a row, keeping the ticket read —
+   * and the actions drop under the prose.
+   */
+  @media (max-width: 40rem) {
+    .coupon-ticket {
+      position: relative;
+      flex-direction: column;
+    }
+
+    .coupon-ticket-stub {
+      flex-direction: row;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.625rem 1rem;
+    }
+
+    .coupon-figure {
+      font-size: 1.5rem;
+    }
+
+    .coupon-duration {
+      margin-top: 0;
+      padding-top: 0;
+      padding-left: 0.5rem;
+      border-top: none;
+      border-left: 1px solid var(--promo-line);
+    }
+
+    /* Horizontal now, so it reads as the tear across a stub rather than beside it. */
+    .coupon-perforation {
+      width: 100%;
+      height: 2px;
+      background: repeating-linear-gradient(90deg, var(--ticket-perf) 0 7px, transparent 7px 14px);
+    }
+
+    .coupon-ticket-body {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 0.875rem 1rem;
+    }
+
+    .coupon-lines {
+      flex: 1 0 70%;
+    }
+
+    .coupon-sub {
+      flex-wrap: wrap;
+    }
+
+    .coupon-actions {
+      flex: 1 0 100%;
+      order: 3;
+    }
+
+    .coupon-cta {
+      flex: 1;
+      justify-content: center;
+    }
+
+    /* Pinned to the top corner rather than left in the wrapped flow, where it would land under
+       the prose and read as a third action. */
+    .coupon-close {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+    }
   }
 
   /*

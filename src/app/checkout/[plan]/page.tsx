@@ -5,12 +5,13 @@ import { notFound } from 'next/navigation'
 import { CheckoutScreen } from '@/components/CheckoutScreen'
 import type { CheckoutCoupon } from '@/components/CheckoutScreen'
 import { CouponBar } from '@/components/CouponBar'
+import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { bannerCopy } from '@/lib/coupons/discount'
-import { activeCoupon } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { bannerCopy, deadlineCopy, offerCopy } from '@/lib/coupons/discount'
+import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
+import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { isCheckoutPlan } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
@@ -49,11 +50,24 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    * reader who reaches this page with a stale or tampered `?coupon=` sees one price and is
    * charged the right one.
    */
-  const cookieCode = (await cookies()).get(COUPON_COOKIE)?.value ?? null
-  const [campaign, lifetimeOnSale] = await Promise.all([
+  const jar = await cookies()
+  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
+  const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
+  const [campaign, lifetimeOnSale, advertisable] = await Promise.all([
     activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
     loadLifetimeOnSale(),
+    advertisableCampaign(),
   ])
+
+  /*
+   * The offer to advertise, or nothing when one is already applied — the same single line
+   * `/pricing` uses, so the two pages cannot disagree about whether the overlay and the bar may
+   * coexist. On this page the overlay matters more than on any other: a reader who reached a
+   * checkout without claiming a live offer is one click from paying full price for something
+   * that is on sale.
+   */
+  const offer = campaign === null ? advertisable : null
+  const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
   const coupon: CheckoutCoupon | null =
     campaign === null
@@ -79,12 +93,31 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           * the cookie, and doing it here as well would mean two components racing to write the
           * same value on the one journey that passes through both.
           */}
-        <div className="mb-4">
-          <CouponBar applied={campaign === null ? null : bannerCopy(campaign, lifetimeOnSale, formatPlanDate)} />
-        </div>
+        {/* Hidden exactly when the overlay is showing — see `offer`, and `/pricing`'s own
+            comment on why the page must never carry two coupon controls at once. */}
+        {offer === null && (
+          <div className="mb-4">
+            <CouponBar applied={campaign === null ? null : bannerCopy(campaign, lifetimeOnSale, formatPlanDate)} />
+          </div>
+        )}
 
         <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
         <Footer />
+
+        {/* Last in the document, fixed to the foot of the viewport — see `/pricing`. The CTA
+            points back at this same plan rather than at the price list: somebody who is already
+            on a checkout has chosen, and sending them to compare again would undo that. */}
+        {offer !== null && offerWords !== null && (
+          <CouponOverlay
+            code={offer.code}
+            percent={offerWords.percent}
+            duration={offerWords.duration}
+            headline={offerWords.headline}
+            deadline={deadlineCopy(offer.expiresAt, new Date())}
+            href={`/checkout/${plan}?cycle=${initialCycle}&coupon=${encodeURIComponent(offer.code)}`}
+            initiallyCollapsed={offerCollapsed}
+          />
+        )}
       </main>
     </PrefsProvider>
   )

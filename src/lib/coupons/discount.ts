@@ -285,3 +285,64 @@ export function bannerCopy(
   const until = facts.expiresAt === null ? '' : `, until ${formatDay(facts.expiresAt)}`
   return `${facts.code} — ${facts.discountPercent}%${scope}${until}`
 }
+
+/**
+ * The offer's own deadline, as the design words it.
+ *
+ * Four cases, and they are the mock's own — «Last day», «1 day left», «N days left», and past
+ * forty-five days «Ends 30 September», where a countdown stops being urgency and starts being
+ * noise. `null` for a campaign with no expiry at all, which is legal (`expires_at` is nullable
+ * by decision) and simply has no deadline to state.
+ *
+ * Whole days, rounded **up**: a campaign ending in eight hours is «1 day left» and not «0 days
+ * left», because zero is the one number that reads as a fault rather than a countdown.
+ */
+export function deadlineCopy(expiresAt: Date | null, now: Date): string | null {
+  if (expiresAt === null) return null
+
+  const days = Math.ceil((expiresAt.getTime() - now.getTime()) / 86_400_000)
+  if (days <= 0) return 'Last day'
+  if (days === 1) return '1 day left'
+  if (days > 45) return `Ends ${expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+  return `${days} days left`
+}
+
+/**
+ * The three sentences the overlay is built from, all derived — the offer has no stored copy of
+ * its own, for `bannerCopy`'s stated reason.
+ *
+ * The duration is quoted on the **yearly** cycle (`discountedMonths(months, 'year')`), which is
+ * the customer's best case and the reading the design's own headline takes: a campaign of three
+ * months holds a yearly price for twelve, so «A full year at 30% off» is the true and the
+ * strongest thing to say. Twelve is worded «A full year» rather than «12 months» because that
+ * is what the mock says, and because a year has a name.
+ */
+export interface OfferCopy {
+  /** «30%» split for the design's own two type sizes — the number, then the sign. */
+  percent: string
+  /** «12 MONTHS» / «FOREVER» — the ticket stub's lower line. */
+  duration: string
+  /** «A full year at 30% off, price locked.» */
+  headline: string
+}
+
+export function offerCopy(percent: string, months: number | null): OfferCopy {
+  const yearMonths = discountedMonths(months, 'year')
+
+  if (yearMonths === null) {
+    return {
+      percent,
+      duration: 'Forever',
+      headline: `${percent}% off, for as long as you stay subscribed.`,
+    }
+  }
+
+  return {
+    percent,
+    duration: yearMonths === 12 ? '12 months' : `${yearMonths} months`,
+    headline:
+      yearMonths === 12
+        ? `A full year at ${percent}% off, price locked.`
+        : `${yearMonths} months at ${percent}% off, price locked.`,
+  }
+}

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 
 import { CouponBar } from '@/components/CouponBar'
+import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
@@ -12,13 +13,15 @@ import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
 import {
   bannerCopy,
+  deadlineCopy,
   discountedAmount,
   durationCopy,
   firstYearCopy,
+  offerCopy,
 } from '@/lib/coupons/discount'
-import { activeCoupon } from '@/lib/coupons/read'
+import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
@@ -737,15 +740,33 @@ export default async function PricingPage({
    * pointer, and the campaign's state, window, ceilings and `entry` are all re-read from the
    * table on every request. See `lib/coupons/read.ts`' own header.
    */
-  const cookieCode = (await cookies()).get(COUPON_COOKIE)?.value ?? null
-  const [coupon, lifetimeIsOpen] = await Promise.all([
+  const jar = await cookies()
+  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
+  /* Read here rather than in the component, so the bar is in the server-rendered HTML in the
+     state this reader left it — see `CouponOverlay.initiallyCollapsed`. */
+  const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
+  const [coupon, lifetimeIsOpen, advertisable] = await Promise.all([
     activeCoupon({
       coupon: typeof couponParam === 'string' ? couponParam : undefined,
       promo: typeof promoParam === 'string' ? promoParam : undefined,
       cookie: cookieCode,
     }),
     loadLifetimeOnSale(),
+    /*
+     * The offer to *advertise*, which is a different question from the one applied: the overlay
+     * sells a campaign to somebody who has not taken it, and `CouponBar` confirms one that has
+     * been taken. Read unconditionally rather than behind `coupon === null` so both answers
+     * come from the same instant — a campaign that expires between two awaits would otherwise
+     * leave the page showing an applied discount and an advertisement for it at once.
+     */
+    advertisableCampaign(),
   ])
+
+  /* The two never show together, and this is the one line that guarantees it. */
+  const offer = coupon === null ? advertisable : null
+  /* Derived once: `offerCopy` returns all three strings together precisely so the numeral, the
+     stub and the headline cannot be computed from different inputs. */
+  const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
   /*
    * The URL brought a coupon the cookie does not hold yet — handed to `CouponBar`, which
@@ -823,9 +844,17 @@ export default async function PricingPage({
         * say, and a reader who scrolls past four discounted prices before finding out why has
         * already formed the wrong idea about the listino.
         */}
-      <section className="mt-8">
-        <CouponBar applied={couponBanner} persist={persist} />
-      </section>
+      {/*
+        * `CouponBar` is now the *applied* state and the typed-code input, and nothing else: the
+        * overlay below has taken over advertising an offer nobody has claimed. So this row is
+        * hidden exactly when the overlay is showing, which is the one arrangement in which the
+        * page never carries two coupon controls at once — see `offer`.
+        */}
+      {offer === null && (
+        <section className="mt-8">
+          <CouponBar applied={couponBanner} persist={persist} />
+        </section>
+      )}
 
       <section className="mt-5">
         <PricingPlans
@@ -934,6 +963,26 @@ export default async function PricingPage({
       )}
 
       <Footer />
+
+      {/*
+        * Last in the document, and fixed to the foot of the viewport by CSS.
+        *
+        * The order is the accessibility half of the design: a bar that overlays a page should
+        * come *after* the page in reading order rather than interrupting it, so a screen reader
+        * reaches the price list before the advertisement for it. `role="region"` with a name is
+        * what makes it findable anyway (see `CouponOverlay`).
+        */}
+      {offer !== null && offerWords !== null && (
+        <CouponOverlay
+          code={offer.code}
+          percent={offerWords.percent}
+          duration={offerWords.duration}
+          headline={offerWords.headline}
+          deadline={deadlineCopy(offer.expiresAt, new Date())}
+          href={`/pricing?coupon=${encodeURIComponent(offer.code)}`}
+          initiallyCollapsed={offerCollapsed}
+        />
+      )}
     </main>
   )
 }

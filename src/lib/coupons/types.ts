@@ -207,6 +207,16 @@ export const COUPON_COOKIE = 'songbook-coupon'
 export const COUPON_COOKIE_MAX_DAYS = 30
 
 /**
+ * Whether this reader has collapsed the offer bar.
+ *
+ * Written client-side by `CouponOverlay` with `document.cookie` and read server-side by the
+ * three pages that mount it — hence a name in this module rather than in the component, so
+ * neither side can spell it differently. Not `httpOnly`, deliberately: a dismissed banner is a
+ * per-viewer convenience, and the only thing that reads it decides whether to draw a bar.
+ */
+export const OFFER_COLLAPSED_COOKIE = 'songbook-offer-collapsed'
+
+/**
  * Why a `/coupons` write was refused.
  *
  * Here rather than beside the actions that produce it, for the constraint `plans/testCard.ts`

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { AuthError } from 'next-auth'
+import { cookies } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { signIn } from '@/auth'
+import { CouponOverlay } from '@/components/CouponOverlay'
 import { EditorPhone } from '@/components/EditorPhone'
 import { Footer } from '@/components/Footer'
 import {
@@ -23,6 +25,9 @@ import {
   IconUsers,
 } from '@/components/icons'
 import { LandingCounters } from '@/components/LandingCounters'
+import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
+import { advertisableCampaign } from '@/lib/coupons/read'
+import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
@@ -478,6 +483,26 @@ const FEATURES: Feature[] = [
 export default async function LoginPage({ searchParams }: Props) {
   const { error, failed, reset } = await searchParams
 
+  /*
+   * The live offer, advertised on the front door.
+   *
+   * This page is the only public one in the app — everything else redirects here without a
+   * session — so it is where a campaign reaches somebody who has not decided anything yet, and
+   * the reason the overlay exists at all rather than living on `/pricing` where the prices
+   * already speak for themselves.
+   *
+   * No `activeCoupon` counterpart here, unlike `/pricing` and `/checkout`: this page names no
+   * price, so there is nothing for an applied coupon to change and nothing to confirm. It
+   * either has an offer to announce or it has nothing to say.
+   *
+   * `advertisableCampaign` never throws and answers `null` for any failure — see its own
+   * comment. That matters more here than anywhere: a coupon table that cannot be read must not
+   * be able to close the front door.
+   */
+  const [offer, jar] = await Promise.all([advertisableCampaign(), cookies()])
+  const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
+  const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
+
   const message =
     failed !== undefined
       ? 'Wrong email or password.'
@@ -864,6 +889,21 @@ export default async function LoginPage({ searchParams }: Props) {
       </p>
 
       <Footer />
+
+      {/* Last in the document, fixed to the foot of the viewport by CSS — see `CouponOverlay`
+          on why reading order matters for a bar that overlays a page. The CTA goes to the price
+          list, which is where somebody who has just been told about an offer wants to land. */}
+      {offer !== null && offerWords !== null && (
+        <CouponOverlay
+          code={offer.code}
+          percent={offerWords.percent}
+          duration={offerWords.duration}
+          headline={offerWords.headline}
+          deadline={deadlineCopy(offer.expiresAt, new Date())}
+          href={`/pricing?coupon=${encodeURIComponent(offer.code)}`}
+          initiallyCollapsed={offerCollapsed}
+        />
+      )}
     </main>
   )
 }

@@ -479,10 +479,36 @@ guarda se esiste una campagna digitabile, ed è un input assente proprio davanti
 ha un codice partner sul volantino mentre l'unica campagna viva è `entry: 'url'`. Un
 codice che non risolve dice perché, che è già la regola due sezioni sopra.
 
-**Il mockup grafico non è ancora arrivato** — questo piano fissa comportamento e stati,
-non pixel. Quando arriva, si segue alla lettera come per gli handoff di Claude Design
-(vedi la sezione in `CLAUDE.md`): valori esatti, struttura esatta, copy esatta, e si
-chiede prima di conservare qualcosa che il mock ha rimosso.
+**Il mockup è arrivato** — `Coupon Overlay.dc.html`, nel progetto Claude Design
+`Strumfolio`, e ha aggiunto un secondo componente accanto a questo invece di ridisegnarlo.
+
+`CouponOverlay` è **l'offerta non ancora presa**: un biglietto ancorato al piede della
+finestra, con il tallone perforato (30% / OFF / 12 MONTHS), il titolo, la scadenza a
+scalare, il codice in mono da copiare, la pill «See the plans» e la × che lo richiude a
+tab. `CouponBar` resta lo stato **applicato** più l'input per digitare un codice. **I due
+non compaiono mai insieme**, e c'è una riga sola per pagina che lo garantisce
+(`offer = coupon === null ? advertisable : null`).
+
+Tre scelte prese sul mock, e la ragione di ognuna:
+
+- **Tre pagine, non «any page»** come dice la sua nota. In questa app «ogni pagina» include
+  `/songs/[slug]`, che si legge suonando, dove una barra fissa in basso copre le ultime
+  righe di un testo e il comando di scorrimento. Montato su `/pricing`, `/login` e
+  `/checkout/[plan]` — le tre schermate in cui qualcuno sta decidendo se pagare.
+- **«See the plans» porta `?coupon=`**, che il mock non mostra perché un prototipo non ha
+  querystring. Senza, il bottone sarebbe decorativo e il lettore dovrebbe re-incollare a
+  mano un codice che gli era appena stato mostrato.
+- **Nessuna colonna di copy libera**, coerente con la decisione già presa: il titolo è
+  derivato da `offerCopy` (dodici mesi diventano «A full year», che è la parola del mock) e
+  la scadenza da `deadlineCopy`, con i quattro casi del mock — «Last day», «1 day left»,
+  «N days left», e oltre i quarantacinque giorni «Ends 30 September».
+
+Una frase del mock è stata tenuta alla lettera e vale una seconda lettura: **«Every
+songbook, every device, Strum Together included»**. È vera di Plus e Premium; Standard ha
+3 canzonieri e 1 dispositivo. `CLAUDE.md` dice di seguire il mock e di non difendere lo
+status quo, quindi la frase è quella del mock — ma questo repo ha una cultura precisa sulle
+promesse non etichettate (vedi il commento di `bookletCell`), e questa è la sola riga del
+sistema coupon che ci si avvicina.
 
 ### Il gestionale — `/coupons`
 

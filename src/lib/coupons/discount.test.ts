@@ -7,6 +7,7 @@ import {
   bannerCopy,
   campaignStatus,
   cookieMaxAge,
+  deadlineCopy,
   discountCycles,
   discountEnd,
   discountedAmount,
@@ -15,6 +16,7 @@ import {
   firstYearCopy,
   firstYearTotal,
   liveDiscount,
+  offerCopy,
 } from './discount'
 import type { CampaignFacts } from './discount'
 import { COUPON_COOKIE_MAX_DAYS, isCodeShape, normalizeCode, readLimit, readMonths, readPercent } from './types'
@@ -434,5 +436,75 @@ describe('the vocabulary parsers', () => {
     assert.deepEqual(readLimit(''), { ok: true, limit: null })
     assert.deepEqual(readLimit('0'), { ok: false })
     assert.deepEqual(readLimit('abc'), { ok: false })
+  })
+})
+
+describe('deadlineCopy', () => {
+  const now = new Date('2026-09-04T12:00:00Z')
+  const inDays = (n: number) => new Date(now.getTime() + n * 86_400_000)
+
+  /* The design's own four cases, in the order it words them. */
+  it('counts down inside the urgent window', () => {
+    assert.equal(deadlineCopy(inDays(30), now), '30 days left')
+    assert.equal(deadlineCopy(inDays(45), now), '45 days left')
+  })
+
+  it('names the date once a countdown stops being urgency', () => {
+    assert.equal(deadlineCopy(inDays(46), now), 'Ends 20 October')
+    assert.equal(deadlineCopy(inDays(200), now), 'Ends 23 March')
+  })
+
+  it('says "1 day left" rather than a plural of one', () => {
+    assert.equal(deadlineCopy(inDays(1), now), '1 day left')
+  })
+
+  /* Zero is the one number that reads as a fault rather than a countdown, so hours-to-go
+     rounds up into "1 day left" and the day itself is named. */
+  it('rounds part-days up, and calls the final day by name', () => {
+    assert.equal(deadlineCopy(new Date(now.getTime() + 8 * 3_600_000), now), '1 day left')
+    assert.equal(deadlineCopy(now, now), 'Last day')
+    assert.equal(deadlineCopy(new Date(now.getTime() - 1), now), 'Last day')
+  })
+
+  it('has nothing to say about a campaign with no expiry', () => {
+    assert.equal(deadlineCopy(null, now), null)
+  })
+})
+
+describe('offerCopy', () => {
+  /*
+   * The duration is quoted on the yearly cycle, which is the customer's best case and the
+   * reading the design's headline takes — a three-month campaign holds a yearly price for
+   * twelve, so «A full year» is both true and the strongest thing to say.
+   */
+  it('words twelve months as a year, the way the design does', () => {
+    const copy = offerCopy('30', 3)
+    assert.equal(copy.duration, '12 months')
+    assert.equal(copy.headline, 'A full year at 30% off, price locked.')
+  })
+
+  it('reaches the same wording from any campaign that rounds to one year', () => {
+    for (const months of [1, 2, 6, 12]) {
+      assert.equal(offerCopy('30', months).headline, 'A full year at 30% off, price locked.', String(months))
+    }
+  })
+
+  it('counts the months when the lock runs past a year', () => {
+    const copy = offerCopy('30', 14)
+    assert.equal(copy.duration, '24 months')
+    assert.equal(copy.headline, '24 months at 30% off, price locked.')
+  })
+
+  /* «price locked» would be a promise about a reversion that never comes. */
+  it('drops the lock language when there is nothing to revert to', () => {
+    const copy = offerCopy('30', null)
+    assert.equal(copy.duration, 'Forever')
+    assert.doesNotMatch(copy.headline, /locked/)
+    assert.match(copy.headline, /as long as you stay subscribed/)
+  })
+
+  it('carries the percentage through untouched', () => {
+    assert.equal(offerCopy('12.5', 3).percent, '12.5')
+    assert.match(offerCopy('12.5', 3).headline, /12\.5% off/)
   })
 })

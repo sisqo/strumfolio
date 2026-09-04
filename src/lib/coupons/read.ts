@@ -395,3 +395,43 @@ export async function activeCoupon(input: {
     return null
   }
 }
+
+/**
+ * The campaign the overlay advertises — the live one whose code is meant to be public.
+ *
+ * Gated on `entryAllowsCode`, and that is the load-bearing half rather than a detail: a
+ * `entry: 'url'` campaign exists precisely so its code is *not* known, so putting it on a
+ * banner with a Copy button would hand out the one thing that setting is for. A campaign
+ * reachable only by link is advertised by the link, not by this.
+ *
+ * The newest first, and one at a time: two offers on one bar is two offers nobody picks. There
+ * is no ranking beyond recency, deliberately — the operator decides which campaign is live, and
+ * having two overlapping ones is a mistake `/coupons` shows rather than a case to arbitrate
+ * here.
+ */
+export async function advertisableCampaign(): Promise<Campaign | null> {
+  if (!hasDatabase) return null
+
+  try {
+    const now = new Date()
+    const [rows, counts] = await Promise.all([
+      db()
+        .select(COLUMNS)
+        .from(couponCampaigns)
+        .where(isNull(couponCampaigns.archivedAt))
+        .orderBy(desc(couponCampaigns.createdAt)),
+      redemptionCounts(),
+    ])
+
+    for (const row of rows) {
+      const campaign = toCampaign(row, counts.get(row.id) ?? 0, now)
+      if (entryAllowsCode(campaign.entry) && isRedeemable(campaign.status)) return campaign
+    }
+    return null
+  } catch (error) {
+    /* "No offer to advertise" — never a reason a page fails to render. `/login` is the front
+       door, and a coupon table that cannot be read must not close it. */
+    console.error('advertisableCampaign failed', error)
+    return null
+  }
+}
