@@ -37,16 +37,19 @@ export function BlogChordTable({
       <div
         className="blog-chord-table-grid"
         style={{ '--blog-chord-columns': columns } as React.CSSProperties}
-        translate="no"
       >
+        {/* `translate="no"` on each chord only — "Sounds"/"You play" are prose, not chord
+            names, and the rule this repo settled on opts out the chord, not the row it's in. */}
         <span className="blog-chord-table-row-label">Sounds</span>
         {sounds.map((chord, index) => (
-          <span key={`sounds-${index}-${chord}`}>{chord}</span>
+          <span key={`sounds-${index}-${chord}`} translate="no">
+            {chord}
+          </span>
         ))}
 
         <span className="blog-chord-table-row-label">You play</span>
         {played.map((chord, index) => (
-          <span key={`played-${index}-${chord}`} className="blog-chord-table-played">
+          <span key={`played-${index}-${chord}`} className="blog-chord-table-played" translate="no">
             {chord}
           </span>
         ))}
