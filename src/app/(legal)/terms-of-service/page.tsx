@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <h1>Terms of Service</h1>
-      <p className="legal-updated">Last updated: 3 September 2026</p>
+      <p className="legal-updated">Last updated: 4 September 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Strumfolio (&ldquo;the
@@ -182,19 +182,28 @@ export default function TermsOfServicePage() {
         returns to the free plan.
       </p>
       <p>
-        <strong>Lifetime.</strong> The Lifetime plan is a single payment that grants the Premium plan,
-        including whatever Premium becomes later, with no renewal ever due.{' '}
+        <strong>Lifetime.</strong> The Lifetime plan is a single payment that grants the Premium
+        plan with no renewal ever due.{' '}
         <strong>&ldquo;Lifetime&rdquo; means the lifetime of the Service</strong>, for as long as
         Strumfolio is operated — not a fixed number of years, and not the lifetime of a person. It is
-        tied to the account that bought it and cannot be transferred. If the Service is ever
-        discontinued, section 9 applies: at least {NOTICE_DAYS} days&apos; notice, with export
-        available throughout.
+        tied to the account that bought it and cannot be transferred, and it ends only if you delete
+        your account or if we terminate it under section 11.
+      </p>
+      <p>
+        A Lifetime plan follows Premium upwards and never downwards: you get every feature and every
+        limit increase that Premium gains later, and you keep at least the features and limits
+        Premium had on the day you bought — if Premium is ever reduced, your plan is not. If the
+        Service is discontinued, section 9 applies: at least {NOTICE_DAYS} days&apos; notice, export
+        available throughout, and — because a Lifetime plan has no period to refund — a refund of the
+        price in proportion to the months missing to 24 from the day you bought, and no refund if the
+        Service is discontinued later than that. Nothing else about a Lifetime plan can be changed to
+        your detriment under section 12.
       </p>
       <p>
         <strong>When a paid plan ends.</strong> Nothing you have put in is deleted. Your songs stay
         readable and exportable on the free plan, the features reserved to paid plans stop being
         available, and if the collection is over a free-plan limit you can only delete until you are
-        back under it — you cannot add until then. A Lifetime plan does not end.
+        back under it — you cannot add until then. A Lifetime plan does not expire.
       </p>
 
       <h2>8. Right of withdrawal and refunds</h2>
@@ -241,8 +250,8 @@ export default function TermsOfServicePage() {
         We may modify, suspend or discontinue the Service, in whole or in part. If we decide to
         discontinue the Service, or a feature you have paid for, we will give you at least{' '}
         {NOTICE_DAYS} days&apos; notice by email, keep export working until the end, and refund the
-        unused part of any period you have already paid for. Only circumstances outside our control
-        can shorten that notice.
+        unused part of any period you have already paid for (for a Lifetime plan, the refund
+        described in section 7). Only circumstances outside our control can shorten that notice.
       </p>
       <p>
         <strong>Keep your own backups.</strong> The export feature lets you download your collection
@@ -292,7 +301,8 @@ export default function TermsOfServicePage() {
         for to your detriment — a higher price at renewal, a plan losing a feature or a limit, a
         stricter billing rule — we give you at least {NOTICE_DAYS} days&apos; notice by email before it
         takes effect. If you do not accept the change, you can cancel before that date at no cost, and
-        we refund the unused part of any period you have already paid for. Changes required by law,
+        we refund the unused part of any period you have already paid for. A Lifetime plan is not
+        affected by such changes: section 7 sets out what it keeps. Changes required by law,
         changes that only add to what a plan includes, and clarifications that do not change your
         rights can take effect sooner, and we announce them through the app. Continued use of
         Strumfolio after a change takes effect constitutes acceptance of the new Terms.
