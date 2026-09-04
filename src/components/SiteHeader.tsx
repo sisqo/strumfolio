@@ -18,17 +18,17 @@ import { APP_NAME } from '@/lib/brand'
  * you are already on is a dead control, and it stays true on an article, which is part of the
  * blog, and on a tool, which is one of the tools.
  *
- * Everything below is drawn to the mock: 16px/40px padding, the pill at 12.5px on
- * `accent-soft`, «Pricing» quiet at 14.5px, and the «Sign in» capsule 40px tall.
+ * Everything inside the bar is drawn to the mock: the pill at 12.5px on `accent-soft`,
+ * «Pricing» quiet at 14.5px, the «Sign in» capsule 40px tall, and the hairline underneath.
  *
  * Three departures from what the mock literally shows, all deliberate:
  *
- * - **The bar is 70rem wide, not the mock's 1100px** — `--site-width` in globals.css, where
- *   the reasoning lives. Short version: 70rem is what `/login` and `/pricing` already are,
- *   and «Pricing» is a door this bar offers, so arriving there should not move the mark.
- *   The 40px gutter *is* the mock's and stays, which leaves the mark 24px further in here
- *   than `PublicHeader` draws it at its own 16px — the bar lines up with the page under it
- *   rather than with the bar on the page next door.
+ * - **The bar's own box is `PublicHeader`'s, not the mock's** — 70rem wide on a 1rem gutter
+ *   with 0.75rem above and below, where the drawing says 1100px on 2.5rem. The reasoning is
+ *   on `.site-bar-inner` in globals.css; the short version is that «Pricing» is one of the
+ *   two doors this bar exists to offer, and taking it used to move the mark 24px left and
+ *   4px up. A bar is the one part of a page a visitor sees *in motion*, so it answers to the
+ *   bar on the page it hands you to rather than to the column underneath itself.
  *
  * - **`Sign in` and `Pricing` are links.** They are `<span>`s in the prototype because a
  *   `.dc.html` mock has nowhere to go; shipping them as drawn would be a call-to-action that

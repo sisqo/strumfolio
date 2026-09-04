@@ -343,10 +343,26 @@ Cosa cambia rispetto a quanto descritto sopra:
   già avevano: venti pixel di scarto fra due pagine che questa barra collega — «Pricing» è
   una delle sue due porte — non si leggono come una decisione, si leggono come un
   disallineamento del marchio. È l'unico numero della sezione preso dal repo e non dal
-  disegno; vive su `--site-width` in `globals.css`, che spiega il perché sul posto. Il
-  margine da 40px resta quello del mock, quindi il marchio qui è 24px più dentro di quanto
-  lo disegni `PublicHeader` col suo da 16px: la barra si allinea alla pagina che ha sotto,
-  non alla barra della pagina accanto.
+  disegno; vive su `--site-width` in `globals.css`, che spiega il perché sul posto.
+- **La barra prende la scatola di `PublicHeader`, non quella del mock**: 1rem di margine
+  laterale e 0.75rem sopra e sotto, dove il disegno dice 2.5rem e 1rem. La sola larghezza
+  non bastava — misurato a 1280, passando da `/blog` a `/pricing` il marchio si spostava
+  ancora di 24px a sinistra e 4px in su, e la barra si accorciava di 9px. Il prezzo è che
+  qui il contenuto della barra sta 24px fuori dalla colonna sotto di sé, che è l'unico
+  punto in cui il mock e questa regola non possono avere ragione insieme: di due
+  allineamenti possibili — con la colonna sotto, o con la barra della pagina a cui questa
+  ti consegna — solo il secondo lo si vede *in movimento*. Del disegno resta il filo
+  inferiore, che nessuno vede comparire: rende questa barra 1px più alta di quella di
+  `/pricing` e dice che sotto c'è carta e non uno schermo.
+- **Sul telefono la parità non è gratis**: sotto i 40rem questa barra porta cinque cose
+  dove `/pricing` ne porta tre, e misurato non ci stanno — a 390px il marchio a 1.375rem
+  sfonda di una trentina di pixel e a 320 il lockup viene schiacciato dal flexbox invece
+  che rimpicciolito. Resta quindi la regola del mock, marchio a 1.125rem sotto i 40rem: 4px
+  di differenza da `/pricing` su un telefono, che è il prezzo per non far sparire «Pricing».
+  L'alternativa vera non è una regola CSS più furba, è togliere qualcosa dalla riga.
+- **Resta una differenza voluta**: `.top-bar` è appiccicata allo scroll, `.site-bar` no.
+  Non si vede nel passaggio fra le due pagine (una pagina nuova parte comunque dall'alto),
+  e una barra fissa su un articolo lungo si mangia 65px di lettura a ogni schermata.
 - **`tags: string[]` diventa `category`**, una sola, da una **lista chiusa**
   (`Guide | Capo | Keys | Chords`). Il mock la stampa in maiuscoletto accento in quattro
   posti diversi; un campo a testo libero avrebbe spedito `Chord` e `Chords` come due
