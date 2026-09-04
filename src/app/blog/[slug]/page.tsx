@@ -6,7 +6,9 @@ import { notFound } from 'next/navigation'
 import { PromoPanel } from '@/components/PromoPanel'
 import { BlogReadNext } from '@/components/BlogReadNext'
 import { Footer } from '@/components/Footer'
+import { JsonLd } from '@/components/JsonLd'
 import { IconChevronLeft } from '@/components/icons'
+import { articleJsonLd } from '@/lib/blog/jsonLd'
 import { postDate } from '@/lib/blog/date'
 import { CARD_HEIGHT, CARD_WIDTH, pageImage, postMetadata } from '@/lib/blog/openGraph'
 import { listPosts, loadPost, publishedSlugs } from '@/lib/blog/posts'
@@ -59,6 +61,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <>
+      {/* What this page *is*, for the reader that is not a person: an article, with the same
+          date printed under the headline below. See `lib/blog/jsonLd.ts`. */}
+      <JsonLd data={articleJsonLd(meta)} />
+
       <header className="blog-article-head">
         <Link href="/blog" className="blog-back">
           {/* 15px, the mock's own size — `Icon` already marks itself `aria-hidden`. */}

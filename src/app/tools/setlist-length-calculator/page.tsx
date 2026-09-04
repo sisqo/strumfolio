@@ -2,10 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { SetlistCalculator } from '@/components/SetlistCalculator'
+import { Faq } from '@/components/Faq'
 import { PromoPanel } from '@/components/PromoPanel'
 import { Footer } from '@/components/Footer'
+import { JsonLd } from '@/components/JsonLd'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
+import { softwareToolJsonLd } from '@/lib/blog/jsonLd'
 
 const TITLE = 'Setlist length calculator'
 
@@ -30,6 +33,9 @@ export const metadata: Metadata = {
 export default function SetlistLengthCalculatorPage() {
   return (
     <>
+      {/* A free web application, said in the form a crawler reads — see `lib/blog/jsonLd.ts`. */}
+      <JsonLd data={softwareToolJsonLd({ name: TITLE, description: DESCRIPTION, path: '/tools/setlist-length-calculator' })} />
+
       <div className="site-hero">
         <div aria-hidden className="site-hero-glow" />
         <div aria-hidden className="site-hero-stave" />
@@ -93,6 +99,31 @@ export default function SetlistLengthCalculatorPage() {
             <Link href="/tools/chord-transposer">transposer</Link> is one page over for the ones that sit wrong.
           </p>
         </div>
+
+        <Faq
+          items={[
+            {
+              question: 'How many songs fit in a 45-minute set?',
+              answer:
+                'About ten, if your songs average four minutes and you leave half a minute between them: that is 40 minutes of music and 4.5 minutes of gaps. Eleven songs would run you to 49 minutes and over the slot. Paste your actual set above rather than trusting the average — the songs you play are not four minutes each, and the difference adds up.',
+            },
+            {
+              question: 'How much time should I count between songs?',
+              answer:
+                'Thirty seconds a song is a conservative starting point for a set where you talk a little and retune occasionally. It goes up fast if you change instrument, use a capo on some songs and not others, or take requests. The gap belongs between songs, so a twenty-song set has nineteen gaps and none after the last one.',
+            },
+            {
+              question: 'How do I write song lengths?',
+              answer:
+                'As minutes and seconds with a colon — 3:45 — at the end of the line, where a setlist already puts them. A bare number is treated as part of the title, because Interlude 2 and Take 4 are far more often titles than lengths. Any song without a length counts as the default you picked, and the table marks it as assumed.',
+            },
+            {
+              question: 'Why is the finish time rounded up?',
+              answer:
+                'Because a slot is a promise to somebody holding the keys to the venue, and being wrong late is cheaper than being wrong early. A set that runs 44 minutes 20 seconds is a 45-minute set here. The clock is shown on a 24-hour format, and it says so when the finish falls after midnight.',
+            },
+          ]}
+        />
 
         <PromoPanel />
 

@@ -2,10 +2,14 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { ChordTransposer } from '@/components/ChordTransposer'
+import { BlogChord } from '@/components/BlogChord'
+import { Faq } from '@/components/Faq'
 import { PromoPanel } from '@/components/PromoPanel'
 import { Footer } from '@/components/Footer'
+import { JsonLd } from '@/components/JsonLd'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
+import { softwareToolJsonLd } from '@/lib/blog/jsonLd'
 
 const TITLE = 'Free chord transposer'
 
@@ -43,6 +47,9 @@ export const metadata: Metadata = {
 export default function ChordTransposerPage() {
   return (
     <>
+      {/* A free web application, said in the form a crawler reads — see `lib/blog/jsonLd.ts`. */}
+      <JsonLd data={softwareToolJsonLd({ name: TITLE, description: DESCRIPTION, path: '/tools/chord-transposer' })} />
+
       <div className="site-hero">
         <div aria-hidden className="site-hero-glow" />
         <div aria-hidden className="site-hero-stave" />
@@ -74,7 +81,7 @@ export default function ChordTransposerPage() {
 
           <h2>Sharps or flats</h2>
           <p>
-            A semitone above <code>A</code> can be written <code>Bb</code> or <code>A#</code>. Same shape, same sound,
+            A semitone above <BlogChord>A</BlogChord> can be written <BlogChord>Bb</BlogChord> or <BlogChord>A#</BlogChord>. Same shape, same sound,
             same everything except what is printed above the syllable — so the choice is yours rather than the
             arithmetic&apos;s, and the two buttons above make it. Keys with flats in them read better with flats; keys
             with sharps read better with sharps, and mixing the two on one page is legible but distracting.
@@ -97,7 +104,7 @@ export default function ChordTransposerPage() {
           <p>
             If your sheet has the chords on a line above the words, the alignment is doing the work, and a longer name
             has to fit in the space the shorter one had. This page keeps every chord in its own column and tells you
-            when one could not stay there: <code>A</code> becoming <code>Bb</code> with a single space in front of the
+            when one could not stay there: <BlogChord>A</BlogChord> becoming <BlogChord>Bb</BlogChord> with a single space in front of the
             next chord has nowhere to go. That is a real limit of the layout rather than a bug here, and it is most of
             the argument for{' '}
             <Link href="/blog/chordpro-explained">keeping your songs in ChordPro instead</Link> — a{' '}
@@ -118,6 +125,31 @@ export default function ChordTransposerPage() {
             open it on, and readable with no signal once the page has been opened.
           </p>
         </div>
+
+        <Faq
+          items={[
+            {
+              question: 'How do I transpose a chord chart to a different key?',
+              answer:
+                'Paste the sheet, then step the transposer up or down until the key suits the voice singing it. Every chord moves by the same number of semitones, so the song keeps its exact shape and only its pitch changes. The number you step is the distance from the key the sheet was written in, which means the same instruction works on every song rather than only on this one.',
+            },
+            {
+              question: 'Does transposing change the melody?',
+              answer:
+                'No. Transposing moves every note by the same interval, so the distances between the notes — which is what a melody actually is — stay identical. It comes out higher or lower, and nothing else about it changes.',
+            },
+            {
+              question: 'Should I write sharps or flats?',
+              answer:
+                'Whichever the key you are landing in uses: keys with flats in them read better with flats, keys with sharps read better with sharps. Bb and A# are the same sound and the same shape, so nothing but legibility is at stake — but mixing both spellings on one page is distracting, and a chord sheet exists to remove distraction.',
+            },
+            {
+              question: 'Will my chords still line up with the words?',
+              answer:
+                'In ChordPro, always: the chord is attached to a syllable, so renaming it moves nothing. In a sheet with chords on a line above the words, the alignment is doing the work — this page keeps every chord in its own column and tells you when a longer name could not stay in one, which happens when a name grows with only a single space in front of the next chord.',
+            },
+          ]}
+        />
 
         <PromoPanel />
 

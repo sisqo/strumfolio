@@ -3,6 +3,7 @@ import type { MDXComponents } from 'mdx/types'
 import { BlogChord } from '@/components/BlogChord'
 import { BlogChordTable } from '@/components/BlogChordTable'
 import { BlogQuote } from '@/components/BlogQuote'
+import { Faq } from '@/components/Faq'
 
 /**
  * What an `.mdx` article can use without importing it, and how its plain markdown renders.
@@ -19,7 +20,10 @@ import { BlogQuote } from '@/components/BlogQuote'
  *
  * What does belong here is what an article cannot express in markdown at all: a chord that
  * must survive a browser translating the page around it, the two-row chord table the design
- * gives the capo piece, and the single accented line an article stops on.
+ * gives the capo piece, the single accented line an article stops on, and the questions block.
+ * That last one is a component rather than prose for one reason, written at length in `Faq`:
+ * it renders the questions and generates their structured data from the same array, so the
+ * two cannot drift.
  */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
@@ -27,5 +31,6 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Chord: BlogChord,
     ChordTable: BlogChordTable,
     Quote: BlogQuote,
+    Faq,
   }
 }

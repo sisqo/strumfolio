@@ -93,17 +93,47 @@ export default function ToolsIndexPage() {
         </ul>
 
         <div className="article-body tool-prose">
+          <h2>Which one do you need?</h2>
+          <ul>
+            <li>
+              <strong>Your sheet is chords above the words and you want it to survive being reflowed</strong> —{' '}
+              <Link href="/tools/chordpro-converter">the converter</Link>. It attaches each chord to a syllable instead
+              of to a column.
+            </li>
+            <li>
+              <strong>The song sits wrong for your voice</strong> —{' '}
+              <Link href="/tools/chord-transposer">the transposer</Link>. It moves the whole sheet and leaves the words
+              alone.
+            </li>
+            <li>
+              <strong>The key is right and your hand is not</strong> —{' '}
+              <Link href="/tools/capo-calculator">the capo calculator</Link>. Same sound, different shapes.
+            </li>
+            <li>
+              <strong>You have a slot to fill and a list to fit into it</strong> —{' '}
+              <Link href="/tools/setlist-length-calculator">the setlist calculator</Link>. Gaps included, because they
+              are what makes a set overrun.
+            </li>
+          </ul>
+
           <h2>Why these run in your browser</h2>
           <p>
             Because you have not signed in, may never sign in, and are holding a chord sheet you want dealt with now. A
-            round trip to a server would buy you a spinner and cost us the reason you trusted the page — so the work
-            happens on your own machine, and a song nobody has heard yet stays that way.
+            round trip to a server would buy you a spinner and cost us the reason you trusted the page — so{' '}
+            <strong>the work happens on your own machine</strong>, and a song nobody has heard yet stays that way.
+            Nothing is uploaded, nothing is stored, and none of the four asks for an account.
           </p>
           <p>
-            They are also not simplified copies of what {APP_NAME} does. The converter runs the same conversion the
-            import screen runs; the capo calculator runs the same arithmetic the reading screen runs. What the app adds
-            is memory — the key this song sits in for your voice, the fret it lives on, kept per song across every
-            device you open it on, and readable with no signal.
+            They are also <strong>not simplified copies</strong> of what {APP_NAME} does. The converter runs the same
+            conversion the import screen runs; the capo calculator runs the same arithmetic the reading screen runs.
+            What the app adds is memory — the key this song sits in for your voice, the fret it lives on, kept per song
+            across every device you open it on, and readable with no signal.
+          </p>
+          <p>
+            If you would rather read than click: the blog covers{' '}
+            <Link href="/blog/chordpro-explained">what ChordPro is and why it outlives the app you type it in</Link>,{' '}
+            <Link href="/blog/capo-second-fret">what a capo does to the key</Link>, and{' '}
+            <Link href="/blog/transposing-to-fit-your-voice">what transposing changes and what it leaves alone</Link>.
           </p>
         </div>
 

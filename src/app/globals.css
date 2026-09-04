@@ -12143,6 +12143,53 @@
   }
 
   /* ---------------------------------------------------------------------------
+   * The questions block, at the foot of an article or a tool page.
+   *
+   * A definition list, because that is what it is: a term and its description,
+   * which is also what a screen reader then announces it as. Ruled off from the
+   * prose above rather than boxed, so it reads as the last section of the piece
+   * and not as an advertisement stapled to the end.
+   * ------------------------------------------------------------------------ */
+
+  .faq {
+    max-width: 45rem;
+    margin: 3.5rem auto 0;
+    border-top: 1px solid var(--blog-line);
+    padding-top: 2rem;
+  }
+
+  .faq-heading {
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    margin: 0;
+  }
+
+  .faq-question {
+    margin-bottom: 0.5rem;
+    color: var(--ink);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+
+  .faq-answer {
+    margin: 0;
+    color: var(--blog-prose);
+    font-size: 1rem;
+    line-height: 1.7;
+    text-wrap: pretty;
+  }
+
+  /* ---------------------------------------------------------------------------
    * The index of tools: four cards, text only.
    *
    * No pictures, unlike the blog's cards — a tool has nothing to photograph, and

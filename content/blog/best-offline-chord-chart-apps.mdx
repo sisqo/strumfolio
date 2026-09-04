@@ -8,11 +8,16 @@ export const meta = {
   draft: false,
 }
 
-"Works offline" gets printed on a lot of app store pages, and it means at least three different
-things. Sometimes it means the whole library lives on the device from the start. Sometimes it
-means a paid tier lets you download a fixed number of items in advance. And sometimes it means
-whatever you already opened stays open — which is real, but only for what you remembered to
-open before the signal dropped.
+"Works offline" gets printed on a lot of app store pages, and **it means at least three
+different things.** Sometimes it means the whole library lives on the device from the start.
+Sometimes it means a paid tier lets you download a fixed number of items in advance. And
+sometimes it means whatever you already opened stays open — which is real, but only for what
+you remembered to open before the signal dropped.
+
+Those three are not degrees of the same promise. **The first keeps working on a device that
+has never seen a network; the third keeps working only for songs you touched while you had
+one.** Both are honestly described as offline, and the difference between them is the
+difference between a set that happens and a set that does not.
 
 A basement rehearsal room, a festival field, a venue that has never had reliable wifi: the
 apps below, sorted by which of those three you are actually getting.
@@ -76,10 +81,49 @@ mode at all.
 - **The room has mixed devices and you would rather open every song once tonight than manage a
   download list:** Strumfolio.
 
-Whichever one you pick, the habit matters more than the app: open the whole set at least once
-while you still have a bar of signal. Every entry on this list keeps its promise from there —
-none of them can keep it for a song nobody ever opened.
+## The five-minute check before you leave the house
+
+**Whichever one you pick, the habit matters more than the app.** None of these can keep a
+promise about a song nobody ever opened, so the routine is the same in all of them:
+
+1. **Open tonight's set, song by song, on the device you are taking.** Not the list — the
+   songs. Opening a setlist is not the same as opening what is in it.
+2. **Do it on the device that goes to the gig**, not on the laptop where you edited the
+   sheets. Caches are per device, and so are downloads.
+3. **Then turn the wifi off and look again.** Thirty seconds, at home, where being wrong is
+   free. This is the only step that actually proves anything.
+4. **Charge the thing.** An offline chart on a dead tablet is a printed setlist you did not
+   bring.
+
+Step three is the one people skip and the one that catches everything: a wrong assumption
+about what "offline" meant in your app is very cheap to discover in the kitchen and very
+expensive to discover in the room.
 
 See also: the [full six-app round-up](/blog/best-chord-chart-apps-for-gigging-musicians) this
 list is drawn from, and [the pick for a solo performer](/blog/best-apps-for-solo-acoustic-performers)
 if there is no band to worry about syncing.
+
+<Faq
+  items={[
+    {
+      question: 'Do chord chart apps work without wifi?',
+      answer:
+        'The native ones generally do, because the library sits on the device: SongBook ChordPro, OnSong and JustChords all read a chart with no connection. The library-style apps are the ones to check, since their base tier expects a connection and offline access is a paid add-on, sometimes with a cap on how many charts you can hold at once.',
+    },
+    {
+      question: 'What does “works offline” actually mean in an app store listing?',
+      answer:
+        'One of three things. The whole library lives on the device from the start; or a paid tier lets you download a set number of items in advance; or whatever you have already opened stays available. All three are described the same way, and only the first is true for a song you have never opened on that device.',
+    },
+    {
+      question: 'How do I make sure my setlist works with no signal?',
+      answer:
+        'Open every song in the set at least once, on the device you are taking, while you still have signal — then turn the wifi off at home and check the same songs again. That last step takes thirty seconds and is the only one that proves anything, because it is the one that tests what your app actually meant by offline.',
+    },
+    {
+      question: 'Does Strumfolio work offline?',
+      answer:
+        'Yes, once a song has been opened: it is cached and stays readable with no signal, on the free plan and every plan above it. What it does not have is a bulk “download my songbook” button, so a song you have never opened is not on the device. Opening tonight’s set once before you leave covers it, and costs about thirty seconds.',
+    },
+  ]}
+/>

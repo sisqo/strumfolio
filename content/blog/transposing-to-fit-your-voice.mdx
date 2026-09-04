@@ -9,8 +9,8 @@ export const meta = {
 }
 
 A recording sits in one key because somebody's voice sat there on the day it was recorded.
-Yours might not. Transposing is the fix: move every chord in the song up or down by the same
-interval, and the melody keeps its exact shape — the same distances between notes — just
+Yours might not. Transposing is the fix: **move every chord in the song up or down by the same
+interval**, and the melody keeps its exact shape — the same distances between notes — just
 starting somewhere else.
 
 Nothing about the song changes. The words are the same, the progression is the same, the
@@ -25,25 +25,76 @@ reason: once the original key is written down, everything else can be described 
 it* instead of guessed at.
 
 That distinction is worth keeping straight, because it changes what "transpose by two" means.
-It does not mean "go find the key two steps from wherever you happen to be." It means "move
-two steps from the key this chart says it was written in" — the same instruction, on any song,
-regardless of what key that song started in. A chart that only ever shows you the new key's
-name (`now it's in A`) hides that arithmetic; one that shows the distance from the written key
-(`+2`) hands it to you.
+It does not mean "go find the key two steps from wherever you happen to be." It means **"move
+two steps from the key this chart says it was written in"** — the same instruction, on any
+song, regardless of what key that song started in. A chart that only ever shows you the new
+key's name (`now it's in A`) hides that arithmetic; one that shows the distance from the
+written key (`+2`) hands it to you.
+
+## How far to move it
+
+The title of this piece promises a key that fits your voice, so here is the method, which
+takes about four minutes and no theory at all.
+
+**Find the highest note in the song, not the average one.** Sing the chorus — it is nearly
+always where the top note lives — and notice whether you are reaching or straining. A song is
+not too high because it is tiring in the second verse; it is too high because of one note you
+cannot get to twice in a night.
+
+Then move in semitones, one at a time, and sing that same phrase again. One semitone is a
+smaller change than it sounds on paper and often the whole difference between a note you hit
+and a note you hope for. Two or three is common. **If you have gone more than five and it is
+still wrong, you are probably in the wrong octave rather than the wrong key** — try the whole
+thing an octave down before you keep stepping.
+
+Then, and this is the half everybody forgets, **check the lowest note in the song.** Your
+range is fixed and transposing moves both ends of it together: every semitone that rescues the
+top of the chorus buries the bottom of the verse by exactly the same amount. If the verse goes
+inaudible before the chorus becomes comfortable, the song does not fit your voice in any key,
+and the fix is a different arrangement — take the low line up an octave, or hand it to
+somebody else — rather than a different number.
+
+<Quote>A key is not a property of a song. It is a property of a song and a voice, together.</Quote>
+
+## What it costs on a guitar
+
+Singers move in semitones. Guitars do not care about semitones equally, and this is where a
+transposition that is right for the voice becomes wrong for the hands.
+
+Five keys are comfortable on a guitar because their chords use open strings: **G, C, D, A and
+E**, with <Chord>Em</Chord> and <Chord>Am</Chord> alongside them. Move a song from G to
+<Chord>Ab</Chord> — one semitone, the smallest move there is — and every open shape you knew
+becomes a barre. The voice got a tiny improvement and the hands got a different instrument.
+
+Two things follow, and they are the reason this site has separate tools for them:
+
+- **If the key is wrong, transpose.** The sound has to move, and the shapes are whatever the
+  new key gives you. A [transposer](/tools/chord-transposer) will do the whole sheet at once.
+- **If the key is right and the shapes are wrong, use a capo.** It changes what your hand
+  holds and leaves the sound exactly where it is — a song in Ab played with G shapes and a
+  capo on the first fret. The [capo calculator](/tools/capo-calculator) will tell you which
+  fret does that for your particular chords.
+
+The two combine, which is how most singers actually end up playing: transpose until the voice
+is right, then capo until the hands are.
 
 ## Degrees instead of names
 
-There is a notation built entirely around that same idea, taken further: instead of naming
-each chord, it numbers it. In the key of G, <Chord>G</Chord> is written `1`, <Chord>C</Chord> is
-`4`, <Chord>D</Chord> is `5` — the degree of the scale each chord starts on, not a letter at
-all. It is how Nashville session players read a chart they have never seen before, from an
-artist who might change key between the soundcheck and the show.
+There is a notation built entirely around the "relative, not absolute" idea, taken further:
+instead of naming each chord, it numbers it. In the key of G, <Chord>G</Chord> is written `1`,
+<Chord>C</Chord> is `4`, <Chord>D</Chord> is `5` — the degree of the scale each chord starts
+on, not a letter at all. It is how Nashville session players read a chart they have never seen
+before, from an artist who might change key between the soundcheck and the show.
 
-The reason it works is that a number describes a *relationship*, not a pitch. `1 4 5 1` is the
-same instruction whether the song ends up in G, in D, or in Bb — nothing on the page has to
+**The reason it works is that a number describes a relationship, not a pitch.** `1 4 5 1` is
+the same instruction whether the song ends up in G, in D, or in Bb — nothing on the page has to
 change, because nothing on the page named an absolute note to begin with. Writing a chart in
 letters and one in numbers are two descriptions of the same fact, at two different distances
 from the actual sound.
+
+The cost is that somebody has to know what key the numbers are being read in, and that
+somebody is usually the person who called the tune. Numbers make a chart portable between
+keys; they do not make it playable by someone who arrived late.
 
 ## The same idea, from a different control
 
@@ -61,16 +112,35 @@ plays the same progression barre, with neither of them touching the other's part
 ## Why the written key still matters once you've moved
 
 It would be simpler, on the page, to just overwrite the key every time somebody transposes and
-forget what it used to be. The reason not to: the written key is the one fact a chart cannot
-recover on its own once it is gone. Everything else — the new key, the capo position, which
+forget what it used to be. The reason not to: **the written key is the one fact a chart cannot
+recover on its own once it is gone.** Everything else — the new key, the capo position, which
 degree each chord is — can be recomputed from it at any moment. Lose it, and a "+2" stops
 meaning anything, because nobody can say two steps from *what*.
 
 So the key that gets printed at the top of a song is worth treating as data, not decoration —
 the one number every other transposition on that chart is measured against.
 
-If you have a sheet in front of you and a voice it does not suit, the
-[chord transposer](/tools/chord-transposer) will move the whole thing while you read this:
-paste it, step the key, and every chord comes back over the word it belonged to. And if the
-key is fine and it is your left hand that is struggling, that is the other control — the
-[capo calculator](/tools/capo-calculator).
+<Faq
+  items={[
+    {
+      question: 'How do I transpose a song to a different key?',
+      answer:
+        'Move every chord by the same number of semitones, and leave the words where they are. Up two semitones turns G into A, C into D and Em into F#m; down two does the reverse. Doing it by hand is reliable but slow, so most people paste the sheet into a transposer, step the key until it sits right, and keep the result.',
+    },
+    {
+      question: 'What key should I sing a song in?',
+      answer:
+        'The one where the highest note of the chorus is comfortable twice in an evening rather than once. Start from the written key, move a semitone at a time, and sing the highest phrase at each step. Then check the lowest note as well: transposing moves both ends of your range together, so every semitone that rescues the top costs you the same amount at the bottom.',
+    },
+    {
+      question: 'Does transposing change the melody?',
+      answer:
+        'No. Every note moves by the same interval, so the distances between the notes — which is what a melody actually is — stay identical. The song sounds higher or lower and is otherwise the same tune. What does change is the chord shapes under it, and on a guitar that can mean the difference between open chords and barre chords.',
+    },
+    {
+      question: 'What is the Nashville number system?',
+      answer:
+        'A way of writing a chart with numbers instead of chord names, where each number is the degree of the scale that the chord is built on. In the key of G, G is 1, C is 4 and D is 5. Because a number names a relationship rather than a pitch, the same chart is correct in every key, which is why session players use it when the key might change at the last minute.',
+    },
+  ]}
+/>

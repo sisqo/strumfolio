@@ -764,3 +764,95 @@ Ancora aperto, e non fatto qui: gli strumenti stampano lettere internazionali so
 quattro notazioni (italiana, tedesca, numeri di Nashville) che l'app offre e che gli articoli
 citano sarebbero un `Spelling` invece di un `Accidentals` nella firma di `transposeSheet` — un
 differenziatore vero rispetto a ogni transposer online, e un secondo giro di lavoro.
+
+## Passaggio SEO e contenuti su tutte e quindici le superfici (4 settembre 2026)
+
+Richiesta: rivedere gli undici articoli e le quattro pagine strumento sia lato SEO sia lato
+contenuti, espandere dove serve, aggiungere grassetti e «altro che possa aiutare». Il rischio
+non era trovare cose da fare ma farne troppe: questo repo punisce un'aggiunta non motivata più
+di quanto punisca una pagina magra.
+
+### Cosa mancava davvero
+
+**Nessun dato strutturato, in tutto il repo.** Il sito aveva sitemap, feed e card OpenGraph, e
+poi non diceva a nessuno *che cosa fosse* ciascuna pagina. È la lacuna più grande e la sola
+puramente additiva — invisibile al lettore, letta da ogni crawler:
+
+- `lib/blog/jsonLd.ts`, con test: `Article` su ogni articolo, `WebApplication` (gratuito, con
+  `offers` a zero) su ogni strumento, `FAQPage` sui blocchi di domande. Un helper solo, per la
+  stessa ragione che `openGraph.ts` scrive già: un blocco copiato per pagina è un blocco che al
+  terzo articolo perde un campo.
+- `datePublished` viene da `meta.date` — la stessa data che la pagina stampa e che la sitemap
+  manda: un blocco schema con una data diversa dalla firma sotto il titolo è peggio di nessuno
+  schema. C'è un test che inchioda proprio questo.
+- Nessun `author`, coerentemente con la decisione già presa qui: finché scrive una persona sola
+  è una costante travestita da metadato. L'editore c'è.
+- L'escape di `<` in `jsonLdText` è un dettaglio di sicurezza travestito da dettaglio di
+  formattazione — un `</script>` dentro una stringa chiuderebbe il tag in anticipo. Ha un test.
+
+### Il blocco domande è un componente, non prosa
+
+`components/Faq.tsx` disegna le domande **e genera il loro `FAQPage` dallo stesso array**. È la
+regola che evita il modo tipico in cui i dati strutturati marciscono: un blocco che descrive la
+pagina di due modifiche fa. Una domanda che non è sulla pagina non può stare nello schema.
+
+La barra per una domanda: una che qualcuno digita davvero, con risposta onesta e specifica —
+comprese quelle che ammettono cosa l'app non fa. Non domande inventate per riempire il terzo
+posto.
+
+### Il `<Figure>` che non è stato spedito
+
+`PLAN-blog.md` diceva da settembre che le tre card «where it runs» aspettavano un componente
+`<Figure>` per tornare *dentro* gli articoli. Il componente è stato scritto — e poi rimosso,
+perché guardando le immagini l'assunzione del piano si è rivelata sbagliata: **non sono figure,
+sono card social**. Metà dell'inquadratura è il marchio, il titolo dell'articolo e un timbro
+`strumfolio.com/blog`; solo il pannello destro porta il confronto piattaforma-per-piattaforma.
+Dentro il corpo dell'articolo ristamperebbero il titolo che il lettore ha appena letto e
+timbrerebbero l'URL della pagina su cui è già.
+
+Scartata anche l'idea del ritaglio sul solo pannello: è un rettangolo bianco-crema con
+tipografia fissa, e in tema scuro sarebbe esattamente la macchia che `PRODUCT.md` esclude —
+i due temi qui sono progettati, non invertiti. La voce del piano si chiude così: **l'asset non
+è adatto**, e se quel confronto merita una forma visiva sarà un componente a tema come
+`<ChordTable>`, non un raster. Il componente inutilizzato non è stato spedito: niente
+decorativo senza una ragione dichiarata, e vale anche per il codice.
+
+### La regola sui fatti dei concorrenti, imposta ai tre scrittori paralleli
+
+I dieci articoli non-esemplari sono stati riscritti da tre fork in parallelo. Il vincolo più
+importante nel loro brief non riguardava lo stile ma la verità: **congelamento dei fatti**.
+Nessuno di loro aveva ri-verificato nulla sulle pagine ufficiali, quindi potevano riordinare,
+riformulare, grassettare e spiegare ciò che era già scritto, mai aggiungere una funzione, una
+piattaforma, un prezzo o una versione. Le date di verifica nel testo («Prices as listed in
+August 2026») dovevano sopravvivere intatte, perché sono legate alla data di pubblicazione di
+ciascun pezzo. Un fork ha riportato tre fatti che avrebbe voluto e non aveva: li ha lasciati
+fuori, che è il comportamento giusto.
+
+Effetto collaterale più utile del previsto: **i tre confronti 1-a-1 non avevano un solo link
+interno**. Ricevevano traffico dai tre round-up e non ne restituivano.
+
+### Un errore trovato chiedendolo al codice, non alla memoria
+
+Tre punti — la FAQ del capo calculator, la sua prosa, e la FAQ di `capo-second-fret` — dicevano
+che per un brano in F il capotasto giusto è il quinto tasto. È il consiglio che gira ovunque, e
+**lo strumento che sta sopra quella prosa dice il terzo**: al quinto tasto `F Bb C Dm` si legge
+`C F G Am`, e l'F è ancora un barré, mentre al terzo si legge `D G A Bm` — stesso conteggio,
+capotasto più basso, e a parità vince il più basso. Verificato eseguendo `capoAdvice` sui veri
+accordi, non ricordato. Ora le tre pagine raccontano proprio quel confronto, che è più utile
+del consiglio sbagliato: uno strumento che smentisce il luogo comune è la ragione per cui uno
+strumento serve.
+
+Regola generale che ne esce: **una pagina non può contraddire lo strumento che le sta sopra.**
+Prima di scrivere un numero in prosa su una pagina-strumento, eseguire lo strumento.
+
+### Minori, ma da ricordare
+
+- **I nomi di accordo nella prosa degli strumenti erano `<code>`**, quindi senza
+  `translate="no"`: un browser che traduce la pagina avrebbe trasformato `A` in `La` dentro una
+  frase che spiega perché quella nota si chiama `A`. Ora usano `BlogChord` come gli articoli. La
+  regola vale per ogni superficie nuova che stampi un accordo.
+- Ogni pagina strumento ha ora un elenco «how to» in testa (l'intento di ricerca è quasi sempre
+  «how do I…») e un blocco di domande in coda.
+- Gli articoli-guida non nominano il prodotto in prosa, e non hanno cominciato a farlo: la
+  conversione resta al `PromoPanel`. Linkare uno strumento gratuito sì, quello è utile al
+  lettore.

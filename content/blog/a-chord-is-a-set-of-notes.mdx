@@ -13,10 +13,10 @@ thumb behind the neck, and <Chord>G</Chord> becomes a hand position long before 
 anything else. That is a fine way to start playing, and a bad way to understand what happens
 the first time a chart shows a chord your hand has never made.
 
-A chord is a set of notes. The shape is just one way of reaching those notes on one particular
-instrument — which means the shape is downstream of the notes, not the other way around, and
-a diagram that is generated from the notes will always cover ground that a diagram copied from
-a shape book cannot.
+**A chord is a set of notes.** The shape is just one way of reaching those notes on one
+particular instrument — which means the shape is downstream of the notes, not the other way
+around, and a diagram that is generated from the notes will always cover ground that a diagram
+copied from a shape book cannot.
 
 ## What a chord name is actually saying
 
@@ -25,9 +25,41 @@ interval — <Chord>C7</Chord> keeps those three and adds a B flat, a minor seve
 root. Change the quality and you are changing which of those intervals apply —
 <Chord>Cm</Chord> lowers the E to an E flat, and the chord is minor because that one note moved.
 
-Every symbol on a chart is built the same way: a root, then a list of adjustments to it. None
-of that sentence mentions a fret, a string, or a finger. It is a description of a sound, in the
+Every symbol on a chart is built the same way, and it has exactly three parts:
+
+- **The root**, which is the letter at the front. It names the note the chord is measured
+  from, and it is the only part that changes when you [transpose](/blog/transposing-to-fit-your-voice).
+- **The quality**, which is everything that decides major, minor, diminished or augmented. It
+  is usually the smallest part of the symbol and always the most audible: `m` is one character
+  and the difference between a chord that sounds bright and one that sounds sad.
+- **The extensions**, the numbers and words after that — `7`, `sus4`, `add9`, `maj7` — each of
+  which names one more note by its distance from the root.
+
+**None of that mentions a fret, a string, or a finger.** It is a description of a sound, in the
 same sense a recipe is a description of a dish rather than a description of a kitchen.
+
+## One root, seven chords
+
+The quickest way to feel how little of this is memorisation: hold the root still and change
+only the intervals. Every chord below is built on C, and each differs from the one above it by
+a single note.
+
+- <Chord>C</Chord> — C, E, G. The root, a major third, a fifth.
+- <Chord>Cm</Chord> — C, E flat, G. The third drops a semitone; that is the whole of minor.
+- <Chord>C7</Chord> — C, E, G, B flat. A minor seventh on top of the major chord.
+- <Chord>Cmaj7</Chord> — C, E, G, B. The same idea a semitone higher, and a completely
+  different mood.
+- <Chord>Csus4</Chord> — C, F, G. The third is *replaced*, not added, which is why a sus chord
+  sounds unresolved: nothing in it says major or minor.
+- <Chord>Cadd9</Chord> — C, E, G, D. A ninth added while the third stays.
+- <Chord>Cdim</Chord> — C, E flat, G flat. Both the third and the fifth pulled down.
+
+Seven chords, one letter, no shapes involved. **Once the notes are the thing you know, the
+name of a chord you have never played is still readable** — and a chart that hands you
+<Chord>Fadd9</Chord> at eleven o'clock at night is a chord you can work out rather than a chord
+you are missing.
+
+<Quote>The name is a recipe. The shape is one kitchen it can be cooked in.</Quote>
 
 ## From notes to a shape
 
@@ -38,31 +70,80 @@ open strings, not a fact that has to be remembered separately for every chord.
 
 That is the whole difference between looking a chord up and working it out. A lookup table
 answers "what shape is <Chord>Dm7</Chord>" by having somebody type that shape in ahead of time.
-Working it out from the notes answers the same question by finding D, F, A and C on the
-fretboard — which also answers a question nobody typed in ahead of time, because it did not
+**Working it out from the notes answers the same question by finding D, F, A and C on the
+fretboard** — which also answers a question nobody typed in ahead of time, because it did not
 need to be anticipated.
+
+## Why one chord has several shapes
+
+If a chord is a set of notes, then any arrangement of those notes is that chord — and a guitar
+can reach most sets in four or five places. That is not ambiguity, it is choice:
+
+- **A different position on the neck.** <Chord>C</Chord> as an open shape and <Chord>C</Chord>
+  barred at the third fret are the same three notes in a different register.
+- **A different order.** Put E at the bottom instead of C and you have an inversion: same
+  chord, different colour, often a smoother move from whatever came before it.
+- **A different number of notes.** Nothing says all six strings have to sound. Three notes are
+  a full major chord; the rest is doubling.
+
+Slash chords are this made explicit. <Chord>D/F#</Chord> is an ordinary D — D, F sharp, A —
+with the F sharp put in the bass, and the reason it appears in a chart is almost always a bass
+line walking down while the harmony stays put. **The note after the slash is usually already in
+the chord**; when it is not, as in <Chord>C/D</Chord>, the chart is asking for a genuinely
+different sound rather than a rearrangement.
 
 ## Where a lookup table runs out
 
 A table is only as complete as whoever built it. Ask it for a chord somebody invented on the
 spot — <Chord>Cadd9</Chord> voiced a particular way, a slash chord like <Chord>D/F#</Chord>, a
 chord spelled in a notation the table's author never considered — and it either has an entry
-or it doesn't. There is no way to ask it to figure one out.
+or it does not. There is no way to ask it to figure one out.
 
 A chord is not memorable one at a time — there are thousands of them once you count
-extensions, inversions and slash bass notes — and no table is the right size for "every chord
-somebody might type." Starting from the notes sidesteps the question of size entirely: the
+extensions, inversions and slash bass notes — and **no table is the right size for "every chord
+somebody might type."** Starting from the notes sidesteps the question of size entirely: the
 method that finds a shape for <Chord>C</Chord> is the same method that finds one for a chord
 that has never appeared on a chart before, because neither one was special-cased to begin with.
 
+It is also what makes the arithmetic around a chord possible at all.
+[Moving a whole sheet into another key](/tools/chord-transposer), or working out
+[which fret turns the barres into open shapes](/tools/capo-calculator), both start by reading a
+chord symbol as a root plus a set of intervals. **A shape cannot be transposed; a set of notes
+can.**
+
 ## Why this is worth knowing as a reader, not just a builder
 
-None of this changes what you play. It changes what you can trust. A diagram that is computed
-from the chord's own notes is checkable against the name printed above it — if the chord says
-<Chord>Am7</Chord>, the shape underneath it is answerable to A, C, E and G, and nothing else.
-A diagram pulled from a table carries no such guarantee; it is only as right as whoever typed
-it, for exactly the chords somebody thought to type.
+None of this changes what you play. **It changes what you can trust.** A diagram that is
+computed from the chord's own notes is checkable against the name printed above it — if the
+chord says <Chord>Am7</Chord>, the shape underneath it is answerable to A, C, E and G, and
+nothing else. A diagram pulled from a table carries no such guarantee; it is only as right as
+whoever typed it, for exactly the chords somebody thought to type.
 
 The next time a chart hands you a chord you have never played, that is the question worth
 asking before your fingers do anything: not "what shape is this," but "what notes is this" —
 because the shape was only ever an answer to the second question, borrowed for the first.
+
+<Faq
+  items={[
+    {
+      question: 'What notes are in a C chord?',
+      answer:
+        'C, E and G — the root, a major third above it, and a fifth above that. C minor lowers the middle note to E flat, and C7 adds a B flat on top. Every other chord built on C is the same three notes with something added, replaced or moved by a semitone.',
+    },
+    {
+      question: 'What makes a chord minor instead of major?',
+      answer:
+        'One note. The third of the chord sits four semitones above the root in a major chord and three semitones above it in a minor one. Everything else can stay exactly where it is: C major is C, E and G, and C minor is C, E flat and G.',
+    },
+    {
+      question: 'What does a slash chord like D/F# mean?',
+      answer:
+        'The letter before the slash is the chord and the letter after it is the note that goes in the bass. D/F# is an ordinary D chord — D, F sharp and A — with the F sharp underneath instead of the D. It usually appears because a bass line is moving while the harmony stays where it is.',
+    },
+    {
+      question: 'Why does the same chord have different shapes?',
+      answer:
+        'Because a chord is a set of notes, and a guitar can reach that set in several places at once — open, barred further up the neck, or with the notes in a different order. They are all the same chord. Which one to use is a question about what came before it and what comes after, not about which one is correct.',
+    },
+  ]}
+/>

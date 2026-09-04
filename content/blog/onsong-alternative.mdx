@@ -24,8 +24,8 @@ It is free to download and build a library in. Paid tiers start at $29.99 a year
 (two devices) and $59.99 a year for Premium (four devices, plus annotations, tracks, MIDI and
 projection). Prices as listed in July 2026; check the current ones before deciding.
 
-If you are on an iPad and your charts are PDFs, that combination is hard to beat and this article
-is not going to try.
+**If you are on an iPad and your charts are PDFs, that combination is hard to beat** and this
+article is not going to try.
 
 ## The thing that sends people looking
 
@@ -33,26 +33,31 @@ OnSong runs on iPhone, iPad and Mac. iOS 15 or later, macOS 11 or later. There i
 version and no web version — the OnSong Console runs in a browser, but it is for managing the
 library, not for reading from on stage.
 
-For one player that is a non-issue. For a band it is the whole issue: the moment somebody's phone
-is not an iPhone, "we all use the same app" stops being available.
+For one player that is a non-issue. **For a band it is the whole issue**: the moment somebody's
+phone is not an iPhone, "we all use the same app" stops being available. There is no half
+measure either, because the thing a band actually shares is not a file but a *habit* — the same
+screen, the same gestures, the same place the setlist lives. One person outside it is one person
+improvising every night.
 
 ## What changes when it is a browser
 
-Strumfolio is a web app. The same address opens on an iPad, a Pixel, a Windows laptop and a
-ten-year-old tablet somebody found in a drawer. Add it to the home screen and it opens like an
+Strumfolio is a web app. **The same address opens on an iPad, a Pixel, a Windows laptop and a
+ten-year-old tablet somebody found in a drawer.** Add it to the home screen and it opens like an
 app, full screen, no store account involved.
 
 Offline is a real mode rather than a fallback: once a song has been opened it stays readable with
-no signal, which is what a rehearsal room in a basement actually needs.
+no signal, which is what a rehearsal room in a basement actually needs. That is worth being
+precise about, because "works offline" means three different things across this category — the
+[offline-specific round-up](/blog/best-offline-chord-chart-apps) takes them apart one by one.
 
-The free plan is a real plan with no end date — one songbook, thirty songs — so a band can find
-out whether this works for them before anybody pays for anything.
+**The free plan is a real plan with no end date** — one songbook, thirty songs — so a band can
+find out whether this works for them before anybody pays for anything.
 
 ## Everyone reads the same song without everyone buying anything
 
 Strum Together is a link. Whoever is leading shares it; anyone who opens it follows the same song
 in the same key, from their own screen, automatically. No account, no install, no store, no
-platform. A guest singer who arrived ten minutes ago can be reading along before the count-in.
+platform. **A guest singer who arrived ten minutes ago can be reading along before the count-in.**
 
 Starting a session is on the paid plans. *Following* one is free for whoever opens the link, which
 is the half that matters when the room is full of devices you do not control.
@@ -64,18 +69,20 @@ international (<Chord>A</Chord>, <Chord>Bb</Chord>), Italian (<Chord>La</Chord>,
 <Chord>Sib</Chord>), German — where <Chord>H</Chord> is B and <Chord>B</Chord> is B flat — and
 Nashville numbers, which name each chord by its degree of the key.
 
-It is a per-reader setting, not a per-song one. The same sheet can be read in numbers by the
-session player and in Italian by the singer, at the same time, in the same room.
+**It is a per-reader setting, not a per-song one.** The same sheet can be read in numbers by the
+session player and in Italian by the singer, at the same time, in the same room. Chord shapes are
+worked out from the notes rather than looked up in a table, which is
+[why an unusual chord still gets a diagram](/blog/a-chord-is-a-set-of-notes).
 
 ## Moving a library across
 
-This is where an import usually goes wrong, and it goes wrong quietly.
+This is where an import usually goes wrong, and **it goes wrong quietly**.
 
 The same ChordPro directive means different things in different apps. `{a: …}` is the artist in
 OnSong and the *album* in MobileSheets. `{st: …}` is a subtitle in the ChordPro specification and
 was redefined by OnSong to mean the artist. `{book: …}` names the songbook in OnSong and is an
 alias for the album elsewhere. Read with the wrong table, each of those files a correct value
-under the wrong heading — and a wrong value that arrived quietly is worse than a missing one,
+under the wrong heading — and **a wrong value that arrived quietly is worse than a missing one**,
 because nothing ever prompts you to look at it again.
 
 Strumfolio sniffs which app wrote a file before reading its directives, and reads that app's
@@ -83,7 +90,11 @@ table. When nothing identifies the source, the ambiguous directives are ignored 
 guessed. Everything lands behind a preview that stays editable before it saves, because a
 conversion is a heuristic and will not always be right.
 
-And it goes back out again: ChordPro in, ChordPro out, nothing held hostage.
+And it goes back out again: **ChordPro in, ChordPro out, nothing held hostage.** If your charts
+are not ChordPro yet — chords sitting above the words in a text file — the
+[free converter](/tools/chordpro-converter) turns them into it in one paste, and
+[what ChordPro is and why it outlives the app](/blog/chordpro-explained) explains why that is
+worth doing whichever app you end up in.
 
 ## When to stay with OnSong
 
@@ -102,4 +113,30 @@ tool and an iPad is worth owning for it.
 
 If your library is chords and lyrics rather than PDFs, if the people who need to read it are not
 all holding the same brand of device, and if you would rather hand somebody a link than ask them
-to install something — that is the case this app was built for.
+to install something — that is the case this app was built for. The wider field, with the other
+apps in it, is in the [round-up of chord chart apps for gigging musicians](/blog/best-chord-chart-apps-for-gigging-musicians).
+
+<Faq
+  items={[
+    {
+      question: 'Is there an OnSong alternative for Android?',
+      answer:
+        'Not as a like-for-like port, because OnSong itself runs on iPhone, iPad and Mac only. What works on Android is a browser-based chord app: Strumfolio opens at a URL on any phone, tablet or laptop, adds to the home screen like an installed app, and keeps working with no signal once a song has been opened. What you give up is PDF charts, annotation, foot pedals, MIDI and backing tracks, none of which exist here.',
+    },
+    {
+      question: 'Can I move my OnSong ChordPro files without retyping them?',
+      answer:
+        'Yes. Export them as ChordPro and import them, and the directives are read with the meanings OnSong itself uses rather than a generic table — which matters because the same directive means different things in different apps, and a value filed under the wrong heading is a mistake nothing later prompts you to check. The import lands behind a preview that stays editable before anything saves.',
+    },
+    {
+      question: 'Does OnSong run on Windows?',
+      answer:
+        'No. The platform list is iPhone, iPad and Mac, and the OnSong Console that opens in a browser is for managing a library rather than reading from it on stage. If the machine you want the words on is a Windows laptop, the practical answer is a web app rather than a Windows build of OnSong, because there is not one.',
+    },
+    {
+      question: 'What does a band actually gain by switching?',
+      answer:
+        'One thing, and it is only worth it if it is your problem: everybody reads the same song on the device they already own, and anybody can be handed a link and be reading along without installing or buying anything. If your whole band is already on Apple hardware and happy, that gain is zero and OnSong is the deeper app.',
+    },
+  ]}
+/>

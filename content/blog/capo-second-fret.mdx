@@ -3,7 +3,7 @@ export const meta = {
   description:
     'The shapes you hold and the key you sound are two different things. Once a sheet keeps them apart, moving the capo stops being guesswork.',
   date: '2026-06-12',
-  category: 'Guide',
+  category: 'Capo',
   cover: '/blog/capo-second-fret.webp',
   draft: false,
 }
@@ -13,16 +13,16 @@ left hand holds, and it changes the key everyone else hears. Song sheets usually
 the two and leave you to work out the other.
 
 Put a capo on the second fret and play what looks like a <Chord>G</Chord> chord. Your fingers
-are in G. The room hears A. Nothing is wrong with either description, but if the sheet only
+are in G. **The room hears A.** Nothing is wrong with either description, but if the sheet only
 says "G" and the singer only knows "A", the two of you are describing the same sound with
 different words — and the moment someone else joins with a piano, the disagreement becomes
 audible.
 
 ## Shapes you hold, key you sound
 
-The useful split is to keep both on the page. The key of the song is a fact about the
-recording: it does not move when you pick up a capo. The shapes are a choice about your hands,
-and they move every time the capo does.
+The useful split is to keep both on the page. **The key of the song is a fact about the
+recording**: it does not move when you pick up a capo. **The shapes are a choice about your
+hands**, and they move every time the capo does.
 
 <ChordTable
   label="Song in A, capo 2"
@@ -30,6 +30,22 @@ and they move every time the capo does.
   played={['G', 'C', 'D', 'Em']}
   note="Four open shapes instead of four barre chords, and the song is still in A."
 />
+
+Read that table in either direction and it stays true. Going down — sounds to shapes — is what
+you do when a chart is written in the recording's key and your hands would rather not play
+four barre chords. Going up — shapes to sounds — is what you do when somebody asks what key
+you are in and the only thing written on your page is `G`.
+
+## The arithmetic, in one sentence
+
+Every fret is one semitone. **What sounds is what you play, plus the fret number.** A capo on
+2 with a <Chord>G</Chord> shape sounds two semitones above G, which is A. A capo on 5 with the
+same shape sounds five above, which is C.
+
+The other direction is the same sentence with the sign flipped: **what you play is what sounds,
+minus the fret number.** A song in A, capo 2, is read as G. A song in C, capo 5, is read as G
+as well — which is why two guitarists with capos on different frets can be reading identical
+shapes and still be in the same key as each other.
 
 ## Choosing the fret
 
@@ -47,10 +63,56 @@ everyone in the room; moving the capo changes only what you read. When the two a
 group can share one sheet and each person can set their own fret without touching anyone
 else's part.
 
+## What the capo costs you
+
+It is not free, and the trade is worth knowing before you reach for it:
+
+- **The instrument gets shorter.** A capo on the seventh fret leaves you half a guitar, and the
+  low end of the song goes with it. This is why a tie between two frets should always go to the
+  lower one.
+- **Open strings change their job.** A riff that hangs off the open sixth string in E is not
+  the same riff two frets up, even though the chord names line up.
+- **Barre chords do not always disappear.** They move. A song with a <Chord>Bm</Chord> in it
+  will usually still have a barre somewhere, in some key, at every fret — the calculator will
+  tell you if this is one of those songs rather than pretending otherwise.
+
 ## Sharps or flats
 
 One detail is worth settling before you write anything down. Transposing up a semitone from A
 gives a chord that can be spelled <Chord>Bb</Chord> or <Chord>A#</Chord>. They are the same
-shape, and the key you are in decides which spelling reads correctly. Keys with flats keep
-flats; keys with sharps keep sharps. Mixing them on one page is legible but distracting, and
+shape, and the key you are in decides which spelling reads correctly. **Keys with flats keep
+flats; keys with sharps keep sharps.** Mixing them on one page is legible but distracting, and
 distraction is the thing a chord sheet exists to remove.
+
+## Writing the capo down so it survives
+
+If your sheets are plain text, the capo has a standard place to live:
+[ChordPro](/blog/chordpro-explained) writes it as `{capo: 2}` on its own line, next to
+`{key: A}`. Two facts, kept apart, in a format any app can read — which is the whole reason
+that format is worth the ten minutes it takes to learn. If your sheets are chords-above-words
+today, the [free converter](/tools/chordpro-converter) will move them across without retyping.
+
+<Faq
+  items={[
+    {
+      question: 'Does a capo change the key of a song?',
+      answer:
+        'Yes — a capo raises the sounding key by one semitone per fret, while the shapes you hold stay the ones you already know. A G shape with a capo on the second fret sounds in A. What a capo does not do is change what is written on the page: the sheet still says G, because that is what your hands are doing.',
+    },
+    {
+      question: 'What key am I in with a capo on the second fret?',
+      answer:
+        'Two semitones above the shapes you are playing. G shapes sound in A, C shapes sound in D, D shapes sound in E, A shapes sound in B, E shapes sound in F#. If the chart you are reading was written in the sounding key instead, run it the other way: a song in A read with a capo on 2 gives you G shapes.',
+    },
+    {
+      question: 'Is a capo the same as transposing?',
+      answer:
+        'No, and they are opposites in a useful way. Transposing changes what the room hears and leaves your fingers to cope. A capo changes what your fingers hold and leaves the sound exactly where it was. Use a capo when the key is right and the shapes are hard; transpose when the key itself does not suit the voice singing it.',
+    },
+    {
+      question: 'Which fret should I put the capo on?',
+      answer:
+        'The one that turns the most of your chords into open shapes, and the lowest such fret when two are tied — a capo further up the neck shortens the instrument for nothing. Received wisdom is worth checking here: for F, Bb, C and Dm the usual advice of capo 5 gives you C, F, G and Am, which still contains a barre, while capo 3 gives D, G, A and Bm for the same count and a lower capo. The capo calculator compares every fret at once.',
+    },
+  ]}
+/>

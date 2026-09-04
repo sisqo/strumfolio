@@ -14,8 +14,8 @@ and a prayer. It works until the day the font changes, or the phone does, and ev
 slides half a line to the left.
 
 ChordPro is the fix, and it is older than most of the apps that read it. It is a plain-text
-format — no proprietary file, no account, no export button — in which a chord is written in
-square brackets, inline, at the exact point in the word where you change your hand.
+format — no proprietary file, no account, no export button — in which **a chord is written in
+square brackets, inline, at the exact point in the word where you change your hand.**
 
 ## What it looks like
 
@@ -23,6 +23,7 @@ square brackets, inline, at the exact point in the word where you change your ha
 {title: The Last Bus Home}
 {artist: Nina Kovač}
 {key: Am}
+{capo: 2}
 
 [Am]The last bus home is [F]late
 and I am [C]singing any[G]way
@@ -39,23 +40,47 @@ itself. You will meet a handful of them constantly:
 - `{title: …}` and `{artist: …}` — what the song is called and whose it is.
 - `{key: …}` — the key it is written in, which is what lets an app transpose *relative* to
   something instead of guessing.
-- `{capo: …}` — where the capo goes, if it goes anywhere.
+- `{capo: …}` — where the capo goes, if it goes anywhere. Separate from the key on purpose:
+  [those are two different facts](/blog/capo-second-fret) and a sheet that conflates them
+  makes both of them useless.
 - `{comment: …}` — a note to yourself, printed alongside the words.
 
-Anything an app does not understand, it is expected to ignore rather than choke on. That is
-deliberate, and it is most of why the format has lasted.
+**Anything an app does not understand, it is expected to ignore rather than choke on.** That
+is deliberate, and it is most of why the format has lasted: a file written for one program in
+2011 still opens in a program written last year, minus whatever the newer one never learned.
+
+## Where exactly the bracket goes
+
+The one thing worth getting right on your first file is that a chord marks the syllable where
+your hand moves, not the word it is nearest to. Look again at the second line above:
+
+```
+and I am [C]singing any[G]way
+```
+
+The <Chord>G</Chord> is inside "anyway", between "any" and "way", because that is where the
+chord actually changes when you play it. Written as `[G]anyway` it would be a semiquaver
+early; written at the end of the line it would be too late to be any use. **A chord that lands
+mid-word is not a mistake in the file, it is the file being precise.**
+
+This is also the part that makes the format tedious to type by hand and worth converting into
+rather than retyping. If you already have sheets with the chords sitting above the words, a
+[free converter](/tools/chordpro-converter) reads the columns and writes the brackets, and you
+check the result rather than doing the work.
 
 ## Why the brackets beat the spaces
 
 The "chords above the words" layout everybody starts with is not really a format — it is a
 picture of one. It depends on the text being monospaced, on nobody wrapping a long line, and
-on every future reader having the same column width you did. Change any of the three and the
-information is gone, because the information *was* the alignment.
+on every future reader having the same column width you did. **Change any of the three and the
+information is gone, because the information *was* the alignment.**
 
 ChordPro stores the relationship instead of a picture of it. Once a chord is attached to a
 syllable rather than to a column, an app can do things that are impossible in a screenshot:
 
-- **Transpose.** Every chord moves by the same interval, and the words do not move at all.
+- **Transpose.** Every chord moves by the same interval, and the words do not move at all —
+  which is what [a transposer](/tools/chord-transposer) is doing when it hands you back the
+  same sheet in a different key.
 - **Apply a capo** and show the shapes your hand actually plays, not the ones the recording
   is in.
 - **Reflow** on a narrow screen without the chords ending up over the wrong word.
@@ -65,16 +90,89 @@ syllable rather than to a column, an app can do things that are impossible in a 
 None of that is clever. It is all downstream of one decision: write down which syllable, not
 which column.
 
+<Quote>Store the relationship, not a picture of the relationship.</Quote>
+
+## Marking up the parts of a song
+
+Once the chords are in, the second useful thing a ChordPro file can carry is structure. A
+chorus is wrapped in a pair of directives, and so is a block of tablature:
+
+```
+{start_of_chorus}
+[F]Sing it again, and [C]again
+{end_of_chorus}
+
+{start_of_tab}
+e|---0---2---3---|
+B|---1---3---0---|
+{end_of_tab}
+```
+
+Both pairs have short forms — `{soc}` and `{eoc}`, `{sot}` and `{eot}` — and both mean the
+same thing to a reader as to a program: this block is different from the verse around it. The
+tab pair matters more than it looks. **A tab block tells the app to leave the rows alone**:
+not to reflow them, not to read the letters at the start of each line as chords, not to touch
+the alignment that is the entire content of a tablature row.
+
+## What ChordPro does not do
+
+It is a lyric-and-chord format, and being honest about the edges is the fastest way to know
+whether it fits your repertoire:
+
+- **It does not carry rhythm.** There is no way to say that the <Chord>F</Chord> lasts two
+  bars and the <Chord>C</Chord> lasts one. You get the order and the placement, not the
+  duration.
+- **It does not carry a melody.** If you need notes on a stave, ChordPro is the wrong file
+  and you want notation software.
+- **It does not carry audio.** Backing tracks, click tracks and recordings live outside it,
+  and apps that support them do it with their own extensions.
+- **Apps disagree about the rarer directives.** `{a: …}` is the artist in one program and the
+  *album* in another; `{st: …}` is a subtitle in the specification and was redefined by a
+  popular app to mean the artist. The core — brackets, `{title}`, `{key}`, choruses — is
+  universal; the edges are dialect. Anything importing a large library should be sniffing
+  which program wrote a file before trusting its metadata.
+
 ## It outlives the app
 
-The quiet argument for ChordPro is not any feature. It is that the file is readable by a
-human being with a text editor, twenty years from now, on a device nobody has designed yet.
+The quiet argument for ChordPro is not any feature. It is that **the file is readable by a
+human being with a text editor, twenty years from now, on a device nobody has designed yet.**
 A repertoire is a thing you build slowly and expect to keep; storing it in a format only one
 company can open is how people lose a decade of work when that company is bought.
 
+The files themselves are ordinary text with an unglamorous set of extensions — `.chopro`,
+`.cho`, `.crd`, `.pro` — and any of them opens in any editor on any machine. That is not a
+low bar cleared by accident. It is the bar.
+
 If your songs are already in the spaces-and-prayer layout, they are not lost — the conversion
 is mechanical, and a decent importer will do it for you and show you the result before it
-saves anything, because the conversion is a heuristic and it will not always guess right.
+saves anything, because the conversion is a heuristic and it will not always guess right. The
+[longer piece on converting](/blog/convert-chord-sheets-to-chordpro) covers where it goes
+wrong and how to spot it.
 
 What matters is where they end up: in a format that will still be a format when the app has
 changed hands, or names, or gone.
+
+<Faq
+  items={[
+    {
+      question: 'What is a ChordPro file?',
+      answer:
+        'A plain-text file holding lyrics with the chords written inline, in square brackets, at the syllable where the chord changes. Lines in curly braces carry metadata such as the title, the key and the capo position. It is ordinary text, so it opens in any editor on any device, and it usually has the extension .chopro, .cho, .crd or .pro.',
+    },
+    {
+      question: 'How do I open a .chopro file?',
+      answer:
+        'Any text editor will show you the contents, because the file is plain text — there is nothing proprietary to decode. To read it as a formatted song sheet, with the chords sitting above the words and the option to transpose, you need an app that understands the format. Most chord chart apps for musicians do, which is the point of using it.',
+    },
+    {
+      question: 'Is ChordPro the same as guitar tab?',
+      answer:
+        'No. Tab describes which string and fret to play, note by note, and ChordPro describes which chord to hold and when to change it. They answer different questions and often appear together: ChordPro can carry a block of tablature verbatim between start_of_tab and end_of_tab directives, which tells an app to leave those rows exactly as they are.',
+    },
+    {
+      question: 'Can I convert my existing chord sheets to ChordPro?',
+      answer:
+        'Yes, and it is usually one paste. A sheet with the chord names on a line above the words can be read column by column and rewritten with the chords in brackets, because the column each chord sits in is what says which syllable it belongs to. The conversion is a heuristic rather than a certainty, so read the result before you keep it.',
+    },
+  ]}
+/>

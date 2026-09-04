@@ -1,11 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+import { BlogChord } from '@/components/BlogChord'
+import { Faq } from '@/components/Faq'
 import { PromoPanel } from '@/components/PromoPanel'
 import { ChordProConverter } from '@/components/ChordProConverter'
 import { Footer } from '@/components/Footer'
+import { JsonLd } from '@/components/JsonLd'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
+import { softwareToolJsonLd } from '@/lib/blog/jsonLd'
 
 const TITLE = 'Free ChordPro converter'
 
@@ -47,6 +51,9 @@ export const metadata: Metadata = {
 export default function ChordProConverterPage() {
   return (
     <>
+      {/* A free web application, said in the form a crawler reads — see `lib/blog/jsonLd.ts`. */}
+      <JsonLd data={softwareToolJsonLd({ name: TITLE, description: DESCRIPTION, path: '/tools/chordpro-converter' })} />
+
       <div className="site-hero">
         <div aria-hidden className="site-hero-glow" />
         <div aria-hidden className="site-hero-stave" />
@@ -64,12 +71,23 @@ export default function ChordProConverterPage() {
         <ChordProConverter />
 
         <div className="article-body tool-prose">
+          <h2>How to convert a chord sheet to ChordPro</h2>
+          <ol>
+            <li>Copy the sheet you already have — from a text file, a forum post, a notes app, anywhere.</li>
+            <li>Paste it into the left box. The converted ChordPro appears on the right as you type.</li>
+            <li>
+              <strong>Read the result before you keep it.</strong> The conversion is a heuristic, and the one thing it
+              can get wrong is which lines are chords.
+            </li>
+            <li>Copy it, or download it as a <code>.chopro</code> file.</li>
+          </ol>
+
           <h2>What the converter is doing</h2>
           <p>
             Almost every chord sheet on the internet is written the same way: a line of chord names, then the line of
-            words underneath, with the chords held over the right syllable by a row of spaces. It reads perfectly and it
-            survives nothing. Change the font, open it on a phone, let one long line wrap, and every chord slides away
-            from the word it belonged to.
+            words underneath, with the chords held over the right syllable by a row of spaces. It reads perfectly and{' '}
+            <strong>it survives nothing</strong>. Change the font, open it on a phone, let one long line wrap, and every
+            chord slides away from the word it belonged to.
           </p>
           <p>
             ChordPro fixes that by putting the chord <em>inside</em> the line, in square brackets, at the exact point
@@ -79,21 +97,41 @@ export default function ChordProConverterPage() {
             <code>{'[Am]The last bus home is [F]late\nand [C]I am singing [G]anyway'}</code>
           </pre>
           <p>
-            The chord is now attached to a syllable instead of to a column, which is what lets an app transpose it, put
-            a capo on it, or reflow it on a narrow screen without anything drifting. This converter reads the columns
-            and writes the brackets.
+            <strong>The chord is now attached to a syllable instead of to a column</strong>, which is what lets an app
+            transpose it, put a capo on it, or reflow it on a narrow screen without anything drifting. This converter
+            reads the columns and writes the brackets.
           </p>
 
           <h2>It is a guess, and it will sometimes be wrong</h2>
           <p>
             Deciding which lines are chords and which are words is a heuristic, not a certainty — a line reading{' '}
-            <code>A</code> could be a chord or the start of a sentence. The converter looks at whether every token on
-            the line parses as a chord name, and it gets that right nearly always and not quite always.
+            <BlogChord>A</BlogChord> could be a chord or the start of a sentence. The converter looks at whether{' '}
+            <strong>every</strong> token on the line parses as a chord name, and it gets that right nearly always and
+            not quite always.
           </p>
           <p>
+            Three places it is worth checking the output, because these are where it goes wrong:
+          </p>
+          <ul>
+            <li>
+              <strong>A line of single letters that are also chord names.</strong> Italian solfège is the hard case —{' '}
+              <BlogChord>La</BlogChord> and <BlogChord>Do</BlogChord> are chords and also words that get sung. The converter uses the
+              spacing to decide, so a sung line with wide gaps in it can be misread.
+            </li>
+            <li>
+              <strong>Section labels.</strong> <code>Chorus:</code> and <code>[Verse 1]</code> become{' '}
+              <code>{'{comment: …}'}</code> lines, which is usually what you want — but a label the converter does not
+              recognise stays as a plain line of words.
+            </li>
+            <li>
+              <strong>Tablature.</strong> A run of dashes is kept verbatim inside a tab block rather than read for
+              chords, because alignment is the whole point of a tab and a string of dashes is not a syllable.
+            </li>
+          </ul>
+          <p>
             So read the output before you keep it. That is the same reason the import screen inside {APP_NAME} shows a
-            preview that stays editable rather than saving straight away: an escape hatch is part of the design, not an
-            apology for it.
+            preview that stays editable rather than saving straight away: <strong>an escape hatch is part of the design,
+            not an apology for it.</strong>
           </p>
 
           <h2>Nothing leaves your browser</h2>
@@ -115,6 +153,31 @@ export default function ChordProConverterPage() {
             page just did, and then the song is a song rather than a file.
           </p>
         </div>
+
+        <Faq
+          items={[
+            {
+              question: 'What is ChordPro, and what is a .chopro file?',
+              answer:
+                'ChordPro is a plain-text format for lyrics with chords, where each chord sits inside the line in square brackets at the exact syllable your hand changes on. A .chopro file is just a text file written that way — it opens in any editor, and most chord apps built in the last twenty years can read it. Nothing about it is proprietary, which is the whole reason it is worth converting to.',
+            },
+            {
+              question: 'Will the converter get my chord sheet wrong?',
+              answer:
+                'Sometimes, and always in the same way: deciding which lines are chords and which are words is a guess. A line where every token reads as a chord name is treated as chords, so a sung line of Italian solfège with wide spacing can be misread. Read the output before you keep it — that one habit catches everything this can get wrong.',
+            },
+            {
+              question: 'Is my song uploaded anywhere?',
+              answer:
+                'No. The conversion runs in your browser, on your own machine, in the page you are looking at. There is no upload, no account and no copy kept anywhere — which matters if what you are pasting is a song nobody has heard yet.',
+            },
+            {
+              question: 'Can I convert several songs at once?',
+              answer:
+                'Paste them all and the tool will tell you how many it found, splitting on the boundaries ChordPro itself defines. The converter shows you one continuous result; the app splits a multi-song paste into separate songs on import.',
+            },
+          ]}
+        />
 
         <PromoPanel />
 
