@@ -6,6 +6,7 @@ import {
   FRET_PAGE,
   MAX_CAPO,
   clampCapo,
+  clampFretWindow,
   distinctChordCount,
   easeByFret,
   easeOf,
@@ -297,6 +298,38 @@ describe('which frets the reading panel shows at once', () => {
 
   it('starts at the nut when every fret fits in one page', () => {
     assert.equal(fretWindowStart(3, 0, 4, FRET_PAGE), 0)
+  })
+})
+
+describe('paging the fret row once it is open', () => {
+  it('moves by a page and stops where the row would run past the last fret', () => {
+    assert.equal(clampFretWindow(0 + FRET_PAGE), MAX_CAPO - FRET_PAGE + 1)
+    assert.equal(clampFretWindow(99), MAX_CAPO - FRET_PAGE + 1)
+  })
+
+  it('never pages back past the nut', () => {
+    assert.equal(clampFretWindow(2 - FRET_PAGE), 0)
+    assert.equal(clampFretWindow(-1), 0)
+  })
+
+  /*
+   * The bug this file exists to keep out: every song opens with the capo on 0, and a menu
+   * opened there has to page *forward* to reach the last fret. Running the containment
+   * rule again on that request pulled it back to the nut, and the arrow did nothing — so
+   * the rule runs once, on opening, and paging is a clamp with no capo in it.
+   */
+  it('reaches the last fret from a menu opened with no capo', () => {
+    const opened = fretWindowStart(0, 0)
+    assert.equal(opened, 0)
+
+    const paged = clampFretWindow(opened + FRET_PAGE)
+    assert.ok(paged > opened, 'the forward arrow moved nothing')
+    assert.ok(MAX_CAPO <= paged + FRET_PAGE - 1, `fret ${MAX_CAPO} still off the page`)
+  })
+
+  it('agrees with fretWindowStart on where a full page may start', () => {
+    assert.equal(clampFretWindow(99), fretWindowStart(99, MAX_CAPO))
+    assert.equal(clampFretWindow(3, 4, FRET_PAGE), 0)
   })
 })
 

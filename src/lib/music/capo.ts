@@ -42,12 +42,35 @@ export function clampCapo(fret: number): number {
 export const FRET_PAGE = 6
 
 /**
- * Where the visible run of fret buttons starts.
+ * The nearest place a run of `size` fret buttons can start and still show only frets.
  *
- * Two things decide it, and the order matters: what the reader last paged to, and then
- * where the capo actually is. The second always wins — a panel reopened with the capo on
- * fret 7 must show fret 7, whatever page was last looked at, or the row would claim a
- * capo the reader cannot see and the badge above it would be the only tell.
+ * Never before the nut, and never so late that the row would have to draw empty cells
+ * past `max` to stay full — for frets 0..7 and a page of six that is 2 at the most,
+ * showing 2..7. Paging in the menu goes through this and nothing else: it moves the
+ * window by one page and clamps, with no opinion about where the capo is.
+ */
+export function clampFretWindow(
+  desired: number,
+  max: number = MAX_CAPO,
+  size: number = FRET_PAGE,
+): number {
+  const last = Math.max(0, max - size + 1)
+  return Math.min(Math.max(Math.round(desired), 0), last)
+}
+
+/**
+ * Where the run of fret buttons starts when the menu *opens*.
+ *
+ * Two things decide it, and the order matters: what was asked for, and then where the
+ * capo actually is. The second always wins — a menu opened with the capo on fret 7 must
+ * show fret 7, whatever page was asked for, or the row would claim a capo the reader
+ * cannot see and the badge above it would be the only tell.
+ *
+ * Exactly once, though. This is the rule for the first page, not for every page after it:
+ * run on each render, with the capo still on 0 as every song starts, it drags each page the
+ * reader asks for straight back to the nut, and the arrow that pages forward does nothing.
+ * That is what it did for a while, so the menu keeps the answer in state and pages with
+ * `clampFretWindow` from then on.
  *
  * A function rather than clamping inline in the component because it is the one piece of
  * this control with a rule in it, and a rule belongs where a test can hold it: every
@@ -59,17 +82,12 @@ export function fretWindowStart(
   max: number = MAX_CAPO,
   size: number = FRET_PAGE,
 ): number {
-  /* The furthest a window may start and still be full: past this it would show
-     empty cells past `max` rather than frets. Never below 0, for a `max` that is
-     smaller than one page. */
-  const last = Math.max(0, max - size + 1)
-
-  let start = Math.min(Math.max(Math.round(desired), 0), last)
+  let start = clampFretWindow(desired, max, size)
 
   if (capo < start) start = capo
   else if (capo > start + size - 1) start = capo - size + 1
 
-  return Math.min(Math.max(start, 0), last)
+  return clampFretWindow(start, max, size)
 }
 
 /** How far to move the written chords to get the ones on the page. */

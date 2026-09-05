@@ -11,6 +11,7 @@ import {
   FRET_PAGE,
   type FretEase,
   MAX_CAPO,
+  clampFretWindow,
   distinctChordCount,
   easeByFret,
   formatSemitones,
@@ -334,8 +335,8 @@ function semitoneBadge(semitones: number): string {
  * reason as before: seven cells across this width come out wide enough to hit with a
  * guitar in the other hand, where all eight in one row would not. The arrow pages the
  * run along and turns into a `‹` once there is nothing further to reveal, so the row is
- * always seven cells and never changes width — `fretWindowStart` keeps the fret the
- * capo is on among the six whatever page was asked for.
+ * always seven cells and never changes width — `fretWindowStart` opens the row on the
+ * fret the capo is on, and from there the arrows only ever move it by a page.
  *
  * Each cell now draws a row of dots under its number, one per chord in the song, filled
  * for however many are easy to hold at that fret — the same fact `suggestCapo` already
@@ -358,29 +359,22 @@ function CapoMenu({
   onDone: () => void
 }) {
   /*
-   * Which page of frets the reader last paged to — a *request*, not quite the answer:
-   * `fretWindowStart` still gets the last word once, against `openedCapo` just below,
-   * so a menu opened with the capo already on fret 7 shows fret 7 rather than 0.
-   */
-  const [fretPage, setFretPage] = useState(0)
-
-  /*
-   * The capo this menu opened with, frozen for as long as it stays open — not the live
-   * `capo` prop `fretWindowStart` used to be handed on every render.
+   * Where the visible run of frets starts — the answer itself, kept in state, not a page
+   * request for `fretWindowStart` to rule on again.
    *
-   * That was the bug: `fretWindowStart`'s whole point is that the fret the capo is on
-   * always wins, whatever page was asked for — right for a reopened menu, wrong for a
-   * reader paging through one that is already open. With no capo set, the current fret
-   * *is* 0, so every page request past it was pulled straight back to fret 0 before it
-   * ever rendered — the arrow looked dead until the reader happened to tap a fret first,
-   * which moved `capo` off the value fighting them. Freezing it here means the one
-   * fret that must stay visible is decided once, at the moment this menu opened, and
-   * paging afterwards is never re-litigated against a selection the reader is still
-   * looking for. A fret picked from a page this already shows needs no such rule to
-   * begin with — the reader can only click a button that is already on screen.
+   * `fretWindowStart`'s whole point is that the fret the capo is on always wins, whatever
+   * page was asked for: right for the moment a menu opens (one opened with the capo on
+   * fret 7 must show fret 7), wrong for every page after. Every song starts with the capo
+   * on 0, so a rule re-run on each render pulled each page the reader asked for straight
+   * back to the nut — the forward arrow rendered and did nothing, and no fret past 5 could
+   * be picked. Freezing the capo in a second state, the first attempt at this, changed
+   * nothing: a frozen 0 fights the paging exactly as a live one does. So the rule runs
+   * once, here in the initialiser, and the arrows move the window by a page through
+   * `clampFretWindow`, which knows the edges and nothing about the capo. A fret picked from
+   * the page on screen needs no containment to begin with — the reader can only click a
+   * button that is already there.
    */
-  const [openedCapo] = useState(capo)
-  const fretStart = fretWindowStart(fretPage, openedCapo)
+  const [fretStart, setFretStart] = useState(() => fretWindowStart(0, capo))
   const canPageBack = fretStart > 0
   const canPageForward = fretStart + FRET_PAGE <= MAX_CAPO
 
@@ -396,7 +390,7 @@ function CapoMenu({
           <button
             type="button"
             className="fret-button is-page"
-            onClick={() => setFretPage(fretStart - FRET_PAGE)}
+            onClick={() => setFretStart(clampFretWindow(fretStart - FRET_PAGE))}
             aria-label="Show lower frets"
             title="Lower frets"
           >
@@ -444,7 +438,7 @@ function CapoMenu({
           <button
             type="button"
             className="fret-button is-page"
-            onClick={() => setFretPage(fretStart + FRET_PAGE)}
+            onClick={() => setFretStart(clampFretWindow(fretStart + FRET_PAGE))}
             aria-label="Show higher frets"
             title="Higher frets"
           >
