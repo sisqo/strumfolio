@@ -8875,10 +8875,23 @@
    * inside the card, and it survives dark mode, where a one-pixel indent line
    * disappears. Nothing else is nested any more — a canzoniere is a page now, not a
    * fold — so this shape belongs to the reorder list alone.
+   *
+   * Compact on purpose: arranging is moving, not reading, so the row drops to a single
+   * line (no artist — see `ArrangeSongbook`) and packs tight — thin padding, a small gap,
+   * a shorter handle — so many more songs of a long canzoniere fit on screen at once,
+   * which is the whole point of being able to reach them without scrolling forever.
    */
   .row-nested {
-    margin: 0 0.625rem 0.625rem;
+    margin: 0 0.625rem 0.375rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
     background: var(--surface-3);
+  }
+
+  /* Shorter than a stand-alone handle, since it sets the height of a one-line row; still
+     a wide enough target to grab on a touchscreen. */
+  .row-nested .drag-handle {
+    height: 2rem;
   }
 
   /*

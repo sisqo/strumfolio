@@ -543,14 +543,13 @@ export function ArrangeSongbook({
                 <IconGrip size={17} />
               </button>
 
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{song?.title ?? row.slug}</span>
-                {song?.artist != null && (
-                  <span className="mt-0.5 block truncate text-[0.8125rem] text-muted">
-                    {song.artist}
-                  </span>
-                )}
-              </span>
+              {/*
+                * Title only, one line: arranging is moving, not reading, and dropping the
+                * artist lets the row shrink to a single line so many more songs fit at once
+                * (see `.row-nested`). The artist is back on the reading list, where it
+                * helps tell two songs of the same name apart.
+                */}
+              <span className="min-w-0 flex-1 truncate">{song?.title ?? row.slug}</span>
             </li>
           )
         })}
