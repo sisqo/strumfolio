@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 
 import type { Song } from '@/lib/data'
 
-import { seriesOf } from './series'
+import { favoritesSeries, seriesOf, siblingsOf } from './series'
 
 function song(slug: string, songbookSlug: string): Song {
   return {
@@ -54,5 +54,58 @@ describe('seriesOf', () => {
     const songs = [song('a', 'book'), song('x', 'other-book'), song('b', 'book'), song('y', 'other-book')]
 
     assert.deepEqual(seriesOf(songs[0], songs), { position: 1, total: 2, previous: null, next: 'b' })
+  })
+})
+
+describe('siblingsOf', () => {
+  it('gives the songbook in list order, and nothing from any other', () => {
+    const songs = [song('a', 'book'), song('x', 'other'), song('b', 'book')]
+
+    assert.deepEqual(siblingsOf(songs[0], songs), ['a', 'b'])
+  })
+})
+
+describe('favoritesSeries', () => {
+  const siblings = ['a', 'b', 'c', 'd', 'e']
+
+  it('steps between starred songs only, keeping the songbook\'s own order', () => {
+    const resolved = favoritesSeries(siblings, new Set(['b', 'd', 'e']), 'd')
+
+    assert.deepEqual(resolved, { position: 2, total: 3, previous: 'b', next: 'e' })
+  })
+
+  it('has no previous at the first favorite and no next at the last', () => {
+    const favorites = new Set(['b', 'd'])
+
+    assert.deepEqual(favoritesSeries(siblings, favorites, 'b'), {
+      position: 1,
+      total: 2,
+      previous: null,
+      next: 'd',
+    })
+    assert.deepEqual(favoritesSeries(siblings, favorites, 'd'), {
+      position: 2,
+      total: 2,
+      previous: 'b',
+      next: null,
+    })
+  })
+
+  /**
+   * The fallback that keeps the arrows meaningful: reached from a link or from "Recently
+   * played", or starred and then unstarred while being read, the song is not in the
+   * sequence at all — and arrows into a list this song is not part of would be arrows to
+   * nowhere the reader can relate to where they are.
+   */
+  it('refuses a sequence the song being read is not part of', () => {
+    assert.equal(favoritesSeries(siblings, new Set(['b', 'd']), 'c'), null)
+  })
+
+  it('refuses a sequence of one, like the songbook one it narrows', () => {
+    assert.equal(favoritesSeries(siblings, new Set(['c']), 'c'), null)
+  })
+
+  it('refuses a sequence when nothing is starred at all', () => {
+    assert.equal(favoritesSeries(siblings, new Set(), 'c'), null)
   })
 })

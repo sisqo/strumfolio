@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
+import { FavoritesFilterToggle } from '@/components/FavoritesFilterToggle'
+import { useFavorites } from '@/components/FavoritesProvider'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
@@ -70,6 +72,7 @@ export function HomeScreen({
   const state = useSongbooks()
   const { songbooks, sections, assignments, nameOf, online } = state
   const { mayEdit, isGlobalOwner } = useRole()
+  const { isFavorite, only: favoritesOnly } = useFavorites()
 
   const [songs, setSongs] = useLiveIndex(baked)
   const [query, setQuery] = useState('')
@@ -252,13 +255,39 @@ export function HomeScreen({
    */
   const counts = countBySlug(state)
 
+  /**
+   * The songs this screen is about: all of them, or only the starred ones.
+   *
+   * One list feeding both the search and the plain list below it, so the filter narrows
+   * the same set either way — and so "9 of 24" counts what the reader is actually looking
+   * through rather than what the account happens to hold.
+   */
+  const pool = useMemo(
+    () => (favoritesOnly ? songs.filter((song) => isFavorite(song.slug)) : songs),
+    [songs, favoritesOnly, isFavorite],
+  )
+
+  /**
+   * The starred songs as a list of their own, for when the filter is on and nothing has
+   * been typed. Alphabetical, and each row says which songbook it lives in — for the
+   * reason the search results give: across songbooks the saved order is not an order at
+   * all, and a reader would get every songbook's first favorite, then every second.
+   */
+  const favoriteRows = useMemo(
+    () =>
+      favoritesOnly
+        ? [...pool].sort((one, other) => one.title.localeCompare(other.title, 'it'))
+        : [],
+    [pool, favoritesOnly],
+  )
+
   const results = useMemo(() => {
     const needle = deferred.trim().toLowerCase()
     if (needle === '') return []
 
     // Every term must appear somewhere, so "certe notti" and "notti certe" match.
     const terms = needle.split(/\s+/)
-    const found = songs.filter((song) => terms.every((term) => song.haystack.includes(term)))
+    const found = pool.filter((song) => terms.every((term) => song.haystack.includes(term)))
 
     /*
      * Alphabetical, whatever order the songbooks are in.
@@ -268,7 +297,7 @@ export function HomeScreen({
      * second, which is nobody's idea of a result list.
      */
     return [...found].sort((one, other) => one.title.localeCompare(other.title, 'it'))
-  }, [songs, deferred])
+  }, [pool, deferred])
 
   /**
    * Which songbook each song is in, by way of its section.
@@ -319,34 +348,47 @@ export function HomeScreen({
         * that already keeps the notices and the create form out of that mode.
         */}
       {mode !== 'organizing' && (
-        <label className="search-field block">
-          <span className="sr-only">Search songs</span>
-          <IconSearch />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search title, artist, or lyrics"
-            autoComplete="off"
-            className="form-field"
-          />
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="search-field block min-w-0 flex-1">
+            <span className="sr-only">Search songs</span>
+            <IconSearch />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={favoritesOnly ? 'Search your favorites' : 'Search title, artist, or lyrics'}
+              autoComplete="off"
+              className="form-field"
+            />
+          </label>
+          {/* Beside the box rather than above the list, because it narrows the same thing
+              the box does — and with both here, "search my favorites" is one gesture. */}
+          <FavoritesFilterToggle />
+        </div>
       )}
 
       {searching ? (
         <>
           <p className="mb-1 mt-6 px-1 text-xs text-muted" aria-live="polite">
-            {`${results.length} of ${songs.length}`}
+            {favoritesOnly
+              ? `${results.length} of ${pool.length} ${pool.length === 1 ? 'favorite' : 'favorites'}`
+              : `${results.length} of ${songs.length}`}
           </p>
 
           {results.length === 0 ? (
-            <p className="mt-8 text-center text-sm text-muted">No songs found.</p>
+            <p className="mt-8 text-center text-sm text-muted">
+              {favoritesOnly ? 'No favorites match.' : 'No songs found.'}
+            </p>
           ) : (
             /* Matches from anywhere belong to each other, so they share one card. */
             <ul className="row-list card">
               {results.map((song) => (
                 <li key={song.slug}>
-                  <SongRow song={song} under={nameOf(homeOf(song.slug))} />
+                  <SongRow
+                    song={song}
+                    under={nameOf(homeOf(song.slug))}
+                    favorite={isFavorite(song.slug)}
+                  />
                 </li>
               ))}
             </ul>
@@ -354,6 +396,41 @@ export function HomeScreen({
         </>
       ) : mode === 'organizing' ? (
         <ArrangeSongbooks rows={groups} onDone={() => setMode('list')} />
+      ) : favoritesOnly ? (
+        /*
+          * The filter replaces the screen rather than narrowing part of it — the same
+          * thing a search already does here, and for the same reason: what a reader wants
+          * from "only my favorites" is the songs, not a shelf of songbooks with the
+          * unstarred ones quietly missing from inside them. "Recently played" goes with the
+          * shelf, being a different question than the one being asked.
+          */
+        <>
+          <div className="screen-header mt-8">
+            <div className="min-w-0">
+              <h1 className="screen-title">Favorites</h1>
+              <p className="screen-subtitle">
+                <span>
+                  {favoriteRows.length} of {songs.length}{' '}
+                  {songs.length === 1 ? 'song' : 'songs'}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {favoriteRows.length === 0 ? (
+            <p className="mt-8 text-center text-sm text-muted">
+              No favorites yet. Open a song and tap the star beside its title.
+            </p>
+          ) : (
+            <ul className="row-list card mt-4">
+              {favoriteRows.map((song) => (
+                <li key={song.slug}>
+                  <SongRow song={song} under={nameOf(homeOf(song.slug))} favorite />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
         <>
           <div className="screen-header mt-8">
@@ -950,7 +1027,11 @@ export function HomeScreen({
               <ul className="row-list card mt-2">
                 {recentlyPlayed.map((song) => (
                   <li key={song.slug}>
-                    <SongRow song={song} under={song.songbookName} />
+                    <SongRow
+                      song={song}
+                      under={song.songbookName}
+                      favorite={isFavorite(song.slug)}
+                    />
                   </li>
                 ))}
               </ul>

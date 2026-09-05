@@ -722,6 +722,26 @@ export function IconSelect(props: IconProps) {
 }
 
 /** A four-point sparkle: the feedback sheet's "Feature request" card. */
+/**
+ * The star, in both states the same shape: `filled` is what says a song is a favorite,
+ * and the outline is what says it is not.
+ *
+ * Filled rather than a second, different glyph, and the difference carries the whole
+ * meaning — the colour that comes with it (`--accent`, see `FavoriteButton`) is the
+ * second half, not the first, so the control still reads correctly to anybody who cannot
+ * tell the two colours apart.
+ */
+export function IconStar({ filled = false, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <Icon {...props}>
+      <path
+        d="M12 3.6l2.6 5.27 5.82.85-4.21 4.1.99 5.79L12 16.88l-5.2 2.73.99-5.79-4.21-4.1 5.82-.85z"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+    </Icon>
+  )
+}
+
 export function IconSparkle(props: IconProps) {
   return (
     <Icon {...props}>

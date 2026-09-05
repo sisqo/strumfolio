@@ -194,6 +194,26 @@ A warm, restrained palette: one reserved accent, everything else a step on a pap
 
 **The Two Designed Themes Rule.** Dark mode is not `light mode, inverted`. Every color pair in the frontmatter was chosen independently for its own theme; changing one value in light does not imply a formulaic change in dark.
 
+### The Favorite Star — a declared exception to the Chord-First Rule
+
+The star that marks a song as a favorite (`PLAN-favorites.md`) is drawn in the accent:
+filled and `--accent` beside the title of a song that is one, filled and `--accent` on that
+song's row in every list, and `--accent` on `--accent-soft` on the pill that filters the
+lists down to them. Everywhere else it is a `--muted` outline, or nothing at all.
+
+Declared rather than drifted, on three terms that keep the substance of the rule intact.
+It is **a single glyph and never an area** — 14px in a row, 19px beside a title — so it
+cannot mass into something a reader's eye lands on before the sheet. It is lit **only when
+the value is not the default**, which is the same licence the key and capo badges in
+`SongControls` already take on this very screen: an unstarred song's star is `--muted` and
+competes with nothing. And **the fill, not the colour, is what carries the meaning** —
+outline against solid — so the control still reads correctly with the hue removed. The one
+screen where the rule's substance is really at stake is the song sheet, and there exactly
+one star exists, in the header row above the words, beside two controls already there.
+
+Unlike the plan badges below, this introduces **no second colour family**: it is the app's
+own accent, used on one more kind of thing.
+
 ### Plan Badges — a declared exception to the Chord-First Rule
 
 `/accounts` (the operator screen, `PLAN.md` v3.7, redrawn after `Accounts.dc.html` in v4.4)

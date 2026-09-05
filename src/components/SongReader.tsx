@@ -1,4 +1,5 @@
 import { CommentsProvider } from '@/components/CommentsProvider'
+import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { LiveComments } from '@/components/LiveComments'
 import { Footer } from '@/components/Footer'
 import { LiveControlBar, LiveSheet, SongHeading } from '@/components/LiveSong'
@@ -8,12 +9,18 @@ import { SongProvider } from '@/components/SongProvider'
 import { SongReaderSearch } from '@/components/SongReaderSearch'
 import { TopBar } from '@/components/TopBar'
 import { parseChordPro } from '@/lib/chordpro'
+import { currentUser } from '@/lib/auth/session'
 import { type Song, repository } from '@/lib/data'
 import { songAccountOf } from '@/lib/data/access'
-import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
+import {
+  listFavoriteSlugs,
+  listSectionsForAccount,
+  listSongbooksForAccount,
+  listSongsForAccount,
+} from '@/lib/data/db'
 import { hasDatabase } from '@/lib/db/client'
 import { type SongIndexRow, toIndexRow } from '@/lib/search-index'
-import { type Series, seriesOf } from '@/lib/songbooks/series'
+import { type Series, seriesOf, siblingsOf } from '@/lib/songbooks/series'
 
 /** The songbook this song is in: where the header's way back leads. */
 interface Home {
@@ -22,8 +29,8 @@ interface Home {
 }
 
 /**
- * The songbook, the section, and the song's place in the sequence. Three answers, not
- * one.
+ * The songbook, the section, and the song's place in the sequence — plus what the browser
+ * needs to work out a different sequence of its own. Several answers, not one.
  *
  * The first two used to be computed together and returned as a single null-or-not, which
  * was a bug waiting for its first victim: a songbook holding one song has no sequence to
@@ -31,14 +38,20 @@ interface Home {
  * The sequence needs two songs; the way back needs only a songbook; the section needs
  * only the song.
  *
- * All three are built from build-time data, unlike the song's own words, which are
- * refreshed from the database as soon as the page opens. The difference is deliberate:
- * these arrows lead to other static pages, and each of those was generated from the same
- * list this one was. Reading the live arrangement here would point the arrows at songs
- * whose own pages still think they sit somewhere else.
+ * They are all built from one read of the account's arrangement, taken once here, while
+ * the song's own words are refreshed from the database again after the page opens. The
+ * difference is deliberate: the arrows lead to other pages, and each of those resolves
+ * its own place from a read of its own. What matters is that everything on *this* screen
+ * agrees with itself, which one read is what guarantees.
  *
- * So the neighbours are as stale as the pages they lead to — which is the only way for
- * them to agree — while what you are reading is not.
+ * (This paragraph used to say the arrows were built from build-time data. That stopped
+ * being true at v3.0, when the route became `force-dynamic`; the reason for reading them
+ * together, once, did not change with it.)
+ *
+ * `siblings` and `favorites` ride along for the browser's own narrowing of that same
+ * order — see `useSequence` in `LiveSong.tsx`. Slugs and a set rather than a second
+ * sequence: which songs are starred is the reader's answer and can change while the page
+ * is open, so the server hands over the raw materials and not a conclusion.
  *
  * Scoped to the song's own account (v3.0), not read globally: the siblings a reader
  * steps through must be this account's songs, never another one's read alongside them
@@ -60,6 +73,9 @@ async function placeOf(
   home: Home | null
   section: string | null
   series: Series | null
+  /** The songbook's slugs in reading order, for the browser's own filtered sequence. */
+  siblings: string[]
+  favorites: string[]
   library: { song: SongIndexRow; under: string | null }[]
 }> {
   const owner = hasDatabase ? await songAccountOf(song.slug) : null
@@ -90,7 +106,24 @@ async function placeOf(
       under: nameOf.get(songbookOf.get(entry.sectionId) ?? '') ?? null,
     }))
 
-  return { home, section, series: seriesOf(song, songs), library }
+  /*
+   * This reader's own stars — `currentUser` rather than `owner` for the half that says
+   * whose they are: `owner` is the account the *song* belongs to, which for a global owner
+   * looking at a customer's songbook is not the person whose stars these are. Nothing to
+   * check here: `SongPage` has already refused anyone without access to this song.
+   */
+  const user = owner === null ? null : await currentUser()
+  const favorites =
+    user === null ? [] : await listFavoriteSlugs(user.accountOwnerEmail, user.email)
+
+  return {
+    home,
+    section,
+    series: seriesOf(song, songs),
+    siblings: siblingsOf(song, songs),
+    favorites,
+    library,
+  }
 }
 
 /**
@@ -109,10 +142,15 @@ async function placeOf(
  */
 export async function SongReader({ song }: { song: Song }) {
   const parsed = parseChordPro(song.body)
-  const { home, section, series, library } = await placeOf(song)
+  const { home, section, series, siblings, favorites, library } = await placeOf(song)
+
+  /* Handed whole to the two places that draw it — the title's count and the bar's arrows —
+     which then resolve it through one shared hook rather than each deciding for itself. */
+  const sequence = { series, siblings }
 
   return (
     <PrefsProvider songSlug={song.slug}>
+      <FavoritesProvider initial={favorites}>
       {/*
         * Keyed by slug: stepping to the next song lands on the same component in
         * the same place, and without a key React would keep the previous song's
@@ -160,18 +198,14 @@ export async function SongReader({ song }: { song: Song }) {
         <div className="reading-layout">
         <main className="song-card">
           {/*
-            * The section, and the place in the songbook: «Prima parte · 3 of 12». The
-            * name says which division you are reading; the numbers count what the arrows
-            * count, which is the whole songbook — a number that counted the section
-            * while the arrow led out of it would be two different stories on one line.
+            * The section, and the place in the sequence: «Prima parte · 3 of 12». The
+            * name says which division you are reading; the numbers count exactly what the
+            * arrows step through — the whole songbook, or this reader's favorites in it
+            * while the filter is on. Both come from `useSequence`, which is the whole
+            * reason it exists: a number counting one thing while the arrow led through
+            * another would be two stories on one line.
             */}
-          <SongHeading
-            place={
-              series === null
-                ? null
-                : { position: series.position, total: series.total, within: section }
-            }
-          />
+          <SongHeading within={section} sequence={sequence} />
 
           <LiveSheet />
 
@@ -198,20 +232,10 @@ export async function SongReader({ song }: { song: Song }) {
           <LiveComments />
         </div>
 
-        <LiveControlBar
-          steps={
-            series === null
-              ? null
-              : {
-                  previous: series.previous,
-                  next: series.next,
-                  position: series.position,
-                  total: series.total,
-                }
-          }
-        />
+        <LiveControlBar sequence={sequence} />
         </CommentsProvider>
       </SongProvider>
+      </FavoritesProvider>
     </PrefsProvider>
   )
 }

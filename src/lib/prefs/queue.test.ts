@@ -19,6 +19,10 @@ function queueWith(result: SaveResult | (() => SaveResult)) {
       calls.push(`song:${slug}`)
       return next()
     },
+    saveFavorite: async (slug) => {
+      calls.push(`favorite:${slug}`)
+      return next()
+    },
   })
 
   return { queue, calls }
@@ -68,6 +72,9 @@ describe('prefs write queue', () => {
       saveSong: async () => {
         throw new Error('offline')
       },
+      saveFavorite: async () => {
+        throw new Error('offline')
+      },
     })
 
     queue.enqueueGlobal(DEFAULT_GLOBAL_PREFS)
@@ -93,9 +100,9 @@ describe('prefs write queue', () => {
   it('keeps only the latest value per target', async () => {
     const { queue, calls } = queueWith('saved')
 
-    queue.enqueueSong('x', { semitones: 1, scrollSpeed: 3, capo: 0, chordShapes: {} })
-    queue.enqueueSong('x', { semitones: 2, scrollSpeed: 3, capo: 0, chordShapes: {} })
-    queue.enqueueSong('x', { semitones: 3, scrollSpeed: 3, capo: 0, chordShapes: {} })
+    queue.enqueueSong('x', { ...DEFAULT_SONG_PREFS, semitones: 1 })
+    queue.enqueueSong('x', { ...DEFAULT_SONG_PREFS, semitones: 2 })
+    queue.enqueueSong('x', { ...DEFAULT_SONG_PREFS, semitones: 3 })
     assert.equal(queue.size(), 1)
 
     await queue.flush()
@@ -111,6 +118,38 @@ describe('prefs write queue', () => {
 
     await queue.flush()
     assert.equal(queue.size(), 0)
+  })
+
+  /**
+   * The regression behind `saveFavorite`'s own comment: a star queued under the same key
+   * as the row would make the star's own write carry a capo and a key it never meant to
+   * touch — and would drop whichever of the two was enqueued first.
+   */
+  it('queues a star apart from the rest of the same song\'s row', async () => {
+    const { queue, calls } = queueWith('saved')
+
+    queue.enqueueSong('certe-notti', DEFAULT_SONG_PREFS)
+    queue.enqueueFavorite('certe-notti', true)
+
+    assert.equal(queue.size(), 2)
+    assert.equal(queue.hasPending('song:certe-notti'), true)
+    assert.equal(queue.hasPending('favorite:certe-notti'), true)
+
+    await queue.flush()
+    assert.deepEqual(calls, ['song:certe-notti', 'favorite:certe-notti'])
+    assert.equal(queue.size(), 0)
+  })
+
+  it('keeps only the last of several taps of the same star', async () => {
+    const { queue, calls } = queueWith('saved')
+
+    queue.enqueueFavorite('certe-notti', true)
+    queue.enqueueFavorite('certe-notti', false)
+    queue.enqueueFavorite('certe-notti', true)
+    assert.equal(queue.size(), 1)
+
+    await queue.flush()
+    assert.deepEqual(calls, ['favorite:certe-notti'])
   })
 
   it('reports the pending count to subscribers', async () => {

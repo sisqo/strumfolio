@@ -678,6 +678,25 @@ export const userSongPrefs = pgTable(
      * this column is born under them.
      */
     lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }),
+    /**
+     * Whether this reader has starred this song (`PLAN-favorites.md`).
+     *
+     * Here rather than on `songs`, and that is the whole decision: a star says which
+     * songs *this reader* reaches for, not something true of the repertoire. A global
+     * owner switched into a customer's account therefore sees and writes their own
+     * stars and never the customer's — the same separation `lastOpenedAt` above already
+     * draws, and the same one `listRecentlyOpened` enforces by filtering on `userEmail`
+     * and `accountOwnerEmail` together.
+     *
+     * Defaulted rather than nullable, same reasoning as `capo`: every row that exists
+     * already answers this, with the answer that nobody has starred anything yet.
+     *
+     * **Written on its own, never as part of the whole row.** `saveFavorite`
+     * (`prefs/actions.ts`) touches this column and nothing else, the same shape
+     * `recordSongOpened` uses for `lastOpenedAt` right above — see that function for the
+     * race that makes the distinction load-bearing rather than tidy.
+     */
+    favorite: boolean('favorite').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userEmail, table.songSlug] })],

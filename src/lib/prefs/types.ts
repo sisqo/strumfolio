@@ -143,6 +143,20 @@ export interface SongPrefs {
    * just falls back to the default on its own.
    */
   chordShapes: Record<string, string>
+  /**
+   * Whether this reader has starred the song (`PLAN-favorites.md`).
+   *
+   * In this interface with the key and the capo because it is the same kind of fact —
+   * something true of this reader and this song — and because every screen that already
+   * reads a song's preferences should be able to ask this one without a second source.
+   *
+   * It is the one field here that does **not** travel through `saveSongPrefs`. The star
+   * is a single tap on a control at the very top of a page that has just opened, which is
+   * exactly the window in which a whole-row write would flush the defaults over the
+   * reader's real capo — see `saveFavorite` and `PrefsProvider.toggleFavorite` for the
+   * race written out in full. It is queued on its own key and written to its own column.
+   */
+  favorite: boolean
 }
 
 /** Font sizes for the sheet, in pixels. The text reflows; it is not a viewport zoom. */
@@ -221,7 +235,13 @@ export function readChordShapes(value: unknown): Record<string, string> {
   return result
 }
 
-export const DEFAULT_SONG_PREFS: SongPrefs = { semitones: 0, scrollSpeed: 3, capo: 0, chordShapes: {} }
+export const DEFAULT_SONG_PREFS: SongPrefs = {
+  semitones: 0,
+  scrollSpeed: 3,
+  capo: 0,
+  chordShapes: {},
+  favorite: false,
+}
 
 export function clampZoom(step: number): number {
   return Math.max(0, Math.min(ZOOM_STEPS.length - 1, Math.round(step)))

@@ -685,14 +685,30 @@
    * Square, and exactly as tall as the notes track beside it (38px segments inside 3px of
    * padding), so the header reads as one cluster rather than two controls that happen to
    * be adjacent.
+   *
+   * The star takes the same box on the other side of the track, for the same reason: three
+   * controls of one height read as one cluster, three of two heights read as a mistake.
    */
-  .btn.song-heading-edit {
+  .btn.song-heading-edit,
+  .btn.song-heading-star {
     width: 2.75rem;
     height: 2.75rem;
     min-height: 0;
     padding: 0;
     gap: 0;
     border-radius: var(--r-sm);
+  }
+
+  /*
+   * A starred song, in the one colour this screen otherwise reserves for chords.
+   *
+   * A declared exception to the Chord-First Rule (see DESIGN.md), on the same terms the key
+   * badge in `SongControls` already takes it: a single glyph rather than a filled area, and
+   * lit only while the value is not the default — an unstarred song's star is `--muted` and
+   * competes with nothing. The fill is what carries the state; the colour agrees with it.
+   */
+  .btn.song-heading-star.is-on {
+    color: var(--accent);
   }
 
   /* ---- The three-segment track ---------------------------------------- */
@@ -8905,6 +8921,27 @@
     }
   }
 
+  /*
+   * A pill holding a state rather than an action — today only the favorites filter.
+   *
+   * `--accent` on the glyph and `--accent-soft` behind it, which is the same declared
+   * exception the star beside a song's title takes (see DESIGN.md, beside the Chord-First
+   * Rule): lit only while the filter is on, and on a screen that is a list of songs rather
+   * than a sheet of chords, so there is nothing here for it to compete with.
+   */
+  .icon-pill.is-on {
+    background: var(--accent-soft);
+    border-color: transparent;
+    color: var(--accent);
+  }
+
+  @media (hover: hover) {
+    .icon-pill.is-on:hover {
+      background: color-mix(in srgb, var(--accent-soft) 80%, var(--accent));
+      color: var(--accent);
+    }
+  }
+
   /* ---- Lists ---------------------------------------------------------- */
 
   .row {
@@ -9595,6 +9632,18 @@
   .toggle-switch:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  /*
+   * The star on a starred row: the accent, at the size of the text it follows, and drawn
+   * only when the answer is yes — an unstarred row shows nothing, so this never becomes a
+   * column of grey outlines down a list (see `SongRow`).
+   */
+  .row-star {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    color: var(--accent);
   }
 
   /* A song's place in its section — the artist sits at the row's far end instead

@@ -135,6 +135,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           scrollSpeed: clampSpeed(songRows[0].scrollSpeed),
           capo: clampCapo(songRows[0].capo),
           chordShapes: readChordShapes(songRows[0].chordShapes),
+          favorite: songRows[0].favorite,
         }
 
   return { global, song }
@@ -195,6 +196,14 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
   }
 }
 
+/**
+ * The key, the speed, the capo and the chosen shapes — the whole row at once, which is
+ * what makes `favorite` conspicuously absent from it.
+ *
+ * `prefs.favorite` is read and discarded here on purpose (it is not in `values` below).
+ * The star has `saveFavorite` instead, and the reason is a race this write cannot avoid:
+ * see that function.
+ */
 export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise<SaveResult> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return 'no-destination'
@@ -217,6 +226,47 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
     return 'saved'
   } catch (error) {
     console.error('saveSongPrefs failed', error)
+    return 'failed'
+  }
+}
+
+/**
+ * Stars or unstars one song for this reader — one column, never the whole row.
+ *
+ * **The narrowness is the entire point, and it is a correctness requirement rather than
+ * tidiness.** `PrefsProvider` reads the local cache before paint and the server's row a
+ * moment later, and its load effect deliberately refuses to apply that row while a write
+ * for the same song is queued — otherwise the older stored value would silently overwrite
+ * a change the reader had just made. Route the star through `saveSongPrefs` and that guard
+ * turns against itself: the star is a single tap on a control at the top of a page that
+ * has only just opened, so on a device with no cached copy of that song the tap queues the
+ * *defaults* (capo 0, no transposition), the arriving row is then skipped because a write
+ * is pending, and two seconds later the queue flushes those defaults over a capo the
+ * reader had set months ago. One column cannot do that: it says nothing about the key or
+ * the capo, so there is nothing for it to overwrite.
+ *
+ * Inserting only `favorite` leaves the other columns at their defaults, which is right —
+ * a row that did not exist held no preferences to preserve.
+ *
+ * No plan checked and no role checked, same as `saveSongPrefs` and for the reason stated
+ * above it: which songs a reader reaches for is how they read, not a change to anything
+ * shared.
+ */
+export async function saveFavorite(songSlug: string, favorite: boolean): Promise<SaveResult> {
+  const email = (await currentUser())?.email ?? null
+  if (email === null) return 'no-destination'
+
+  try {
+    await db()
+      .insert(userSongPrefs)
+      .values({ userEmail: email, songSlug, favorite })
+      .onConflictDoUpdate({
+        target: [userSongPrefs.userEmail, userSongPrefs.songSlug],
+        set: { favorite, updatedAt: new Date() },
+      })
+    return 'saved'
+  } catch (error) {
+    console.error('saveFavorite failed', error)
     return 'failed'
   }
 }
@@ -253,10 +303,10 @@ export async function recordSongOpened(songSlug: string): Promise<void> {
  *
  * **An UPDATE that nulls one column, never a DELETE**, and that is the whole of what makes this
  * safe rather than destructive: `lastOpenedAt` shares its row with `semitones`, `capo`,
- * `scrollSpeed` and `capo` (see `userSongPrefs` in `db/schema.ts`), so deleting the rows would
- * throw away the key this reader sings each song in, the fret their capo sits on and the
- * reminder they wrote themselves — to clear a list of shortcuts. One column is the only thing
- * anybody is asking to forget.
+ * `scrollSpeed`, `chordShapes` and `favorite` (see `userSongPrefs` in `db/schema.ts`), so
+ * deleting the rows would throw away the key this reader sings each song in, the fret their
+ * capo sits on and every song they have starred — to clear a list of shortcuts. One column is
+ * the only thing anybody is asking to forget.
  *
  * Scoped by `userEmail` **and** the account the songs belong to, matching `listRecentlyOpened`
  * (`lib/data/db.ts`) clause for clause and for its own stated reason: a global owner's rows can

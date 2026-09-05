@@ -136,6 +136,40 @@ export async function listSongsForAccount(accountOwnerEmail: string): Promise<So
   return rows.map((row) => rowToSong(row.song))
 }
 
+/**
+ * The slugs this reader has starred, in the account currently on screen.
+ *
+ * Slugs and nothing else: the star belongs to the reader while the rows belong to the
+ * account, so the two are carried side by side and joined where they are drawn rather
+ * than folded into `SongIndexRow`. Fold it in and `toIndexRow`/`loadSongIndex` would stop
+ * being answerable without knowing who is asking, which is precisely what makes them
+ * cacheable and shareable today.
+ *
+ * Scoped by `userEmail` **and** `accountOwnerEmail` together, clause for clause like
+ * `listRecentlyOpened` above and for the same reason: a global owner's `user_song_prefs`
+ * rows can point at songs in any account they have ever switched into, and the stars this
+ * screen draws must be the ones for the songs this screen is showing.
+ */
+export async function listFavoriteSlugs(
+  accountOwnerEmail: string,
+  userEmail: string,
+): Promise<string[]> {
+  const rows = await db()
+    .select({ slug: userSongPrefs.songSlug })
+    .from(userSongPrefs)
+    .innerJoin(songs, eq(userSongPrefs.songSlug, songs.slug))
+    .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+    .where(
+      and(
+        eq(userSongPrefs.userEmail, userEmail),
+        eq(songbooks.accountOwnerEmail, accountOwnerEmail),
+        eq(userSongPrefs.favorite, true),
+      ),
+    )
+
+  return rows.map((row) => row.slug)
+}
+
 /** A song this reader opened, and which songbook it lives in — the home screen's own "where". */
 export interface RecentSong extends SongIndexRow {
   songbookName: string

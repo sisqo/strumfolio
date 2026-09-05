@@ -1,3 +1,4 @@
+import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { Footer } from '@/components/Footer'
 import { SongbookProvider } from '@/components/SongbookProvider'
 import { HomeScreen } from '@/components/HomeScreen'
@@ -5,6 +6,7 @@ import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { currentUser } from '@/lib/auth/session'
 import {
+  listFavoriteSlugs,
   listRecentlyOpened,
   listSectionsForAccount,
   listSongbooksForAccount,
@@ -61,37 +63,45 @@ export default async function Home() {
    * page already holds against `PLANS`: `over()` lives in `entitlementsFor` and the notice has
    * to agree with the refusal it precedes, which a second copy of the rule could not promise.
    */
-  const [recentlyPlayed, frozen]: [RecentSong[], boolean] =
+  const [recentlyPlayed, frozen, favorites]: [RecentSong[], boolean, string[]] =
     user === null
-      ? [[], false]
+      ? [[], false, []]
       : await Promise.all([
           listRecentlyOpened(user.accountOwnerEmail, user.email, 6),
           entitlementsOf(user.accountOwnerEmail).then((entitlements) => entitlements.frozen),
+          /* The stars, read here rather than fetched from the client for the reason the
+             two above are read here: a list whose stars appeared a moment after the rows
+             would flicker under a reader already scanning it. `FavoritesProvider`
+             refreshes them after mount all the same, since this page's shell can come out
+             of the service worker's cache and be of any age. */
+          listFavoriteSlugs(user.accountOwnerEmail, user.email),
         ])
 
   return (
     <PrefsProvider songSlug={null}>
-      <SongbookProvider initial={initial}>
-        <TopBar current="songs" />
+      <FavoritesProvider initial={favorites}>
+        <SongbookProvider initial={initial}>
+          <TopBar current="songs" />
 
-        <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
-          {/* Not a title anyone needs to read: this is the page you land on, and the
-              search box is the first thing to do here, not something to find under a
-              heading. Still an <h1>, just not a visible one — a screen reader moving by
-              heading still gets told which page this is. */}
-          <h1 className="sr-only">Home</h1>
+          <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+            {/* Not a title anyone needs to read: this is the page you land on, and the
+                search box is the first thing to do here, not something to find under a
+                heading. Still an <h1>, just not a visible one — a screen reader moving by
+                heading still gets told which page this is. */}
+            <h1 className="sr-only">Home</h1>
 
-          {/*
-            * Every song's searchable text, even though this screen lists songbooks: the
-            * search box is here, and it searches the words. That is also why the whole
-            * index is baked in rather than fetched — a search that needs the network is
-            * no use on stage.
-            */}
-          <HomeScreen songs={songs.map(toIndexEntry)} recentlyPlayed={recentlyPlayed} frozen={frozen} />
+            {/*
+              * Every song's searchable text, even though this screen lists songbooks: the
+              * search box is here, and it searches the words. That is also why the whole
+              * index is baked in rather than fetched — a search that needs the network is
+              * no use on stage.
+              */}
+            <HomeScreen songs={songs.map(toIndexEntry)} recentlyPlayed={recentlyPlayed} frozen={frozen} />
 
-          <Footer />
-        </main>
-      </SongbookProvider>
+            <Footer />
+          </main>
+        </SongbookProvider>
+      </FavoritesProvider>
     </PrefsProvider>
   )
 }

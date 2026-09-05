@@ -20,8 +20,22 @@ import type { GlobalPrefs, SongPrefs } from './types'
 type Pending =
   | { kind: 'global'; prefs: GlobalPrefs }
   | { kind: 'song'; slug: string; prefs: SongPrefs }
+  /**
+   * The star, and the one entry here that does not carry a whole row.
+   *
+   * A key of its own rather than a field inside `song`, because the two are queued
+   * under different circumstances: a capo is moved by somebody already reading, while
+   * the star is tapped the instant a page opens — before the server's row has arrived.
+   * Sharing `song:${slug}` would make that tap pin whatever the client happened to be
+   * showing at the time, which is the defaults, and flush them over the reader's real
+   * preferences. See `saveFavorite` for the race in full.
+   *
+   * Last-write-wins per song is still exactly right for this one: five taps of the same
+   * star are one save, the same way five taps of +1 are.
+   */
+  | { kind: 'favorite'; slug: string; favorite: boolean }
 
-export type QueueKey = 'global' | `song:${string}`
+export type QueueKey = 'global' | `song:${string}` | `favorite:${string}`
 
 const DEBOUNCE_MS = 2000
 /** Longer than the debounce: a failing server should not be hammered. */
@@ -30,6 +44,7 @@ const RETRY_MS = 15000
 export interface QueueHandlers {
   saveGlobal: (prefs: GlobalPrefs) => Promise<SaveResult>
   saveSong: (slug: string, prefs: SongPrefs) => Promise<SaveResult>
+  saveFavorite: (slug: string, favorite: boolean) => Promise<SaveResult>
 }
 
 /**
@@ -81,10 +96,9 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
       for (const [key, entry] of [...pending.entries()]) {
         let result: SaveResult
         try {
-          result =
-            entry.kind === 'global'
-              ? await handlers.saveGlobal(entry.prefs)
-              : await handlers.saveSong(entry.slug, entry.prefs)
+          if (entry.kind === 'global') result = await handlers.saveGlobal(entry.prefs)
+          else if (entry.kind === 'song') result = await handlers.saveSong(entry.slug, entry.prefs)
+          else result = await handlers.saveFavorite(entry.slug, entry.favorite)
         } catch {
           // Offline, or the request never arrived.
           retry = true
@@ -140,9 +154,32 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
       schedule(debounceMs)
     },
 
+    enqueueFavorite(slug: string, favorite: boolean) {
+      pending.set(`favorite:${slug}`, { kind: 'favorite', slug, favorite })
+      notify()
+      schedule(debounceMs)
+    },
+
     /** True while a change for this scope has not reached the server yet. */
     hasPending(key: QueueKey): boolean {
       return pending.has(key)
+    },
+
+    /**
+     * The stars still waiting, slug by slug, with the value each is waiting to write.
+     *
+     * `hasPending` answers about one key a caller already knows the name of, which is no
+     * use to a list: `FavoritesProvider` has to learn *which* songs have just been starred
+     * without being told, and it has to learn the value too — a star tapped on and off
+     * again inside the debounce window is one entry whose value changed and whose key did
+     * not.
+     */
+    pendingFavorites(): Record<string, boolean> {
+      const found: Record<string, boolean> = {}
+      for (const entry of pending.values()) {
+        if (entry.kind === 'favorite') found[entry.slug] = entry.favorite
+      }
+      return found
     },
 
     size(): number {

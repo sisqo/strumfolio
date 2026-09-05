@@ -16,7 +16,13 @@ import { useRole } from '@/components/RoleProvider'
 import type { Accidentals, Notation } from '@/lib/music/chord'
 import type { Instrument } from '@/lib/music/shapes'
 import { PLANS } from '@/lib/plans/types'
-import { loadPrefs, recordSongOpened, saveGlobalPrefs, saveSongPrefs } from '@/lib/prefs/actions'
+import {
+  loadPrefs,
+  recordSongOpened,
+  saveFavorite,
+  saveGlobalPrefs,
+  saveSongPrefs,
+} from '@/lib/prefs/actions'
 import { prefsQueue } from '@/lib/prefs/queue'
 import {
   readGlobalPrefs,
@@ -56,6 +62,14 @@ interface PrefsContextValue {
    * present" the one signal both the popup's picker and the summary's dot read.
    */
   setChordShape: (key: string, fingering: string | null) => void
+  /**
+   * Stars or unstars this song. Nothing to pass: there are two states and the control
+   * that calls this is showing whichever one is current.
+   *
+   * Apart from every setter above it, and deliberately so — it writes one column through
+   * its own queue key rather than travelling with the row. See `saveFavorite`.
+   */
+  toggleFavorite: () => void
 }
 
 const PrefsContext = createContext<PrefsContextValue | null>(null)
@@ -106,8 +120,24 @@ export function PrefsProvider({
    */
   const songRef = useRef(song)
 
+  /**
+   * Whether the star has been tapped for the song currently on screen.
+   *
+   * `prefsQueue.hasPending` cannot answer this, and the gap is not theoretical: the queue
+   * empties the moment the write lands, while the `loadPrefs` below was issued at mount and
+   * can resolve *later than that* on a slow connection — carrying the value from before the
+   * tap, with nothing left in the queue to warn it off. The star would then quietly go out a
+   * few seconds after being set. A read that was issued before the reader acted may never
+   * overrule them.
+   *
+   * Reset in the layout effect below, which runs on every song change before that song's own
+   * load effect does, so nothing carries over from the previous song.
+   */
+  const starTouched = useRef(false)
+
   useLayoutEffect(() => {
     if (!persist) return
+    starTouched.current = false
     setGlobal(readGlobalPrefs())
     const nextSong = songSlug === null ? DEFAULT_SONG_PREFS : readSongPrefs(songSlug)
     songRef.current = nextSong
@@ -116,7 +146,11 @@ export function PrefsProvider({
 
   useEffect(() => {
     if (!persist) return
-    prefsQueue.setHandlers({ saveGlobal: saveGlobalPrefs, saveSong: saveSongPrefs })
+    prefsQueue.setHandlers({
+      saveGlobal: saveGlobalPrefs,
+      saveSong: saveSongPrefs,
+      saveFavorite,
+    })
     prefsQueue.watchConnection()
     return prefsQueue.subscribe(setPending)
   }, [persist])
@@ -134,9 +168,20 @@ export function PrefsProvider({
           writeGlobalPrefs(stored.global)
         }
         if (stored.song !== null && songSlug !== null && !prefsQueue.hasPending(`song:${songSlug}`)) {
-          songRef.current = stored.song
-          setSong(stored.song)
-          writeSongPrefs(songSlug, stored.song)
+          /*
+           * The star is queued on a key of its own, so it needs its own half of the same
+           * guard the line above applies to the rest of the row: a reader who tapped it
+           * while this read was in flight must not watch it spring back to what the server
+           * said a moment before they changed it. `starTouched` rather than the queue —
+           * see its own comment for the few seconds in which those two disagree.
+           */
+          const next = starTouched.current
+            ? { ...stored.song, favorite: songRef.current.favorite }
+            : stored.song
+
+          songRef.current = next
+          setSong(next)
+          writeSongPrefs(songSlug, next)
         }
       })
       .catch(() => {
@@ -218,6 +263,29 @@ export function PrefsProvider({
     [readable, persist],
   )
 
+  /**
+   * The star: state, cache and queue, without going through `updateSong`.
+   *
+   * `updateSong` would enqueue the whole row, which is the one thing this must not do —
+   * see `saveFavorite` for the capo it would flush away. The cache is still written whole,
+   * because that is the shape it has, but it is merged onto what the cache already holds
+   * rather than onto React state: state can still be at its defaults here (the server's
+   * row has not landed yet), and writing those into the cache would hand the next open of
+   * this song a capo of 0 to paint before `loadPrefs` corrects it.
+   */
+  const toggleFavorite = useCallback(() => {
+    if (songSlug === null) return
+
+    const next = !songRef.current.favorite
+    starTouched.current = true
+    songRef.current = { ...songRef.current, favorite: next }
+    setSong((prev) => ({ ...prev, favorite: next }))
+
+    if (!persist) return
+    writeSongPrefs(songSlug, { ...readSongPrefs(songSlug), favorite: next })
+    prefsQueue.enqueueFavorite(songSlug, next)
+  }, [songSlug, persist])
+
   const updateSong = useCallback(
     (patch: SongPrefs | ((prev: SongPrefs) => SongPrefs)) => {
       const prev = songRef.current
@@ -262,8 +330,9 @@ export function PrefsProvider({
           else chordShapes[key] = fingering
           return { ...prev, chordShapes }
         }),
+      toggleFavorite,
     }),
-    [readable, song, pending, updateGlobal, updateSong],
+    [readable, song, pending, updateGlobal, updateSong, toggleFavorite],
   )
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>

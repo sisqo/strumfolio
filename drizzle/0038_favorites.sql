@@ -1,0 +1,15 @@
+-- Whether this reader has starred this song (PLAN-favorites.md).
+--
+-- On `user_song_prefs` and not on `songs`, so the star belongs to the reader rather
+-- than to the repertoire: a global owner switched into a customer's account sees and
+-- writes their own stars, never the customer's — the same separation `last_opened_at`
+-- already draws for "Recently played".
+--
+-- Additive with no backfill: `DEFAULT false` is the answer every existing row already
+-- gives, and nobody has starred anything yet.
+--
+-- Snapshot warning (see 0031-0033's own notes, and PLAN.md Domande aperte #19):
+-- `db:generate` — even with `--custom` — still refuses to run, 0028/0029/0030 sharing one
+-- id and prevId. This file and its journal entry were written by hand, the same way
+-- 0024-0037 were.
+ALTER TABLE "user_song_prefs" ADD COLUMN "favorite" boolean DEFAULT false NOT NULL;

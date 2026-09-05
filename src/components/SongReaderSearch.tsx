@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
+import { useFavorites } from '@/components/FavoritesProvider'
 import { SongRow } from '@/components/SongRow'
 import { IconSearch } from '@/components/icons'
 import type { SongIndexRow } from '@/lib/search-index'
@@ -29,6 +30,7 @@ export function SongReaderSearch({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const deferred = useDeferredValue(query)
+  const { isFavorite } = useFavorites()
 
   const close = () => setOpen(false)
 
@@ -106,7 +108,7 @@ export function SongReaderSearch({
                       // otherwise still read as open for the moment before the new page
                       // replaces this one.
                       <li key={song.slug} onClick={close}>
-                        <SongRow song={song} under={under} />
+                        <SongRow song={song} under={under} favorite={isFavorite(song.slug)} />
                       </li>
                     ))}
                   </ul>

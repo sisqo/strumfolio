@@ -12,8 +12,10 @@ import { useMemo } from 'react'
 
 import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
-import { ControlBar, type NavSteps } from '@/components/ControlBar'
+import { ControlBar } from '@/components/ControlBar'
+import { useFavorites } from '@/components/FavoritesProvider'
 import { EditSongLink } from '@/components/EditSongLink'
+import { FavoriteButton } from '@/components/FavoriteButton'
 import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
@@ -22,19 +24,42 @@ import { chordTokens } from '@/lib/chordpro'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
 import { fromSource } from '@/lib/editor/document'
+import { type Series, favoritesSeries } from '@/lib/songbooks/series'
 
 /**
- * Where this song sits in the sequence it is being read in.
+ * The sequence this song is being read in, and what it is cut from.
  *
- * `within` names the **section** the song is in, while the two numbers count the whole
- * songbook — which is what the arrows step through, so it is what they should count.
- * The songbook itself is named by the way back at the top of the screen, one line above,
- * so saying it again here would be the same word twice on a phone-width line.
+ * Two shapes because the answer depends on something the server does not know: with the
+ * favorites filter on, the arrows step between starred songs and the count counts those.
+ * `series` is the whole songbook as the server worked it out; `siblings` is that
+ * songbook's slugs in the same order, for the browser to narrow.
  */
-export interface Place {
-  position: number
-  total: number
-  within: string | null
+export interface Sequence {
+  series: Series | null
+  siblings: string[]
+}
+
+/**
+ * The sequence actually in force, resolved in one place because it is read in two.
+ *
+ * The title's own «Prima parte · 3 of 12» and the bar's «3/12» are the same fact told
+ * twice, and on a phone they are not even both visible — the bar hides its count below
+ * `sm`, which is exactly why the header carries one. Compute it separately in each and
+ * the two drift apart the moment the filter is on: the arrows would step between five
+ * favorites while the only count on screen said twelve.
+ *
+ * Falls back to the whole songbook whenever there is no favorites sequence to be had —
+ * see `favoritesSeries` for the three ways that happens, of which "this song is not
+ * starred" is the everyday one.
+ */
+function useSequence({ series, siblings }: Sequence): Series | null {
+  const { song } = useSong()
+  const { favorites, only } = useFavorites()
+
+  return useMemo(() => {
+    if (!only) return series
+    return favoritesSeries(siblings, favorites, song.slug) ?? series
+  }, [only, series, siblings, favorites, song.slug])
 }
 
 /** The three-segment track, in the header row beside Edit — where both reader boards put it. */
@@ -50,9 +75,18 @@ function HeadingNotes() {
  * the first thing on it, so a line drawn between them was separating a song from
  * itself; the space does the work.
  */
-export function SongHeading({ place }: { place: Place | null }) {
+export function SongHeading({
+  within,
+  sequence,
+}: {
+  /** The **section** the song is in. The songbook is named by the way back one line above,
+      so saying it again here would be the same word twice on a phone-width line. */
+  within: string | null
+  sequence: Sequence
+}) {
   const { song, parsed, deleted } = useSong()
   const links = [song.link1, song.link2, song.link3].filter((link) => link !== null)
+  const place = useSequence(sequence)
 
   /*
    * From the live copy, not the baked one, so a chord added in the editor counts towards
@@ -77,6 +111,9 @@ export function SongHeading({ place }: { place: Place | null }) {
           {song.title}
         </h1>
         <div className="song-heading-actions">
+          {/* First of the three: the one control here that is tapped before anything on
+              the page has been read, and the only one every reader is offered. */}
+          <FavoriteButton />
           <HeadingNotes />
           <EditSongLink slug={song.slug} placement="top" />
         </div>
@@ -85,7 +122,7 @@ export function SongHeading({ place }: { place: Place | null }) {
         {song.artist !== null && <span>{song.artist}</span>}
         {place !== null && (
           <span className="text-muted">
-            {place.within !== null && `${place.within} · `}
+            {within !== null && `${within} · `}
             {place.position} of {place.total}
           </span>
         )}
@@ -156,8 +193,13 @@ export function LiveSheet() {
  * The bar needs nothing about the song's own chords any more: the capo suggestion and the
  * key both moved onto the sheet's own header (`SongControls`), and what is left here —
  * play, speed, Strum Together, the step to the next song — is the same on every song.
+ *
+ * The one thing it does still work out is which sequence the arrows step through, and it
+ * does that through the same hook the title's own count uses so the two can never
+ * disagree. `NavSteps` and `Series` are the same four fields, so there is nothing to map.
  */
-export function LiveControlBar({ steps }: { steps: NavSteps | null }) {
+export function LiveControlBar({ sequence }: { sequence: Sequence }) {
   const { song } = useSong()
+  const steps = useSequence(sequence)
   return <ControlBar songSlug={song.slug} steps={steps} />
 }

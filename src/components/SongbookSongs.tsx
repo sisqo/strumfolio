@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 
 import { ArrangeSongbook } from '@/components/ArrangeSongbook'
+import { FavoritesFilterToggle } from '@/components/FavoritesFilterToggle'
+import { useFavorites } from '@/components/FavoritesProvider'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { useRole } from '@/components/RoleProvider'
 import { SongRow } from '@/components/SongRow'
@@ -58,6 +60,7 @@ export function SongbookSongs({
   const state = useSongbooks()
   const { assignments, online, divisionsOf, nameOf } = state
   const { mayEdit } = useRole()
+  const { isFavorite, only: favoritesOnly } = useFavorites()
 
   const [rows, setRows] = useLiveRows(baked)
   const [mode, setMode] = useState<'list' | 'organizing'>('list')
@@ -116,9 +119,52 @@ export function SongbookSongs({
     [divisions, rows, assignments],
   )
 
+  /**
+   * What the list actually draws: every section, or only the starred songs inside the
+   * sections that still hold one.
+   *
+   * The sections survive the filter rather than collapsing into one flat list, because
+   * inside a songbook they are the order — the arrangement somebody put these songs in is
+   * the reason this screen is not alphabetical. A section left with nothing goes, though:
+   * a heading over an empty fold says only that the filter is on, which the lit switch
+   * above already says.
+   */
+  const shown = useMemo(() => {
+    /*
+     * The number a row wears is its place in the **whole** section, kept from the
+     * unfiltered list rather than recomputed over what is left. With the filter on the
+     * numbers then run 2, 5, 9 rather than 1, 2, 3 — which is the honest answer: the
+     * label says "place in its section", and renumbering a subset would make it false and
+     * would stop agreeing with the same song's number once the filter came off.
+     */
+    const numbered = groups.map(({ section, songs }) => ({
+      section,
+      /* How many songs the section really holds, kept beside the ones being drawn: the
+         confirmation in front of deleting a section counts what would be destroyed, which
+         is never "the ones a filter happens to be showing". */
+      held: songs.length,
+      songs: songs.map((song, index) => ({ song, index: index + 1 })),
+    }))
+
+    if (!favoritesOnly) return numbered
+
+    return numbered
+      .map((group) => ({ ...group, songs: group.songs.filter(({ song }) => isFavorite(song.slug)) }))
+      .filter((group) => group.songs.length > 0)
+  }, [groups, favoritesOnly, isFavorite])
+
+  /*
+   * Counted over every section, filtered or not, so the header can say "4 of 21" rather
+   * than restating the number of rows immediately below it.
+   */
   const total = useMemo(
     () => groups.reduce((count, group) => count + group.songs.length, 0),
     [groups],
+  )
+
+  const starred = useMemo(
+    () => shown.reduce((count, group) => count + group.songs.length, 0),
+    [shown],
   )
 
   /*
@@ -191,15 +237,23 @@ export function SongbookSongs({
             <span className="min-w-0 truncate">{name}</span>
           </h1>
           <p className="screen-subtitle">
-            <span>
-              {total} {total === 1 ? 'song' : 'songs'}
-            </span>
-            {divisions.length > 0 && (
+            {favoritesOnly ? (
+              <span>
+                {starred} of {total} {total === 1 ? 'song' : 'songs'}
+              </span>
+            ) : (
               <>
-                <span className="screen-subtitle-dot" aria-hidden />
                 <span>
-                  {divisions.length} {divisions.length === 1 ? 'section' : 'sections'}
+                  {total} {total === 1 ? 'song' : 'songs'}
                 </span>
+                {divisions.length > 0 && (
+                  <>
+                    <span className="screen-subtitle-dot" aria-hidden />
+                    <span>
+                      {divisions.length} {divisions.length === 1 ? 'section' : 'sections'}
+                    </span>
+                  </>
+                )}
               </>
             )}
           </p>
@@ -220,8 +274,17 @@ export function SongbookSongs({
           * screen of its own, so it stays a button (not a bare `Link`) precisely so it
           * can be disabled the same way Arrange is.
           */}
-        {mayEdit && (
-          <div className="screen-header-actions">
+        {/*
+          * Outside the `mayEdit` block below it, and that is the point: filtering is
+          * reading, so it is offered to anybody who can open this songbook at all — where
+          * Arrange and Add song are for whoever owns it. It sits in the same row so the
+          * header does not grow a second one for a single pill.
+          */}
+        <div className="screen-header-actions">
+          <FavoritesFilterToggle />
+
+          {mayEdit && (
+            <>
             <button
               type="button"
               className="btn btn-sm"
@@ -240,8 +303,9 @@ export function SongbookSongs({
               <IconPlus size={16} />
               Add song
             </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {mayEdit && !online && (
@@ -258,7 +322,14 @@ export function SongbookSongs({
         </p>
       )}
 
-      {divisions.length === 0 && total === 0 ? (
+      {favoritesOnly && total > 0 && starred === 0 ? (
+        /* The filter is on and this songbook has nothing starred. Said in its own words
+           rather than through the empty-songbook message below, which would tell an
+           editor to add songs to a songbook that is not empty. */
+        <p className="panel mt-4 p-3.5 text-sm text-muted">
+          No favorites in this songbook yet. Open a song and tap the star beside its title.
+        </p>
+      ) : divisions.length === 0 && total === 0 ? (
         /*
          * No section at all is reachable now, not just no songs: `removeSection`
          * lets Arrange delete the last one while it is empty, and the old escape
@@ -277,7 +348,7 @@ export function SongbookSongs({
             * one — and a fold then has a visible container to happen in.
             */}
           <ul className="card-stack mt-4">
-            {groups.map(({ section, songs }) => {
+            {shown.map(({ section, songs, held }) => {
               const open = isOpen(section.id)
               const isRenaming = renaming === section.id
               const isRemoving = removing === section.id
@@ -335,6 +406,9 @@ export function SongbookSongs({
                           <span className="min-w-0 flex-1 truncate font-medium">
                             {section.name}
                           </span>
+                          {/* What this fold is about to show, which under a filter is not
+                              the whole section — the delete confirmation below counts the
+                              section itself, since that is what it would destroy. */}
                           <span className="text-[0.84375rem] text-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
                             {songs.length} {songs.length === 1 ? 'song' : 'songs'}
                           </span>
@@ -389,7 +463,6 @@ export function SongbookSongs({
                   {isRemoving && (
                     <div className="panel mx-2 mb-2 mt-2 p-3.5 text-sm">
                       {(() => {
-                        const held = songs.length
                         const elsewhere = others(section.id)
 
                         if (held === 0) {
@@ -542,10 +615,10 @@ export function SongbookSongs({
                       </p>
                     ) : (
                       <ul>
-                        {songs.map((song, index) => (
+                        {songs.map(({ song, index }) => (
                           // The id is what the way back from a song points at.
                           <li key={song.slug} id={`song-${song.slug}`}>
-                            <SongRow song={song} index={index + 1} />
+                            <SongRow song={song} index={index} favorite={isFavorite(song.slug)} />
                           </li>
                         ))}
                       </ul>

@@ -2,15 +2,17 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { Footer } from '@/components/Footer'
 import { SongbookProvider } from '@/components/SongbookProvider'
 import { SongbookSongs } from '@/components/SongbookSongs'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { IconChevronLeft } from '@/components/icons'
-import { accessTo } from '@/lib/auth/session'
+import { accessTo, currentUser } from '@/lib/auth/session'
 import { songbookAccountOf } from '@/lib/data/access'
 import {
+  listFavoriteSlugs,
   listSectionsForAccount,
   listSongbooksForAccount,
   listSongsForAccount,
@@ -88,6 +90,16 @@ export default async function SongbookPage({ params }: Props) {
   const initial = snapshot(songs, songbooks, sections)
 
   /*
+   * This reader's own stars, which is why it asks `currentUser` again rather than reusing
+   * `resolved.accountOwnerEmail` above for both halves: that one says whose songbook this
+   * is, and a global owner looking at somebody's account has stars of their own on it.
+   * Empty with no database — there is one local repertoire then and no reader to scope to.
+   */
+  const user = resolved.accountOwnerEmail === null ? null : await currentUser()
+  const favorites =
+    user === null ? [] : await listFavoriteSlugs(user.accountOwnerEmail, user.email)
+
+  /*
    * This songbook's songs, in the order `listSongs` reads them — position first, then
    * title. The rows carry no lyrics: there is nothing to search on this screen, and the
    * words of two dozen songs would otherwise ride along in the page for nothing.
@@ -96,26 +108,28 @@ export default async function SongbookPage({ params }: Props) {
 
   return (
     <PrefsProvider songSlug={null}>
-      <SongbookProvider initial={initial}>
-        <TopBar current="songbooks" />
+      <FavoritesProvider initial={favorites}>
+        <SongbookProvider initial={initial}>
+          <TopBar current="songbooks" />
 
-        <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
-          <Link href="/" className="back-plain mb-3.5">
-            <IconChevronLeft size={15} />
-            Songbooks
-          </Link>
+          <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+            <Link href="/" className="back-plain mb-3.5">
+              <IconChevronLeft size={15} />
+              Songbooks
+            </Link>
 
-          {/*
-            * The name and its counts live inside `SongbookSongs`, not here: they come
-            * from the same live layer the cards below read, so a section created a
-            * minute ago is already counted there instead of waiting for the next
-            * rebuild.
-            */}
-          <SongbookSongs slug={slug} songs={mine} />
+            {/*
+              * The name and its counts live inside `SongbookSongs`, not here: they come
+              * from the same live layer the cards below read, so a section created a
+              * minute ago is already counted there instead of waiting for the next
+              * rebuild.
+              */}
+            <SongbookSongs slug={slug} songs={mine} />
 
-          <Footer />
-        </main>
-      </SongbookProvider>
+            <Footer />
+          </main>
+        </SongbookProvider>
+      </FavoritesProvider>
     </PrefsProvider>
   )
 }

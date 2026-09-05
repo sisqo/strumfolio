@@ -88,11 +88,49 @@ export function readSongPrefs(slug: string): SongPrefs {
         : DEFAULT_SONG_PREFS.scrollSpeed,
     capo: typeof cached.capo === 'number' ? clampCapo(cached.capo) : DEFAULT_SONG_PREFS.capo,
     chordShapes: readChordShapes(cached.chordShapes),
+    favorite: cached.favorite === true,
   }
 }
 
 export function writeSongPrefs(slug: string, prefs: SongPrefs): void {
   write(SONG_KEY_PREFIX + slug, prefs)
+}
+
+/**
+ * Every song this device has a cached answer about, and whether that answer is starred.
+ *
+ * The lists need the star for songs nobody has opened in this tab, which is the one thing
+ * `readSongPrefs` cannot give them: it answers about one slug at a time and the caller
+ * would have to already know which slugs to ask about. So this walks the cache instead —
+ * the same entries `writeSongPrefs` leaves behind, either because `loadPrefs` brought the
+ * server's answer back or because the reader tapped the star here.
+ *
+ * The prefix test is exact and has to be: `songs:prefs`, `songs:sections`, `songs:edits`
+ * and `songs:comments:` all share this namespace, and a looser match would hand back
+ * their contents as if they were songs.
+ *
+ * A slug absent from the result is not "not starred" — it is "this device has no opinion",
+ * which is a different answer and the one `resolveFavorites` needs to tell apart.
+ */
+export function readCachedFavorites(): Record<string, boolean> {
+  if (typeof window === 'undefined') return {}
+
+  const found: Record<string, boolean> = {}
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index)
+      if (key === null || !key.startsWith(SONG_KEY_PREFIX)) continue
+
+      const cached = read(key) as Partial<SongPrefs> | null
+      if (cached === null || typeof cached !== 'object') continue
+
+      found[key.slice(SONG_KEY_PREFIX.length)] = cached.favorite === true
+    }
+  } catch {
+    // Same as `read` above: a browser refusing storage is not an error here, it just
+    // means this device remembers nothing and the server's answer stands alone.
+  }
+  return found
 }
 
 /**
