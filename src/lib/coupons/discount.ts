@@ -265,25 +265,66 @@ export function firstYearCopy(full: string, discounted: string, months: number |
 }
 
 /**
- * The banner's own sentence, composed from the campaign's facts and nothing else.
+ * What the bar above the plans says once an offer is applied.
  *
- * **There is no column of free copy behind this**, and the reason is stronger than taste: a
- * banner assembled from what the discount actually does cannot promise something it does not,
- * and a hand-written headline can. It was a deliberate choice against a `public_label` column.
+ * Two lines rather than the one this shipped with. The first version read «HAPPYSONG — 30%
+ * off, until 3 December 2026» and that is a label, not a description: it named the code and
+ * the rate and left out the two things a reader actually needs — how long the reduction lasts,
+ * and what happens after. The overlay that advertises the same offer says all of it, so a
+ * reader who accepted it there arrived at a bar that told them less than the banner had.
  *
- * The word *subscriptions* is the one piece of real work in here. With `appliesToLifetime` off
- * **and** the Lifetime on sale, that block on `/pricing` is the only card left showing a full
- * price while the banner talks about a discount — so the banner says which. With the Lifetime
- * withdrawn there is nothing to exclude, and the word would only puzzle.
+ * **Every sentence is derived**, like `bannerCopy` and `offerCopy` before it, and for the same
+ * reason: a bar assembled from what the discount actually does cannot promise what it does
+ * not, and a stored headline can.
+ *
+ * The duration is the one piece with real work in it. `discountMonths` is a single number and
+ * the two cycles read it differently — three months is three monthly periods but a whole first
+ * year on the yearly plan — so when they differ the bar says both. Without that it would say
+ * «30% off for 3 months» directly above a yearly card reading «for the first year», which is
+ * the page contradicting itself.
  */
-export function bannerCopy(
-  facts: Pick<CampaignFacts, 'code' | 'discountPercent' | 'appliesToLifetime' | 'expiresAt'>,
+export interface AppliedCopy {
+  /** «HAPPYSONG — 30% off for 12 months» — the code and what it does, in one line. */
+  headline: string
+  /** The rest: the cycle nuance, what is not covered, the reversion, the deadline. */
+  detail: string
+}
+
+export function appliedCopy(
+  facts: Pick<CampaignFacts, 'code' | 'discountPercent' | 'discountMonths' | 'appliesToLifetime' | 'expiresAt'>,
   lifetimeOnSale: boolean,
   formatDay: (value: Date) => string,
-): string {
-  const scope = !facts.appliesToLifetime && lifetimeOnSale ? ' off subscriptions' : ' off'
-  const until = facts.expiresAt === null ? '' : `, until ${formatDay(facts.expiresAt)}`
-  return `${facts.code} — ${facts.discountPercent}%${scope}${until}`
+): AppliedCopy {
+  const { code, discountPercent: percent, discountMonths: months } = facts
+  const monthly = discountCycles(months, 'month')
+  const yearly = discountedMonths(months, 'year')
+
+  const headline =
+    monthly === null
+      ? `${code} — ${percent}% off, for as long as you stay subscribed`
+      : `${code} — ${percent}% off for ${monthly} ${monthly === 1 ? 'month' : 'months'}`
+
+  const sentences: string[] = []
+
+  /* Only when the two cycles genuinely differ. With `discountMonths` at 12 or more they agree,
+     and saying it twice would read as a second, better offer. */
+  if (monthly !== null && yearly !== null && yearly !== monthly) {
+    sentences.push(yearly === 12 ? 'A full year if you pay yearly.' : `${yearly} months if you pay yearly.`)
+  }
+
+  /*
+   * The same gap `bannerCopy` covered with the word «subscriptions»: with the Lifetime on sale
+   * and not covered, it is the one card on the page still at full price while this bar talks
+   * about a discount.
+   */
+  if (!facts.appliesToLifetime && lifetimeOnSale) {
+    sentences.push('The Lifetime is not included.')
+  }
+
+  if (monthly !== null) sentences.push('After that, the usual price.')
+  if (facts.expiresAt !== null) sentences.push(`Claim it by ${formatDay(facts.expiresAt)}.`)
+
+  return { headline, detail: sentences.join(' ') }
 }
 
 /**
@@ -309,13 +350,18 @@ export function deadlineCopy(expiresAt: Date | null, now: Date): string | null {
 
 /**
  * The three sentences the overlay is built from, all derived — the offer has no stored copy of
- * its own, for `bannerCopy`'s stated reason.
+ * its own, for `appliedCopy`'s stated reason.
  *
  * The duration is quoted on the **yearly** cycle (`discountedMonths(months, 'year')`), which is
  * the customer's best case and the reading the design's own headline takes: a campaign of three
  * months holds a yearly price for twelve, so «A full year at 30% off» is the true and the
  * strongest thing to say. Twelve is worded «A full year» rather than «12 months» because that
  * is what the mock says, and because a year has a name.
+ *
+ * `appliedCopy` deliberately words the same campaign differently — it names the monthly figure
+ * first and adds the yearly one only when they differ. The two are not inconsistent: this is an
+ * advertisement, where the strongest true claim belongs, and that is a confirmation sitting
+ * directly above cards that each state their own cycle.
  */
 export interface OfferCopy {
   /** «30%» split for the design's own two type sizes — the number, then the sign. */

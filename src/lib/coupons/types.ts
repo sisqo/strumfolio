@@ -217,6 +217,44 @@ export const COUPON_COOKIE_MAX_DAYS = 30
 export const OFFER_COLLAPSED_COOKIE = 'songbook-offer-collapsed'
 
 /**
+ * The `document.cookie` string that collapses the offer bar, or clears that choice.
+ *
+ * A builder rather than the line written twice, because two components write it —
+ * `CouponOverlay`'s own × and `CouponBar`'s «Remove», which has to collapse the overlay as
+ * well as drop the coupon (see `withoutCouponParams` for why «Remove» is three acts and not
+ * one). Two hand-written `document.cookie` assignments are two chances for one of them to
+ * spell the name or the age differently.
+ *
+ * A fortnight: long enough that dismissing means dismissed, short enough that the next
+ * campaign gets its own chance to be seen.
+ */
+export function offerCollapsedCookie(collapsed: boolean): string {
+  const age = collapsed ? 1_209_600 : 0
+  return `${OFFER_COLLAPSED_COOKIE}=${collapsed ? '1' : '0'}; path=/; max-age=${age}; samesite=lax`
+}
+
+/**
+ * The current URL with the two parameters that carry an offer taken out of it.
+ *
+ * **This is the whole of the «Remove» bug.** `activeCoupon` reads `?coupon=` before the
+ * cookie, deliberately — an explicit code is more specific than a stored one — so dropping
+ * the cookie does nothing at all on `/pricing?coupon=HAPPYSONG`, which is precisely where the
+ * overlay's «See the plans» sends every reader. «Remove» deleted a cookie that was not what
+ * was discounting, re-rendered from the same URL, and the bar came straight back.
+ *
+ * Every other parameter survives: `plan=` (which column `FeaturePaywallModal` highlighted) and
+ * `cycle=` (which billing period the checkout opened on) are about where the reader is, not
+ * about the offer, and losing them would move the page underneath them.
+ */
+export function withoutCouponParams(pathname: string, search: string): string {
+  const params = new URLSearchParams(search)
+  params.delete('coupon')
+  params.delete('promo')
+  const rest = params.toString()
+  return rest === '' ? pathname : `${pathname}?${rest}`
+}
+
+/**
  * Why a `/coupons` write was refused.
  *
  * Here rather than beside the actions that produce it, for the constraint `plans/testCard.ts`

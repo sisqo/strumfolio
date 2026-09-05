@@ -9,7 +9,7 @@ import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { bannerCopy, deadlineCopy, offerCopy } from '@/lib/coupons/discount'
+import { appliedCopy, deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
 import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { isCheckoutPlan } from '@/lib/plans/prices'
@@ -97,7 +97,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             comment on why the page must never carry two coupon controls at once. */}
         {offer === null && (
           <div className="mb-4">
-            <CouponBar applied={campaign === null ? null : bannerCopy(campaign, lifetimeOnSale, formatPlanDate)} />
+            <CouponBar applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)} />
           </div>
         )}
 

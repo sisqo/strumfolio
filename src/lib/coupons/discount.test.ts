@@ -4,7 +4,7 @@ import { describe, it } from 'node:test'
 import { LIFETIME, PRICES } from '@/lib/plans/prices'
 
 import {
-  bannerCopy,
+  appliedCopy,
   campaignStatus,
   cookieMaxAge,
   deadlineCopy,
@@ -19,7 +19,17 @@ import {
   offerCopy,
 } from './discount'
 import type { CampaignFacts } from './discount'
-import { COUPON_COOKIE_MAX_DAYS, isCodeShape, normalizeCode, readLimit, readMonths, readPercent } from './types'
+import {
+  COUPON_COOKIE_MAX_DAYS,
+  OFFER_COLLAPSED_COOKIE,
+  isCodeShape,
+  normalizeCode,
+  offerCollapsedCookie,
+  readLimit,
+  readMonths,
+  readPercent,
+  withoutCouponParams,
+} from './types'
 
 /**
  * The promo column of `Strumfolio_Configurazione_Commerciale.pdf` v1.0, page 02 — the listino
@@ -355,42 +365,74 @@ describe('firstYearCopy', () => {
   })
 })
 
-describe('bannerCopy', () => {
+describe('appliedCopy', () => {
   const day = (value: Date) => value.toISOString().slice(0, 10)
+  const base = {
+    code: 'HAPPYSONG',
+    discountPercent: '30',
+    discountMonths: 12 as number | null,
+    appliesToLifetime: true,
+    expiresAt: null as Date | null,
+  }
 
-  it('is composed of the campaign’s own facts', () => {
-    assert.equal(
-      bannerCopy({ code: 'FOUNDER30', discountPercent: '30', appliesToLifetime: true, expiresAt: null }, true, day),
-      'FOUNDER30 — 30% off',
-    )
+  /*
+   * Why this replaced a one-line `bannerCopy`. That version said «HAPPYSONG — 30% off, until 3
+   * December 2026», which is a label: it named the code and the rate and left out how long the
+   * reduction lasts and what follows it — the two things the overlay advertising the same offer
+   * does say, so accepting it there landed the reader on a bar that told them less.
+   */
+  it('names the code, the rate and the duration in the headline', () => {
+    assert.equal(appliedCopy(base, true, day).headline, 'HAPPYSONG — 30% off for 12 months')
   })
 
-  it('carries the expiry when there is one', () => {
-    assert.equal(
-      bannerCopy(
-        {
-          code: 'FOUNDER30',
-          discountPercent: '30',
-          appliesToLifetime: true,
-          expiresAt: new Date('2026-12-03T00:00:00Z'),
-        },
-        true,
-        day,
-      ),
-      'FOUNDER30 — 30% off, until 2026-12-03',
-    )
+  it('always says what follows a discount that ends', () => {
+    assert.match(appliedCopy(base, true, day).detail, /After that, the usual price\./)
+  })
+
+  it('promises no reversion when the discount never lapses', () => {
+    const forever = appliedCopy({ ...base, discountMonths: null }, true, day)
+    assert.equal(forever.headline, 'HAPPYSONG — 30% off, for as long as you stay subscribed')
+    assert.doesNotMatch(forever.detail, /usual price/)
   })
 
   /*
-   * The only real work in that function: with the Lifetime on sale and not covered, its block
-   * on `/pricing` is the one card still showing a full price while the banner talks about a
-   * discount. The word is what closes that gap.
+   * The one piece of real work: one `discountMonths` reads differently on the two cycles, and
+   * the bar sits directly above cards that each state their own. Saying «for 3 months» over a
+   * yearly card reading «for the first year» is the page contradicting itself.
    */
-  it('says "subscriptions" only when an uncovered Lifetime is actually on sale', () => {
-    const facts = { code: 'ABC', discountPercent: '30', appliesToLifetime: false, expiresAt: null }
-    assert.equal(bannerCopy(facts, true, day), 'ABC — 30% off subscriptions')
-    assert.equal(bannerCopy(facts, false, day), 'ABC — 30% off', 'nothing to exclude, so no qualifier')
-    assert.equal(bannerCopy({ ...facts, appliesToLifetime: true }, true, day), 'ABC — 30% off')
+  it('names both cycles when one number means two durations', () => {
+    const copy = appliedCopy({ ...base, discountMonths: 3 }, true, day)
+    assert.equal(copy.headline, 'HAPPYSONG — 30% off for 3 months')
+    assert.match(copy.detail, /A full year if you pay yearly\./)
+  })
+
+  it('says it once when the two cycles agree', () => {
+    assert.doesNotMatch(appliedCopy(base, true, day).detail, /if you pay yearly/)
+    assert.doesNotMatch(appliedCopy({ ...base, discountMonths: 24 }, true, day).detail, /A full year/)
+  })
+
+  it('counts the years when a yearly lock runs past one', () => {
+    assert.match(appliedCopy({ ...base, discountMonths: 14 }, true, day).detail, /24 months if you pay yearly\./)
+  })
+
+  /* The same gap the old wording covered with the word «subscriptions». */
+  it('names the Lifetime as excluded only when it is uncovered and on sale', () => {
+    const uncovered = { ...base, appliesToLifetime: false }
+    assert.match(appliedCopy(uncovered, true, day).detail, /The Lifetime is not included\./)
+    assert.doesNotMatch(appliedCopy(uncovered, false, day).detail, /Lifetime/)
+    assert.doesNotMatch(appliedCopy(base, true, day).detail, /Lifetime/)
+  })
+
+  it('gives the claim-by date when there is one, and nothing when there is not', () => {
+    const dated = appliedCopy({ ...base, expiresAt: new Date('2026-12-03T00:00:00Z') }, true, day)
+    assert.match(dated.detail, /Claim it by 2026-12-03\./)
+    assert.doesNotMatch(appliedCopy(base, true, day).detail, /Claim it by/)
+  })
+
+  /* A campaign covering everything, never expiring, whose cycles agree has all of its meaning
+     in the headline — and the bar renders no second line rather than an empty one. */
+  it('has an empty detail only when there is genuinely nothing to add', () => {
+    assert.equal(appliedCopy({ ...base, discountMonths: null }, true, day).detail, '')
   })
 })
 
@@ -506,5 +548,59 @@ describe('offerCopy', () => {
   it('carries the percentage through untouched', () => {
     assert.equal(offerCopy('12.5', 3).percent, '12.5')
     assert.match(offerCopy('12.5', 3).headline, /12\.5% off/)
+  })
+})
+
+describe('withoutCouponParams', () => {
+  /*
+   * The whole of the «Remove» bug. `activeCoupon` reads `?coupon=` before the cookie, and the
+   * overlay's «See the plans» sends every reader to `/pricing?coupon=CODE` — so dropping the
+   * cookie alone left the parameter still discounting, the page re-rendered from it, and the
+   * bar came straight back.
+   */
+  it('takes out both parameters that carry an offer', () => {
+    assert.equal(withoutCouponParams('/pricing', 'coupon=HAPPYSONG'), '/pricing')
+    assert.equal(withoutCouponParams('/pricing', 'promo=1'), '/pricing')
+    assert.equal(withoutCouponParams('/pricing', 'coupon=HAPPYSONG&promo=1'), '/pricing')
+  })
+
+  /* `plan=` and `cycle=` say where the reader is, not what the offer is — losing them would
+     move the page underneath them. */
+  it('leaves every other parameter exactly where it was', () => {
+    assert.equal(withoutCouponParams('/pricing', 'plan=plus&coupon=X'), '/pricing?plan=plus')
+    assert.equal(
+      withoutCouponParams('/checkout/standard', 'cycle=year&coupon=X'),
+      '/checkout/standard?cycle=year',
+    )
+    assert.equal(withoutCouponParams('/pricing', 'plan=plus&promo=1&cycle=month'), '/pricing?plan=plus&cycle=month')
+  })
+
+  it('is a no-op on a URL that never carried one', () => {
+    assert.equal(withoutCouponParams('/pricing', ''), '/pricing')
+    assert.equal(withoutCouponParams('/pricing', 'plan=plus'), '/pricing?plan=plus')
+  })
+
+  /* A bare `?coupon=` is what a form posts when its field is empty — it must not survive as a
+     dangling question mark. */
+  it('drops an empty parameter rather than leaving a bare ?', () => {
+    assert.equal(withoutCouponParams('/pricing', 'coupon='), '/pricing')
+  })
+})
+
+describe('offerCollapsedCookie', () => {
+  it('sets the flag for a fortnight, and clears it by expiring immediately', () => {
+    const set = offerCollapsedCookie(true)
+    assert.match(set, new RegExp(`^${OFFER_COLLAPSED_COOKIE}=1;`))
+    assert.match(set, /max-age=1209600/)
+
+    const cleared = offerCollapsedCookie(false)
+    assert.match(cleared, new RegExp(`^${OFFER_COLLAPSED_COOKIE}=0;`))
+    assert.match(cleared, /max-age=0/)
+  })
+
+  /* Site-wide, because the bar follows the reader across /login, /pricing and /checkout. */
+  it('scopes to the whole site', () => {
+    assert.match(offerCollapsedCookie(true), /path=\//)
+    assert.match(offerCollapsedCookie(true), /samesite=lax/)
   })
 })

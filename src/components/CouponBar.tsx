@@ -1,11 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import { IconCheck } from '@/components/icons'
 import { applyCoupon, clearCoupon, rememberUrlCoupon } from '@/lib/coupons/actions'
-import { COUPON_FAILURE_MESSAGE, isCodeShape } from '@/lib/coupons/types'
+import {
+  COUPON_FAILURE_MESSAGE,
+  isCodeShape,
+  offerCollapsedCookie,
+  withoutCouponParams,
+} from '@/lib/coupons/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -28,16 +33,18 @@ import { useOnline } from '@/lib/useOnline'
  * `actions.ts` is a `'use server'` module, so importing it costs an RPC reference and not the
  * module, exactly as `GiftForm` imports `setGrant`.
  *
- * The banner's own sentence is composed on the server by `bannerCopy` and arrives as `applied`.
- * There is no column of free copy behind it: a banner assembled from what the discount actually
- * does cannot promise something it does not, and a hand-written headline can.
+ * The applied state's two lines are composed on the server by `appliedCopy` and arrive as
+ * `applied`. There is no column of free copy behind them: a bar assembled from what the
+ * discount actually does cannot promise something it does not, and a hand-written headline can.
+ * Two lines and not one because the first version was a label — code and rate — and left out
+ * the two things a reader needs, which are how long the reduction lasts and what follows it.
  */
 export function CouponBar({
   applied,
   persist,
 }: {
-  /** The finished sentence from `bannerCopy`, or `null` when no coupon is in force. */
-  applied: string | null
+  /** The two finished lines from `appliedCopy`, or `null` when no coupon is in force. */
+  applied: { headline: string; detail: string } | null
   /**
    * A code the URL brought that the cookie does not hold yet — written once, from an effect,
    * because Next.js allows a cookie write only from a server action, a route handler or
@@ -48,6 +55,8 @@ export function CouponBar({
   persist?: string
 }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const online = useOnline()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -100,11 +109,33 @@ export function CouponBar({
     }
   }
 
+  /**
+   * «Remove» is three acts, not one, and it shipped as one — which is why it did nothing on the
+   * page it is used from most.
+   *
+   * 1. **Drop the cookie.** What it always did.
+   * 2. **Drop the querystring.** `activeCoupon` reads `?coupon=` before the cookie, on purpose,
+   *    and the overlay's «See the plans» sends every reader to `/pricing?coupon=CODE`. So on
+   *    that URL the cookie was never what was discounting, and deleting it changed nothing:
+   *    the page re-rendered from the same parameters and the bar came back. See
+   *    `withoutCouponParams`, which keeps `plan=` and `cycle=` — those say where the reader
+   *    is, not what the offer is.
+   * 3. **Collapse the overlay.** Without this, dropping the coupon hands the reader the full
+   *    ticket advertising the very offer they just dismissed, which reads as the button
+   *    failing a second time. The collapsed tab stays, so the offer is one tap away rather
+   *    than gone.
+   *
+   * `replace`, never `push`: Back should not return to a state the reader deliberately left.
+   * `refresh` after it because the target URL is often the one already showing — the
+   * cookie-only case — where `replace` alone has nothing to navigate to.
+   */
   const remove = async () => {
     setBusy(true)
     setError(null)
     try {
       await clearCoupon()
+      document.cookie = offerCollapsedCookie(true)
+      router.replace(withoutCouponParams(pathname, searchParams.toString()))
       router.refresh()
     } catch {
       setError(COUPON_FAILURE_MESSAGE.failed)
@@ -119,7 +150,13 @@ export function CouponBar({
         <span className="coupon-bar-mark">
           <IconCheck size={16} />
         </span>
-        <span className="coupon-bar-text">{applied}</span>
+        <span className="coupon-bar-lines">
+          <span className="coupon-bar-text">{applied.headline}</span>
+          {/* Absent rather than empty when there is nothing to add — a campaign with no
+              expiry, covering everything, whose two cycles agree has all of its meaning in the
+              line above. */}
+          {applied.detail !== '' && <span className="coupon-bar-detail">{applied.detail}</span>}
+        </span>
         <button type="button" className="btn btn-sm coupon-bar-action" disabled={!online || busy} onClick={() => void remove()}>
           Remove
         </button>

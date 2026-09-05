@@ -25,9 +25,11 @@ import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
  * **The offer here is not yet applied.** That is what the mock's own controls say: a code to
  * copy and a link to the plans, never an «Apply». So this is the advertisement, and `CouponBar`
  * remains the applied state — the two never show at once (see the pages that mount them). The
- * one thing added beyond the mock: «See the plans» carries `?coupon=`, so pressing it applies
- * the offer rather than leaving the reader to paste back a code they were just shown. A
- * prototype has no querystring to demonstrate that with.
+ * one thing added beyond the mock: the CTA carries `?coupon=`, so pressing it applies the
+ * offer rather than leaving the reader to paste back a code they were just shown. A prototype
+ * has no querystring to demonstrate that with — which is also why its label read «See the
+ * plans» and this one reads «Apply coupon and see the plans»: the button does two things, and
+ * naming one of them left the reader wondering whether the code still had to go somewhere.
  */
 export function CouponOverlay({
   code,
@@ -175,8 +177,17 @@ export function CouponOverlay({
                 {copied ? 'Copied' : 'Copy'}
               </span>
             </button>
+            {/*
+              * «Apply coupon and see the plans», not the mock's «See the plans».
+              *
+              * The mock could only say the shorter thing: a prototype has no querystring, so
+              * its link went to the price list and nothing else. This one carries `?coupon=`
+              * and therefore *applies* the offer — and a button that does two things while
+              * naming one of them leaves the reader wondering whether they still have to paste
+              * the code in somewhere. The label now says both.
+              */}
             <Link href={href} className="coupon-cta">
-              See the plans
+              Apply coupon and see the plans
             </Link>
           </span>
 

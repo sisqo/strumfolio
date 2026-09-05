@@ -6977,9 +6977,17 @@
   /* Applied: the accent's soft tint, the same one `.notice-accent` uses for a neutral fact
      rather than something the reader did wrong. */
   .coupon-bar.is-on {
+    align-items: flex-start;
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
     background: color-mix(in srgb, var(--accent) 8%, var(--surface));
     box-shadow: none;
+  }
+
+  /* The check and the button line up with the headline, not with the middle of a block whose
+     height now depends on how much the campaign has to say. */
+  .coupon-bar.is-on > .coupon-bar-mark,
+  .coupon-bar.is-on > .coupon-bar-action {
+    margin-top: 0.0625rem;
   }
 
   .coupon-bar-form {
@@ -6990,12 +6998,40 @@
     width: 100%;
   }
 
+  /*
+   * The two lines of the applied state, wrapped so the × and «Remove» stay on the first one's
+   * baseline rather than centring against a two-line block.
+   */
+  .coupon-bar-lines {
+    flex: 1;
+    min-width: 8rem;
+  }
+
   .coupon-bar-text {
     flex: 1;
     min-width: 8rem;
     color: var(--ink);
     font-size: 0.875rem;
     font-weight: 500;
+  }
+
+  /* Inside `.coupon-bar-lines` the flex sizing above is not what is wanted — the headline is a
+     block that wraps, not a flex item competing with a sibling. */
+  .coupon-bar-lines > .coupon-bar-text {
+    display: block;
+    flex: none;
+    min-width: 0;
+  }
+
+  /* What the discount actually does: the cycle nuance, the exclusion, the reversion, the
+     deadline. Smaller and muted, because it qualifies the line above rather than competing
+     with it — the same relationship `.plan-price-note` has with `.plan-price`. */
+  .coupon-bar-detail {
+    display: block;
+    margin-top: 0.125rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.4;
   }
 
   /* Narrow on purpose: a coupon code is at most 24 characters, and a full-width field in a
@@ -7170,8 +7206,13 @@
     line-height: 1.3;
   }
 
+  /* `wrap` at every width, not only on a phone: the CTA reads «Apply coupon and see the plans»
+     rather than the mock's «See the plans», which is roughly twice as wide and takes that room
+     out of this line. Without it the deadline overflows its own row on a laptop instead of
+     dropping under the sentence it qualifies. */
   .coupon-sub {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.625rem;
     margin-top: 0.25rem;
@@ -7317,12 +7358,19 @@
   }
 
   /*
-   * Under 40rem the mock's single row cannot hold: the stub, two lines of prose, a code chip, a
-   * pill and a × across a phone leaves the prose at two words a line. The stub goes horizontal
-   * across the top — the numeral, «OFF» and the duration in a row, keeping the ticket read —
-   * and the actions drop under the prose.
+   * Under 56rem the mock's single row cannot hold: the stub, two lines of prose, a code chip, a
+   * pill and a × leave the prose at two words a line. The stub goes horizontal across the top —
+   * the numeral, «OFF» and the duration in a row, keeping the ticket read — and the actions
+   * drop under the prose, where the pill can take the full width it now needs.
+   *
+   * 70rem, where this first shipped with 40rem: «Apply coupon and see the plans» is about twice
+   * the width of the mock's «See the plans», and that width comes straight out of the sentence
+   * beside it. Measured rather than guessed — the fixed parts of the row (stub 136, its
+   * padding, the code chip, the pill, the ×, the gaps) come to about 711px, so a page narrower
+   * than ~1120 leaves the headline under 110px and wrapping to four lines. 56rem was a first
+   * guess and was still too narrow; this is the arithmetic.
    */
-  @media (max-width: 40rem) {
+  @media (max-width: 70rem) {
     .coupon-ticket {
       position: relative;
       flex-direction: column;
@@ -7368,14 +7416,34 @@
       flex-wrap: wrap;
     }
 
+    /*
+     * `wrap`, because the pill's label cannot shrink: «Apply coupon and see the plans» has a
+     * min-content width of about 272px and `white-space: nowrap`, so on a phone it shared a row
+     * with the code chip and ran off the right edge of the ticket. Wrapping puts each on its
+     * own row, where both fit with room to spare.
+     */
     .coupon-actions {
       flex: 1 0 100%;
+      flex-wrap: wrap;
       order: 3;
     }
 
+    /*
+     * On a phone the pill has to be allowed two lines. Its label is fixed at «Apply coupon and
+     * see the plans» — about 272px of min-content that `white-space: nowrap` refuses to break —
+     * and a 360px screen leaves the ticket's inner width at roughly 300. Wrapping the actions
+     * was not enough on its own: the pill still ran past the ticket's right edge on its own
+     * row. `height` becomes `min-height` in the same breath, or a second line clips.
+     */
     .coupon-cta {
       flex: 1;
       justify-content: center;
+      height: auto;
+      min-height: 2.75rem;
+      padding: 0.5rem 1rem;
+      line-height: 1.25;
+      text-align: center;
+      white-space: normal;
     }
 
     /* Pinned to the top corner rather than left in the wrapped flow, where it would land under

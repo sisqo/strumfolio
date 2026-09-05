@@ -12,7 +12,7 @@ import { isOwner } from '@/lib/allowlist'
 import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
 import {
-  bannerCopy,
+  appliedCopy,
   deadlineCopy,
   discountedAmount,
   durationCopy,
@@ -786,13 +786,13 @@ export default async function PricingPage({
   const lifetimePillText = lifetimePill(coupon)
 
   /*
-   * The banner's sentence, composed from the campaign's own facts — never a stored string. See
-   * `bannerCopy`: a banner assembled from what the discount actually does cannot promise
-   * something it does not, and a hand-written headline can. `lifetimeIsOpen` is what decides
-   * whether the word «subscriptions» is worth saying: with the Lifetime withdrawn there is
+   * The applied bar's two lines, composed from the campaign's own facts — never a stored
+   * string. See `appliedCopy`: a bar assembled from what the discount actually does cannot
+   * promise what it does not, and a hand-written headline can. `lifetimeIsOpen` is what decides
+   * whether the Lifetime is worth naming as an exclusion: with it withdrawn from sale there is
    * nothing for the coupon to be excluding.
    */
-  const couponBanner = coupon === null ? null : bannerCopy(coupon, lifetimeIsOpen, formatPlanDate)
+  const couponBanner = coupon === null ? null : appliedCopy(coupon, lifetimeIsOpen, formatPlanDate)
 
   /*
    * Two overlays on the copy written once in `columnsFor`: the coupon, which changes what
