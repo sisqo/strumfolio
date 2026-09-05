@@ -8,11 +8,15 @@ import { IconComment } from '@/components/icons'
  * The persistent way into "Share your feedback" — a round button, bottom-right, present on
  * every page `FeedbackProvider` doesn't already exclude (the reading screen, the editor).
  *
- * Naturally absent while signed out, the same `known && email !== null` gate
- * `FeatureRequestScreen` already used: a control that appears and then vanishes reads as
- * broken, one that simply isn't there yet while the session is still being asked about does
- * not. Every public page — `/login`, `(auth)`, `(legal)`, `/pricing`, `/changelog` — needs
- * no separate check because of this alone.
+ * Absent while signed out, the same `known && email !== null` gate `FeatureRequestScreen`
+ * already used: a control that appears and then vanishes reads as broken, one that simply
+ * isn't there yet while the session is still being asked about does not.
+ *
+ * **That gate is about the reader, and it was once mistaken for a gate about the page.** This
+ * comment used to claim every public page was covered by it alone — true only of a signed-out
+ * visitor, which is how anybody checking `/pricing` or the blog would have looked. A reader
+ * with a session on those same pages got the bubble. The page half of the question is
+ * `isSessionFreePath`, asked by `FeedbackProvider`; both halves have to hold.
  */
 export function FeedbackLauncher() {
   const { known, email } = useRole()

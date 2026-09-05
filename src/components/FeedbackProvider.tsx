@@ -5,6 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 
 import { FeedbackLauncher } from '@/components/FeedbackLauncher'
 import { FeedbackSheet } from '@/components/FeedbackSheet'
+import { isSessionFreePath } from '@/lib/publicRoutes'
 
 interface FeedbackContextValue {
   open: () => void
@@ -13,13 +14,27 @@ interface FeedbackContextValue {
 const FeedbackContext = createContext<FeedbackContextValue | null>(null)
 
 /**
- * The reading screen and the editor — the two surfaces "Share your feedback" deliberately
- * never appears on, launcher or menu entry alike, because they are where a reader's or an
- * editor's attention belongs entirely to the song. `/songs/[slug]` is the reader,
- * `/songs/[slug]/edit` the editor; nothing else in the app lives one level under `/songs/`.
+ * Where "Share your feedback" deliberately never appears, launcher or menu entry alike.
+ *
+ * Two different reasons, kept apart because they would be edited for different causes:
+ *
+ * 1. **The reading screen and the editor.** `/songs/[slug]` is the reader,
+ *    `/songs/[slug]/edit` the editor; nothing else in the app lives one level under
+ *    `/songs/`. Attention there belongs entirely to the song.
+ * 2. **Every public page** — the sign-in form, `/pricing`, `/changelog`, the tools, the
+ *    legal documents, the blog, a Strum Together guest's screen. Feedback is a thing you
+ *    give about an app you are *using*, from inside it; on the pages somebody reads while
+ *    deciding whether to sign up it is a support widget on a shop window.
+ *
+ * The second was missing and the bug it left was invisible to whoever wrote it: signed
+ * *out*, `FeedbackLauncher` renders nothing anyway, so `/pricing` and the blog looked
+ * correct to anybody who checked them the obvious way. A reader with a session standing on
+ * those same pages got the bubble. `isSessionFreePath` is asked rather than a second list
+ * copied here, so a public page added tomorrow is covered without anybody remembering this
+ * file exists.
  */
 function isExcludedRoute(pathname: string): boolean {
-  return /^\/songs\/[^/]+(\/edit)?$/.test(pathname)
+  return /^\/songs\/[^/]+(\/edit)?$/.test(pathname) || isSessionFreePath(pathname)
 }
 
 /**

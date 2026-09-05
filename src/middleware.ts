@@ -2,7 +2,7 @@ import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authConfig } from '@/auth.config'
-import { SESSION_FREE_PATHS, isBlogPath } from '@/lib/publicRoutes'
+import { SESSION_FREE_PATHS, isBlogPath, isFollowPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
 const { auth } = NextAuth(authConfig)
@@ -208,7 +208,7 @@ export default auth((request) => {
    * nothing and writes nothing» branch is reachable, which is the decided behaviour for a
    * browser that will not keep the id.
    */
-  if (/^\/follow\/[^/]+$/.test(pathname)) {
+  if (isFollowPath(pathname)) {
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
 

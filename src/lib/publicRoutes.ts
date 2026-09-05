@@ -96,3 +96,34 @@ export const BLOG_PREFIX = '/blog'
 export function isBlogPath(pathname: string): boolean {
   return pathname === BLOG_PREFIX || pathname.startsWith(`${BLOG_PREFIX}/`)
 }
+
+/**
+ * A Strum Together guest's screen, `/follow/<token>`.
+ *
+ * Session-free like the blog and not in the list above for the same reason: the set is not
+ * fixed, the token is minted per broadcast. It lives here rather than as a regex inside
+ * `middleware.ts` — where it used to be its only copy — because it answers the same question
+ * this module exists to answer once, and a second reader has since appeared (see
+ * `isSessionFreePath`).
+ */
+export function isFollowPath(pathname: string): boolean {
+  return /^\/follow\/[^/]+$/.test(pathname)
+}
+
+/**
+ * Whether this path is served to somebody with no session at all — the whole of "public", in
+ * one predicate: the fixed list, the blog, and a guest's broadcast screen.
+ *
+ * `middleware.ts` asks the same question in three separate branches and will go on doing so,
+ * because each answers it *differently* — `/pricing` lets a signed-in reader keep a cached
+ * copy while the blog and `/follow` are marked anonymous unconditionally. This is for the
+ * readers that only need the yes or no, and the point of it living here is that a page added
+ * to `PUBLIC_ROUTES` is covered by both without anybody remembering a second place.
+ *
+ * Note what it does **not** mean: not "the visitor is signed out". A reader with a perfectly
+ * good session can be standing on `/pricing` or reading the blog. That distinction is the one
+ * `FeedbackLauncher` got wrong — see its own comment.
+ */
+export function isSessionFreePath(pathname: string): boolean {
+  return SESSION_FREE_PATHS.has(pathname) || isBlogPath(pathname) || isFollowPath(pathname)
+}
