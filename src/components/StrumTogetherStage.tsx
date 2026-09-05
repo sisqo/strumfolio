@@ -38,7 +38,9 @@ import { followUrl } from '@/lib/strumTogether/link'
  * left follower are drawn, at a scale that keeps them worth looking at; the leader's own count
  * and the sheet's "N devices following" hold at one to match, so the picture never claims a
  * phone it is not showing. All three are still rendered — which one is on stage is a CSS
- * question, since the count is CSS too and the two have to agree.
+ * question, since the count is CSS too and the two have to agree. The leader's own
+ * `aria-label` names no number for the same reason: a screen reader on a phone would
+ * otherwise be told about a device that width never draws.
  *
  * **Left unlabelled on purpose**: the sheet music itself is section-less here because the real
  * `SongSheet` never prints a "Chorus"/"Verse" heading either (`.sheet-section.is-chorus` only
@@ -183,7 +185,7 @@ function LeaderScreen({ qr, link }: { qr: string | null; link: string }) {
     <div
       className="strum-demo"
       role="img"
-      aria-label="The leader's screen: Strum Together opens a link and a QR code, two phones join one after the other, and pressing play sends the song scrolling on every screen at once."
+      aria-label="The leader's screen: Strum Together opens a link and a QR code, whoever scans it joins, and pressing play sends the song scrolling on every screen at once."
     >
       <div className="rd-head">
         <div className="rd-head-row">
