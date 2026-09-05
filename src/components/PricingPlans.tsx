@@ -49,6 +49,15 @@ export interface ColumnPrice {
    */
   was?: string
   /**
+   * «−30%» — the reduction itself, as a badge beside the number.
+   *
+   * The struck price says *what it was* and the big number says *what it is*; neither says by
+   * how much, which is the one figure the campaign is actually named after and the one a
+   * reader compares between plans. Present only alongside `was`, for the same reason `was`
+   * is conditional: with no coupon there is no reduction to badge.
+   */
+  off?: string
+  /**
    * The small lines under the price: what the discount costs and for how long, and on the
    * monthly card the real first-year total. Composed on the server by `lib/coupons/discount.ts`
    * and arriving as finished sentences, like every other string in this component — this file
@@ -441,6 +450,16 @@ export function PricingPlans({
                 {column.price[period].amount}
                 {column.price[period].suffix !== '' && (
                   <span className="plan-price-period">{column.price[period].suffix}</span>
+                )}
+                {/* After the number, not before it: the price is what the reader came for, and
+                    the reduction is the tag on it. `sr-only` words because a screen reader
+                    given «−30%» alone would read a minus sign with nothing to subtract it
+                    from. */}
+                {column.price[period].off !== undefined && (
+                  <span className="plan-price-off">
+                    <span aria-hidden>{column.price[period].off}</span>
+                    <span className="sr-only">, a {column.price[period].off?.replace('−', '')} discount</span>
+                  </span>
                 )}
               </p>
               {column.price[period].notes?.map((note) => (

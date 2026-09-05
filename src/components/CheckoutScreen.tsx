@@ -382,6 +382,12 @@ export function CheckoutScreen({
                   </>
                 )}
                 {euro(lifetimePrice ?? LIFETIME.amount)}, once
+                {lifetimePrice !== null && coupon !== null && (
+                  <span className="plan-price-off ml-2 align-middle">
+                    <span aria-hidden>−{coupon.percent}%</span>
+                    <span className="sr-only">, a {coupon.percent}% discount</span>
+                  </span>
+                )}
               </p>
             ) : (
               <PaidCheckoutFields
@@ -543,6 +549,14 @@ function PaidCheckoutFields({
           </>
         )}
         {euro(discounted ?? price.amount)} per {cycle}
+        {/* The same badge the cards on /pricing carry, for the same reason: the struck price
+            says what it was and the number says what it is, and neither says by how much. */}
+        {discounted !== null && coupon !== null && (
+          <span className="plan-price-off ml-2 align-middle">
+            <span aria-hidden>−{coupon.percent}%</span>
+            <span className="sr-only">, a {coupon.percent}% discount</span>
+          </span>
+        )}
       </p>
       {scheduling && <p className="mt-1 text-sm text-muted">Billed from the day this takes effect, not today.</p>}
 

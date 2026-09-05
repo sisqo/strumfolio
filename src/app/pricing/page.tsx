@@ -179,8 +179,11 @@ const LIFETIME_WHAT =
  */
 function lifetimePill(coupon: Campaign | null): string | null {
   if (coupon === null || !coupon.appliesToLifetime) return null
-  if (coupon.expiresAt === null) return `Promo price with ${coupon.code}`
-  return `Promo price valid until ${formatPlanDate(coupon.expiresAt)}`
+  /* The percentage first, because it is the fact the struck price above it raises and the one
+     every paid card now badges — the deadline qualifies it rather than the other way round. */
+  const off = `${coupon.discountPercent}% off`
+  if (coupon.expiresAt === null) return `${off} with ${coupon.code}`
+  return `${off} — until ${formatPlanDate(coupon.expiresAt)}`
 }
 
 /*
@@ -244,7 +247,9 @@ function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null
     if (firstYear !== null) notes.push(firstYear)
   }
 
-  return { amount: euro(discounted), suffix, was: euro(full), notes }
+  /* The minus is U+2212, not a hyphen — the same sign `discountLine` uses on /billing, and the
+     one that sits on the digits' own baseline instead of halfway up them. */
+  return { amount: euro(discounted), suffix, was: euro(full), off: `−${coupon.discountPercent}%`, notes }
 }
 
 /** A paid column, worded once for the three that differ only in their amounts and their audience. */
