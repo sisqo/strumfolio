@@ -15,9 +15,20 @@ interface RowDragOptions {
 
 /**
  * The pointer side of dragging a row through a list, shared by the two screens that do
- * it: capturing the pointer, the frame loop that scrolls the page while the pointer is
- * parked near an edge, and turning a position into a gap between rows — `slotAt`, over
- * bands the caller measured in page coordinates.
+ * it: the frame loop that scrolls the page while the pointer is parked near an edge, and
+ * turning a position into a gap between rows — `slotAt`, over bands the caller measured in
+ * page coordinates.
+ *
+ * **Move and release are listened for on `window`, not on the handle**, for the length of
+ * the drag. A mouse wheel turned mid-drag makes the browser drop the pointer capture the
+ * handle took on the way in (`lostpointercapture`), and from then on the release lands on
+ * whatever row happens to sit under the cursor rather than on the handle. Bound to the
+ * handle, that release is simply never heard: the drag never ends, the row stays lit, and
+ * the next handle the cursor passes over drives it again. On `window`, keyed to the
+ * pointer that started it, the release is heard wherever it falls and the capture stops
+ * mattering — it is still taken, as an extra, so a release *outside* the window is routed
+ * back, but nothing depends on its surviving. A mouse whose button is no longer down when
+ * a move arrives is treated as a release too, for the one gap that leaves.
  *
  * The frame loop is what makes a long drag work at all. Pointer events only arrive while
  * the pointer moves, and the two things that move the list without moving the pointer —
@@ -34,6 +45,8 @@ export function useRowDrag({ onSlot, onRelease, coveredAbove }: RowDragOptions) 
   const bands = useRef<Band[] | null>(null)
   /** The pointer's `clientY`, as last reported. */
   const pointer = useRef<number | null>(null)
+  /** Which pointer started this drag, so a second finger elsewhere is ignored. */
+  const pointerId = useRef<number | null>(null)
   const slot = useRef<number | null>(null)
   const frame = useRef<number | null>(null)
   const lastFrame = useRef(0)
@@ -59,12 +72,44 @@ export function useRowDrag({ onSlot, onRelease, coveredAbove }: RowDragOptions) 
       latest.current.onSlot(at)
     }
 
+    const mine = (event: globalThis.PointerEvent) =>
+      pointerId.current === null || event.pointerId === pointerId.current
+
+    const onWindowMove = (event: globalThis.PointerEvent) => {
+      if (!mine(event)) return
+      // A mouse whose button is up has been released between events (let go off-window,
+      // then back in): the one release a window `pointerup` can miss. Touch has no
+      // buttons, so this must never fire for it.
+      if (event.pointerType === 'mouse' && event.buttons === 0) {
+        finish()
+        return
+      }
+      pointer.current = event.clientY
+      settle()
+    }
+
+    const onWindowUp = (event: globalThis.PointerEvent) => {
+      if (!mine(event)) return
+      finish()
+    }
+
     const stop = () => {
       if (frame.current !== null) cancelAnimationFrame(frame.current)
       frame.current = null
       bands.current = null
       pointer.current = null
+      pointerId.current = null
       slot.current = null
+      window.removeEventListener('pointermove', onWindowMove)
+      window.removeEventListener('pointerup', onWindowUp)
+      window.removeEventListener('pointercancel', onWindowUp)
+    }
+
+    /** A release: end the drag and tell the caller. No-op if the drag is already over. */
+    const finish = () => {
+      if (frame.current === null) return
+      stop()
+      latest.current.onRelease()
     }
 
     const tick = (now: number) => {
@@ -85,13 +130,25 @@ export function useRowDrag({ onSlot, onRelease, coveredAbove }: RowDragOptions) 
     }
 
     return {
-      /** Takes the pointer and starts the loop. Capture, so the row keeps following a finger that has slid off the handle. */
+      /**
+       * Takes the pointer and starts the loop. Capture is taken as an extra — it routes a
+       * release outside the window back to the handle — but the window listeners are what
+       * the drag actually ends on, since a mid-drag wheel drops the capture.
+       */
       begin(event: PointerEvent<HTMLElement>) {
-        event.currentTarget.setPointerCapture(event.pointerId)
         stop()
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // Capture is a nice-to-have; the window listeners do not need it.
+        }
+        pointerId.current = event.pointerId
         pointer.current = event.clientY
         lastFrame.current = performance.now()
         carry.current = 0
+        window.addEventListener('pointermove', onWindowMove)
+        window.addEventListener('pointerup', onWindowUp)
+        window.addEventListener('pointercancel', onWindowUp)
         frame.current = requestAnimationFrame(tick)
       },
       /** Gives the loop its bands. The gap the pointer is in right now is where the row already is, so it is noted, not announced. */
@@ -100,15 +157,9 @@ export function useRowDrag({ onSlot, onRelease, coveredAbove }: RowDragOptions) 
         const y = pageY()
         slot.current = y === null ? null : slotAt(measured, y)
       },
-      move(event: PointerEvent<HTMLElement>) {
-        if (frame.current === null) return
-        pointer.current = event.clientY
-        settle()
-      },
-      end() {
-        if (frame.current === null) return
-        stop()
-        latest.current.onRelease()
+      /** Whether a drag is currently live — for the caller to know an arm still has a drag to arm. */
+      get active() {
+        return frame.current !== null
       },
       /** Drops the drag without a release: for a row that vanished from under the pointer. */
       cancel: stop,

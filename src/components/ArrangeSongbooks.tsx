@@ -145,9 +145,6 @@ export function ArrangeSongbooks({
               type="button"
               className="drag-handle"
               onPointerDown={(event) => beginDrag(event, row.slug)}
-              onPointerMove={drag.move}
-              onPointerUp={drag.end}
-              onPointerCancel={drag.end}
               onKeyDown={(event) => arrowKeys(event, index)}
               aria-label={`Move ${row.name}: ${index + 1} of ${layout.length}`}
             >

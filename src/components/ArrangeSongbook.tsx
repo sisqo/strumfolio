@@ -149,9 +149,13 @@ export function ArrangeSongbook({
       setLayout(next)
     },
     onRelease: () => {
+      // A section drag released before its layout effect could arm has no start and no
+      // layout of its own yet; `latest` would still hold a previous drag's result, so it
+      // must not be saved. `start` is the tell, read before it is cleared.
+      const dragged = start.current !== null
       setDragging(null)
       start.current = null
-      save(latest.current)
+      if (dragged) save(latest.current)
     },
     coveredAbove: topBarBottom,
   })
@@ -178,9 +182,10 @@ export function ArrangeSongbook({
       /*
        * Whatever is being dragged might be exactly what just left — a section removed,
        * or its last song moved out, from another device. A drag like that can never be
-       * released the ordinary way: `drag.end` only ever fires from the row's own button,
-       * and that row is gone. Left alone, `dragging` would stay set forever, and every
-       * song and "Empty" placeholder would stay hidden for the rest of the visit.
+       * released the ordinary way: the release ends the drag through the window listeners,
+       * but a row that has vanished emits no release of its own. Left alone, `dragging`
+       * would stay set forever, and every song and "Empty" placeholder would stay hidden
+       * for the rest of the visit — so its drag is cancelled here.
        */
       const stillThere =
         dragging === null
@@ -285,8 +290,10 @@ export function ArrangeSongbook({
     // will have moved and this row along with them.
     anchor.current = screenTop(`section:${id}`)
     // Left null, and `drag` left unarmed, so a stray move in the gap before the effect
-    // below runs has nothing to work from.
+    // below runs has nothing to work from; `latest` set to the current layout so a release
+    // in that same gap saves nothing new rather than a previous drag's result.
     start.current = null
+    latest.current = layout
     drag.begin(event)
     setDragging({ kind: 'section', id })
   }
@@ -318,6 +325,9 @@ export function ArrangeSongbook({
   useLayoutEffect(
     () => {
       if (dragging?.kind !== 'section') return
+      // The drag can already be over — released within the frame before this effect ran —
+      // in which case there is nothing left to arm.
+      if (!drag.active) return
 
       const before = anchor.current
       const collapsedTop = screenTop(`section:${dragging.id}`)
@@ -431,9 +441,6 @@ export function ArrangeSongbook({
                       type="button"
                       className="drag-handle"
                       onPointerDown={(event) => beginSection(event, row.sectionId)}
-                      onPointerMove={drag.move}
-                      onPointerUp={drag.end}
-                      onPointerCancel={drag.end}
                       onKeyDown={(event) =>
                         arrowKeys(event, (delta) => {
                           const next = moveItem(layout, place, place + delta)
@@ -521,9 +528,6 @@ export function ArrangeSongbook({
                 type="button"
                 className="drag-handle"
                 onPointerDown={(event) => beginSong(event, row.slug)}
-                onPointerMove={drag.move}
-                onPointerUp={drag.end}
-                onPointerCancel={drag.end}
                 onKeyDown={(event) =>
                   arrowKeys(event, (delta) => {
                     const next = nudgeSong(layout, row.slug, delta)
