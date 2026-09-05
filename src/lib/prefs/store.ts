@@ -89,6 +89,7 @@ export function readSongPrefs(slug: string): SongPrefs {
     capo: typeof cached.capo === 'number' ? clampCapo(cached.capo) : DEFAULT_SONG_PREFS.capo,
     chordShapes: readChordShapes(cached.chordShapes),
     favorite: cached.favorite === true,
+    tabsExpanded: cached.tabsExpanded === true,
   }
 }
 

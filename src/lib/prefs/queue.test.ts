@@ -23,6 +23,10 @@ function queueWith(result: SaveResult | (() => SaveResult)) {
       calls.push(`favorite:${slug}`)
       return next()
     },
+    saveTabsExpanded: async (slug) => {
+      calls.push(`tabsExpanded:${slug}`)
+      return next()
+    },
   })
 
   return { queue, calls }
@@ -73,6 +77,9 @@ describe('prefs write queue', () => {
         throw new Error('offline')
       },
       saveFavorite: async () => {
+        throw new Error('offline')
+      },
+      saveTabsExpanded: async () => {
         throw new Error('offline')
       },
     })
@@ -150,6 +157,37 @@ describe('prefs write queue', () => {
 
     await queue.flush()
     assert.deepEqual(calls, ['favorite:certe-notti'])
+  })
+
+  /**
+   * The same regression `saveTabsExpanded`'s own comment states: a tab shown open queued
+   * under the row's own key would carry a capo and a key it never meant to touch.
+   */
+  it('queues the tab flag apart from the rest of the same song\'s row', async () => {
+    const { queue, calls } = queueWith('saved')
+
+    queue.enqueueSong('certe-notti', DEFAULT_SONG_PREFS)
+    queue.enqueueTabsExpanded('certe-notti', true)
+
+    assert.equal(queue.size(), 2)
+    assert.equal(queue.hasPending('song:certe-notti'), true)
+    assert.equal(queue.hasPending('tabsExpanded:certe-notti'), true)
+
+    await queue.flush()
+    assert.deepEqual(calls, ['song:certe-notti', 'tabsExpanded:certe-notti'])
+    assert.equal(queue.size(), 0)
+  })
+
+  it('keeps only the last of several taps of the same tab flag', async () => {
+    const { queue, calls } = queueWith('saved')
+
+    queue.enqueueTabsExpanded('certe-notti', true)
+    queue.enqueueTabsExpanded('certe-notti', false)
+    queue.enqueueTabsExpanded('certe-notti', true)
+    assert.equal(queue.size(), 1)
+
+    await queue.flush()
+    assert.deepEqual(calls, ['tabsExpanded:certe-notti'])
   })
 
   it('reports the pending count to subscribers', async () => {

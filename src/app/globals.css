@@ -491,7 +491,7 @@
   .sheet-tab {
     display: block;
     overflow-x: auto;
-    margin: 0.6em 0;
+    margin: 0.3em 0 0;
     padding: 0.6em 0.75em;
     background: var(--surface-2);
     border-radius: var(--r-md);
@@ -499,6 +499,34 @@
     font-family: var(--font-mono);
     font-size: 0.8em;
     line-height: 1.5;
+  }
+
+  /*
+   * The wrapper around a tab's own toggle and, once shown, its `.sheet-tab` content —
+   * exists so the two share one margin against the lines around them instead of each
+   * carrying its own.
+   */
+  .sheet-tab-block {
+    margin: 0.6em 0;
+  }
+
+  /*
+   * Collapsed by default (v4.8, `SheetLine`'s own comment): the row a reader taps to
+   * show or hide one song's tab blocks. Sized and coloured like `.sheet-tab` itself — the
+   * placeholder for a block that is not being shown should not look like a different kind
+   * of thing than the block it stands in for.
+   */
+  .sheet-tab-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.35em 0.7em;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.8em;
+    line-height: 1.5;
+    cursor: pointer;
   }
 
   .sheet-comment {

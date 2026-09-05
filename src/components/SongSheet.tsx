@@ -6,6 +6,7 @@ import { ChordDiagram } from '@/components/ChordDiagram'
 import { ChordPopup } from '@/components/ChordPopup'
 import { usePrefs } from '@/components/PrefsProvider'
 import type { CommentsMode } from '@/components/CommentsProvider'
+import { IconChevronDown, IconChevronUp, IconTab } from '@/components/icons'
 import { type AnchorMap, type PartAnchor, notesAt } from '@/lib/comments/anchorMap'
 import type { CardPoint, CommentAnchor, SongComment } from '@/lib/comments/types'
 import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
@@ -74,7 +75,7 @@ export function pointOf(element: HTMLElement): CardPoint {
  * chords or not, so the spacing between lines is even.
  */
 export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNotes }) {
-  const { global, song: songPrefs, setChordShape } = usePrefs()
+  const { global, song: songPrefs, setChordShape, toggleTabsExpanded } = usePrefs()
   const [shown, setShown] = useState<Chord | null>(null)
 
   /*
@@ -203,6 +204,8 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
                   capo={songPrefs.capo}
                   chordShapes={songPrefs.chordShapes}
                   roomForChords={roomForChords}
+                  tabsExpanded={songPrefs.tabsExpanded}
+                  onToggleTabs={toggleTabsExpanded}
                   onPick={setShown}
                   notes={showNotes ? notes : undefined}
                   anchors={showNotes ? notes.anchors[lyricLine] : undefined}
@@ -412,6 +415,8 @@ function SheetLine({
   capo,
   chordShapes,
   roomForChords,
+  tabsExpanded,
+  onToggleTabs,
   onPick,
   notes,
   anchors,
@@ -429,6 +434,9 @@ function SheetLine({
    *  summary panel or the popup over the same chord. */
   chordShapes: Record<string, string>
   roomForChords: boolean
+  /** Whether this song's tab blocks show open — one flag for the whole song, see `SongPrefs.tabsExpanded`. */
+  tabsExpanded: boolean
+  onToggleTabs: () => void
   onPick: (chord: Chord) => void
   notes?: SheetNotes
   /** This line's slice of the anchor map: word, then part. */
@@ -439,13 +447,33 @@ function SheetLine({
   }
 
   /*
-   * Verbatim, in the app's own monospace — the same font the ChordPro editor
-   * measures words in (`layout.tsx`'s own comment on `--font-mono`), not a
-   * chord-notation matter: transposing moves a chord's name, not where a finger
-   * sits on a fret, so a tab ignores `shift`/`spelling`/`currentKey` entirely.
+   * Collapsed by default (v4.8): a tab is a block of dashes and fret numbers a reader
+   * skims past on most songs, and it costs real vertical space on a phone. The toggle is
+   * one button, shared by every tab block in the song, because the choice is remembered
+   * "at the song level" and there is nothing here to key a per-block memory off.
+   *
+   * The content itself is verbatim, in the app's own monospace — the same font the
+   * ChordPro editor measures words in (`layout.tsx`'s own comment on `--font-mono`), not a
+   * chord-notation matter: transposing moves a chord's name, not where a finger sits on a
+   * fret, so a tab ignores `shift`/`spelling`/`currentKey` entirely.
    */
   if (line.kind === 'tab') {
-    return <pre className="sheet-tab">{line.rows.join('\n')}</pre>
+    return (
+      <div className="sheet-tab-block">
+        <button
+          type="button"
+          className="sheet-tab-toggle"
+          onClick={onToggleTabs}
+          aria-expanded={tabsExpanded}
+          title={tabsExpanded ? 'Hide the tab' : 'Show the tab'}
+        >
+          <IconTab size={14} />
+          Tab
+          {tabsExpanded ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+        </button>
+        {tabsExpanded && <pre className="sheet-tab">{line.rows.join('\n')}</pre>}
+      </div>
+    )
   }
 
   return (

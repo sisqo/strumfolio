@@ -754,6 +754,26 @@ export const userSongPrefs = pgTable(
      * race that makes the distinction load-bearing rather than tidy.
      */
     favorite: boolean('favorite').notNull().default(false),
+    /**
+     * Whether this reader has chosen to see this song's tab blocks, rather than the
+     * collapsed placeholder every `{start_of_tab}` starts under by default (v4.8).
+     *
+     * One flag for the whole song, not one per tab block: a song can hold more than one
+     * tab, and the reader asked for the choice to be remembered "at the song level" —
+     * there is no `tabId` anywhere in the schema for a per-block answer to key off.
+     *
+     * Defaulted rather than nullable, same reasoning as `favorite` right above: every row
+     * that exists already answers this, with the answer that nobody has asked to see a
+     * tab yet.
+     *
+     * **Written on its own, never as part of the whole row** — the same race `favorite`
+     * documents in full (see `saveFavorite`). A tab can sit near the very top of a song,
+     * so tapping it open is exactly the "the instant the page opens, before the server's
+     * row has arrived" gesture that race needs: a whole-row write at that moment would
+     * carry the client's still-default capo and semitones over whatever this reader had
+     * actually saved.
+     */
+    tabsExpanded: boolean('tabs_expanded').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.accountId, table.songId] })],

@@ -55,17 +55,19 @@ export function readStillStands(guard: ReadGuard): boolean {
 /**
  * The song preferences to apply, or `null` when nothing of this read still stands.
  *
- * Field by field rather than all or nothing, and the granularity is the point: the star and
- * the rest of the row are queued separately (see `saveFavorite`), so a reader who tapped the
- * star said nothing at all about their capo — and the server's capo is still the freshest
- * answer there is for it. Refusing the whole row over one tapped star would throw away a
- * transposition saved last night.
+ * Field by field rather than all or nothing, and the granularity is the point: the star,
+ * the tab-expanded flag, and the rest of the row are each queued separately (see
+ * `saveFavorite` and `saveTabsExpanded`), so a reader who tapped the star or opened a tab
+ * said nothing at all about their capo — and the server's capo is still the freshest
+ * answer there is for it. Refusing the whole row over one tapped star or tab would throw
+ * away a transposition saved last night.
  */
 export function adoptStoredSong({
   stored,
   local,
   row,
   star,
+  tabs,
 }: {
   /** What the server has just said. */
   stored: SongPrefs
@@ -75,10 +77,13 @@ export function adoptStoredSong({
   row: ReadGuard
   /** The star, which travels on its own. */
   star: ReadGuard
+  /** Whether the tab blocks show open, which also travels on its own — see `saveTabsExpanded`. */
+  tabs: ReadGuard
 }): SongPrefs | null {
   const takeRow = readStillStands(row)
   const takeStar = readStillStands(star)
-  if (!takeRow && !takeStar) return null
+  const takeTabs = readStillStands(tabs)
+  if (!takeRow && !takeStar && !takeTabs) return null
 
   return {
     semitones: takeRow ? stored.semitones : local.semitones,
@@ -86,5 +91,6 @@ export function adoptStoredSong({
     capo: takeRow ? stored.capo : local.capo,
     chordShapes: takeRow ? stored.chordShapes : local.chordShapes,
     favorite: takeStar ? stored.favorite : local.favorite,
+    tabsExpanded: takeTabs ? stored.tabsExpanded : local.tabsExpanded,
   }
 }

@@ -142,6 +142,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           capo: clampCapo(songRows[0].capo),
           chordShapes: readChordShapes(songRows[0].chordShapes),
           favorite: songRows[0].favorite,
+          tabsExpanded: songRows[0].tabsExpanded,
         }
 
   return { global, song }
@@ -204,11 +205,11 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
 
 /**
  * The key, the speed, the capo and the chosen shapes — the whole row at once, which is
- * what makes `favorite` conspicuously absent from it.
+ * what makes `favorite` and `tabsExpanded` conspicuously absent from it.
  *
- * `prefs.favorite` is read and discarded here on purpose (it is not in `values` below).
- * The star has `saveFavorite` instead, and the reason is a race this write cannot avoid:
- * see that function.
+ * `prefs.favorite` and `prefs.tabsExpanded` are read and discarded here on purpose (neither
+ * is in `values` below). Each has its own save function instead — `saveFavorite` and
+ * `saveTabsExpanded` — and the reason is a race this write cannot avoid: see `saveFavorite`.
  */
 export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise<SaveResult> {
   const email = (await currentUser())?.email ?? null
@@ -281,6 +282,40 @@ export async function saveFavorite(songSlug: string, favorite: boolean): Promise
     return 'saved'
   } catch (error) {
     console.error('saveFavorite failed', error)
+    return 'failed'
+  }
+}
+
+/**
+ * Whether this reader sees this song's tab blocks expanded or collapsed — one column,
+ * never the whole row, for exactly the reason `saveFavorite` states in full.
+ *
+ * A tab can open the very first time a reader taps it, on a song that has just loaded and
+ * whose row has not necessarily arrived yet, which is the same "instant the page opens"
+ * window `saveFavorite`'s own comment reproduces a real loss for. Routing this through
+ * `saveSongPrefs` would risk the identical bug: the tap would queue whatever capo and
+ * semitones the client happened to be showing — the defaults, on a first load — and
+ * `PrefsProvider`'s guard would then skip the server's real row because a write for this
+ * song was pending.
+ *
+ * No plan checked and no role checked, same as `saveSongPrefs` and `saveFavorite`: whether
+ * a tab is shown open is how this one reader reads, not a change to anything shared.
+ */
+export async function saveTabsExpanded(songSlug: string, tabsExpanded: boolean): Promise<SaveResult> {
+  const email = (await currentUser())?.email ?? null
+  if (email === null) return 'no-destination'
+
+  try {
+    await db()
+      .insert(userSongPrefs)
+      .values({ accountId: accountIdOf(email), songId: songIdOf(songSlug), tabsExpanded })
+      .onConflictDoUpdate({
+        target: [userSongPrefs.accountId, userSongPrefs.songId],
+        set: { tabsExpanded, updatedAt: new Date() },
+      })
+    return 'saved'
+  } catch (error) {
+    console.error('saveTabsExpanded failed', error)
     return 'failed'
   }
 }

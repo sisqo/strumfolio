@@ -1,0 +1,13 @@
+-- Whether this reader has chosen to see this song's tab blocks, rather than the
+-- collapsed placeholder every {start_of_tab} starts under by default (v4.8).
+--
+-- One flag for the whole song, not one per tab block — the reader asked for the choice
+-- to be remembered "at the song level", and there is no per-tab id in the schema to key
+-- a finer answer off.
+--
+-- Additive with no backfill: `DEFAULT false` is the answer every existing row already
+-- gives, and nobody has asked to see a tab yet.
+--
+-- Hand-written, not generated, same reason as 0031-0039's own notes: `db:generate`
+-- refuses to run over the 0028-0030 snapshot collision.
+ALTER TABLE "user_song_prefs" ADD COLUMN "tabs_expanded" boolean DEFAULT false NOT NULL;

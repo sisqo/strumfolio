@@ -47,6 +47,7 @@ describe('adoptStoredSong', () => {
       local: DEFAULT_SONG_PREFS,
       row: untouched,
       star: untouched,
+      tabs: untouched,
     })
 
     assert.deepEqual(adopted, stored)
@@ -63,6 +64,7 @@ describe('adoptStoredSong', () => {
       local: prefs({ capo: 0, favorite: true }),
       row: untouched,
       star: { editsAtRead: 1, editsNow: 2, writePending: true },
+      tabs: untouched,
     })
 
     assert.equal(adopted?.capo, 5, 'the stored capo still stands')
@@ -75,18 +77,51 @@ describe('adoptStoredSong', () => {
       local: prefs({ capo: 2, favorite: false }),
       row: { editsAtRead: 1, editsNow: 2, writePending: true },
       star: untouched,
+      tabs: untouched,
     })
 
     assert.equal(adopted?.capo, 2, 'the reader keeps the fret they just chose')
     assert.equal(adopted?.favorite, true, 'the stored star still stands')
   })
 
-  it('says there is nothing to apply when the reader has overtaken both halves', () => {
+  /**
+   * The tab flag and the row are queued apart for the identical reason the star is: a tab
+   * can be tapped open before the row has ever loaded, and that tap must not be treated as
+   * stale just because the capo it happened alongside was.
+   */
+  it('keeps a tab the reader just opened without discarding their stored capo', () => {
+    const adopted = adoptStoredSong({
+      stored: prefs({ capo: 5, tabsExpanded: false }),
+      local: prefs({ capo: 0, tabsExpanded: true }),
+      row: untouched,
+      star: untouched,
+      tabs: { editsAtRead: 1, editsNow: 2, writePending: true },
+    })
+
+    assert.equal(adopted?.capo, 5, 'the stored capo still stands')
+    assert.equal(adopted?.tabsExpanded, true, 'the tap does not spring back')
+  })
+
+  it('keeps a capo the reader just moved without discarding their stored tab flag', () => {
+    const adopted = adoptStoredSong({
+      stored: prefs({ capo: 5, tabsExpanded: true }),
+      local: prefs({ capo: 2, tabsExpanded: false }),
+      row: { editsAtRead: 1, editsNow: 2, writePending: true },
+      star: untouched,
+      tabs: untouched,
+    })
+
+    assert.equal(adopted?.capo, 2, 'the reader keeps the fret they just chose')
+    assert.equal(adopted?.tabsExpanded, true, 'the stored tab flag still stands')
+  })
+
+  it('says there is nothing to apply when the reader has overtaken all three', () => {
     const adopted = adoptStoredSong({
       stored,
-      local: prefs({ capo: 1, favorite: false }),
+      local: prefs({ capo: 1, favorite: false, tabsExpanded: true }),
       row: { editsAtRead: 1, editsNow: 2, writePending: false },
       star: { editsAtRead: 1, editsNow: 2, writePending: false },
+      tabs: { editsAtRead: 1, editsNow: 2, writePending: false },
     })
 
     assert.equal(adopted, null)
@@ -99,6 +134,7 @@ describe('adoptStoredSong', () => {
       local: DEFAULT_SONG_PREFS,
       row: untouched,
       star: untouched,
+      tabs: untouched,
     })
 
     assert.deepEqual(adopted?.chordShapes, shapes)

@@ -22,6 +22,7 @@ import {
   saveFavorite,
   saveGlobalPrefs,
   saveSongPrefs,
+  saveTabsExpanded,
 } from '@/lib/prefs/actions'
 import { adoptStoredSong, readStillStands } from '@/lib/prefs/adopt'
 import { prefsQueue } from '@/lib/prefs/queue'
@@ -71,6 +72,13 @@ interface PrefsContextValue {
    * its own queue key rather than travelling with the row. See `saveFavorite`.
    */
   toggleFavorite: () => void
+  /**
+   * Shows or hides this song's tab blocks — one flag for the whole song, not one per
+   * block, matching how the choice is remembered. Nothing to pass, same shape as
+   * `toggleFavorite` and for the same reason: it writes one column through its own
+   * queue key rather than travelling with the row. See `saveTabsExpanded`.
+   */
+  toggleTabsExpanded: () => void
 }
 
 const PrefsContext = createContext<PrefsContextValue | null>(null)
@@ -130,13 +138,14 @@ export function PrefsProvider({
    * may not overrule them. See `lib/prefs/adopt.ts` for the two races this closes and for
    * why a counter rather than a "touched" flag.
    *
-   * Three, because the three are saved separately and can each be overtaken on their own:
-   * the zoom and the notation go in one row, the key and the capo in another, the star in a
-   * column of its own.
+   * Four, because the four are saved separately and can each be overtaken on their own: the
+   * zoom and the notation go in one row, the key and the capo in another, the star in a
+   * column of its own, and whether a tab shows open in a column of its own too.
    */
   const globalEdits = useRef(0)
   const songEdits = useRef(0)
   const starEdits = useRef(0)
+  const tabsEdits = useRef(0)
 
   useLayoutEffect(() => {
     if (!persist) return
@@ -152,6 +161,7 @@ export function PrefsProvider({
       saveGlobal: saveGlobalPrefs,
       saveSong: saveSongPrefs,
       saveFavorite,
+      saveTabsExpanded,
     })
     prefsQueue.watchConnection()
     return prefsQueue.subscribe(setPending)
@@ -166,6 +176,7 @@ export function PrefsProvider({
     const globalAtRead = globalEdits.current
     const songAtRead = songEdits.current
     const starAtRead = starEdits.current
+    const tabsAtRead = tabsEdits.current
 
     loadPrefs(songSlug)
       .then((stored) => {
@@ -195,6 +206,11 @@ export function PrefsProvider({
               editsAtRead: starAtRead,
               editsNow: starEdits.current,
               writePending: prefsQueue.hasPending(`favorite:${songSlug}`),
+            },
+            tabs: {
+              editsAtRead: tabsAtRead,
+              editsNow: tabsEdits.current,
+              writePending: prefsQueue.hasPending(`tabsExpanded:${songSlug}`),
             },
           })
 
@@ -308,6 +324,24 @@ export function PrefsProvider({
     prefsQueue.enqueueFavorite(songSlug, next)
   }, [songSlug, persist])
 
+  /**
+   * Whether the tab blocks show open: state, cache and queue, without going through
+   * `updateSong` — same shape as `toggleFavorite` right above and for the identical
+   * reason. See `saveTabsExpanded`.
+   */
+  const toggleTabsExpanded = useCallback(() => {
+    if (songSlug === null) return
+
+    const next = !songRef.current.tabsExpanded
+    tabsEdits.current += 1
+    songRef.current = { ...songRef.current, tabsExpanded: next }
+    setSong((prev) => ({ ...prev, tabsExpanded: next }))
+
+    if (!persist) return
+    writeSongPrefs(songSlug, { ...readSongPrefs(songSlug), tabsExpanded: next })
+    prefsQueue.enqueueTabsExpanded(songSlug, next)
+  }, [songSlug, persist])
+
   const updateSong = useCallback(
     (patch: SongPrefs | ((prev: SongPrefs) => SongPrefs)) => {
       const prev = songRef.current
@@ -357,8 +391,9 @@ export function PrefsProvider({
           return { ...prev, chordShapes }
         }),
       toggleFavorite,
+      toggleTabsExpanded,
     }),
-    [readable, song, pending, updateGlobal, updateSong, toggleFavorite],
+    [readable, song, pending, updateGlobal, updateSong, toggleFavorite, toggleTabsExpanded],
   )
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>

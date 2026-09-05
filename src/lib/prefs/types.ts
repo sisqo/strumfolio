@@ -157,6 +157,22 @@ export interface SongPrefs {
    * race written out in full. It is queued on its own key and written to its own column.
    */
   favorite: boolean
+  /**
+   * Whether this reader has chosen to see this song's tab blocks, rather than the
+   * collapsed placeholder every tab starts under by default (v4.8).
+   *
+   * One flag for the whole song, not one per tab block: a song can hold more than one
+   * `{start_of_tab}` … `{end_of_tab}`, and the choice is remembered "at the song level",
+   * matching how a reader asked for it — there is nothing here to key a per-block answer
+   * off with.
+   *
+   * The other field here that does **not** travel through `saveSongPrefs`, for the same
+   * reason `favorite` just above does not: a tab can sit near the top of a song, so
+   * tapping it open is exactly the "the instant the page opens" gesture that would flush
+   * the defaults over a real capo — see `saveFavorite` and
+   * `PrefsProvider.toggleTabsExpanded` for the race written out in full.
+   */
+  tabsExpanded: boolean
 }
 
 /** Font sizes for the sheet, in pixels. The text reflows; it is not a viewport zoom. */
@@ -241,6 +257,7 @@ export const DEFAULT_SONG_PREFS: SongPrefs = {
   capo: 0,
   chordShapes: {},
   favorite: false,
+  tabsExpanded: false,
 }
 
 export function clampZoom(step: number): number {

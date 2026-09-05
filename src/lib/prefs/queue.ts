@@ -34,8 +34,15 @@ type Pending =
    * star are one save, the same way five taps of +1 are.
    */
   | { kind: 'favorite'; slug: string; favorite: boolean }
+  /**
+   * Whether the tab blocks show open, and the other entry that does not carry a whole
+   * row — same reasoning as `favorite` right above: a tab can be tapped open on the very
+   * first render of a song, before its row has arrived, and sharing `song:${slug}` would
+   * make that tap pin the client's still-default capo and semitones. See `saveTabsExpanded`.
+   */
+  | { kind: 'tabsExpanded'; slug: string; tabsExpanded: boolean }
 
-export type QueueKey = 'global' | `song:${string}` | `favorite:${string}`
+export type QueueKey = 'global' | `song:${string}` | `favorite:${string}` | `tabsExpanded:${string}`
 
 const DEBOUNCE_MS = 2000
 /** Longer than the debounce: a failing server should not be hammered. */
@@ -45,6 +52,7 @@ export interface QueueHandlers {
   saveGlobal: (prefs: GlobalPrefs) => Promise<SaveResult>
   saveSong: (slug: string, prefs: SongPrefs) => Promise<SaveResult>
   saveFavorite: (slug: string, favorite: boolean) => Promise<SaveResult>
+  saveTabsExpanded: (slug: string, tabsExpanded: boolean) => Promise<SaveResult>
 }
 
 /**
@@ -98,7 +106,8 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
         try {
           if (entry.kind === 'global') result = await handlers.saveGlobal(entry.prefs)
           else if (entry.kind === 'song') result = await handlers.saveSong(entry.slug, entry.prefs)
-          else result = await handlers.saveFavorite(entry.slug, entry.favorite)
+          else if (entry.kind === 'favorite') result = await handlers.saveFavorite(entry.slug, entry.favorite)
+          else result = await handlers.saveTabsExpanded(entry.slug, entry.tabsExpanded)
         } catch {
           // Offline, or the request never arrived.
           retry = true
@@ -156,6 +165,12 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
 
     enqueueFavorite(slug: string, favorite: boolean) {
       pending.set(`favorite:${slug}`, { kind: 'favorite', slug, favorite })
+      notify()
+      schedule(debounceMs)
+    },
+
+    enqueueTabsExpanded(slug: string, tabsExpanded: boolean) {
+      pending.set(`tabsExpanded:${slug}`, { kind: 'tabsExpanded', slug, tabsExpanded })
       notify()
       schedule(debounceMs)
     },
