@@ -184,6 +184,14 @@ export function GraphicEditor({
   const sections = sectionsOf(doc.blocks)
   const suggestions = chordVocabulary(doc.blocks).slice(0, 8)
   const wanted = useRef<{ line: number; at: number } | null>(null)
+  /**
+   * The line index Enter just opened for typing, so it can be told apart from a
+   * break that was already sitting on the page: both are the same still-blank row
+   * (see `setLineText`), and without this a fresh line reads exactly like the break
+   * it round-trips into the moment it is saved unread — see `onSplit`/`onBreak`
+   * below for where this is set.
+   */
+  const freshLine = useRef<number | null>(null)
   /** The last `focus` honoured, so a re-render does not take the caret back. */
   const landed = useRef<Caret | null>(null)
   const sheet = useRef<HTMLDivElement | null>(null)
@@ -343,6 +351,7 @@ export function GraphicEditor({
             index={index}
             section={sections[index]}
             focused={caret.line === index}
+            fresh={freshLine.current === index}
             taken={selection !== null && index >= selection.from && index <= selection.to}
             picking={picking}
             editing={editing !== null && editing.line === index ? editing.chord : null}
@@ -405,7 +414,14 @@ export function GraphicEditor({
             onCaret={(at) => onCaret({ line: index, at })}
             onSplit={(at) => {
               wanted.current = { line: index + 1, at: 0 }
+              freshLine.current = index + 1
               apply(splitLine(doc, index, at))
+            }}
+            onBreak={() => {
+              // Deliberate, so it is left out of `freshLine`: the point is that it
+              // keeps reading as a break rather than opening for typing.
+              wanted.current = { line: index + 1, at: 0 }
+              apply(insertLineAfter(doc, index, { kind: 'blank', raw: '' }))
             }}
             onJoin={() => {
               const previous = doc.blocks[index - 1]
@@ -441,6 +457,7 @@ export function GraphicEditor({
         className="editor-add-line"
         onClick={() => {
           wanted.current = { line: doc.blocks.length, at: 0 }
+          freshLine.current = doc.blocks.length
           apply(insertLineAfter(doc, doc.blocks.length - 1))
         }}
       >
@@ -455,6 +472,7 @@ function BlockRow({
   index,
   section,
   focused,
+  fresh,
   taken,
   picking,
   editing,
@@ -468,6 +486,7 @@ function BlockRow({
   onText,
   onCaret,
   onSplit,
+  onBreak,
   onJoin,
   onRemove,
   onBackspaceOut,
@@ -477,6 +496,8 @@ function BlockRow({
   index: number
   section: SectionKind
   focused: boolean
+  /** Enter opened this still-blank row for typing — see `freshLine` in the parent. */
+  fresh: boolean
   /** Inside the run of lines being worked on. */
   taken: boolean
   picking: boolean
@@ -491,6 +512,7 @@ function BlockRow({
   onText: (text: string, at: number) => void
   onCaret: (at: number) => void
   onSplit: (at: number) => void
+  onBreak: () => void
   onJoin: () => void
   onRemove: () => void
   onBackspaceOut: () => void
@@ -507,6 +529,11 @@ function BlockRow({
    * not a different affordance a new line could get stuck showing instead of one to
    * type into. `setLineText` promotes it to a real `lyrics` block the moment there
    * is anything typed; until then it round-trips through the file unchanged.
+   *
+   * `fresh` tells the two reasons a row can be this apart on screen: Enter just
+   * opened it for the next line of words (reads like any other empty line, nothing
+   * to announce), versus a break already sitting here, or one Shift+Enter just made
+   * on purpose (reads as "— break —", since that is exactly what it is).
    */
   if (block.kind === 'blank') {
     return (
@@ -516,14 +543,15 @@ function BlockRow({
             <input
               className="line-input"
               value=""
-              placeholder="— break —"
+              placeholder={fresh ? undefined : '— break —'}
               onChange={(event) => onText(event.target.value, event.target.selectionStart ?? 0)}
               onFocus={() => onCaret(0)}
               onClick={() => onCaret(0)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  onSplit(0)
+                  if (event.shiftKey) onBreak()
+                  else onSplit(0)
                   return
                 }
 
@@ -537,12 +565,17 @@ function BlockRow({
                   onBackspaceOut()
                 }
               }}
-              aria-label={`Line ${index + 1}, a break`}
+              aria-label={fresh ? `Text of line ${index + 1}` : `Line ${index + 1}, a break`}
             />
           </div>
         </div>
 
-        <button type="button" className="line-remove" onClick={onRemove} aria-label="Delete this break">
+        <button
+          type="button"
+          className="line-remove"
+          onClick={onRemove}
+          aria-label={fresh ? 'Delete this line' : 'Delete this break'}
+        >
           ×
         </button>
       </div>
@@ -573,12 +606,13 @@ function BlockRow({
             }
 
             // Neither a chorus/bridge marker nor a directive has text of its own to
-            // split, so `at` is never read for this row's kind — a new blank line
-            // simply opens after it, the same as pressing Enter at the end of any
-            // other line.
+            // split, so `at` is never read for this row's kind — a new line simply
+            // opens after it, the same as pressing Enter at the end of any other
+            // line; Shift+Enter opens a break instead.
             if (event.key === 'Enter') {
               event.preventDefault()
-              onSplit(0)
+              if (event.shiftKey) onBreak()
+              else onSplit(0)
             }
           }}
         >
@@ -657,7 +691,8 @@ function BlockRow({
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  onSplit(event.currentTarget.selectionStart ?? block.text.length)
+                  if (event.shiftKey) onBreak()
+                  else onSplit(event.currentTarget.selectionStart ?? block.text.length)
                   return
                 }
 
@@ -728,7 +763,8 @@ function BlockRow({
 
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  onSplit(at)
+                  if (event.shiftKey) onBreak()
+                  else onSplit(at)
                   return
                 }
 
