@@ -156,33 +156,35 @@ export function rowsOf(groups: ArrangedSection[]): ArrangeRow[] {
 }
 
 /**
- * Where a song would land if it were let go over `row`.
+ * Where a song let go in gap `slot` of the drawn rows lands — `slot` as `slotAt` counts
+ * them: 0 above the first row, `rows.length` below the last.
  *
- * Over a heading, or over an empty section, it goes to the top of that section: the
- * heading sits above its songs on screen, so that is where the finger is pointing.
+ * The section is the one the row just above the gap belongs to, so a heading is the
+ * boundary between two sections and nothing more: the gap over it is the end of the
+ * section before, the gap under it the start of its own. That is what lets a song be
+ * carried to the *end* of another section, a place the row-under-the-finger reading of
+ * this used to have no way to name — over a song meant above it, over the next heading
+ * meant the top of the next section, and the gap between the two answered to nothing.
  *
- * Over another song it takes the place that song *currently* occupies, and «currently»
- * is doing real work. Within one section that reproduces exactly what dragging in a
- * single list does — the index counted with the moving song still in it, spliced into the
- * list without it — which is why a downward drag lands below the row it passed and an
- * upward drag lands above it. Between sections there is no such asymmetry: the moving
- * song is not in the target's list, so it lands above the song it is over.
- *
- * Over the moving song itself the answer is where it already is, so hovering your own row
- * moves nothing.
+ * The index counts the section's other songs above the gap, with the moving song left
+ * out of the count wherever its own row happens to be drawn. Both gaps around that row
+ * therefore name the place it already holds, which is the dead zone a sortable list is
+ * meant to have: a finger that has not yet reached the middle of a neighbour has not
+ * asked for anything.
  */
-export function placeAt(
-  groups: ArrangedSection[],
-  moving: string,
-  row: ArrangeRow,
-): Place | null {
-  if (row.kind !== 'song') return { sectionId: row.sectionId, index: 0 }
+export function placeAtSlot(rows: ArrangeRow[], moving: string, slot: number): Place | null {
+  if (rows.length === 0) return null
 
-  const group = groups.find((entry) => entry.sectionId === row.sectionId)
-  if (group === undefined) return null
+  const gap = Math.max(0, Math.min(rows.length, slot))
+  const above = rows[gap - 1]
+  const sectionId = above === undefined ? rows[0].sectionId : above.sectionId
 
-  const index = group.slugs.indexOf(row.slug)
-  return index === -1 ? null : { sectionId: row.sectionId, index }
+  const index = rows
+    .slice(0, gap)
+    .filter((row) => row.kind === 'song' && row.sectionId === sectionId && row.slug !== moving)
+    .length
+
+  return { sectionId, index }
 }
 
 /**
@@ -259,31 +261,47 @@ export function arrangementKey(groups: ArrangedSection[]): string {
   return groups.map((group) => `${group.sectionId}:${group.slugs.join(',')}`).join('\n')
 }
 
-/** A row's vertical extent, as it was measured before anything moved. */
+/**
+ * A row's vertical extent in page coordinates — `getBoundingClientRect` plus the scroll
+ * position at the time — as it was measured before anything moved.
+ *
+ * Page coordinates and not viewport ones, because the page scrolls during a drag: a
+ * mouse wheel turns, or the finger parks near an edge and the list is scrolled under
+ * it. A band measured in viewport terms would then describe where a row *was* on the
+ * screen, and a pointer compared against it would be filing songs a whole scroll's
+ * distance from where it is pointing.
+ */
 export interface Band {
   top: number
   bottom: number
 }
 
 /**
- * Which row a pointer at `y` is over.
+ * Which gap between rows a pointer at page `y` is in: the number of rows whose middle is
+ * above it, so 0 is above the first row and `bands.length` below the last.
  *
- * The bands are measured once, when the drag starts, and are *not* re-measured as
- * the rows move under the finger. That is deliberate: the rows are reordered live,
- * so measuring again would move the very boundaries the pointer is being compared
- * against, and the list would oscillate between two orders while the finger sat
- * still. Fixed bands mean the finger has to travel a whole row to displace one,
+ * The bands are measured once, when the drag starts, and are *not* re-measured as the
+ * rows move under the finger. That is deliberate: the rows are reordered live, so
+ * measuring again would move the very boundaries the pointer is being compared against,
+ * and the list would oscillate between two orders while the finger sat still. Fixed
+ * bands mean the finger has to travel to the middle of a neighbour to displace it,
  * which is also what it looks like it should do.
  *
- * Rows are not all the same height — a song with an artist is taller than one
- * without — so this walks the bands rather than dividing by a row height.
+ * Rows are not all the same height — a song with an artist is taller than one without —
+ * so this counts middles rather than dividing by a row height.
  */
-export function bandAt(bands: Band[], y: number): number {
-  if (bands.length === 0) return 0
-  if (y < bands[0].top) return 0
+export function slotAt(bands: Band[], y: number): number {
+  return bands.filter((band) => y >= (band.top + band.bottom) / 2).length
+}
 
-  const found = bands.findIndex((band) => y < band.bottom)
-  return found === -1 ? bands.length - 1 : found
+/**
+ * Moves the item at `from` into gap `slot` of the list as it was drawn — with the item
+ * still in it — leaving everything else in its relative order. A gap below the item's
+ * own row is one index further along than the place it names once the item is lifted
+ * out, which is the whole of the arithmetic here.
+ */
+export function moveToSlot<T>(items: T[], from: number, slot: number): T[] {
+  return moveItem(items, from, slot > from ? slot - 1 : slot)
 }
 
 /**

@@ -10,20 +10,22 @@ import {
   IconPlus,
   IconTrash,
 } from '@/components/icons'
+import { topBarBottom } from '@/components/topBarBottom'
 import {
   type ArrangeRow,
   type ArrangedSection,
   type Band,
   arrangementKey,
   arrangementOf,
-  bandAt,
   moveItem,
   moveSongTo,
+  moveToSlot,
   nudgeSong,
-  placeAt,
+  placeAtSlot,
   rowsOf,
   sameMembers,
 } from '@/lib/songbooks/order'
+import { useRowDrag } from '@/lib/songbooks/useRowDrag'
 import { writeMessage, type WriteFailure } from '@/lib/songbooks/types'
 import type { LimitFacts } from '@/lib/plans/types'
 import type { SongIndexRow } from '@/lib/search-index'
@@ -45,9 +47,11 @@ function keyOf(row: ArrangeRow): string {
  *
  * **A song crosses a heading by being carried over it.** One gesture for two things —
  * where the song sits and which section it is in — because they are one fact. The
- * arithmetic for it is in `lib/songbooks/order.ts` and under test there: which row the
- * finger is over, and what place that row means, are the two things a screenshot cannot
- * check.
+ * arithmetic for it is in `lib/songbooks/order.ts` and under test there: which gap between
+ * rows the finger is in, and what place that gap means, are the two things a screenshot
+ * cannot check. The pointer side — capture, and the page scrolling itself while the finger
+ * is parked near an edge, which is how a song travels further than the screen is tall — is
+ * `useRowDrag`.
  *
  * The bands are measured once, when the drag starts, and the layout each move produces is
  * computed from the layout as it was *then* — not from the previous move's result. So the
@@ -102,10 +106,22 @@ export function ArrangeSongbook({
   const [newName, setNewName] = useState('')
 
   const elements = useRef(new Map<string, HTMLLIElement>())
-  /** Measured once per drag: see `bandAt` for why they must not be measured again. */
-  const start = useRef<{ layout: ArrangedSection[]; rows: ArrangeRow[]; bands: Band[] } | null>(
-    null,
-  )
+  /**
+   * The layout as it was when the drag began, and what was grabbed. Every move is computed
+   * from this, never from the previous move's result; the bands measured against it live in
+   * `drag`, and are not measured again either — see `slotAt` for why.
+   */
+  const start = useRef<{
+    layout: ArrangedSection[]
+    rows: ArrangeRow[]
+    held: { kind: 'song'; slug: string } | { kind: 'section'; id: number }
+  } | null>(null)
+  /**
+   * The last layout a drag produced. Saved on release instead of `layout`, which can be a
+   * render behind it: a move made by the frame loop, not by an event, is not flushed before
+   * the pointer-up that follows.
+   */
+  const latest = useRef<ArrangedSection[]>(server)
   /**
    * Where the grabbed section's header sat just before a section drag collapses every
    * other one out from under it. See the `useLayoutEffect` below for what this is for.
@@ -113,6 +129,32 @@ export function ArrangeSongbook({
   const anchor = useRef<number | null>(null)
   /** Saves run one after another, so the last layout let go is the last one written. */
   const queue = useRef<Promise<unknown>>(Promise.resolve())
+
+  const drag = useRowDrag({
+    onSlot: (slot) => {
+      const from = start.current
+      if (from === null) return
+
+      const held = from.held
+      let next = from.layout
+      if (held.kind === 'song') {
+        const place = placeAtSlot(from.rows, held.slug, slot)
+        if (place !== null) next = moveSongTo(from.layout, held.slug, place)
+      } else {
+        const index = from.layout.findIndex((group) => group.sectionId === held.id)
+        if (index !== -1) next = moveToSlot(from.layout, index, slot)
+      }
+
+      latest.current = next
+      setLayout(next)
+    },
+    onRelease: () => {
+      setDragging(null)
+      start.current = null
+      save(latest.current)
+    },
+    coveredAbove: topBarBottom,
+  })
 
   /*
    * Adopt the songbook again when its parts change under us — an import, a song moved
@@ -136,7 +178,7 @@ export function ArrangeSongbook({
       /*
        * Whatever is being dragged might be exactly what just left — a section removed,
        * or its last song moved out, from another device. A drag like that can never be
-       * released the ordinary way: `endDrag` only ever fires from the row's own button,
+       * released the ordinary way: `drag.end` only ever fires from the row's own button,
        * and that row is gone. Left alone, `dragging` would stay set forever, and every
        * song and "Empty" placeholder would stay hidden for the rest of the visit.
        */
@@ -148,13 +190,14 @@ export function ArrangeSongbook({
             : server.some((group) => group.slugs.includes(dragging.slug))
 
       if (!stillThere) {
+        drag.cancel()
         setDragging(null)
         start.current = null
       }
 
       return server
     })
-  }, [server, dragging])
+  }, [server, dragging, drag])
 
   const rows = useMemo(() => rowsOf(layout), [layout])
 
@@ -207,19 +250,22 @@ export function ArrangeSongbook({
     }
   }
 
+  /** In page coordinates — see `Band` for why not the viewport's. */
   const bandOf = (key: string): Band => {
     const rect = elements.current.get(key)?.getBoundingClientRect()
-    return { top: rect?.top ?? 0, bottom: rect?.bottom ?? 0 }
+    const top = (rect?.top ?? 0) + window.scrollY
+    return { top, bottom: top + (rect?.height ?? 0) }
   }
 
+  /** In viewport coordinates: for comparing where a row is on screen before and after a scroll. */
+  const screenTop = (key: string): number =>
+    elements.current.get(key)?.getBoundingClientRect().top ?? 0
+
   const beginSong = (event: React.PointerEvent<HTMLButtonElement>, slug: string) => {
-    start.current = {
-      layout,
-      rows,
-      bands: rows.map((row) => bandOf(keyOf(row))),
-    }
-    // Capture, so the row keeps following a finger that has slid off the handle.
-    event.currentTarget.setPointerCapture(event.pointerId)
+    start.current = { layout, rows, held: { kind: 'song', slug } }
+    latest.current = layout
+    drag.begin(event)
+    drag.arm(rows.map((row) => bandOf(keyOf(row))))
     setDragging({ kind: 'song', slug })
   }
 
@@ -237,11 +283,11 @@ export function ArrangeSongbook({
     // Where this header sits *before* the collapse the effect below is about to cause —
     // read now, on the DOM as it still is, because a moment from now every other section
     // will have moved and this row along with them.
-    anchor.current = bandOf(`section:${id}`).top
-    // Left null, not measured, so a stray move in the gap before the effect below runs has
-    // nothing to work from — onMove already no-ops when `start.current` is null.
+    anchor.current = screenTop(`section:${id}`)
+    // Left null, and `drag` left unarmed, so a stray move in the gap before the effect
+    // below runs has nothing to work from.
     start.current = null
-    event.currentTarget.setPointerCapture(event.pointerId)
+    drag.begin(event)
     setDragging({ kind: 'section', id })
   }
 
@@ -253,17 +299,17 @@ export function ArrangeSongbook({
    *
    * Collapsing every section down to its header does not just shrink them — it moves them,
    * the grabbed one included, unless it happened to be first. The finger has not moved at
-   * all yet, but the row underneath it has: `bandAt`'s whole premise, that the finger
-   * starts inside the band it grabbed, would already be false on the very first pointer
-   * event. So before measuring anything, this scrolls by exactly however far the grabbed
-   * header moved, putting it back where the finger still is — which is what makes the
-   * collapse read as the songs vanishing rather than as the section jumping.
+   * all yet, but the row underneath it has: `slotAt`'s whole premise, that the finger
+   * starts in a gap around the row it grabbed, would already be false on the very first
+   * pointer event. So before measuring anything, this scrolls by exactly however far the
+   * grabbed header moved, putting it back where the finger still is — which is what makes
+   * the collapse read as the songs vanishing rather than as the section jumping.
    *
    * That scroll can be clamped — there may be nowhere further up to scroll into — so the
    * fix does not stop at the `scrollBy`. Whatever gap it could not close is measured
-   * afterwards and folded into every band as one flat offset, so the coordinates used for
-   * hit-testing agree with where the grabbed row actually ended up even on a page that
-   * could not fully compensate.
+   * afterwards, on screen, and folded into every band as one flat offset, so the
+   * coordinates used for hit-testing agree with where the grabbed row actually ended up
+   * even on a page that could not fully compensate.
    *
    * Once corrected this way, a section's band is simply its own header row's rect — no more
    * reaching from a group's first row to its last, because collapsed there is nothing else
@@ -274,21 +320,21 @@ export function ArrangeSongbook({
       if (dragging?.kind !== 'section') return
 
       const before = anchor.current
-      const collapsedTop = bandOf(`section:${dragging.id}`).top
+      const collapsedTop = screenTop(`section:${dragging.id}`)
 
-      if (before !== null) window.scrollBy(0, collapsedTop - before)
+      if (before !== null) window.scrollBy({ top: collapsedTop - before, behavior: 'instant' })
 
-      const settledTop = bandOf(`section:${dragging.id}`).top
+      const settledTop = screenTop(`section:${dragging.id}`)
       const offset = before === null ? 0 : before - settledTop
 
-      start.current = {
-        layout,
-        rows,
-        bands: layout.map((group) => {
+      start.current = { layout, rows, held: { kind: 'section', id: dragging.id } }
+      latest.current = layout
+      drag.arm(
+        layout.map((group) => {
           const band = bandOf(`section:${group.sectionId}`)
           return { top: band.top + offset, bottom: band.bottom + offset }
         }),
-      }
+      )
     },
     // Deliberately not exhaustive: `layout` and `rows` are read once and then meant to go
     // stale for the rest of the drag, exactly like `beginSong`'s bands do — only a *new*
@@ -298,29 +344,6 @@ export function ArrangeSongbook({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dragging],
   )
-
-  const onMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const from = start.current
-    if (dragging === null || from === null) return
-
-    const at = bandAt(from.bands, event.clientY)
-
-    if (dragging.kind === 'song') {
-      const place = placeAt(from.layout, dragging.slug, from.rows[at])
-      if (place !== null) setLayout(moveSongTo(from.layout, dragging.slug, place))
-      return
-    }
-
-    const index = from.layout.findIndex((group) => group.sectionId === dragging.id)
-    if (index !== -1) setLayout(moveItem(from.layout, index, at))
-  }
-
-  const endDrag = () => {
-    if (dragging === null) return
-    setDragging(null)
-    start.current = null
-    save(layout)
-  }
 
   const arrowKeys = (event: React.KeyboardEvent, act: (delta: number) => void) => {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
@@ -408,9 +431,9 @@ export function ArrangeSongbook({
                       type="button"
                       className="drag-handle"
                       onPointerDown={(event) => beginSection(event, row.sectionId)}
-                      onPointerMove={onMove}
-                      onPointerUp={endDrag}
-                      onPointerCancel={endDrag}
+                      onPointerMove={drag.move}
+                      onPointerUp={drag.end}
+                      onPointerCancel={drag.end}
                       onKeyDown={(event) =>
                         arrowKeys(event, (delta) => {
                           const next = moveItem(layout, place, place + delta)
@@ -498,9 +521,9 @@ export function ArrangeSongbook({
                 type="button"
                 className="drag-handle"
                 onPointerDown={(event) => beginSong(event, row.slug)}
-                onPointerMove={onMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
+                onPointerMove={drag.move}
+                onPointerUp={drag.end}
+                onPointerCancel={drag.end}
                 onKeyDown={(event) =>
                   arrowKeys(event, (delta) => {
                     const next = nudgeSong(layout, row.slug, delta)

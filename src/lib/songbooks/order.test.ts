@@ -5,15 +5,16 @@ import {
   type Band,
   applyOrder,
   arrangementKey,
-  bandAt,
   moveItem,
   moveSongTo,
+  moveToSlot,
   nudgeSong,
   placeAfter,
-  placeAt,
+  placeAtSlot,
   placesOf,
   rowsOf,
   sameMembers,
+  slotAt,
 } from './order'
 
 describe('moving one song to another place', () => {
@@ -40,6 +41,28 @@ describe('moving one song to another place', () => {
     const before = [...list]
     moveItem(list, 0, 3)
     assert.deepEqual(list, before)
+  })
+})
+
+describe('moving an item into a gap of the list as it was drawn', () => {
+  const list = ['a', 'b', 'c', 'd']
+
+  it('lands below the rows it passed going down', () => {
+    assert.deepEqual(moveToSlot(list, 0, 3), ['b', 'c', 'a', 'd'])
+  })
+
+  it('and above them going up', () => {
+    assert.deepEqual(moveToSlot(list, 3, 1), ['a', 'd', 'b', 'c'])
+  })
+
+  it('leaves the list alone from either gap around its own row', () => {
+    assert.equal(moveToSlot(list, 2, 2), list)
+    assert.equal(moveToSlot(list, 2, 3), list)
+  })
+
+  it('reaches both ends', () => {
+    assert.deepEqual(moveToSlot(list, 1, 0), ['b', 'a', 'c', 'd'])
+    assert.deepEqual(moveToSlot(list, 1, 4), ['a', 'c', 'd', 'b'])
   })
 })
 
@@ -161,7 +184,7 @@ describe('where an imported song lands', () => {
   })
 })
 
-describe('which row the finger is over', () => {
+describe('which gap between rows the finger is in', () => {
   /** Three rows of unequal height, as a song with an artist is taller than one without. */
   const bands: Band[] = [
     { top: 100, bottom: 140 },
@@ -169,24 +192,25 @@ describe('which row the finger is over', () => {
     { top: 200, bottom: 240 },
   ]
 
-  it('finds the row a point falls in', () => {
-    assert.equal(bandAt(bands, 120), 0)
-    assert.equal(bandAt(bands, 170), 1)
-    assert.equal(bandAt(bands, 230), 2)
+  it('is the gap above a row until its middle, and the one below it from there', () => {
+    assert.equal(slotAt(bands, 110), 0)
+    assert.equal(slotAt(bands, 150), 1)
+    assert.equal(slotAt(bands, 190), 2)
+    assert.equal(slotAt(bands, 230), 3)
   })
 
-  it('gives a boundary to the row below it, so the two never both claim it', () => {
-    assert.equal(bandAt(bands, 140), 1)
-    assert.equal(bandAt(bands, 200), 2)
+  it('gives a middle to the gap below it, so the two never both claim it', () => {
+    assert.equal(slotAt(bands, 120), 1)
+    assert.equal(slotAt(bands, 220), 3)
   })
 
-  it('clamps above the first row and below the last', () => {
-    assert.equal(bandAt(bands, -500), 0)
-    assert.equal(bandAt(bands, 5000), 2)
+  it('names the ends for a point above the first row or below the last', () => {
+    assert.equal(slotAt(bands, -500), 0)
+    assert.equal(slotAt(bands, 5000), 3)
   })
 
   it('answers something for an empty list', () => {
-    assert.equal(bandAt([], 42), 0)
+    assert.equal(slotAt([], 42), 0)
   })
 })
 
@@ -216,52 +240,64 @@ describe('the rows of an arrangement', () => {
   })
 })
 
-describe('where a song lands when it is let go over a row', () => {
+describe('where a song lands when it is let go in a gap', () => {
   const groups = [
     { sectionId: 1, slugs: ['a', 'b', 'c'] },
     { sectionId: 2, slugs: ['x', 'y'] },
     { sectionId: 3, slugs: [] },
   ]
+  /** Rows 0..8: §1 a b c §2 x y §3 gap — so gap 4 sits over §2 and gap 5 under it. */
+  const rows = rowsOf(groups)
 
-  it('goes to the top of a section when let go over its heading', () => {
-    assert.deepEqual(placeAt(groups, 'a', { kind: 'section', sectionId: 2 }), {
-      sectionId: 2,
-      index: 0,
-    })
+  it('goes to the top of a section from the gap under its heading', () => {
+    assert.deepEqual(placeAtSlot(rows, 'a', 5), { sectionId: 2, index: 0 })
   })
 
-  it('and into an empty section over its gap', () => {
-    assert.deepEqual(placeAt(groups, 'a', { kind: 'gap', sectionId: 3 }), {
-      sectionId: 3,
-      index: 0,
-    })
+  it('and to the end of the section before from the gap over it', () => {
+    const place = placeAtSlot(rows, 'x', 4)
+    assert.deepEqual(place, { sectionId: 1, index: 3 })
+    assert.deepEqual(moveSongTo(groups, 'x', place!)[0].slugs, ['a', 'b', 'c', 'x'])
+  })
+
+  it('reaches the end of another section, below its last song', () => {
+    const after = moveSongTo(groups, 'a', placeAtSlot(rows, 'a', 7)!)
+    assert.deepEqual(after[0].slugs, ['b', 'c'])
+    assert.deepEqual(after[1].slugs, ['x', 'y', 'a'])
   })
 
   it('lands below the row it passed going down, as dragging in one list does', () => {
-    const place = placeAt(groups, 'a', { kind: 'song', sectionId: 1, slug: 'b' })
+    const place = placeAtSlot(rows, 'a', 3)
     assert.deepEqual(moveSongTo(groups, 'a', place!)[0].slugs, ['b', 'a', 'c'])
   })
 
   it('and above it going up', () => {
-    const place = placeAt(groups, 'c', { kind: 'song', sectionId: 1, slug: 'b' })
+    const place = placeAtSlot(rows, 'c', 2)
     assert.deepEqual(moveSongTo(groups, 'c', place!)[0].slugs, ['a', 'c', 'b'])
   })
 
-  it('lands above the song it is over when it comes from another section', () => {
-    const place = placeAt(groups, 'a', { kind: 'song', sectionId: 2, slug: 'y' })
-    const after = moveSongTo(groups, 'a', place!)
-
-    assert.deepEqual(after[0].slugs, ['b', 'c'])
+  it('lands above the song it stopped over when it comes from another section', () => {
+    const after = moveSongTo(groups, 'a', placeAtSlot(rows, 'a', 6)!)
     assert.deepEqual(after[1].slugs, ['x', 'a', 'y'])
   })
 
-  it('moves nothing when it is let go over its own row', () => {
-    const place = placeAt(groups, 'b', { kind: 'song', sectionId: 1, slug: 'b' })
-    assert.deepEqual(moveSongTo(groups, 'b', place!)[0].slugs, ['a', 'b', 'c'])
+  it('moves nothing from either gap around its own row', () => {
+    for (const slot of [2, 3]) {
+      const place = placeAtSlot(rows, 'b', slot)
+      assert.deepEqual(moveSongTo(groups, 'b', place!)[0].slugs, ['a', 'b', 'c'])
+    }
   })
 
-  it('says nothing about a row of a section it has never heard of', () => {
-    assert.equal(placeAt(groups, 'a', { kind: 'song', sectionId: 9, slug: 'z' }), null)
+  it('fills an empty section from the gap under its heading or under its placeholder', () => {
+    assert.deepEqual(placeAtSlot(rows, 'a', 8), { sectionId: 3, index: 0 })
+    assert.deepEqual(placeAtSlot(rows, 'a', 9), { sectionId: 3, index: 0 })
+  })
+
+  it('treats the gap above the first heading as the top of the first section', () => {
+    assert.deepEqual(placeAtSlot(rows, 'y', 0), { sectionId: 1, index: 0 })
+  })
+
+  it('has nothing to say about no rows at all', () => {
+    assert.equal(placeAtSlot([], 'a', 0), null)
   })
 })
 
