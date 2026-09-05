@@ -7130,6 +7130,19 @@
    *
    * `z-index: 40` and not the mock's 20: this app already draws modals and the reading bar, and
    * 20 sits under `.control-bar`. Above the page, below anything that takes focus.
+   *
+   * `max-width: 70rem`, centred by the auto margins: the mock has no opinion here, because an
+   * artboard is one width and a monitor is not. Following the viewport's edges, as this first
+   * shipped, the ticket was about 2470px wide on a 2560px screen over a price list 1120px
+   * across — a bar the width of the room, announcing a discount to the margins. 70rem is the
+   * column the pages that mount it already share (`/pricing`'s `<main>`, `/login`'s
+   * `.landing-width`), so on a wide screen the ticket's edges fall where the content's do.
+   * `/checkout`'s column is narrower, 48rem, and the ticket keeps the site's width there
+   * rather than its own: the single row needs about 64.5rem to hold (the stacked layout's
+   * arithmetic, below), and a 48rem ticket on a desktop would have to stack — which a
+   * viewport-driven media query cannot know to do. Auto margins on an over-constrained fixed
+   * box are how CSS centres it, and they leave the phone's `left`/`right` insets alone: the cap
+   * only bites once the viewport passes 75.5rem.
    */
   .coupon-overlay {
     position: fixed;
@@ -7140,6 +7153,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    max-width: 70rem;
+    margin-inline: auto;
     /* The bar itself is interactive; the strip of nothing beside the collapsed tab is not, so
        it must not swallow a click meant for the page underneath. */
     pointer-events: none;
