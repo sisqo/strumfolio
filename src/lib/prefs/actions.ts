@@ -10,6 +10,7 @@ import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
+import { accountIdOf, songIdOf } from '@/lib/db/ids'
 import { songbooks, songs, userPrefs, userSongPrefs } from '@/lib/db/schema'
 import type { Instrument } from '@/lib/music/shapes'
 import { entitlementsOf } from '@/lib/plans/resolve'
@@ -105,7 +106,7 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
   const globalRows = await database
     .select()
     .from(userPrefs)
-    .where(eq(userPrefs.userEmail, email))
+    .where(eq(userPrefs.accountId, accountIdOf(email)))
     .limit(1)
 
   const global =
@@ -124,7 +125,12 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
   const songRows = await database
     .select()
     .from(userSongPrefs)
-    .where(and(eq(userSongPrefs.userEmail, email), eq(userSongPrefs.songSlug, songSlug)))
+    .where(
+      and(
+        eq(userSongPrefs.accountId, accountIdOf(email)),
+        eq(userSongPrefs.songId, songIdOf(songSlug)),
+      ),
+    )
     .limit(1)
 
   const song =
@@ -184,9 +190,9 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
   try {
     await db()
       .insert(userPrefs)
-      .values({ userEmail: email, ...values })
+      .values({ accountId: accountIdOf(email), ...values })
       .onConflictDoUpdate({
-        target: userPrefs.userEmail,
+        target: userPrefs.accountId,
         set: { ...values, updatedAt: new Date() },
       })
     return instrument === asked ? 'saved' : 'not-in-plan'
@@ -218,9 +224,9 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
   try {
     await db()
       .insert(userSongPrefs)
-      .values({ userEmail: email, songSlug, ...values })
+      .values({ accountId: accountIdOf(email), songId: songIdOf(songSlug), ...values })
       .onConflictDoUpdate({
-        target: [userSongPrefs.userEmail, userSongPrefs.songSlug],
+        target: [userSongPrefs.accountId, userSongPrefs.songId],
         set: { ...values, updatedAt: new Date() },
       })
     return 'saved'
@@ -267,9 +273,9 @@ export async function saveFavorite(songSlug: string, favorite: boolean): Promise
   try {
     await db()
       .insert(userSongPrefs)
-      .values({ userEmail: email, songSlug, favorite })
+      .values({ accountId: accountIdOf(email), songId: songIdOf(songSlug), favorite })
       .onConflictDoUpdate({
-        target: [userSongPrefs.userEmail, userSongPrefs.songSlug],
+        target: [userSongPrefs.accountId, userSongPrefs.songId],
         set: { favorite, updatedAt: new Date() },
       })
     return 'saved'
@@ -296,9 +302,9 @@ export async function recordSongOpened(songSlug: string): Promise<void> {
   try {
     await db()
       .insert(userSongPrefs)
-      .values({ userEmail: email, songSlug, lastOpenedAt: new Date() })
+      .values({ accountId: accountIdOf(email), songId: songIdOf(songSlug), lastOpenedAt: new Date() })
       .onConflictDoUpdate({
-        target: [userSongPrefs.userEmail, userSongPrefs.songSlug],
+        target: [userSongPrefs.accountId, userSongPrefs.songId],
         set: { lastOpenedAt: new Date() },
       })
   } catch (error) {
@@ -341,18 +347,18 @@ export async function clearRecentlyOpened(): Promise<
     /* The songs of the account being looked at, as a subquery rather than a first round trip:
        the set is only ever used as the right-hand side of this one predicate. */
     const songsInThisAccount = db()
-      .select({ slug: songs.slug })
+      .select({ id: songs.id })
       .from(songs)
-      .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
-      .where(eq(songbooks.accountOwnerEmail, user.accountOwnerEmail))
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songbooks.accountId, accountIdOf(user.accountOwnerEmail)))
 
     await db()
       .update(userSongPrefs)
       .set({ lastOpenedAt: null })
       .where(
         and(
-          eq(userSongPrefs.userEmail, user.email),
-          inArray(userSongPrefs.songSlug, songsInThisAccount),
+          eq(userSongPrefs.accountId, accountIdOf(user.email)),
+          inArray(userSongPrefs.songId, songsInThisAccount),
           isNotNull(userSongPrefs.lastOpenedAt),
         ),
       )

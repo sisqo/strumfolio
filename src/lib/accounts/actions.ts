@@ -14,20 +14,16 @@ import { auth, signOut } from '@/auth'
 import { isEmailShape, isOwner, normalizeEmail } from '@/lib/allowlist'
 import { deletePasswordHash } from '@/lib/auth/credentials'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import {
   accounts,
   credentials,
-  newsletterPrefs,
-  paddleEvents,
   pendingRegistrations,
   sections,
   signIns,
   singAlongSessions,
   songbooks,
   songs,
-  userSongComments,
-  userSongPrefs,
-  userPrefs,
 } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { welcomeEmail } from '@/lib/email/templates'
@@ -112,23 +108,25 @@ export async function switchAccount(accountOwnerEmail: string): Promise<void> {
 async function removeAccountAndContent(target: string): Promise<void> {
   await db().transaction(async (tx) => {
     const owned = await tx
-      .select({ slug: songbooks.slug })
+      .select({ id: songbooks.id })
       .from(songbooks)
-      .where(eq(songbooks.accountOwnerEmail, target))
-    const slugs = owned.map((row) => row.slug)
+      .where(eq(songbooks.accountId, accountIdOf(target)))
+    const ids = owned.map((row) => row.id)
 
-    if (slugs.length > 0) {
-      await tx.delete(songs).where(inArray(songs.songbookSlug, slugs))
-      await tx.delete(sections).where(inArray(sections.songbookSlug, slugs))
-      await tx.delete(songbooks).where(inArray(songbooks.slug, slugs))
+    if (ids.length > 0) {
+      await tx.delete(songs).where(inArray(songs.songbookId, ids))
+      await tx.delete(sections).where(inArray(sections.songbookId, ids))
+      await tx.delete(songbooks).where(inArray(songbooks.id, ids))
     }
 
-    await tx.delete(singAlongSessions).where(eq(singAlongSessions.broadcastAccountEmail, target))
+    await tx
+      .delete(singAlongSessions)
+      .where(eq(singAlongSessions.broadcastAccountId, accountIdOf(target)))
     await tx.delete(accounts).where(eq(accounts.ownerEmail, target))
   })
 
   /*
-   * `accounts.ownerEmail` is a primary key, so the row just deleted was the only one this
+   * `accounts.ownerEmail` is unique, so the row just deleted was the only one this
    * address could ever have owned — `hasAccount` is `false` here by construction, with
    * nothing left to re-query.
    */
@@ -530,80 +528,48 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
 }
 
 /**
- * The six tables with a foreign key to `accounts.ownerEmail`, none of them `onUpdate:
- * 'cascade'` (`PLAN-account-admin.md`, "Fondamenta tecniche") — repointed by hand inside
- * `changeAccountEmail`'s transaction rather than by adding that cascade to the schema,
- * which would permanently remove the safety net that today refuses *any* accidental
- * rewrite of `owner_email` from anywhere else in the codebase.
- */
-async function reownFkTables(
-  tx: Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0],
-  oldEmail: string,
-  newEmail: string,
-): Promise<void> {
-  await tx.update(songbooks).set({ accountOwnerEmail: newEmail }).where(eq(songbooks.accountOwnerEmail, oldEmail))
-  await tx.update(userPrefs).set({ userEmail: newEmail }).where(eq(userPrefs.userEmail, oldEmail))
-  await tx.update(newsletterPrefs).set({ ownerEmail: newEmail }).where(eq(newsletterPrefs.ownerEmail, oldEmail))
-  await tx.update(userSongPrefs).set({ userEmail: newEmail }).where(eq(userSongPrefs.userEmail, oldEmail))
-  await tx.update(userSongComments).set({ userEmail: newEmail }).where(eq(userSongComments.userEmail, oldEmail))
-  await tx
-    .update(singAlongSessions)
-    .set({ broadcastAccountEmail: newEmail })
-    .where(eq(singAlongSessions.broadcastAccountEmail, oldEmail))
-}
-
-/**
- * Whether any row in the six FK'd tables still references `oldEmail` — the safety check
- * `changeAccountEmail` runs right before its final delete, so an incomplete `reownFkTables`
- * (a new per-account table added later and forgotten here) aborts the rename with a real
- * error instead of quietly cascade-deleting those orphaned rows along with the old account.
- */
-async function anyRowStillReferences(
-  tx: Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0],
-  oldEmail: string,
-): Promise<boolean> {
-  const checks = await Promise.all([
-    tx.select({ x: songbooks.slug }).from(songbooks).where(eq(songbooks.accountOwnerEmail, oldEmail)).limit(1),
-    tx.select({ x: userPrefs.userEmail }).from(userPrefs).where(eq(userPrefs.userEmail, oldEmail)).limit(1),
-    tx.select({ x: newsletterPrefs.ownerEmail }).from(newsletterPrefs).where(eq(newsletterPrefs.ownerEmail, oldEmail)).limit(1),
-    tx.select({ x: userSongPrefs.userEmail }).from(userSongPrefs).where(eq(userSongPrefs.userEmail, oldEmail)).limit(1),
-    tx
-      .select({ x: userSongComments.userEmail })
-      .from(userSongComments)
-      .where(eq(userSongComments.userEmail, oldEmail))
-      .limit(1),
-    tx
-      .select({ x: singAlongSessions.ownerEmail })
-      .from(singAlongSessions)
-      .where(eq(singAlongSessions.broadcastAccountEmail, oldEmail))
-      .limit(1),
-  ])
-  return checks.some((rows) => rows.length > 0)
-}
-
-/**
  * Renames an account's address (`PLAN-account-admin.md`, point 4) — a support request
  * that will come ("I typo'd my email", "switch me to my work address"), which today has
  * no answer short of deleting and recreating the account and losing everything in it.
  *
- * Implemented as an application-level transaction rather than by adding `onUpdate:
- * 'cascade'` to the six foreign keys that point at `accounts.ownerEmail` — see this
- * file's `reownFkTables` and "Fondamenta tecniche" in the plan doc for why that would be
- * a worse, permanent trade. In order: refuse if the new address already has an account,
- * a password, or a sign-in row (this **renames**, it never merges two accounts); drop
- * any stale pending registration sitting on the *new* address, so its verification link
- * can never later provision an account onto somebody else's; copy the `accounts` row to
- * the new key with Drizzle's own typed row spread, so no column list has to be
- * maintained by hand; repoint every FK'd table; carry `credentials`/`signIns`/
- * `paddleEvents` along too, so the renamed account's password, sign-in history and
- * payment history all keep working (Decision #10) — each is a plain `UPDATE` and a
- * harmless no-op if that address never had a row there (e.g. a Google-only account has
- * no `credentials` row to move); verify nothing still references the old address; only
- * then delete the old row.
+ * **This function used to be the hardest thing in this file, and v4.7 made it ordinary.**
+ * Worth recording what it did, because the difference is the whole argument for numeric
+ * keys: the address *was* the key, so renaming meant inserting a second `accounts` row
+ * under the new address (spreading the old row to avoid maintaining a column list),
+ * repointing six foreign-keyed tables at it by hand, checking that nothing still
+ * referenced the old address, and only then deleting the old row — plus clearing
+ * `paddleSubscriptionId` first, because for a moment two rows existed and its unique
+ * constraint would have refused the copy. A helper (`reownFkTables`) held the six
+ * `UPDATE`s and another (`anyRowStillReferences`) existed solely to catch the day
+ * somebody added a seventh table and forgot it here. That day had already come:
+ * `coupon_redemptions` was never on the list, so a rename orphaned the row recording
+ * that this account had used a campaign, and the discount could be taken again.
  *
- * `passwordResetTokens` is deliberately left untouched: an unconsumed token under the
- * old address simply stops matching anything after the rename, which is a silent,
- * harmless dead end, not a security hole.
+ * Now the address is a column and the key is an `id` nothing renames, so the account row
+ * is **updated in place** and every foreign key keeps pointing at it with nothing to do.
+ * Both helpers are gone, along with the second row, the unique-constraint dance and the
+ * checklist. In order now: refuse if the new address already has an account, a password
+ * or a sign-in row (this **renames**, it never merges two accounts); drop any stale
+ * pending registration sitting on the *new* address, so its verification link can never
+ * later provision an account onto somebody else's; rename the address; then carry along
+ * the tables still keyed by an address rather than by that id.
+ *
+ * **Those tables are exactly four, and they are the whole list** — `credentials`,
+ * `signIns`, `pendingRegistrations`, `passwordResetTokens` — for one reason each: a
+ * global owner needs no row in `accounts` at all (v3.1), and `signIns` is written by
+ * `signIn` in `auth.ts` *before* `provisionAccount` creates that row, so none of them can
+ * carry a foreign key to it. Two of them move here; the other two do not, and that is
+ * deliberate. `passwordResetTokens`: an unconsumed token under the old address simply
+ * stops matching anything, a silent and harmless dead end. `pendingRegistrations` on the
+ * old address likewise resolves to nothing.
+ *
+ * **What must never be added to this function**: `paddle_events.account_owner_email` and
+ * `coupon_redemptions.account_owner_email`. Both used to be here, or looked as though they
+ * belonged; both are now *history* — the address the event arrived for, the address the
+ * discount was taken under — and each has an `account_id` beside it that a rename does not
+ * disturb, which is what the reads use. Updating either would rewrite a record of
+ * something that happened, and in the coupon's case would reopen the delete-and-recreate
+ * loop its own index exists to close (`db/schema.ts` spells that out).
  */
 export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: string): Promise<EmailChangeResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
@@ -620,9 +586,12 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
   if (newEmail === oldEmail) return { ok: false, reason: 'same-email' }
 
   try {
-    const oldRows = await db().select().from(accounts).where(eq(accounts.ownerEmail, oldEmail)).limit(1)
-    const oldRow = oldRows[0]
-    if (oldRow === undefined) return { ok: false, reason: 'not-found' }
+    const oldRows = await db()
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, oldEmail))
+      .limit(1)
+    if (oldRows[0] === undefined) return { ok: false, reason: 'not-found' }
 
     const [existingAccount, existingCredentials, existingSignIn] = await Promise.all([
       db().select({ x: accounts.ownerEmail }).from(accounts).where(eq(accounts.ownerEmail, newEmail)).limit(1),
@@ -636,29 +605,22 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
     await db().transaction(async (tx) => {
       await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, newEmail))
 
-      // `paddleSubscriptionId` carries its own unique constraint, and the row-spread insert
-      // below briefly leaves both the old and new `accounts` row alive at once — copying it
-      // as-is would collide with the old row's still-unreleased value. Clearing it here first
-      // (a no-op today: the mock checkout never sets this column, see `checkout.ts`) frees the
-      // value before the copy claims it, rather than skipping the column and losing it.
-      if (oldRow.paddleSubscriptionId !== null) {
-        await tx.update(accounts).set({ paddleSubscriptionId: null }).where(eq(accounts.ownerEmail, oldEmail))
+      /* The rename itself. One statement, and everything keyed by this account's `id` —
+         songbooks, preferences, comments, broadcasts, redemptions, events — follows it
+         without being told, because none of them ever held the address. */
+      const renamed = await tx
+        .update(accounts)
+        .set({ ownerEmail: newEmail })
+        .where(eq(accounts.ownerEmail, oldEmail))
+        .returning({ id: accounts.id })
+      if (renamed.length === 0) {
+        throw new Error('changeAccountEmail: account row vanished mid-transaction')
       }
 
-      await tx.insert(accounts).values({ ...oldRow, ownerEmail: newEmail })
-
-      await reownFkTables(tx, oldEmail, newEmail)
-
+      /* A no-op where that address never had a row, which is the ordinary case for a
+         Google-only account with no password of its own. */
       await tx.update(credentials).set({ email: newEmail }).where(eq(credentials.email, oldEmail))
       await tx.update(signIns).set({ email: newEmail }).where(eq(signIns.email, oldEmail))
-      await tx.update(paddleEvents).set({ accountOwnerEmail: newEmail }).where(eq(paddleEvents.accountOwnerEmail, oldEmail))
-
-      if (await anyRowStillReferences(tx, oldEmail)) {
-        throw new Error(`changeAccountEmail: rows still reference ${oldEmail} after repointing`)
-      }
-
-      const deleted = await tx.delete(accounts).where(eq(accounts.ownerEmail, oldEmail)).returning({ x: accounts.ownerEmail })
-      if (deleted.length === 0) throw new Error('changeAccountEmail: old account row vanished mid-transaction')
     })
 
     revalidatePath('/accounts')

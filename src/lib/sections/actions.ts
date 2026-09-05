@@ -15,6 +15,7 @@ import { editableSection, editableSongbook } from '@/lib/songbooks/access'
 import { type ArrangedSection, sameMembers } from '@/lib/songbooks/order'
 import type { CreateSectionResult, WriteResult } from '@/lib/songbooks/types'
 import { db, hasDatabase } from '@/lib/db/client'
+import { songbookIdOf } from '@/lib/db/ids'
 import { sections, songs } from '@/lib/db/schema'
 import { revalidateSongbook } from '@/lib/revalidate'
 
@@ -71,12 +72,12 @@ export async function createSection(
       const last = await tx
         .select({ position: max(sections.position) })
         .from(sections)
-        .where(eq(sections.songbookSlug, songbookSlug))
+        .where(eq(sections.songbookId, songbookIdOf(songbookSlug)))
 
       const created = await tx
         .insert(sections)
         .values({
-          songbookSlug,
+          songbookId: songbookIdOf(songbookSlug),
           name: trimmed,
           position: (last[0]?.position ?? 0) + 1,
         })
@@ -162,7 +163,7 @@ export async function removeSection(id: number, moveTo: number | null): Promise<
           .select({ id: sections.id })
           .from(sections)
           .where(
-            and(eq(sections.id, moveTo), eq(sections.songbookSlug, songbookSlug)),
+            and(eq(sections.id, moveTo), eq(sections.songbookId, songbookIdOf(songbookSlug))),
           )
           .limit(1)
 
@@ -185,7 +186,7 @@ export async function removeSection(id: number, moveTo: number | null): Promise<
       const rest = await tx
         .select({ id: sections.id })
         .from(sections)
-        .where(eq(sections.songbookSlug, songbookSlug))
+        .where(eq(sections.songbookId, songbookIdOf(songbookSlug)))
         .orderBy(asc(sections.position))
 
       for (const [index, section] of rest.entries()) {
@@ -237,7 +238,7 @@ export async function purgeSection(id: number): Promise<WriteResult> {
       const rest = await tx
         .select({ id: sections.id })
         .from(sections)
-        .where(eq(sections.songbookSlug, songbookSlug))
+        .where(eq(sections.songbookId, songbookIdOf(songbookSlug)))
         .orderBy(asc(sections.position))
 
       for (const [index, section] of rest.entries()) {
@@ -304,12 +305,12 @@ export async function arrangeSongbook(
       const held = await tx
         .select({ id: sections.id })
         .from(sections)
-        .where(eq(sections.songbookSlug, songbookSlug))
+        .where(eq(sections.songbookId, songbookIdOf(songbookSlug)))
 
       const heldSongs = await tx
         .select({ slug: songs.slug })
         .from(songs)
-        .where(eq(songs.songbookSlug, songbookSlug))
+        .where(eq(songs.songbookId, songbookIdOf(songbookSlug)))
 
       const bothMatch =
         sameMembers(

@@ -33,6 +33,7 @@ async function main() {
   const { parseAllowlist } = await import('../src/lib/allowlist')
   const { closeDatabase, db, hasDatabase } = await import('../src/lib/db/client')
   const { accounts, songbooks, sections, songs } = await import('../src/lib/db/schema')
+  const { accountIdOf, songbookIdOf } = await import('../src/lib/db/ids')
   const { and, asc, eq } = await import('drizzle-orm')
 
   if (!hasDatabase) {
@@ -78,7 +79,12 @@ async function main() {
   for (const [index, songbook] of declared.entries()) {
     await database
       .insert(songbooks)
-      .values({ slug: songbook.slug, name: songbook.name, accountOwnerEmail, position: index + 1 })
+      .values({
+        slug: songbook.slug,
+        name: songbook.name,
+        accountId: accountIdOf(accountOwnerEmail),
+        position: index + 1,
+      })
       .onConflictDoNothing({ target: songbooks.slug })
   }
   console.log(`Songbooks present (created if missing): ${declared.length}`)
@@ -107,8 +113,12 @@ async function main() {
   for (const section of wanted) {
     await database
       .insert(sections)
-      .values(section)
-      .onConflictDoNothing({ target: [sections.songbookSlug, sections.name] })
+      .values({
+        songbookId: songbookIdOf(section.songbookSlug),
+        name: section.name,
+        position: section.position,
+      })
+      .onConflictDoNothing({ target: [sections.songbookId, sections.name] })
   }
   console.log(`Sections present (created if missing): ${wanted.length}`)
 
@@ -129,7 +139,7 @@ async function main() {
         .select({ id: sections.id })
         .from(sections)
         .where(
-          and(eq(sections.songbookSlug, song.songbookSlug), eq(sections.name, name)),
+          and(eq(sections.songbookId, songbookIdOf(song.songbookSlug)), eq(sections.name, name)),
         )
         .limit(1)
 
@@ -139,7 +149,7 @@ async function main() {
     const first = await database
       .select({ id: sections.id })
       .from(sections)
-      .where(eq(sections.songbookSlug, song.songbookSlug))
+      .where(eq(sections.songbookId, songbookIdOf(song.songbookSlug)))
       .orderBy(asc(sections.position))
       .limit(1)
 
@@ -175,7 +185,7 @@ async function main() {
         link1: song.link1,
         link2: song.link2,
         link3: song.link3,
-        songbookSlug: song.songbookSlug,
+        songbookId: songbookIdOf(song.songbookSlug),
         sectionId,
         body: song.body,
       })

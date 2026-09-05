@@ -18,7 +18,9 @@ anchored comments (v4.0, which also removed the per-song note), the song chips (
 which moved key/capo/accidentals/chord-display out of the reading panel onto the song
 itself and added the sharp-or-flat choice), and favorite songs (v4.6 — a star per reader on
 `user_song_prefs`, a filter shared by the home and songbook screens, and the reading bar's
-arrows following it; `PLAN-favorites.md` carries the reasoning). See `PLAN.md`'s own top
+arrows following it; `PLAN-favorites.md` carries the reasoning), and the numeric keys (v4.7 — every table keyed
+by an `integer id` with foreign keys to match, the email and the slug kept as unique natural
+keys; `PLAN-numeric-ids.md`, and the section on them below). See `PLAN.md`'s own top
 note for the versions after v3.3 it does *not* yet cover, and for why **v4.5 is reserved**
 rather than missing.
 
@@ -350,6 +352,53 @@ source of truth until one does. `PLAN-coupons.md` is the full design; the load-b
 - The Lifetime's own promo mechanism is **gone** — `LIFETIME` lost `originalAmount`,
   `closesOn` and `closesOnLabel`. Whether it is in the catalogue at all is now the
   `lifetime.on_sale` row in `app_settings`, flipped from `/app-settings`.
+
+## Numeric keys (`0039`, v4.7) — and the four tables that deliberately still use an email
+
+Every table is keyed by an `integer id`, and every foreign key points at one. The email and the
+slug did **not** go away: they stayed as `UNIQUE` natural keys, because the email is how somebody
+signs in and the slug is in the URL. The full argument, and what building it corrected, is in
+`PLAN-numeric-ids.md`; what follows is only what a future change has to not get wrong.
+
+- **`src/lib/db/ids.ts` is the one seam.** `accountIdOf(email)`, `songIdOf(slug)`,
+  `songbookIdOf(slug)` each render a scalar subquery, so a call site pays no round trip and
+  writes no `await`. They yield NULL for something that does not exist, so a read finds nothing
+  and a write into a `NOT NULL` column fails on the constraint — never use them to *decide*
+  whether a row exists.
+- **The edges keep speaking addresses and slugs, and that is load-bearing, not legacy.** Three
+  independent reasons, each of which alone would settle it: `data/files.ts` builds songs from
+  `.chopro` files that have nothing but a slug (the normal way to work locally); `currentUser()`
+  reads no database at all, deliberately, so it has no id to hand out and a global owner has a
+  role with no `accounts` row; and the offline outbox already sitting in readers' browsers names
+  song slugs and client-minted comment ids in writes that drain *after* a deploy. So
+  `SongRepository`, `CurrentUser`, `saveSongPrefs`, the comment actions and the permission checks
+  in `data/access.ts` all stay slug- and email-shaped. Resolve inside, never at the signature.
+- **Four tables are still keyed by an email, for one reason: a global owner has no row in
+  `accounts`.** `credentials`, `password_reset_tokens`, `sign_ins`, `pending_registrations`. A
+  foreign key on any of them would break sign-in rather than harden it — `sign_ins` is written
+  from `signIn` in `auth.ts` *before* `provisionAccount` creates the account row. Same reason
+  `sing_along_sessions.owner_email` has no key while `broadcast_account_id` does.
+- **Two email columns are history and must never be updated.**
+  `paddle_events.account_owner_email` and `coupon_redemptions.account_owner_email` record the
+  address something happened under. Each has an `account_id` beside it, and **every read uses the
+  id**. Do not add either to `changeAccountEmail`: on the coupon it would reopen the
+  delete-and-recreate loop that `coupon_redemptions_once_email` exists to close (that table
+  carries two unique indexes on purpose — see its comment in `schema.ts`).
+- **`changeAccountEmail` is now one `UPDATE`**, and the list of tables it touches is
+  `accounts`, `credentials`, `signIns` plus a stale `pendingRegistrations` delete. If a new
+  table needs adding to it, that is the signal something is keyed by an address that should be
+  keyed by an id.
+- **`ON UPDATE CASCADE` on `songs_section_songbook_fk` is still required.** It looks redundant
+  now and is not: moving a section between songbooks changes `sections.songbook_id`, which is
+  the *referenced* column, and the constraint is checked per statement. Verified by moving a
+  section with 31 songs in it.
+- **Two primary keys are text on purpose.** `user_song_comments.id` is minted by the client so a
+  note written offline has an identity before any server sees it; `coupon_campaigns.id` is a
+  server `randomUUID()`, which is already a surrogate key. Neither is a candidate for `serial`.
+- **The `DOWN` is `drizzle/0039_numeric_ids.down.sql`**, written and round-trip verified. It
+  rebuilds the dropped emails and slugs *from the ids*, which works only because `accounts`,
+  `songs` and `songbooks` kept both keys — the reason the shape is «surrogate **plus** natural»
+  and not «surrogate instead of natural».
 
 ## Design fidelity from Claude Design handoffs
 

@@ -22,6 +22,7 @@ import { placeAfter } from '@/lib/songbooks/order'
 import { rowToSong } from '@/lib/data/db'
 import { DEFAULT_SECTION, UNFILED, type Song } from '@/lib/data/types'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { songbooks, sections, songs } from '@/lib/db/schema'
 import type { Entitlements } from '@/lib/plans/entitlements'
 import { countRepertoire, entitlementsOf } from '@/lib/plans/resolve'
@@ -49,21 +50,21 @@ import type { Decision, DeleteResult, Headroom, SaveFailure, SaveResult, SongInp
  */
 
 /**
- * Finds a section named `name` within `songbookSlug`, or creates it at the end.
+ * Finds a section named `name` within the songbook with this id, or creates it at the end.
  *
  * Used to honour a paste's own `{division: ...}` in `resolveSection` below: two
  * songs from the same paste can both name a section that doesn't exist yet, so
  * this re-reads after a losing insert rather than risk two sections of the
  * same name racing each other into existence.
  */
-async function findOrCreateSection(songbookSlug: string, name: string): Promise<number> {
+async function findOrCreateSection(songbookId: number, name: string): Promise<number> {
   const database = db()
   const trimmed = name.trim()
 
   const existing = await database
     .select({ id: sections.id })
     .from(sections)
-    .where(and(eq(sections.songbookSlug, songbookSlug), eq(sections.name, trimmed)))
+    .where(and(eq(sections.songbookId, songbookId), eq(sections.name, trimmed)))
     .limit(1)
 
   if (existing.length > 0) return existing[0].id
@@ -71,12 +72,12 @@ async function findOrCreateSection(songbookSlug: string, name: string): Promise<
   const last = await database
     .select({ position: max(sections.position) })
     .from(sections)
-    .where(eq(sections.songbookSlug, songbookSlug))
+    .where(eq(sections.songbookId, songbookId))
 
   const inserted = await database
     .insert(sections)
-    .values({ songbookSlug, name: trimmed, position: (last[0]?.position ?? 0) + 1 })
-    .onConflictDoNothing({ target: [sections.songbookSlug, sections.name] })
+    .values({ songbookId, name: trimmed, position: (last[0]?.position ?? 0) + 1 })
+    .onConflictDoNothing({ target: [sections.songbookId, sections.name] })
     .returning({ id: sections.id })
 
   if (inserted.length > 0) return inserted[0].id
@@ -84,7 +85,7 @@ async function findOrCreateSection(songbookSlug: string, name: string): Promise<
   const retry = await database
     .select({ id: sections.id })
     .from(sections)
-    .where(and(eq(sections.songbookSlug, songbookSlug), eq(sections.name, trimmed)))
+    .where(and(eq(sections.songbookId, songbookId), eq(sections.name, trimmed)))
     .limit(1)
 
   return retry[0].id
@@ -142,7 +143,7 @@ async function resolveSection(
   sectionId: number | null,
   sectionName?: string | null,
 ): Promise<
-  | { ok: true; songbookSlug: string; sectionId: number }
+  | { ok: true; songbookSlug: string; songbookId: number; sectionId: number }
   /*
    * The refusal carries `limit` for the same reason `SaveRefusal` does, and here it is not
    * optional decoration: the cap this branch can hit is the *songbook* one, so the sentence
@@ -156,37 +157,55 @@ async function resolveSection(
 
   if (sectionId !== null) {
     const found = await database
-      .select({ id: sections.id, songbookSlug: sections.songbookSlug })
+      .select({ id: sections.id, songbookSlug: songbooks.slug, songbookId: songbooks.id })
       .from(sections)
-      .innerJoin(songbooks, eq(sections.songbookSlug, songbooks.slug))
-      .where(and(eq(sections.id, sectionId), eq(songbooks.accountOwnerEmail, accountOwnerEmail)))
+      .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
+      .where(
+        and(eq(sections.id, sectionId), eq(songbooks.accountId, accountIdOf(accountOwnerEmail))),
+      )
       .limit(1)
 
-    if (found.length > 0) return { ok: true, songbookSlug: found[0].songbookSlug, sectionId: found[0].id }
+    if (found.length > 0) {
+      return {
+        ok: true,
+        songbookSlug: found[0].songbookSlug,
+        songbookId: found[0].songbookId,
+        sectionId: found[0].id,
+      }
+    }
   }
 
   const wanted = songbookSlug.trim()
-  let slug: string | null = null
+  /* Slug and id together from here on: the slug is what the caller revalidates a path with,
+     the id is what the rows point at. */
+  let book: { slug: string; id: number } | null = null
 
   if (wanted !== '') {
     const found = await database
-      .select({ slug: songbooks.slug })
+      .select({ slug: songbooks.slug, id: songbooks.id })
       .from(songbooks)
-      .where(and(eq(songbooks.slug, wanted), eq(songbooks.accountOwnerEmail, accountOwnerEmail)))
+      .where(
+        and(eq(songbooks.slug, wanted), eq(songbooks.accountId, accountIdOf(accountOwnerEmail))),
+      )
       .limit(1)
 
-    if (found.length > 0) slug = found[0].slug
+    if (found.length > 0) book = found[0]
   }
 
-  if (slug === null) {
+  if (book === null) {
     const unfiled = await database
-      .select({ slug: songbooks.slug })
+      .select({ slug: songbooks.slug, id: songbooks.id })
       .from(songbooks)
-      .where(and(eq(songbooks.name, UNFILED.name), eq(songbooks.accountOwnerEmail, accountOwnerEmail)))
+      .where(
+        and(
+          eq(songbooks.name, UNFILED.name),
+          eq(songbooks.accountId, accountIdOf(accountOwnerEmail)),
+        ),
+      )
       .limit(1)
 
     if (unfiled.length > 0) {
-      slug = unfiled[0].slug
+      book = unfiled[0]
     } else {
       /*
        * About to create a songbook. Refused *before* the insert rather than after: this
@@ -198,39 +217,53 @@ async function resolveSection(
       if (refused !== null) return { ok: false, reason: refused, limit: limitFacts(entitlements.limits, refused) }
 
       const taken = (await database.select({ slug: songbooks.slug }).from(songbooks)).map((row) => row.slug)
-      slug = uniqueSlug(UNFILED.name, taken)
+      const fresh = uniqueSlug(UNFILED.name, taken)
 
       const last = await database
         .select({ position: max(songbooks.position) })
         .from(songbooks)
-        .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail))
+        .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail)))
 
-      await database
+      const [inserted] = await database
         .insert(songbooks)
-        .values({ slug, name: UNFILED.name, accountOwnerEmail, position: (last[0]?.position ?? 0) + 1 })
+        .values({
+          slug: fresh,
+          name: UNFILED.name,
+          accountId: accountIdOf(accountOwnerEmail),
+          position: (last[0]?.position ?? 0) + 1,
+        })
+        .returning({ id: songbooks.id })
+      book = { slug: fresh, id: inserted.id }
     }
   }
 
   const declared = sectionName?.trim()
   if (declared) {
-    return { ok: true, songbookSlug: slug, sectionId: await findOrCreateSection(slug, declared) }
+    return {
+      ok: true,
+      songbookSlug: book.slug,
+      songbookId: book.id,
+      sectionId: await findOrCreateSection(book.id, declared),
+    }
   }
 
   const first = await database
     .select({ id: sections.id })
     .from(sections)
-    .where(eq(sections.songbookSlug, slug))
+    .where(eq(sections.songbookId, book.id))
     .orderBy(asc(sections.position))
     .limit(1)
 
-  if (first.length > 0) return { ok: true, songbookSlug: slug, sectionId: first[0].id }
+  if (first.length > 0) {
+    return { ok: true, songbookSlug: book.slug, songbookId: book.id, sectionId: first[0].id }
+  }
 
   const created = await database
     .insert(sections)
-    .values({ songbookSlug: slug, name: DEFAULT_SECTION, position: 1 })
+    .values({ songbookId: book.id, name: DEFAULT_SECTION, position: 1 })
     .returning({ id: sections.id })
 
-  return { ok: true, songbookSlug: slug, sectionId: created[0].id }
+  return { ok: true, songbookSlug: book.slug, songbookId: book.id, sectionId: created[0].id }
 }
 
 function saved(song: Song): SaveResult {
@@ -395,10 +428,15 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
               sectionId: songs.sectionId,
             })
             .from(songs)
-            .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+            .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
             // Scoped to this account: the same title and artist landing twice in two
             // different accounts is a coincidence, not a duplicate to warn anyone about.
-            .where(and(sameSong(title, artist), eq(songbooks.accountOwnerEmail, accountOwnerEmail)))
+            .where(
+              and(
+                sameSong(title, artist),
+                eq(songbooks.accountId, accountIdOf(accountOwnerEmail)),
+              ),
+            )
             .limit(1)
         : []
 
@@ -458,7 +496,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
       link1: input.link1 === null || input.link1.trim() === '' ? null : input.link1.trim(),
       link2: input.link2 === null || input.link2.trim() === '' ? null : input.link2.trim(),
       link3: input.link3 === null || input.link3.trim() === '' ? null : input.link3.trim(),
-      songbookSlug: placed.songbookSlug,
+      songbookId: placed.songbookId,
       sectionId: placed.sectionId,
       body: input.body,
       /**
@@ -523,7 +561,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
         await reanchorSongComments(input.slug as string, previousBody, input.body)
       }
 
-      return saved(rowToSong(updated[0]))
+      return saved(rowToSong(updated[0], placed.songbookSlug))
     }
 
     if (twin.length > 0 && decision === 'replace') {
@@ -545,7 +583,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
           .returning()
       })
 
-      return saved(rowToSong(updated[0]))
+      return saved(rowToSong(updated[0], placed.songbookSlug))
     }
 
     /*
@@ -569,7 +607,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
         .returning()
     })
 
-    return saved(rowToSong(inserted[0]))
+    return saved(rowToSong(inserted[0], placed.songbookSlug))
   } catch (error) {
     console.error('saveSong failed', error)
     return { ok: false, reason: 'failed' }
@@ -658,7 +696,7 @@ export async function createSong(
       link1: null,
       link2: null,
       link3: null,
-      songbookSlug: placed.songbookSlug,
+      songbookId: placed.songbookId,
       sectionId: placed.sectionId,
       body: '',
       updatedAt: sql`now()`,
@@ -675,7 +713,7 @@ export async function createSong(
         .returning()
     })
 
-    return saved(rowToSong(inserted[0]))
+    return saved(rowToSong(inserted[0], placed.songbookSlug))
   } catch (error) {
     console.error('createSong failed', error)
     return { ok: false, reason: 'failed' }
@@ -698,16 +736,28 @@ export async function deleteSong(slug: string): Promise<DeleteResult> {
   }
 
   try {
+    /*
+     * The songbook is read *before* the delete, not returned by it: the page that lists
+     * this song has to be dropped too, and the row no longer carries its songbook's slug —
+     * only its id (v4.7) — so the answer takes a join, and a join needs a row. Asking
+     * first is one extra statement and keeps the deletion itself a single statement.
+     */
+    const found = await db()
+      .select({ songbookSlug: songbooks.slug })
+      .from(songs)
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songs.slug, slug))
+      .limit(1)
+    if (found.length === 0) return { ok: false, reason: 'not-found' }
+
     const removed = await db()
       .delete(songs)
       .where(eq(songs.slug, slug))
-      // The songbook comes back with the deletion because the page that lists this
-      // song has to be dropped too, and afterwards there is no row left to ask.
-      .returning({ slug: songs.slug, songbookSlug: songs.songbookSlug })
+      .returning({ slug: songs.slug })
 
     if (removed.length === 0) return { ok: false, reason: 'not-found' }
 
-    revalidateSong(slug, removed[0].songbookSlug)
+    revalidateSong(slug, found[0].songbookSlug)
     return { ok: true, slug: removed[0].slug }
   } catch (error) {
     console.error('deleteSong failed', error)
@@ -731,32 +781,31 @@ export async function exportAll(): Promise<ExportedFile[] | null> {
   const database = db()
   const [rows, names, divisions] = await Promise.all([
     database
-      .select({ song: songs })
+      .select({ song: songs, songbookSlug: songbooks.slug })
       .from(songs)
-      .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
-      .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
-      .orderBy(songs.slug)
-      .then((result) => result.map((row) => row.song)),
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail)))
+      .orderBy(songs.slug),
     database
       .select({ slug: songbooks.slug, name: songbooks.name })
       .from(songbooks)
-      .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail)),
+      .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail))),
     database
       .select({ id: sections.id, name: sections.name })
       .from(sections)
-      .innerJoin(songbooks, eq(sections.songbookSlug, songbooks.slug))
-      .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail)),
+      .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
+      .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail))),
   ])
 
   const nameBySlug = new Map(names.map((row) => [row.slug, row.name]))
   const nameById = new Map(divisions.map((row) => [row.id, row.name]))
 
-  return rows.map((row) => ({
-    name: choproFilename(row.slug),
+  return rows.map(({ song, songbookSlug }) => ({
+    name: choproFilename(song.slug),
     content: toChoproFile(
-      rowToSong(row),
-      nameBySlug.get(row.songbookSlug) ?? null,
-      row.sectionId === null ? null : (nameById.get(row.sectionId) ?? null),
+      rowToSong(song, songbookSlug),
+      nameBySlug.get(songbookSlug) ?? null,
+      song.sectionId === null ? null : (nameById.get(song.sectionId) ?? null),
     ),
   }))
 }
@@ -778,15 +827,20 @@ export async function exportOrganized(granularity: ExportGranularity): Promise<E
   if (!editor.ok) return null
 
   const rows = await db()
-    .select({ song: songs, songbookName: songbooks.name, sectionName: sections.name })
+    .select({
+      song: songs,
+      songbookSlug: songbooks.slug,
+      songbookName: songbooks.name,
+      sectionName: sections.name,
+    })
     .from(songs)
-    .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+    .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
     .innerJoin(sections, eq(songs.sectionId, sections.id))
-    .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
+    .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail)))
     .orderBy(asc(songbooks.position), asc(sections.position), asc(songs.position), asc(songs.title))
 
   const exportRows: ExportRow[] = rows.map((row) => ({
-    song: rowToSong(row.song),
+    song: rowToSong(row.song, row.songbookSlug),
     songbookName: row.songbookName,
     sectionName: row.sectionName,
   }))

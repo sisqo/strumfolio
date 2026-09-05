@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto'
 import { desc, eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { paddleEvents } from '@/lib/db/schema'
 
 import { LIFETIME, PRICES } from './prices'
@@ -126,7 +127,12 @@ export async function logMockEvent(input: {
     eventId: `mock_${randomUUID()}`,
     eventType: `mock.${input.action}`,
     occurredAt: now,
+    /* Both columns, and they are not redundant (v4.7): the address is the historical fact —
+       who this arrived for, never rewritten afterwards — and the id is the pointer every read
+       uses, so a later change of address does not detach a payment from its account. See
+       `paddleEvents` in `db/schema.ts`. */
     accountOwnerEmail: input.accountOwnerEmail,
+    accountId: accountIdOf(input.accountOwnerEmail),
     paddleSubscriptionId: null,
     payload: JSON.stringify({
       mock: true,
@@ -169,7 +175,10 @@ export async function paymentHistoryFor(accountOwnerEmail: string): Promise<Paym
       payload: paddleEvents.payload,
     })
     .from(paddleEvents)
-    .where(eq(paddleEvents.accountOwnerEmail, accountOwnerEmail))
+    /* By the id and not the address (v4.7): an account that changed address keeps its
+       payment history, without anything having had to move the old rows to the new
+       address — which is what `changeAccountEmail` used to do, and must not. */
+    .where(eq(paddleEvents.accountId, accountIdOf(accountOwnerEmail)))
     .orderBy(desc(paddleEvents.receivedAt))
 
   return rows.map((row) => {

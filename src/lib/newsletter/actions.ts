@@ -18,6 +18,7 @@ import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { newsletterPrefs } from '@/lib/db/schema'
 
 import { nextStamps } from './stamps'
@@ -41,7 +42,7 @@ export async function loadNewsletterPrefs(): Promise<NewsletterPrefs | null> {
   const rows = await db()
     .select({ subscribed: newsletterPrefs.subscribed, frequency: newsletterPrefs.frequency })
     .from(newsletterPrefs)
-    .where(eq(newsletterPrefs.ownerEmail, normalizeEmail(email)))
+    .where(eq(newsletterPrefs.accountId, accountIdOf(normalizeEmail(email))))
     .limit(1)
 
   const row = rows[0]
@@ -79,7 +80,7 @@ export async function updateNewsletterPrefs(
     await db()
       .insert(newsletterPrefs)
       .values({
-        ownerEmail,
+        accountId: accountIdOf(ownerEmail),
         subscribed,
         frequency,
         subscribedAt: subscribedAt ?? null,
@@ -87,7 +88,7 @@ export async function updateNewsletterPrefs(
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: newsletterPrefs.ownerEmail,
+        target: newsletterPrefs.accountId,
         set: {
           subscribed,
           frequency,
@@ -107,7 +108,7 @@ async function loadRow(ownerEmail: string): Promise<{ subscribed: boolean } | nu
   const rows = await db()
     .select({ subscribed: newsletterPrefs.subscribed })
     .from(newsletterPrefs)
-    .where(eq(newsletterPrefs.ownerEmail, ownerEmail))
+    .where(eq(newsletterPrefs.accountId, accountIdOf(ownerEmail)))
     .limit(1)
   return rows[0] ?? null
 }
@@ -138,7 +139,7 @@ export async function loadNewsletterSummaryFor(ownerEmail: string): Promise<News
         unsubscribedAt: newsletterPrefs.unsubscribedAt,
       })
       .from(newsletterPrefs)
-      .where(eq(newsletterPrefs.ownerEmail, normalizeEmail(ownerEmail)))
+      .where(eq(newsletterPrefs.accountId, accountIdOf(normalizeEmail(ownerEmail))))
       .limit(1)
 
     const row = rows[0]

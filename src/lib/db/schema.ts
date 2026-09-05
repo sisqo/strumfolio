@@ -46,7 +46,29 @@ import {
 export const accounts = pgTable(
   'accounts',
   {
-    ownerEmail: text('owner_email').primaryKey(),
+    /**
+     * The account's identity inside the database, and the only thing any other table points
+     * at (v4.7).
+     *
+     * `ownerEmail` was the primary key until this version, which meant six tables carried a
+     * copy of the address — and `changeAccountEmail` had to move every one of them by hand,
+     * from a list written by a person. That list had already missed one: `coupon_redemptions`.
+     * So changing an address orphaned the row that says «this account has already used this
+     * campaign», and the discount could be taken a second time. A numeric key needs no list,
+     * because nothing downstream mentions the address at all — which is the difference
+     * between a rule kept by attention and one kept by construction.
+     */
+    id: serial('id').primaryKey(),
+    /**
+     * Still here, still unique, and still how somebody signs in: it stopped being the key, it
+     * did not stop being the natural identity of a person.
+     *
+     * `currentUser()` resolves a session to this column and to nothing else, which is what
+     * lets it answer with no database at all (`lib/auth/session.ts` says why that matters) and
+     * what keeps every session issued before v4.7 valid — the cookie carries an address, never
+     * an id, and it lasts ninety days.
+     */
+    ownerEmail: text('owner_email').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /**
      * The account owner's own first and last name (`PLAN-account-name.md`) — nullable
@@ -264,7 +286,11 @@ export const accounts = pgTable(
     /** `null` while a coupon holds forever, and whenever `couponCode` is null. */
     discountEndsAt: timestamp('discount_ends_at', { withTimezone: true }),
   },
-  (table) => [unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId)],
+  (table) => [
+    unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId),
+    /** What makes the address a key still, just not *the* key. */
+    unique('accounts_owner_email').on(table.ownerEmail),
+  ],
 )
 
 /**
@@ -274,10 +300,11 @@ export const accounts = pgTable(
  * touches `name` only. That is what makes a rename free: no foreign key to
  * update, no URL that moves, no precache entry to regenerate.
  *
- * `accountOwnerEmail` says which account this songbook belongs to (v3.0), but the slug
- * stays the primary key, globally unique across every account rather than merely within
- * one — see this file's own top comment on why a song's slug is also its identity, which
- * did not stop being true when songs became per-account. `/songs/[slug]` and
+ * `accountId` says which account this songbook belongs to (v3.0 as an email, v4.7 as an id).
+ * The slug is no longer the primary key, and everything else about it is unchanged: still
+ * globally unique across every account rather than merely within one — see this file's own
+ * top comment on why a song's slug is also its identity, which did not stop being true when
+ * songs became per-account, and did not stop being true when the key became a number. `/songs/[slug]` and
  * `/songbooks/[slug]` are generated **statically at build time**: `generateStaticParams`
  * enumerates every slug once, with no request and no signed-in reader to resolve "which
  * account" for. Two accounts minting a same-named copy of one songbook do not
@@ -289,10 +316,17 @@ export const accounts = pgTable(
 export const songbooks = pgTable(
   'songbooks',
   {
-    slug: text('slug').primaryKey(),
-    accountOwnerEmail: text('account_owner_email')
+    id: serial('id').primaryKey(),
+    /**
+     * The identity at the edges, and unique across the installation exactly as when it was
+     * the key: it is in `/songbooks/[slug]`, it is what `generateStaticParams` enumerates at
+     * build time with no request and no reader, and it is all a songbook read from `content/`
+     * has to be identified by (`data/files.ts`).
+     */
+    slug: text('slug').notNull(),
+    accountId: integer('account_id')
       .notNull()
-      .references(() => accounts.ownerEmail),
+      .references(() => accounts.id),
     name: text('name').notNull(),
     /**
      * The one songbook, anywhere in the installation, kept as the example to copy from.
@@ -327,7 +361,9 @@ export const songbooks = pgTable(
      * songbooks does this account have", and joins through this column to ask the same of
      * its songs. The first plain (non-unique) index in this schema, added for that.
      */
-    index('songbooks_account_owner_email_idx').on(table.accountOwnerEmail),
+    index('songbooks_account_id_idx').on(table.accountId),
+    /** The slug's uniqueness, which used to come free with the primary key. */
+    unique('songbooks_slug').on(table.slug),
   ],
 )
 
@@ -338,45 +374,51 @@ export const songbooks = pgTable(
  * key — and an id that does not derive from the name is what keeps renaming free
  * without having to freeze anything.
  *
- * Two unique constraints, each doing a different job. `(songbook_slug, name)` says
+ * Two unique constraints, each doing a different job. `(songbook_id, name)` says
  * two sections of the same songbook cannot share a name: that is not two things, it
  * is a typo or a double tap — and it lets the import address a section *by name*
- * without ever creating a twin. `(id, songbook_slug)` exists only to be referenced:
- * see the composite key on `songs`.
+ * without ever creating a twin. `(id, songbook_id)` exists only to be referenced: see the
+ * composite key on `songs`.
  *
- * No `accountOwnerEmail` of its own (v3.0): `songbookSlug` is still globally unique (see
- * `songbooks`' own comment), so which account a section belongs to is always one join
- * away and never needs to be written here to agree with anything.
+ * No account of its own (v3.0): `songbookId` always resolves to one songbook, which is
+ * always one account's, so which account a section belongs to is one join away and never
+ * needs to be written here to agree with anything.
  */
 export const sections = pgTable(
   'sections',
   {
     id: serial('id').primaryKey(),
-    songbookSlug: text('songbook_slug')
+    songbookId: integer('songbook_id')
       .notNull()
-      .references(() => songbooks.slug, { onDelete: 'restrict' }),
+      .references(() => songbooks.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     /** Renumbered 1..N across the songbook on every arrangement, like the songs. */
     position: integer('position').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    unique('sections_songbook_name').on(table.songbookSlug, table.name),
-    unique('sections_id_songbook').on(table.id, table.songbookSlug),
+    unique('sections_songbook_name').on(table.songbookId, table.name),
+    unique('sections_id_songbook').on(table.id, table.songbookId),
   ],
 )
 
 /**
- * No `accountOwnerEmail` of its own either, for the same reason as `sections`: a song's
- * `songbookSlug` is globally unique and always resolves to one songbook, which is always
- * one account's. A query scoped to "the current account's songs" joins to `songbooks`
- * for it; that join was already free to add next to the one this table's own reads
- * already do against `sections`.
+ * No account of its own either, for the same reason as `sections`: a song's `songbookId`
+ * always resolves to one songbook, which is always one account's. A query scoped to "the
+ * current account's songs" joins to `songbooks` for it; that join was already free to add
+ * next to the one this table's own reads already do against `sections`.
  */
 export const songs = pgTable(
   'songs',
   {
-    slug: text('slug').primaryKey(),
+    id: serial('id').primaryKey(),
+    /**
+     * The identity at the edges, and unique across the installation exactly as when it was
+     * the key: it is `/songs/[slug]`, it is what `generateStaticParams` enumerates at build
+     * time, it is what the offline outbox names in a queued write, and it is all a `.chopro`
+     * read from `content/` has (`data/files.ts`). See this file's top comment.
+     */
+    slug: text('slug').notNull(),
     title: text('title').notNull(),
     artist: text('artist'),
     tags: text('tags').array().notNull().default([]),
@@ -400,9 +442,9 @@ export const songs = pgTable(
      * mandatory it is also derivable from `section_id`, so a null would be a state
      * that no longer means anything.
      */
-    songbookSlug: text('songbook_slug')
+    songbookId: integer('songbook_id')
       .notNull()
-      .references(() => songbooks.slug, { onDelete: 'restrict' }),
+      .references(() => songbooks.id, { onDelete: 'restrict' }),
     /**
      * Which section of that songbook holds the song. Every song has one.
      *
@@ -442,16 +484,21 @@ export const songs = pgTable(
      * `on update cascade` is not decoration: it is the only thing that lets a section
      * move to another songbook. Measured on a scratch schema — with `no action` the
      * update is refused whichever row goes first, because the constraint is checked
-     * per statement, not per transaction. With the cascade, `sections.songbook_slug`
+     * per statement, not per transaction. With the cascade, `sections.songbook_id`
      * is updated and the songs follow. `on delete` stays `restrict`: a section holding
      * songs may not be deleted.
+     *
+     * **The numeric key did not make this unnecessary** (v4.7), and it is worth saying
+     * because it looks as though it should have: an id being stable is true of the wrong
+     * column. What changes when a section moves is `sections.songbook_id` — the referenced
+     * column itself — so the cascade is needed exactly as before.
      *
      * While `section_id` is null the pair is not checked at all (Postgres `MATCH
      * SIMPLE`), which is exactly what the additive phase of the migration needs.
      */
     foreignKey({
-      columns: [table.sectionId, table.songbookSlug],
-      foreignColumns: [sections.id, sections.songbookSlug],
+      columns: [table.sectionId, table.songbookId],
+      foreignColumns: [sections.id, sections.songbookId],
       name: 'songs_section_songbook_fk',
     })
       .onDelete('restrict')
@@ -461,7 +508,9 @@ export const songs = pgTable(
      * `songbooks`, and this is the side of that join Postgres would otherwise answer by
      * scanning every song in the installation.
      */
-    index('songs_songbook_slug_idx').on(table.songbookSlug),
+    index('songs_songbook_id_idx').on(table.songbookId),
+    /** The slug's uniqueness, which used to come free with the primary key. */
+    unique('songs_slug').on(table.slug),
   ],
 )
 
@@ -556,17 +605,25 @@ export const rateLimitHits = pgTable('rate_limit_hits', {
 /**
  * Global preferences: one row per person.
  *
- * `userEmail` is foreign-keyed to `accounts.ownerEmail` with `onDelete: 'cascade'`
+ * `accountId` is foreign-keyed to `accounts.id` with `onDelete: 'cascade'`
  * (v3.5) — unlike `sign_ins`, a preference has no reason to outlive the account it
  * belongs to, and before this it did not: an account deleted through the app left
  * this row behind for good, since nothing else in the schema pointed at it to clean
  * it up. Found as stray rows in production, keyed by addresses `accounts` no longer
- * had — see `userSongPrefs.userEmail`'s own comment for the other half of the gap.
+ * had — see `userSongPrefs`'s own comment for the other half of the gap.
+ *
+ * **`accountId` here means the *reader's* own account, not the account being looked at**,
+ * and the same is true of `userSongPrefs` and `userSongComments` below. The distinction
+ * only ever shows on a global owner, who can switch into somebody else's account: the
+ * preferences stay theirs while the songs are not, which is why a query for «this
+ * account's stars» has to name both — this column for whose stars, and a join through
+ * `songbooks` for whose songs (see `listFavoriteSlugs`). It was `user_email` before v4.7
+ * and meant exactly the same thing; the address just became an id.
  */
 export const userPrefs = pgTable('user_prefs', {
-  userEmail: text('user_email')
+  accountId: integer('account_id')
     .primaryKey()
-    .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
+    .references(() => accounts.id, { onDelete: 'cascade' }),
   zoomStep: integer('zoom_step').notNull().default(2),
   notation: text('notation').notNull().default('int'),
   /**
@@ -610,7 +667,7 @@ export const userPrefs = pgTable('user_prefs', {
  * `chordDisplay`/`accidentals` above: only `'weekly'`/`'monthly'` are valid today,
  * enforced in TypeScript wherever this is written, not by the database.
  *
- * `ownerEmail` cascades on `accounts.ownerEmail` like `userPrefs.userEmail` — a
+ * `accountId` cascades on `accounts.id` like `userPrefs.accountId` — a
  * consent row has no reason to outlive the account it is about.
  *
  * Created for every new account by `provisionAccount`, deliberately outside the
@@ -620,9 +677,9 @@ export const userPrefs = pgTable('user_prefs', {
  * "not subscribed, monthly" — see `loadNewsletterPrefs`.
  */
 export const newsletterPrefs = pgTable('newsletter_prefs', {
-  ownerEmail: text('owner_email')
+  accountId: integer('account_id')
     .primaryKey()
-    .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
+    .references(() => accounts.id, { onDelete: 'cascade' }),
   subscribed: boolean('subscribed').notNull().default(false),
   frequency: text('frequency').notNull().default('monthly'),
   subscribedAt: timestamp('subscribed_at', { withTimezone: true }),
@@ -638,18 +695,18 @@ export const newsletterPrefs = pgTable('newsletter_prefs', {
  * account owned, but not that account's own preferences on songs it never owned —
  * a global owner switched into another account, say, who moved a capo there before
  * ever switching back. `userEmail` now cascades on `accounts.ownerEmail` too (v3.5)
- * for exactly that other half — see `userPrefs.userEmail`'s own comment for how the
+ * for exactly that other half — see `userPrefs`'s own comment for how the
  * gap this closes was found.
  */
 export const userSongPrefs = pgTable(
   'user_song_prefs',
   {
-    userEmail: text('user_email')
+    accountId: integer('account_id')
       .notNull()
-      .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
-    songSlug: text('song_slug')
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    songId: integer('song_id')
       .notNull()
-      .references(() => songs.slug, { onDelete: 'cascade' }),
+      .references(() => songs.id, { onDelete: 'cascade' }),
     semitones: integer('semitones').notNull().default(0),
     scrollSpeed: integer('scroll_speed').notNull().default(3),
     /**
@@ -699,7 +756,7 @@ export const userSongPrefs = pgTable(
     favorite: boolean('favorite').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userEmail, table.songSlug] })],
+  (table) => [primaryKey({ columns: [table.accountId, table.songId] })],
 )
 
 /**
@@ -724,12 +781,12 @@ export const userSongComments = pgTable(
   'user_song_comments',
   {
     id: text('id').primaryKey(),
-    userEmail: text('user_email')
+    accountId: integer('account_id')
       .notNull()
-      .references(() => accounts.ownerEmail, { onDelete: 'cascade' }),
-    songSlug: text('song_slug')
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    songId: integer('song_id')
       .notNull()
-      .references(() => songs.slug, { onDelete: 'cascade' }),
+      .references(() => songs.id, { onDelete: 'cascade' }),
     /**
      * Index into `SongDocument.blocks`, and the offset in that block's text.
      *
@@ -754,7 +811,7 @@ export const userSongComments = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('user_song_comments_song_idx').on(table.userEmail, table.songSlug)],
+  (table) => [index('user_song_comments_song_idx').on(table.accountId, table.songId)],
 )
 
 /**
@@ -773,13 +830,19 @@ export const userSongComments = pgTable(
  * cannot keep a session alive on their own: once its owner has stopped, it expires on
  * schedule regardless of who is still watching.
  *
- * `broadcastAccountEmail` says *whose account's* repertoire is on show (v3.0) — almost
- * always the same as `ownerEmail`, but not necessarily: a global owner who has switched
+ * `broadcastAccountId` says *whose account's* repertoire is on show (v3.0) — almost
+ * always the same account as `ownerEmail`'s, but not necessarily: a global owner who has switched
  * into someone else's account may broadcast that repertoire instead of their own (v3.1 —
  * nobody but a global owner can, now that an account has no collaborators to switch in
  * as). Kept apart from `ownerEmail` because the two answer different questions — who is
  * in control of this broadcast, and which shelf of songs it is reading from — and the
  * guest-facing reads (`guestReads.ts`) only ever need the second one.
+ *
+ * **`ownerEmail` stays an email and has no foreign key** (v4.7), and that asymmetry with
+ * `broadcastAccountId` is the point: whoever is *in control* of a broadcast may be a global
+ * owner, who needs no row in `accounts` at all (v3.1). A foreign key there would refuse the
+ * one case the column exists to distinguish. Whose *repertoire* is on show is always an
+ * account, so that side gets the key.
  */
 /**
  * How often, and when last, each address has actually gotten in — through Google or a
@@ -803,20 +866,29 @@ export const signIns = pgTable('sign_ins', {
 export const singAlongSessions = pgTable(
   'sing_along_sessions',
   {
-    ownerEmail: text('owner_email').primaryKey(),
+    id: serial('id').primaryKey(),
+    ownerEmail: text('owner_email').notNull(),
     token: text('token').notNull(),
-    broadcastAccountEmail: text('broadcast_account_email')
+    broadcastAccountId: integer('broadcast_account_id')
       .notNull()
-      .references(() => accounts.ownerEmail),
+      .references(() => accounts.id),
     /** Cleared, not left dangling, if the song itself is ever deleted mid-broadcast. */
-    currentSongSlug: text('current_song_slug').references(() => songs.slug, {
+    currentSongId: integer('current_song_id').references(() => songs.id, {
       onDelete: 'set null',
     }),
     currentSemitones: integer('current_semitones').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('sing_along_sessions_token').on(table.token)],
+  (table) => [
+    unique('sing_along_sessions_token').on(table.token),
+    /**
+     * One live broadcast per person. It used to be implied by the primary key on
+     * `ownerEmail`; with the key on `id` it has to be said out loud, and saying it out loud
+     * is better — a domain rule riding on a primary key is a rule nobody reads.
+     */
+    unique('sing_along_sessions_owner').on(table.ownerEmail),
+  ],
 )
 
 /**
@@ -905,13 +977,19 @@ export const singAlongDevices = pgTable(
  * reorder keys and normalise numbers and quietly make that impossible, in exchange for
  * queries this table does not need to serve.
  *
- * `accountOwnerEmail` is nullable and has **no foreign key**, deliberately. An event can
- * arrive for an address that owns no account yet — a checkout completed before the
- * verification link is clicked — and `deleteAccount` has to stay possible: a foreign key
- * would either cascade, destroying the record of what somebody actually paid, or restrict,
- * leaving paid accounts undeletable. Append-only is discipline in the handler, not
- * something this table enforces, consistent with a schema that has no triggers and no
- * CHECK constraints anywhere in it.
+ * **Two columns for the account, and they answer different questions** (v4.7).
+ * `accountOwnerEmail` is the address the event *arrived for*, written once and never
+ * updated: a historical fact, not a pointer, which is why a later change of address does not
+ * rewrite it. `accountId` is the pointer — nullable, `ON DELETE SET NULL` — so a join to
+ * `accounts` is a join and not a string match, while `deleteAccount` stays possible and the
+ * record of what somebody paid survives them.
+ *
+ * That shape is what the old single column could not be. An event can arrive for an address
+ * that owns no account yet — a checkout completed before the verification link is clicked —
+ * so a `NOT NULL` key was never available; and a cascade would destroy the record while a
+ * restrict would leave paid accounts undeletable. Append-only is still discipline in the
+ * handler, not something this table enforces, consistent with a schema that has no triggers
+ * and no CHECK constraints anywhere in it.
  */
 export const paddleEvents = pgTable('paddle_events', {
   eventId: text('event_id').primaryKey(),
@@ -923,7 +1001,10 @@ export const paddleEvents = pgTable('paddle_events', {
    * — the ledger's job is to have the event, not to have understood it.
    */
   occurredAt: timestamp('occurred_at', { withTimezone: true }),
+  /** History: the address it arrived for. Never updated — see the comment above. */
   accountOwnerEmail: text('account_owner_email'),
+  /** The pointer. Null once that account is gone, and null when it never existed. */
+  accountId: integer('account_id').references(() => accounts.id, { onDelete: 'set null' }),
   /** Denormalised out of the payload so a subscription's history is a query, not a parse. */
   paddleSubscriptionId: text('paddle_subscription_id'),
   payload: text('payload').notNull(),
@@ -1092,11 +1173,29 @@ export const couponCampaigns = pgTable(
  * switched on costs nothing at all.
  *
  * `campaignId` has a foreign key because a campaign is never deleted, only archived (the
- * guardrail is in `PLAN-coupons.md`). `accountOwnerEmail` deliberately has none, for
- * `paddleEvents.accountOwnerEmail`'s reason: `deleteAccount` has to stay possible, and a key
- * here would either cascade away the record of what somebody paid or make a paid account
- * undeletable. One consequence, accepted rather than worked around: an account deleted and
- * recreated cannot redeem the same campaign twice, which closes the delete-and-retry loop.
+ * guardrail is in `PLAN-coupons.md`).
+ *
+ * **The account is two columns, and dropping either would break something** (v4.7), the same
+ * shape as `paddleEvents` and for a sharper reason. `accountId` is the pointer, nullable and
+ * `ON DELETE SET NULL`; `accountOwnerEmail` is the address the redemption was made under,
+ * written once and **never updated**, because it is history. Every *read* asks by
+ * `accountId` — see `redeemability` — and nothing queries the email at all.
+ *
+ * Why both, when one usually suffices: the two unique indexes below close two different
+ * loops, and neither index subsumes the other.
+ *
+ * - By `accountId`: a change of address used to orphan this row, because
+ *   `changeAccountEmail` moves email-keyed rows from a hand-written list and this table was
+ *   never on it — so renaming let the same campaign be redeemed a second time. With the
+ *   pointer, there is nothing to remember to move.
+ * - By `accountOwnerEmail`: deleting the account nulls the pointer, and without the email
+ *   index a delete-and-recreate would then redeem again. That loop was closed before v4.7
+ *   only as a side effect of having no foreign key; now it is closed on purpose. This is the
+ *   reason the email is **deliberately not** on `changeAccountEmail`'s list and must never
+ *   be added to it: updating it would reopen exactly this.
+ *
+ * `deleteAccount` stays possible throughout, which is what ruled out `NOT NULL` with a
+ * cascade or a restrict.
  *
  * Amounts are `text`, and both of them are stored rather than one being derived: `fullAmount`
  * is what the listino said on the day, and re-deriving it later from `PRICES` is how a
@@ -1109,7 +1208,10 @@ export const couponRedemptions = pgTable(
     campaignId: text('campaign_id')
       .notNull()
       .references(() => couponCampaigns.id),
+    /** History: the address it was redeemed under. Never updated — see the comment above. */
     accountOwnerEmail: text('account_owner_email').notNull(),
+    /** The pointer, and what every read asks by. Null once that account is gone. */
+    accountId: integer('account_id').references(() => accounts.id, { onDelete: 'set null' }),
     /** A copy, so a redemption reads on its own without joining a campaign that may be archived. */
     code: text('code').notNull(),
     discountPercent: text('discount_percent').notNull(),
@@ -1123,7 +1225,16 @@ export const couponRedemptions = pgTable(
     redeemedAt: timestamp('redeemed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('coupon_redemptions_once').on(table.campaignId, table.accountOwnerEmail),
+    /**
+     * One redemption per live account, immune to a change of address. Partial, because a
+     * null pointer means «that account is gone» and two gone accounts are not a collision —
+     * without the `WHERE` a second deleted account's row would be refused.
+     */
+    uniqueIndex('coupon_redemptions_once')
+      .on(table.campaignId, table.accountId)
+      .where(sql`${table.accountId} is not null`),
+    /** And one per address ever, which is what survives the account being deleted. */
+    uniqueIndex('coupon_redemptions_once_email').on(table.campaignId, table.accountOwnerEmail),
     index('coupon_redemptions_campaign').on(table.campaignId),
   ],
 )

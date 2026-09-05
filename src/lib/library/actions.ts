@@ -19,7 +19,7 @@ import { accessTo, currentUser } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { listSongsForAccount, rowToSong } from '@/lib/data/db'
 import { db, hasDatabase } from '@/lib/db/client'
-import { songs } from '@/lib/db/schema'
+import { songbooks, songs } from '@/lib/db/schema'
 
 import type { SongIndexRow } from '@/lib/search-index'
 
@@ -42,10 +42,15 @@ export async function loadSongContent(slug: string): Promise<SongContent> {
     if (owner === null) return { state: 'missing' }
     if ((await accessTo(owner)) === null) return { state: 'missing' }
 
-    const rows = await db().select().from(songs).where(eq(songs.slug, slug)).limit(1)
+    const rows = await db()
+      .select({ song: songs, songbookSlug: songbooks.slug })
+      .from(songs)
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songs.slug, slug))
+      .limit(1)
     if (rows.length === 0) return { state: 'missing' }
 
-    return { state: 'found', song: rowToSong(rows[0]) }
+    return { state: 'found', song: rowToSong(rows[0].song, rows[0].songbookSlug) }
   } catch (error) {
     console.error('loadSongContent failed', error)
     return { state: 'unavailable' }

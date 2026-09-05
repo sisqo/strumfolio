@@ -26,6 +26,7 @@ import { songAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount } from '@/lib/data/db'
 import { DEFAULT_SECTION } from '@/lib/data/types'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf, songbookIdOf } from '@/lib/db/ids'
 import { accounts, songbooks, sections, songs } from '@/lib/db/schema'
 import { entitlementsOf } from '@/lib/plans/resolve'
 import { limitFacts } from '@/lib/plans/types'
@@ -57,8 +58,8 @@ export async function loadSongbooks(): Promise<SongbookState | null> {
     db()
       .select({ slug: songs.slug, sectionId: songs.sectionId })
       .from(songs)
-      .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
-      .where(eq(songbooks.accountOwnerEmail, user.accountOwnerEmail)),
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songbooks.accountId, accountIdOf(user.accountOwnerEmail))),
   ])
 
   const assignments: Record<string, number> = {}
@@ -131,17 +132,20 @@ export async function createSongbook(name: string): Promise<CreateResult> {
       const last = await tx
         .select({ position: max(songbooks.position) })
         .from(songbooks)
-        .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
+        .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail)))
 
-      await tx.insert(songbooks).values({
-        slug,
-        name: trimmed,
-        accountOwnerEmail: editor.accountOwnerEmail,
-        position: (last[0]?.position ?? 0) + 1,
-      })
+      const [created] = await tx
+        .insert(songbooks)
+        .values({
+          slug,
+          name: trimmed,
+          accountId: accountIdOf(editor.accountOwnerEmail),
+          position: (last[0]?.position ?? 0) + 1,
+        })
+        .returning({ id: songbooks.id })
       await tx
         .insert(sections)
-        .values({ songbookSlug: slug, name: DEFAULT_SECTION, position: 1 })
+        .values({ songbookId: created.id, name: DEFAULT_SECTION, position: 1 })
 
       return { ok: true, slug } as CreateResult
     })
@@ -186,7 +190,7 @@ export async function addSampleSongbook(): Promise<CreateResult> {
   const already = await db()
     .select({ slug: songbooks.slug })
     .from(songbooks)
-    .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
+    .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail)))
     .limit(1)
   if (already.length > 0) return { ok: false, reason: 'account-not-empty' }
 
@@ -272,7 +276,7 @@ export async function arrangeSongbooks(slugs: string[]): Promise<WriteResult> {
       const held = await tx
         .select({ slug: songbooks.slug })
         .from(songbooks)
-        .where(eq(songbooks.accountOwnerEmail, editor.accountOwnerEmail))
+        .where(eq(songbooks.accountId, accountIdOf(editor.accountOwnerEmail)))
 
       if (!sameMembers(held.map((row) => row.slug), slugs)) {
         return { ok: false, reason: 'stale' } as WriteResult
@@ -327,9 +331,10 @@ export async function moveSong(songSlug: string, sectionId: number): Promise<Wri
     const database = db()
 
     const destination = await database
-      .select({ songbookSlug: sections.songbookSlug, accountOwnerEmail: songbooks.accountOwnerEmail })
+      .select({ songbookId: sections.songbookId, accountOwnerEmail: accounts.ownerEmail })
       .from(sections)
-      .innerJoin(songbooks, eq(sections.songbookSlug, songbooks.slug))
+      .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
+      .innerJoin(accounts, eq(songbooks.accountId, accounts.id))
       .where(eq(sections.id, sectionId))
       .limit(1)
 
@@ -343,7 +348,7 @@ export async function moveSong(songSlug: string, sectionId: number): Promise<Wri
       // Unplaced in its new section, so it arrives at the end: the number it held
       // was a place among other songs, and those are not these songs.
       .set({
-        songbookSlug: destination[0].songbookSlug,
+        songbookId: destination[0].songbookId,
         sectionId,
         position: null,
         updatedAt: sql`now()`,
@@ -401,20 +406,21 @@ export async function removeSongbook(
       const held = await tx
         .select({ slug: songs.slug })
         .from(songs)
-        .where(eq(songs.songbookSlug, slug))
+        .where(eq(songs.songbookId, songbookIdOf(slug)))
 
       const mine = await tx
         .select({ id: sections.id, name: sections.name, position: sections.position })
         .from(sections)
-        .where(eq(sections.songbookSlug, slug))
+        .where(eq(sections.songbookId, songbookIdOf(slug)))
         .orderBy(asc(sections.position))
 
       if (held.length > 0) {
         if (moveTo === null) return { ok: false, reason: 'not-empty' } as WriteResult
 
         const destination = await tx
-          .select({ slug: songbooks.slug, accountOwnerEmail: songbooks.accountOwnerEmail })
+          .select({ id: songbooks.id, accountOwnerEmail: accounts.ownerEmail })
           .from(songbooks)
+          .innerJoin(accounts, eq(songbooks.accountId, accounts.id))
           .where(eq(songbooks.slug, moveTo))
           .limit(1)
 
@@ -427,13 +433,13 @@ export async function removeSongbook(
         const theirs = await tx
           .select({ id: sections.id, name: sections.name })
           .from(sections)
-          .where(eq(sections.songbookSlug, moveTo))
+          .where(eq(sections.songbookId, destination[0].id))
 
         const idByName = new Map(theirs.map((row) => [row.name, row.id]))
         const last = await tx
           .select({ position: max(sections.position) })
           .from(sections)
-          .where(eq(sections.songbookSlug, moveTo))
+          .where(eq(sections.songbookId, destination[0].id))
 
         let next = (last[0]?.position ?? 0) + 1
 
@@ -444,7 +450,7 @@ export async function removeSongbook(
             // Nothing of that name over there: the section itself moves, songs and all.
             await tx
               .update(sections)
-              .set({ songbookSlug: moveTo, position: next })
+              .set({ songbookId: destination[0].id, position: next })
               .where(eq(sections.id, section.id))
             next += 1
 
@@ -470,7 +476,7 @@ export async function removeSongbook(
           await tx
             .update(songs)
             .set({
-              songbookSlug: moveTo,
+              songbookId: destination[0].id,
               sectionId: twin,
               position: null,
               updatedAt: sql`now()`,
@@ -487,7 +493,7 @@ export async function removeSongbook(
       const leftovers = await tx
         .select({ id: sections.id })
         .from(sections)
-        .where(eq(sections.songbookSlug, slug))
+        .where(eq(sections.songbookId, songbookIdOf(slug)))
 
       if (leftovers.length > 0) {
         await tx.delete(sections).where(
@@ -539,9 +545,9 @@ export async function purgeSongbook(slug: string): Promise<WriteResult> {
     const result = await db().transaction(async (tx) => {
       const deletedSongs = await tx
         .delete(songs)
-        .where(eq(songs.songbookSlug, slug))
+        .where(eq(songs.songbookId, songbookIdOf(slug)))
         .returning({ slug: songs.slug })
-      await tx.delete(sections).where(eq(sections.songbookSlug, slug))
+      await tx.delete(sections).where(eq(sections.songbookId, songbookIdOf(slug)))
 
       const removed = await tx
         .delete(songbooks)
@@ -635,8 +641,14 @@ export async function copySongbook(
   try {
     return await db().transaction(async (tx) => {
       const source = await tx
-        .select()
+        .select({
+          id: songbooks.id,
+          slug: songbooks.slug,
+          name: songbooks.name,
+          accountOwnerEmail: accounts.ownerEmail,
+        })
         .from(songbooks)
+        .innerJoin(accounts, eq(songbooks.accountId, accounts.id))
         .where(eq(songbooks.slug, sourceSlug))
         .limit(1)
       if (source.length === 0) return { ok: false, reason: 'not-found' } as CreateResult
@@ -648,7 +660,7 @@ export async function copySongbook(
       }
 
       const destination = await tx
-        .select({ ownerEmail: accounts.ownerEmail })
+        .select({ id: accounts.id })
         .from(accounts)
         .where(eq(accounts.ownerEmail, target))
         .limit(1)
@@ -662,10 +674,10 @@ export async function copySongbook(
       const last = await tx
         .select({ position: max(songbooks.position) })
         .from(songbooks)
-        .where(eq(songbooks.accountOwnerEmail, target))
+        .where(eq(songbooks.accountId, destination[0].id))
 
-      await tx.insert(songbooks).values({
-        accountOwnerEmail: target,
+      const [copiedSongbook] = await tx.insert(songbooks).values({
+        accountId: destination[0].id,
         slug: copiedSlug,
         name: source[0].name,
         // Never the clone flag: the partial unique index allows exactly one across the
@@ -675,23 +687,23 @@ export async function copySongbook(
         // Appended after whatever the destination account already has, same as a
         // songbook created there by hand would be.
         position: (last[0]?.position ?? 0) + 1,
-      })
+      }).returning({ id: songbooks.id })
 
       const sourceSections = await tx
         .select()
         .from(sections)
-        .where(eq(sections.songbookSlug, sourceSlug))
+        .where(eq(sections.songbookId, source[0].id))
 
       const sectionIdMap = new Map<number, number>()
       for (const section of sourceSections) {
         const [copied] = await tx
           .insert(sections)
-          .values({ songbookSlug: copiedSlug, name: section.name, position: section.position })
+          .values({ songbookId: copiedSongbook.id, name: section.name, position: section.position })
           .returning({ id: sections.id })
         sectionIdMap.set(section.id, copied.id)
       }
 
-      const sourceSongs = await tx.select().from(songs).where(eq(songs.songbookSlug, sourceSlug))
+      const sourceSongs = await tx.select().from(songs).where(eq(songs.songbookId, source[0].id))
       const takenSongSlugs = new Set(
         (await tx.select({ slug: songs.slug }).from(songs)).map((row) => row.slug),
       )
@@ -714,7 +726,7 @@ export async function copySongbook(
           link2: song.link2,
           link3: song.link3,
           body: song.body,
-          songbookSlug: copiedSlug,
+          songbookId: copiedSongbook.id,
           sectionId: newSectionId,
           position: song.position,
         })

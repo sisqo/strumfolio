@@ -18,6 +18,7 @@ import { and, eq } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
+import { accountIdOf, songIdOf } from '@/lib/db/ids'
 import { userSongComments } from '@/lib/db/schema'
 
 import { type SongComment, commentFromRow } from './types'
@@ -47,7 +48,12 @@ export async function loadComments(songSlug: string): Promise<SongComment[] | nu
         updatedAt: userSongComments.updatedAt,
       })
       .from(userSongComments)
-      .where(and(eq(userSongComments.userEmail, user.email), eq(userSongComments.songSlug, songSlug)))
+      .where(
+        and(
+          eq(userSongComments.accountId, accountIdOf(user.email)),
+          eq(userSongComments.songId, songIdOf(songSlug)),
+        ),
+      )
 
     return rows.map(commentFromRow)
   } catch (error) {
@@ -80,7 +86,12 @@ export async function saveComment(songSlug: string, comment: SongComment): Promi
   try {
     await db()
       .insert(userSongComments)
-      .values({ id: comment.id, userEmail: email, songSlug, ...values })
+      .values({
+        id: comment.id,
+        accountId: accountIdOf(email),
+        songId: songIdOf(songSlug),
+        ...values,
+      })
       .onConflictDoUpdate({ target: userSongComments.id, set: values })
     return 'saved'
   } catch (error) {
@@ -96,7 +107,7 @@ export async function deleteComment(id: string): Promise<CommentWriteResult> {
   try {
     await db()
       .delete(userSongComments)
-      .where(and(eq(userSongComments.id, id), eq(userSongComments.userEmail, email)))
+      .where(and(eq(userSongComments.id, id), eq(userSongComments.accountId, accountIdOf(email))))
     return 'saved'
   } catch (error) {
     console.error('deleteComment failed', error)
@@ -136,7 +147,7 @@ export async function reanchorSongComments(
         updatedAt: userSongComments.updatedAt,
       })
       .from(userSongComments)
-      .where(eq(userSongComments.songSlug, songSlug))
+      .where(eq(userSongComments.songId, songIdOf(songSlug)))
 
     if (rows.length === 0) return { orphaned: 0 }
 

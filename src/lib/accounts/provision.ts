@@ -23,6 +23,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 
 import { normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { accounts, newsletterPrefs } from '@/lib/db/schema'
 import { PLANS } from '@/lib/plans/types'
 import { insertSampleSongbook } from '@/lib/songbooks/seed'
@@ -150,7 +151,7 @@ export async function provisionAccount(
     await db()
       .insert(newsletterPrefs)
       .values({
-        ownerEmail,
+        accountId: accountIdOf(ownerEmail),
         subscribed: newsletterOptIn ?? false,
         frequency: 'monthly',
         subscribedAt: newsletterOptIn === true ? new Date() : null,

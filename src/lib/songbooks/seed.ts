@@ -15,6 +15,7 @@
 
 import { DEFAULT_SECTION } from '@/lib/data/types'
 import { db } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { songbooks, sections, songs } from '@/lib/db/schema'
 import { uniqueSlug } from '@/lib/slug'
 
@@ -44,12 +45,17 @@ export async function insertSampleSongbook(
     )
     const slug = uniqueSlug(SAMPLE_SONGBOOK_NAME, takenSongbookSlugs)
 
-    await tx.insert(songbooks).values({
-      slug,
-      name: SAMPLE_SONGBOOK_NAME,
-      accountOwnerEmail: ownerEmail,
-      position: 1,
-    })
+    /* `returning` rather than looking the id back up: the rows below need it, and inside one
+       transaction the insert already knows it. */
+    const [songbook] = await tx
+      .insert(songbooks)
+      .values({
+        slug,
+        name: SAMPLE_SONGBOOK_NAME,
+        accountId: accountIdOf(ownerEmail),
+        position: 1,
+      })
+      .returning({ id: songbooks.id })
 
     const sectionIdByName = new Map<string, number>()
     const takenSongSlugs = new Set(
@@ -62,7 +68,7 @@ export async function insertSampleSongbook(
       if (sectionId === undefined) {
         const [inserted] = await tx
           .insert(sections)
-          .values({ songbookSlug: slug, name: sectionName, position: sectionIdByName.size + 1 })
+          .values({ songbookId: songbook.id, name: sectionName, position: sectionIdByName.size + 1 })
           .returning({ id: sections.id })
         sectionId = inserted.id
         sectionIdByName.set(sectionName, sectionId)
@@ -77,7 +83,7 @@ export async function insertSampleSongbook(
         artist: song.artist,
         tags: song.tags,
         body: song.body,
-        songbookSlug: slug,
+        songbookId: songbook.id,
         sectionId,
         // Unplaced, like any freshly imported song: it sorts alphabetically among its
         // section-mates rather than claiming an order nobody chose.

@@ -46,6 +46,7 @@ import { activeCoupon, redeemability } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
 import { COUPON_COOKIE } from '@/lib/coupons/types'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { accounts, couponRedemptions } from '@/lib/db/schema'
 import { notifyTelegram } from '@/lib/telegram/notify'
 
@@ -612,6 +613,11 @@ export async function mockPurchase(
        * rather than estimated — `coupon_redemptions_once` is unique per account per campaign,
        * so the count is Paddle's `times_used` computed rather than mirrored.
        *
+       * Both account columns are written (v4.7) and neither is spare: `accountId` is what
+       * every read asks by, so a change of address cannot detach the row; the address is
+       * frozen history, and it is what still refuses a second redemption after the account
+       * has been deleted and made again. `db/schema.ts` has the two indexes.
+       *
        * Written after the plan, not before: an insert that fails must not leave an account
        * marked as discounted with no record of the redemption, whereas the reverse order at
        * worst loses one row of bookkeeping on a purchase that really happened. The whole
@@ -624,6 +630,7 @@ export async function mockPurchase(
             id: randomUUID(),
             campaignId: coupon.id,
             accountOwnerEmail: user.accountOwnerEmail,
+            accountId: accountIdOf(user.accountOwnerEmail),
             code: coupon.code,
             discountPercent: coupon.discountPercent,
             plan,

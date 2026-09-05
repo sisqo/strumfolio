@@ -15,6 +15,7 @@ import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { listSignIns } from '@/lib/auth/signIns'
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { accounts, pendingRegistrations, songbooks, songs } from '@/lib/db/schema'
 import { liveSubscription, planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
 import type { StoredPlan } from '@/lib/plans/entitlements'
@@ -462,13 +463,16 @@ export async function usageSummaryFor(ownerEmail: string): Promise<UsageSummary 
   const target = normalizeEmail(ownerEmail)
 
   try {
-    const songbookRows = await db().select({ slug: songbooks.slug }).from(songbooks).where(eq(songbooks.accountOwnerEmail, target))
-    const slugs = songbookRows.map((row) => row.slug)
+    const songbookRows = await db()
+      .select({ id: songbooks.id })
+      .from(songbooks)
+      .where(eq(songbooks.accountId, accountIdOf(target)))
+    const ids = songbookRows.map((row) => row.id)
 
     const songCount =
-      slugs.length === 0
+      ids.length === 0
         ? 0
-        : (await db().select({ slug: songs.slug }).from(songs).where(inArray(songs.songbookSlug, slugs))).length
+        : (await db().select({ id: songs.id }).from(songs).where(inArray(songs.songbookId, ids))).length
 
     const peakRows = await db()
       .select({ singAlongPeakDevices: accounts.singAlongPeakDevices })
@@ -477,7 +481,7 @@ export async function usageSummaryFor(ownerEmail: string): Promise<UsageSummary 
       .limit(1)
 
     return {
-      songbookCount: slugs.length,
+      songbookCount: ids.length,
       songCount,
       singAlongPeakDevices: peakRows[0]?.singAlongPeakDevices ?? 0,
     }

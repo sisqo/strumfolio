@@ -24,12 +24,14 @@
 
 import { randomBytes } from 'node:crypto'
 import { and, count, eq, gte, lt, lte, ne, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { cookies } from 'next/headers'
 
 import { accessTo, asEditor, currentUser } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accounts, singAlongDevices, singAlongSessions, userPrefs } from '@/lib/db/schema'
+import { accountIdOf, songIdOf } from '@/lib/db/ids'
+import { accounts, singAlongDevices, singAlongSessions, songs, userPrefs } from '@/lib/db/schema'
 import type { Notation } from '@/lib/music/chord'
 import { UNGATED } from '@/lib/plans/entitlements'
 import { deviceCapOf } from '@/lib/plans/resolve'
@@ -127,6 +129,40 @@ function isFresh(lastActiveAt: Date): boolean {
 }
 
 /**
+ * Two aliases of `accounts`, because a broadcast names two different accounts and a query
+ * that joins the same table twice has to say which is which: `broadcastAccount` is whose
+ * repertoire is on show, `ownerAccount` is whoever is holding the phone (v4.7, when both
+ * became ids — see `singAlongSessions` in `db/schema.ts` for why only the first has a
+ * foreign key).
+ */
+const broadcastAccount = alias(accounts, 'broadcast_account')
+const ownerAccount = alias(accounts, 'owner_account')
+
+/**
+ * What a broadcast row looks like to the rest of this module: the address and the slug,
+ * exactly as before v4.7, resolved by the joins rather than stored in the row.
+ *
+ * The columns kept their old names on purpose. Everything downstream — `getMyBroadcast`,
+ * `broadcastAccountForToken`, the two guards in `broadcastPlay`/`broadcastTranspose` —
+ * compares them against a `user.accountOwnerEmail` or hands them to `songAccountOf`, which
+ * both speak addresses and slugs because `currentUser()` has no id to offer (see
+ * `lib/auth/session.ts`). Renaming them here would have meant translating at every one of
+ * those sites instead of at this one.
+ *
+ * The song is a **left** join: `currentSongId` is null between «start broadcasting» and the
+ * first song opened, which is a live broadcast showing nothing yet, not a missing row.
+ */
+const broadcastColumns = {
+  ownerEmail: singAlongSessions.ownerEmail,
+  token: singAlongSessions.token,
+  broadcastAccountEmail: broadcastAccount.ownerEmail,
+  currentSongSlug: songs.slug,
+  currentSemitones: singAlongSessions.currentSemitones,
+  createdAt: singAlongSessions.createdAt,
+  lastActiveAt: singAlongSessions.lastActiveAt,
+}
+
+/**
  * The one row that answers to this email, unless its owner has gone idle long enough
  * for it to count as over — checked here, at the moment it is read, rather than by a
  * cleanup job: nothing else in this app runs on a schedule, and a row a few hours past
@@ -136,8 +172,10 @@ async function activeRowByOwner(email: string) {
   if (!hasDatabase) return null
 
   const rows = await db()
-    .select()
+    .select(broadcastColumns)
     .from(singAlongSessions)
+    .innerJoin(broadcastAccount, eq(singAlongSessions.broadcastAccountId, broadcastAccount.id))
+    .leftJoin(songs, eq(singAlongSessions.currentSongId, songs.id))
     .where(eq(singAlongSessions.ownerEmail, email))
     .limit(1)
 
@@ -150,8 +188,10 @@ async function activeRowByToken(token: string) {
   if (!hasDatabase) return null
 
   const rows = await db()
-    .select()
+    .select(broadcastColumns)
     .from(singAlongSessions)
+    .innerJoin(broadcastAccount, eq(singAlongSessions.broadcastAccountId, broadcastAccount.id))
+    .leftJoin(songs, eq(singAlongSessions.currentSongId, songs.id))
     .where(eq(singAlongSessions.token, token))
     .limit(1)
 
@@ -272,7 +312,11 @@ export async function startBroadcast(): Promise<
 
       await tx
         .insert(singAlongSessions)
-        .values({ ownerEmail: editor.email, token, broadcastAccountEmail: editor.accountOwnerEmail })
+        .values({
+          ownerEmail: editor.email,
+          token,
+          broadcastAccountId: accountIdOf(editor.accountOwnerEmail),
+        })
     })
 
     return { ok: true, token }
@@ -332,7 +376,7 @@ export async function broadcastPlay(songSlug: string, semitones: number): Promis
 
     await db()
       .update(singAlongSessions)
-      .set({ currentSongSlug: songSlug, currentSemitones: semitones, lastActiveAt: sql`now()` })
+      .set({ currentSongId: songIdOf(songSlug), currentSemitones: semitones, lastActiveAt: sql`now()` })
       .where(eq(singAlongSessions.ownerEmail, user.email))
   } catch (error) {
     console.error('broadcastPlay failed', error)
@@ -370,7 +414,7 @@ export async function broadcastTranspose(songSlug: string, semitones: number): P
       .where(
         and(
           eq(singAlongSessions.ownerEmail, user.email),
-          eq(singAlongSessions.currentSongSlug, songSlug),
+          eq(singAlongSessions.currentSongId, songIdOf(songSlug)),
         ),
       )
   } catch (error) {
@@ -392,25 +436,29 @@ export async function broadcastTranspose(songSlug: string, semitones: number): P
  * With no device cookie there is no row to look for, and `false` in the join condition keeps
  * that case to the same single statement rather than a second query shape to keep in step.
  *
- * Also left-joins `user_prefs` on the *owner's* email — not `broadcastAccountEmail` — because
+ * Also reaches `user_prefs` through the *owner's* account — not the broadcast's — because
  * notation is a preference about the person reading the sheet, keyed by whoever is signed in,
  * and that is the leader even when they are broadcasting an account they merely switched into.
- * `.limit(1)` still holds: `user_prefs.user_email` is a primary key, so this join can add at
- * most one row, never fan the result out. No row there (nobody has touched their settings yet)
+ * Two hops since v4.7, both left: the owner's address to their account row, and that row's id
+ * to their preferences. `.limit(1)` still holds: `user_prefs.account_id` is a primary key, so
+ * neither hop can add a row, never mind fan the result out. No row there (nobody has touched their settings yet)
  * comes back `null`, which `pollBroadcast` reads the same way `DEFAULT_GLOBAL_PREFS` does.
  */
 async function sessionWithDevice(token: string, deviceId: string | null) {
   const rows = await db()
     .select({
-      songSlug: singAlongSessions.currentSongSlug,
+      songSlug: songs.slug,
       semitones: singAlongSessions.currentSemitones,
       lastActiveAt: singAlongSessions.lastActiveAt,
-      broadcastAccountEmail: singAlongSessions.broadcastAccountEmail,
+      broadcastAccountEmail: broadcastAccount.ownerEmail,
       notation: userPrefs.notation,
       deviceLastSeenAt: singAlongDevices.lastSeenAt,
     })
     .from(singAlongSessions)
-    .leftJoin(userPrefs, eq(userPrefs.userEmail, singAlongSessions.ownerEmail))
+    .innerJoin(broadcastAccount, eq(singAlongSessions.broadcastAccountId, broadcastAccount.id))
+    .leftJoin(songs, eq(singAlongSessions.currentSongId, songs.id))
+    .leftJoin(ownerAccount, eq(ownerAccount.ownerEmail, singAlongSessions.ownerEmail))
+    .leftJoin(userPrefs, eq(userPrefs.accountId, ownerAccount.id))
     .leftJoin(
       singAlongDevices,
       and(

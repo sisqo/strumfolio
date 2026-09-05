@@ -20,6 +20,7 @@
 import { and, count, desc, eq, isNull } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { couponCampaigns, couponRedemptions } from '@/lib/db/schema'
 import type { CheckoutPlan } from '@/lib/plans/prices'
 
@@ -265,11 +266,22 @@ export async function redeemability(
     if (campaign.redeemed >= campaign.usageLimitSubscription) return { ok: false, reason: 'exhausted' }
   }
 
+  /*
+   * Asked by `accountId`, never by the address (v4.7). The address is still on the row, and
+   * on purpose — it is what makes deleting and recreating an account fail to hand out the
+   * discount twice — but it is *history*, frozen at the moment of redemption, so a reader who
+   * changed their address would look themselves up under the new one, find nothing, and
+   * redeem again. That is the same defect the numeric key exists to remove, wearing a
+   * different cause. See `couponRedemptions` in `db/schema.ts` for both indexes.
+   */
   const already = await db()
     .select({ id: couponRedemptions.id })
     .from(couponRedemptions)
     .where(
-      and(eq(couponRedemptions.campaignId, campaign.id), eq(couponRedemptions.accountOwnerEmail, accountOwnerEmail)),
+      and(
+        eq(couponRedemptions.campaignId, campaign.id),
+        eq(couponRedemptions.accountId, accountIdOf(accountOwnerEmail)),
+      ),
     )
     .limit(1)
 
@@ -328,7 +340,7 @@ export async function resolveTypedCode(
         .where(
           and(
             eq(couponRedemptions.campaignId, campaign.id),
-            eq(couponRedemptions.accountOwnerEmail, accountOwnerEmail),
+            eq(couponRedemptions.accountId, accountIdOf(accountOwnerEmail)),
           ),
         )
         .limit(1)

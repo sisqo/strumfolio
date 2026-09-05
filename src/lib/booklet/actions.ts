@@ -16,6 +16,7 @@ import { asEditor, currentUser } from '@/lib/auth/session'
 import { SITE_URL } from '@/lib/brand'
 import { type SongComment, commentFromRow } from '@/lib/comments/types'
 import { db } from '@/lib/db/client'
+import { accountIdOf, songbookIdOf } from '@/lib/db/ids'
 import { accounts, sections, songbooks, songs, userSongComments, userSongPrefs } from '@/lib/db/schema'
 import { type Entitlements, bookletBrandLine, bookletCustomFooterAllowed } from '@/lib/plans/entitlements'
 import type { LimitReason } from '@/lib/plans/types'
@@ -113,9 +114,10 @@ async function personalSettingsFor(
   if (user === null) return new Map()
 
   const rows = await db()
-    .select({ songSlug: userSongPrefs.songSlug, semitones: userSongPrefs.semitones, capo: userSongPrefs.capo })
+    .select({ songSlug: songs.slug, semitones: userSongPrefs.semitones, capo: userSongPrefs.capo })
     .from(userSongPrefs)
-    .where(and(eq(userSongPrefs.userEmail, user.email), inArray(userSongPrefs.songSlug, songSlugs)))
+    .innerJoin(songs, eq(userSongPrefs.songId, songs.id))
+    .where(and(eq(userSongPrefs.accountId, accountIdOf(user.email)), inArray(songs.slug, songSlugs)))
 
   return new Map(
     rows.map((row) => [row.songSlug, { semitones: clampSemitones(row.semitones), capo: clampCapo(row.capo) }]),
@@ -144,10 +146,13 @@ async function commentsFor(songSlugs: string[]): Promise<Map<string, SongComment
       body: userSongComments.body,
       createdAt: userSongComments.createdAt,
       updatedAt: userSongComments.updatedAt,
-      songSlug: userSongComments.songSlug,
+      songSlug: songs.slug,
     })
     .from(userSongComments)
-    .where(and(eq(userSongComments.userEmail, user.email), inArray(userSongComments.songSlug, songSlugs)))
+    .innerJoin(songs, eq(userSongComments.songId, songs.id))
+    .where(
+      and(eq(userSongComments.accountId, accountIdOf(user.email)), inArray(songs.slug, songSlugs)),
+    )
 
   const bySlug = new Map<string, SongComment[]>()
   for (const row of rows) {
@@ -197,7 +202,7 @@ export async function loadBooklet(
     })
     .from(songs)
     .innerJoin(sections, eq(songs.sectionId, sections.id))
-    .where(eq(songs.songbookSlug, songbookSlug))
+    .where(eq(songs.songbookId, songbookIdOf(songbookSlug)))
     .orderBy(asc(sections.position), asc(songs.position), asc(songs.title))
 
   const personalBySlug = usePersonalSettings

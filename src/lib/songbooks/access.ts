@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm'
 import { accessTo } from '@/lib/auth/session'
 import { songbookAccountOf } from '@/lib/data/access'
 import { db } from '@/lib/db/client'
-import { sections } from '@/lib/db/schema'
+import { sections, songbooks } from '@/lib/db/schema'
 import type { Entitlements } from '@/lib/plans/entitlements'
 import { entitlementsOf } from '@/lib/plans/resolve'
 import { canEdit } from '@/lib/roles'
@@ -56,8 +56,9 @@ export async function editableSongbook(slug: string): Promise<EditableSongbook> 
 /** Same question, starting from a section's id: resolved to its songbook first. */
 export async function editableSection(id: number): Promise<EditableSection> {
   const rows = await db()
-    .select({ songbookSlug: sections.songbookSlug })
+    .select({ songbookSlug: songbooks.slug })
     .from(sections)
+    .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
     .where(eq(sections.id, id))
     .limit(1)
 

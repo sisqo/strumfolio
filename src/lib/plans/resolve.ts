@@ -24,6 +24,7 @@
 import { count, eq } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
+import { accountIdOf } from '@/lib/db/ids'
 import { accounts, songbooks, songs } from '@/lib/db/schema'
 
 import { UNGATED, entitlementsFor, liveSubscription, planStateFor } from './entitlements'
@@ -185,10 +186,10 @@ async function storedPlanOf(accountOwnerEmail: string): Promise<StoredPlan | nul
  * How much the account is holding, which is what the caps are compared against.
  *
  * Songs carry no account column, so the account-wide song count is a join to `songbooks` on
- * `songbookSlug` — the same join `listSongsForAccount` already does, and for the same
+ * `songbookId` — the same join `listSongsForAccount` already does, and for the same
  * reason. Written without it, the count would silently be the whole installation's, which
  * would freeze every account in it. Both queries run on every gated write, which is what
- * `songbooks_account_owner_email_idx` and `songs_songbook_slug_idx` were added for; there is
+ * `songbooks_account_id_idx` and `songs_songbook_id_idx` were added for; there is
  * deliberately no "skip the count when the plan is unlimited" shortcut, because a count
  * that is sometimes absent is a freeze that sometimes does not happen.
  */
@@ -197,12 +198,12 @@ export async function countRepertoire(accountOwnerEmail: string): Promise<Repert
     db()
       .select({ held: count() })
       .from(songbooks)
-      .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail)),
+      .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail))),
     db()
       .select({ held: count() })
       .from(songs)
-      .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
-      .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail)),
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail))),
   ])
 
   return { songbooks: songbookRows[0]?.held ?? 0, songs: songRows[0]?.held ?? 0 }

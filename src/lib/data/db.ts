@@ -6,6 +6,7 @@
 import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
 
 import { db } from '../db/client'
+import { accountIdOf } from '../db/ids'
 import { songbooks, sections, songs, userSongPrefs } from '../db/schema'
 import { toIndexRow, type SongIndexRow } from '../search-index'
 import type { Songbook, Section, Song, SongRepository } from './types'
@@ -16,8 +17,15 @@ import type { Songbook, Section, Song, SongRepository } from './types'
  * Exported because the write actions need the same mapping: what they return
  * after a save is compared against what a page was built with, so the two have to
  * be the same shape produced the same way.
+ *
+ * `songbookSlug` arrives as a second argument rather than off the row (v4.7). The row
+ * carries `songbookId` now, and `Song.songbookSlug` cannot follow it there: the app-level
+ * type is what `data/files.ts` also produces, from files that have no ids to give. So the
+ * slug comes from a join — and it comes as a *parameter* so that the compiler asks every
+ * caller for it, which is the difference between a join somebody forgot and a build that
+ * does not finish.
  */
-export function rowToSong(row: typeof songs.$inferSelect): Song {
+export function rowToSong(row: typeof songs.$inferSelect, songbookSlug: string): Song {
   return {
     slug: row.slug,
     title: row.title,
@@ -26,7 +34,7 @@ export function rowToSong(row: typeof songs.$inferSelect): Song {
     link1: row.link1,
     link2: row.link2,
     link3: row.link3,
-    songbookSlug: row.songbookSlug,
+    songbookSlug,
     sectionId: row.sectionId,
     body: row.body,
     updatedAt: row.updatedAt.toISOString(),
@@ -53,24 +61,30 @@ export const dbRepository: SongRepository = {
    */
   async listSongs() {
     const rows = await db()
-      .select({ song: songs, sectionPosition: sections.position })
+      .select({ song: songs, songbookSlug: songbooks.slug, sectionPosition: sections.position })
       .from(songs)
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
       .leftJoin(sections, eq(songs.sectionId, sections.id))
       .orderBy(asc(sections.position), asc(songs.position), asc(songs.title))
 
-    return rows.map((row) => rowToSong(row.song))
+    return rows.map((row) => rowToSong(row.song, row.songbookSlug))
   },
 
   async getSong(slug) {
-    const rows = await db().select().from(songs).where(eq(songs.slug, slug)).limit(1)
-    return rows.length > 0 ? rowToSong(rows[0]) : null
+    const rows = await db()
+      .select({ song: songs, songbookSlug: songbooks.slug })
+      .from(songs)
+      .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
+      .where(eq(songs.slug, slug))
+      .limit(1)
+    return rows.length > 0 ? rowToSong(rows[0].song, rows[0].songbookSlug) : null
   },
 
   async listSongbooks() {
     const rows = await db()
       .select({ slug: songbooks.slug, name: songbooks.name, position: songbooks.position })
       .from(songbooks)
-      .orderBy(asc(songbooks.accountOwnerEmail), asc(songbooks.position))
+      .orderBy(asc(songbooks.accountId), asc(songbooks.position))
 
     return rows satisfies Songbook[]
   },
@@ -79,12 +93,13 @@ export const dbRepository: SongRepository = {
     const rows = await db()
       .select({
         id: sections.id,
-        songbookSlug: sections.songbookSlug,
+        songbookSlug: songbooks.slug,
         name: sections.name,
         position: sections.position,
       })
       .from(sections)
-      .orderBy(asc(sections.songbookSlug), asc(sections.position))
+      .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
+      .orderBy(asc(songbooks.slug), asc(sections.position))
 
     return rows satisfies Section[]
   },
@@ -101,7 +116,7 @@ export async function listSongbooksForAccount(accountOwnerEmail: string): Promis
   const rows = await db()
     .select({ slug: songbooks.slug, name: songbooks.name, position: songbooks.position })
     .from(songbooks)
-    .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail))
+    .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail)))
     .orderBy(asc(songbooks.position))
 
   return rows satisfies Songbook[]
@@ -111,14 +126,14 @@ export async function listSectionsForAccount(accountOwnerEmail: string): Promise
   const rows = await db()
     .select({
       id: sections.id,
-      songbookSlug: sections.songbookSlug,
+      songbookSlug: songbooks.slug,
       name: sections.name,
       position: sections.position,
     })
     .from(sections)
-    .innerJoin(songbooks, eq(sections.songbookSlug, songbooks.slug))
-    .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail))
-    .orderBy(asc(sections.songbookSlug), asc(sections.position))
+    .innerJoin(songbooks, eq(sections.songbookId, songbooks.id))
+    .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail)))
+    .orderBy(asc(songbooks.slug), asc(sections.position))
 
   return rows satisfies Section[]
 }
@@ -126,14 +141,14 @@ export async function listSectionsForAccount(accountOwnerEmail: string): Promise
 /** See `dbRepository.listSongs` for the join and ordering this mirrors. */
 export async function listSongsForAccount(accountOwnerEmail: string): Promise<Song[]> {
   const rows = await db()
-    .select({ song: songs, sectionPosition: sections.position })
+    .select({ song: songs, songbookSlug: songbooks.slug, sectionPosition: sections.position })
     .from(songs)
-    .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+    .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
     .leftJoin(sections, eq(songs.sectionId, sections.id))
-    .where(eq(songbooks.accountOwnerEmail, accountOwnerEmail))
+    .where(eq(songbooks.accountId, accountIdOf(accountOwnerEmail)))
     .orderBy(asc(sections.position), asc(songs.position), asc(songs.title))
 
-  return rows.map((row) => rowToSong(row.song))
+  return rows.map((row) => rowToSong(row.song, row.songbookSlug))
 }
 
 /**
@@ -145,7 +160,7 @@ export async function listSongsForAccount(accountOwnerEmail: string): Promise<So
  * being answerable without knowing who is asking, which is precisely what makes them
  * cacheable and shareable today.
  *
- * Scoped by `userEmail` **and** `accountOwnerEmail` together, clause for clause like
+ * Scoped by the reader **and** by the account together, clause for clause like
  * `listRecentlyOpened` above and for the same reason: a global owner's `user_song_prefs`
  * rows can point at songs in any account they have ever switched into, and the stars this
  * screen draws must be the ones for the songs this screen is showing.
@@ -155,14 +170,14 @@ export async function listFavoriteSlugs(
   userEmail: string,
 ): Promise<string[]> {
   const rows = await db()
-    .select({ slug: userSongPrefs.songSlug })
+    .select({ slug: songs.slug })
     .from(userSongPrefs)
-    .innerJoin(songs, eq(userSongPrefs.songSlug, songs.slug))
-    .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+    .innerJoin(songs, eq(userSongPrefs.songId, songs.id))
+    .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
     .where(
       and(
-        eq(userSongPrefs.userEmail, userEmail),
-        eq(songbooks.accountOwnerEmail, accountOwnerEmail),
+        eq(userSongPrefs.accountId, accountIdOf(userEmail)),
+        eq(songbooks.accountId, accountIdOf(accountOwnerEmail)),
         eq(userSongPrefs.favorite, true),
       ),
     )
@@ -178,7 +193,7 @@ export interface RecentSong extends SongIndexRow {
 /**
  * This reader's own last-opened songs in the current account, most recent first.
  *
- * Scoped by `userEmail` *and* `accountOwnerEmail` together, not `userEmail` alone: a
+ * Scoped by the reader *and* by the account together, not by the reader alone: a
  * global owner's `user_song_prefs` rows can belong to songs in any account they have
  * ever switched into (`lastOpenedAt`'s own comment in `db/schema.ts`), and this list is
  * "recently played here", not everywhere that reader has ever opened a song.
@@ -189,19 +204,22 @@ export async function listRecentlyOpened(
   limit: number,
 ): Promise<RecentSong[]> {
   const rows = await db()
-    .select({ song: songs, songbookName: songbooks.name })
+    .select({ song: songs, songbookSlug: songbooks.slug, songbookName: songbooks.name })
     .from(userSongPrefs)
-    .innerJoin(songs, eq(userSongPrefs.songSlug, songs.slug))
-    .innerJoin(songbooks, eq(songs.songbookSlug, songbooks.slug))
+    .innerJoin(songs, eq(userSongPrefs.songId, songs.id))
+    .innerJoin(songbooks, eq(songs.songbookId, songbooks.id))
     .where(
       and(
-        eq(userSongPrefs.userEmail, userEmail),
-        eq(songbooks.accountOwnerEmail, accountOwnerEmail),
+        eq(userSongPrefs.accountId, accountIdOf(userEmail)),
+        eq(songbooks.accountId, accountIdOf(accountOwnerEmail)),
         isNotNull(userSongPrefs.lastOpenedAt),
       ),
     )
     .orderBy(desc(userSongPrefs.lastOpenedAt))
     .limit(limit)
 
-  return rows.map((row) => ({ ...toIndexRow(rowToSong(row.song)), songbookName: row.songbookName }))
+  return rows.map((row) => ({
+    ...toIndexRow(rowToSong(row.song, row.songbookSlug)),
+    songbookName: row.songbookName,
+  }))
 }
