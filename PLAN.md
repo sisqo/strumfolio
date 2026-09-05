@@ -8,8 +8,11 @@
 > contenitori — quindi il resto di questo piano la nomina ancora quando parla di quella,
 > di proposito.
 
-> **Stato:** da v1 a **v4.4 — la lista `/accounts` ridisegnata** (l'ultima versione numerata qui)
-> sono consegnate e in produzione su https://strumfolio.com. La
+> **Stato:** da v1 a **v4.6 — i brani preferiti** (l'ultima versione numerata qui) sono
+> consegnate e in produzione su https://strumfolio.com — **con la v4.5 volutamente
+> riservata** ai coupon (`PLAN-coupons.md`), spediti prima della v4.6 e non ancora
+> ripiegati qui: il numero è tenuto libero perché questo elenco resti in ordine di
+> consegna. La
 > v1.2 ha cambiato chi possiede un brano (il database, non i file — va letta prima di
 > toccare il seed); la v1.3 ha aggiunto lo strato che mostra la versione del database
 > sopra la pagina statica (va letta prima di toccare la lettura); la v1.4 ha portato
@@ -25,6 +28,10 @@
 > direttamente nel codice, senza passare da un piano scritto a parte. Colmare il buco per
 > intero richiederebbe di ricostruire quella storia da commit e diff, cosa che v3.6–v3.9 non
 > hanno mai richiesto, avendo già un documento da cui confluire.
+>
+> La **v4.5 riservata** è il caso opposto e più facile: i coupon un documento da cui
+> confluire ce l'hanno (`PLAN-coupons.md`) ed è solo il ripiegamento a mancare. Chi lo fa
+> prenda quel numero; non serve rinumerare niente.
 >
 > **Compattato il 26 agosto 2026**: la narrazione fase-per-fase che segue è stata sfoltita
 > dove la stessa decisione, con il suo perché, vive già per esteso nella tabella
@@ -1311,6 +1318,79 @@ già restituiva. Rationale per riga in *Decisioni*.
   legge come blocco non renderizzato più che come rimozione; e in produzione non compare mai
   (`SONGBOOK_PLANS=on`), quindi tenerlo non costa nulla sullo schermo che il mock ritrae.
 
+### v4.6 — i brani preferiti
+
+> **Perché v4.6 e non v4.5.** I coupon (`PLAN-coupons.md`, migrazione `0037`) sono usciti
+> prima di questi — il 3 settembre 2026 — e non sono ancora ripiegati qui. La v4.5 resta
+> **riservata a loro**, così questo elenco continua a leggersi in ordine di consegna invece
+> di rimandare all'indietro chi arriverà dopo. Il buco è dichiarato, non una svista.
+
+Una stella accanto al titolo, in lettura: si tocca e il brano è dei propri. La stella
+compare poi in ogni lista che disegna una riga di brano, e un interruttore in home e nel
+canzoniere lascia vedere solo quelli. Con il filtro acceso anche le frecce della barra
+saltano fra i preferiti dello stesso canzoniere. Il piano per esteso, con gli otto punti in
+cui l'implementazione se n'è discostata, è in `PLAN-favorites.md`.
+
+1. **La stella è del lettore, non del brano.** Colonna `favorite` su `user_song_prefs`
+   (migrazione `0038`, additiva con `DEFAULT false`), accanto al capotasto e a
+   `last_opened_at`, non una colonna su `songs`. Conseguenza voluta: un proprietario globale
+   entrato nell'account di un cliente vede e scrive le proprie stelle, mai quelle del
+   cliente — la stessa separazione che `listRecentlyOpened` già traccia filtrando per
+   `userEmail` *e* `accountOwnerEmail` insieme.
+2. **Nessun cancello di piano**, con l'argomento delle note ancorate della v4.0: è come
+   questo lettore legge, non una modifica di qualcosa di condiviso. Nessuna riga in `PLANS`,
+   nessuna cella su `/pricing`.
+3. **La stella si scrive da sola, mai insieme alla riga, ed è correttezza non ordine.**
+   `saveFavorite` tocca una colonna sola (stessa forma di `recordSongOpened`) e `prefsQueue`
+   le dà una terza chiave, `favorite:<slug>`. Passandola per `saveSongPrefs` il difetto è una
+   perdita di dati vera: la stella si tocca nell'istante in cui la pagina si apre, prima che
+   la riga vera sia arrivata dal server, quindi su un dispositivo senza copia locale il tap
+   accoda i *valori di default*, la riga in arrivo viene scartata perché una scrittura è
+   pendente, e la coda scrive quei default sopra un capotasto messo mesi prima. **Riprodotto
+   in browser**, non dedotto: rimettendo la stella dentro la riga, un `semitones: 3` salvato
+   è tornato `0` sul server per il solo tocco della stella.
+4. **`lib/prefs/adopt.ts` decide che cosa di una lettura in ritardo vale ancora**, campo per
+   campo, e sostituisce il solo `hasPending`. Le due domande sono diverse: «c'è una scrittura
+   in volo» e «il lettore ha cambiato qualcosa *da quando questa lettura è partita*». La
+   seconda oggi **non è raggiungibile** — misurato con un `loadPrefs` rallentato a posta:
+   Next esegue le server action di un client una alla volta, la POST lenta dura 15,5 s nel
+   log e le scritture partono solo dopo, quindi la lettura atterra sempre mentre la pendenza
+   è ancora vera. Il contatore resta perché la regola non poggi su una proprietà del
+   framework che nessuno ha scritto: è una rete, ed è detto così anche nel commento invece di
+   rivendicare una correzione.
+5. **Le liste ricevono i preferiti accanto alle righe, non dentro.** `SongIndexRow` è
+   invariata: la stella è un fatto del lettore, e infilarla nella riga renderebbe
+   `toIndexRow`/`loadSongIndex` non più rispondibili senza sapere chi chiede — che è proprio
+   ciò che oggi le rende condivisibili. `FavoritesProvider` risolve l'insieme con
+   `resolveFavorites` su tre strati (la lista con cui la pagina è stata resa, quella che il
+   server dà ora, la cache locale) più le scritture di questa visita, che sopravvivono alla
+   propria scrittura: senza, la stella si spegnerebbe nell'istante in cui il salvataggio
+   riesce, perché l'unica lista `live` in mano è quella scaricata prima.
+6. **Un solo calcolo della sequenza, letto in due posti.** Il contatore sotto al titolo e le
+   frecce della barra sono lo stesso fatto detto due volte, e su telefono la barra nasconde
+   il proprio numero — quindi calcolarlo separatamente avrebbe lasciato l'unico numero
+   visibile a contraddire le frecce. `useSequence` è l'unico posto dove si decide;
+   `favoritesSeries` torna `null` (e si ricade sul canzoniere intero) anche quando il brano
+   aperto non è fra i preferiti, che è il caso di tutti i giorni: raggiunto da un link, da
+   «Recently played», o appena tolto dai preferiti mentre lo si legge.
+7. **La stella nelle liste si vede soltanto, non si tocca.** La riga resta un unico `<Link>`
+   — un bottone non può viverci dentro — e un contorno grigio su ogni riga non preferita
+   sarebbe un controllo che non è un controllo, ripetuto per duecento righe. Con il filtro
+   acceso i numeri di riga tengono il **posto reale nella sezione** (2, 4, 5 e non 1, 2, 3):
+   l'etichetta dice «posto nella sezione» e rinumerare un sottoinsieme la renderebbe falsa.
+   La conferma di cancellazione di una sezione conta invece la sezione vera, non ciò che il
+   filtro mostra, o cancellerebbe cinque brani dicendo due.
+8. **Un solo interruttore per tutta l'app**, in `localStorage` come le sezioni aperte:
+   acceso in home resta acceso nel canzoniere e al ritorno da un brano, che è il gesto per
+   cui esiste. Non sincronizzato fra dispositivi: è lo stato di una serata, non un dato.
+9. **La stella prende l'accento, ed è un'eccezione dichiarata** alla Chord-First Rule in
+   `DESIGN.md`, scritta lì come sezione accanto a quella dei badge dei piani. Regge su tre
+   condizioni: un glifo solo e mai un'area, acceso solo quando il valore non è quello di
+   default (la stessa licenza che i badge di chiave e capotasto già si prendono su quello
+   schermo), e la differenza portata dal riempimento prima che dal colore. A differenza dei
+   badge dei piani non introduce **nessuna seconda famiglia di colore**: è l'accento
+   dell'app, su una cosa in più.
+
 ## Vincoli d'ambiente
 
 - **Node 18.20.8 in locale** (snap, nessun nvm), Node 24 su Vercel. Tailwind è fissato alla
@@ -1711,3 +1791,27 @@ Ognuno è una scelta consapevole con un costo dichiarato, non una scorciatoia.
 | Ordinamento | Un parametro `sort` a sei valori, `<select>` che invia al cambio | Il mock disegna un menu solo e un select imposta un parametro solo; sei direzioni volute, non ogni direzione di ogni chiave |
 | Tabella su telefono | Scorre in orizzontale dentro il proprio bordo | È uno schermo da scrivania: le sei colonne del mock sono il punto, e comprimerle in due righe per riga era la lista della v3.8 |
 | Avviso "Plans are off" | Tenuto, benché il mock non lo disegni | Il mock lo porta ancora nei dati (`plansOff`), che legge come blocco non renderizzato; in produzione non compare mai, quindi tenerlo non tocca lo schermo ritratto |
+
+### I preferiti (v4.6)
+
+| Decisione | Scelta | Perché |
+|---|---|---|
+| A chi appartiene la stella | Al lettore: colonna su `user_song_prefs`, non su `songs` | Stesso precedente di `last_opened_at` e del capotasto — coda offline e cache locale già pronte, e un admin dentro l'account di un cliente tiene le proprie stelle invece di scrivere quelle del cliente |
+| Cancello di piano | Nessuno | È come questo lettore legge, non una modifica del repertorio: lo stesso argomento che `saveSongPrefs` dà per non controllare niente e che la v4.0 dà per le note |
+| Come si salva | Colonna e chiave di coda tutte sue (`saveFavorite`, `favorite:<slug>`) | Si tocca prima che la riga dal server sia arrivata: passando per `saveSongPrefs` il tap accoda i default e li scrive sopra il capotasto salvato. Riprodotto: `semitones: 3` → `0` per il solo tocco della stella |
+| Guardiano sulla lettura in ritardo | Contatore di modifiche per scopo (`adopt.ts`) accanto a `hasPending` | `hasPending` chiede «c'è una scrittura in volo», serve «il lettore ha cambiato qualcosa da quando la lettura è partita». Costo accettato e dichiarato: quello stato oggi non è raggiungibile perché Next serializza le server action — è una rete perché la regola non dipenda da quella proprietà |
+| Decisione campo per campo | Sì, non tutto-o-niente | Chi tocca la stella non ha detto nulla sul proprio capotasto, e il capotasto sul server resta la risposta più fresca per quel campo |
+| Dove vive la stella nelle liste | In un insieme accanto alle righe, non dentro `SongIndexRow` | La stella è un fatto del lettore: dentro la riga, `toIndexRow`/`loadSongIndex` smetterebbero di essere rispondibili senza sapere chi chiede, che è ciò che oggi le rende condivisibili |
+| Cache locale contro server | La cache decide solo quando il server non ha risposto | Se vincesse sempre, una stella messa dal tablet non comparirebbe sul telefono che aveva aperto quel brano mesi fa: la sua è la risposta più vecchia, non la più fresca |
+| Scritture di questa visita | Sopravvivono alla propria scrittura, non alla pendenza | Sganciarle appena il salvataggio riesce riconsegnerebbe la lista a una `live` scaricata *prima*, e la stella appena messa si spegnerebbe |
+| Posizione del bottone | Nel gruppo azioni accanto al titolo, primo dei tre | Lo slot esiste già e la misura è quella della matita; su telefono scende col gruppo. Le alternative erano un bersaglio piccolo in linea con l'`h1` o un quinto chip in una riga che a 402px va già a capo |
+| Colore | Accento, eccezione dichiarata in `DESIGN.md` | Voluta come la stella «dorata» classica; regge su un glifo solo mai un'area, acceso solo fuori dal default (come il badge di chiave), e riempimento prima del colore. Nessuna seconda famiglia di colore, a differenza dei badge dei piani |
+| Stella nelle liste | Solo visibile, e nessun contorno sulle non preferite | La riga è un unico `<Link>` e un bottone non può starci dentro; un contorno grigio per duecento righe sarebbe un controllo che non è un controllo |
+| Numeri di riga col filtro acceso | Il posto reale nella sezione (2, 4, 5) | L'etichetta dice «posto nella sezione»: rinumerare il sottoinsieme la renderebbe falsa e in disaccordo con lo stesso brano a filtro spento |
+| Conteggio nella conferma di cancellazione sezione | La sezione vera, non le righe filtrate | Cancella la sezione: dire «contiene 2 brani» e distruggerne 5 è l'unico modo in cui questo filtro poteva diventare pericoloso |
+| Dove si filtra | Home e canzoniere; non nel salto rapido né nel libretto | I due posti in cui si sceglie cosa suonare; il resto era scope non chiesto |
+| Home filtrata | Lista piatta alfabetica col canzoniere sotto ogni titolo | Fra canzonieri diversi non esiste un ordine — lo stesso argomento che i risultati di ricerca danno già per sé |
+| Memoria del filtro | Un interruttore solo, in `localStorage` | Acceso in home resta acceso nel canzoniere e al ritorno dal brano, che è il gesto per cui esiste. Due interruttori farebbero sorgere «perché qui sì e lì no», che uno solo non fa mai |
+| Frecce col filtro acceso | I preferiti dello stesso canzoniere, con ricaduta sul canzoniere intero | Più comodo sul palco, e lo stesso canzoniere tiene le frecce d'accordo col «torna indietro». La ricaduta copre il caso di tutti i giorni: il brano aperto non è fra i preferiti |
+| Contatore sotto al titolo e frecce | Un solo calcolo (`useSequence`), letto da entrambi | Su telefono la barra nasconde il proprio numero, quindi due calcoli avrebbero lasciato l'unico numero visibile a contraddire le frecce |
+| Migrazione `0038` | Scritta a mano, additiva, senza backfill | `drizzle-kit generate` non gira su questo schema dalla `0028`; `DEFAULT false` è la risposta che ogni riga esistente già dà |

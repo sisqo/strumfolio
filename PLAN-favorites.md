@@ -1,13 +1,14 @@
 # Brani preferiti — piano
 
-> Documento a sé, non una sezione di `PLAN.md`: quella tabella è il registro delle
-> decisioni già *consegnate e in produzione*, e questa feature non è ancora scritta.
-> Quando è chiusa, va ripiegata lì come una nuova sezione di versione — il numero esatto
-> non è fissato qui apposta: a oggi (5 settembre 2026) v4.4 è l'ultima versione ripiegata,
-> ma i coupon (`PLAN-coupons.md`, migrazione `0037`) sono già in produzione senza essere
-> ancora stati ripiegati — verificare l'ordine di fold-in al momento, non assumere v4.5
-> libero. Precedente diretto per la forma del documento: `PLAN-account-name.md`,
-> `PLAN-viewing-as-exit.md`. Precedente diretto per la meccanica: `lastOpenedAt` e il
+> **Consegnato e in produzione dal 5 settembre 2026** (commit `93bdd74` e `173e8df`), e
+> ripiegato in `PLAN.md` come **v4.6 — i brani preferiti**. La v4.5 è rimasta riservata ai
+> coupon (`PLAN-coupons.md`), usciti prima e non ancora ripiegati: vedi la nota in testa a
+> `PLAN.md`.
+>
+> Questo file resta, come restano `PLAN-account-name.md` e gli altri già consegnati: la
+> sezione in `PLAN.md` dice che cosa e quando, questo dice il perché per esteso — in
+> particolare gli otto *Scostamenti* più sotto, che sono il valore vero del documento e non
+> stanno nella sezione di versione. Precedente diretto per la meccanica: `lastOpenedAt` e il
 > capotasto, entrambi in `user_song_prefs` con la stessa coda offline che questa feature
 > riusa invariata.
 

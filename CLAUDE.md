@@ -14,10 +14,13 @@ Deployed on Vercel (`sisqo` account), production at https://strumfolio.com. Full
 framing lives in `PRODUCT.md`, the visual language in `DESIGN.md`, and the running log of
 decisions in `PLAN.md` — including plans/pricing/payments (v3.6), the mandatory
 plan-choice gate (v3.7), the `/accounts` admin surface (v3.8), `/emails` (v3.9),
-anchored comments (v4.0, which also removed the per-song note), and the song chips (v4.1,
+anchored comments (v4.0, which also removed the per-song note), the song chips (v4.1,
 which moved key/capo/accidentals/chord-display out of the reading panel onto the song
-itself and added the sharp-or-flat choice). See `PLAN.md`'s own top note for the versions
-after v3.3 it does *not* yet cover.
+itself and added the sharp-or-flat choice), and favorite songs (v4.6 — a star per reader on
+`user_song_prefs`, a filter shared by the home and songbook screens, and the reading bar's
+arrows following it; `PLAN-favorites.md` carries the reasoning). See `PLAN.md`'s own top
+note for the versions after v3.3 it does *not* yet cover, and for why **v4.5 is reserved**
+rather than missing.
 
 A feature still being built keeps its plan in a `PLAN-<feature>.md` of its own and is
 folded into `PLAN.md` as a version section once it ships — `PLAN.md` documents delivered
