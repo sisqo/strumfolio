@@ -20,8 +20,8 @@
  * own single `role="img"` and label for what it is showing.
  *
  * `fitClassName` adds a modifier alongside `.phone-fit`'s own — its only caller is
- * `StrumTogetherStage`, which needs three of these at once and so cannot take
- * `.phone-fit`'s solo-phone scale breakpoints (tuned for one phone filling the
+ * `StrumTogetherStage`, which stands two or three of these side by side and so cannot
+ * take `.phone-fit`'s solo-phone scale breakpoints (tuned for one phone filling the
  * column). `.phone-fit.is-stage` in globals.css outguns the bare selector on
  * specificity alone, which is what lets a second scale schedule coexist with the
  * first without touching it.

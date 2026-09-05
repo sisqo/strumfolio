@@ -34,6 +34,12 @@ import { followUrl } from '@/lib/strumTogether/link'
  * the opening frame; see the shared comment above `.strum-stage-device.is-left` in
  * globals.css for why this demo differs from `ReaderPhone`'s own choice there.
  *
+ * **Narrow screens drop the second follower, not both.** Below 560px only the leader and the
+ * left follower are drawn, at a scale that keeps them worth looking at; the leader's own count
+ * and the sheet's "N devices following" hold at one to match, so the picture never claims a
+ * phone it is not showing. All three are still rendered — which one is on stage is a CSS
+ * question, since the count is CSS too and the two have to agree.
+ *
  * **Left unlabelled on purpose**: the sheet music itself is section-less here because the real
  * `SongSheet` never prints a "Chorus"/"Verse" heading either (`.sheet-section.is-chorus` only
  * changes a border, not text) — a label the app never shows is not one this demo invents.

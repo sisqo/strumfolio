@@ -3782,6 +3782,13 @@
    * element's resting state is its finished one, so both chords sit in place —
    * and the two things that exist only mid-edit, the bar and the splashes, are
    * simply absent.
+   *
+   * `.strum-stage-device` is named on its own because it is the one animated element
+   * of the three demos that sits *outside* a demo screen rather than inside one: the
+   * `.strum-demo *` line below reaches everything a phone is showing but nothing that
+   * moves a phone, so the two followers went on sliding in over screens frozen at their
+   * settled pose — the one combination `.strum-stage-device.is-left`'s own comment says
+   * cannot happen. It could, until this line.
    */
   @media (prefers-reduced-motion: reduce) {
     .editor-demo *,
@@ -3790,6 +3797,7 @@
     .reader-demo *,
     .reader-demo *::before,
     .reader-demo *::after,
+    .strum-stage-device,
     .strum-demo *,
     .strum-demo *::before,
     .strum-demo *::after {
@@ -5161,7 +5169,7 @@
     }
   }
 
-  /* ---- Strum Together, three phones (login) ----------------------------- */
+  /* ---- Strum Together, two or three phones (login) ---------------------- */
 
   /*
    * `StrumTogetherStage`: two followers scanning in and settling behind a leader who is
@@ -5170,22 +5178,31 @@
    * (`.song-chips`, `.song-sheet`, `.sheet-*`, `.notice`) inside three `PhoneFrame`s
    * rather than a screenshot, one 20s clock, nothing here interactive or focusable.
    *
-   * Three phones need a scale this page's other two demos never had to choose, which is
-   * `.phone-fit.is-stage` (two classes, so it outguns `.phone-fit`'s own bare-selector
-   * breakpoints regardless of source order) instead of the shared one: solo below `lg`,
-   * where the followers are simply not rendered — "one phone leads" still reads with
-   * one phone — and three across from `lg` up, smaller again because three now share
-   * the row `.phone-fit` alone ever gave one.
+   * Several phones need a scale this page's other two demos never had to choose, which
+   * is `.phone-fit.is-stage` (two classes, so it outguns `.phone-fit`'s own bare-selector
+   * breakpoints regardless of source order) instead of the shared one.
+   *
+   * **A follower is on the stage at every width.** This used to render solo below `lg`,
+   * on the argument that "one phone leads" still reads with one phone — it does not: a
+   * lone phone is the *reading* demo two bands up, so a whole loop about a second screen
+   * joining played with nothing to join it. Below 560px only the left follower fits at a
+   * size worth reading, so only that one is drawn, and the count below holds at one to
+   * match; from 560px up all three fit at the same scale `lg` already used.
    */
   .strum-stage {
     position: relative;
     margin-top: 1.75rem;
+    /* Into the panel's own 1.5rem of side padding, which is width the phones need more
+       than the band needs breathing room — `.strum-tour` is `overflow: hidden` and
+       rounded, so the stage stops at its border either way. */
+    margin-inline: -1rem;
     overflow: hidden;
   }
 
   @media (min-width: 1024px) {
     .strum-stage {
       margin-top: 2.5rem;
+      margin-inline: 0;
     }
   }
 
@@ -5203,43 +5220,34 @@
     z-index: 2;
   }
 
-  /* Not rendered below `lg` at all — see `.phone-fit.is-stage`'s own comment above. */
   .strum-stage-device.is-follower {
-    display: none;
+    display: flex;
   }
 
-  @media (min-width: 1024px) {
-    .strum-stage-device.is-follower {
-      display: flex;
+  /* The second follower is the one that goes: it enters last (17% against the left one's
+     9%), so dropping it costs the least of the loop, and two phones at a scale worth
+     reading beat three no wider than a thumbnail. */
+  @media (max-width: 559px) {
+    .strum-stage-device.is-right {
+      display: none;
     }
   }
 
   .strum-stage-device.is-left,
   .strum-stage-device.is-right {
+    --tuck-y: -3rem;
     z-index: 1;
     transform-origin: bottom center;
   }
 
   .strum-stage-device.is-left {
-    margin-right: -1.75rem;
+    margin-right: -2.75rem;
     animation: st-device-in-l 20s ease infinite;
   }
 
   .strum-stage-device.is-right {
-    margin-left: -1.75rem;
+    margin-left: -2.75rem;
     animation: st-device-in-r 20s ease infinite;
-  }
-
-  @media (min-width: 1024px) {
-    .strum-stage-device.is-left {
-      --tuck-y: -3rem;
-      margin-right: -2.75rem;
-    }
-
-    .strum-stage-device.is-right {
-      --tuck-y: -3rem;
-      margin-left: -2.75rem;
-    }
   }
 
   @media (min-width: 1280px) {
@@ -5266,17 +5274,32 @@
     }
   }
 
+  /*
+   * Every step below is the largest scale at which the row still clears the panel at that
+   * step's own narrowest viewport — the leader plus the left follower below 560px, all
+   * three above it — which is why 0.58 is reached at 424px and then simply held: the third
+   * phone arriving at 560px is paid for by the extra width, not by shrinking the other two.
+   * The steps are the same two `.phone-fit` itself breaks at, for the same reason it does.
+   */
   .phone-fit.is-stage {
-    --phone-scale: 0.78;
+    --phone-scale: 0.44;
   }
 
-  @media (min-width: 480px) {
+  .phone-fit.is-stage.is-follower {
+    --phone-scale: 0.35;
+  }
+
+  @media (min-width: 360px) {
     .phone-fit.is-stage {
-      --phone-scale: 0.92;
+      --phone-scale: 0.5;
+    }
+
+    .phone-fit.is-stage.is-follower {
+      --phone-scale: 0.39;
     }
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 424px) {
     .phone-fit.is-stage {
       --phone-scale: 0.58;
     }
@@ -5324,7 +5347,7 @@
   .strum-stage-device.is-right {
     opacity: 1;
     scale: 0.84;
-    translate: 0 var(--tuck-y, -3rem);
+    translate: 0 var(--tuck-y);
   }
 
   /* ---- Strum Together: the header row, live badge and count ------------- */
@@ -5396,6 +5419,26 @@
 
   .st-count-2 {
     animation: st-count-2 20s ease infinite;
+  }
+
+  /*
+   * One follower on the stage, one in the count. These three spans drive both the leader's
+   * "Live · N" badge and the sheet's "N devices following", so the narrower layout would
+   * otherwise count a phone it never draws. Written as base rules and a held keyframe
+   * rather than `animation: none`, because the plain rule here *is* the settled pose —
+   * see the block above `.strum-stage-device.is-left` for why that is what makes
+   * `prefers-reduced-motion` come out right without a second set of rules.
+   */
+  @media (max-width: 559px) {
+    .st-count-1 {
+      opacity: 1;
+      animation: st-count-1-held 20s ease infinite;
+    }
+
+    .st-count-2 {
+      opacity: 0;
+      animation: none;
+    }
   }
 
   /* ---- Strum Together: the scanning screen (followers only) -------------- */
@@ -5764,7 +5807,7 @@
     100% {
       opacity: 1;
       scale: 0.84;
-      translate: 0 var(--tuck-y, -3rem);
+      translate: 0 var(--tuck-y);
       z-index: 1;
     }
   }
@@ -5794,7 +5837,7 @@
     100% {
       opacity: 1;
       scale: 0.84;
-      translate: 0 var(--tuck-y, -3rem);
+      translate: 0 var(--tuck-y);
       z-index: 1;
     }
   }
@@ -5978,6 +6021,20 @@
     }
 
     29%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* `st-count-1`, but never handed over to `st-count-2` — see the `max-width: 559px`
+     block beside the count rules. */
+  @keyframes st-count-1-held {
+    0%,
+    20% {
+      opacity: 0;
+    }
+
+    21%,
     100% {
       opacity: 1;
     }
