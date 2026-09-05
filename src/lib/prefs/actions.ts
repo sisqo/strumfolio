@@ -241,9 +241,17 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
  * turns against itself: the star is a single tap on a control at the top of a page that
  * has only just opened, so on a device with no cached copy of that song the tap queues the
  * *defaults* (capo 0, no transposition), the arriving row is then skipped because a write
- * is pending, and two seconds later the queue flushes those defaults over a capo the
- * reader had set months ago. One column cannot do that: it says nothing about the key or
- * the capo, so there is nothing for it to overwrite.
+ * is pending, and the queue then flushes those defaults over a capo the reader had set
+ * months ago. One column cannot do that: it says nothing about the key or the capo, so
+ * there is nothing for it to overwrite.
+ *
+ * **Reproduced, not reasoned.** On 2026-09-05, against `songs-db-dev` with the star put
+ * back inside the row and `loadPrefs` slowed so the tap could land first: a stored
+ * `semitones: 3` came back `0` from a single tap of the star, on the server, with no other
+ * gesture. With the column split as it is here the same sequence leaves the row alone and
+ * the transposition reappears on screen when the read arrives. Note also what the queue's
+ * serialization does *not* save: it guarantees the read answers before the write, which is
+ * precisely the order that produces this loss.
  *
  * Inserting only `favorite` leaves the other columns at their defaults, which is right —
  * a row that did not exist held no preferences to preserve.

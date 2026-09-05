@@ -23,6 +23,7 @@ import {
   saveGlobalPrefs,
   saveSongPrefs,
 } from '@/lib/prefs/actions'
+import { adoptStoredSong, readStillStands } from '@/lib/prefs/adopt'
 import { prefsQueue } from '@/lib/prefs/queue'
 import {
   readGlobalPrefs,
@@ -121,23 +122,24 @@ export function PrefsProvider({
   const songRef = useRef(song)
 
   /**
-   * Whether the star has been tapped for the song currently on screen.
+   * How many times the reader has changed each scope, ever.
    *
-   * `prefsQueue.hasPending` cannot answer this, and the gap is not theoretical: the queue
-   * empties the moment the write lands, while the `loadPrefs` below was issued at mount and
-   * can resolve *later than that* on a slow connection — carrying the value from before the
-   * tap, with nothing left in the queue to warn it off. The star would then quietly go out a
-   * few seconds after being set. A read that was issued before the reader acted may never
-   * overrule them.
+   * Not interesting as numbers — only as a comparison. The load effect below notes each
+   * count when it issues its read and checks it again when the answer arrives: a difference
+   * means the reader acted in between, and an answer to a question asked before they acted
+   * may not overrule them. See `lib/prefs/adopt.ts` for the two races this closes and for
+   * why a counter rather than a "touched" flag.
    *
-   * Reset in the layout effect below, which runs on every song change before that song's own
-   * load effect does, so nothing carries over from the previous song.
+   * Three, because the three are saved separately and can each be overtaken on their own:
+   * the zoom and the notation go in one row, the key and the capo in another, the star in a
+   * column of its own.
    */
-  const starTouched = useRef(false)
+  const globalEdits = useRef(0)
+  const songEdits = useRef(0)
+  const starEdits = useRef(0)
 
   useLayoutEffect(() => {
     if (!persist) return
-    starTouched.current = false
     setGlobal(readGlobalPrefs())
     const nextSong = songSlug === null ? DEFAULT_SONG_PREFS : readSongPrefs(songSlug)
     songRef.current = nextSong
@@ -159,29 +161,48 @@ export function PrefsProvider({
     if (!persist) return
     let cancelled = false
 
+    /* Noted before the read goes out, compared against when it comes back — that pair is
+       the whole question `adopt.ts` answers. */
+    const globalAtRead = globalEdits.current
+    const songAtRead = songEdits.current
+    const starAtRead = starEdits.current
+
     loadPrefs(songSlug)
       .then((stored) => {
         if (cancelled) return
 
-        if (stored.global !== null && !prefsQueue.hasPending('global')) {
+        const globalStands = readStillStands({
+          editsAtRead: globalAtRead,
+          editsNow: globalEdits.current,
+          writePending: prefsQueue.hasPending('global'),
+        })
+
+        if (stored.global !== null && globalStands) {
           setGlobal(stored.global)
           writeGlobalPrefs(stored.global)
         }
-        if (stored.song !== null && songSlug !== null && !prefsQueue.hasPending(`song:${songSlug}`)) {
-          /*
-           * The star is queued on a key of its own, so it needs its own half of the same
-           * guard the line above applies to the rest of the row: a reader who tapped it
-           * while this read was in flight must not watch it spring back to what the server
-           * said a moment before they changed it. `starTouched` rather than the queue —
-           * see its own comment for the few seconds in which those two disagree.
-           */
-          const next = starTouched.current
-            ? { ...stored.song, favorite: songRef.current.favorite }
-            : stored.song
 
-          songRef.current = next
-          setSong(next)
-          writeSongPrefs(songSlug, next)
+        if (stored.song !== null && songSlug !== null) {
+          const next = adoptStoredSong({
+            stored: stored.song,
+            local: songRef.current,
+            row: {
+              editsAtRead: songAtRead,
+              editsNow: songEdits.current,
+              writePending: prefsQueue.hasPending(`song:${songSlug}`),
+            },
+            star: {
+              editsAtRead: starAtRead,
+              editsNow: starEdits.current,
+              writePending: prefsQueue.hasPending(`favorite:${songSlug}`),
+            },
+          })
+
+          if (next !== null) {
+            songRef.current = next
+            setSong(next)
+            writeSongPrefs(songSlug, next)
+          }
         }
       })
       .catch(() => {
@@ -255,6 +276,7 @@ export function PrefsProvider({
         return
       }
 
+      globalEdits.current += 1
       setGlobal(next)
       if (!persist) return
       writeGlobalPrefs(next)
@@ -277,7 +299,7 @@ export function PrefsProvider({
     if (songSlug === null) return
 
     const next = !songRef.current.favorite
-    starTouched.current = true
+    starEdits.current += 1
     songRef.current = { ...songRef.current, favorite: next }
     setSong((prev) => ({ ...prev, favorite: next }))
 
@@ -300,6 +322,10 @@ export function PrefsProvider({
         return
       }
 
+      /* After the early return above, never before it: a preference set to the value it
+         already has is not a change, and counting it would refuse the server's next answer
+         over nothing. Same reasoning the early return itself gives for the queue. */
+      songEdits.current += 1
       songRef.current = next
       setSong(next)
       if (!persist || songSlug === null) return

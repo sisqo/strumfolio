@@ -206,7 +206,11 @@ e si spegne con un tap; **la stella visibile nelle liste**; **un filtro «solo p
 Il piano sopra descrive ciò che è stato costruito; questi otto punti sono i posti in cui
 l'implementazione ha dovuto discostarsene, ciascuno con il motivo.
 
-1. **La stella non viaggia con la riga: ha una sua azione e una sua chiave in coda.** Il
+1. **La stella non viaggia con la riga: ha una sua azione e una sua chiave in coda.**
+   *(Riprodotto in browser il 5 settembre 2026: rimettendo la stella dentro la riga e
+   rallentando `loadPrefs` perché il tap arrivi prima, un `semitones: 3` salvato è tornato
+   `0` sul server per il solo tocco della stella. Con le colonne separate la stessa sequenza
+   lascia la riga intatta.)* Il
    punto 2 del piano la faceva passare da `saveSongPrefs` come un campo qualsiasi di
    `SongPrefs`. Non regge, e il difetto è una perdita di dati vera: `PrefsProvider` rifiuta
    di applicare la riga che arriva dal server finché una scrittura per quel brano è in coda
@@ -220,14 +224,27 @@ l'implementazione ha dovuto discostarsene, ciascuno con il motivo.
    `favorite:<slug>`, e `saveSongPrefs` legge `prefs.favorite` e lo butta via.
    `queue.test.ts` copre entrambe le cose: che le due chiavi non collidano e che cinque tap
    restino una scrittura sola.
-2. **Un secondo guardiano, `starTouched`, per una finestra che la coda non copre.**
-   `hasPending` risponde «c'è una scrittura in volo», che non è la domanda: la coda si
-   svuota appena la scrittura arriva, mentre il `loadPrefs` partito al mount può rispondere
-   *dopo* — portando il valore di prima del tap, senza più nulla in coda a fermarlo. La
-   stella si spegnerebbe da sola qualche secondo dopo essere stata messa. `starTouched` è
-   un ref azzerato a ogni cambio di brano: una lettura partita prima che il lettore
-   agisse non può mai scavalcarlo. **La stessa forma di difetto esiste, non introdotta da
-   questa versione, per capotasto e tonalità** — vedi *Domande aperte*.
+2. **Un contatore di modifiche per scopo (`lib/prefs/adopt.ts`), a fianco di `hasPending`.**
+   Le due domande sono diverse: `hasPending` chiede «c'è una scrittura in volo», il
+   contatore chiede «il lettore ha cambiato qualcosa *da quando questa lettura è partita*».
+   La seconda copre il caso in cui la coda si è già svuotata e il `loadPrefs` partito al
+   mount risponde dopo, riportando il valore di prima del tap.
+
+   **Misurato, e il risultato ha smentito la mia previsione: quella finestra oggi non è
+   raggiungibile.** Con un `loadPrefs` rallentato a posta (15 s, con la query eseguita
+   subito e la risposta ritardata) il valore non è mai tornato indietro nemmeno
+   disattivando il guardiano — perché Next esegue le server action di un client **una alla
+   volta**: la POST lenta dura 15,5 s nel log e le scritture partono solo dopo, quindi al
+   momento in cui la lettura atterra `hasPending` è ancora vero. Il contatore resta
+   comunque, e la ragione è quella: così la regola non poggia su una proprietà del
+   framework che nessuno ha scritto da nessuna parte e che smetterebbe di valere se
+   `prefsQueue.flush` non aspettasse più una scrittura alla volta. È una rete, non una
+   correzione — detto anche in testa a `adopt.ts`, per non lasciare un commento che
+   rivendica più di quanto sia stato osservato.
+
+   `adoptStoredSong` decide **campo per campo**, non tutto-o-niente: chi tocca la stella non
+   ha detto nulla sul proprio capotasto, e il capotasto sul server resta la risposta più
+   fresca che esista per quel campo.
 3. **La cache locale si consulta solo quando il server non ha risposto**, e le scritture di
    questa visita arrivano dalla coda con il loro valore, non dalla cache. Il punto 6 del
    piano diceva «la cache vince per uno slug con scrittura pendente»: sbagliato in due modi.
@@ -292,14 +309,10 @@ l'implementazione ha dovuto discostarsene, ciascuno con il motivo.
 - **Rimozione in blocco** («togli tutte le stelle», come «Clear» su Recently played): non
   richiesta; se servisse, è un `UPDATE` di una colonna scopato come `clearRecentlyOpened`,
   mai un `DELETE`.
-- **Lo stesso difetto dello scostamento 2, per capotasto e tonalità, resta aperto.**
-  `starTouched` protegge solo la stella. Per gli altri campi il guardiano è ancora
-  `hasPending('song:<slug>')`, quindi un `loadPrefs` partito al mount e risolto *dopo* lo
-  svuotamento della coda riporta ancora il valore di prima. Preesistente a questa versione e
-  molto più difficile da incontrare — richiede di trasporre entro due secondi
-  dall'apertura, su un server lento — ma è lo stesso difetto e la cura è la stessa: un ref
-  «toccato da quando la lettura è partita» al posto della pendenza. Non corretto qui perché
-  è un difetto suo, non di questa feature.
+- **La serializzazione delle server action non è verificata da nessun test.** È ciò che
+  oggi rende `hasPending` da solo sufficiente (vedi scostamento 2), e `adopt.ts` esiste
+  proprio per non dipenderne — ma se un domani si volesse *togliere* il contatore, servirebbe
+  prima un modo di accorgersi che quella proprietà è cambiata, e non c'è.
 - **Applicare la `0038` in produzione è un passo a mano.** La CLI non raggiunge il database
   di produzione (vedi `CLAUDE.md`): la migrazione va data dal console SQL di Neon sul
   progetto `songs-db`, **riga di journal compresa e nella stessa transazione**, *prima* che
