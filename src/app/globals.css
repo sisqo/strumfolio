@@ -700,6 +700,101 @@
   }
 
   /*
+   * The star and the word that follows a tap of it, which is positioned against this and
+   * must therefore have something to be positioned against.
+   */
+  .favorite-control {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+  }
+
+  /*
+   * «Added to favorites», for a moment, under the star.
+   *
+   * Overlaid rather than laid out, and that is the requirement rather than a preference:
+   * the two controls beside this one are things a reader may be about to tap, and a
+   * confirmation that took up room would slide them sideways for two seconds at exactly
+   * the moment a hand is moving towards them. `pointer-events: none` for the same reason —
+   * it hangs over the line below and must never be the thing a tap lands on.
+   *
+   * `left: 0` at every width because the star is the first control in the group: on a
+   * phone, where the group sits at the left margin, the word grows rightwards into the
+   * room the row is not using; on a wide screen, where the group is at the right, it grows
+   * back under the two controls beside it. Anchored the other way it would run off one
+   * edge or the other.
+   *
+   * Ink on page, `.btn-ink`'s own pair, and it took seeing it on a phone to get here. A
+   * light fill was the first try and it was wrong for one reason that only shows at 390px:
+   * there the group sits above the artist line, so the word lands *on top of* running text,
+   * and a near-white pill over near-white card read as two sentences colliding rather than
+   * as one thing in front of another. The inverse reads as a layer at a glance, which is
+   * the whole job.
+   *
+   * Not the accent either. The star itself is the coloured thing here (see DESIGN.md); a
+   * second accent-tinted object appearing beside it for two seconds would be exactly the
+   * competition with the sheet's chords that the declared exception was kept narrow to
+   * avoid.
+   */
+  .favorite-flash {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    left: 0;
+    z-index: 5;
+    pointer-events: none;
+    padding: 0.375rem 0.6875rem;
+    border-radius: var(--r-xs);
+    background: var(--ink);
+    box-shadow: var(--shadow-2);
+    color: var(--bg);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    /*
+     * **Opaque at rest, and the animation only brings it in.** The first version drove the
+     * whole life of the word from one `forwards` animation — in, hold, out — and it was
+     * invisible to anybody with «reduce motion» switched on. The blanket rule at the foot of
+     * this file (`animation-duration: 0.01ms !important`) collapses any animation to nothing,
+     * and a `forwards` fill then pins the element at its *last* frame, which was `opacity: 0`.
+     * The word never appeared at all, on a setting that is common on a phone — which is the
+     * device this app is for.
+     *
+     * Now the setting does the right thing for free and needs no exception: the entrance is
+     * skipped, the pill is simply *there*, and it is `FavoriteButton`'s own timer that decides
+     * how long for. Motion is what reduces; the message does not.
+     */
+    opacity: 1;
+    animation: favorite-flash-in 180ms ease;
+  }
+
+  /*
+   * On its way out. A class the component adds rather than the tail of a keyframe, for the
+   * same reason: under «reduce motion» this transition collapses too, and the pill goes from
+   * shown to gone with no fade — still exactly the right behaviour, where a keyframe's end
+   * state had been the bug.
+   *
+   * `FADE_MS` in `FavoriteButton` unmounts the element and must match this duration; the two
+   * move together or the word is cut off mid-fade, or lingers invisible after it.
+   */
+  .favorite-flash.is-leaving {
+    opacity: 0;
+    transition: opacity 320ms ease;
+  }
+
+  /* Four pixels and a fade, and nothing that the element's resting state depends on. */
+  @keyframes favorite-flash-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /*
    * A starred song, in the one colour this screen otherwise reserves for chords.
    *
    * A declared exception to the Chord-First Rule (see DESIGN.md), on the same terms the key

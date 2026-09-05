@@ -277,6 +277,27 @@ l'implementazione ha dovuto discostarsene, ciascuno con il motivo.
    canzoniere: dice quanto è stretto il filtro, che è l'informazione che manca, invece di
    ripetere il numero di righe subito sotto.
 
+## Aggiunte dopo la consegna
+
+**5 settembre 2026 — una conferma visibile al tocco della stella.** Il cambio di colore e
+riempimento del bottone è facile da perdere su un controllo che il pollice ha appena
+coperto, quindi ora accanto alla stella compare per un attimo «Added to favorites» /
+«Removed from favorites». Sovrapposta e non impaginata: i due controlli a fianco sono cose
+che chi legge potrebbe stare per toccare, e una conferma che occupasse spazio li
+sposterebbe di lato proprio mentre una mano ci va sopra. Inchiostro su pagina
+(`.btn-ink`), non l'accento — la stella è già la cosa colorata lì.
+
+**E un difetto trovato provandola, che vale oltre questa feature.** La prima versione
+faceva tutto con una sola animazione `forwards`: entra, resta, esce. Con «riduci
+movimento» attivo non si vedeva niente. In fondo a `globals.css` c'è una regola generale
+che porta ogni `animation-duration` a `0.01ms !important`, quindi l'animazione non
+rallenta: non parte, e `forwards` inchioda l'elemento all'**ultimo** fotogramma, che era
+`opacity: 0`. Su un'impostazione comune su telefono la parola non compariva mai. Ora la
+pillola è opaca a riposo, l'animazione la porta solo *dentro*, e l'uscita è una classe che
+il componente aggiunge: con quell'impostazione compare e sparisce di colpo, che è esatto.
+Misurato in browser, opacità campionata dentro la pagina: visibile ~1,5 s in entrambe le
+modalità. La regola generale è ora scritta anche in `DESIGN.md`, fra i *Don't*.
+
 ## Decisioni
 
 | Scelta | Perché, in una riga |

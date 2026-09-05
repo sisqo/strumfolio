@@ -402,7 +402,7 @@ because both themes here are designed rather than inverted.
 - **Do** use a shadow for elevation in light and a border (`--edge`) in dark; never both on the same surface.
 - **Do** size every corner radius by the shape's job (how nested it is), not by the shape's absolute size.
 - **Do** keep the pill shape exclusive to actionable buttons — a card, a field, a badge, none of those are pills.
-- **Do** provide a `prefers-reduced-motion: reduce` alternative for every animation (the rolling hero counters already do this).
+- **Do** provide a `prefers-reduced-motion: reduce` alternative for every animation (the rolling hero counters already do this). Note what that setting actually does here: `globals.css` ends with a blanket `animation-duration: 0.01ms !important` over every element, so under it an animation does not play slowly — it does not play at all.
 - **Do** hit a 2.75rem (44px) minimum control size anywhere a control is tapped repeatedly mid-performance (control bar, segmented buttons).
 
 ### Don't:
@@ -410,5 +410,6 @@ because both themes here are designed rather than inverted.
 - **Don't** default to a generic flat-dark developer-tool look (near-black surface, single neon accent) — Strumfolio's dark theme is warm and hand-tuned, not a formulaic inversion.
 - **Don't** use a side-stripe (`border-left`/`border-right` > 1px) as a decorative colored accent — the sheet's own chorus/bridge indent is the one place this app uses one that way, a diluted accent tint rather than a flat color bar. The editor's focused-line marker (`.editor-line.is-focused`) is a second, narrower exception: a functional focus indicator, not a decoration, earning the same pass a browser's own focus ring would. The blog's pulled quote (`.blog-quote`, a solid 3px accent rule on `--blog-quote-bg`) is a third: it marks the one line an article is remembered by, the same job the sheet's own indent does for a chorus.
 - **Don't** give a disabled primary button a faded/opacity treatment — drop the fill to the flat disabled state instead.
+- **Don't** let an `animation … forwards` decide whether something is *visible*. Because of the blanket rule above, under «reduce motion» the animation collapses to nothing and `forwards` pins the element at its **last** frame — so anything whose keyframes end at `opacity: 0` is never seen at all by that reader, on a setting that is common on a phone. The favourite star's confirmation was written this way first and caught in review before it shipped: the element is now opaque at rest, an animation only brings it *in*, and going away is a class the component adds. Motion is what reduces; the message does not.
 - **Don't** let a translucent or blurred surface sit over the song sheet — the top bar tried this and it let lyrics show through; use a solid page-colored background instead.
 - **Don't** introduce a second display font or a bold weight above 600 outside chord names — Outfit at 400/500 carries the whole system.
