@@ -185,6 +185,20 @@ and looks like a success but writes `[SENSITIVE]` in place of all 16 secrets (te
 at all** — exporting it from such a pull yields an empty string and quietly migrates
 *development* instead, which is worse than not running.
 
+**Backing it up is one command**: `strumfolio-dump` — a symlink on `PATH` to
+`~/.config/strumfolio/prod-dump`, beside `prod-url` — writes a full `pg_dump -Fc` of all three
+schemas (~125 KB, ~13 seconds, latency again) into the Parallels shared folder
+`/media/psf/Download`, staging it on local disk first so a dropped connection cannot leave a
+truncated `.dump` on the Mac. It is production-only by construction, since `prod-url` refuses
+every other host, and there is deliberately no dev twin — client 17 cannot dump the 18.6 dev
+server, per *Development and Production are separate Neon databases* below. The dump is
+complete on purpose, so it carries `drizzle.__drizzle_migrations` and `neon_auth.*`: pouring
+those into another database rewrites which migrations that one believes it has applied, and
+the reason the format is custom rather than plain SQL is that `pg_restore -n public` then
+leaves both out. The script's own header carries the full restore line. It also carries real
+accounts and password hashes, and its closing `chmod 600` binds inside the VM only, not on the
+host side of the mount.
+
 ### Fallback: the Neon SQL console, journal row included
 
 If the local file is ever gone, production is still reachable from a browser: Neon dashboard
