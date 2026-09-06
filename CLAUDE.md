@@ -237,9 +237,22 @@ dashboard writes.
   production on 2026-08-29 (excluding `drizzle.__drizzle_migrations` and
   `neon_auth.project_config`). A snapshot, not a sync — real accounts, emails, password
   hashes and `paddle_events` from that date live in the dev database too.
-- **`pg_dump`/`pg_restore` version**: Neon runs Postgres 17, Ubuntu 24.04's stock
-  `postgresql-client` stops at 16, and `pg_dump` refuses a newer major.
-  `postgresql-client-17` comes from the PGDG apt repo (`apt.postgresql.org`).
+- **The two run different Postgres majors, and that is Neon's doing, not a setting here.**
+  Measured 2026-09-06: production `strumfolio-db` is **17.11**, dev `strumfolio-db-dev` is
+  **18.6**. So dev is the stricter of the two to migrate against, and a catalogue difference
+  between them is not automatically drift — from 18 a `NOT NULL` is a named row in
+  `pg_constraint`, so dev shows hundreds of `*_not_null` constraints that production simply
+  does not have. Postgres accepts `CONSTRAINT <name> NOT NULL` on both and ignores the name
+  on 17 (probed against production inside a rolled-back transaction), which is what lets one
+  migration file serve both.
+- **`pg_dump`/`pg_restore` version**: Ubuntu 24.04's stock `postgresql-client` stops at 16
+  and `pg_dump` refuses a newer major, so `postgresql-client-17` was installed from the PGDG
+  apt repo (`apt.postgresql.org`). That is now too old for **dev**: `pg_dump` against 18.6
+  aborts with `server version mismatch`, and `postgresql-client-18` from the same repo is
+  what would fix it. `psql` is unaffected and talks to both. Where a dump was only wanted to
+  rehearse a migration, there is a better tool anyway — Postgres DDL is transactional, so
+  `BEGIN; \i drizzle/00xx.sql; …checks…; ROLLBACK;` rehearses the real thing on the real
+  data and leaves nothing behind.
 - **A second Neon resource on the same Vercel environment collides on env var names.**
   `vercel integration add neon -e development --prefix DEV_` sidesteps it; copy the values
   into the plain `DATABASE_URL`/`DATABASE_URL_UNPOOLED` the app reads (`vercel env rm` the

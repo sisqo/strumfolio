@@ -46,6 +46,35 @@ slug is in the URL. What a future change must not get wrong:
   `songs` and `songbooks` kept both keys — the reason the shape is «surrogate **plus**
   natural».
 
+## Column order is `schema.ts`'s order, and `ADD COLUMN` will not keep it that way
+
+Since `0041` the physical column order of every table matches the field order declared in
+`schema.ts`, so each table opens with its key — `id` first, then the foreign keys that point
+elsewhere. That was not true before: `0039` added the numeric keys with `ALTER TABLE ADD
+COLUMN`, which in Postgres appends **always**, so `accounts."id"` sat twenty-sixth and
+`songs."id"` thirteenth while `schema.ts` had declared both first all along. The field order
+inside a `pgTable` does not reach the database, which is why the two could drift this far
+without anything breaking.
+
+What a future change has to know:
+
+- **Adding a column in the middle of `schema.ts` does not put it there.** An `ADD COLUMN`
+  puts it last and the two orders drift again. Either accept the drift or rebuild the table
+  the way `0041` does; there is no `ALTER COLUMN ... SET POSITION` in Postgres.
+- **Rebuilding means dropping the old table before creating the new one**, with the data
+  parked in a `CREATE TABLE … AS SELECT` copy (which carries no constraints). Renaming the
+  old table aside instead looks equivalent and is not: constraint names are chosen
+  schema-wide, so the new table's would come out as `accounts_id_not_null1`.
+- **Every `NOT NULL` in `0041` is named explicitly**, from the names already in the
+  catalogue. Since Postgres 17 a `NOT NULL` is a row in `pg_constraint` with a name, and
+  letting Postgres pick makes the result depend on what else exists at that moment.
+- **The check that this held** is not a schema dump — `pg_dump` emits in column order, so
+  every line differs by construction. Compare a *normalized* catalogue instead: columns
+  sorted by name with type, notnull and default, plus every `pg_get_constraintdef`,
+  `pg_get_indexdef` and sequence value. For `0041` that file came out byte-identical before
+  and after, on dev and across the `DOWN` round trip, and the per-table data checksums with
+  it — the only thing that changed was `attnum`.
+
 ## `db:generate` does not run — every migration since `0024` is hand-written
 
 `drizzle-kit generate` refuses to work in this repo, `--custom` included: the snapshots
@@ -53,7 +82,7 @@ slug is in the URL. What a future change must not get wrong:
 `prevId`** (`8d0b1ba2…` / `c406eebf…`), so the chain drizzle-kit walks to diff against is
 broken. Verified 2026-09-06, still broken.
 
-So `0024` through `0039` were written by hand — **the `.sql` file *and* its
+So `0024` through `0041` were written by hand — **the `.sql` file *and* its
 `drizzle/meta/_journal.json` entry**, which is the half that is easy to forget and, per the
 root `CLAUDE.md`'s production-migration section, the load-bearing one. Repairing the chain is
 unattempted work, not a known-easy fix; until somebody does it, treat `npm run db:generate` in
