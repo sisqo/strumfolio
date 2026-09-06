@@ -669,7 +669,7 @@
   }
 
   .sheet-orphans-label {
-    color: var(--faint);
+    color: var(--muted);
   }
 
   /* ---- The song's own header row --------------------------------------- */
@@ -867,7 +867,7 @@
     border: 0;
     border-radius: var(--r-xs);
     background: none;
-    color: var(--faint);
+    color: var(--muted);
     font-family: inherit;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -939,7 +939,7 @@
 
   .comment-card-head {
     margin: 0 0 0.75rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -948,7 +948,7 @@
   }
 
   .comment-card-count {
-    color: var(--faint);
+    color: var(--muted);
   }
 
   .comment-card-note + .comment-card-note {
@@ -959,7 +959,7 @@
 
   .comment-card-when {
     margin: 0 0 0.25rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.75rem;
   }
 
@@ -1094,7 +1094,7 @@
   .comments-rail-empty {
     margin: 0;
     padding: 0.25rem 0.875rem 0.75rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.8125rem;
     line-height: 1.45;
   }
@@ -1139,7 +1139,7 @@
 
   .comments-rail-meta {
     display: block;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -1194,7 +1194,7 @@
   /* The sentence that states the whole feature's privacy. */
   .comments-rail-private {
     margin-inline-start: auto;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -1487,7 +1487,7 @@
   .song-chips-note {
     flex: 0 0 100%;
     margin-top: 0.125rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -1526,7 +1526,7 @@
   }
 
   .chip-menu-head-hint {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.75rem;
   }
 
@@ -1574,7 +1574,7 @@
   .chip-menu-hint {
     display: block;
     margin-top: 0.125rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.71875rem;
   }
 
@@ -10129,7 +10129,7 @@
     min-width: 2.75rem;
     padding-inline: 0.125rem;
     text-align: center;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.84375rem;
     font-variant-numeric: tabular-nums;
   }
@@ -10625,7 +10625,7 @@
      "reading in A"), or its plain number (Text size's "22 px") — never itself the
      thing being changed, so never the accent's own colour the badge already owns. */
   .control-hint-text {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
@@ -10901,7 +10901,7 @@
     align-items: center;
     gap: 0.4375rem;
     margin-top: 0.5625rem;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 0.78125rem;
   }
 
