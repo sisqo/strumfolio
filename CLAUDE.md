@@ -336,6 +336,13 @@ under `$HOME` (e.g. `~/songbook-shots`) if a visual comparison is needed.
 The hamburger's "Add to home screen" row (`src/lib/install/`, `InstallPanel.tsx`) is one row
 with two behaviours, and three facts about it are easy to break from far away:
 
+- **It is absent inside the installed app**, and that is the first thing to check when it
+  looks missing rather than the cache or the deploy: `display-mode: standalone` (and iOS'
+  `navigator.standalone`) means the app is already there, so the row has nothing to do. It
+  cost a full round of deploy-side diagnosis once — production was serving the right commit
+  and `beforeinstallprompt` was firing; the phone was simply opened from its home-screen
+  icon. `/app-settings` answers that question directly, in `DeviceLaunchCheck`'s own line:
+  «opened from the Home Screen» or «in a browser tab».
 - **Three surfaces say this out loud and must agree**: the row itself, `/help` §7, and
   `/login`'s public FAQ answer on installing. Change one and the other two are wrong — the
   same rule the booklet's own override already lives under.
