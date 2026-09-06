@@ -1,8 +1,8 @@
 'use server'
 
 /**
- * Recovering access to an address by email, rather than by asking a global owner (v3.2,
- * PLAN.md point 6) — the self-serve counterpart to `setPasswordFor`
+ * Recovering access to an address by email, rather than by asking a global owner
+ * (v3.2) — the self-serve counterpart to `setPasswordFor`
  * (`lib/auth/actions.ts`), which stays exactly as it was for the one case this cannot
  * reach: an address with no verified email loop of its own to receive a link on.
  */
@@ -33,8 +33,8 @@ const RATE_WINDOW_MS = 10 * 60 * 1000
 
 /**
  * Always answers `{ ok: true }` once past the captcha and the rate limit, whether or not
- * `email` has an account — the one case this must never distinguish (PLAN.md point 6,
- * same principle as `verifyAgainstNothing` in `lib/auth/password.ts`, which hides the same
+ * `email` has an account — the one case this must never distinguish (the same
+ * principle as `verifyAgainstNothing` in `lib/auth/password.ts`, which hides the same
  * thing on the login path). An address with no account gets no email and no row, but the
  * caller cannot tell that apart from one that just got both.
  */
@@ -78,7 +78,7 @@ export async function requestPasswordReset(formData: FormData): Promise<RequestR
  * The token-and-email half of a password reset, shared by `requestPasswordReset` above
  * (self-service, behind captcha/rate-limit/anti-enumeration) and `sendPasswordResetFor`
  * (`lib/auth/actions.ts`, an admin action on `/accounts/[email]` that needs none of
- * those three — `PLAN-account-admin.md`, point 9) — one place to keep `EXPIRES_IN_MS`,
+ * those three) — one place to keep `EXPIRES_IN_MS`,
  * the token, and the link in agreement, rather than a second hand-typed copy of this
  * exact block. Assumes the caller has already normalized `email` and decided it is
  * worth sending to; this does not check whether an account exists at all.
@@ -125,7 +125,7 @@ export async function sendPasswordResetToken(email: string): Promise<void> {
  * Not signed in on success, unlike `verifyEmail`: the caller sends the person to `/login`
  * instead, so whoever just reset it proves the new password once, the normal way, rather
  * than this flow repeating `verifyEmail`'s hand-built cookie for a smaller convenience
- * gain — see PLAN.md point 6's own reasoning.
+ * gain.
  */
 export async function resetPassword(formData: FormData): Promise<ResetPasswordResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }

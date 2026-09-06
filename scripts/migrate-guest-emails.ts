@@ -4,7 +4,7 @@
  *
  * Run by hand, once, **before** the new code reaches production: from that deploy on,
  * `isAdmitted` decides who gets in by whether an address already owns a row in `accounts`,
- * not by a row in `members` (see PLAN.md, *v3.1 — niente più ospiti*, point 9). An address
+ * not by a row in `members` (v3.1 — niente più ospiti). An address
  * with neither would be shut out the instant the deploy lands, with no path left to earn
  * one — `provisionAccount` never runs for someone `admitted()` has already refused.
  *

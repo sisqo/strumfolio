@@ -9,12 +9,12 @@ import { ACCOUNT_MESSAGE } from '@/lib/accounts/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
- * The one safety net for an otherwise unblocked, immediate cascade (see `PLAN.md`,
- * *Niente più ospiti*, point 7): retyping the account's own address before the button
+ * The one safety net for an otherwise unblocked, immediate cascade: retyping the
+ * account's own address before the button
  * does anything. Enforced here for the same reason `deleteAccount` also checks it
  * server-side — a disabled button is a hint, not a guarantee, so both layers ask.
  *
- * This is the one control on `/accounts/[email]`'s detail page (PLAN.md, v3.8) that
+ * This is the one control on `/accounts/[email]`'s detail page (v3.8) that
  * still hides behind a trigger rather than sitting always open like `GiftForm`/`PasswordForm`
  * beside it — deliberately: the click-to-reveal here is a safety net, not a
  * click-to-see-what-this-is convenience, and the two are not the same thing even though they
@@ -50,7 +50,7 @@ export function DeleteAccountButton({ ownerEmail }: { ownerEmail: string }) {
     setError(null)
     try {
       const result = await deleteAccount(ownerEmail, confirmEmail)
-      // `router.push`, not `router.refresh()`: on `/accounts/[email]` (PLAN.md, v3.8)
+      // `router.push`, not `router.refresh()`: on `/accounts/[email]` (v3.8)
       // a refresh would re-render the detail page of an account that no longer has a row —
       // this button no longer lives on a list row a refresh could simply drop.
       if (result.ok) router.push('/accounts')

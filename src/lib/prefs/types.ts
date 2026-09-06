@@ -144,7 +144,7 @@ export interface SongPrefs {
    */
   chordShapes: Record<string, string>
   /**
-   * Whether this reader has starred the song (`PLAN-favorites.md`).
+   * Whether this reader has starred the song.
    *
    * In this interface with the key and the capo because it is the same kind of fact —
    * something true of this reader and this song — and because every screen that already

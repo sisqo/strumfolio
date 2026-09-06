@@ -8,7 +8,7 @@ import { NAME_MESSAGE } from '@/lib/accounts/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
- * Your own first and last name, set by you (`/profile`, `PLAN-account-name.md` point 5)
+ * Your own first and last name, set by you (`/profile`)
  * — same shell as `PasswordScreen`: nothing baked in, nothing cached, because whether a
  * name exists yet is a fact about the server that offline cannot answer.
  */

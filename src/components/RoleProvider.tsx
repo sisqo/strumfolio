@@ -19,7 +19,7 @@ interface RoleContextValue {
   role: Role | null
   /**
    * The signed-in reader's own first name, for `UserMenu`'s greeting
-   * (`PLAN-account-name.md` point 6) — null while unknown, and also once known when
+   * — null while unknown, and also once known when
    * the account genuinely has none yet, which is why `UserMenu` itself checks for an
    * empty string too rather than trusting null alone. Always the address that is
    * actually signed in, never `accountOwnerEmail`'s — a global owner switched into
@@ -74,7 +74,7 @@ interface RoleContextValue {
   subscriptionPlan: Plan | null
   /**
    * Whether the account this reader is looking at has completed the mandatory plan-choice
-   * step (PLAN.md, v3.7) — `true` while unknown, the safe default that keeps `PricingPlans`'
+   * step (v3.7) — `true` while unknown, the safe default that keeps `PricingPlans`'
    * Free card reading as already settled rather than briefly offering "Continue with Free"
    * to someone who may turn out to be signed out. The actual gate is a server-side redirect
    * in `(home)/page.tsx`; this only decides what the Free card on `/pricing` offers, same as

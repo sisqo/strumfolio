@@ -124,7 +124,7 @@ export const metadata: Metadata = {
  * drift.
  *
  * Every screen follows the reader's own stored choice now, `/login` included:
- * see `PLAN.md`/git history for the version that forced it light regardless — that
+ * see git history for the version that forced it light regardless — that
  * was a stand-in for a switch this page had no way to reach, and it stopped being
  * necessary the day `ThemeToggle` gave every screen one.
  */

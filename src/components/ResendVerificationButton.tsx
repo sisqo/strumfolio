@@ -7,7 +7,7 @@ import { resendVerification } from '@/lib/register/actions'
 import { RESEND_MESSAGE } from '@/lib/register/types'
 
 /**
- * The "Rispedisci l'email" arm of `/verify`'s error state (v3.2, PLAN.md point 5) — only
+ * The "Rispedisci l'email" arm of `/verify`'s error state (v3.2) — only
  * ever mounted once `check.ts` has already found a `pendingRegistrations` row for this
  * address, expired token or not. A fresh `TurnstileWidget` instance is fine here, unlike
  * `RegisterForm`'s own reuse of one across a phase switch: this component is never

@@ -18,7 +18,7 @@ interface Props {
 }
 
 /**
- * The landing page for the link in the verification email (v3.2, PLAN.md point 5).
+ * The landing page for the link in the verification email (v3.2).
  *
  * Reads only, on this GET: it checks whether the token still matches and has not expired
  * (`verify/check.ts`), and shows a button rather than acting on its own. An email scanner

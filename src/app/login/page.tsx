@@ -513,7 +513,7 @@ export default async function LoginPage({ searchParams }: Props) {
           : 'Sign-in failed. Please try again.'
 
   // Only shown when there is no failure to report instead — landing here with `?reset=1`
-  // straight after `/reset-password` (v3.2, PLAN.md point 6) is never itself an error.
+  // straight after `/reset-password` (v3.2) is never itself an error.
   const success = message === null && reset !== undefined ? 'Password changed. Sign in with your new password.' : null
 
   return (

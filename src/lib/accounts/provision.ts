@@ -10,12 +10,12 @@
  * This runs for **every** email a provider has authenticated, not only global owners: an
  * address a global owner has already given its own account through `createAccount`
  * reaches this same function again on its own first sign-in — a no-op by then, since
- * `createAccount` already called it once (see PLAN.md, *Niente più ospiti*, point 2).
+ * `createAccount` already called it once (v3.1 — niente più ospiti).
  *
  * Returns whether it actually created the account (true) or found one already there —
  * or failed (false). That bit is not for this function's own use: it is how a caller
  * tells a brand-new arrival from a no-op repeat, which is what decides whether a welcome
- * email goes out (v3.2, PLAN.md point 7). The email itself is not sent here — sending it
+ * email goes out (v3.2). The email itself is not sent here — sending it
  * is the caller's job, so this function does not need to know Resend exists.
  */
 
@@ -58,8 +58,8 @@ import { insertSampleSongbook } from '@/lib/songbooks/seed'
  * a welcome email about.
  *
  * `name`, when given, is a first/last name already known for this address — Google's
- * profile (`auth.ts`), or a completed traditional registration (`verifyEmail`)
- * (`PLAN-account-name.md`). On a brand-new account it is written in the same insert as
+ * profile (`auth.ts`), or a completed traditional registration (`verifyEmail`). On a
+ * brand-new account it is written in the same insert as
  * `ownerEmail`. On an account that already exists it is **never** overwritten
  * unconditionally: the update below runs `WHERE first_name IS NULL`, so a Google
  * sign-in years after registration can fill a name that was never captured, but can
@@ -68,7 +68,7 @@ import { insertSampleSongbook } from '@/lib/songbooks/seed'
  * `newsletterOptIn`, when given, is whether this address asked for the newsletter —
  * the registration toggle, carried through `verifyEmail`. Google sign-ins (`auth.ts`)
  * pass nothing, and the row is then written as not subscribed: they used to pass `true`
- * unconditionally (`PLAN-newsletter.md`), reversed on 2026-09-03 because a default is
+ * unconditionally, reversed on 2026-09-03 because a default is
  * not the consent the Privacy Policy declares as the basis for the newsletter. Unlike
  * `name` there is no opportunistic fill on an existing account: a missing
  * `newsletterPrefs` row simply reads as "not subscribed" (`loadNewsletterPrefs`),

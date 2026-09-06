@@ -11,7 +11,7 @@
  * ## What is *not* confirmed, and how this file behaves about it
  *
  * No public source documents which JSON key holds a song's chords and lyrics. That is
- * a real gap, recorded as such in `PLAN-import.md`, and the honest response is not to
+ * a real gap, recorded as such, and the honest response is not to
  * guess one name and fail silently on every other. So the body is found in two passes:
  * the names that are plausible are tried first, in order, and if none of them is there
  * the object is searched for the one string value that actually looks like a song —

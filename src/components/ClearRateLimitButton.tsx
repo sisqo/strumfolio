@@ -8,7 +8,7 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * Clears the login/registration/reset/feedback rate-limit buckets for this address —
- * for a legitimate reader blocked by accident (`PLAN-account-admin.md`, point 9).
+ * for a legitimate reader blocked by accident.
  * Email-keyed only; never touches the IP-keyed buckets — see `clearRateLimitFor`'s own
  * comment on why.
  */

@@ -2,7 +2,7 @@
 
 /**
  * Reads about accounts as a whole, for the two screens that show more than the reader's
- * own — `/accounts`'s search and `/accounts/[email]`'s detail (PLAN.md, v3.8),
+ * own — `/accounts`'s search and `/accounts/[email]`'s detail (v3.8),
  * both restricted to global owners now that nobody else has more than one account to see
  * — and for `listAllAccounts`, called directly from the client (`HomeScreen`'s copy-target
  * list), which is why this needs the directive: without it, that call could not cross the
@@ -143,7 +143,7 @@ export interface AccountPlanLine {
   /** The winning side's own column, never the later of the two. */
   untilOn: string | null
   /**
-   * Whether this account has completed the mandatory plan-choice step (PLAN.md, v3.7) —
+   * Whether this account has completed the mandatory plan-choice step (v3.7) —
    * `accounts.planChosenAt !== null`, read directly rather than through any pending-aware
    * resolver, because there is nothing to resolve: a column that was ever written stays
    * written, with no expiry and no scheduled change. This field exists on `AccountPlanLine`
@@ -215,7 +215,7 @@ interface PlanRow {
 /**
  * Resolves one row's worth of `PLAN_COLUMNS` into the `AccountPlanLine` a screen renders —
  * pulled out of `listAccountPlans`'s own `.map()` so `getAccountDetail` can resolve a single
- * row the exact same way instead of re-deriving the rule (PLAN.md, v3.8).
+ * row the exact same way instead of re-deriving the rule (v3.8).
  *
  * Built exactly as `storedPlanOf` (`plans/resolve.ts`) builds it, `readPlan`/`readPlanStatus`
  * included — these values did come out of the database, which is the one place those readers
@@ -296,7 +296,7 @@ export interface AccountDetail {
   signInCount: number
   lastSignInAt: string | null
   /**
-   * Null when the account has none yet — every account before `PLAN-account-name.md`,
+   * Null when the account has none yet — every account predating the name columns,
    * and any created since whose owner has not signed in with Google or visited
    * `/profile`. The list at `/accounts` does not show either column (deliberately out
    * of scope there); only this detail page does.
@@ -323,7 +323,7 @@ export interface AccountDetail {
  * One account's full detail row, for `/accounts/[email]` — a single-row read, not
  * `listAllAccounts()`/`listAccountPlans()` filtered down to one entry afterwards. The list
  * pays for every account in the installation because it has to show every one of them; a page
- * about exactly one account has no reason to pay that cost too (PLAN.md, v3.8).
+ * about exactly one account has no reason to pay that cost too (v3.8).
  *
  * Two queries, not one combined `select`, for the same reason `listAllAccounts` and
  * `listAccountPlans` are two functions rather than one wider read: the base row
@@ -419,7 +419,7 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
  * Whether this address is currently suspended — a system check run on **every** sign-in
  * attempt (`auth.ts`'s `signIn` callback), not an admin action with a target an operator
  * chose, so it deliberately takes no `isOwner` gate of its own
- * (`PLAN-account-admin.md`, Assunzioni). False on no database, no row, or a read that
+ * (Assunzioni). False on no database, no row, or a read that
  * failed — the same fail-open direction every other read in this schema takes when it
  * cannot answer: an unreadable suspension must never lock someone out who was never
  * suspended.
@@ -448,7 +448,7 @@ export interface UsageSummary {
 
 /**
  * Songbook count, song count and Strum Together peak followers for one account — the
- * Usage & content fieldset on `/accounts/[email]` (`PLAN-account-admin.md`, point 8).
+ * Usage & content fieldset on `/accounts/[email]`.
  * `isOwner`-gated inside, same reason as every other function here that takes an
  * explicit `ownerEmail`. Null on refusal or a failed read — the caller shows "data
  * unavailable" for this one fieldset rather than losing the rest of the page over it,
@@ -503,7 +503,7 @@ export interface PendingRegistrationSummary {
 
 /**
  * Every pending, unverified registration — the "Pending registrations" subsection atop
- * `/accounts` (`PLAN-account-admin.md`, point 11), there precisely so an operator can find
+ * `/accounts`, there precisely so an operator can find
  * a stuck signup without already knowing its address. `isOwner`-gated, same reason as
  * every other whole-installation read on this page.
  */

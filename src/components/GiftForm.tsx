@@ -59,11 +59,11 @@ const NOTE_CHIPS = ['Refund', 'Positive review', 'Friend or family', 'Beta teste
  * audit, in force) are rendered directly by the detail page from `lib/accounts/planText.ts`;
  * this component only ever submits.
  *
- * Always visible, unlike the old `AccountPlanButton` this replaces (PLAN.md, v3.8):
+ * Always visible, unlike the old `AccountPlanButton` this replaces (v3.8):
  * the detail page is already the explicit choice to look at one account, so there is no "most
  * rows are never opened" cost to avoid by hiding this behind a trigger.
  *
- * Guided rather than free-entry (`PLAN-account-admin.md`, point 5, Decision #14): the plan
+ * Guided rather than free-entry: the plan
  * picker is cards instead of a `<select>`, and the date field gains duration-preset buttons.
  * Neither changes what gets submitted — `{plan, until, note}` is exactly the same shape as
  * before, and `validateGrant`/`setGrant` are untouched.
@@ -102,7 +102,7 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
 
   /*
    * Duration presets only make sense while there is nothing to accidentally extend
-   * (Decision #15, `PLAN-account-admin.md`) — once a gift already exists, reopening this
+   * Once a gift already exists, reopening this
    * form (say, to fix the note) must not offer a button that recomputes "1 year from now"
    * and silently prolongs it. An operator who genuinely wants to extend an existing gift
    * types the new date by hand; the presets return once the gift is removed.

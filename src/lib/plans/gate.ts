@@ -6,7 +6,7 @@ import { hasDatabase } from '@/lib/db/client'
 import { hasChosenPlan } from '@/lib/plans/resolve'
 
 /**
- * The mandatory plan-choice gate (PLAN.md, v3.7): an account that has never chosen a plan —
+ * The mandatory plan-choice gate (v3.7): an account that has never chosen a plan —
  * Free or paid — is sent to `/pricing` before it sees any of its own repertoire.
  *
  * Extracted from `(home)/page.tsx`, which was the *only* place it lived, and that turned out

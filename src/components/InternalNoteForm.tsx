@@ -9,8 +9,8 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * A global owner's free-text note about this account — support context, an exception
- * granted, a flag — visible only here, never to the account's own reader
- * (`PLAN-account-admin.md`, point 3). A single overwritable field, not a timestamped
+ * granted, a flag — visible only here, never to the account's own reader. A single
+ * overwritable field, not a timestamped
  * log (decided in interview): whoever edits it replaces what was there.
  *
  * Always visible and first after the header, unlike the click-to-reveal Danger zone:

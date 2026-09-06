@@ -10,13 +10,13 @@ import { REGISTER_MESSAGE } from '@/lib/register/types'
 type Phase = 'form' | 'sent'
 
 /**
- * The email/password half of `/register` (v3.2, PLAN.md point 4) — the Google button
+ * The email/password half of `/register` (v3.2) — the Google button
  * next to it needs none of this, since a successful OAuth sign-in already redirects on
  * its own (see `page.tsx`).
  *
  * One `<form>`, not two: the fields sent by `register` become hidden once the request
  * has gone through once, and the same submit handler serves the "resend" button that
- * appears in their place — this is the "no separate resend action" PLAN.md asks for,
+ * appears in their place — this is the "no separate resend action" v3.2 asks for,
  * since `register`'s own upsert on `pendingRegistrations.email` already renews the token
  * without failing (see `lib/register/actions.ts`).
  *

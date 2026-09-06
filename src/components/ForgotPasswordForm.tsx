@@ -7,7 +7,7 @@ import { requestPasswordReset } from '@/lib/forgotPassword/actions'
 import { REQUEST_RESET_MESSAGE } from '@/lib/forgotPassword/types'
 
 /**
- * `/forgot-password`'s only form (v3.2, PLAN.md point 6). The success message is the
+ * `/forgot-password`'s only form (v3.2). The success message is the
  * same sentence whether or not the address turns out to have an account — see
  * `requestPasswordReset`'s own comment on why that has to be true regardless of what this
  * component does — so there is nothing here to make it a two-phase form the way

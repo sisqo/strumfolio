@@ -10,7 +10,7 @@ import { useOnline } from '@/lib/useOnline'
 /**
  * Ends the live subscription's entitlements right now instead of at its paid-until date
  * — restored here behind `isOwner` after being pulled from every customer-facing screen
- * in v3.11 (`PLAN-account-admin.md`, point 5). For testing grace/expiry behaviour on a
+ * in v3.11. For testing grace/expiry behaviour on a
  * real account without waiting out a real calendar date.
  */
 export function ForceExpireButton({ ownerEmail }: { ownerEmail: string }) {

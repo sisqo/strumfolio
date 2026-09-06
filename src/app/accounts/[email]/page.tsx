@@ -73,8 +73,8 @@ function readEmailParam(raw: string): string | null {
 }
 
 /**
- * One account's administrative detail (`PLAN.md` v3.8; `PLAN-account-admin.md` for
- * everything below). Fieldset order, top to bottom: Internal note (the first thing an
+ * One account's administrative detail (v3.8). Fieldset order, top to bottom:
+ * Internal note (the first thing an
  * operator wants to read), Identity (name + the click-to-reveal Change email), Subscription
  * (the gift form + Force expire now), Payment history, Newsletter (read-only), Usage &
  * content (read-only), Access & Security (password + reset email + suspend + rate-limit

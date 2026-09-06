@@ -1,6 +1,6 @@
 /**
  * Cloudflare Turnstile, verified with one HTTP request — no SDK, the same reasoning as
- * the rest of this app's dependency choices (v3.2, PLAN.md point 9): a POST and a JSON
+ * the rest of this app's dependency choices (v3.2): a POST and a JSON
  * reply is the entire client this needs.
  *
  * `TURNSTILE_SECRET_KEY` absent means local development, where registration and

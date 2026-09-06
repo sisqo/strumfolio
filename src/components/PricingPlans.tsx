@@ -45,7 +45,7 @@ export interface ColumnPrice {
    * That conditionality is the whole legal argument, not a rendering nicety: the commercial
    * deck refuses struck prices outright («un prezzo di riferimento mai praticato è
    * contestabile»), and what answers it is that €34.99 is genuinely what a reader without a
-   * coupon pays. See `PLAN-coupons.md`'s «Il barrato, e il suo limite».
+   * coupon pays — see the coupons section of `CLAUDE.md` for the limit that puts on it.
    */
   was?: string
   /**
@@ -130,7 +130,7 @@ export interface PlanColumn {
    * the only thing this component has to check.
    *
    * When it is absent on a paid column the reader is not already on, the card shows an
-   * inert "Coming soon" button instead of a live one (`PLAN-checkout-coming-soon.md`) —
+   * inert "Coming soon" button instead of a live one —
    * `isCurrent`/`isLifetime` are checked before this, and stay true regardless of whether
    * `checkoutPlan` is set, so an account genuinely on that plan or on Lifetime keeps
    * seeing its own status rather than "Coming soon" for something it already has.
@@ -252,7 +252,7 @@ export function PricingPlans({
   /*
    * The reader's own state is what makes this the one page that also serves an existing
    * customer changing plans, not only a visitor choosing one for the first time — every card
-   * reads it now, not only Free's own (PLAN.md, v3.7) mandatory plan-choice gate that used to
+   * reads it now, not only Free's own (v3.7) mandatory plan-choice gate that used to
    * be the sole reason this file needed it at all. None of it gates anything: a reader who
    * turns out signed out after clicking "Upgrade to Plus" is stopped by the middleware on
    * `/checkout/plus`, not by this component second-guessing what it already decided to
@@ -485,7 +485,7 @@ export function PricingPlans({
                * `isCurrent`/`isLifetime` below have to read as true even when checkout is
                * switched off and `checkoutPlan` is absent, so an account genuinely on this
                * plan or on Lifetime keeps seeing its own status rather than "Coming soon"
-               * for something it already has (`PLAN-checkout-coming-soon.md`).
+               * for something it already has.
                */}
               {column.cta === undefined &&
                 (!signedIn ? (
@@ -518,7 +518,7 @@ export function PricingPlans({
                       * Absent when `checkoutPlan` is: re-buying is a `mockPurchase` call same
                       * as everything else this file offers, and `mockPurchase` itself refuses
                       * with the checkout switched off — a link that only leads to "Coming
-                      * soon" would be the same theatre `PLAN.md` v3.12 already ruled out for a
+                      * soon" would be the same theatre v3.12 already ruled out for a
                       * downgrade that asked for a card without charging it.
                       */}
                     {column.checkoutPlan !== undefined && (
@@ -560,7 +560,7 @@ export function PricingPlans({
                   </Link>
                 ) : (
                   /*
-                   * Checkout switched off (`PLAN-checkout-coming-soon.md`) and none of the
+                   * Checkout switched off and none of the
                    * three states above apply — signed in, not already on this plan or on
                    * Lifetime. Inert on purpose: no link, no action, nothing to press.
                    * `.btn:disabled` (`globals.css`) already fades it, so no new CSS. Never
@@ -759,7 +759,7 @@ export function PricingPlans({
  * version of the same fact, not a new rule.
  *
  * `checkoutLive` mirrors `PricingPlans`' own `checkoutPlan !== undefined` check
- * (`PLAN-checkout-coming-soon.md`) — checked *after* "already on Lifetime" and *before*
+ * — checked *after* "already on Lifetime" and *before*
  * "Sign up" is reached is wrong on purpose to get right: "already on Lifetime" must win
  * regardless of the flag (a real Lifetime holder always sees their own status), but "Sign
  * up" must win over "Coming soon" for a signed-out visitor, the same reasoning

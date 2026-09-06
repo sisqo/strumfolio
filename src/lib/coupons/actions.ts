@@ -335,8 +335,8 @@ export async function createCampaign(
  * Edit a campaign, with the two guardrails that protect people who already redeemed it.
  *
  * The discount itself is frozen the moment anybody has redeemed the campaign, and a ceiling can
- * never drop below the redemptions already counted — both from `PLAN-coupons.md`'s guardrail
- * table, and both about the same thing: what somebody was promised has to stay what they were
+ * never drop below the redemptions already counted — both guardrails are about the same
+ * thing: what somebody was promised has to stay what they were
  * promised. The remedy for a discount that needs to change is a new campaign, which is why the
  * refusal says so.
  */

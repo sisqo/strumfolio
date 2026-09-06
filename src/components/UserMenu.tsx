@@ -147,8 +147,8 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                   <div className="user-menu-identity">
                     {/*
                      * Only when known and non-empty — nothing shown at all otherwise, the
-                     * same "no change until it's there" rule `PLAN-account-name.md` settled
-                     * on: an account with no name yet must look exactly as it does today.
+                     * same "no change until it's there" rule the names shipped under: an
+                     * account with no name yet must look exactly as it does today.
                      */}
                     {firstName !== null && firstName !== '' && (
                       <span className="user-menu-greeting">Hi, {firstName}</span>
@@ -250,7 +250,7 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                 <ThemePicker />
                 <NotationPicker />
                 {/*
-                 * Newsletter consent (`PLAN-newsletter.md`) — grouped here on the same
+                 * Newsletter consent — grouped here on the same
                  * reasoning as theme/notation above: answered once for the whole account,
                  * not per song. Renders nothing until its own read resolves, so it never
                  * shifts the menu's height while ThemePicker/NotationPicker (synchronous,

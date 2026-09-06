@@ -32,7 +32,7 @@ export default async function HomeLayout({ children }: { children: ReactNode }) 
   const user = hasDatabase ? await currentUser() : null
   if (hasDatabase && user === null) redirect('/login')
 
-  /* The mandatory plan-choice gate (PLAN.md, v3.7) — `/` is the page every sign-in path
+  /* The mandatory plan-choice gate (v3.7) — `/` is the page every sign-in path
    * lands on. */
   await requirePlanChoice(user)
 

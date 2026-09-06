@@ -1,5 +1,5 @@
 /**
- * What registering by email and password can answer (v3.2, PLAN.md point 3).
+ * What registering by email and password can answer (v3.2).
  *
  * Separate from `actions.ts` because that file carries `'use server'`, where every
  * export must be an async function — the same reason `accounts/types.ts` and

@@ -61,7 +61,7 @@ async function readFirstName(email: string): Promise<string | null> {
  * global owner looking at an account they switched into sees *that* account's plan (and its
  * choice state) on their own menu, because that is whose limits apply to what they are about
  * to do next. `planChosen` exists only for `PricingPlans`' own Free card
- * (PLAN.md, v3.7) — the mandatory-choice gate itself lives server-side in
+ * (v3.7) — the mandatory-choice gate itself lives server-side in
  * `(home)/page.tsx`, not here; this is cosmetic, deciding which of that card's own states
  * shows, never what the server allows.
  *
@@ -230,7 +230,7 @@ export async function setPasswordFor(email: string, password: string): Promise<P
 /**
  * Sends a password-reset email to an account on `/accounts/[email]`, instead of setting
  * the password directly (`PasswordForm`) — for when the admin would rather let the
- * account holder pick their own (`PLAN-account-admin.md`, point 9). Reuses
+ * account holder pick their own. Reuses
  * `sendPasswordResetToken` (`lib/forgotPassword/actions.ts`) — the same token generation
  * and email `requestPasswordReset` sends — but bypasses both its rate limit and its
  * anti-enumeration masking: this page is already `isOwner`-gated for an address the
@@ -256,7 +256,7 @@ export async function sendPasswordResetFor(email: string): Promise<PasswordResul
 
 /**
  * Clears the login/registration/reset/feedback rate-limit buckets for one address, on
- * `/accounts/[email]` (`PLAN-account-admin.md`, point 9) — for a legitimate reader
+ * `/accounts/[email]` — for a legitimate reader
  * blocked by accident ("it says try again later"). Only the **email**-keyed buckets,
  * never the IP-keyed ones (`login:ip:*` and so on, `rateLimit.ts`): an IP can be shared
  * (NAT, a public wifi network), and clearing it would unblock everyone else behind it

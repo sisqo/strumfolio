@@ -8,7 +8,7 @@ import { EMAIL_CHANGE_MESSAGE } from '@/lib/accounts/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
- * Renames an account's address (`PLAN-account-admin.md`, point 4) — a real support
+ * Renames an account's address — a real support
  * request ("I typo'd my email", "switch me to my work address") that today has no
  * answer short of deleting and recreating the account and losing everything in it.
  *

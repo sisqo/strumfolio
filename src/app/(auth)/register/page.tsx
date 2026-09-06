@@ -10,10 +10,10 @@ import { IconGoogle } from '@/components/icons'
 export const metadata: Metadata = { title: 'Register' }
 
 /**
- * Creating an account with email and password (v3.2, PLAN.md points 3-4) — the second of
+ * Creating an account with email and password (v3.2) — the second of
  * the two ways in, next to Google. Same shell as `/login`: the lockup, the same
  * `.login-card`, and the exact same Google button, throwing the exact same redirect on
- * success. Registering with Google is not a separate flow at all (PLAN.md point 2): the
+ * success. Registering with Google is not a separate flow at all: the
  * button below is the one on `/login`, byte for byte, because OAuth does not tell "sign
  * in" from "sign up" apart — a first successful sign-in is what `provisionAccount`
  * already treats as an account being born, on `/login` as much as here.

@@ -717,7 +717,7 @@ function SheetChord({
    *
    * Goes through `pickShape` rather than `shapeFor` directly so a reader's own choice for
    * this chord, in this song, draws the same shape here as it does in the summary panel
-   * and in the popup — no badge here (out of scope, see `PLAN-chord-forms.md`), but the
+   * and in the popup — no badge here (out of scope), but the
    * drawing itself must never disagree with the other two.
    */
   const shape = chordDisplay === 'shape' ? (pickShape(chord, instrument, chordShapes)?.shape ?? null) : null

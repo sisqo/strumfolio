@@ -33,7 +33,7 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   /*
    * The landing page, in practice: `/` requires a session and redirects here, so this is what
    * an anonymous visitor and a crawler both actually get. That it is also the sign-in form is
-   * a problem for another day — see `PLAN-blog.md`, *Domande aperte*.
+   * a problem for another day, and still open.
    */
   { path: '/login', indexable: true },
   { path: '/pricing', indexable: true },

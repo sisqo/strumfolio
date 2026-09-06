@@ -1,5 +1,5 @@
 /**
- * What password recovery can answer (v3.2, PLAN.md point 6).
+ * What password recovery can answer (v3.2).
  *
  * Separate from `actions.ts` because that file carries `'use server'`, where every export
  * must be an async function — the same reason `register/types.ts` is split from its own

@@ -12,7 +12,7 @@ const FREQUENCY_LABEL: Record<NewsletterFrequency, string> = { weekly: 'Weekly',
 
 /**
  * Subscribe/unsubscribe and cadence, in the Settings view next to theme and notation
- * (`PLAN-newsletter.md`, decided in interview) — a preference "answered once for the
+ * (decided in interview) — a preference "answered once for the
  * whole account", the same group ThemePicker/NotationPicker already belong to.
  *
  * Loaded on mount rather than baked into `RoleProvider`: unlike email/plan, this is

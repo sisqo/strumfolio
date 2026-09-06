@@ -25,7 +25,7 @@ const FORMAT_LABEL: Record<string, string> = {
  * obstacle. Past the threshold the counts lead and the list follows, still one click
  * away for anybody who wants it.
  *
- * Fifty is a judgement, not a measurement, and `PLAN-import.md` records it as one.
+ * Fifty is a judgement, not a measurement, and is recorded as one.
  */
 const SUMMARY_THRESHOLD = 50
 

@@ -1,7 +1,7 @@
 'use server'
 
 /**
- * Registering with email and password (v3.2, PLAN.md point 3) — in two steps, not one:
+ * Registering with email and password (v3.2) — in two steps, not one:
  * this only ever writes `pendingRegistrations`, never `accounts` or `credentials`. The
  * real account is born later, when the link in the verification email is followed, with
  * the example songbook already in it (see `provisionAccount`): nothing exists until there
@@ -84,7 +84,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     /*
      * Upsert on `email`, not insert: registering again on the same still-pending address
      * must renew the token and the expiry rather than fail, since that is how "the email
-     * never arrived" gets fixed, with no separate resend action (PLAN.md point 3).
+     * never arrived" gets fixed, with no separate resend action.
      */
     await db()
       .insert(pendingRegistrations)
@@ -112,7 +112,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
 }
 
 /**
- * Resent from `/verify`'s own error state (v3.2, PLAN.md point 5) — a different case
+ * Resent from `/verify`'s own error state (v3.2) — a different case
  * from the "no separate resend action" this file's own top comment describes, which only
  * holds while `RegisterForm` is still on screen with the password sitting in its state.
  * By the time someone opens `/verify` from a stale or expired link, all that survives

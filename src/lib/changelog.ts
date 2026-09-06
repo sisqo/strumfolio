@@ -6,13 +6,13 @@
  * only when there is something worth telling somebody who uses the app, which is far less often
  * than the repository changes.
  *
- * **The numbering starts fresh at 1.0 and is public.** `PLAN.md` carries its own internal
- * history — v1 through v3.9 as of this writing, thirty-odd entries — and it is deliberately
- * *not* reused here. Two reasons: that scale still has real holes in it (some shipped work —
- * a `/pricing`/`/login` redesign, a schema cascade fix, everything after v3.9 — landed
- * straight in the code with no `PLAN.md` entry at all, labeled only in scattered comments or
- * not labeled at all; see `PLAN.md`'s own top note), and half of it describes an app with a
- * single reader and no accounts, which nobody using Strumfolio today has ever seen. Publishing
+ * **The numbering starts fresh at 1.0 and is public.** The project kept an internal version
+ * scale of its own — v1 through v4.7, thirty-odd entries in the `PLAN` docs deleted on
+ * 2026-09-06 — and it is deliberately *not* reused here. Two reasons: that scale had real
+ * holes in it (a `/pricing`/`/login` redesign, a schema cascade fix and everything after
+ * v3.9 landed straight in the code, labeled only in scattered comments or not at all), and
+ * half of it describes an app with a single reader and no accounts, which nobody using
+ * Strumfolio today has ever seen. Publishing
  * a numbering with holes in it, half of it about a product that was never on sale, would be a
  * worse record than starting one that is true from here on. `package.json`'s `0.1.0` is not
  * that number either and never has been — nothing reads it.

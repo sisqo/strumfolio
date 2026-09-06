@@ -1,5 +1,5 @@
 /**
- * The read-only half of `/reset-password` (v3.2, PLAN.md point 6) — whether a reset
+ * The read-only half of `/reset-password` (v3.2) — whether a reset
  * token still checks out, with nothing written. Shared, unlike `verify/check.ts`'s own
  * version of this question: `resetPassword` below reuses this directly for its own
  * recheck, since neither call sits inside an explicit transaction, unlike `/verify`'s

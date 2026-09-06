@@ -51,7 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (email === '' || password === '') return null
 
         /*
-         * Same table as registration and password recovery (PLAN.md point 10) — a
+         * Same table as registration and password recovery — a
          * credential-stuffing run tries many passwords against one address, or one
          * password against many addresses, so both keys are checked regardless of
          * which one a given attempt would trip.
@@ -115,8 +115,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = normalizeEmail(raw)
 
       /*
-       * A suspended account gets no new session at all (`PLAN-account-admin.md`, point
-       * 9) — checked before `recordSignIn`, the same early-return shape as the
+       * A suspended account gets no new session at all — checked before
+       * `recordSignIn`, the same early-return shape as the
        * `email_verified` check above it, so a blocked attempt leaves no sign-in count
        * behind either. Blocks only the *next* sign-in: a session already issued keeps
        * working until it naturally expires, since JWTs are not revocable server-side by
@@ -127,7 +127,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       await recordSignIn(email)
 
       /*
-       * A name is only ever known here for Google (`PLAN-account-name.md` point 3): the
+       * A name is only ever known here for Google: the
        * credentials path has none to offer — its own account is created earlier, by
        * `verifyEmail`, with the name captured at registration — so `provisionAccount`
        * gets `undefined` and this is a plain no-op on that branch, existing account or
@@ -143,8 +143,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       /*
        * No newsletter opt-in is passed here, on purpose, since 2026-09-03. Google sign-ups
-       * used to be subscribed by default (`PLAN-newsletter.md`, decided in interview and
-       * since reversed): the OAuth flow has no step in which a person can *ask* for a
+       * used to be subscribed by default, and that was reversed: the OAuth flow has no
+       * step in which a person can *ask* for a
        * newsletter, and consent to marketing email has to be an affirmative act — the
        * Privacy Policy names consent as the legal basis, and a default is not one. A Google
        * reader who wants it turns it on in the settings (`NewsletterPrefs`). The credentials
@@ -154,7 +154,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
        */
 
       // The returned boolean says whether this call is the one that created the account
-      // (v3.2, PLAN.md point 7): true only the first time this address ever signs in
+      // (v3.2): true only the first time this address ever signs in
       // successfully, false on every later sign-in that finds the row already there —
       // exactly when, and only when, the welcome email belongs.
       const created = await provisionAccount(email, googleName)

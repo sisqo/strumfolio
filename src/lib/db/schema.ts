@@ -71,7 +71,7 @@ export const accounts = pgTable(
     ownerEmail: text('owner_email').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /**
-     * The account owner's own first and last name (`PLAN-account-name.md`) — nullable
+     * The account owner's own first and last name — nullable
      * forever, with no backfill: unlike `planChosenAt` there is no retroactive value to
      * write for a row that predates these two columns, so they simply stay `null` until
      * something fills them in. Filled at registration for a new account (both the Google
@@ -225,7 +225,7 @@ export const accounts = pgTable(
      */
     pendingCycle: text('pending_cycle'),
     /**
-     * When this account first completed the mandatory plan-choice step (PLAN.md, v3.7)
+     * When this account first completed the mandatory plan-choice step (v3.7)
      * — Free or paid, either counts. Null means "not yet chosen", the same idiom as
      * `pendingPlan`/`grantedPlan`: a column nobody has written to yet already means the
      * right thing, with no separate boolean needed.
@@ -248,7 +248,7 @@ export const accounts = pgTable(
     bookletFooter: text('booklet_footer'),
     /**
      * Blocks new sign-ins for this address without touching anything else
-     * (`PLAN-account-admin.md`) — null means not suspended, a timestamp is when an
+     * — null means not suspended, a timestamp is when an
      * operator flipped it on. Checked in `auth.ts`'s `signIn` callback, before
      * `recordSignIn`, so a blocked attempt leaves no trace of having tried. Deliberately
      * does not reach a session already issued: JWTs are not revocable server-side by
@@ -260,7 +260,7 @@ export const accounts = pgTable(
     /**
      * A global owner's own note about this account — support context, an exception
      * granted, a flag — never shown to the account's reader. Overwritable on purpose
-     * (`PLAN-account-admin.md`, decided in interview): a single field, not a timestamped
+     * (decided in interview): a single field, not a timestamped
      * log, chosen for simplicity over a full history of every past note.
      */
     internalNote: text('internal_note'),
@@ -551,7 +551,7 @@ export const pendingRegistrations = pgTable('pending_registrations', {
   email: text('email').primaryKey(),
   /**
    * Carried through to `accounts.first_name`/`last_name` once `verifyEmail` turns this
-   * row into a real account (`PLAN-account-name.md`). Nullable at the column level on
+   * row into a real account. Nullable at the column level on
    * purpose, not `NOT NULL`: adding a `NOT NULL` column without a default would fail
    * outright against a row already pending at deploy time (this table's 24h expiry
    * window). `register()` is what actually requires both non-empty before it ever
@@ -562,7 +562,7 @@ export const pendingRegistrations = pgTable('pending_registrations', {
   lastName: text('last_name'),
   /**
    * Carried through to `newsletterPrefs.subscribed` once `verifyEmail` turns this row
-   * into a real account (`PLAN-newsletter.md`). A plain boolean, unlike
+   * into a real account. A plain boolean, unlike
    * `firstName`/`lastName` above, always has a safe default — no risk to a row
    * already pending at deploy time.
    */
@@ -658,7 +658,7 @@ export const userPrefs = pgTable('user_prefs', {
 })
 
 /**
- * Newsletter consent: one row per account (`PLAN-newsletter.md`). A table of its own
+ * Newsletter consent: one row per account. A table of its own
  * rather than a few more columns on `userPrefs` — consent to be emailed is a
  * different concern from a reading preference like zoom or notation, and this one
  * needs its own timestamps to know when a reader last changed their mind.
@@ -736,7 +736,7 @@ export const userSongPrefs = pgTable(
      */
     lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }),
     /**
-     * Whether this reader has starred this song (`PLAN-favorites.md`).
+     * Whether this reader has starred this song.
      *
      * Here rather than on `songs`, and that is the whole decision: a star says which
      * songs *this reader* reaches for, not something true of the repertoire. A global
@@ -1067,8 +1067,8 @@ export const appSettings = pgTable('app_settings', {
 /**
  * A promotional campaign: one percentage, one public code, one window of time.
  *
- * **Twenty-one columns, where `PLAN-coupons.md`'s reference document has twenty-five.** The
- * four that are not here are decisions, and the plan spells each out — briefly: a campaign
+ * **Twenty-one columns, where the commercial reference document has twenty-five.** The
+ * four that are not here are decisions — briefly: a campaign
  * covers the monthly and the yearly cycle *by construction* (`discountMonths` is what says for
  * how long, and the yearly rounds up to whole years), so `applies_to_monthly` and
  * `applies_to_annual` would only ever have allowed a campaign whose banner promised a discount
@@ -1138,8 +1138,8 @@ export const couponCampaigns = pgTable(
      *
      * Nullable **by decision**, and the decision has a cost that is written down rather than
      * enforced: a campaign with no end date can quietly become the permanent price, which is
-     * exactly what makes a struck-through listino contestable. `PLAN-coupons.md` replaces the
-     * missing constraint with visibility — `/coupons` marks every active campaign that has no
+     * exactly what makes a struck-through listino contestable. Visibility replaces the
+     * missing constraint — `/coupons` marks every active campaign that has no
      * expiry, and counts the days the default one has been running.
      */
     expiresAt: timestamp('expires_at', { withTimezone: true }),
@@ -1192,8 +1192,7 @@ export const couponCampaigns = pgTable(
  * ceiling of 500 and a single account burning all of it, which with `SONGBOOK_MOCK_CHECKOUT`
  * switched on costs nothing at all.
  *
- * `campaignId` has a foreign key because a campaign is never deleted, only archived (the
- * guardrail is in `PLAN-coupons.md`).
+ * `campaignId` has a foreign key because a campaign is never deleted, only archived.
  *
  * **The account is two columns, and dropping either would break something** (v4.7), the same
  * shape as `paddleEvents` and for a sharper reason. `accountId` is the pointer, nullable and

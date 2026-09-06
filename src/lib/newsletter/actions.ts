@@ -2,7 +2,7 @@
 
 /**
  * A reader's own newsletter preference — subscribe/unsubscribe, and which cadence
- * while subscribed (`PLAN-newsletter.md`). A file of its own, not folded into
+ * while subscribed. A file of its own, not folded into
  * `accounts/actions.ts`: a table of its own justifies it, same principle that already
  * keeps `checkout.ts` separate from the rest of `plans/`.
  *
@@ -115,7 +115,7 @@ async function loadRow(ownerEmail: string): Promise<{ subscribed: boolean } | nu
 
 /**
  * One account's newsletter preference, for the admin's Newsletter fieldset on
- * `/accounts/[email]` (`PLAN-account-admin.md`, point 7) — distinct from
+ * `/accounts/[email]` — distinct from
  * `loadNewsletterPrefs` above, which is keyed on `session.user.email` and would leak the
  * *operator's own* preference instead of the account being viewed. `isOwner`-gated,
  * since this takes an explicit target rather than reading the caller's own session.

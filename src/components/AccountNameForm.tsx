@@ -10,7 +10,7 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * An admin correcting an account's first and last name — a typo, a name missing
- * entirely (`PLAN-account-admin.md`, point 4). `/profile` is the normal, self-service
+ * entirely. `/profile` is the normal, self-service
  * way this changes; this form exists for support cases only, and writes the same two
  * columns with no coordination against `updateOwnName` — last write wins, a risk judged
  * trivial for a field like this.

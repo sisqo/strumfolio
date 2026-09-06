@@ -3,7 +3,7 @@
 /**
  * Switching which account a signed-in reader is looking at, and — for a global owner
  * only — deleting one, or hand-assigning it a plan on another address's behalf. Creating
- * one by hand is gone (PLAN.md, v3.8): self-service registration and automatic
+ * one by hand is gone (v3.8): self-service registration and automatic
  * provisioning on any first sign-in cover every real case it used to.
  */
 
@@ -144,7 +144,7 @@ async function removeAccountAndContent(target: string): Promise<void> {
 
 /**
  * Deletes an account and everything in it — immediately, with no check for "is it
- * empty", by design (see `PLAN.md`, *Niente più ospiti*, point 7): the only safety net
+ * empty", by design (v3.1 — niente più ospiti): the only safety net
  * wanted is retyping the address, and this action enforces that net itself rather than
  * trusting the screen that calls it to have done so.
  *
@@ -272,7 +272,7 @@ export async function setGrant(accountOwnerEmail: string, grant: GrantInput | nu
         grantedAt: now,
         grantedNote: fields.note,
         /*
-         * Giving a gift also satisfies the mandatory plan-choice gate (PLAN.md, v3.7):
+         * Giving a gift also satisfies the mandatory plan-choice gate (v3.7):
          * `plan_chosen_at` means "this account got a plan, one way or another", and an operator
          * *assigning* one is that just as much as a reader *choosing* one. Without this, a
          * customer handed premium by hand was still bounced to `/pricing` on every visit to
@@ -398,7 +398,7 @@ export async function loadOwnName(): Promise<{ firstName: string; lastName: stri
 }
 
 /**
- * Changes your own first and last name (`/profile`, `PLAN-account-name.md` point 5).
+ * Changes your own first and last name (`/profile`).
  * Keyed on the signed-in address itself, never `accountOwnerEmail` — the same choice
  * `setOwnPassword` (`lib/auth/actions.ts`) already makes for the same reason: this is a
  * fact about *you*, not about whichever account a global owner happens to have
@@ -430,7 +430,7 @@ export async function updateOwnName(firstName: string, lastName: string): Promis
 
 /**
  * An admin correcting an account's first and last name, for the Identity fieldset on
- * `/accounts/[email]` (`PLAN-account-admin.md`, point 4) — a separate action from
+ * `/accounts/[email]` — a separate action from
  * `updateOwnName` above, authorized with `isOwner` directly rather than `asAdmin()`, the
  * same distinction `setGrant`/`deleteAccount` already draw: an account's own owner is
  * `admin` on that one account, which would let any customer rename themselves through
@@ -466,7 +466,7 @@ export async function updateAccountName(ownerEmail: string, firstName: string, l
 
 /**
  * A global owner's own note about an account — support context, an exception granted, a
- * flag — never shown to the account's reader (`PLAN-account-admin.md`, point 3). An empty
+ * flag — never shown to the account's reader. An empty
  * string clears it. `isOwner`-gated inside, same reason as every other action here that
  * takes an explicit `ownerEmail`.
  */
@@ -495,11 +495,11 @@ export async function updateInternalNote(ownerEmail: string, note: string): Prom
 }
 
 /**
- * Suspends or reactivates an account (`PLAN-account-admin.md`, point 9) — blocks only
+ * Suspends or reactivates an account — blocks only
  * **new** sign-ins, checked in `auth.ts`'s `signIn` callback via `isAccountSuspended`
  * (`accounts/read.ts`). Does not interrupt a session already issued: JWTs are not
  * revocable server-side in this app, so this stops the next attempt, not one already in
- * progress — see Decision #11, `PLAN-account-admin.md`. "Enter as this account" never
+ * progress. "Enter as this account" never
  * checks this column, so a suspended account stays reachable to whoever suspended it.
  *
  * No dedicated reason column: the context is expected to live in the internal note
@@ -528,7 +528,7 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
 }
 
 /**
- * Renames an account's address (`PLAN-account-admin.md`, point 4) — a support request
+ * Renames an account's address — a support request
  * that will come ("I typo'd my email", "switch me to my work address"), which today has
  * no answer short of deleting and recreating the account and losing everything in it.
  *
@@ -633,7 +633,7 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
 
 /**
  * Confirms a pending registration by hand, creating the account immediately without the
- * verification link ever being clicked (`PLAN-account-admin.md`, point 11) — for one
+ * verification link ever being clicked — for one
  * stuck behind an expired link, a spam filter, or an email that never arrived. Mirrors
  * `verifyEmail`'s transaction (`verify/actions.ts`: insert into `credentials`, delete
  * the pending row, `provisionAccount`, welcome email, Telegram notice) minus the
@@ -650,8 +650,8 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
  * Accepted risk, stated once here because no code path can check it: this creates a
  * real, immediately-usable account — login available at once, with the password chosen
  * at registration, not by the operator — for an address that never proved control of its
- * own inbox. The same kind of consciously-accepted exposure `PLAN-newsletter.md` already
- * took for Google's default newsletter opt-in.
+ * own inbox. The same kind of consciously-accepted exposure the newsletter's own
+ * Google default opt-in once took.
  */
 export async function confirmPendingRegistration(email: string): Promise<ConfirmPendingResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }

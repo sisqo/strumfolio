@@ -1,6 +1,6 @@
 /**
  * The public-domain songs offered as the one-click "Example songbook" for an empty
- * account (PLAN.md, "Canzoniere di esempio per i nuovi account").
+ * account ("Canzoniere di esempio per i nuovi account").
  *
  * Kept as string constants in this module rather than as files under `content/`.
  * `content/` is only ever read from disk when there is no database

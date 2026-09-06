@@ -141,14 +141,14 @@ interface Props {
  * slug-reached page in this app — "this does not exist" and "this is not yours" should look
  * identical from outside.
  *
- * Laid out after `Accounts.dc.html` (PLAN.md, v4.4): a title row with the pending
+ * Laid out after `Accounts.dc.html` (v4.4): a title row with the pending
  * registrations as a pill on its right, four tabs with the search and the sort order on the
  * same line, and one table — avatar and address, a gift mark, the plan badge, the status,
  * the sign-in count, View. The tabs are links and the search is a plain GET form, so the
  * whole state lives in the URL and the page stays a server component with one client
  * component in it (`AutoSubmitSelect`, the sort order).
  *
- * No longer offers creating an account (PLAN.md, v3.8, replacing the old "Create"
+ * No longer offers creating an account (v3.8, replacing the old "Create"
  * section): self-service registration and automatic provisioning on any first sign-in — Google
  * or password — cover every real case an admin-created account used to.
  *
@@ -224,7 +224,7 @@ export default async function AccountsPage({ searchParams }: Props) {
           </div>
 
           {/* The pending registrations as a pill up here rather than a section of their own
-              above the list (`PLAN-account-admin.md`, point 11): discoverability without
+              above the list: discoverability without
               already knowing the address is still what it is for, and a red pill beside the
               title is found before any section is. It leads to the rows themselves, below the
               list, where their Confirm buttons live. */}

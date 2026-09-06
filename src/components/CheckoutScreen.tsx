@@ -24,8 +24,8 @@ import type { Plan } from '@/lib/plans/types'
 const SIGN_IN_REASON = 'Sign in to continue.'
 
 /**
- * The `'disabled'` reason's own copy (`mockCheckoutEnabled()` off,
- * `PLAN-checkout-coming-soon.md`) — worded and styled apart from the other two
+ * The `'disabled'` reason's own copy (`mockCheckoutEnabled()` off) — worded and
+ * styled apart from the other two
  * `unavailable` reasons in the JSX below: this one is not an error the reader caused,
  * it is the same "not on sale yet" fact `/pricing`'s own cards now show as a disabled
  * button, for whoever reaches this screen through an old or shared link instead.

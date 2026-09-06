@@ -90,7 +90,7 @@
   --success: #1a7a42;
   --success-soft: #e1f3e6;
   /*
-   * Plan badges (PLAN-attivazione.md) — used only on `/accounts`, the operator screen, never
+   * Plan badges (v3.7) — used only on `/accounts`, the operator screen, never
    * anywhere a reader looks. A declared exception to the Chord-First Rule (DESIGN.md, "Plan
    * Badges"): the one place besides `--danger`/`--success` where the app reaches for a color
    * that is not `--accent`. Free carries no variable of its own — it stays on the neutral ink
@@ -9288,7 +9288,7 @@
   }
 
   /*
-   * Plan badges (PLAN-attivazione.md) — `/accounts` only, an operator screen with no song
+   * Plan badges (v3.7) — `/accounts` only, an operator screen with no song
    * sheet and no chords to compete with. See DESIGN.md's "Plan Badges" section for why this is
    * a declared exception to the Chord-First Rule rather than a drift from it: everywhere a
    * *reader* sees a plan name (the account menu, `/pricing`, `/billing`) stays on `.badge`'s
@@ -10202,9 +10202,9 @@
    * Deliberately allowed to spill past the button's own box (`inset: -100%` gives
    * each ring 2x the button's box to expand into, matching the ~1.9x scale below)
    * rather than being clipped to it — including, on phone, above `.control-bar`'s
-   * own edge, where `.control-play` already pokes through it. See
-   * `PLAN-strum-together-play-feedback.md` for why that overlap is intended rather
-   * than an oversight.
+   * own edge, where `.control-play` already pokes through it. That overlap is
+   * intended rather than an oversight: the rings are decorative and
+   * `pointer-events: none`, so nothing they cross becomes unreachable.
    */
   .play-broadcast-rings {
     position: absolute;

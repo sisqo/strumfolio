@@ -186,8 +186,8 @@ export function asAdmin(): Promise<Permission> {
 }
 
 /**
- * Signs someone in without a password — the one moment that has to (v3.2, PLAN.md point
- * 5): right after `/verify` proves an address by consuming its verification token,
+ * Signs someone in without a password — the one moment that has to (v3.2): right
+ * after `/verify` proves an address by consuming its verification token,
  * making that person type the password they *just chose* a second time would be pure
  * friction with no security gained. `signIn('credentials', ...)` cannot be used here —
  * it needs the plaintext password, and by this point only its scrypt hash exists (it was

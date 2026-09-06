@@ -110,7 +110,7 @@ export function ChordPopup({
  * swiped or dragged between like a gallery, with its neighbours peeking in at the edges
  * so there is something to invite the swipe. Landing on the first slide and stopping
  * there is the reset to the default shape — there is no separate control for it, the
- * same reasoning `PLAN-chord-forms.md`'s Decision 6 gives for the row this replaces.
+ * same reasoning that applied to the row this replaces.
  *
  * The dots track the scroll position directly, once per animation frame — not the
  * `active` prop, which only catches up once `onSettle`'s write has round-tripped through

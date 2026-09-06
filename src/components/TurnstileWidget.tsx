@@ -12,7 +12,7 @@ declare global {
 
 /**
  * Cloudflare Turnstile, dropped into a form with no JavaScript of this app's own
- * (v3.2, PLAN.md point 9). The `cf-turnstile` div is Turnstile's own implicit
+ * (v3.2). The `cf-turnstile` div is Turnstile's own implicit
  * rendering: the script that owns that class finds it, draws the challenge, and —
  * via `data-response-field-name` — writes the solved token straight into a hidden
  * input named `captchaToken`, the same field name the registration and

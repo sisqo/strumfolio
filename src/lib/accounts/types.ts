@@ -8,7 +8,7 @@
  * beside `setGrant`: the client component needs both, and the action's own module cannot
  * export either.
  *
- * No longer names creating an account (PLAN.md, v3.8): self-service registration
+ * No longer names creating an account (v3.8): self-service registration
  * and automatic provisioning on any first sign-in — Google or password — cover every real
  * case an admin-created account used to, and `deleteAccount` never answered `invalid-email`
  * or `already-exists` — this project does not model states a function cannot reach, the
@@ -51,7 +51,7 @@ export const SELF_DELETE_MESSAGE: Record<SelfDeleteFailure, string> = {
 
 /**
  * Results for the one action every reader may take on their own first and last name
- * (`/profile`, `PLAN-account-name.md` point 5) — a fourth union rather than new members
+ * (`/profile`) — a fourth union rather than new members
  * on any of the above, for the same reason `SelfDeleteFailure` already states: none of
  * `updateOwnName`'s reachable failures overlap with deleting or granting a plan.
  */

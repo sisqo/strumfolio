@@ -136,7 +136,7 @@ export function TopBar({
          * into another account's view, so this costs no room in the far more common case
          * where `UserMenu`/`NavMenu` really are the only two things here. Placed here
          * rather than up by the brand, where it used to live as a passive "Viewing: X"
-         * label: it is a real exit control now (`PLAN-viewing-as-exit.md`), and the
+         * label: it is a real exit control now, and the
          * comparison it exists to draw — this customer's monogram, not mine — only reads
          * sitting right next to the monogram it is being compared against.
          */}

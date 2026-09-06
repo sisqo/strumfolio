@@ -298,8 +298,8 @@ export type LimitReason = 'songbook-limit' | 'song-limit' | 'frozen' | 'plan-req
  * guessing one — a wrong cap is worse than no cap, and the site that lands here is by
  * definition a site that does not know which plan refused.
  *
- * English, like the rest of the code and like both maps it is spread into. `PLAN.md` and
- * the rest of this project's docs are the Italian half; the strings the code ships are not.
+ * English, like the rest of the code and like both maps it is spread into. This
+ * project's prose docs are the Italian half; the strings the code ships are not.
  */
 export const LIMIT_MESSAGE: Record<LimitReason, string> = {
   'songbook-limit': 'Your plan does not allow another songbook.',

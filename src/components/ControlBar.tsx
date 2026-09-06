@@ -181,10 +181,9 @@ export function ControlBar({
                * (this reader's own broadcast, from `useStrumTogether`) rather than on
                * `broadcastEnabled` alone — `broadcastEnabled` only means "not a guest",
                * which stays true even while nothing is being broadcast, and showing the
-               * effect then would claim a broadcast that never happened. See
-               * `PLAN-strum-together-play-feedback.md` for the accepted residual risk
-               * (network failure, or a session gone idle server-side that this reader's
-               * own `broadcast` state hasn't caught up with yet).
+               * effect then would claim a broadcast that never happened. The residual
+               * risk is accepted: a network failure, or a session gone idle server-side
+               * that this reader's own `broadcast` state hasn't caught up with yet.
                */
               if (!running && broadcastEnabled) {
                 void broadcastPlay(songSlug, song.semitones).catch(() => {})

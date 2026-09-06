@@ -71,7 +71,7 @@ function canCancel(current: MockSubscriptionState, live: Plan | null): boolean {
  * payment history, and the controls to cancel it or undo a scheduled change. Choosing a
  * *different* plan is deliberately not answered here: that is `/pricing`'s own comparison
  * table and `/checkout/[plan]`'s buy flow, and reproducing that table here would be the exact
- * duplication `PLAN.md` (v3.6) decided against.
+ * duplication v3.6 decided against.
  *
  * **`forceExpireNow` is deliberately not reachable from this screen**, though the server
  * action still exists for scripts and tests. It used to sit here behind nothing but the words

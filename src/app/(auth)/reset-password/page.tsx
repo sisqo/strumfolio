@@ -17,7 +17,7 @@ interface Props {
 }
 
 /**
- * The landing page for the link in the password-reset email (v3.2, PLAN.md point 6).
+ * The landing page for the link in the password-reset email (v3.2).
  *
  * Shows the new-password form directly on this GET, with no intermediate button the way
  * `/verify` needs one: typing a password and submitting it is already the explicit

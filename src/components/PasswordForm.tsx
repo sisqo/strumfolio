@@ -13,7 +13,7 @@ import { useOnline } from '@/lib/useOnline'
  * field, unlike the self-service `PasswordScreen`: a global owner is not proving they
  * already know it, only that they may act on this account at all.
  *
- * Always visible on `/accounts/[email]` (PLAN.md, v3.8), unlike the old
+ * Always visible on `/accounts/[email]` (v3.8), unlike the old
  * `AccountPasswordButton` this replaces: the detail page is already the explicit choice to
  * act on this one account, so there is nothing left to reveal behind a trigger.
  */

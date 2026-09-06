@@ -40,7 +40,7 @@ function absolute(path: string): string {
  * The publisher, repeated into every block that wants one.
  *
  * **There is no author and that is deliberate**, not an omission to fix later:
- * `PLAN-blog.md` decided against an author field on the grounds that while one person writes
+ * The blog deliberately has no author field, on the grounds that while one person writes
  * everything it is «a constant dressed up as metadata». The honest structured-data answer to
  * "who wrote this" is therefore the same as the honest answer everywhere else — the
  * publication did.

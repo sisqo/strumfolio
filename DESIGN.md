@@ -196,7 +196,7 @@ A warm, restrained palette: one reserved accent, everything else a step on a pap
 
 ### The Favorite Star — a declared exception to the Chord-First Rule
 
-The star that marks a song as a favorite (`PLAN-favorites.md`) is drawn in the accent:
+The star that marks a song as a favorite (v4.6) is drawn in the accent:
 filled and `--accent` beside the title of a song that is one, filled and `--accent` on that
 song's row in every list, and `--accent` on `--accent-soft` on the pill that filters the
 lists down to them. Everywhere else it is a `--muted` outline, or nothing at all.
@@ -216,7 +216,7 @@ own accent, used on one more kind of thing.
 
 ### Plan Badges — a declared exception to the Chord-First Rule
 
-`/accounts` (the operator screen, `PLAN.md` v3.7, redrawn after `Accounts.dc.html` in v4.4)
+`/accounts` (the operator screen, v3.7, redrawn after `Accounts.dc.html` in v4.4)
 is the one place in the app with a second color family: a warm ramp, one color per paid
 plan, cool to warm in the order the plans are sold — a grey-blue `plan-standard`, a brown
 `plan-plus`, `plan-premium` on the brand terracotta itself (the accent's own two values, kept

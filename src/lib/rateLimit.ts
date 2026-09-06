@@ -1,6 +1,6 @@
 /**
  * A fixed-window rate limit, backed by `rateLimitHits` rather than a service of its own
- * (v3.2, PLAN.md point 10) — one shared table for registration, resend, password
+ * (v3.2) — one shared table for registration, resend, password
  * recovery and login, keyed by whatever the caller is throttling: an email for an
  * action tied to an address, an IP for one that is not.
  *

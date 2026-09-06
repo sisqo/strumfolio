@@ -8,7 +8,7 @@ import { TopBar } from '@/components/TopBar'
 export const metadata: Metadata = { title: 'Profile' }
 
 /**
- * Your own first and last name (`PLAN-account-name.md`, point 5) — a static shell like
+ * Your own first and last name — a static shell like
  * `/password`, with nothing baked in: whether a name is already set is a fact about the
  * server, and this page has no idea who will open it.
  */

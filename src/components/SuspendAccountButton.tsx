@@ -9,7 +9,7 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * Suspends or reactivates an account — blocks new sign-ins only, not a session already
- * issued (`PLAN-account-admin.md`, point 9; `setAccountSuspended`'s own comment). A
+ * issued (`setAccountSuspended`'s own comment). A
  * single toggle, not click-to-reveal like the Danger zone: fully reversible with one
  * more click, so the extra friction of a confirm step buys nothing here.
  */

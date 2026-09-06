@@ -1,5 +1,5 @@
 /**
- * The five emails Resend sends: verification, welcome and password reset (PLAN.md, v3.2
+ * The five emails Resend sends: verification, welcome and password reset (v3.2
  * point 8), the purchase thank-you added with the checkout's own flow, and the plan-change
  * notice that is its counterpart for a plan going away. Each returns `{ subject, html, text }`
  * — plain data, no `sendEmail` call inside — so the flows that own the actual send
@@ -137,7 +137,7 @@ ${APP_NAME} — ${APP_PAYOFF}`
 
 /**
  * `planClause` only while `SONGBOOK_PLANS=on` — the mandatory plan-choice gate
- * (`(home)/page.tsx`, PLAN.md v3.7) only actually redirects anyone when that flag is on, so a
+ * (`(home)/page.tsx`, v3.7) only actually redirects anyone when that flag is on, so a
  * reader who signs up while it is off would open the app straight to their songbooks and find
  * this email had promised a screen that never came. Read fresh per send rather than baked in
  * at build time, the same reason every other plan-aware reader of this flag is.

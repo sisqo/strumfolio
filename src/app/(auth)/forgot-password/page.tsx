@@ -8,7 +8,7 @@ import { ForgotPasswordForm } from '@/components/ForgotPasswordForm'
 export const metadata: Metadata = { title: 'Forgot password' }
 
 /**
- * Requesting a password reset link (v3.2, PLAN.md point 6) — same shell as `/login` and
+ * Requesting a password reset link (v3.2) — same shell as `/login` and
  * `/register`: the lockup, `.login-card`, one form.
  */
 export default function ForgotPasswordPage() {

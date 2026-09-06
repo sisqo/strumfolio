@@ -1,7 +1,7 @@
 'use server'
 
 /**
- * Turning a pending registration into a real account (v3.2, PLAN.md point 5) — the one
+ * Turning a pending registration into a real account (v3.2) — the one
  * write in the whole `/verify` flow, and deliberately not something a page load can
  * trigger on its own. Corporate email scanners routinely "click" every link in a message
  * before a person ever sees it, to check where it goes; if that GET consumed the token,
@@ -44,8 +44,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
   /*
    * Carries `firstName`/`lastName`/`newsletterOptIn` back out alongside the plain
    * ok/not-ok this used to be — `provisionAccount` below needs them, and the row they
-   * come from is deleted before this transaction ever returns (PLAN-account-name.md
-   * point 4, PLAN-newsletter.md point 5).
+   * come from is deleted before this transaction ever returns.
    */
   let result:
     | { ok: true; firstName: string | null; lastName: string | null; newsletterOptIn: boolean }
@@ -99,7 +98,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
    * > 0` check, which is what makes it a no-op for an address that already has an account,
    * would have swallowed this admission whole had a row been sitting there. That is also
    * the boolean the welcome email below is gated on. This is "identical to every other
-   * admission path" (PLAN.md's own words for this step) for exactly that reason: nobody
+   * admission path" for exactly that reason: nobody
    * else pre-creates the row it is there to create.
    *
    * `firstName`/`lastName` can be null here only for a registration that was already
@@ -121,8 +120,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
   // call is the one that creates it — a concurrent sign-in on the same address (Google,
   // racing this same verification) could win that insert first, or the insert itself
   // could fail and be caught inside `provisionAccount`. Either way `created` is false, and
-  // there is nothing to welcome anyone to (PLAN.md point 7: never on an idempotent or
-  // failed call).
+  // there is nothing to welcome anyone to: never on an idempotent or failed call.
   if (created) {
     await sendEmail({ to: normalized, ...welcomeEmail() })
     // `auth.ts`'s own `signIn` callback fires this same event for a Google admission — this

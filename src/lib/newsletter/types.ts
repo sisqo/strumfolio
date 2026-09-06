@@ -1,6 +1,6 @@
 /**
- * The two cadences a subscribed reader can choose between (`PLAN-newsletter.md`,
- * decided in interview). Plain string union, not a pgEnum/CHECK — same convention
+ * The two cadences a subscribed reader can choose between. Plain string union, not
+ * a pgEnum/CHECK — same convention
  * `newsletterPrefs.frequency` itself already follows.
  */
 export type NewsletterFrequency = 'weekly' | 'monthly'

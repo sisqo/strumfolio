@@ -323,8 +323,8 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
       /*
        * The freeze deliberately does not reach these three. Leading a Strum Together,
        * printing a booklet and picking an instrument are not changes to the repertoire, and
-       * the freeze is a rule about the repertoire — the same line `PLAN.md` (v2.1) draws
-       * under "Le preferenze non sono modifiche", extended to its end: that passage lists
+       * the freeze is a rule about the repertoire — the same line v2.1 drew
+       * under "Le preferenze non sono modifiche", extended to its end: that rule lists
        * the reader's five display choices (transposition, capo, scroll speed, text size,
        * notation) and these three are not in it, but they are the same kind of thing — what
        * one person does with the songs on their own screen, or on a stage, leaving every row

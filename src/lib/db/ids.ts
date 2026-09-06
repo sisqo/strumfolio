@@ -4,7 +4,7 @@
  * Inside the database a row is identified by an integer; at the edges it is identified by
  * an address or a slug — a session cookie carries an email, `/songs/[slug]` carries a slug,
  * a `.chopro` in `content/` has nothing but a slug, and an offline write queued in a
- * browser last week names both. `PLAN-numeric-ids.md` argues that division at length; this
+ * browser last week names both. `CLAUDE.md` argues that division at length; this
  * module is the seam it implies, and the reason there is exactly one of it.
  *
  * Each of these renders a scalar subquery, so a caller pays no round trip and writes no

@@ -1,7 +1,7 @@
 /**
  * Payment history, read and written through `paddle_events` — the same table a real Paddle
- * webhook will one day fill, not a second one built just for the mock. See
- * `PLAN.md` (v3.6): the point of sharing the table is that the day the real webhook lands,
+ * webhook will one day fill, not a second one built just for the mock.
+ * The point of sharing the table is that the day the real webhook lands,
  * the user's and the operator's history screens need no new read path at all.
  *
  * `logMockEvent` is the only writer today, called from `checkout.ts`'s mutation functions.

@@ -8,8 +8,7 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * Sends a password-reset email instead of setting the password directly (`PasswordForm`
- * beside it) — for when the admin would rather the account holder choose their own
- * (`PLAN-account-admin.md`, point 9).
+ * beside it) — for when the admin would rather the account holder choose their own.
  */
 export function SendResetEmailButton({ ownerEmail }: { ownerEmail: string }) {
   const online = useOnline()

@@ -12,7 +12,7 @@ import { avatarInitials } from '@/lib/avatar'
  * else). Without this, an owner testing inside a customer's account sees their own email
  * in `UserMenu` sitting right beside that customer's plan badge and repertoire, with
  * nothing on screen saying whose it actually is — and, before this component doubled as
- * an exit control (PLAN-viewing-as-exit.md), no faster way back than navigating to
+ * an exit control, no faster way back than navigating to
  * `/accounts/<own email>` and clicking "Enter as this account" there again.
  *
  * `SwitchAccountButton` does the actual switch — this only supplies the target (the

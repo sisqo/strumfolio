@@ -1,5 +1,5 @@
 /**
- * The read-only half of `/verify` (v3.2, PLAN.md point 5) — whether a pending
+ * The read-only half of `/verify` (v3.2) — whether a pending
  * registration's token still checks out, with nothing written.
  *
  * Kept out of `verify/actions.ts` on purpose, and with no `'use server'` directive: this

@@ -9,9 +9,9 @@ import { useOnline } from '@/lib/useOnline'
 
 /**
  * Creates the account for a stuck pending registration immediately, bypassing the
- * verification link entirely (`PLAN-account-admin.md`, point 11) — the case: an expired
+ * verification link entirely — the case: an expired
  * link, a spam filter, an email that never arrived. Lives inline in the "Pending
- * registrations" row on `/accounts`, not on a detail page of its own (Decision #8).
+ * registrations" row on `/accounts`, not on a detail page of its own.
  *
  * Accepted risk, stated once here because no code path can check it: creates a real,
  * immediately-usable account for an address that never proved control of its own inbox.
