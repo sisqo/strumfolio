@@ -8983,9 +8983,12 @@
     width: min(19rem, calc(100vw - 2rem));
   }
 
-  /* One step of Strum Together's "how it works", not a real ordered list: the
-     numbering is said with a badge instead of a marker so it can sit beside
-     the text rather than indenting it. */
+  /* One numbered step of a "how it works" inside the menu panel — Strum Together's
+     two, and the home-screen instructions in `InstallPanel` — not a real ordered
+     list: the numbering is said with a badge instead of a marker so it can sit
+     beside the text rather than indenting it. Shared rather than copied under a
+     second name, since what both need is the same arrangement; the class keeps
+     Strum Together's name because that is where it was written. */
   .sing-steps {
     display: flex;
     flex-direction: column;

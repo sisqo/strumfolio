@@ -5,9 +5,11 @@ import { useEffect, useState } from 'react'
 
 import { AdminPanel, isAdminSection } from '@/components/AdminPanel'
 import { useFeedback } from '@/components/FeedbackProvider'
+import { InstallPanel } from '@/components/InstallPanel'
 import { useRole } from '@/components/RoleProvider'
 import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
 import {
+  IconAddToHome,
   IconBroadcast,
   IconChevronLeft,
   IconChevronRight,
@@ -22,6 +24,7 @@ import {
   IconTuningFork,
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
+import { useInstallOffer } from '@/lib/install/useInstallOffer'
 
 /** The tuner, which is a separate app on its own domain. */
 const TUNER_URL = 'https://guitar.sisqo.dev'
@@ -34,7 +37,9 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * the panel every entry carries its label, which the icon-only row on a phone
  * could not.
  *
- * **Admin is the one entry that depends on who is asking**, and it is the first one:
+ * **Admin is the one entry that depends on who is asking**, and it is the first one (the
+ * home-screen row near the bottom is conditional too, but on the browser rather than on
+ * the reader, which is not the same test):
  * everything about running the installation lives behind it, offered to a global owner
  * and simply absent for everybody else. It used to be a shield of its own in the header
  * — the reasoning being that "an opener that is either there or not" beats "a panel with
@@ -45,12 +50,15 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * role (v3.1) every signed-in reader is admin on their own account, so it is false only
  * before the answer arrives.
  *
- * Strum Together and Admin are both second screens inside this same panel rather than
- * pages of their own: Strum Together is reached mid-song, where a real navigation would
- * cost the reader the page they were reading to get there and again to get back, and
- * Admin is a list of six links that would otherwise need a screen to hold six links.
+ * Strum Together, Admin and the home-screen instructions are all second screens inside
+ * this same panel rather than pages of their own: Strum Together is reached mid-song, where
+ * a real navigation would cost the reader the page they were reading to get there and again
+ * to get back; Admin is a list of six links that would otherwise need a screen to hold six
+ * links; and «how to add this to your home screen» is three sentences that would be absurd
+ * as a page, quite apart from being unreachable on the one browser that needs them most —
+ * see `useInstallOffer` for what that row does when the browser can install by itself.
  * `view` resets to `main` on every close, so the panel always opens where it left off
- * closing — at the top, not wherever either of them happened to leave it.
+ * closing — at the top, not wherever any of them happened to leave it.
  * `StrumTogetherPanel` owns its own screen — whether a broadcast is already running, the
  * QR, start and stop — shared with the reading bar's own toggle so the two can never
  * disagree about the same broadcast; see `StrumTogetherProvider`'s own comment for why that
@@ -58,9 +66,10 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  */
 export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'main' | 'strum-together' | 'admin'>('main')
+  const [view, setView] = useState<'main' | 'strum-together' | 'admin' | 'install'>('main')
   const { mayEdit, isGlobalOwner } = useRole()
   const { open: openFeedback } = useFeedback()
+  const { mode: installMode, install } = useInstallOffer()
 
   const close = () => {
     setOpen(false)
@@ -78,6 +87,19 @@ export function NavMenu({ current }: { current: Section }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, view])
+
+  /*
+   * The install screen is the one view whose reason to exist can disappear while it is
+   * open, and it has to be walked back rather than left standing: a reader on Android
+   * follows its instructions in the browser's own menu, `appinstalled` fires in this very
+   * tab, and the offer becomes `null` — leaving this panel open on a screen whose only
+   * child no longer renders, which is an empty bordered box. Back to the menu instead,
+   * which is also the right answer if a native prompt turns up late and makes the
+   * instructions the wrong thing to be reading.
+   */
+  useEffect(() => {
+    if (view === 'install' && (installMode === null || installMode === 'prompt')) setView('main')
+  }, [view, installMode])
 
   const item = (section: Section) => (section === current ? 'menu-item is-on' : 'menu-item')
 
@@ -102,7 +124,10 @@ export function NavMenu({ current }: { current: Section }) {
           {/* Catches the tap that means "never mind". */}
           <div className="menu-overlay" onClick={close} aria-hidden />
 
-          <div className={view === 'strum-together' ? 'menu-panel is-wide' : 'menu-panel'} role="menu">
+          <div
+            className={view === 'strum-together' || view === 'install' ? 'menu-panel is-wide' : 'menu-panel'}
+            role="menu"
+          >
             {view === 'strum-together' && (
               <>
                 {/*
@@ -145,6 +170,26 @@ export function NavMenu({ current }: { current: Section }) {
                 <div className="menu-divider" />
 
                 <AdminPanel current={current} onNavigate={close} />
+              </>
+            )}
+
+            {view === 'install' && installMode !== null && installMode !== 'prompt' && (
+              <>
+                {/* Same back row again — see Strum Together's comment. */}
+                <button
+                  type="button"
+                  className="menu-item w-full"
+                  role="menuitem"
+                  aria-label="Back to the menu"
+                  onClick={() => setView('main')}
+                >
+                  <IconChevronLeft size={17} />
+                  Add to home screen
+                </button>
+
+                <div className="menu-divider" />
+
+                <InstallPanel mode={installMode} />
               </>
             )}
 
@@ -256,6 +301,51 @@ export function NavMenu({ current }: { current: Section }) {
                 </a>
 
                 <div className="menu-divider" />
+
+                {/*
+                  * Beside Help and the feedback sheet because it is about the app itself
+                  * rather than about the songs in it, and first in that group because it is
+                  * the only one of the three that is an action. Absent entirely on a browser
+                  * that can do nothing about it and inside the installed app itself —
+                  * `installOffer` owns that decision and states the case for either/or over
+                  * a row that explains its own uselessness.
+                  *
+                  * **The two shapes are deliberately one row.** Where Chromium offers a real
+                  * install dialog the tap opens it and nothing else happens; everywhere else
+                  * the same tap opens the instructions. `close()` runs before `install()` and
+                  * without awaiting it, which matters: `prompt()` may only be called from a
+                  * user gesture, so nothing may be awaited before it — the panel closing is a
+                  * state update, not a wait, and the dialog it is handing over to covers the
+                  * screen anyway.
+                  */}
+                {installMode === 'prompt' ? (
+                  <button
+                    type="button"
+                    className="menu-item w-full"
+                    role="menuitem"
+                    onClick={() => {
+                      close()
+                      void install()
+                    }}
+                  >
+                    <IconAddToHome size={17} />
+                    Add to home screen
+                  </button>
+                ) : (
+                  installMode !== null && (
+                    <button
+                      type="button"
+                      className="menu-item w-full"
+                      role="menuitem"
+                      aria-label="Add to home screen, opens the instructions for this phone"
+                      onClick={() => setView('install')}
+                    >
+                      <IconAddToHome size={17} />
+                      Add to home screen
+                      <IconChevronRight size={15} className="ms-auto" />
+                    </button>
+                  )
+                )}
 
                 <Link href="/help" className={item('help')} role="menuitem" onClick={close}>
                   <IconInfo size={17} />

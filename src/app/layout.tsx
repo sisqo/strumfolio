@@ -8,6 +8,7 @@ import { OfflineSync } from '@/components/OfflineSync'
 import { RoleProvider } from '@/components/RoleProvider'
 import { StrumTogetherProvider } from '@/components/StrumTogetherProvider'
 import { APP_NAME, APP_PAYOFF, SITE_URL } from '@/lib/brand'
+import { installCaptureScript } from '@/lib/install/prompt'
 import { LAUNCH_SCREENS, launchMedia, launchUrl } from '@/lib/launchScreens'
 import { STATUS_BAR_ID, THEME_KEY } from '@/lib/theme'
 
@@ -174,6 +175,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${sans.variable} ${mono.variable} antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+
+        {/*
+          * Catches the one-shot `beforeinstallprompt` for the menu's "Add to home screen"
+          * row, which may be dispatched before React has hydrated — see
+          * `lib/install/prompt.ts` for why that means it cannot be a listener in an effect,
+          * and `lib/install/offer.ts` for what is offered on the platforms that never fire
+          * it. Beside `themeScript` for the same structural reason it is inline: both do
+          * something the bundle would arrive too late for.
+          */}
+        <script dangerouslySetInnerHTML={{ __html: installCaptureScript }} />
 
         {/*
           * Here rather than in each page: one answer about who is looking, asked once and

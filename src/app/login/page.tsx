@@ -309,7 +309,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to install an app, or does it work in the browser?',
-        a: 'Neither an app store nor an install step is required — just open Strumfolio on your phone like any regular app, straight from the browser.',
+        a: 'Neither an app store nor an install step is required — just open Strumfolio on your phone like any regular app, straight from the browser. If you want it to have its own icon, the menu has an Add to home screen entry: one tap on Android, and on an iPhone it shows the two taps Safari needs.',
       },
       {
         q: 'What happens if I lose internet connection while playing?',

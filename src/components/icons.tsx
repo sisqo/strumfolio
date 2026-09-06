@@ -590,6 +590,34 @@ export function IconLeads(props: IconProps) {
   )
 }
 
+/** On the home screen: a phone, with a plus where the app is about to go. */
+export function IconAddToHome(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="2" width="14" height="20" rx="2.5" />
+      <path d="M12 8.5v7" />
+      <path d="M8.5 12h7" />
+    </Icon>
+  )
+}
+
+/**
+ * iOS' own Share glyph — a box with an arrow leaving the top of it.
+ *
+ * Drawn here rather than screenshotted into `public/`, for the reason this file opens
+ * with, and because it is the thing a reader is actually hunting for on their own screen:
+ * the instruction «tap Share» is a great deal easier to follow with the shape beside it.
+ */
+export function IconIosShare(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5v10" />
+      <path d="m8.5 7 3.5-3.5L15.5 7" />
+      <path d="M7.5 10.5H6.5A1.5 1.5 0 0 0 5 12v7.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-1" />
+    </Icon>
+  )
+}
+
 /** Every screen, in sync: two devices held the same way. */
 export function IconDevices(props: IconProps) {
   return (

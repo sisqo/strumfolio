@@ -330,3 +330,21 @@ replacing DM Sans as of August 2026).
 
 Chromium here is a snap and cannot write into `/tmp/claude-*` — pass `--screenshot=` a path
 under `$HOME` (e.g. `~/songbook-shots`) if a visual comparison is needed.
+
+## Adding the app to the home screen
+
+The hamburger's "Add to home screen" row (`src/lib/install/`, `InstallPanel.tsx`) is one row
+with two behaviours, and three facts about it are easy to break from far away:
+
+- **Three surfaces say this out loud and must agree**: the row itself, `/help` §7, and
+  `/login`'s public FAQ answer on installing. Change one and the other two are wrong — the
+  same rule the booklet's own override already lives under.
+- **`beforeinstallprompt` is captured by an inline script in `app/layout.tsx`**, not by a
+  listener in an effect: it fires once, and on a warm cache it fires before React hydrates,
+  so an effect misses it exactly on the fastest loads. Its `preventDefault()` is required —
+  without it Chromium adds its own install infobar beside our row. That call now runs on
+  every page, landing pages included, so **Chromium's automatic infobar is suppressed
+  site-wide**; the browser's own ⋮ → "Install app" and the desktop omnibox icon still work.
+- **`/login` and `PublicHeader` have no hamburger**, so a first-time visitor cannot reach
+  the row from the landing page — the surface where the decision is actually made. Known
+  gap, deliberately not filled.

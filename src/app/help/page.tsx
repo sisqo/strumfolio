@@ -141,9 +141,14 @@ export default function HelpPage() {
           <h2 id="offline">7. Offline and on your phone</h2>
           <p>
             Once a song is saved, it stays available with no connection at all — open it on stage or
-            anywhere else with no signal, and it&apos;s there. No app store or install step either:
-            open the site on your phone once, and from then on it behaves like any other app on the
-            home screen.
+            anywhere else with no signal, and it&apos;s there. There&apos;s no app store and nothing
+            to download: it&apos;s a website that behaves like an app.
+          </p>
+          <p>
+            To give it its own icon, open the menu and tap <strong>Add to home screen</strong>. On
+            Android most browsers do it in one tap; on an iPhone or iPad the same entry spells out
+            the two taps Safari needs, since iOS gives no button anyone else can press. Either way
+            it then opens full screen, with no browser bars around the song.
           </p>
 
           <h2 id="account">8. Your account</h2>
