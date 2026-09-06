@@ -167,10 +167,17 @@ row with a wrong timestamp skips a migration silently and forever:
 psql "$(~/.config/strumfolio/prod-url)" -c 'select created_at from drizzle.__drizzle_migrations order by 1'
 ```
 
-must line up one-for-one with the `when` values in `drizzle/meta/_journal.json`. Verified
-2026-09-06: 41 rows, identical and monotonic, and `db:migrate` against production ran clean
-as a no-op. That proves the connection and the alignment — **not** the write path: no
-migration has actually been applied to production from this CLI yet.
+must line up one-for-one with the `when` values in `drizzle/meta/_journal.json`.
+
+**The write path works, and has been used** — `0041_id_first` was applied to production from
+this CLI on 2026-09-06 with the command above, taking the journal from 41 rows to 42, still
+identical and monotonic. So the injection trick is proven end to end, not just for a
+read-only no-op. Two measurements worth keeping: `db:migrate` against production took **~18
+seconds** for a 200-statement migration and the rehearsal ~20, almost all of it round-trip
+latency to `us-east-1` rather than work — a migration that rebuilds tables therefore holds
+its locks for that long, not for the sub-second the row counts suggest. And rehearsing it
+first cost nothing: `BEGIN; \i drizzle/00xx.sql; …checks…; ROLLBACK;` runs the real file
+against the real data and leaves the database exactly as it was.
 
 Two negative facts worth not re-deriving: `vercel env pull --environment=production` exits 0
 and looks like a success but writes `[SENSITIVE]` in place of all 16 secrets (test with
