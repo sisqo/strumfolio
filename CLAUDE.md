@@ -1,8 +1,12 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository. See also
-`/home/user/git/CLAUDE.md` for cross-project conventions (new-project setup, DNS on
-`sisqo.dev`, the GitHub/Vercel `sisqo` account) — they apply here too.
+Guidance for Claude Code (claude.ai/code) when working in this repository. Setting up a
+*new* sisqo project is the user-level `create-new-project` skill (`/create-new-project
+<name>`), not a document — it owns the `gh`/`vercel` steps, the domain alias and every trap.
+The conventions that matter *here* are stated in the sections below rather than borrowed:
+the GitHub account is `sisqo`, the Vercel team scope is `sisqoz` (different strings — that
+catches people), and `strumfolio.com` is a real domain on the Vercel registrar, not a
+`sisqo.dev` subdomain.
 
 ## What this is
 
