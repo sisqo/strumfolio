@@ -92,13 +92,49 @@ export function useAutoScroll(speedStep: number) {
     setRunning(false)
   }, [])
 
-  const start = useCallback(() => {
-    setRunning(true)
+  /**
+   * Starting a song that is already sitting at its end begins it again from the top.
+   *
+   * Without this, play is a **dead button** for the rest of the song's life: the loop
+   * stops at the bottom, which is right, and every press after that lights the button for
+   * one frame, finds nothing to scroll, and puts it out again. Nothing on the screen says
+   * why, and the only way back is to scroll the whole song up by hand — with an
+   * instrument in your hands, on the one screen where that is hardest. It is also the
+   * shape a reader is most likely to meet, because they arrive at the bottom by having
+   * played the song through: the first press works, and every press afterwards looks
+   * broken.
+   *
+   * So «play» on a finished song means what it means on every other player — begin it
+   * again — rather than nothing at all. `room > 0` keeps this away from the case the loop
+   * itself now handles: a song that fits the screen has no end to be at, and nothing to
+   * rewind.
+   *
+   * `instant` rather than a smooth glide, like the two other programmatic scrolls in this
+   * app (`useRowDrag`, `ArrangeSongbook`): a smooth scroll would still be animating while
+   * the loop starts scrolling underneath it, and the two would fight.
+   */
+  const rewindIfEnded = useCallback(() => {
+    const page = document.documentElement
+    const room = page.scrollHeight - page.clientHeight
+    /* A pixel of slack: `scrollY` is fractional under a zoom or a scaled display, so it
+       can rest a hair short of `room` at a bottom the browser considers reached. */
+    if (room > 0 && window.scrollY >= room - 1) window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
+  const start = useCallback(() => {
+    rewindIfEnded()
+    setRunning(true)
+  }, [rewindIfEnded])
+
   const toggle = useCallback(() => {
-    setRunning((current) => !current)
-  }, [])
+    if (running) {
+      setRunning(false)
+      return
+    }
+
+    rewindIfEnded()
+    setRunning(true)
+  }, [running, rewindIfEnded])
 
   /**
    * The wake lock, on `running` alone and no longer inside the loop's own effect.
