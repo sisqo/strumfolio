@@ -47,8 +47,9 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/reset-password', indexable: false },
 
   /*
-   * The free tools: small single-purpose pages that do their whole job in the browser, before
-   * anybody signs in. They are the reason somebody arrives, so they are indexed.
+   * The free pages under `/tools`: four small single-purpose tools that do their whole job in
+   * the browser, and two chord charts that simply are the answer. Either way nobody signs in
+   * first, they are the reason somebody arrives, so they are indexed.
    *
    * **A new tool needs a line here and will not work without one.** These are exact matches
    * rather than a `/tools/` prefix on purpose — one entry gives both the guard and the
@@ -60,8 +61,14 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/tools/chord-transposer', indexable: true },
   { path: '/tools/capo-calculator', indexable: true },
   { path: '/tools/setlist-length-calculator', indexable: true },
+  /* The two chord charts. Reference documents rather than tools — nothing to type into and
+   * nothing computed for you — and two paths rather than one page with a switch, because a
+   * guitarist and a ukulele player arrive from different searches and each needs a URL that
+   * stays what it was when they sent it to somebody. */
+  { path: '/tools/guitar-chords', indexable: true },
+  { path: '/tools/ukulele-chords', indexable: true },
   /* The index itself. It was a redirect to the only tool that existed while that was true;
-   * with four of them it is a page that lists them, so it is indexed like any other. */
+   * with six entries it is a page that lists them, so it is indexed like any other. */
   { path: '/tools', indexable: true },
 
   /* The four legal documents. Reachable by somebody with no session forever — a visitor

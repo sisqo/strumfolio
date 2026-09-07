@@ -9,7 +9,7 @@ import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
 const TITLE = 'Free tools for chords and setlists'
 
 const DESCRIPTION =
-  'Four small tools that do their whole job in your browser: convert a chord sheet to ChordPro, transpose it, find the capo, and time a set.'
+  'Six free pages that do their whole job in your browser: convert a sheet to ChordPro, transpose it, find the capo, time a set, look up any guitar or ukulele chord.'
 
 /** Full `openGraph` block, never inherited — see any tool page for why. */
 export const metadata: Metadata = {
@@ -33,6 +33,11 @@ export const metadata: Metadata = {
  * index listing one entry is a thin page and thin pages are worse than none. Four entries is
  * a page with something on it, so the redirect is gone and the entry in `publicRoutes.ts` is
  * `indexable` with it.
+ *
+ * The last two are the chord charts, and they are not tools: there is nothing to type into
+ * them and nothing is computed. They are here because this is where a visitor looks for a
+ * free page about chords, and they are two cards rather than one because a ukulele player
+ * scanning this list should see their own instrument named.
  *
  * Written out here rather than derived from `PUBLIC_ROUTES`: that list knows paths, and a card
  * needs a name and a sentence saying what the tool is for. Deriving one from the other would
@@ -59,6 +64,16 @@ const TOOLS = [
     name: 'Setlist length calculator',
     what: 'Find out how long the set really runs, gaps included, and what time you come off stage.',
   },
+  {
+    href: '/tools/guitar-chords',
+    name: 'Guitar chord chart',
+    what: 'Every chord on six strings, drawn as the shape a hand holds — with its fingering and its notes.',
+  },
+  {
+    href: '/tools/ukulele-chords',
+    name: 'Ukulele chord chart',
+    what: 'The same chords on four strings, where the easy ones and the hard ones swap places.',
+  },
 ]
 
 export default function ToolsIndexPage() {
@@ -71,8 +86,8 @@ export default function ToolsIndexPage() {
         <div className="site-hero-inner">
           <h1 className="site-hero-title">Tools</h1>
           <p className="site-hero-lede">
-            Four small tools for the arithmetic around a song. Each one does its whole job in your browser — no account,
-            no upload, nothing stored.
+            Six small pages for the work around a song: the arithmetic, and the chord you cannot remember the shape of.
+            Each does its whole job in your browser — no account, no upload, nothing stored.
           </p>
         </div>
       </div>
@@ -114,6 +129,11 @@ export default function ToolsIndexPage() {
               <Link href="/tools/setlist-length-calculator">the setlist calculator</Link>. Gaps included, because they
               are what makes a set overrun.
             </li>
+            <li>
+              <strong>You just want to see where the fingers go</strong> — the chord charts, for{' '}
+              <Link href="/tools/guitar-chords">guitar</Link> or <Link href="/tools/ukulele-chords">ukulele</Link>.
+              Every root, every chord type, one box each.
+            </li>
           </ul>
 
           <h2>Why these run in your browser</h2>
@@ -121,11 +141,12 @@ export default function ToolsIndexPage() {
             Because you have not signed in, may never sign in, and are holding a chord sheet you want dealt with now. A
             round trip to a server would buy you a spinner and cost us the reason you trusted the page — so{' '}
             <strong>the work happens on your own machine</strong>, and a song nobody has heard yet stays that way.
-            Nothing is uploaded, nothing is stored, and none of the four asks for an account.
+            Nothing is uploaded, nothing is stored, and none of the six asks for an account.
           </p>
           <p>
             They are also <strong>not simplified copies</strong> of what {APP_NAME} does. The converter runs the same
-            conversion the import screen runs; the capo calculator runs the same arithmetic the reading screen runs.
+            conversion the import screen runs; the capo calculator runs the same arithmetic the reading screen runs; the
+            chord charts draw the shapes the reading screen draws, from the same function.
             What the app adds is memory — the key this song sits in for your voice, the fret it lives on, kept per song
             across every device you open it on, and readable with no signal.
           </p>

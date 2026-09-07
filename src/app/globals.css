@@ -13629,10 +13629,10 @@
   }
 
   /* ---------------------------------------------------------------------------
-   * The index of tools: four cards, text only.
+   * The index of tools: six cards, text only.
    *
    * No pictures, unlike the blog's cards — a tool has nothing to photograph, and
-   * a made-up illustration on each would be four pictures of nothing. The name
+   * a made-up illustration on each would be six pictures of nothing. The name
    * and the sentence are the whole card.
    * ------------------------------------------------------------------------ */
 
@@ -13674,7 +13674,7 @@
     line-height: 1.6;
   }
 
-  /* Pushed to the bottom so the four cards agree on where their last line sits,
+  /* Pushed to the bottom so the cards agree on where their last line sits,
      whatever length the sentence above it ran to. */
   .tool-index-go {
     margin-top: auto;
@@ -13701,6 +13701,153 @@
     line-height: 1.4;
   }
 
+  /* ---------------------------------------------------------------------------
+   * The chord chart: two hundred and sixteen boxes, twelve sections deep.
+   *
+   * The one page here that is a *reference* rather than a tool — nothing to type
+   * into, nothing to compute — so it is laid out to be scanned and jumped around
+   * in rather than filled in. Two consequences the numbers below are chosen for:
+   * the diagram is far smaller than the one in the reading screen's popup, where
+   * a single chord has the whole dialog to itself, and the card is sized so that
+   * one row holds a whole family of chords on a laptop and two on a phone.
+   * ------------------------------------------------------------------------ */
+
+  /* The row of roots at the top. Pills rather than a list, because their job is
+     to be hit with a thumb on the page a phone opens this on. */
+  .chord-chart-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-top: 1px solid var(--blog-line);
+    padding-top: 1.25rem;
+  }
+
+  .chord-chart-jump-link {
+    border: 1px solid var(--blog-line);
+    border-radius: 999px;
+    background: var(--bg);
+    padding: 0.3125rem 0.75rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .chord-chart-jump-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .chord-chart-group {
+    margin-top: 2.5rem;
+    /* The jump links land here. Nothing on this page is sticky, so this is only
+       breathing room above the heading rather than clearance under a bar. */
+    scroll-margin-top: 1.5rem;
+  }
+
+  .chord-chart-root {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    border-bottom: 1px solid var(--blog-line);
+    padding-bottom: 0.5rem;
+    color: var(--ink);
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* The other name for the same note — `Bb` heading a section somebody arrived at
+     looking for `A#`. Quiet, and in prose weight: it is a sentence about the
+     heading, not a second heading. */
+  .chord-chart-root-alias {
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  .chord-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 0.75rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .chord-chart-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid var(--blog-line);
+    border-radius: 1rem;
+    background: var(--surface);
+    padding: 0.875rem 0.5rem 0.75rem;
+    text-align: center;
+  }
+
+  .chord-chart-name {
+    color: var(--ink);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Two lines are reserved whether or not the name needs them. «Seventh suspended
+     fourth» wraps at this width and «Major» does not, and without the reservation
+     one card in a row of six pushed its own diagram half a line below its
+     neighbours' — a row of boxes that no longer lines up is the one thing a chart
+     of boxes cannot afford. */
+  .chord-chart-label {
+    min-height: 2.7em;
+    margin-top: 0.125rem;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  /* Just over half the popup's height. `.chord-diagram` still carries the strokes
+     and the colours — this only resizes it, which is why both classes are on the
+     element and why the height is the only thing set: a ukulele box is four
+     strings wide where a guitar's is six, and fixing the height is what leaves
+     each in its own proportions.
+   *
+   * It cannot go much below this, and the reason is one number inside the SVG:
+   * the fret the window starts on is drawn at a fixed 13px in a viewBox 152 units
+   * tall, so it renders at whatever fraction of that this height is. At 4.5rem
+   * that was under seven pixels — and on a chart where a third of the shapes are
+   * up the neck, the fret they sit on is not decoration. */
+  .chord-chart-shape {
+    height: 6.5rem;
+    margin: 0.625rem auto 0;
+  }
+
+  /* Where a diagram would have been. Same height, so a card without a shape does
+     not collapse and leave its row uneven. */
+  .chord-chart-none {
+    display: flex;
+    align-items: center;
+    height: 6.5rem;
+    margin-top: 0.625rem;
+    color: var(--faint);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .chord-chart-fingering {
+    margin-top: 0.5rem;
+    color: var(--ink);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+  }
+
+  .chord-chart-notes {
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
   /* ---------------------------------------------------------------------------
    * The setlist calculator's answer: three numbers, then the per-song table.
    * ------------------------------------------------------------------------ */

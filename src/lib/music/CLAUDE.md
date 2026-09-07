@@ -16,6 +16,14 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   appears** — root and family after any shift — not to the token in the source.
 - **For chord shapes a Strum Together guest follows the capo rule, not the key rule**: their
   own choice stands, where the key is forced by the leader.
+- **Two public pages publish this whole table at once** — `/tools/guitar-chords` and
+  `/tools/ukulele-chords`, from `chordLibrary.ts`. Three consequences for anything changed
+  here. The chart draws `shapeFor`'s answer and nothing else, so retuning the search or the
+  ordering changes two hundred boxes on a page a search engine has indexed. `chordLibrary`'s
+  test asserts its published family list is **exactly** `FAMILIES`' keys, so a family added
+  here fails the suite until it is given a name in words there. And the pages are server
+  components on purpose: a full ukulele library is 216 searches of ~13k fingerings, free at
+  build time and a fifth of a second of blocked main thread in a browser.
 - **German and Nashville notation are output-only** and belong to the reader, not the song.
   German `[B]` is the international `Bb`, so letting it into parsing would make one token mean
   two different chords with nothing in the file to disambiguate — `readRoots` stays on Italian
