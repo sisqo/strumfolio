@@ -85,7 +85,7 @@ export interface GrantInput {
 
 /**
  * How long a reason may be. Enforced on the client as `maxLength` *and* in the action, the
- * same both-layers reasoning `DeleteAccountButton` gives about its retype: an attribute is a
+ * same both-layers reasoning `DeleteAccountRow` gives about its retype: an attribute is a
  * hint to a form, not a guarantee about a server action, which anything holding the session
  * cookie can call directly. Postgres will not refuse it either — `granted_note` is `text`,
  * with no length of its own — so this number is the only limit that exists.
@@ -116,7 +116,7 @@ export type GrantFailure =
   /**
    * `lifetime` with an end date. Storable, and `liveGrant` would faithfully expire it, which is
    * exactly the problem: every other screen reads "Lifetime" as *never ends*, so the row would
-   * make `giftLine` print the self-contradicting "Gift — Lifetime until 31 December 2026".
+   * make `giftHeadline` print the self-contradicting "Gift of Lifetime, active until 2026-12-31".
    */
   | 'lifetime-with-date'
   /** The audit is the whole point of `grantedNote`; an unexplained gift reads as a webhook bug. */

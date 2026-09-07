@@ -32,41 +32,66 @@ function describeEvent(line: PaymentHistoryLine): string {
  * `lib/plans/history.ts`), fed by two different, separately-authorized reads. No fetching
  * here: the caller already has its rows by the time this renders.
  *
- * `dates` is the one thing the two callers disagree about, and it is a real disagreement rather
- * than a preference. `/accounts` writes every date as an ISO day (`dayOf`, `accounts/read.ts`)
+ * `dates` and `look` are the two things the two callers disagree about, and both are real
+ * disagreements rather than preferences. `/accounts` writes every date as an ISO day (`dayOf`, `accounts/read.ts`)
  * because an operator reading a control panel is comparing and copying them; `/billing` writes
  * dates the way a reader would say them (`formatPlanDate`) — and this table sits directly under
  * the sentence that does, so «Standard, active until 22 September 2026» over a row dated
  * «2026-08-23» was two date formats a centimetre apart on one screen.
+ *
+ * `look` is the same shape of disagreement about the frame: `Account Detail.dc.html` draws this
+ * as a ledger — tracked uppercase headers a size down, the amount hung on the right edge, one
+ * hairline per row — inside a card that is already a size smaller than `/billing`'s. A prop
+ * rather than restyling in place, because this component is shared verbatim and «make the
+ * operator's table match its mock» must not silently redraw the customer's own billing page.
  */
 export function PaymentHistoryTable({
   lines,
   dates = 'iso',
+  look = 'billing',
 }: {
   lines: PaymentHistoryLine[]
   /** `iso` for the operator screen, `plain` for the customer's own — see above. */
   dates?: 'iso' | 'plain'
+  /** `ledger` for `/accounts/[email]`'s Payments tab, `billing` for the customer's own — see above. */
+  look?: 'billing' | 'ledger'
 }) {
   if (lines.length === 0) return <p className="text-sm text-muted">Nothing yet.</p>
 
+  const ledger = look === 'ledger'
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+      <table className={ledger ? 'acct-ledger' : 'w-full text-left text-sm'}>
         <thead>
-          <tr className="text-muted">
-            <th className="py-1.5 pr-3 font-normal">Date</th>
-            <th className="py-1.5 pr-3 font-normal">Event</th>
-            <th className="py-1.5 font-normal">Amount</th>
+          <tr className={ledger ? undefined : 'text-muted'}>
+            <th className={ledger ? undefined : 'py-1.5 pr-3 font-normal'}>Date</th>
+            <th className={ledger ? undefined : 'py-1.5 pr-3 font-normal'}>Event</th>
+            <th className={ledger ? undefined : 'py-1.5 font-normal'}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => (
-            <tr key={line.id} className="border-t" style={{ borderColor: 'var(--surface-2)' }}>
-              <td className="whitespace-nowrap py-1.5 pr-3">
+            <tr
+              key={line.id}
+              className={ledger ? undefined : 'border-t'}
+              style={ledger ? undefined : { borderColor: 'var(--surface-2)' }}
+            >
+              <td className={ledger ? undefined : 'whitespace-nowrap py-1.5 pr-3'}>
                 {dates === 'plain' ? formatPlanDate(line.occurredAt) : line.occurredAt.toISOString().slice(0, 10)}
               </td>
-              <td className="py-1.5 pr-3">{describeEvent(line)}</td>
-              <td className="whitespace-nowrap py-1.5">
+              <td className={ledger ? undefined : 'py-1.5 pr-3'}>{describeEvent(line)}</td>
+              {/* A row with no amount is a plan change, not money: the mock greys the whole
+                  cell, which is the one thing that tells the two kinds of row apart at a glance. */}
+              <td
+                className={
+                  ledger
+                    ? line.amount === null
+                      ? 'is-faint'
+                      : undefined
+                    : 'whitespace-nowrap py-1.5'
+                }
+              >
                 {/*
                   * The listino struck before the amount taken, and the code under it — the same
                   * "was, now" order the cards on /pricing use. Without this a reduced line reads
@@ -80,13 +105,13 @@ export function PaymentHistoryTable({
                 {line.fullAmount !== null && line.fullAmount !== line.amount && (
                   <>
                     <span className="sr-only">Was </span>
-                    <s className="mr-1 text-muted">{euro(line.fullAmount)}</s>
+                    <s className={ledger ? 'acct-ledger-was' : 'mr-1 text-muted'}>{euro(line.fullAmount)}</s>
                     <span className="sr-only">, now </span>
                   </>
                 )}
                 {line.amount !== null ? euro(line.amount) : '—'}
                 {line.couponCode !== null && (
-                  <span className="block text-[0.75rem] text-muted">
+                  <span className={ledger ? 'acct-ledger-coupon' : 'block text-[0.75rem] text-muted'}>
                     {line.couponCode}
                     {line.couponPercent !== null && ` −${line.couponPercent}%`}
                   </span>

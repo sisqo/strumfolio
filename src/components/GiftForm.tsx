@@ -3,11 +3,13 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { IconCheck, IconGift } from '@/components/icons'
 import { setGrant } from '@/lib/accounts/actions'
+import { giftDetail, giftHeadline } from '@/lib/accounts/planText'
 import { GRANT_MESSAGE, MAX_GRANT_NOTE } from '@/lib/accounts/types'
 import type { AccountPlanLine } from '@/lib/accounts/read'
 import type { GrantResult } from '@/lib/accounts/types'
-import { PLANS, PLAN_LABEL, PLAN_RANK, PLAN_VALUES, type Plan } from '@/lib/plans/types'
+import { PLAN_LABEL, PLAN_RANK, PLAN_VALUES, type Plan } from '@/lib/plans/types'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -20,15 +22,6 @@ import { useOnline } from '@/lib/useOnline'
  * action anything holding the session cookie can call.
  */
 const GIVEABLE = PLAN_VALUES.filter((plan) => plan !== 'free')
-
-/** One line under each plan card, so choosing one says what it actually grants, not just its name. */
-function planBlurb(plan: Plan): string {
-  const limits = PLANS[plan]
-  const songs = limits.songs === null ? 'Unlimited songs' : `${limits.songs} songs`
-  const devices =
-    limits.devices >= PLANS.premium.devices ? 'unlimited devices' : `${limits.devices} device${limits.devices === 1 ? '' : 's'}`
-  return `${songs}, Strum Together up to ${devices}.`
-}
 
 /** `YYYY-MM-DD` for `months` from today — what a duration preset writes into the date field. */
 function inMonths(months: number): string {
@@ -54,19 +47,23 @@ const DURATION_PRESETS: DurationPreset[] = [
 const NOTE_CHIPS = ['Refund', 'Positive review', 'Friend or family', 'Beta tester']
 
 /**
- * The write half of the plan section on `/accounts/[email]` — giving an account a plan by
- * hand, or taking the gift back. The four read-only sentences beside it (subscription, gift,
- * audit, in force) are rendered directly by the detail page from `lib/accounts/planText.ts`;
- * this component only ever submits.
+ * The gift half of `/accounts/[email]`'s Plan & gift tab: what is written down now, and the
+ * form that changes it.
  *
- * Always visible, unlike the old `AccountPlanButton` this replaces (v3.8):
- * the detail page is already the explicit choice to look at one account, so there is no "most
- * rows are never opened" cost to avoid by hiding this behind a trigger.
+ * **Two blocks, one component** (`Account Detail.dc.html`). The mock separates the gift that
+ * exists — a strip carrying its own audit and a `Remove gift` on the right — from the card
+ * that edits it, and they cannot be two components: they share the error and confirmation
+ * notices, the single `router.refresh()` that makes the strip agree with what was just
+ * written, and the rule that removing a gift clears the reason field with it.
  *
- * Guided rather than free-entry: the plan
- * picker is cards instead of a `<select>`, and the date field gains duration-preset buttons.
- * Neither changes what gets submitted — `{plan, until, note}` is exactly the same shape as
- * before, and `validateGrant`/`setGrant` are untouched.
+ * The strip's two sentences come from `planText.ts` (`giftHeadline`, `giftDetail`) rather than
+ * being written here, for that module's own reason: they have to keep agreeing with what the
+ * list says about the same account. It reaches this client component because its only import
+ * of `read.ts` is a type, which compiles away.
+ *
+ * Guided rather than free-entry: the plan picker is chips instead of a `<select>`, and the date
+ * field gains duration-preset buttons. Neither changes what gets submitted — `{plan, until,
+ * note}` is exactly the same shape as before, and `validateGrant`/`setGrant` are untouched.
  */
 export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: AccountPlanLine }) {
   const router = useRouter()
@@ -80,8 +77,8 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
    * truth for what gets submitted.
    */
   // `'free'` is storable in `granted_plan` but not giveable, so it must not seed the picker: a
-  // `value` with no matching card would leave nothing selected while state still says `free`,
-  // and `Give` would then be refused for a plan nobody chose.
+  // `value` with no matching chip would leave nothing selected while state still says `free`,
+  // and saving would then be refused for a plan nobody chose.
   const [giving, setGiving] = useState<string>(
     plan.grantedPlan !== null && plan.grantedPlan !== 'free' ? plan.grantedPlan : 'premium',
   )
@@ -105,7 +102,8 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
    * Once a gift already exists, reopening this
    * form (say, to fix the note) must not offer a button that recomputes "1 year from now"
    * and silently prolongs it. An operator who genuinely wants to extend an existing gift
-   * types the new date by hand; the presets return once the gift is removed.
+   * types the new date by hand; the presets return once the gift is removed. This is also
+   * why the mock draws none: it is drawn in the gift-exists state.
    */
   const showPresets = plan.grantedPlan === null
 
@@ -115,9 +113,14 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
    * changes nothing. Said out loud here because the save otherwise succeeds in silence and
    * leaves an operator wondering whether it worked; not refused, because a gift below the
    * current subscription is a legitimate floor for when that subscription lapses.
+   *
+   * About the plan *selected right now*, which is what makes it this component's business and
+   * not `planText.ts`'s: `giftDetail` answers the same question about the gift already saved.
    */
-  const inert =
-    plan.subscriptionPlan !== null && PLAN_RANK[giving as Plan] <= PLAN_RANK[plan.subscriptionPlan]
+  const inert = plan.subscriptionPlan !== null && PLAN_RANK[giving as Plan] <= PLAN_RANK[plan.subscriptionPlan]
+
+  const headline = giftHeadline(plan)
+  const detail = giftDetail(plan)
 
   const run = async (action: () => Promise<GrantResult>, said: string, saved?: () => void) => {
     setBusy(true)
@@ -128,8 +131,8 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
       if (result.ok) {
         setDone(said)
         saved?.()
-        // The four sentences beside this form are server-rendered, so only a refresh can
-        // make them agree with what was just written.
+        // The strip above this form and the summary cells above the tabs are all
+        // server-rendered, so only a refresh can make them agree with what was just written.
         router.refresh()
       } else {
         setError(GRANT_MESSAGE[result.reason])
@@ -142,20 +145,53 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
   }
 
   return (
-    <div>
+    <>
       {error && (
-        <p className="notice notice-error mb-2.5" role="alert">
+        <p className="notice notice-error text-sm" role="alert">
           {error}
         </p>
       )}
       {done && (
-        <p className="notice notice-accent mb-2.5" role="status">
+        <p className="notice notice-accent text-sm" role="status">
           {done}
         </p>
       )}
 
+      {/* Absent only for an account nothing was ever gifted — there is no strip to draw about
+          a decision nobody has taken. A withdrawn gift still gets one: `giftDetail` carries
+          the audit of who took it away, which has nowhere else to go on this page. */}
+      {headline !== null && (
+        <div className="acct-row">
+          <span className="acct-row-lead" aria-hidden>
+            <IconGift size={17} />
+          </span>
+          <div className="acct-row-text">
+            <span className="acct-row-title">{headline}</span>
+            {detail !== null && <span className="acct-row-note">{detail}</span>}
+          </div>
+          {plan.grantedPlan !== null && (
+            <button
+              type="button"
+              className="acct-pill"
+              // No retype-to-confirm: that net is for the irreversible cascades, which destroy
+              // songs. A gift is three fields and fifteen seconds to re-enter.
+              disabled={!online || busy}
+              /*
+               * The reason belonged to the gift that has just been taken away, so it is cleared
+               * with it: left in the field, it would be re-submitted as the reason for the *next*
+               * gift by anyone who saved afterwards. The date and the picker are left
+               * alone — they are a starting point, not a record of anything.
+               */
+              onClick={() => void run(() => setGrant(ownerEmail, null), 'Gift removed.', () => setNote(''))}
+            >
+              Remove gift
+            </button>
+          )}
+        </div>
+      )}
+
       <form
-        className="flex flex-col gap-3"
+        className="acct-card"
         onSubmit={(event) => {
           event.preventDefault()
           void run(
@@ -166,119 +202,114 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
           )
         }}
       >
-        <div role="radiogroup" aria-label="Plan to give" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {GIVEABLE.map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="radio"
-              aria-checked={giving === name}
-              onClick={() => setGiving(name)}
-              className={name === giving ? 'card border-accent p-2.5 text-left' : 'card p-2.5 text-left'}
-            >
-              <span className="block text-sm font-medium">{PLAN_LABEL[name]}</span>
-              <span className="mt-0.5 block text-[0.75rem] text-muted">{planBlurb(name)}</span>
-            </button>
-          ))}
-        </div>
+        <h3 className="acct-card-title">{plan.grantedPlan === null ? 'Give a plan' : 'Change the gift'}</h3>
 
-        {!endless && (
-          <div className="flex flex-wrap items-center gap-2">
-            {showPresets && (
-              <span className="segment" role="group" aria-label="Duration preset">
-                {DURATION_PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    className="segment-button"
-                    onClick={() => setUntil(preset.months === null ? '' : inMonths(preset.months))}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </span>
-            )}
-            <input
-              type="date"
-              value={until}
-              onChange={(event) => setUntil(event.target.value)}
-              aria-label="Gift ends on"
-              className="form-field"
-            />
-          </div>
-        )}
-
-        <div>
-          <div className="mb-1.5 flex flex-wrap gap-1.5">
-            {NOTE_CHIPS.map((chip) => (
+        <div className="acct-field-group">
+          <span className="acct-label">Plan</span>
+          <div role="radiogroup" aria-label="Plan to give" className="acct-plans">
+            {GIVEABLE.map((name) => (
               <button
-                key={chip}
+                key={name}
                 type="button"
-                className="badge plan-badge-unchosen"
-                onClick={() => note.trim() === '' && setNote(chip)}
+                role="radio"
+                aria-checked={giving === name}
+                onClick={() => setGiving(name)}
+                className={name === giving ? 'acct-plan-option is-on' : 'acct-plan-option'}
               >
-                {chip}
+                {PLAN_LABEL[name]}
+                {name === giving && <IconCheck size={14} />}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          {inert && plan.subscriptionPlan !== null && (
+            <p className="acct-status" role="status">
+              This account already pays for {PLAN_LABEL[plan.subscriptionPlan]}, so a gift of{' '}
+              {PLAN_LABEL[giving as Plan]} changes nothing while that subscription is live.
+            </p>
+          )}
+        </div>
+
+        <div className="acct-gift-grid">
+          <div>
+            <label className="acct-label" htmlFor="gift-ends-on">
+              Ends on
+            </label>
+            {endless ? (
+              <p className="acct-hint is-tall">Lifetime never ends, so there is no date to set.</p>
+            ) : (
+              <>
+                <input
+                  id="gift-ends-on"
+                  type="date"
+                  value={until}
+                  onChange={(event) => setUntil(event.target.value)}
+                  className="acct-field is-nums"
+                />
+                <p className="acct-hint">
+                  {showPresets ? 'Leave it empty for a gift that never ends.' : 'Type a new date to extend.'}
+                </p>
+              </>
+            )}
+          </div>
+          <div>
+            <label className="acct-label" htmlFor="gift-reason">
+              Reason
+            </label>
             <input
+              id="gift-reason"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Why — a refund, a review, a friend"
-              aria-label="Why this was given"
-              className="form-field min-w-0 flex-1"
+              className="acct-field"
               // The client half of a rule `setGrant` also enforces: an attribute is a hint to a
               // form, not a guarantee about a server action.
               maxLength={MAX_GRANT_NOTE}
             />
-
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              // Disabled while the reason is empty *and* refused server-side as `note-required`:
-              // both layers ask, for the reason `DeleteAccountButton` gives about its retype.
-              disabled={!online || busy || note.trim().length === 0}
-            >
-              Give
-            </button>
-            <button
-              type="button"
-              className="btn btn-quiet btn-sm"
-              // No retype-to-confirm: that net is for the irreversible cascades, which destroy
-              // songs. A gift is three fields and fifteen seconds to re-enter.
-              disabled={!online || busy || plan.grantedPlan === null}
-              /*
-               * The reason belonged to the gift that has just been taken away, so it is cleared
-               * with it: left in the field, it would be re-submitted as the reason for the *next*
-               * gift by anyone who pressed Give afterwards. The date and the picker are left
-               * alone — they are a starting point, not a record of anything.
-               */
-              onClick={() => void run(() => setGrant(ownerEmail, null), 'Gift removed.', () => setNote(''))}
-            >
-              Remove gift
-            </button>
+            <span className="acct-chips">
+              {NOTE_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="acct-chip"
+                  onClick={() => note.trim() === '' && setNote(chip)}
+                >
+                  {chip}
+                </button>
+              ))}
+            </span>
           </div>
         </div>
-      </form>
 
-      {inert && plan.subscriptionPlan !== null && (
-        <p className="notice notice-accent mt-2.5" role="status">
-          <span>
-            This account already pays for {PLAN_LABEL[plan.subscriptionPlan]}, so a gift of{' '}
-            {PLAN_LABEL[giving as Plan]} changes nothing while that subscription is live. It takes over only
-            once the subscription lapses.
+        {/* Below the two columns rather than under the date field they write into: the mock's
+            "Ends on" column is 168px, which five durations cannot sit on without wrapping into
+            a stack taller than the field itself. */}
+        {showPresets && !endless && (
+          <span className="acct-chips" role="group" aria-label="Duration preset">
+            {DURATION_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="acct-chip"
+                onClick={() => setUntil(preset.months === null ? '' : inMonths(preset.months))}
+              >
+                {preset.label}
+              </button>
+            ))}
           </span>
-        </p>
-      )}
+        )}
 
-      <p className="mt-2 text-[0.8125rem] text-muted">
-        {endless
-          ? 'Lifetime never ends, so there is no date to set.'
-          : showPresets
-            ? 'Leave the date empty for a gift that never ends.'
-            : 'A gift is already active: type the new date by hand to extend it — the duration buttons return once this gift is removed.'}
-      </p>
-    </div>
+        <div className="acct-actions is-end">
+          <button
+            type="submit"
+            className="acct-save"
+            // Disabled while the reason is empty *and* refused server-side as `note-required`:
+            // both layers ask, for the reason `DeleteAccountRow` gives about its retype.
+            disabled={!online || busy || note.trim().length === 0}
+          >
+            {plan.grantedPlan === null ? 'Give the gift' : 'Save the gift'}
+          </button>
+        </div>
+      </form>
+    </>
   )
 }

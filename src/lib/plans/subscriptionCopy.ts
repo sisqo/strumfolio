@@ -30,7 +30,7 @@ export function formatPlanDate(value: Date): string {
  * date: a failing card's `expiresAt` is virtually always already in the past (`grace` is
  * defined to ignore dates for exactly that reason, `entitlements.ts`), so printing it would
  * read as an already-lapsed plan instead of one still in force while payment retries — the
- * same reasoning `lib/accounts/planText.ts`'s own `subscriptionLine` already applies for the
+ * same reasoning `lib/accounts/planText.ts`'s own `subscriptionHeadline` already applies for the
  * operator screen, mirrored here for the customer-facing one.
  *
  * **`live` is a parameter and is never re-derived here**, for the reason this whole module

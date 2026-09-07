@@ -3,9 +3,20 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-- **`/accounts/[email]` is the admin surface** — one page, everything open. Newsletter is
+- **`/accounts/[email]` is the admin surface** — a read-only summary strip over four tabs
+  (`Account Detail.dc.html`): Plan & gift, Identity, Payments, Security. The tab is a URL
+  param (`?tab=`), not client state, which is what keeps the page a server component and the
+  «All N events» link a link; the strip above the tabs holds no control at all. Newsletter is
   **read-only** there (`loadNewsletterSummaryFor`); the name *is* admin-editable, while
   `/profile` is the reader's own self-service page for it.
+- **Every sentence about a plan lives in `planText.ts`**, the list's and the detail page's
+  alike — `rowStatus` is literally what the detail page's In force cell prints under its
+  badge. A second spelling of "what does this subscription say" on one of the two screens is
+  the drift that module exists to prevent.
+- **A read that failed renders «—», never a reassuring value.** `rateLimitStatusFor` answers
+  null and the Rate limit cell shows a dash rather than «Not hit»; the Status cell does the
+  same when `admin` is null. "Nothing is wrong" and "could not tell" are opposite answers on
+  the one screen built to be believed.
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`forceExpireNow(ownerEmail)` takes the address explicitly**, checking `isOwner` inside; it

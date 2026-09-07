@@ -1,8 +1,9 @@
 /**
  * Every sentence `/accounts` says about a plan, in one place — the list row's badge and
  * Status column (`rowStatus`, whose tone also decides the "Needs attention" tab), the
- * "Paying" tab's own predicate, and the detail page's four longer lines (subscription, gift,
- * audit, in force). Plain functions, no `'use server'`/`'use client'`: both the list
+ * "Paying" tab's own predicate, and the detail page's summary cells and strips
+ * (`giftCell`, `giftHeadline`, `giftDetail`, `subscriptionHeadline`). Plain functions, no
+ * `'use server'`/`'use client'`: both the list
  * (`app/accounts/page.tsx`) and the detail page (`app/accounts/[email]/page.tsx`), both
  * server components, import from here directly, and nothing here needs the database or a
  * browser API either.
@@ -14,7 +15,7 @@
  */
 
 import type { AccountPlanLine } from './read'
-import { PLAN_LABEL } from '@/lib/plans/types'
+import { PLAN_LABEL, PLAN_RANK } from '@/lib/plans/types'
 import type { Plan } from '@/lib/plans/types'
 
 /**
@@ -64,7 +65,7 @@ export function stillAwaitingChoice(line: AccountPlanLine): boolean {
 
 /**
  * A gift that was given and then taken away — `grantedPlan` back to null while `grantedBy`
- * still records who cleared it, the second of the two meanings `giftLine` has to tell apart
+ * still records who cleared it, the second of the two meanings `giftCell` has to tell apart
  * (`setGrant` writes the caller and the moment on the clear path too).
  *
  * A predicate of its own because the *list* could not see this state at all. Such a row ends up
@@ -141,7 +142,7 @@ export interface RowStatus {
  * everything that ever went slightly wrong.
  *
  * `grace` is checked before the `untilOn` branch and not inside it, and this has to agree with
- * `subscriptionLine` below: a failing card is virtually always already past period end (the whole reason
+ * `subscriptionHeadline` below: a failing card is virtually always already past period end (the whole reason
  * `liveSubscription` ignores dates for `grace`), so «Until 2026-06-30» on such a row would
  * read as lapsed and invite an operator to re-gift a plan the customer already holds.
  *
@@ -185,79 +186,119 @@ export function rowStatus(line: AccountPlanLine, signInCount: number): RowStatus
   return { text: `No end${pendingClause}`, tone: 'normal' }
 }
 
-/**
- * What the detail page says instead of the subscription/in-force pair when there is no plan.
- * Both of those sentences would name `free` — the column's default, not a decision anybody
- * made — and the second would go further and call it "in force", which is exactly backwards:
- * nothing is in force, and the account cannot even get past `/pricing`.
- */
-export const NO_PLAN_LINE =
-  'No plan chosen yet: this account is sent to the pricing page on sign-in and cannot use the app until it picks one.'
 
 /**
- * The subscription side as one sentence, for the detail page: what was bought and where it
- * stands.
+ * The Gift cell of the detail page's summary strip (`Account Detail.dc.html`) — the plan
+ * written down, and one clause about when it ends.
  *
- * Printed even when the gift is the side in force, because the alternative — show only the
- * winner — is unreadable as a control panel. A live premium gift under a live premium
- * subscription reports `source: 'subscription'` (the tie goes to the subscription,
- * `planStateFor`), and a winner-only page would tell the operator their gift was never saved.
- *
- * `line.plan`/`.status`/`.planExpiresOn` already come resolved (`listAccountPlans`/
- * `getAccountDetail`, through `resolveSubscription`), so a scheduled downgrade whose date has
- * passed reads here exactly as the account's own gate sees it — never the pre-change plan
- * against a date already gone by. `pendingPlan` is therefore only ever non-null *ahead* of
- * that date, which is exactly when the extra clause belongs.
+ * `plan` is null in the two cases there is no plan to name, and they are not the same
+ * sentence: never gifted, and gifted then withdrawn, told apart by `grantedBy` exactly as
+ * `giftWithdrawn` tells them apart for the list. A cell reading "No gift" over an account
+ * whose gift an operator took away last week is the one thing this cell must not say.
  */
-export function subscriptionLine(line: AccountPlanLine): string {
-  const label = PLAN_LABEL[line.plan]
-  if (line.status === 'expired') return `Subscription — ${label}, expired.`
-  // `grace` deliberately says nothing about the date: a failing card is virtually always
-  // already past period end, which is the whole reason `liveSubscription` ignores dates here.
-  if (line.status === 'grace') return `Subscription — ${label}, payment retrying.`
+export interface GiftCell {
+  plan: Plan | null
+  text: string
+}
 
-  const pendingClause = line.pendingPlan === null ? '' : `, then ${PLAN_LABEL[line.pendingPlan]}`
-  if (line.planExpiresOn === null) {
-    return line.plan === 'free' ? `Subscription — ${label}.` : `Subscription — ${label}, no end.`
+export function giftCell(line: AccountPlanLine): GiftCell {
+  if (line.grantedPlan === null) {
+    return { plan: null, text: line.grantedBy === null ? 'No gift' : 'Gift removed' }
   }
-  return `Subscription — ${label}, until ${line.planExpiresOn}${pendingClause}.`
+  if (line.grantedUntilOn === null) return { plan: line.grantedPlan, text: 'No end date' }
+  return {
+    plan: line.grantedPlan,
+    text: line.grantEnded ? `ended ${line.grantedUntilOn}` : `until ${line.grantedUntilOn}`,
+  }
 }
 
 /**
- * The gift side as one sentence, for the detail page.
+ * The gift strip's own heading on the detail page — what is written down and where it stands,
+ * in the mock's voice («Gift of Plus, active until 2026-12-31»), with no full stop: it is a
+ * heading over `giftDetail`, not a sentence in a paragraph the way the four lines this
+ * replaces were.
  *
- * `grantedPlan === null` has **two** meanings and they must not be printed the same way:
- * never gifted, and gifted then withdrawn — `grantedBy` is what tells them apart, because
- * `setGrant` records the caller and the moment on the clear path too. `grantEnded` is the
- * third case: a gift that is still written down but whose own date has passed, which must
- * never be printed as "no end".
- *
- * Every branch ends in a full stop, as `subscriptionLine`, `auditLine` and `inForceLine` all
- * now do: the four render as sibling paragraphs in one block on `/accounts/[email]`, and two of
- * them punctuating their sentences while two did not was visible as a mismatch on that screen
- * — this function was even inconsistent with itself, its "No gift." branch already carrying the
- * stop its "Gift — Premium, no end" ones lacked.
+ * Null — and only then — when nothing about a gift was ever recorded, which is the page's
+ * signal not to draw the strip at all. A *withdrawn* gift still gets a heading, because its
+ * `giftDetail` carries the audit of who took it away and when: that is the whole reason this
+ * does not simply key on `grantedPlan`.
  */
-export function giftLine(line: AccountPlanLine): string {
+export function giftHeadline(line: AccountPlanLine): string | null {
   if (line.grantedPlan === null) {
-    return line.grantedBy === null ? 'No gift.' : 'No gift: the last one was removed.'
+    return line.grantedBy === null ? null : 'No gift: the last one was removed'
   }
   const label = PLAN_LABEL[line.grantedPlan]
-  if (line.grantedUntilOn === null) return `Gift — ${label}, no end.`
-  if (line.grantEnded) return `Gift — ${label}, ended ${line.grantedUntilOn}.`
-  return `Gift — ${label} until ${line.grantedUntilOn}.`
+  if (line.grantedUntilOn === null) return `Gift of ${label}, with no end date`
+  if (line.grantEnded) return `Gift of ${label}, ended ${line.grantedUntilOn}`
+  return `Gift of ${label}, active until ${line.grantedUntilOn}`
 }
 
-/** Who decided, and when — the giving or the taking away, whichever the row last recorded. */
-export function auditLine(line: AccountPlanLine): string | null {
-  if (line.grantedBy === null || line.grantedOn === null) return null
-  const verb = line.grantedPlan === null ? 'Removed' : 'Given'
-  return `${verb} by ${line.grantedBy} on ${line.grantedOn}.`
+/**
+ * The live subscription that keeps this account's gift dormant, or null when nothing does.
+ *
+ * `>=`, not `>`: `planStateFor` gives a rank tie to the subscription deliberately, so a gift
+ * of the plan somebody already pays for changes nothing — which is exactly the case an
+ * operator needs told, since the save otherwise succeeds in silence.
+ *
+ * An *ended* gift is never reported as outranked. The clause this feeds says the gift "only
+ * takes over once the subscription lapses", and for a gift whose own date has passed that is
+ * false: it will never take over at all, which `giftHeadline` already says.
+ */
+export function outrankingSubscription(line: AccountPlanLine): Plan | null {
+  if (line.grantedPlan === null || line.subscriptionPlan === null || line.grantEnded) return null
+  return PLAN_RANK[line.subscriptionPlan] >= PLAN_RANK[line.grantedPlan] ? line.subscriptionPlan : null
 }
 
-/** Which of the two sides actually decides this account's limits right now. */
-export function inForceLine(line: AccountPlanLine): string {
-  if (line.effectivePlan === 'free') return `In force: ${PLAN_LABEL.free}.`
-  const side = line.source === 'grant' ? 'the gift' : 'the subscription'
-  return `In force: ${PLAN_LABEL[line.effectivePlan]}, from ${side}.`
+/**
+ * The gift strip's second line: who decided and why, then whether the gift is doing anything.
+ *
+ * The reason is folded into the audit sentence rather than printed under it — «Given by
+ * op@example.com on 2026-06-02 — “Positive review”.» — because they record one decision, not
+ * two. Replaces the old `auditLine`/`giftLine` pair, whose four sibling paragraphs the mock
+ * collapses into this strip.
+ *
+ * Null when there is genuinely nothing to add: a gift given with no note by nobody recorded
+ * (rows predating `granted_by`), on an account with no subscription to outrank it.
+ */
+export function giftDetail(line: AccountPlanLine): string | null {
+  const said: string[] = []
+
+  if (line.grantedBy !== null && line.grantedOn !== null) {
+    const verb = line.grantedPlan === null ? 'Removed' : 'Given'
+    const why = line.grantedNote === null ? '' : ` — “${line.grantedNote}”`
+    said.push(`${verb} by ${line.grantedBy} on ${line.grantedOn}${why}.`)
+  }
+
+  const outranked = outrankingSubscription(line)
+  if (outranked !== null) {
+    said.push(`${PLAN_LABEL[outranked]} outranks it, so it only takes over once the subscription lapses.`)
+  }
+
+  return said.length === 0 ? null : said.join(' ')
+}
+
+/**
+ * The subscription strip's heading — the paid side alone, never blended with the gift.
+ *
+ * Printed even when the gift is the side in force, for the reason the sentence it replaces
+ * («Subscription — Premium, until …») already gave: a page that shows only the winner tells an
+ * operator their gift was never saved. The summary's In force cell is what names the winner.
+ *
+ * `line.plan`/`.status`/`.planExpiresOn` arrive already resolved through `resolveSubscription`,
+ * so a scheduled downgrade whose date has passed reads here as the account's own gate sees it,
+ * and `pendingPlan` is non-null only ahead of that date — which is exactly when its clause
+ * belongs. The `free` branch is what an account that never bought anything would print; the
+ * detail page does not draw the strip at all for one, and says so where it decides.
+ */
+export function subscriptionHeadline(line: AccountPlanLine): string {
+  const label = PLAN_LABEL[line.plan]
+  if (line.plan === 'free') return 'No subscription'
+  if (line.status === 'expired') return `Subscription: ${label}, expired`
+  // `grace` deliberately says nothing about the date: a failing card is virtually always
+  // already past period end, which is the whole reason `liveSubscription` ignores dates here.
+  if (line.status === 'grace') return `Subscription: ${label}, payment retrying`
+
+  const pendingClause = line.pendingPlan === null ? '' : `, then ${PLAN_LABEL[line.pendingPlan]}`
+  if (line.planExpiresOn === null) return `Subscription: ${label}, no end`
+  return `Subscription: ${label} until ${line.planExpiresOn}${pendingClause}`
 }

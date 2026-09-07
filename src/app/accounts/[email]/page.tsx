@@ -4,42 +4,89 @@ import { notFound } from 'next/navigation'
 
 import { AccountNameForm } from '@/components/AccountNameForm'
 import { ChangeEmailForm } from '@/components/ChangeEmailForm'
-import { ClearRateLimitButton } from '@/components/ClearRateLimitButton'
-import { DeleteAccountButton } from '@/components/DeleteAccountButton'
+import { ClearRateLimitRow } from '@/components/ClearRateLimitRow'
+import { DeleteAccountRow } from '@/components/DeleteAccountRow'
 import { Footer } from '@/components/Footer'
-import { ForceExpireButton } from '@/components/ForceExpireButton'
+import { ForceExpireRow } from '@/components/ForceExpireRow'
 import { GiftForm } from '@/components/GiftForm'
-import { IconCheck } from '@/components/icons'
+import { IconCheck, IconGift } from '@/components/icons'
 import { InternalNoteForm } from '@/components/InternalNoteForm'
 import { PasswordForm } from '@/components/PasswordForm'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import { PrefsProvider } from '@/components/PrefsProvider'
-import { SendResetEmailButton } from '@/components/SendResetEmailButton'
-import { SuspendAccountButton } from '@/components/SuspendAccountButton'
+import { SendResetEmailRow } from '@/components/SendResetEmailRow'
+import { SuspendAccountRow } from '@/components/SuspendAccountRow'
 import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { TopBar } from '@/components/TopBar'
 import { loadAccountHistory } from '@/lib/accounts/actions'
-import { getAccountDetail, usageSummaryFor } from '@/lib/accounts/read'
-import {
-  NO_PLAN_LINE,
-  auditLine,
-  giftLine,
-  inForceLine,
-  noPlanYet,
-  planBadge,
-  stillAwaitingChoice,
-  subscriptionLine,
-} from '@/lib/accounts/planText'
+import { paymentSummary } from '@/lib/accounts/paymentSummary'
+import { giftCell, planBadge, rowStatus } from '@/lib/accounts/planText'
+import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/accounts/read'
+import { avatarInitials } from '@/lib/avatar'
 import { currentUser } from '@/lib/auth/session'
 import { loadNewsletterSummaryFor } from '@/lib/newsletter/actions'
+import { euro } from '@/lib/plans/prices'
+import { PLAN_LABEL } from '@/lib/plans/types'
 
 export const metadata: Metadata = { title: 'Account' }
 
 /** Rendered per request: which account this is, and whether it is the one already switched into, both depend on who is asking. */
 export const dynamic = 'force-dynamic'
 
+/**
+ * The four tabs the detail page's controls are dealt into (`Account Detail.dc.html`), where
+ * this used to be eight stacked fieldsets. Each is one question an operator opens the page
+ * with — what is this account entitled to, who are they, what did they pay, can they get in —
+ * and the summary strip above the tabs answers all four at once for the case where reading is
+ * all that was wanted.
+ */
+type Tab = 'plan' | 'identity' | 'payments' | 'security'
+
+const TABS: readonly Tab[] = ['plan', 'identity', 'payments', 'security']
+
+const TAB_LABEL: Record<Tab, string> = {
+  plan: 'Plan & gift',
+  identity: 'Identity',
+  payments: 'Payments',
+  security: 'Security',
+}
+
+/**
+ * How many ledger rows the Payments tab shows before offering the rest. The mock draws five
+ * under an «All 9 events» link; the link is a URL param and not a client toggle, which is what
+ * keeps `PaymentHistoryTable` — shared verbatim with the reader's own `/billing` — a server
+ * component.
+ */
+const EVENTS_PREVIEW = 5
+
+interface Query {
+  tab: Tab
+  events: 'preview' | 'all'
+}
+
+/** An unrecognised or absent param always falls back to the least surprising default, never to an error — the same rule `/accounts` reads its four params by. */
+function readQuery(raw: { tab?: string; events?: string }): Query {
+  return {
+    tab: TABS.includes(raw.tab as Tab) ? (raw.tab as Tab) : 'plan',
+    events: raw.events === 'all' ? 'all' : 'preview',
+  }
+}
+
+/** The href for a link that changes part of the page's state and keeps the rest — the tabs and the «All N events» link are both built from it, so neither can drop what the other set. */
+function hrefFor(address: string, query: Query, overrides: Partial<Query>): string {
+  const merged = { ...query, ...overrides }
+  const params = new URLSearchParams()
+  if (merged.tab !== 'plan') params.set('tab', merged.tab)
+  if (merged.events !== 'preview') params.set('events', merged.events)
+
+  const search = params.toString()
+  const base = `/accounts/${encodeURIComponent(address)}`
+  return search === '' ? base : `${base}?${search}`
+}
+
 interface Props {
   params: Promise<{ email: string }>
+  searchParams: Promise<{ tab?: string; events?: string }>
 }
 
 /**
@@ -72,21 +119,32 @@ function readEmailParam(raw: string): string | null {
   }
 }
 
+/** «42 sign-ins», or the one honest sentence for an account that has never had any. */
+function signInClause(count: number): string {
+  return count === 0 ? 'Never signed in' : `${count} sign-in${count === 1 ? '' : 's'}`
+}
+
 /**
- * One account's administrative detail (v3.8). Fieldset order, top to bottom:
- * Internal note (the first thing an
- * operator wants to read), Identity (name + the click-to-reveal Change email), Subscription
- * (the gift form + Force expire now), Payment history, Newsletter (read-only), Usage &
- * content (read-only), Access & Security (password + reset email + suspend + rate-limit
- * unlock), Danger zone. Everything visible as soon as the page opens except Change email and
- * Delete account, which keep their own click-to-reveal — a safety net for the two riskier
- * actions on the page, not a space-saving convenience like the others.
+ * One account's administrative detail, laid out after `Account Detail.dc.html`: the header
+ * with its monogram and `Enter as this account`, a four-cell summary strip (in force, gift,
+ * content, newsletter), the internal note, then four tabs holding every control.
+ *
+ * **The strip is read-only and the tabs are where anything is written**, which is the whole
+ * point of the shape: the previous version stacked eight always-open fieldsets, so opening an
+ * account to check what plan it was on meant scrolling past the field that sets its password.
+ * Four cells now answer that without a single control on screen.
+ *
+ * The tabs are `<Link>`s and their state is a URL param, so this stays a server component
+ * with no tab state to hold — the same choice `/accounts`' own four tabs make, and the reason
+ * the «All N events» link can be a link too. The cost, stated plainly: switching tabs is a
+ * request, and this page is `force-dynamic` over five reads. Right for a surface a global
+ * owner opens a handful of times a week, and the deep link into one tab is worth having.
  *
  * `getAccountDetail` already checks `isOwner` and answers `null` for both "not a global
  * owner" and "no such account" — `notFound()` renders the two identically, the same rule
  * `/accounts` itself follows.
  */
-export default async function AccountDetailPage({ params }: Props) {
+export default async function AccountDetailPage({ params, searchParams }: Props) {
   const { email } = await params
   const address = readEmailParam(email)
   if (address === null) notFound()
@@ -94,170 +152,295 @@ export default async function AccountDetailPage({ params }: Props) {
   const [detail, user] = await Promise.all([getAccountDetail(address), currentUser()])
   if (detail === null) notFound()
 
-  const [history, newsletter, usage] = await Promise.all([
+  const query = readQuery(await searchParams)
+
+  const [history, newsletter, usage, rateLimit] = await Promise.all([
     loadAccountHistory(detail.ownerEmail),
     loadNewsletterSummaryFor(detail.ownerEmail),
     usageSummaryFor(detail.ownerEmail),
+    rateLimitStatusFor(detail.ownerEmail),
   ])
+
   const isCurrent = user?.accountOwnerEmail === detail.ownerEmail
-  const audit = detail.plan !== null ? auditLine(detail.plan) : null
-  const suspended = detail.admin?.suspendedAt !== null && detail.admin?.suspendedAt !== undefined
+  const plan = detail.plan
+  const badge = plan === null ? null : planBadge(plan)
+  const status = plan === null ? null : rowStatus(plan, detail.signInCount)
+  const gift = plan === null ? null : giftCell(plan)
+  const ledger = history.ok ? paymentSummary(history.history) : null
+
+  /*
+   * `admin === null` means the two `0036` columns could not be read at all, which must never
+   * render as an unsuspended account: "not suspended" and "could not tell" are opposite
+   * answers, and this screen exists to be believed (`AccountDetail.admin`'s own comment).
+   */
+  const suspended = detail.admin !== null && detail.admin.suspendedAt !== null
+
+  /*
+   * The header's second line, assembled from whatever this account actually has: the name is
+   * nullable for every account predating the name columns, and a leading « · » where it would
+   * have been is worse than no name at all.
+   */
+  const fullName = [detail.firstName, detail.lastName].filter((part) => part !== null && part !== '').join(' ')
+  const facts = [
+    fullName === '' ? null : fullName,
+    signInClause(detail.signInCount),
+    `Registered ${detail.createdAt.slice(0, 10)}`,
+    suspended ? 'Suspended' : null,
+  ].filter((fact) => fact !== null)
+
+  const events = history.ok ? history.history : []
+  const shown = query.events === 'all' ? events : events.slice(0, EVENTS_PREVIEW)
 
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="accounts" />
 
       <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
-        <p className="mb-2.5 text-sm">
+        <p className="mb-3 text-sm">
           <Link href="/accounts" className="text-accent hover:underline">
             ← All accounts
           </Link>
         </p>
 
-        <header className="mb-[1.125rem] flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="screen-title truncate">{detail.ownerEmail}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {detail.signInCount === 0
-                ? 'Never signed in'
-                : `${detail.signInCount} sign-in${detail.signInCount === 1 ? '' : 's'}`}
-              {' · '}Registered {detail.createdAt.slice(0, 10)}
-              {suspended && ' · Suspended'}
-            </p>
+        <header className="acct-head">
+          <div className="acct-who">
+            {/* The monogram in the plan's own colour, exactly as the list row draws it, so an
+                operator arriving from `/accounts` recognises the row they clicked. */}
+            <span className={`acct-avatar ${badge?.className ?? 'plan-badge-none'}`} aria-hidden>
+              {avatarInitials(detail.ownerEmail)}
+            </span>
+            <div className="min-w-0">
+              <h1 className="acct-address">{detail.ownerEmail}</h1>
+              <p className="acct-facts">{facts.join(' · ')}</p>
+            </div>
           </div>
 
           {isCurrent ? (
-            <span className="meta-chip">
+            <span className="acct-current">
               <IconCheck size={13} /> current
             </span>
           ) : (
-            <SwitchAccountButton targetEmail={detail.ownerEmail} className="btn btn-primary">
+            <SwitchAccountButton targetEmail={detail.ownerEmail} className="acct-enter">
               Enter as this account
             </SwitchAccountButton>
           )}
         </header>
 
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Internal note</h2>
-          <InternalNoteForm ownerEmail={detail.ownerEmail} note={detail.admin?.internalNote ?? null} />
-        </section>
-
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Identity</h2>
-          <div className="mb-3">
-            <AccountNameForm ownerEmail={detail.ownerEmail} firstName={detail.firstName} lastName={detail.lastName} />
+        {/* Four read-only answers, no control among them — see this component's own header. */}
+        <div className="acct-summary">
+          <div className="acct-cell">
+            <span className="acct-cell-label">In force</span>
+            {badge === null || status === null ? (
+              <>
+                <span className="acct-cell-main is-faint">—</span>
+                <span className="acct-cell-note">Plan columns unavailable</span>
+              </>
+            ) : (
+              <>
+                <span className={`acct-cell-plan ${badge.className}`}>{badge.label}</span>
+                {/* The list's own Status column, verbatim: «Until 2027-03-14», «Awaiting
+                    choice», «Premium expired 2026-08-01». One vocabulary for the two screens. */}
+                {status.text !== '' && (
+                  <span className={`acct-cell-note${status.tone === 'alert' ? ' is-alert' : ''}`}>{status.text}</span>
+                )}
+              </>
+            )}
           </div>
-          <ChangeEmailForm ownerEmail={detail.ownerEmail} />
-        </section>
 
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Subscription</h2>
+          <div className="acct-cell">
+            <span className="acct-cell-label">Gift</span>
+            {gift === null ? (
+              <span className="acct-cell-main is-faint">—</span>
+            ) : gift.plan === null ? (
+              <span className="acct-cell-main is-faint">{gift.text}</span>
+            ) : (
+              <>
+                <span className="acct-cell-main is-row">
+                  <span className="acct-cell-gift" aria-hidden>
+                    <IconGift size={13} />
+                  </span>
+                  {PLAN_LABEL[gift.plan]}
+                </span>
+                <span className="acct-cell-note">{gift.text}</span>
+              </>
+            )}
+          </div>
 
-          {detail.plan === null ? (
-            <p className="text-sm text-muted">Could not read the plan for this account. Reload the page.</p>
-          ) : (
-            <>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className={`badge ${planBadge(detail.plan).className}`}>{planBadge(detail.plan).label}</span>
-                {stillAwaitingChoice(detail.plan) && (
-                  <span className="badge plan-badge-unchosen">Awaiting choice</span>
+          <div className="acct-cell">
+            <span className="acct-cell-label">Content</span>
+            {usage === null ? (
+              <>
+                <span className="acct-cell-main is-faint">—</span>
+                <span className="acct-cell-note">Usage data unavailable</span>
+              </>
+            ) : (
+              <>
+                <span className="acct-cell-main">
+                  <strong>{usage.songbookCount}</strong> {usage.songbookCount === 1 ? 'songbook' : 'songbooks'} ·{' '}
+                  <strong>{usage.songCount}</strong> {usage.songCount === 1 ? 'song' : 'songs'}
+                </span>
+                <span className="acct-cell-note">{usage.singAlongPeakDevices} Strum Together peak devices</span>
+              </>
+            )}
+          </div>
+
+          <div className="acct-cell">
+            <span className="acct-cell-label">Newsletter</span>
+            {newsletter === null ? (
+              <>
+                <span className="acct-cell-main is-faint">—</span>
+                <span className="acct-cell-note">Newsletter data unavailable</span>
+              </>
+            ) : (
+              <>
+                <span className="acct-cell-main">
+                  {newsletter.subscribed ? `Subscribed · ${newsletter.frequency}` : 'Not subscribed'}
+                </span>
+                {/* Read-only here on purpose: the account's own `/profile` is where this is
+                    changed (`lib/accounts/CLAUDE.md`). */}
+                {newsletter.subscribed && newsletter.subscribedAt !== null && (
+                  <span className="acct-cell-note">since {newsletter.subscribedAt.slice(0, 10)}</span>
                 )}
-              </div>
-
-              <div className="mb-3 text-sm text-muted">
-                {/* With no plan at all, the subscription and in-force lines would both name
-                    `free` — the column's default rather than anybody's decision — so one honest
-                    sentence replaces the pair. The gift lines stay either way: a withdrawn gift's
-                    audit is worth reading on an account that never chose anything too. */}
-                {noPlanYet(detail.plan) ? (
-                  <p>{NO_PLAN_LINE}</p>
-                ) : (
-                  <p>{subscriptionLine(detail.plan)}</p>
+                {!newsletter.subscribed && newsletter.unsubscribedAt !== null && (
+                  <span className="acct-cell-note">unsubscribed {newsletter.unsubscribedAt.slice(0, 10)}</span>
                 )}
-                <p>{giftLine(detail.plan)}</p>
-                {audit !== null && <p>{audit}</p>}
-                {detail.plan.grantedNote !== null && <p>“{detail.plan.grantedNote}”</p>}
-                {!noPlanYet(detail.plan) && <p className="mt-1.5">{inForceLine(detail.plan)}</p>}
-              </div>
+              </>
+            )}
+          </div>
+        </div>
 
-              <GiftForm ownerEmail={detail.ownerEmail} plan={detail.plan} />
+        {/* Above the tabs and outside them: the first thing an operator opening an account for
+            support wants to read, and it belongs to no one of the four questions below. */}
+        <InternalNoteForm ownerEmail={detail.ownerEmail} note={detail.admin?.internalNote ?? null} />
 
-              {/* Gated on `subscriptionPlan` — the live subscription alone, gift ignored — not
-                  `effectivePlan`, because that is exactly what `forceExpireNow` itself checks
-                  (`liveSubscription`, `checkout.ts`). `effectivePlan` blends in a gift, which
-                  would show this button for a free account carrying only a gifted plan, where
-                  the action always answers `not-applicable`. */}
-              {detail.plan.subscriptionPlan !== null &&
-                detail.plan.subscriptionPlan !== 'free' &&
-                detail.plan.subscriptionPlan !== 'lifetime' && <ForceExpireButton ownerEmail={detail.ownerEmail} />}
-            </>
-          )}
-        </section>
+        <nav className="acct-tabs" aria-label="Account sections">
+          {TABS.map((tab) => {
+            const active = tab === query.tab
+            return (
+              <Link
+                key={tab}
+                href={hrefFor(detail.ownerEmail, query, { tab, events: 'preview' })}
+                className={`acct-tab${active ? ' is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                {TAB_LABEL[tab]}
+                {tab === 'payments' && ledger !== null && ledger.events > 0 && (
+                  <span className="acct-tab-count">{ledger.events}</span>
+                )}
+              </Link>
+            )
+          })}
+        </nav>
 
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Payment history</h2>
-          {history.ok ? (
-            <PaymentHistoryTable lines={history.history} />
-          ) : (
-            <p className="text-sm text-muted">Could not read the history.</p>
-          )}
-        </section>
+        {query.tab === 'plan' && (
+          <div className="acct-panel">
+            {plan === null ? (
+              <p className="text-sm text-muted">Could not read the plan for this account. Reload the page.</p>
+            ) : (
+              <>
+                <GiftForm ownerEmail={detail.ownerEmail} plan={plan} />
+                <ForceExpireRow ownerEmail={detail.ownerEmail} plan={plan} />
+              </>
+            )}
+          </div>
+        )}
 
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Newsletter</h2>
-          {newsletter === null ? (
-            <p className="text-sm text-muted">Newsletter data unavailable.</p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className={newsletter.subscribed ? 'badge' : 'badge plan-badge-free'}>
-                {newsletter.subscribed ? 'Subscribed' : 'Not subscribed'}
+        {query.tab === 'identity' && (
+          <div className="acct-panel">
+            <AccountNameForm
+              ownerEmail={detail.ownerEmail}
+              firstName={detail.firstName}
+              lastName={detail.lastName}
+            />
+            <ChangeEmailForm ownerEmail={detail.ownerEmail} />
+          </div>
+        )}
+
+        {query.tab === 'payments' && (
+          <div className="acct-panel">
+            {ledger === null ? (
+              <p className="text-sm text-muted">Could not read the history.</p>
+            ) : (
+              <>
+                <div className="acct-stats">
+                  <span className="acct-stat">
+                    <span className="acct-cell-label">Collected</span>
+                    <span className="acct-stat-value">{euro(ledger.collected)}</span>
+                  </span>
+                  <span className="acct-stat">
+                    <span className="acct-cell-label">Events</span>
+                    <span className="acct-stat-value">{ledger.events}</span>
+                  </span>
+                  <span className="acct-stat">
+                    <span className="acct-cell-label">Last payment</span>
+                    <span className="acct-stat-value is-nums">{ledger.lastPaymentOn ?? '—'}</span>
+                  </span>
+                  <span className="acct-stat">
+                    <span className="acct-cell-label">Renews</span>
+                    {/* Lifetime carries no date at all, which is not the same «—» as a plan
+                        that has one and could not be read. */}
+                    <span className="acct-stat-value is-nums">
+                      {plan === null ? '—' : plan.plan === 'lifetime' ? 'Never' : (plan.planExpiresOn ?? '—')}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="acct-card">
+                  <PaymentHistoryTable lines={shown} look="ledger" />
+                  {query.events === 'preview' && ledger.events > EVENTS_PREVIEW && (
+                    <p className="acct-more">
+                      <Link href={hrefFor(detail.ownerEmail, query, { events: 'all' })}>
+                        All {ledger.events} events
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {query.tab === 'security' && (
+          <div className="acct-panel">
+            <div className="acct-stats is-quiet">
+              <span className="acct-stat">
+                <span className="acct-cell-label">Status</span>
+                <span className="acct-stat-value">
+                  {detail.admin === null ? '—' : suspended ? 'Suspended' : 'Active'}
+                </span>
               </span>
-              {newsletter.subscribed && <span className="text-muted">{newsletter.frequency}</span>}
-              {newsletter.subscribedAt !== null && (
-                <span className="text-muted">· subscribed {newsletter.subscribedAt.slice(0, 10)}</span>
-              )}
-              {newsletter.unsubscribedAt !== null && (
-                <span className="text-muted">· unsubscribed {newsletter.unsubscribedAt.slice(0, 10)}</span>
-              )}
+              <span className="acct-stat">
+                <span className="acct-cell-label">Sign-ins</span>
+                <span className="acct-stat-value">{detail.signInCount}</span>
+              </span>
+              <span className="acct-stat">
+                <span className="acct-cell-label">Last sign-in</span>
+                <span className="acct-stat-value is-nums">{detail.lastSignInAt?.slice(0, 10) ?? 'Never'}</span>
+              </span>
+              <span className="acct-stat">
+                <span className="acct-cell-label">Rate limit</span>
+                {/* «—», never «Not hit», when the read failed: see `rateLimitStatusFor`. */}
+                <span className="acct-stat-value">
+                  {rateLimit === null
+                    ? '—'
+                    : rateLimit.attempts === 0
+                      ? 'Not hit'
+                      : `${rateLimit.attempts} attempt${rateLimit.attempts === 1 ? '' : 's'}`}
+                </span>
+              </span>
             </div>
-          )}
-        </section>
 
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Usage & content</h2>
-          {usage === null ? (
-            <p className="text-sm text-muted">Usage data unavailable.</p>
-          ) : (
-            <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              <span>
-                <strong>{usage.songbookCount}</strong> {usage.songbookCount === 1 ? 'songbook' : 'songbooks'}
-              </span>
-              <span>
-                <strong>{usage.songCount}</strong> {usage.songCount === 1 ? 'song' : 'songs'}
-              </span>
-              <span>
-                <strong>{usage.singAlongPeakDevices}</strong> Strum Together peak devices
-              </span>
-            </div>
-          )}
-        </section>
-
-        <section className="card mb-5 p-4">
-          <h2 className="section-title mb-2.5">Access & Security</h2>
-          <div className="mb-3">
             <PasswordForm ownerEmail={detail.ownerEmail} />
+            <SendResetEmailRow ownerEmail={detail.ownerEmail} />
+            {/* Absent, not disabled, when the `0036` columns cannot be read: a toggle whose
+                current state is unknown would be a guess about which way it flips. */}
+            {detail.admin !== null && (
+              <SuspendAccountRow ownerEmail={detail.ownerEmail} suspended={suspended} />
+            )}
+            <ClearRateLimitRow ownerEmail={detail.ownerEmail} />
+            <DeleteAccountRow ownerEmail={detail.ownerEmail} />
           </div>
-          <div className="flex flex-wrap gap-2.5">
-            <SendResetEmailButton ownerEmail={detail.ownerEmail} />
-            {detail.admin !== null && <SuspendAccountButton ownerEmail={detail.ownerEmail} suspended={suspended} />}
-            <ClearRateLimitButton ownerEmail={detail.ownerEmail} />
-          </div>
-        </section>
-
-        <section className="card p-4">
-          <h2 className="section-title mb-2.5">Danger zone</h2>
-          <DeleteAccountButton ownerEmail={detail.ownerEmail} />
-        </section>
+        )}
 
         <Footer />
       </main>

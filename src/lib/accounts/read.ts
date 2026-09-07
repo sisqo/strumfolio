@@ -16,7 +16,7 @@ import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { listSignIns } from '@/lib/auth/signIns'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
-import { accounts, pendingRegistrations, songbooks, songs } from '@/lib/db/schema'
+import { accounts, pendingRegistrations, rateLimitHits, songbooks, songs } from '@/lib/db/schema'
 import { liveSubscription, planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
 import type { StoredPlan } from '@/lib/plans/entitlements'
 import { readPendingCycle } from '@/lib/plans/prices'
@@ -540,3 +540,75 @@ export async function listPendingRegistrations(): Promise<PendingRegistrationSum
   }
 }
 
+/**
+ * How long a rate-limit window stays open, as every caller of `checkRateLimit` sets it —
+ * login (`auth.ts`), registration, password recovery and feedback all pass ten minutes.
+ *
+ * A copy of that figure rather than a shared constant, and deliberately: this one is
+ * **display-only**. `rateLimitHits` rows outlive their window by up to a day (`purgeStaleHits`),
+ * so telling an operator whether an account is throttled *right now* means comparing against
+ * some window, and getting that number wrong here mislabels one stat on one screen — it can
+ * never change whether a request goes through, which is the only place the real figures live.
+ */
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
+
+/** The Rate limit cell on `/accounts/[email]`'s Security tab. */
+export interface RateLimitStatus {
+  /**
+   * The highest count standing on any of this address's four email-keyed buckets whose window
+   * is still open — 0 when nothing is throttling it. The maximum and not the sum: the four are
+   * independent limits on four different actions, and adding them would invent a number that
+   * no limit is ever compared against.
+   */
+  attempts: number
+}
+
+/**
+ * Whether anything is currently throttling this address — the Rate limit cell on
+ * `/accounts/[email]`'s Security tab, beside the button that clears it.
+ *
+ * Reads exactly the four keys `clearRateLimitFor` (`auth/actions.ts`) deletes, and for the
+ * same reason it deletes only those: the by-IP buckets belong to a machine, not to an
+ * account, and an operator acting on one address must not be shown — or offered the
+ * clearing of — a counter that some unrelated visitor filled.
+ *
+ * Read-only, unlike `checkRateLimit`, which counts the request that asks. A page that
+ * *displayed* a rate limit by consuming one of its own attempts would throttle the account
+ * it is reporting on.
+ *
+ * `isOwner`-gated inside, same as every other function here that takes an explicit
+ * `ownerEmail`. Null on refusal or a failed read, and the caller renders that as «—», never
+ * as «Not hit»: "nothing is throttling this address" and "this could not be read" are
+ * opposite answers, and the second must never be printed as the first on the one screen
+ * built to be believed — the same rule `AccountDetail.admin` and `planChosen` each state.
+ */
+export async function rateLimitStatusFor(ownerEmail: string): Promise<RateLimitStatus | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
+  const address = normalizeEmail(ownerEmail)
+
+  try {
+    const rows = await db()
+      .select({ windowStart: rateLimitHits.windowStart, count: rateLimitHits.count })
+      .from(rateLimitHits)
+      .where(
+        inArray(rateLimitHits.key, [
+          `login:email:${address}`,
+          `register:email:${address}`,
+          `reset:email:${address}`,
+          `feedback:${address}`,
+        ]),
+      )
+
+    const openedAfter = Date.now() - RATE_LIMIT_WINDOW_MS
+    const live = rows.filter((row) => row.windowStart.getTime() > openedAfter).map((row) => row.count)
+
+    return { attempts: live.length === 0 ? 0 : Math.max(...live) }
+  } catch (error) {
+    console.error('rateLimitStatusFor failed', error)
+    return null
+  }
+}

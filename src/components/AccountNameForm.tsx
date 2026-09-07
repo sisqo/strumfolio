@@ -14,6 +14,11 @@ import { useOnline } from '@/lib/useOnline'
  * way this changes; this form exists for support cases only, and writes the same two
  * columns with no coordination against `updateOwnName` — last write wins, a risk judged
  * trivial for a field like this.
+ *
+ * Two labelled columns and one button (`Account Detail.dc.html`), where this used to be two
+ * placeholder-only fields inline with a `Save`. The labels are the substance of the change:
+ * an empty account shows two identical empty boxes, and «First name» in the placeholder
+ * disappears the moment somebody types into the wrong one.
  */
 export function AccountNameForm({
   ownerEmail,
@@ -40,6 +45,7 @@ export function AccountNameForm({
       const result = await action()
       if (result.ok) {
         setDone(said)
+        // The name is also in the page header, which is server-rendered.
         router.refresh()
       } else {
         setError(ADMIN_NAME_MESSAGE[result.reason])
@@ -52,47 +58,61 @@ export function AccountNameForm({
   }
 
   return (
-    <div>
+    <form
+      className="acct-card"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void run(() => updateAccountName(ownerEmail, first, last), 'Name saved.')
+      }}
+    >
+      <h3 className="acct-card-title">Name</h3>
+
       {error && (
-        <p className="notice notice-error mb-2.5" role="alert">
+        <p className="notice notice-error mb-3 text-sm" role="alert">
           {error}
         </p>
       )}
       {done && (
-        <p className="notice notice-accent mb-2.5" role="status">
+        <p className="notice notice-accent mb-3 text-sm" role="status">
           {done}
         </p>
       )}
 
-      <form
-        className="flex flex-wrap items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void run(() => updateAccountName(ownerEmail, first, last), 'Name saved.')
-        }}
-      >
-        <input
-          value={first}
-          onChange={(event) => setFirst(event.target.value)}
-          placeholder="First name"
-          aria-label="First name"
-          className="form-field min-w-0 flex-1"
-        />
-        <input
-          value={last}
-          onChange={(event) => setLast(event.target.value)}
-          placeholder="Last name"
-          aria-label="Last name"
-          className="form-field min-w-0 flex-1"
-        />
+      <div className="acct-grid-2">
+        <div>
+          <label className="acct-label" htmlFor="acct-first-name">
+            First name
+          </label>
+          <input
+            id="acct-first-name"
+            value={first}
+            onChange={(event) => setFirst(event.target.value)}
+            className="acct-field"
+          />
+        </div>
+        <div>
+          <label className="acct-label" htmlFor="acct-last-name">
+            Last name
+          </label>
+          <input
+            id="acct-last-name"
+            value={last}
+            onChange={(event) => setLast(event.target.value)}
+            className="acct-field"
+          />
+        </div>
+      </div>
+
+      <div className="acct-actions">
+        <span className="acct-hint">Shown to the account itself, and on anything they share.</span>
         <button
           type="submit"
-          className="btn btn-primary btn-sm"
+          className="acct-save"
           disabled={!online || busy || first.trim() === '' || last.trim() === ''}
         >
-          Save
+          Save the name
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   )
 }

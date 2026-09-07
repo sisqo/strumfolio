@@ -9762,6 +9762,777 @@
     }
   }
 
+  /* ---- /accounts/[email] ----------------------------------------------- */
+
+  /*
+   * One account's detail, from `Account Detail.dc.html`, matched value for value the way the
+   * `/accounts` block above matches its own mock — and against the same palette, which the
+   * mock was drawn in: `#f6f5f2`, `#e6e3dc`, `#dcdad4`, `#f1efe9`, `#fbf5ed`, `#8d939c`,
+   * `#5c626c`, `#97490f`, `#f4e7d9` and `#fffaf4` are all tokens that already existed. The
+   * two hexes that were not — the delete strip's `#f2cdc7` hairline and its pill's `#e3b6b1`
+   * — are written as `color-mix` over `--danger`/`--danger-soft`, the idiom
+   * `.accounts-pending` established, so dark mode follows for free.
+   *
+   * Its own classes rather than `.card`/`.btn`/`.badge`/`.form-field` plus utilities, for the
+   * reason the `/accounts` block states and this mock states harder: every control here is a
+   * size down from the app's own — a 32px pill against `.btn`'s 44px, a 38px field against
+   * `.form-field`'s 48px. Those are different controls, not variants, and four utilities
+   * overriding four properties of each would be the harder thing to read.
+   *
+   * Fields are 14.5px, under the 16px `.form-field` keeps to stop iOS zooming the viewport on
+   * focus. Deliberate and already the precedent here: `.accounts-search input` is 13.5px for
+   * the same reason — this is the operator's screen, a desktop one first, and matching the
+   * mock's density is what it is for.
+   */
+
+  /* The header: monogram, address and facts on the left, the one action on the right. */
+  .acct-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .acct-who {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  /* The list row's monogram at the size a page's own title wants — colour from `.plan-badge-*`. */
+  .acct-avatar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.625rem;
+    height: 2.625rem;
+    border-radius: 50%;
+    font-size: 0.90625rem;
+    font-weight: 600;
+  }
+
+  /*
+   * The address as the page's `<h1>`. Two steps down from `.screen-title` (30px) because it is
+   * an address and not a name: long, unbreakable, and the one thing on the page that has to
+   * survive at any width, which the ellipsis below is for.
+   */
+  .acct-address {
+    overflow: hidden;
+    margin: 0;
+    font-size: 1.625rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .acct-facts {
+    margin: 0.1875rem 0 0;
+    font-size: 0.84375rem;
+    color: var(--muted);
+  }
+
+  /* Entering the account: the page's only accent-filled control, and the only thing here that navigates. */
+  .acct-enter {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    height: 2.375rem;
+    padding: 0 1.125rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease;
+  }
+
+  .acct-enter:disabled {
+    background: var(--surface-2);
+    color: var(--faint);
+  }
+
+  /* Its place when this *is* the account already being viewed — same box, nothing to press. */
+  .acct-current {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.375rem;
+    padding: 0 1.125rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /*
+   * The summary strip: four read-only cells, and not one control among them. The 1px grid gap
+   * over a `--line-soft` ground is what draws the three dividers — cheaper than three borders
+   * that have to know which cell is last, and it survives the cells wrapping.
+   */
+  .acct-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    margin-top: 1rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    background: var(--line-soft);
+  }
+
+  .acct-cell {
+    padding: 0.875rem 1rem;
+    background: var(--surface);
+  }
+
+  /* Also every field label and stat label on the page: one voice for "what this value is". */
+  .acct-cell-label {
+    display: block;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * `block`, not `flex`, and that is load-bearing: the Content cell's value is one sentence
+   * with text nodes in it («**6** songbooks · **184** songs»), and a flex container makes
+   * every one of those a flex item — the middot lands on a line of its own and the row breaks
+   * into five. Only the Gift cell has an icon to align, and it asks for `is-row`.
+   */
+  .acct-cell-main {
+    display: block;
+    margin-top: 0.4375rem;
+    font-size: 0.875rem;
+  }
+
+  .acct-cell-main.is-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .acct-cell-main.is-faint {
+    color: var(--faint);
+  }
+
+  .acct-cell-main strong {
+    font-weight: 600;
+  }
+
+  .acct-cell-note {
+    display: block;
+    margin-top: 0.3125rem;
+    color: var(--muted);
+    font-size: 0.78125rem;
+  }
+
+  /* The one state in the strip an operator has to act on — `rowStatus`'s own red. */
+  .acct-cell-note.is-alert {
+    color: var(--danger);
+  }
+
+  /* The plan chip, a shade larger than the list's `.accounts-plan`: this is the page's answer. */
+  .acct-cell-plan {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.4375rem;
+    padding: 2px 0.625rem;
+    border-radius: var(--r-pill);
+    font-size: 0.84375rem;
+    font-weight: 600;
+  }
+
+  .acct-cell-gift {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.3125rem;
+    height: 1.3125rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* The internal note: the only card above the tabs, because it belongs to no tab. */
+  .acct-note {
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+  }
+
+  .acct-note-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.625rem;
+  }
+
+  .acct-note-text {
+    margin: 0.4375rem 0 0;
+    font-size: 0.90625rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .acct-note-text.is-empty {
+    color: var(--faint);
+  }
+
+  .acct-note-form {
+    margin-top: 0.4375rem;
+  }
+
+  /* A word that acts, with no box around it — «Edit» over the note, and nothing else. */
+  .acct-quiet {
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .acct-quiet:disabled {
+    color: var(--faint);
+  }
+
+  /*
+   * The tabs. `margin-bottom: -1px` drops the active underline onto the strip's own hairline,
+   * so the two read as one line with a thicker, accent-coloured stretch — the same trick
+   * `.accounts-tab` plays one screen up.
+   */
+  .acct-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    margin-top: 1.125rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .acct-tab {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4375rem;
+    margin-bottom: -1px;
+    padding: 0.5625rem 0.8125rem;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .acct-tab.is-active {
+    border-bottom-color: var(--accent);
+    color: var(--ink);
+  }
+
+  .acct-tab-count {
+    color: var(--faint);
+    font-size: 0.78125rem;
+    font-weight: 400;
+  }
+
+  /*
+   * One tab's contents. Every block inside is a card or a strip and they are all separated by
+   * the same 12px, so the panel owns the gap rather than each block carrying a margin that
+   * has to know whether it is first.
+   */
+  .acct-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 1rem;
+  }
+
+  .acct-card {
+    padding: 1rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+
+  .acct-card-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.90625rem;
+    font-weight: 500;
+  }
+
+  /*
+   * A strip: one thing you can do, its own sentence, and the control on the right. The whole
+   * Security tab is four of these, which is what lets the one that deletes an account carry a
+   * tint instead of a section heading of its own.
+   */
+  .acct-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8125rem 1rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+
+  .acct-row.is-danger {
+    border-color: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));
+  }
+
+  .acct-row-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .acct-row-title {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .acct-row-note {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  /* The gift strip's mark, at the size the strip's own two lines want. */
+  .acct-row-lead {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /*
+   * What a strip's field opens into: it takes the whole width under the sentence rather than
+   * squeezing into the space the pill was in, so the explanation stays readable while an
+   * address is being typed into it.
+   */
+  .acct-reveal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    flex-basis: 100%;
+  }
+
+  .acct-reveal .acct-field {
+    flex: 1;
+    min-width: 12rem;
+  }
+
+  .acct-reveal-error {
+    flex-basis: 100%;
+    margin: 0;
+  }
+
+  /* Every secondary action on the page — a strip's own control, and Cancel wherever there is one. */
+  .acct-pill {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4375rem;
+    height: 2rem;
+    padding: 0 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .acct-pill.is-danger {
+    border-color: color-mix(in srgb, var(--danger) 22%, var(--danger-soft));
+    color: var(--danger);
+  }
+
+  .acct-pill:disabled {
+    opacity: 0.5;
+  }
+
+  /* Saving: the accent, one size below `.acct-enter`, because this commits and does not leave. */
+  .acct-save {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    height: 2.25rem;
+    padding: 0 1.25rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.84375rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease;
+  }
+
+  /*
+   * A disabled save drops the fill instead of fading it, the reason `.btn-primary:disabled`
+   * gives: `Save the gift` spends most of its life waiting for a reason to be typed, and a
+   * half-opacity accent reads as nearly ready rather than inert.
+   */
+  .acct-save:disabled {
+    background: var(--surface-2);
+    color: var(--faint);
+  }
+
+  /* The line a card ends on: what this does on the left, what does it on the right. */
+  .acct-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .acct-actions.is-end {
+    justify-content: flex-end;
+  }
+
+  .acct-actions-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .acct-field-group {
+    margin-bottom: 0.875rem;
+  }
+
+  .acct-label {
+    display: block;
+    margin-bottom: 0.4375rem;
+    color: var(--faint);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * The field. Recessed — the page colour inside a white card, the same ladder `.card
+   * .form-field` follows — and 38px tall, which is what makes a labelled two-column form fit
+   * a card this size at all.
+   */
+  .acct-field {
+    display: flex;
+    width: 100%;
+    height: 2.375rem;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 0 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.90625rem;
+    transition: border-color 0.15s ease;
+  }
+
+  .acct-field.is-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The note, which is prose and not a value: as tall as three lines, and resizable. */
+  .acct-field.is-area {
+    height: auto;
+    min-height: 4.5rem;
+    padding: 0.625rem 0.75rem;
+    line-height: 1.5;
+    resize: vertical;
+  }
+
+  .acct-field:focus {
+    border-color: var(--accent);
+    outline: 0;
+  }
+
+  .acct-field::placeholder {
+    color: var(--faint);
+  }
+
+  .acct-hint {
+    margin: 0.375rem 0 0;
+    color: var(--faint);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  /* Where the hint stands in for a field that is not there — Lifetime's absent date. */
+  .acct-hint.is-tall {
+    display: flex;
+    height: 2.375rem;
+    align-items: center;
+    margin: 0;
+  }
+
+  .acct-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.875rem;
+  }
+
+  /* The date on a fixed 168px, the reason wide: one is ten characters, the other a sentence. */
+  .acct-gift-grid {
+    display: grid;
+    grid-template-columns: 10.5rem 1fr;
+    align-items: start;
+    gap: 0.875rem;
+  }
+
+  .acct-plans {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+
+  .acct-plan-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.375rem;
+    padding: 0.625rem 0.8125rem;
+    border: 1px solid var(--line);
+    border-radius: 0.8125rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+  }
+
+  /*
+   * The chosen plan. The `box-shadow` doubles the accent border rather than thickening it: a
+   * 2px border would move the label 1px and make the row of four twitch as the choice changes.
+   */
+  .acct-plan-option.is-on {
+    border-color: var(--accent);
+    background: var(--promo-bg);
+    box-shadow: 0 0 0 1px var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .acct-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+  }
+
+  /* A suggestion, not a choice: fills a field, and nothing about it stays selected. */
+  .acct-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 0.5625rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.78125rem;
+    font-weight: 500;
+    transition: background-color 0.15s ease;
+  }
+
+  /*
+   * The one thing the form says before it is submitted — that this gift will change nothing
+   * yet. Accent ink and no fill: `.notice-accent` beside four fields would be a paragraph
+   * shouting where a caption is what is wanted.
+   */
+  .acct-status {
+    margin: 0.5rem 0 0;
+    color: var(--accent);
+    font-size: 0.78125rem;
+    line-height: 1.45;
+  }
+
+  /* The four figures over a table, in a strip of their own. */
+  .acct-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.375rem;
+    padding: 0.8125rem 1rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+
+  .acct-stat-value {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  /* Facts about access rather than money: the same strip, read at a normal weight. */
+  .acct-stats.is-quiet .acct-stat-value {
+    font-size: 0.90625rem;
+    font-weight: 500;
+  }
+
+  .acct-stat-value.is-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * The payment ledger inside its card — `PaymentHistoryTable look="ledger"`. Uppercase
+   * tracked headers a size down from the customer's own `/billing` copy of the same table,
+   * the amount hung on the right edge where figures are compared, one hairline per row.
+   */
+  .acct-ledger {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+
+  .acct-ledger th {
+    padding: 0 0.75rem 0.5rem 0;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .acct-ledger td {
+    padding: 0.5625rem 0.75rem 0.5625rem 0;
+  }
+
+  .acct-ledger tbody tr {
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* The date: compared down the column, so tabular figures and never a wrap. */
+  .acct-ledger td:first-child {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .acct-ledger th:last-child,
+  .acct-ledger td:last-child {
+    padding-right: 0;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* A row with no amount is a plan change, not money — see `PaymentHistoryTable`. */
+  .acct-ledger td.is-faint {
+    color: var(--faint);
+  }
+
+  .acct-ledger-was {
+    margin-right: 0.3125rem;
+    color: var(--faint);
+  }
+
+  .acct-ledger-coupon {
+    display: block;
+    margin-top: 1px;
+    color: var(--faint);
+    font-size: 0.75rem;
+  }
+
+  .acct-more {
+    margin: 0.75rem 0 0;
+    font-size: 0.84375rem;
+  }
+
+  .acct-more a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  @media (hover: hover) {
+    .acct-enter:not(:disabled):hover,
+    .acct-save:not(:disabled):hover {
+      background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+    }
+
+    .acct-pill:not(:disabled):not(.is-danger):hover {
+      background: var(--surface-3);
+      color: var(--ink);
+    }
+
+    .acct-pill.is-danger:not(:disabled):hover {
+      background: var(--danger-soft);
+    }
+
+    .acct-tab:not(.is-active):hover {
+      color: var(--ink);
+    }
+
+    .acct-quiet:not(:disabled):hover,
+    .acct-more a:hover {
+      color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+    }
+
+    .acct-chip:hover {
+      background: var(--line-soft);
+    }
+
+    .acct-plan-option:not(.is-on):hover {
+      border-color: var(--line);
+      background: var(--surface-3);
+    }
+  }
+
+  /*
+   * Under 44rem the four-cell strip halves into two rows of two, the plan picker into two rows
+   * of two, and the gift's date and reason stack — the mock is a 1280px operator screen, and
+   * these are the three grids whose columns stop being readable before the page does.
+   */
+  @media (max-width: 44rem) {
+    .acct-summary {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .acct-plans {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .acct-gift-grid,
+    .acct-grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /*
    * How many songs are in there. Accent-soft, because it is the answer to the
    * question the row is asking — a canzoniere is worth opening in proportion to what

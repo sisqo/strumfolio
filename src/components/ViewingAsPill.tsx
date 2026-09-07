@@ -18,7 +18,7 @@ import { avatarInitials } from '@/lib/avatar'
  * `SwitchAccountButton` does the actual switch — this only supplies the target (the
  * reader's own address, to exit back to), the monogram, and the one thing specific to
  * this direction: a confirm step, deliberate rather than the app's usual "reversible
- * things need no dialog" default (`SuspendAccountButton`'s own comment argues that side).
+ * things need no dialog" default (`SuspendAccountRow`'s own comment argues that side).
  * This sits in a crowded corner of a bar rendered on every screen, and an accidental tap
  * would drop the impersonated view with no warning.
  *
