@@ -9,6 +9,7 @@ import { usePrefs } from '@/components/PrefsProvider'
 import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
 import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
+import { TempoControls } from '@/components/TempoControls'
 import {
   IconBroadcast,
   IconChevronLeft,
@@ -41,7 +42,7 @@ export interface NavSteps {
 
 /** Which floating panel is open above the bar, if any — at most one at a time, so
  *  opening a second always closes whichever the reader had open already. */
-type Panel = 'settings' | 'speed' | 'sing' | null
+type Panel = 'settings' | 'speed' | 'sing' | 'metronome' | null
 
 /**
  * The reading controls, floating over the bottom of the song.
@@ -159,6 +160,8 @@ export function ControlBar({
           />
         )}
 
+        {panel === 'metronome' && <MetronomePanel />}
+
         {broadcastEnabled && panel === 'sing' && (
           <div className="strum-panel">
             <StrumTogetherPanel onClose={() => setPanel(null)} />
@@ -175,7 +178,10 @@ export function ControlBar({
             */}
           <div className="control-toggles">
             {broadcastEnabled && <StrumToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
-            <MetronomeToggle />
+            <MetronomeToggle
+              open={panel === 'metronome'}
+              onToggle={() => setPanel((current) => (current === 'metronome' ? null : 'metronome'))}
+            />
           </div>
 
           <button
@@ -444,34 +450,40 @@ function Step({
 }
 
 /**
- * The metronome: one tap to start it, one to stop it, and a ring that flashes on the beat.
+ * The metronome's button: it opens the metronome, rather than being it.
  *
- * A toggle and nothing else, deliberately. What tempo it beats at is set on the song's own
- * header (`SongControls`' Tempo chip), on this app's own rule about where a control belongs:
- * a value worth reading — «this one goes at 96» — cannot live shut behind a button, and a
- * gesture a hand makes mid-song with a guitar in the other must not cost two taps and a menu.
- * So the number is stated up there and the switch is down here, which is the same split the
- * key and the capo already went through in the other direction.
+ * It was a bare toggle, on the reasoning that the tempo is a value worth reading and so
+ * belongs out on the song's header where the key and the capo are, leaving one tap down here
+ * for the switch. Half of that still holds — the Tempo chip is still up there and still
+ * states the number — and the other half was wrong in a way only a hand on the glass finds:
+ * **the button is where a musician goes to think about the metronome**, so it is where the
+ * metronome has to be, all of it. Setting it from up under the title meant scrolling the song
+ * back to the top to change a tempo mid-set.
  *
- * The pulse is `key`ed on the beat count so the animation restarts on every one — the same
- * trick the play button's broadcast rings already use, and the reason `beat` is a number
- * rather than a flag. It is drawn whether or not the click can be heard: an iPhone carried
- * on silent mutes Web Audio outright (see `useMetronome`), and on that phone this ring is
- * the metronome.
+ * So it behaves exactly like `StrumToggle` two buttons to its left, which does not start a
+ * broadcast either: it opens the panel where one is started. Same bar, same shape, one thing
+ * to learn instead of two.
+ *
+ * What the button keeps saying on its own is whether the metronome is running, and where in
+ * the bar it is: the pulse is `key`ed on the beat count so the animation restarts on every
+ * beat — the same trick the play button's broadcast rings use, and the reason `beat` is a
+ * number rather than a flag. It is drawn whether or not the click can be heard: an iPhone
+ * carried on silent mutes Web Audio outright (see `useMetronome`), and on that phone this
+ * ring is the metronome.
  */
-function MetronomeToggle() {
-  const { running, beat, accent, bpm, toggle } = useMetronomeControls()
+function MetronomeToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { running, beat, accent, bpm } = useMetronomeControls()
 
   return (
     <button
       type="button"
       className={running ? 'control-button control-metronome is-on' : 'control-button control-metronome'}
-      onClick={toggle}
-      aria-pressed={running}
+      onClick={onToggle}
+      aria-expanded={open}
       /* The tempo is named here and drawn nowhere on this button: the bar has no room for a
-         second number beside the speed's, and the chip on the song already states it. A
-         screen reader gets what the eye gets from the chip. */
-      aria-label={running ? `Stop the metronome, ${bpm} BPM` : `Start the metronome, ${bpm} BPM`}
+         second number beside the speed's — see `.control-toggles`' own arithmetic — and both
+         the chip and the panel this opens state it in full. */
+      aria-label={running ? `Metronome, beating at ${bpm} BPM` : `Metronome, ${bpm} BPM`}
     >
       {running && beat >= 0 && (
         <span
@@ -482,6 +494,42 @@ function MetronomeToggle() {
       )}
       <IconMetronome size={19} />
     </button>
+  )
+}
+
+/**
+ * Everything the metronome is, in one panel: the tempo, the accent, and the switch.
+ *
+ * The switch is at the bottom rather than the top, and that is the order the panel is read
+ * in: you arrive with a tempo in mind, you set it, and then you start it. It is the same
+ * shape and the same two button styles `StrumTogetherPanel` uses for starting and stopping a
+ * broadcast — the primary fill to begin, the ink fill to end — because they are the same kind
+ * of decision made in the same corner of the same bar.
+ *
+ * The controls themselves are `TempoControls`, shared with the Tempo chip's own menu, so the
+ * number here and the number under the song title are one fact rather than two.
+ */
+function MetronomePanel() {
+  const { running, toggle } = useMetronomeControls()
+
+  return (
+    <div className="metronome-panel">
+      <div className="chip-menu-head">
+        <span className="control-name-label">Metronome</span>
+        <span className="chip-menu-head-hint">beats per minute</span>
+      </div>
+
+      <TempoControls />
+
+      <button
+        type="button"
+        className={running ? 'btn btn-ink mt-3 w-full' : 'btn btn-primary mt-3 w-full'}
+        onClick={toggle}
+      >
+        <IconMetronome size={16} />
+        {running ? 'Stop the metronome' : 'Start the metronome'}
+      </button>
+    </div>
   )
 }
 

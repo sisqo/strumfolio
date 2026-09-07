@@ -11423,6 +11423,31 @@
   }
 
   /*
+   * The metronome's panel, on the same terms as `.strum-panel` right above and anchored the
+   * same way: to the strip's leading edge rather than to the button that opened it. The
+   * button sits second in the leading cell on a phone, so a panel hanging off the button
+   * itself would start a button and a gap in from the edge and run that much further off the
+   * other side — the lesson `.control-panel` and `.chip-menu` both already carry.
+   *
+   * Wider than the Strum Together one because of what is in it: a two-digit number at
+   * 28px with a stepper either side, and a row of five accent buttons that have to stay
+   * wide enough to hit.
+   */
+  .metronome-panel {
+    position: absolute;
+    inset-block-end: calc(100% + 0.625rem);
+    inset-inline-start: 0;
+    width: 20rem;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.875rem;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow-panel);
+    text-align: start;
+  }
+
+  /*
    * A queued preference change, on the button that opens the panel those
    * preferences live behind. It had no home in the new bar and this is the honest
    * one: whatever has not reached the server is one of the things in there.

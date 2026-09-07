@@ -99,9 +99,10 @@ Was [Em]blind, but [D]now I [G]see.
             <strong><code>{'{tempo: 96}'}</code></strong> and{' '}
             <strong><code>{'{time: 3/4}'}</code></strong> — what the metronome starts at when
             somebody opens the song, and how often it accents. <code>{'{bpm: 96}'}</code> means
-            the same as the first. Whoever&apos;s reading can set their own tempo from the Tempo
-            chip, which is remembered for them and doesn&apos;t change the song; these two are
-            the song&apos;s own answer, used until somebody says otherwise. A tempo written in
+            the same as the first. Whoever&apos;s reading can set their own tempo from the
+            metronome in the reading bar, or from the Tempo chip under the title — it&apos;s
+            remembered for them and doesn&apos;t change the song; these two are the song&apos;s
+            own answer, used until somebody says otherwise. A tempo written in
             words — <code>{'{tempo: allegro}'}</code> — isn&apos;t read, since there&apos;s no
             number in it to beat.
           </li>
