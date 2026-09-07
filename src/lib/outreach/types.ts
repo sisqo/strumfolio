@@ -205,6 +205,22 @@ export const OUTREACH_LIST: readonly OutreachDefinition[] = OUTREACH_KINDS.map((
 export const MAX_OUTREACH_REASON = 200
 
 /**
+ * How long an attempt is assumed to still be running.
+ *
+ * A `pending` row younger than this is refused rather than taken over, which is the one place
+ * the engine could send twice; older than this, it is offered to an operator as a retry —
+ * because the alternative is an occurrence stuck forever behind a row whose process died, and
+ * because the person pressing the button is the one who can tell whether the first attempt
+ * landed. Fifteen minutes is far longer than any delivery here takes (a Resend call, or an
+ * in-app write) and far shorter than the gap between two occurrences of anything.
+ *
+ * It lives in this module, beside the vocabulary, rather than in `run.ts` where it is enforced:
+ * `read.ts` needs it too — to tell the screen not to offer a retry it would refuse — and
+ * `read.ts` cannot import `run.ts`, which imports it.
+ */
+export const STALE_ATTEMPT_MS = 15 * 60 * 1000
+
+/**
  * How much of a handler's own `detail` or `reason` is stored.
  *
  * Clamped rather than trusted: both columns are unbounded `text`, and a handler that hands back

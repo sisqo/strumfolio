@@ -12,8 +12,8 @@
  *
  * The price of that ordering is stated where it lands rather than hidden: a delivery whose
  * outcome cannot be written back leaves a `pending` row, so the engine knows something started
- * and not whether it arrived. `STALE_ATTEMPT_MS` below is where that is dealt with, and it is
- * deliberately dealt with by an operator and not by a rule.
+ * and not whether it arrived. `STALE_ATTEMPT_MS` (`types.ts`) is where that is dealt with, and
+ * it is deliberately dealt with by an operator and not by a rule.
  *
  * A plain module, no `'use server'`: `actions.ts` owns the directive and the owner check, and
  * these functions are also the seam a schedule would call — see `runDueOutreach`.
@@ -30,21 +30,8 @@ import type { OutreachDelivery, OutreachTarget } from './handlers'
 import { occurrenceKeyFor } from './occurrence'
 import { outreachAccountFor, outreachViewFor, dueKinds } from './read'
 import type { OutreachAccount } from './read'
-import { MAX_OUTREACH_DETAIL, MAX_OUTREACH_REASON, OUTREACH, readOutreachStatus } from './types'
+import { MAX_OUTREACH_DETAIL, MAX_OUTREACH_REASON, OUTREACH, STALE_ATTEMPT_MS, readOutreachStatus } from './types'
 import type { OutreachFailure, OutreachKind, OutreachResult, OutreachStatus } from './types'
-
-/**
- * How long an attempt is assumed to still be running.
- *
- * A `pending` row younger than this is refused with `in-flight` rather than taken over, which
- * is the one place this engine could send twice. Older than this and it is offered to an
- * operator as a retry — because the alternative is an occurrence stuck forever behind a row
- * whose process died, and because the person pressing the button is the one who can tell
- * whether the first attempt actually landed. Fifteen minutes is far longer than any delivery
- * here takes (a Resend call, or an in-app write) and far shorter than the gap between two
- * occurrences of anything.
- */
-export const STALE_ATTEMPT_MS = 15 * 60 * 1000
 
 /** Both handler strings are clamped on the way in: see `MAX_OUTREACH_DETAIL`. */
 function clamp(value: string, max: number): string {
@@ -120,6 +107,9 @@ async function claimsForOccurrence(
   }))
 }
 
+/** Either «take this row over» or «refuse», the latter naming the row where there is one. */
+type ClaimVerdict = { takeOver: number } | { reason: OutreachFailure; row: number | null }
+
 /**
  * What to do about an insert the database refused: retry this row, or refuse outright.
  *
@@ -135,18 +125,19 @@ async function claimsForOccurrence(
  *    which is what it is from the address's point of view.
  * 3. **A young `pending` row is in flight.** See `STALE_ATTEMPT_MS`.
  */
-function claimVerdict(
-  claims: readonly OccurrenceClaim[],
-  now: Date,
-): { takeOver: number } | { reason: OutreachFailure } {
-  if (claims.some((claim) => claim.status === 'done')) return { reason: 'already-done' }
+function claimVerdict(claims: readonly OccurrenceClaim[], now: Date): ClaimVerdict {
+  if (claims.some((claim) => claim.status === 'done')) return { reason: 'already-done', row: null }
 
   const mine = claims.find((claim) => claim.own)
-  if (mine === undefined) return { reason: 'already-done' }
+  if (mine === undefined) return { reason: 'already-done', row: null }
 
   if (mine.status === 'pending') {
     const started = mine.lastAttemptAt === null ? null : Date.parse(mine.lastAttemptAt)
-    if (started !== null && now.getTime() - started < STALE_ATTEMPT_MS) return { reason: 'in-flight' }
+    if (started !== null && now.getTime() - started < STALE_ATTEMPT_MS) {
+      /* The row is named even while the answer is «no», because a *skip* during a live attempt
+         is allowed and needs it — see `suppressOutreach`. A run is not. */
+      return { reason: 'in-flight', row: mine.id }
+    }
   }
 
   return { takeOver: mine.id }
@@ -327,12 +318,18 @@ export async function suppressOutreach(
     if (claimed[0] !== undefined) return { ok: true }
 
     const verdict = claimVerdict(await claimsForOccurrence(account, kind, occurrenceKey), now)
-    /* An in-flight attempt is *not* a reason to refuse a skip — it is the most likely moment
-       somebody wants one — but a completed occurrence is: there is nothing left to prevent. */
-    if ('reason' in verdict && verdict.reason !== 'in-flight') return { ok: false, reason: verdict.reason }
-
-    const id = 'takeOver' in verdict ? verdict.takeOver : null
-    if (id === null) return { ok: false, reason: 'failed' }
+    /*
+     * An in-flight attempt is **not** a reason to refuse a skip — it is the most likely moment
+     * somebody wants one — so that verdict is taken over rather than reported, which is what
+     * `row` is carried for. A completed occurrence is a refusal: there is nothing left to
+     * prevent. The compare-and-swap below is what keeps the takeover safe either way; if the
+     * live attempt settles as `done` first, it wins and this answers `already-done`.
+     */
+    const id =
+      'takeOver' in verdict ? verdict.takeOver : verdict.reason === 'in-flight' ? verdict.row : null
+    if (id === null) {
+      return { ok: false, reason: 'takeOver' in verdict ? 'failed' : verdict.reason }
+    }
 
     const taken = await db()
       .update(outreachActions)

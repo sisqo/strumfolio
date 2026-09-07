@@ -53,11 +53,16 @@ answers to a real example.
   would loop accounts and call it per account, and nothing in `run.ts` or `read.ts` has to
   change for that — but adding one starts sending mail to real people on a clock, so it is a
   decision and not a follow-up.
-- **`STALE_ATTEMPT_MS` (15 minutes) is where the ordering's one cost is paid.** A `pending` row
-  younger than that is refused with `in-flight` rather than taken over — the only path by which
-  this engine could send twice. Older, and it is offered to an operator as a retry, because a
-  settle write that failed after a successful send leaves exactly that row and only a person can
-  tell whether the message landed.
+- **`STALE_ATTEMPT_MS` (15 minutes, in `types.ts`) is where the ordering's one cost is paid.** A
+  `pending` row younger than that is refused with `in-flight` rather than taken over — the only
+  path by which this engine could send twice. Older, and it is offered to an operator as a
+  retry, because a settle write that failed after a successful send leaves exactly that row and
+  only a person can tell whether the message landed. Two consequences that are easy to get
+  backwards: **a skip is still allowed inside the window** (it takes the row over — a live
+  attempt is the most likely moment somebody wants to stop the next one), and the screen carries
+  the window as `OutreachLine.inFlight` so the run button is *disabled* rather than offering
+  something the action would refuse. The constant lives with the vocabulary and not in `run.ts`
+  because `read.ts` needs it too and cannot import `run.ts`.
 - **`types.ts` imports no `@/lib/db` and carries no `'use server'`**, the `coupons/types.ts`
   arrangement: the panel value-imports it, and a `'use server'` module may export only async
   functions. `actions.ts` is the only module here that checks a session, and it re-checks

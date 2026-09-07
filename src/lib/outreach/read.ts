@@ -26,7 +26,7 @@ import { eligibilityFor } from './eligibility'
 import type { Eligibility, OutreachFacts } from './eligibility'
 import { isBuilt } from './handlers'
 import { occurrenceKeyFor } from './occurrence'
-import { OUTREACH_LIST, readOutreachKind, readOutreachStatus } from './types'
+import { OUTREACH_LIST, STALE_ATTEMPT_MS, readOutreachKind, readOutreachStatus } from './types'
 import type { OutreachKind, OutreachStatus } from './types'
 
 /**
@@ -81,6 +81,16 @@ export interface OutreachLine {
   eligibility: Eligibility
   /** The row already claimed for this occurrence, or null while none has been. */
   current: OutreachRow | null
+  /**
+   * A `pending` row whose attempt started inside `STALE_ATTEMPT_MS` — something is running
+   * right now.
+   *
+   * Computed here and carried, rather than left to the panel to work out from the clock: the
+   * same window decides whether `runOutreach` refuses with `in-flight`, and a screen offering a
+   * button the action would refuse is a screen that lies. The client must not re-derive a rule
+   * the server enforces.
+   */
+  inFlight: boolean
 }
 
 export interface OutreachView {
@@ -96,6 +106,12 @@ export interface OutreachView {
 /** Due means: buildable, allowed, and not yet claimed for the occurrence current now. */
 export function isDue(line: OutreachLine): boolean {
   return line.built && line.eligibility.eligible && line.current === null
+}
+
+/** Whether this row's attempt is young enough that something is presumably still running. */
+function stillRunning(row: OutreachRow | null, now: Date): boolean {
+  if (row === null || row.status !== 'pending' || row.lastAttemptAt === null) return false
+  return now.getTime() - Date.parse(row.lastAttemptAt) < STALE_ATTEMPT_MS
 }
 
 /**
@@ -250,12 +266,14 @@ export async function outreachViewFor(ownerEmail: string, now: Date): Promise<Ou
 
   const lines = OUTREACH_LIST.map((definition) => {
     const occurrenceKey = occurrenceKeyFor(definition.cadence, now)
+    const current = currentRow(rows, definition.kind, occurrenceKey)
     return {
       kind: definition.kind,
       occurrenceKey,
       built: isBuilt(definition.kind),
       eligibility: eligibilityFor(definition, account),
-      current: currentRow(rows, definition.kind, occurrenceKey),
+      current,
+      inFlight: stillRunning(current, now),
     }
   })
 

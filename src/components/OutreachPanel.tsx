@@ -56,10 +56,10 @@ function rowDate(row: OutreachRow): string {
 /**
  * One line's own sentence — the thing an operator reads before deciding anything.
  *
- * Four states and none of them collapses into another: done says when, skipped says why,
- * failed says why and how many times, and a `pending` row that never settled says exactly that
- * rather than pretending to be either an outcome or a fresh start (`run.ts`' header on why that
- * state exists).
+ * Five states and none of them collapses into another: done says when, skipped says why, failed
+ * says why and how many times, and a `pending` row is two different sentences — one for an
+ * attempt still running and one for an attempt that never settled, which is the difference
+ * between «wait» and «decide» (`run.ts`' header on why that state exists at all).
  */
 function stateOf(line: OutreachLine): string {
   const row = line.current
@@ -78,12 +78,14 @@ function stateOf(line: OutreachLine): string {
     const tries = `${row.attempts} attempt${row.attempts === 1 ? '' : 's'}`
     return `Failed ${when} after ${tries}${row.reason === null ? '' : ` — ${row.reason}`}`
   }
+  if (line.inFlight) return `Started ${when}${byWhom(row)} and still running.`
   return `Started ${when}${byWhom(row)} and never settled — retry only if you know it did not arrive.`
 }
 
 /** What the run button says, which depends entirely on what is already on file. */
 function runLabel(line: OutreachLine): string {
   if (line.current === null) return 'Run now'
+  if (line.inFlight) return 'Running'
   return line.current.status === 'suppressed' ? 'Run anyway' : 'Retry'
 }
 
@@ -279,10 +281,13 @@ export function OutreachPanel({ ownerEmail, lines, history }: Props) {
                   </button>
                 )}
                 {line.built && (
+                  /* Disabled while an attempt is in flight, because `runOutreach` refuses that
+                     window outright: a button that looks live and answers with an error is a
+                     screen contradicting the rule it is drawn from. */
                   <button
                     type="button"
                     className="acct-pill"
-                    disabled={!online || busy !== null}
+                    disabled={!online || busy !== null || line.inFlight}
                     onClick={() => void run(line.kind, () => runOutreachNow(line.kind, ownerEmail), 'Done.')}
                   >
                     {runLabel(line)}
