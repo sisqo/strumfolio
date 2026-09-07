@@ -45,6 +45,24 @@ describe('what a dropped file is', () => {
     assert.deepEqual(detectSource('song.xml'), { kind: 'xml' })
   })
 
+  it('opens a macro-enabled .docm, which is the same zip with macros nobody reads', () => {
+    assert.deepEqual(detectSource('song.docm'), { kind: 'docx' })
+  })
+
+  it('refuses Word’s older .doc without catching .docx or .docm on the way', () => {
+    // The refusals are scanned before every other branch, so the anchor on `\.doc$` is
+    // the only thing standing between «that is a .doc, save it as .docx» and saying it
+    // about a .docx. Worth a test rather than a reading of the regex.
+    for (const name of ['song.doc', 'Song.DOC', 'template.dot']) {
+      const source = detectSource(name)
+      assert.equal(source.kind, 'refused', name)
+      assert.ok(source.kind === 'refused' && source.advice.includes('.docx'), name)
+    }
+
+    assert.deepEqual(detectSource('song.docx'), { kind: 'docx' })
+    assert.deepEqual(detectSource('song.docm'), { kind: 'docx' })
+  })
+
   it('refuses the formats we deliberately do not open, and says what to do instead', () => {
     for (const name of ['OnSong.backup', 'library.onsongarchive', 'library.msb', 'song.gp5', 'chart.irealb']) {
       const source = detectSource(name)

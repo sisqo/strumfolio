@@ -3,9 +3,11 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-- **Fifteen extensions**, all listed in `ACCEPTED` (`src/components/AddSongScreen.tsx`) —
-  plain text, the ChordPro dialects, OnSong, MusicXML, ZIP, a SongbookPro backup, and — since
-  2026-09-07 — **PDF and Word**. Parsing happens **in the browser**, one `await import()` per
+- **Fifteen extensions in the picker**, listed in `ACCEPTED` (`src/components/AddSongScreen.tsx`)
+  — plain text, the ChordPro dialects, OnSong, MusicXML, ZIP, a SongbookPro backup, and — since
+  2026-09-07 — **PDF and Word**. `detectSource` opens a few more that the picker does not offer
+  (`.docm`, `.text`, `.lyrics`, `.opensong`, `.openlyrics`): aliases that work when dropped, and
+  would only lengthen a list whose job is to grey out the wrong files. Parsing happens **in the browser**, one `await import()` per
   format, so an unused format costs nothing. No AI anywhere. Inside a `.zip` those two are
   still counted as skipped rather than read: `readArchive` is synchronous and only takes text.
 - **A PDF's songs divide by title if it has titles, and by page if it does not**
