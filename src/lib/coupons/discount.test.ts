@@ -17,6 +17,7 @@ import {
   firstYearTotal,
   liveDiscount,
   offerCopy,
+  termCopy,
 } from './discount'
 import type { CampaignFacts } from './discount'
 import {
@@ -365,6 +366,39 @@ describe('firstYearCopy', () => {
   })
 })
 
+/*
+ * The /pricing card's own line. It shares `spanCopy` with `durationCopy` above, which is the
+ * property worth pinning: the two sentences differ in what they wrap around the span and must
+ * never differ in the span itself, or a card and the checkout it leads to would count the same
+ * campaign differently.
+ */
+describe('termCopy', () => {
+  it('counts the same cycles durationCopy does, without repeating the amount', () => {
+    assert.equal(termCopy('34.99', 3, 'year'), 'for the first year, then €34.99')
+    assert.equal(termCopy('3.49', 3, 'month'), 'for the first 3 months, then €3.49')
+  })
+
+  /* The card prints the discounted amount on the line directly above, so this one must not. */
+  it('never opens with the price the line above it already carries', () => {
+    assert.doesNotMatch(termCopy('34.99', 3, 'year'), /€24\.49/)
+    assert.match(durationCopy('34.99', '24.49', 3, 'year'), /€24\.49/)
+  })
+
+  it('pluralises a multi-year lock', () => {
+    assert.equal(termCopy('34.99', 14, 'year'), 'for the first 2 years, then €34.99')
+  })
+
+  it('promises no reversion when there is none', () => {
+    assert.equal(termCopy('34.99', null, 'year'), 'for as long as you stay subscribed')
+  })
+
+  /* A caption on a price, not a sentence of its own — the design draws no full stop. */
+  it('is a fragment, where durationCopy is a sentence', () => {
+    assert.doesNotMatch(termCopy('34.99', 3, 'year'), /\.$/)
+    assert.match(durationCopy('34.99', '24.49', 3, 'year'), /\.$/)
+  })
+})
+
 describe('appliedCopy', () => {
   const day = (value: Date) => value.toISOString().slice(0, 10)
   const base = {
@@ -380,9 +414,18 @@ describe('appliedCopy', () => {
    * December 2026», which is a label: it named the code and the rate and left out how long the
    * reduction lasts and what follows it — the two things the overlay advertising the same offer
    * does say, so accepting it there landed the reader on a bar that told them less.
+   *
+   * The rate later left this sentence as well, and did not leave the bar with it: `percent` is
+   * the same figure, handed over separately for the ticket stub to set on its own. Both halves
+   * are asserted here together, because the failure worth catching is one of them going missing
+   * — a headline that stops naming the span, or a stub with no figure to draw.
    */
-  it('names the code, the rate and the duration in the headline', () => {
-    assert.equal(appliedCopy(base, true, day).headline, 'HAPPYSONG — 30% off for 12 months')
+  it('names the code and the duration in the headline, and hands the rate over whole', () => {
+    const copy = appliedCopy(base, true, day)
+    assert.equal(copy.headline, 'HAPPYSONG is on these prices, for 12 months.')
+    assert.equal(copy.percent, '30')
+    /* No sign and no «%»: the stub sets the sign itself, at half the numeral's size. */
+    assert.doesNotMatch(copy.percent, /%|−/)
   })
 
   it('always says what follows a discount that ends', () => {
@@ -391,7 +434,7 @@ describe('appliedCopy', () => {
 
   it('promises no reversion when the discount never lapses', () => {
     const forever = appliedCopy({ ...base, discountMonths: null }, true, day)
-    assert.equal(forever.headline, 'HAPPYSONG — 30% off, for as long as you stay subscribed')
+    assert.equal(forever.headline, 'HAPPYSONG is on these prices, for as long as you stay subscribed.')
     assert.doesNotMatch(forever.detail, /usual price/)
   })
 
@@ -402,7 +445,7 @@ describe('appliedCopy', () => {
    */
   it('names both cycles when one number means two durations', () => {
     const copy = appliedCopy({ ...base, discountMonths: 3 }, true, day)
-    assert.equal(copy.headline, 'HAPPYSONG — 30% off for 3 months')
+    assert.equal(copy.headline, 'HAPPYSONG is on these prices, for 3 months.')
     assert.match(copy.detail, /A full year if you pay yearly\./)
   })
 

@@ -20,6 +20,13 @@ source of truth until one does. The load-bearing parts:
   months out. The yearly cycle always rounds **up** to whole years, which is why
   `coupon_campaigns` has no `applies_to_monthly`/`applies_to_annual`: every campaign covers
   both cycles by construction.
+- **`durationCopy` vs `termCopy`** — the second adjacent pair, and the same hazard as the one
+  above: both word the same discount over the same `spanCopy`, and they differ in one thing.
+  `durationCopy` **opens with the discounted amount** («€2.44 for the first 12 months, then
+  €3.49.») and is for the three screens with no price above it — /checkout, the stored receipt,
+  `planChangeEmail`. `termCopy` does not, because on a /pricing card that number is the line
+  directly above the caption. Swap them and nothing fails: one screen says the price twice, the
+  other stops saying it at all.
 - **`liveDiscount` is the only way to read
   `accounts.coupon_code`/`coupon_percent`/`discount_ends_at`.** That date passes with no
   request there to observe it, exactly like `planExpiresAt`, so `subscriptionColumnsOf` never

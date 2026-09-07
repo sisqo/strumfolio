@@ -15,9 +15,8 @@ import {
   appliedCopy,
   deadlineCopy,
   discountedAmount,
-  durationCopy,
-  firstYearCopy,
   offerCopy,
+  termCopy,
 } from '@/lib/coupons/discount'
 import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
@@ -238,10 +237,15 @@ const CHECKOUT_LIVE = mockCheckoutEnabled()
  * the commercial deck rejects struck prices outright, and what answers it is that the listino
  * is genuinely what a reader without a coupon pays. See `ColumnPrice.was`.
  *
- * With one, three things arrive: the discounted amount, the listino struck through, and the
- * sentences underneath. `firstYearCopy` is monthly-only on purpose — the yearly card's own
- * duration line already names both prices and the year they change, so a second line about
- * twelve months would be the same fact twice.
+ * With one, four things arrive: the discounted amount, the listino struck through, the
+ * percentage that separates them, and the one caption underneath.
+ *
+ * **One caption, on both cycles.** The monthly card used to carry a second — `firstYearCopy`'s
+ * blended total, «€38.73 over the first year, instead of €41.88.» — and `Pricing.dc.html` draws
+ * a single line on every card. The arithmetic that line exists to protect has not been dropped
+ * with it: /checkout still prints it, one screen later and directly above the button that moves
+ * the money, which is where `firstYearTotal`'s own comment says the number has to be right.
+ * `termCopy` records the same move from the other side.
  */
 function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null): ColumnPrice {
   const full = PRICES[plan][cycle].amount
@@ -249,15 +253,20 @@ function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null
   if (coupon === null) return { amount: euro(full), suffix }
 
   const discounted = discountedAmount(full, coupon.discountPercent)
-  const notes = [durationCopy(full, discounted, coupon.discountMonths, cycle)]
-  if (cycle === 'month') {
-    const firstYear = firstYearCopy(full, discounted, coupon.discountMonths)
-    if (firstYear !== null) notes.push(firstYear)
-  }
 
   /* The minus is U+2212, not a hyphen — the same sign `discountLine` uses on /billing, and the
      one that sits on the digits' own baseline instead of halfway up them. */
-  return { amount: euro(discounted), suffix, was: euro(full), off: `−${coupon.discountPercent}%`, notes }
+  return {
+    amount: euro(discounted),
+    suffix,
+    was: euro(full),
+    off: `−${coupon.discountPercent}%`,
+    /* `termCopy` and not `durationCopy`: the discounted amount is the line directly above this
+       one on a card, and the design prints it once. The three screens that have no such line —
+       /checkout, the stored receipt, the plan-change email — keep the sentence that opens with
+       it. */
+    note: termCopy(full, coupon.discountMonths, cycle),
+  }
 }
 
 /** A paid column, worded once for the three that differ only in their amounts and their audience. */

@@ -49,22 +49,34 @@ export interface ColumnPrice {
    */
   was?: string
   /**
-   * «−30%» — the reduction itself, as a badge beside the number.
+   * «−30%» — the reduction itself, as a pill on the line **above** the number, beside the
+   * struck listino it explains.
    *
    * The struck price says *what it was* and the big number says *what it is*; neither says by
    * how much, which is the one figure the campaign is actually named after and the one a
    * reader compares between plans. Present only alongside `was`, for the same reason `was`
    * is conditional: with no coupon there is no reduction to badge.
+   *
+   * It used to be a small tag trailing the price, and `Pricing.dc.html` moved it: the two
+   * halves of one fact — the price that was, and by how much it fell — now sit together on
+   * their own line, and the price actually charged is left alone underneath them as the
+   * largest thing on the card. `CheckoutScreen` still draws the trailing tag, which is why
+   * `.plan-price-off` survives as its own class there; see `.plan-price-cut` in `globals.css`.
    */
   off?: string
   /**
-   * The small lines under the price: what the discount costs and for how long, and on the
-   * monthly card the real first-year total. Composed on the server by `lib/coupons/discount.ts`
-   * and arriving as finished sentences, like every other string in this component — this file
-   * must never import `@/lib/plans/types`, and the coupon arithmetic sits downstream of
-   * `prices.ts`, so computing any of it here would reopen that bundle door.
+   * The one small line under the price: how long the discount holds and what comes after it.
+   * Composed on the server by `lib/coupons/discount.ts` and arriving as a finished string, like
+   * every other string in this component — this file must never import `@/lib/plans/types`, and
+   * the coupon arithmetic sits downstream of `prices.ts`, so composing it here would reopen
+   * that bundle door.
+   *
+   * **One line where this was an array of them.** The monthly card carried a second, the
+   * blended first-year total, and the redesign has a single caption on every card. That total
+   * still exists where it decides something — /checkout prints it directly above the button
+   * that moves the money — and `termCopy`'s own comment records the move.
    */
-  notes?: string[]
+  note?: string
 }
 
 export interface PlanColumn {
@@ -428,45 +440,44 @@ export function PricingPlans({
               {column.featured && <span className="plan-badge">Most popular</span>}
 
               <h3 className="plan-name">{column.name}</h3>
+              {/*
+                * The cut, on its own line above the price it produced — the struck listino and
+                * the percentage that took it there, read left to right in that order. Above and
+                * never after, so the eye reads "was, less this much, now" down the card and the
+                * number actually charged is the last thing it lands on.
+                *
+                * `<s>` and not a `text-decoration` class alone: the strike is the whole meaning
+                * here, and a purely visual one leaves a screen reader announcing two prices with
+                * nothing to say which is being charged. The `sr-only` words are what actually
+                * name them, because «was» read aloud is clearer than any inflection a strike can
+                * carry — and the pill gets its own, because «−30%» alone reads as a minus sign
+                * with nothing to subtract it from.
+                *
+                * One element and not two conditionals: `off` is only ever set alongside `was`
+                * (see `ColumnPrice`), so the row is present or absent whole.
+                */}
+              {column.price[period].was !== undefined && (
+                <p className="plan-price-cut">
+                  <span className="sr-only">Was </span>
+                  <s className="plan-price-was">{column.price[period].was}</s>
+                  {column.price[period].off !== undefined && (
+                    <span className="plan-price-cut-off">
+                      <span aria-hidden>{column.price[period].off}</span>
+                      <span className="sr-only">, a {column.price[period].off?.replace('−', '')} discount</span>
+                    </span>
+                  )}
+                  <span className="sr-only">, now</span>
+                </p>
+              )}
               <p className="plan-price">
-                {/*
-                  * The struck listino before the price it was reduced to, never after — so the
-                  * eye reads "was, now" in that order whichever of the two is visually larger.
-                  * The same rule `.lifetime-original` states for the Lifetime block.
-                  *
-                  * `<s>` and not a `text-decoration` class alone: the strike is the whole
-                  * meaning here, and a purely visual one leaves a screen reader announcing two
-                  * prices with nothing to say which is being charged. The `sr-only` words are
-                  * what actually name them, because «was» read aloud is clearer than any
-                  * inflection a strike can carry.
-                  */}
-                {column.price[period].was !== undefined && (
-                  <>
-                    <span className="sr-only">Was </span>
-                    <s className="plan-price-was">{column.price[period].was}</s>{' '}
-                    <span className="sr-only">, now </span>
-                  </>
-                )}
                 {column.price[period].amount}
                 {column.price[period].suffix !== '' && (
                   <span className="plan-price-period">{column.price[period].suffix}</span>
                 )}
-                {/* After the number, not before it: the price is what the reader came for, and
-                    the reduction is the tag on it. `sr-only` words because a screen reader
-                    given «−30%» alone would read a minus sign with nothing to subtract it
-                    from. */}
-                {column.price[period].off !== undefined && (
-                  <span className="plan-price-off">
-                    <span aria-hidden>{column.price[period].off}</span>
-                    <span className="sr-only">, a {column.price[period].off?.replace('−', '')} discount</span>
-                  </span>
-                )}
               </p>
-              {column.price[period].notes?.map((note) => (
-                <p key={note} className="plan-price-note">
-                  {note}
-                </p>
-              ))}
+              {column.price[period].note !== undefined && (
+                <p className="plan-price-note">{column.price[period].note}</p>
+              )}
               <p className="plan-audience">{column.audience}</p>
 
               {/*

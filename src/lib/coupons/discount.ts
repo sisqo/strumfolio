@@ -237,17 +237,57 @@ export function durationCopy(
   months: number | null,
   cycle: BillingPeriod,
 ): string {
-  const cycles = discountCycles(months, cycle)
-  const unit = cycle === 'year' ? 'year' : 'month'
+  const span = spanCopy(months, cycle)
 
-  if (cycles === null) {
+  if (span === null) {
     return cycle === 'year'
       ? `${euro(discounted)} a year, for as long as you stay subscribed.`
       : `${euro(discounted)} a month, for as long as you stay subscribed.`
   }
 
-  const span = cycles === 1 ? `the first ${unit}` : `the first ${cycles} ${unit}s`
   return `${euro(discounted)} for ${span}, then ${euro(full)}.`
+}
+
+/**
+ * The stretch a discount covers — «the first year», «the first 3 months», «the first 2 years» —
+ * counted in **cycles**, never in the campaign's raw months. `null` for a discount that never
+ * lapses, which has no stretch to name.
+ *
+ * Shared by `durationCopy` above and `termCopy` below rather than written out twice: the two
+ * differ in what they put around this phrase and must never differ in the phrase itself, or a
+ * /pricing card and the checkout it leads to would count the same campaign differently.
+ */
+function spanCopy(months: number | null, cycle: BillingPeriod): string | null {
+  const cycles = discountCycles(months, cycle)
+  if (cycles === null) return null
+  const unit = cycle === 'year' ? 'year' : 'month'
+  return cycles === 1 ? `the first ${unit}` : `the first ${cycles} ${unit}s`
+}
+
+/**
+ * The one line under a discounted price on a /pricing card: how long it holds, and what comes
+ * after — «for the first year, then €34.99».
+ *
+ * A fragment rather than a sentence, and that is the whole of what separates it from
+ * `durationCopy`: it does not open with the discounted amount, because on a card that number is
+ * the line directly above it and `Pricing.dc.html` prints it exactly once. The three consumers
+ * of `durationCopy` have no such line to lean on — /checkout sets its sentence beside a cycle
+ * toggle, `checkout.ts` stores it, and `planChangeEmail` sends it with no price above it at all
+ * — so that function keeps the amount and this one does not. Neither is the other's replacement.
+ *
+ * No full stop for the same reason: the design draws this as a caption on the price, not as a
+ * sentence standing on its own.
+ *
+ * **This is also the line that used to be two.** The monthly card carried `firstYearCopy`'s
+ * blended total under it («€38.73 over the first year, instead of €41.88.») and the redesign
+ * has one line on every card, monthly included. That total is not gone from the app: /checkout
+ * still prints it, one screen later and directly above the button that moves the money, which
+ * is where `firstYearTotal`'s own comment says the arithmetic has to be right.
+ */
+export function termCopy(full: string, months: number | null, cycle: BillingPeriod): string {
+  const span = spanCopy(months, cycle)
+  if (span === null) return 'for as long as you stay subscribed'
+  return `for ${span}, then ${euro(full)}`
 }
 
 /**
@@ -273,6 +313,13 @@ export function firstYearCopy(full: string, discounted: string, months: number |
  * and what happens after. The overlay that advertises the same offer says all of it, so a
  * reader who accepted it there arrived at a bar that told them less than the banner had.
  *
+ * **The rate has since left the headline too**, and the sentence that replaced it («HAPPYSONG
+ * is on these prices, for 12 months.») is not a retreat back towards that first label. The bar
+ * is a ticket now, per `Pricing.dc.html`: the percentage is set in the stub torn off its left
+ * edge, at four times the size of any word beside it. So `percent` below is the same figure
+ * still, given to the bar as a figure — and the headline that used to spend a clause on it
+ * spends the clause on the code and the span instead, which is what the stub cannot draw.
+ *
  * **Every sentence is derived**, like `bannerCopy` and `offerCopy` before it, and for the same
  * reason: a bar assembled from what the discount actually does cannot promise what it does
  * not, and a stored headline can.
@@ -284,7 +331,12 @@ export function firstYearCopy(full: string, discounted: string, months: number |
  * the page contradicting itself.
  */
 export interface AppliedCopy {
-  /** «HAPPYSONG — 30% off for 12 months» — the code and what it does, in one line. */
+  /**
+   * «30» — the rate alone, for the ticket stub. No sign and no «%»: the bar sets the sign at
+   * half the numeral's size, which it can only do with the two apart.
+   */
+  percent: string
+  /** «HAPPYSONG is on these prices, for 12 months.» — the code, and how long it holds. */
   headline: string
   /** The rest: the cycle nuance, what is not covered, the reversion, the deadline. */
   detail: string
@@ -301,8 +353,8 @@ export function appliedCopy(
 
   const headline =
     monthly === null
-      ? `${code} — ${percent}% off, for as long as you stay subscribed`
-      : `${code} — ${percent}% off for ${monthly} ${monthly === 1 ? 'month' : 'months'}`
+      ? `${code} is on these prices, for as long as you stay subscribed.`
+      : `${code} is on these prices, for ${monthly} ${monthly === 1 ? 'month' : 'months'}.`
 
   const sentences: string[] = []
 
@@ -324,7 +376,7 @@ export function appliedCopy(
   if (monthly !== null) sentences.push('After that, the usual price.')
   if (facts.expiresAt !== null) sentences.push(`Claim it by ${formatDay(facts.expiresAt)}.`)
 
-  return { headline, detail: sentences.join(' ') }
+  return { percent, headline, detail: sentences.join(' ') }
 }
 
 /**

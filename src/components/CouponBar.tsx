@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
-import { IconCheck } from '@/components/icons'
 import { applyCoupon, clearCoupon, rememberUrlCoupon } from '@/lib/coupons/actions'
 import {
   COUPON_FAILURE_MESSAGE,
@@ -33,18 +32,28 @@ import { useOnline } from '@/lib/useOnline'
  * `actions.ts` is a `'use server'` module, so importing it costs an RPC reference and not the
  * module, exactly as `GiftForm` imports `setGrant`.
  *
- * The applied state's two lines are composed on the server by `appliedCopy` and arrive as
- * `applied`. There is no column of free copy behind them: a bar assembled from what the
+ * The applied state's rate and two lines are composed on the server by `appliedCopy` and arrive
+ * as `applied`. There is no column of free copy behind them: a bar assembled from what the
  * discount actually does cannot promise something it does not, and a hand-written headline can.
  * Two lines and not one because the first version was a label — code and rate — and left out
  * the two things a reader needs, which are how long the reduction lasts and what follows it.
+ *
+ * **Applied, that state is a ticket** (`Pricing.dc.html`), and the same one on both screens:
+ * the stub carrying the percentage, a perforation, then the two lines and «Remove». It is the
+ * offer overlay's own ticket at bar scale — `CouponOverlay` advertises an offer nobody has
+ * taken with a stub exactly like this one, and a reader who accepts it there now arrives at
+ * the confirmation of it wearing the same shape rather than an unrelated tinted row.
  */
 export function CouponBar({
   applied,
   persist,
 }: {
-  /** The two finished lines from `appliedCopy`, or `null` when no coupon is in force. */
-  applied: { headline: string; detail: string } | null
+  /**
+   * The finished rate and two lines from `appliedCopy`, or `null` when no coupon is in force.
+   * `percent` is the bare figure — the stub sets the «%» itself, at half the numeral's size,
+   * which it can only do with the two apart.
+   */
+  applied: { percent: string; headline: string; detail: string } | null
   /**
    * A code the URL brought that the cookie does not hold yet — written once, from an effect,
    * because Next.js allows a cookie write only from a server action, a route handler or
@@ -147,19 +156,39 @@ export function CouponBar({
   if (applied !== null) {
     return (
       <div className="coupon-bar is-on" role="status">
-        <span className="coupon-bar-mark">
-          <IconCheck size={16} />
+        {/*
+          * The stub, torn off the left edge — the overlay's own ticket at bar scale, drawn in
+          * the same three warm tones (`--ticket-*`) and against `--surface` so the perforation
+          * beside it reads as a tear rather than a rule. It replaces the check mark this bar
+          * used to open with: a tick says «done», and the one thing a reader wants back from a
+          * coupon they have already applied is the size of it.
+          *
+          * `aria-hidden`, all of it. The figure is set as «30» and «%» in two sizes, which a
+          * screen reader would read as two words, and the headline beside it already carries
+          * the code and the span — so the accessible version of this stub is the `sr-only`
+          * sentence after it, said once and in order.
+          */}
+        <span className="coupon-bar-stub" aria-hidden>
+          <span className="coupon-bar-figure">
+            {applied.percent}
+            <span className="coupon-bar-sign">%</span>
+          </span>
+          <span className="coupon-bar-off">OFF</span>
         </span>
-        <span className="coupon-bar-lines">
-          <span className="coupon-bar-text">{applied.headline}</span>
-          {/* Absent rather than empty when there is nothing to add — a campaign with no
-              expiry, covering everything, whose two cycles agree has all of its meaning in the
-              line above. */}
-          {applied.detail !== '' && <span className="coupon-bar-detail">{applied.detail}</span>}
+        <span className="coupon-bar-perf" aria-hidden />
+        <span className="coupon-bar-body">
+          <span className="coupon-bar-lines">
+            <span className="sr-only">{applied.percent}% off. </span>
+            <span className="coupon-bar-text">{applied.headline}</span>
+            {/* Absent rather than empty when there is nothing to add — a campaign with no
+                expiry, covering everything, whose two cycles agree has all of its meaning in the
+                line above. */}
+            {applied.detail !== '' && <span className="coupon-bar-detail">{applied.detail}</span>}
+          </span>
+          <button type="button" className="btn btn-sm coupon-bar-action" disabled={!online || busy} onClick={() => void remove()}>
+            Remove
+          </button>
         </span>
-        <button type="button" className="btn btn-sm coupon-bar-action" disabled={!online || busy} onClick={() => void remove()}>
-          Remove
-        </button>
       </div>
     )
   }

@@ -6879,40 +6879,99 @@
   }
 
   /*
-   * The listino, struck, before the price it was reduced to.
+   * The cut: the listino and the percentage that took it down, on one line **above** the price
+   * they produced (`Pricing.dc.html`).
    *
-   * Present only while a coupon is applied — there is no rule here that can draw a strike
-   * without one, because `ColumnPrice.was` is absent without one. That conditionality is the
-   * legal argument, not a styling choice; see `ColumnPrice`'s own comment.
+   * Above and not beside, which is the redesign's own move and the reason this row exists at
+   * all. The two struck-through halves of the old arrangement sat either side of the number
+   * actually charged — a strike before it, a small tag after it — so the one figure the reader
+   * came for was the thing sandwiched. Now the history is stated once and got out of the way,
+   * and `.plan-price` is left alone underneath as the largest thing on the card.
    *
-   * `text-decoration-thickness` named explicitly: the default on a 28px number is a hairline
-   * that reads as a rendering artefact rather than a deletion, and the whole meaning of this
-   * element is that the number is not the one being charged.
+   * The whole row is present only while a coupon is applied — there is no rule here that can
+   * draw a strike without one, because `ColumnPrice.was` is absent without one. That
+   * conditionality is the legal argument, not a styling choice; see `ColumnPrice`'s own comment.
+   *
+   * `flex-wrap` because the pill is a fixed 21px whatever the card's width: on a narrow column
+   * it drops under the struck price rather than pushing it out of the card.
+   */
+  .plan-price-cut {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /*
+   * `text-decoration-thickness` named explicitly: the default on this size is a hairline that
+   * reads as a rendering artefact rather than a deletion, and the whole meaning of this element
+   * is that the number is not the one being charged.
+   *
+   * `--muted` where `Pricing.dc.html` sets `#8d939c`, which is this palette's `--faint`. The
+   * one value in the mock deliberately not taken: `--faint`'s own comment in `:root` reserves
+   * it for decorative glyphs and disabled controls because it measures under 4.5:1 against
+   * every surface in this app, and a price a reader is meant to read against the one they will
+   * be charged is real text. No margin either — the row above sets the gap.
    */
   .plan-price-was {
-    margin-right: 0.375rem;
     color: var(--muted);
-    font-size: 1.125rem;
+    font-size: 1.03125rem;
     font-weight: 400;
     text-decoration: line-through;
     text-decoration-thickness: 0.09em;
   }
 
   .plan-card.is-featured .plan-price-was {
-    color: color-mix(in srgb, var(--on-accent) 58%, transparent);
+    color: color-mix(in srgb, var(--on-accent) 62%, transparent);
+    font-size: 1.09375rem;
   }
 
   /*
-   * The reduction itself, badged beside the number.
+   * The reduction itself — the one figure neither the struck price nor the charged one carries,
+   * the one a reader compares between plans, and what the campaign is actually named after.
    *
-   * The struck price above says what it was and the big number says what it is; this is the
-   * one figure neither of them carries, and the one a reader compares between plans — it is
-   * also what the campaign is named after. `accent-soft` behind `accent`, the app's own pairing
-   * for a value that is a distance from home (`DESIGN.md`'s song chips make the same choice),
-   * rather than a second hue invented for the coupon.
+   * A filled pill at 21px, set larger than the struck price it sits beside and read as the
+   * reason for it. `accent` filled rather than `.plan-price-off`'s soft tint, which is what
+   * that badge could afford when it was a tag trailing a number: alone on its own line it has
+   * to hold the line's weight by itself.
    *
-   * `vertical-align: middle` and a fixed small size, so a 28px price and a 34px featured price
-   * both get the same badge instead of one that scales with the number it tags.
+   * `line-height: 1` and `white-space: nowrap`, so «−30%» stays one object at any card width
+   * and the pill's height is its padding rather than the font's own leading.
+   */
+  .plan-price-cut-off {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4375rem 1rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 1.3125rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* On the featured card the accent is the *background*, so the pill inverts — the fill would
+     vanish into it. Heavier too, the mock's own call: on the inverted pair the same weight
+     reads lighter. */
+  .plan-card.is-featured .plan-price-cut-off {
+    background: var(--on-accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /*
+   * The small inline version, kept for `CheckoutScreen`, which still tags a price it does not
+   * stack anything above — «€24.49 per year −30%», one line beside a cycle toggle. /pricing's
+   * cards left this shape behind for `.plan-price-cut-off` above, so nothing under
+   * `.plan-card` reaches it any more and its featured override went with them.
+   *
+   * `accent-soft` behind `accent`, the app's own pairing for a value that is a distance from
+   * home (`DESIGN.md`'s song chips make the same choice), rather than a second hue invented for
+   * the coupon. `vertical-align: middle` and a fixed small size, so it tags a 24px price and a
+   * 32px one identically instead of scaling with the number.
    */
   .plan-price-off {
     display: inline-flex;
@@ -6929,26 +6988,25 @@
     white-space: nowrap;
   }
 
-  /* On the featured card the accent is the *background*, so the badge inverts: the soft tint
-     would vanish into it. */
-  .plan-card.is-featured .plan-price-off {
-    background: color-mix(in srgb, var(--on-accent) 20%, transparent);
-    color: var(--on-accent);
-  }
-
   /*
-   * What the discount costs and for how long, and — on the monthly card — the real first-year
-   * total. Between the price and the audience line, so the qualification arrives before the
-   * reader has moved on from the number it qualifies.
+   * How long the discount holds and what comes after it. Between the price and the audience
+   * line, so the qualification arrives before the reader has moved on from the number it
+   * qualifies.
    *
    * Smaller than `.plan-audience` on purpose: this is the small print of the price above it,
    * not a second selling sentence, and one of the two things it says is that the price goes up.
+   *
+   * Drawn in the accent rather than `--muted` since the redesign — the caption belongs to the
+   * cut above it, not to the prose below it, and on the three tinted cards a muted grey read as
+   * a disclaimer somebody had left behind. `Pricing.dc.html`'s `#7c3b0b` is its own accent one
+   * step pressed, which is this app's `accent 88% + ink`: taking the hex literally would put a
+   * dark brown on the near-black night surface, where `--accent` is an amber.
    */
   .plan-price-note {
-    margin-top: 0.25rem;
-    color: var(--muted);
+    margin-top: 0.3125rem;
+    color: color-mix(in srgb, var(--accent) 88%, var(--ink));
     font-size: 0.78125rem;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
   .plan-card.is-featured .plan-price-note {
@@ -7204,20 +7262,84 @@
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
   }
 
-  /* Applied: the accent's soft tint, the same one `.notice-accent` uses for a neutral fact
-     rather than something the reader did wrong. */
+  /*
+   * Applied: a ticket, and the offer overlay's own — `Pricing.dc.html` draws this bar in
+   * `#fbf5ed`, `#f0dfc9` and `#e0cbb0`, which are `--promo-bg`, `--promo-line` and
+   * `--ticket-perf` exactly. That is what says the two states of one offer were drawn as one
+   * object: `.coupon-ticket` advertises what nobody has taken yet, this confirms what somebody
+   * has, and a reader who accepted the first now arrives at the second wearing the same shape
+   * instead of an unrelated tinted row.
+   *
+   * `padding: 0`, `gap: 0` and `flex-wrap: nowrap` all override the unapplied state's own row —
+   * the stub has to reach the three edges it sits against, and `overflow: hidden` is what lets
+   * the bar's radius cut its square corners. `stretch` so the stub is as tall as whatever the
+   * campaign has to say, rather than a fixed block with the text floating beside it.
+   */
   .coupon-bar.is-on {
-    align-items: flex-start;
-    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border-color: var(--promo-line);
+    background: var(--promo-bg);
     box-shadow: none;
   }
 
-  /* The check and the button line up with the headline, not with the middle of a block whose
-     height now depends on how much the campaign has to say. */
-  .coupon-bar.is-on > .coupon-bar-mark,
-  .coupon-bar.is-on > .coupon-bar-action {
-    margin-top: 0.0625rem;
+  /* Paper white against the bar's cream, which is what makes the perforation beside it read as
+     a tear rather than a rule — `.coupon-ticket-stub`'s own reason, at bar scale. */
+  .coupon-bar-stub {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 7.25rem;
+    padding: 0.75rem 0;
+    background: var(--surface);
+  }
+
+  .coupon-bar-figure {
+    color: var(--accent);
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 0.9;
+  }
+
+  /* Half the numeral, so «30%» reads as one figure and not as two words — the same ratio
+     `.coupon-percent-sign` uses on the full ticket. */
+  .coupon-bar-sign {
+    font-size: 0.5em;
+  }
+
+  .coupon-bar-off {
+    margin-top: 0.125rem;
+    color: var(--ticket-mute);
+    font-size: 0.65625rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+  }
+
+  .coupon-bar-perf {
+    flex: none;
+    width: 2px;
+    background: repeating-linear-gradient(180deg, var(--ticket-perf) 0 7px, transparent 7px 14px);
+  }
+
+  /*
+   * Everything on the paid side of the tear. `flex-wrap` where the mock has none: the stub is a
+   * fixed 116px and «Remove» a fixed button, so on a phone the two lines take the width and the
+   * button drops under them rather than crushing the sentence it is about.
+   */
+  .coupon-bar-body {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem 1rem;
+    min-width: 0;
+    padding: 0.75rem 1.125rem;
   }
 
   .coupon-bar-form {
@@ -7246,11 +7368,14 @@
   }
 
   /* Inside `.coupon-bar-lines` the flex sizing above is not what is wanted — the headline is a
-     block that wraps, not a flex item competing with a sibling. */
+     block that wraps, not a flex item competing with a sibling. A step larger than the «Have a
+     code?» label the same class draws in the unapplied state: there it is one word beside a
+     field, here it is the line the whole ticket is built around. */
   .coupon-bar-lines > .coupon-bar-text {
     display: block;
     flex: none;
     min-width: 0;
+    font-size: 0.90625rem;
   }
 
   /* What the discount actually does: the cycle nuance, the exclusion, the reversion, the
@@ -7261,7 +7386,7 @@
     margin-top: 0.125rem;
     color: var(--muted);
     font-size: 0.8125rem;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
   /* Narrow on purpose: a coupon code is at most 24 characters, and a full-width field in a
@@ -7276,20 +7401,6 @@
 
   .coupon-bar-action {
     flex: none;
-  }
-
-  /* The check in the accent's soft tint — the glyph this app already means "settled" with,
-     the same one `.trust-note-icon` on this page uses, rather than a second mark drawn here. */
-  .coupon-bar-mark {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    color: var(--accent);
   }
 
   /* Its own line, full width, so a refusal never squeezes the field it is about. */
@@ -7871,11 +7982,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    max-width: 9.5rem;
+    max-width: 10rem;
     padding: 0.5rem 0.875rem;
     border-radius: var(--r-sm);
-    background: color-mix(in srgb, var(--on-accent) 18%, transparent);
-    color: var(--on-accent);
+    background: color-mix(in srgb, var(--on-accent) 16%, transparent);
+    /*
+     * Warm cream rather than the plain `--on-accent` every other line on this panel takes —
+     * the redesign's own move, which pulls this badge towards the amber it qualifies a price
+     * with instead of leaving it the same white as the sentence beside it.
+     *
+     * `--accent-soft` and not `Pricing.dc.html`'s literal `#ffd9a8`, because that is a
+     * light-on-dark value and this panel is only dark in light mode: it is derived from
+     * `--accent`, which inverts, so at night the fill is a mid brown and a light amber on it
+     * measures under 3:1. `--accent-soft` inverts with everything else and reads warm on the
+     * light panel and dark on the night one — better contrast at night than the white it
+     * replaces, not worse.
+     */
+    color: var(--accent-soft);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.03em;
