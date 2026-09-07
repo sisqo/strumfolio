@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { SCROLL_SPEEDS } from './prefs/types'
+import { atScrollEnd } from './scrollEnd'
 
 /** Minimal shape of the Wake Lock API, which is not in the bundled DOM types. */
 interface WakeLockSentinel {
@@ -115,10 +116,12 @@ export function useAutoScroll(speedStep: number) {
    */
   const rewindIfEnded = useCallback(() => {
     const page = document.documentElement
-    const room = page.scrollHeight - page.clientHeight
-    /* A pixel of slack: `scrollY` is fractional under a zoom or a scaled display, so it
-       can rest a hair short of `room` at a bottom the browser considers reached. */
-    if (room > 0 && window.scrollY >= room - 1) window.scrollTo({ top: 0, behavior: 'instant' })
+    /* The same `atScrollEnd` the loop stops on, so the position that ends a song and the
+       position that rewinds one can never disagree — a song stopped at a bottom this did
+       not recognise would leave play dead exactly as before. */
+    if (atScrollEnd(window.scrollY, page.scrollHeight, page.clientHeight)) {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
   }, [])
 
   const start = useCallback(() => {
@@ -170,37 +173,19 @@ export function useAutoScroll(speedStep: number) {
       remainderRef.current = wanted - whole
 
       if (whole > 0) {
-        const before = window.scrollY
         window.scrollBy(0, whole)
 
         /*
-         * Nothing moved, which used to be read as one thing and is really two: the
-         * song has ended, or the song never had anywhere to go. Only the first is a
-         * reason to stop.
-         *
-         * The reading page makes the difference easy to miss, because a song that
-         * fits leaves the document *exactly* the height of the viewport rather than a
-         * pixel over — `.song-card` carries `min-height: calc(100dvh - 4.375rem)` under
-         * a 4rem header, so the page it adds up to is one screen and not scrollable at
-         * all. Treating that as the bottom meant pressing play un-pressed itself on the
-         * first frame that wanted a whole pixel, which reads as the song stopping the
-         * instant it starts. It reached a real reader when tab blocks became collapsed
-         * by default and took ~170px out of the songs that have them, dropping a page
-         * that used to clear the window to exactly its height.
-         *
-         * So a page with nowhere to scroll keeps playing instead: `running` stays true
-         * and the wake lock stays held, which is the half that matters on stage — a
-         * short song is still a song you are looking at, and the screen going to sleep
-         * halfway through it is the thing the lock exists to prevent. Nothing moves,
-         * because there is nothing to move; if the page does grow later — a tab opened,
-         * the zoom stepped up — the loop is still there and simply starts scrolling.
-         *
-         * The geometry is read only on a frame that already failed to move, and
-         * `scrollHeight`/`clientHeight` are the pair that answers this: both exclude the
-         * scrollbars, so their difference is the room the page actually has.
+         * Whether the song has ended is a question about *where the page is*, and this
+         * used to ask whether the last nudge had moved it — which is a different
+         * question with the same answer only at 100% zoom. `atScrollEnd` carries both
+         * cases that proved it wrong, a song too short to scroll and a browser zoomed
+         * past 100%; the wake lock is why a page with no end keeps playing rather than
+         * stopping. Read every frame that asked for a pixel, and cheap: two layout
+         * properties already computed for the scroll itself.
          */
         const page = document.documentElement
-        if (window.scrollY === before && page.scrollHeight > page.clientHeight) {
+        if (atScrollEnd(window.scrollY, page.scrollHeight, page.clientHeight)) {
           setRunning(false)
           return
         }
