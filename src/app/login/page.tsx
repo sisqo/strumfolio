@@ -15,8 +15,10 @@ import {
   IconChevronRight,
   IconChordShape,
   IconCode,
+  IconComment,
   IconGoogle,
   IconImport,
+  IconNotation,
   IconOnStage,
   IconPencil,
   IconPrint,
@@ -386,7 +388,7 @@ const FAQ: FaqGroup[] = [
 ]
 
 /**
- * Nine, not an exhaustive list. Each is something a visitor can picture doing on
+ * Eleven, not an exhaustive list. Each is something a visitor can picture doing on
  * stage, in one sentence — the rest is for whoever is already inside to discover.
  */
 const FEATURES: Feature[] = [
@@ -433,9 +435,40 @@ const FEATURES: Feature[] = [
     text: 'Stuck on a chord? Tap it and see the shape, ready to play — guitar on every plan, ukulele on the paid ones.',
   },
   {
+    icon: <IconNotation size={20} />,
+    title: 'Chords in your own alphabet',
+    /* No plan clause on this card, and that is checked rather than assumed: the notation is
+     * a reader's own preference and `saveGlobalPrefs` (`lib/prefs/actions.ts`) gates the
+     * instrument alone — the notation is written back for every plan, free included. It also
+     * has no row on /pricing, so there is nothing there for this to agree or disagree with.
+     *
+     * "However far you transpose it" is the Nashville claim specifically, and it is the one
+     * worth making: a sheet written in degrees of the key is the same sheet at every shift
+     * (`key.test.ts` pins exactly that). Read as a promise about the other three alphabets it
+     * would be false — hence the em dash, which keeps it attached to the numbers. */
+    text:
+      'Do-Re-Mi, C-D-E, the German convention with H for B, or Nashville numbers — each chord ' +
+      'written as the degree it plays in the key, so the sheet reads the same however far you ' +
+      'transpose it. Chosen once, for every song you read.',
+  },
+  {
     icon: <IconSliders size={20} />,
     title: 'Zoom and scroll',
     text: 'Bigger text, auto-scroll at your pace — readable in any condition, on any phone or tablet. Your hands stay on the instrument.',
+  },
+  {
+    icon: <IconComment size={20} />,
+    title: 'Your notes, on the word',
+    /* `IconComment` rather than a new glyph: it is already what an anchored note is drawn as
+     * inside the app (`CommentsToggle`, `CommentsRail`), so one shape keeps one meaning.
+     *
+     * Ungated, like the notation card above and for a firmer reason — `lib/comments/actions.ts`
+     * states out loud that it runs no plan check and no role check, since a note about how one
+     * reader reads is not a modification of anything shared. "With no signal" is that file's
+     * read cache and outbox, not an aspiration. */
+    text:
+      'Pin a private reminder to the exact syllable, or to the chord standing over it — a ' +
+      'fingering, a cue, the line you always get wrong. Yours alone, and there with no signal.',
   },
   {
     icon: <IconPrint size={20} />,

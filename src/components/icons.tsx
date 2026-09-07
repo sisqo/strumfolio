@@ -651,6 +651,29 @@ export function IconChordShape(props: IconProps) {
   )
 }
 
+/**
+ * Which alphabet the chords are spelled in: a letter beside a number, both drawn
+ * with the same strokes as every other glyph here rather than set as `<text>`,
+ * whose weight and width would come from whatever font the page happens to have.
+ *
+ * A letter and a number rather than two letters, because that is the whole of
+ * what the choice is between: Do-Re-Mi, C-D-E and the German convention all name
+ * a chord, and Nashville numbers count it — see `NotationPicker`, which is the
+ * control this stands for. Deliberately not `IconNote`, which is the brand mark
+ * and would read as the logo, and not `IconTuningFork`, which already means the
+ * key and the capo everywhere it appears.
+ */
+export function IconNotation(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.6 17.5 7.2 6.5l3.6 11" />
+      <path d="M5.1 14h4.2" />
+      <path d="M14.6 8.4 16.6 6.5v11" />
+      <path d="M14.1 17.5h5" />
+    </Icon>
+  )
+}
+
 export function IconPublish(props: IconProps) {
   return (
     <Icon {...props}>
