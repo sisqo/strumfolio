@@ -189,9 +189,17 @@ function lifetimePill(coupon: Campaign | null): string | null {
 /*
  * What replaces the whole of "If a plan ends" — the section heading, the cancelling
  * mechanics, and the fourteen-day refund promise that used to close it. This is the v3.4
- * redesign's own call: the fuller rule is not written anywhere else on the site, and going
- * with only this shorter reassurance is a deliberate trade of that explanatory prose for the
- * lighter page the redesign asks for, made once and knowingly rather than lost by accident.
+ * redesign's own call: going with only this shorter reassurance was a deliberate trade of
+ * that explanatory prose for the lighter page the redesign asks for, made once and knowingly
+ * rather than lost by accident.
+ *
+ * **The fuller rule is written somewhere else now** — this said it was written nowhere, which
+ * was true the day the section was cut and stopped being true when /login's FAQ grew a "Plans
+ * and billing" group: what renews, what cancelling does to a period already paid for, and the
+ * fourteen days. That is the right home for it, since a price list going lighter is exactly
+ * what the redesign asked for, but it makes this page and that one a pair — the same pair the
+ * chord-shapes row and the devices row already belong to. The one sentence below and those
+ * answers must not disagree, and note which word this one does not contain: see `TRUST_NOTE_REST`.
  */
 /** The lead sentence, bold in the design — see the JSX below for the plain rest of it. */
 const TRUST_NOTE_LEAD = 'Nothing you put in here is ever deleted'
