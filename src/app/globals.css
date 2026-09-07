@@ -10592,6 +10592,42 @@
     font-size: 0.75rem;
   }
 
+  /*
+   * The Outreach tab's «Earlier occurrences» list: a date, what it was, and how it ended.
+   *
+   * A list and not a table, unlike the payments ledger one tab over, because its three cells
+   * are not columns worth aligning — the middle one is a sentence of variable length, and the
+   * badge belongs at the end of it rather than under a heading. The date keeps tabular figures
+   * so the left edge still reads as a column.
+   */
+  .acct-outreach-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .acct-outreach-log li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.84375rem;
+  }
+
+  .acct-outreach-when {
+    flex: none;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .acct-outreach-what {
+    flex: 1;
+    min-width: 10rem;
+  }
+
   .acct-more {
     margin: 0.75rem 0 0;
     font-size: 0.84375rem;

@@ -26,11 +26,13 @@ slug is in the URL. What a future change must not get wrong:
   on any of them would break sign-in rather than harden it — `sign_ins` is written from
   `signIn` in `auth.ts` *before* `provisionAccount` creates the account row. Same reason
   `sing_along_sessions.owner_email` has no key while `broadcast_account_id` does.
-- **Two email columns are history and must never be updated**:
-  `paddle_events.account_owner_email` and `coupon_redemptions.account_owner_email` record the
-  address something happened under. Each has an `account_id` beside it and every read uses
-  the id. Do not add either to `changeAccountEmail`: on the coupon it would reopen the
-  delete-and-recreate loop that `coupon_redemptions_once_email` exists to close.
+- **Three email columns are history and must never be updated**:
+  `paddle_events.account_owner_email`, `coupon_redemptions.account_owner_email` and
+  `outreach_actions.account_owner_email` record the address something happened under. Each has
+  an `account_id` beside it and every read uses the id. Do not add any of them to
+  `changeAccountEmail`: on the coupon it would reopen the delete-and-recreate loop that
+  `coupon_redemptions_once_email` exists to close, and on the outreach row the same loop would
+  farm whatever an action hands out — see `src/lib/outreach/CLAUDE.md`.
 - **`changeAccountEmail` is now one `UPDATE`** over `accounts`, `credentials`, `signIns` plus
   a stale `pendingRegistrations` delete. Needing to add a table to it is the signal that
   something is keyed by an address that should be keyed by an id.

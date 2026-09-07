@@ -56,6 +56,7 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 | `src/lib/music/CLAUDE.md` | the song chips, alternate chord shapes, German and Nashville notation |
 | `src/lib/import/CLAUDE.md` | the thirteen extensions, and what the importer refuses to guess |
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
+| `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the
 three facts whose absence is expensive are repeated here rather than left behind a path:

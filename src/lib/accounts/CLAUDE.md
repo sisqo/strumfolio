@@ -3,12 +3,19 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-- **`/accounts/[email]` is the admin surface** — a read-only summary strip over four tabs
-  (`Account Detail.dc.html`): Plan & gift, Identity, Payments, Security. The tab is a URL
-  param (`?tab=`), not client state, which is what keeps the page a server component and the
-  «All N events» link a link; the strip above the tabs holds no control at all. Newsletter is
-  **read-only** there (`loadNewsletterSummaryFor`); the name *is* admin-editable, while
-  `/profile` is the reader's own self-service page for it.
+- **`/accounts/[email]` is the admin surface** — a read-only summary strip over five tabs:
+  the mock's four (`Account Detail.dc.html`: Plan & gift, Identity, Payments, Security) plus
+  **Outreach**, which postdates the handoff, so its absence from the mock is not a deviation to
+  reconcile. The tab is a URL param (`?tab=`), not client state, which is what keeps the page a
+  server component and the «All N events» link a link; the strip above the tabs holds no
+  control at all. Newsletter is **read-only** there (`loadNewsletterSummaryFor`); the name *is*
+  admin-editable, while `/profile` is the reader's own self-service page for it.
+- **The Outreach tab is the only caller of `lib/outreach/`**, and the whole reason it exists is
+  that nothing in this repo runs on a schedule: it is where an action is triggered by hand and
+  where the record that it already happened is read back. That subsystem's own `CLAUDE.md`
+  carries the rules; the two that reach into this directory are that the newsletter preference
+  is a **consent gate** for any email-channel action (an unreadable one refuses), and that
+  `accounts.suspended_at` blocks outreach as well as sign-in.
 - **Every sentence about a plan lives in `planText.ts`**, the list's and the detail page's
   alike — `rowStatus` is literally what the detail page's In force cell prints under its
   badge. A second spelling of "what does this subscription say" on one of the two screens is

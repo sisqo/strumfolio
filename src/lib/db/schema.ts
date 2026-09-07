@@ -1257,3 +1257,98 @@ export const couponRedemptions = pgTable(
     index('coupon_redemptions_campaign').on(table.campaignId),
   ],
 )
+
+/**
+ * One thing the platform decided to do *to* a reader — a birthday greeting, an upgrade offer
+ * carrying a voucher, whatever joins them — and the record that it has already been done.
+ *
+ * **One row per `(kind, occurrence, account)`, not a log of attempts.** The row *is* the
+ * claim: it is inserted before anything is sent, so the unique indexes below are what makes
+ * "never twice" a fact of the database rather than a rule somebody remembers to check. A
+ * second run finds the insert refused and stops — no read-then-write window, and no reliance
+ * on the previous run having finished writing. `attempts` and `lastAttemptAt` then move on the
+ * same row, which is why this is a state table and not a ledger: `app_settings` says the same
+ * about itself, and for the same reason — the history of a marketing send is not what anybody
+ * needs, whether it has happened is.
+ *
+ * **`occurrenceKey` is what makes a recurring action expressible at all.** A birthday greeting
+ * is due once *per year* and an upgrade offer once *ever*, so uniqueness on `(kind, account)`
+ * alone would either send the greeting once in a lifetime or the offer every time it was
+ * looked at. The key is the cadence's own name for this occurrence — `'2026'` for a yearly
+ * action, `'once'` for a one-shot — minted by `occurrenceKeyFor` (`lib/outreach/occurrence.ts`)
+ * and never parsed back apart from being printed.
+ *
+ * **`status` carries the one asymmetry worth knowing before touching this table.** `done` is
+ * terminal and no code path leaves it; `failed`, `suppressed` and a `pending` row left behind
+ * by a process that died are all retryable *in place*, by an operator, on the same row. So the
+ * guarantee is precisely "a completed action is never completed twice", which is the promise
+ * that matters — a delivery that failed has to stay retryable or a single bad afternoon
+ * silently cancels that occurrence forever.
+ *
+ * `suppressed` is a first-class outcome, not a missing row: "we were allowed to and chose not
+ * to" and "nothing has happened here" are opposite answers, the same distinction
+ * `rateLimitStatusFor` refuses to collapse. What it is never used for is *eligibility* —
+ * whether an account may receive an action at all is computed at every read from consent,
+ * suspension and plan (`lib/outreach/eligibility.ts`), never stored here, the same rule
+ * `campaignStatus` and `resolveSubscription` follow.
+ *
+ * **The account is two columns, exactly as `coupon_redemptions` has them**, and here the
+ * sharper of that table's two reasons is the live one: an action that hands out a voucher must
+ * not be farmable by deleting an account and signing up again, so the address — history,
+ * written once, **never updated** — carries a uniqueness of its own that survives the pointer
+ * being nulled. Both indexes are needed and neither subsumes the other; the pointer's is
+ * partial because two deleted accounts are not a collision.
+ *
+ * `triggeredBy` has **no foreign key**, for the reason `appSettings.updatedBy` and
+ * `paddleEvents.accountOwnerEmail` have none: who ran something should survive their account
+ * being deleted. It holds `'system'` for anything a schedule or a request path ran on its own,
+ * and an operator's address for anything run by hand from `/accounts/[email]`.
+ */
+export const outreachActions = pgTable(
+  'outreach_actions',
+  {
+    id: serial('id').primaryKey(),
+    /** The pointer, and what every read asks by. Null once that account is gone. */
+    accountId: integer('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    /** History: the address the action was aimed at. Never updated — see the comment above. */
+    accountOwnerEmail: text('account_owner_email').notNull(),
+    /** `birthday_greeting` | `upgrade_voucher` | … — `text` with a narrowing reader (`readOutreachKind`), the convention every constrained column in this schema follows. */
+    kind: text('kind').notNull(),
+    /** Which occurrence of that action this row is: `'2026'`, `'once'`. */
+    occurrenceKey: text('occurrence_key').notNull(),
+    /** `pending` | `done` | `failed` | `suppressed`. Only `done` is terminal. */
+    status: text('status').notNull(),
+    /**
+     * How it was meant to reach them, copied from the registry at claim time rather than read
+     * back from it. A row has to keep saying what was actually done after the definition it came
+     * from has been reworded or its channel changed — the same reason `coupon_redemptions` stores
+     * its own `code` and `discount_percent` instead of joining the campaign.
+     */
+    channel: text('channel').notNull(),
+    /** What was actually done, in the handler's own words: the voucher minted, the subject sent. Null while nothing has been. */
+    detail: text('detail'),
+    /** Why it failed, or why an operator skipped it. Null on a `done` row, which needs no excuse. */
+    reason: text('reason'),
+    /** How many times delivery has been tried on this occurrence. Stays `0` on a row suppressed before any attempt. */
+    attempts: integer('attempts').notNull().default(0),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+    /** When the claim was made — which, on a suppressed row, is when the decision was taken. */
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** `'system'`, or the operator who ran it by hand. No foreign key — see the comment above. */
+    triggeredBy: text('triggered_by'),
+  },
+  (table) => [
+    /**
+     * One occurrence per live account. Partial, because a null pointer means «that account is
+     * gone» and two gone accounts are not a collision — without the `WHERE`, a second deleted
+     * account's row would be refused.
+     */
+    uniqueIndex('outreach_actions_once')
+      .on(table.kind, table.occurrenceKey, table.accountId)
+      .where(sql`${table.accountId} is not null`),
+    /** And one per address ever, which is what a delete-and-recreate cannot get past. */
+    uniqueIndex('outreach_actions_once_email').on(table.kind, table.occurrenceKey, table.accountOwnerEmail),
+    /** The account screen's own read: everything ever aimed at one account, newest first. */
+    index('outreach_actions_account').on(table.accountId),
+  ],
+)

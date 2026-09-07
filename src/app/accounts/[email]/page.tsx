@@ -11,6 +11,7 @@ import { ForceExpireRow } from '@/components/ForceExpireRow'
 import { GiftForm } from '@/components/GiftForm'
 import { IconCheck, IconGift } from '@/components/icons'
 import { InternalNoteForm } from '@/components/InternalNoteForm'
+import { OutreachPanel } from '@/components/OutreachPanel'
 import { PasswordForm } from '@/components/PasswordForm'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import { PrefsProvider } from '@/components/PrefsProvider'
@@ -25,6 +26,8 @@ import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/acc
 import { avatarInitials } from '@/lib/avatar'
 import { currentUser } from '@/lib/auth/session'
 import { loadNewsletterSummaryFor } from '@/lib/newsletter/actions'
+import { loadOutreachFor } from '@/lib/outreach/actions'
+import { OUTREACH_MESSAGE } from '@/lib/outreach/types'
 import { euro } from '@/lib/plans/prices'
 import { PLAN_LABEL } from '@/lib/plans/types'
 
@@ -34,21 +37,27 @@ export const metadata: Metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
 
 /**
- * The four tabs the detail page's controls are dealt into (`Account Detail.dc.html`), where
- * this used to be eight stacked fieldsets. Each is one question an operator opens the page
- * with — what is this account entitled to, who are they, what did they pay, can they get in —
- * and the summary strip above the tabs answers all four at once for the case where reading is
- * all that was wanted.
+ * The tabs the detail page's controls are dealt into, where this used to be eight stacked
+ * fieldsets. Each is one question an operator opens the page with — what is this account
+ * entitled to, who are they, what did they pay, can they get in — and the summary strip above
+ * the tabs answers the first four at once for the case where reading is all that was wanted.
+ *
+ * **Four of the five are `Account Detail.dc.html`'s own and the fifth is not.** Outreach is
+ * newer than that handoff, so its absence from the mock is not a deviation to be reconciled:
+ * every other tab answers what this account *is*, and it answers what has been *done to* it,
+ * which is the one question the strip cannot summarise because it has no fixed answer — a
+ * greeting sent this year says nothing about next year's.
  */
-type Tab = 'plan' | 'identity' | 'payments' | 'security'
+type Tab = 'plan' | 'identity' | 'payments' | 'security' | 'outreach'
 
-const TABS: readonly Tab[] = ['plan', 'identity', 'payments', 'security']
+const TABS: readonly Tab[] = ['plan', 'identity', 'payments', 'security', 'outreach']
 
 const TAB_LABEL: Record<Tab, string> = {
   plan: 'Plan & gift',
   identity: 'Identity',
   payments: 'Payments',
   security: 'Security',
+  outreach: 'Outreach',
 }
 
 /**
@@ -127,7 +136,8 @@ function signInClause(count: number): string {
 /**
  * One account's administrative detail, laid out after `Account Detail.dc.html`: the header
  * with its monogram and `Enter as this account`, a four-cell summary strip (in force, gift,
- * content, newsletter), the internal note, then four tabs holding every control.
+ * content, newsletter), the internal note, then the tabs holding every control — the mock's
+ * four, plus Outreach, which postdates it (see `Tab` above).
  *
  * **The strip is read-only and the tabs are where anything is written**, which is the whole
  * point of the shape: the previous version stacked eight always-open fieldsets, so opening an
@@ -137,7 +147,7 @@ function signInClause(count: number): string {
  * The tabs are `<Link>`s and their state is a URL param, so this stays a server component
  * with no tab state to hold — the same choice `/accounts`' own four tabs make, and the reason
  * the «All N events» link can be a link too. The cost, stated plainly: switching tabs is a
- * request, and this page is `force-dynamic` over five reads. Right for a surface a global
+ * request, and this page is `force-dynamic` over six reads. Right for a surface a global
  * owner opens a handful of times a week, and the deep link into one tab is worth having.
  *
  * `getAccountDetail` already checks `isOwner` and answers `null` for both "not a global
@@ -154,11 +164,12 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const query = readQuery(await searchParams)
 
-  const [history, newsletter, usage, rateLimit] = await Promise.all([
+  const [history, newsletter, usage, rateLimit, outreach] = await Promise.all([
     loadAccountHistory(detail.ownerEmail),
     loadNewsletterSummaryFor(detail.ownerEmail),
     usageSummaryFor(detail.ownerEmail),
     rateLimitStatusFor(detail.ownerEmail),
+    loadOutreachFor(detail.ownerEmail),
   ])
 
   const isCurrent = user?.accountOwnerEmail === detail.ownerEmail
@@ -396,6 +407,22 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
                   )}
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {query.tab === 'outreach' && (
+          <div className="acct-panel">
+            {/* The failure is printed, never an empty panel: «nothing has ever been sent to
+                this account» is the one sentence a failed read must not be mistaken for. */}
+            {outreach.ok ? (
+              <OutreachPanel
+                ownerEmail={detail.ownerEmail}
+                lines={outreach.view.lines}
+                history={outreach.view.history}
+              />
+            ) : (
+              <p className="text-sm text-muted">{OUTREACH_MESSAGE[outreach.reason]}</p>
             )}
           </div>
         )}
