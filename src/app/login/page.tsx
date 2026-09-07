@@ -246,11 +246,25 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'What file formats can I import and export?',
-        a: "Strumfolio uses ChordPro, the standard format for lyrics and chords. It's easy to import your existing files, edit them inside Strumfolio, and export them again whenever you need to.",
-      },
-      {
-        q: "Can I edit a song after I've added it to my collection?",
-        a: 'Yes, anytime. Lyrics, chords, key, capo — nothing is locked once a song is in your collection. Change it as often as you like, for as long as you use it.',
+        /*
+         * "Strumfolio uses ChordPro, the standard format for lyrics and chords" was the whole
+         * answer here, and it read as a *requirement*: bring ChordPro files. What the importer
+         * actually accepts is `ACCEPTED` (`AddSongScreen.tsx`) — the dialects, OnSong, MusicXML,
+         * a SongbookPro backup, a zip of any of those — plus any text at all, since a paste of
+         * "chords above the lyrics" is converted. Someone with a folder of exports from another
+         * app was being told, in effect, to convert it first.
+         *
+         * **"Thirteen" is the one count on this page typed by hand**, and it has to stay in step
+         * with `ACCEPTED` — which is a plain `const` in a client component, not exported, so
+         * there is nothing to import and read the way `count(PLANS…)` reads a limit. A format
+         * added there without a visit here makes this sentence quietly wrong.
+         *
+         * The two it cannot read, PDF and Word, are deliberately not named — see
+         * `lib/import/CLAUDE.md` for the fact itself. The answer carries its weight on the
+         * positive instead ("any text you can paste"), which is true and promises no binary
+         * format; naming absences on a landing page was considered and turned down.
+         */
+        a: 'ChordPro is what Strumfolio reads and writes — and around it, the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, and a zip holding any of those: thirteen file types in all, plus any text you can paste. Chords written above the words are converted for you, always behind a preview you can correct before anything is saved, since that conversion is a guess and not always the right one. Export hands you standard ChordPro back — one song, or the whole collection as a zip.',
       },
       {
         q: 'Is there a limit to how many songs or songbooks I can create?',
@@ -284,8 +298,36 @@ const FAQ: FaqGroup[] = [
          *
          * Kept in step with /pricing's chord-shapes row on purpose: two pages describing one gate
          * must describe the same gate, and this pair is the one that has drifted before.
+         *
+         * "In a song" is load-bearing now that `/tools/guitar-chords` and `/tools/ukulele-chords`
+         * publish both libraries to anybody with no account at all: what the plans gate is the
+         * ukulele *inside a song you are reading*, never the chart. Don't let this answer drift
+         * into sounding like the public charts are gated, and don't let it advertise them either
+         * — that is the tools pages' own job.
          */
         a: 'Yes — tap any chord in a song and see exactly where to place your fingers. Guitar is on every plan, including the free one; the ukulele comes with the paid plans.',
+      },
+      {
+        q: 'If I switch to Do-Re-Mi, does that change my songs?',
+        /*
+         * The notation question, asked from the one angle the "Chords in your own alphabet"
+         * feature card above does **not** cover. The card names the four alphabets and explains
+         * the Nashville claim; repeating either here would be two copies of one claim on a single
+         * page, which is how the pair comes to drift. What the card leaves open is whether
+         * choosing an alphabet is a change to the *content* — the thing a reader with a
+         * collection they care about actually hesitates over.
+         *
+         * Every clause is checked, and the last one is why this answer exists at all:
+         * - output-only, reader not song — `lib/music/CLAUDE.md`, and `readRoots` parses Italian
+         *   and international only, so German `[B]` never enters a file.
+         * - an export is unaffected — `lib/import/export.ts` writes the stored ChordPro source
+         *   and knows nothing about a notation.
+         * - **following a session is the exception**: `sessionWithDevice` reads `user_prefs`
+         *   through the *leader's* account (`lib/strumTogether/session.ts`) and `pollBroadcast`
+         *   hands a follower that notation with the key. So "chosen once, for every song you
+         *   read" — the card's own closing words — has exactly one gap in it, and this is it.
+         */
+        a: "No — the alphabet is how a sheet is drawn for you, not something stored inside it. Your files keep standard chord names, so an export reads the same for anybody you send it to, and the choice sits on your account rather than on one song. The one place you read somebody else's choice is while following a Strum Together session: there the alphabet arrives from whoever is leading, along with the key.",
       },
     ],
   },
@@ -299,10 +341,6 @@ const FAQ: FaqGroup[] = [
       {
         q: 'How precisely can I place a chord?',
         a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to fine-tune letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
-      },
-      {
-        q: 'Do edits show up right away when I play?',
-        a: 'On the device you edited on, immediately: save, open the song, the new words are there. Your other devices pick the change up as soon as they are online.',
       },
     ],
   },
@@ -319,7 +357,13 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'Does my collection sync across my devices?',
-        a: 'Yes. As soon as any of your devices is online, your whole collection syncs automatically — no manual backup or transfer needed.',
+        /*
+         * This absorbed "Do edits show up right away when I play?", which used to sit two groups
+         * up under "Editing your songs". The two were one question — when a change arrives, and
+         * where — split across two groups, and each was silent on the other's half: this one
+         * never mentioned the device you edited on, that one never mentioned the rest of them.
+         */
+        a: 'Yes, and with nothing to back up or transfer by hand. An edit is on the reading screen of the device you made it on the moment you save it, and every other device you own picks it up as soon as it is online.',
       },
     ],
   },
@@ -332,16 +376,16 @@ const FAQ: FaqGroup[] = [
          * "As many as you like" was false on every plan, premium included: `PLANS.premium.devices`
          * is 100, a real technical ceiling. The leader's own device is deliberately not counted —
          * see `PlanLimits.devices` — which is what makes standard's 1 a duo rather than a solo.
+         *
+         * /pricing's own devices row defers to this answer for the literal 100 rather than
+         * printing "Unlimited" — see its comment. Softening the number here silently un-fixes
+         * that page too.
          */
         a: `That depends on the plan of whoever is leading: Standard adds ${count(PLANS.standard.devices, 'other device')}, Plus ${PLANS.plus.devices}, Premium and Lifetime ${PLANS.premium.devices}. The device you play from is never counted, so Standard is you and one other screen. Anyone can follow with no account at all — the limit is on how many follow at once, never on who.`,
       },
       {
         q: 'Does everyone need an account to join a session?',
         a: 'No sign-up and no setup required. Anyone with the link can join instantly and start singing along within seconds.',
-      },
-      {
-        q: "Can I switch who's leading during a session?",
-        a: 'No — the person who starts the session stays the leader for its whole duration, keeping control simple and unambiguous.',
       },
       {
         q: 'Does Strum Together work without an internet connection?',
@@ -362,12 +406,54 @@ const FAQ: FaqGroup[] = [
       },
     ],
   },
+  /*
+   * Plans and money, in three answers — the group this page went without while /pricing carried
+   * the whole subject and the Terms carried the detail.
+   *
+   * **Nothing here names a mechanism**, and that is the decision rather than an omission: no
+   * payment processor, no card, no receipt. While `SONGBOOK_MOCK_CHECKOUT` is on, nobody is
+   * charged and no receipt exists (see `lib/plans/CLAUDE.md`), so "Paddle is the seller on your
+   * receipt" — true in the Terms, which describe the contract rather than today's build — would
+   * be the one false sentence on this page. Every claim below instead describes what happens to
+   * the *reader*, which the real checkout will not change when it replaces the mock: what
+   * renews, what cancelling does to a period already paid for, what fourteen days buy.
+   *
+   * Sourced from Terms §7 and §8 and deliberately shorter than they are. If those change, these
+   * two answers are the second place to look, and a disagreement between them is a bug in this
+   * file — the Terms are the document that governs.
+   */
   {
-    title: 'Accounts and access',
+    title: 'Plans and billing',
     items: [
       {
-        q: 'Can I invite someone else to collaborate on my songbook?',
-        a: "No — there's no shared songbook to invite anyone into. Anyone can create their own account — with an email and password, or with Google — and gets their own collection, kept separate from everyone else's.",
+        q: 'Is Strumfolio free to use?',
+        /*
+         * It must not open with "Yes": a bare yes is now half true — see `PLAN_HOLD`.
+         *
+         * Moved here from "General", where it was the page's last-but-one answer, because it is
+         * the sole home of `PLAN_HOLD` and now opens the group a reader with a question about
+         * money actually goes to. Nothing textual pointed at it from anywhere, so the move is
+         * safe — but the caveat below still has to reach the four other answers that name a
+         * plan, which is exactly why it stays a single copy and does not follow the reader.
+         */
+        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet, the ukulele and starting a Strum Together session; the pricing page has all four. ${PLAN_HOLD}`,
+      },
+      {
+        q: 'How does a paid plan renew, and how do I stop it?',
+        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. An upgrade takes effect immediately, while a downgrade or a cancellation waits for the end of the period already paid for — and you can undo a scheduled change any time before it lands.',
+      },
+      {
+        q: 'What if I change my mind after paying?',
+        /*
+         * "Write to us" with no address, because it cannot have one: `FaqItem.a` is a `string`
+         * rendered as `{item.a}`, so no answer on this page can hold a link or a mailto, and the
+         * footer here carries no contact address either. `CONTACT` is a file-local `const` in the
+         * Terms page rather than an export of `lib/brand.ts`, so naming it here would put a
+         * second copy of an email address in a second file. Pointing at the document that has it
+         * — and that also has the withdrawal sentence to copy — costs the reader one hop and
+         * costs this page no duplication.
+         */
+        a: 'Fourteen days from a purchase to withdraw from it and get the whole amount back, without giving a reason and with no deduction for the days you used it — the same fourteen days wherever you live, and for Lifetime too. Write to us from the address on your account and say so; there is no form to fill in, and the Terms page carries both the address and a sentence you can copy. And if a renewal goes through that you did not mean to keep, tell us within fourteen days of the charge and we refund it, ending the plan at once.',
       },
     ],
   },
@@ -375,13 +461,30 @@ const FAQ: FaqGroup[] = [
     title: 'General',
     items: [
       {
-        q: 'Is Strumfolio free to use?',
-        /* It must not open with "Yes": a bare yes is now half true — see `PLAN_HOLD`. */
-        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet, the ukulele and starting a Strum Together session; the pricing page has all four. ${PLAN_HOLD}`,
+        q: 'Can I invite someone else to collaborate on my songbook?',
+        /* Was a group of its own, "Accounts and access", holding this one answer. A heading over a
+           single question is an accident of growth rather than a section, and it read as one with
+           something missing; here it sits beside the two other answers about whose account is
+           whose. */
+        a: "No — there's no shared songbook to invite anyone into. Anyone can create their own account — with an email and password, or with Google — and gets their own collection, kept separate from everyone else's.",
       },
       {
         q: 'Is my collection private, or can others see it?',
         a: "Your collection is private by default, visible only to you — nobody else has access to an account that isn't theirs.",
+      },
+      {
+        q: 'If I stop using Strumfolio, can I take my songs with me?',
+        /*
+         * Two facts that existed only behind the sign-in wall: `Backup` on the Export screen, and
+         * `deleteMyAccount` (`UserMenu.tsx`), which signs the reader out and ends at /login on its
+         * own rather than opening a ticket for somebody to action. `/help` §6 has the first and
+         * `/help` is not in `PUBLIC_ROUTES`, so before this answer no public page said either.
+         *
+         * The Terms' own "Keep your own backups" asks the reader to do this regularly; there is no
+         * point asking on a landing page, so this answers the question that gets asked instead —
+         * whether it is possible at all, and whether leaving is a favour anyone has to grant.
+         */
+        a: 'Yes, in one download: Backup gives you the whole repertoire as a zip of standard ChordPro files — plain text you can read yourself and hand to another app. Nothing here is kept in a format only Strumfolio understands, and closing the account for good is a button in your own settings rather than a request you have to send us.',
       },
     ],
   },
@@ -908,9 +1011,9 @@ export default async function LoginPage({ searchParams }: Props) {
 
       {/*
         * The only way to /pricing from outside the app, and it has to be here rather than
-        * inside one of the three answers that name the pricing page in words: `FaqItem.a` is
+        * inside one of the two answers that name the pricing page in words: `FaqItem.a` is
         * typed `string` and rendered as `{item.a}`, so an answer cannot hold a link without
-        * widening that type and touching all eighteen of them. Quiet on purpose — this is the
+        * widening that type and touching all twenty-two of them. Quiet on purpose — this is the
         * page every existing reader signs in on every day, and it is not a sales pitch.
         */}
       <p className="mt-9 text-center text-sm text-muted lg:mt-12">
