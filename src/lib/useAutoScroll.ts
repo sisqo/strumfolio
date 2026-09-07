@@ -4,16 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { SCROLL_SPEEDS } from './prefs/types'
 import { atScrollEnd } from './scrollEnd'
-
-/** Minimal shape of the Wake Lock API, which is not in the bundled DOM types. */
-interface WakeLockSentinel {
-  released: boolean
-  release(): Promise<void>
-}
-
-interface WakeLockNavigator {
-  wakeLock?: { request(type: 'screen'): Promise<WakeLockSentinel> }
-}
+import { useWakeLock } from './useWakeLock'
 
 /**
  * How long the page has to be still before auto-scroll takes the wheel back.
@@ -55,28 +46,11 @@ export function useAutoScroll(speedStep: number) {
   const frameRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const remainderRef = useRef(0)
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const settleRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     speedRef.current = speedStep
   }, [speedStep])
-
-  const releaseWakeLock = useCallback(() => {
-    const sentinel = wakeLockRef.current
-    wakeLockRef.current = null
-    if (sentinel && !sentinel.released) void sentinel.release().catch(() => {})
-  }, [])
-
-  const requestWakeLock = useCallback(async () => {
-    const wakeLock = (navigator as Navigator & WakeLockNavigator).wakeLock
-    if (!wakeLock) return
-    try {
-      wakeLockRef.current = await wakeLock.request('screen')
-    } catch {
-      // Denied, or unsupported in this context. Scrolling still works.
-    }
-  }, [])
 
   /** Waits `SETTLE_MS` from the last sign of movement, and re-arms on every new one. */
   const settle = useCallback(() => {
@@ -147,16 +121,11 @@ export function useAutoScroll(speedStep: number) {
    * requested and released on every swipe — churn against a permission-shaped API, for a
    * screen that must stay awake the whole time either way. The song is still playing while
    * a finger is on it.
+   *
+   * `useWakeLock` is where the API itself is handled, and it is shared with the metronome:
+   * either can be running on its own, so neither owns the screen — see that hook.
    */
-  useEffect(() => {
-    if (!running) {
-      releaseWakeLock()
-      return
-    }
-
-    void requestWakeLock()
-    return releaseWakeLock
-  }, [running, releaseWakeLock, requestWakeLock])
+  useWakeLock(running)
 
   useEffect(() => {
     if (!running || suspended) return
@@ -288,18 +257,6 @@ export function useAutoScroll(speedStep: number) {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [running, suspended, settle])
-
-  /** Wake locks are dropped when the page is hidden, so take it back on return. */
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible' && running && wakeLockRef.current === null) {
-        void requestWakeLock()
-      }
-    }
-
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [running, requestWakeLock])
 
   return { running, start, stop, toggle }
 }

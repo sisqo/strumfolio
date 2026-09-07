@@ -8,12 +8,13 @@
  * form renders the same sheet with no provider anywhere near it.
  */
 
-import { useMemo } from 'react'
+import { type ReactNode, useMemo } from 'react'
 
 import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
 import { ControlBar } from '@/components/ControlBar'
 import { useFavorites } from '@/components/FavoritesProvider'
+import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { EditSongLink } from '@/components/EditSongLink'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { SongControls } from '@/components/SongControls'
@@ -186,6 +187,33 @@ export function LiveSheet() {
           setOpen({ kind: 'write', anchor, label: labelFor(fromSource(song.body), anchor), at }),
       }}
     />
+  )
+}
+
+/**
+ * The metronome, told what the song itself says about its tempo.
+ *
+ * A few lines around a component that takes plain props, like everything else in this
+ * file, and the reason it is worth them is `useSong`: the tempo has to come from the
+ * body that is *on screen*, not from the one the page was built with. A reader who edits
+ * `{tempo: 96}` into a song and comes back to it gets 96 before the next deploy has baked
+ * it in — the same staleness `LiveSheet` above already answers for the words themselves.
+ *
+ * It wraps rather than renders, because the two controls it feeds are at opposite ends of
+ * the page: the Tempo chip under the title and the switch in the floating bar. See
+ * `MetronomeProvider`.
+ */
+export function LiveMetronome({ children }: { children: ReactNode }) {
+  const { song, parsed } = useSong()
+
+  return (
+    <MetronomeProvider
+      songSlug={song.slug}
+      songTempo={parsed.tempo}
+      songBeatsPerBar={parsed.beatsPerBar}
+    >
+      {children}
+    </MetronomeProvider>
   )
 }
 

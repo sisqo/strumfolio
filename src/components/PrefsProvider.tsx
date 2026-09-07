@@ -38,6 +38,8 @@ import {
   type ChordDisplay,
   type GlobalPrefs,
   type SongPrefs,
+  clampBeatsPerBar,
+  clampBpm,
   clampCapo,
   clampSemitones,
   clampSpeed,
@@ -57,6 +59,14 @@ interface PrefsContextValue {
   setSemitones: (semitones: number) => void
   setScrollSpeed: (step: number) => void
   setCapo: (fret: number) => void
+  /**
+   * The metronome's tempo for this song, or `null` to hand the question back to the song's
+   * own `{tempo: …}` directive. Null is a value to be saved, not a no-op — see
+   * `SongPrefs.bpm`.
+   */
+  setBpm: (bpm: number | null) => void
+  /** How many beats before the metronome accents again, or `null` for the song's `{time}`. */
+  setBeatsPerBar: (beats: number | null) => void
   /**
    * Sets, or with `null` clears, this song's chosen shape for one chord — `key` from
    * `chordShapeKey`, `fingering` the chosen candidate's own `fingeringText`. Clearing
@@ -351,6 +361,8 @@ export function PrefsProvider({
         next.semitones === prev.semitones &&
         next.scrollSpeed === prev.scrollSpeed &&
         next.capo === prev.capo &&
+        next.bpm === prev.bpm &&
+        next.beatsPerBar === prev.beatsPerBar &&
         JSON.stringify(next.chordShapes) === JSON.stringify(prev.chordShapes)
       ) {
         return
@@ -383,6 +395,15 @@ export function PrefsProvider({
         updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),
       setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: clampCapo(fret) })),
+      /* Clamped when it is a number and passed through when it is null: null is the reader
+         asking for the song's own tempo back, and clamping it into a number would be
+         answering a different question. */
+      setBpm: (bpm) => updateSong((prev) => ({ ...prev, bpm: bpm === null ? null : clampBpm(bpm) })),
+      setBeatsPerBar: (beats) =>
+        updateSong((prev) => ({
+          ...prev,
+          beatsPerBar: beats === null ? null : clampBeatsPerBar(beats),
+        })),
       setChordShape: (key, fingering) =>
         updateSong((prev) => {
           const chordShapes = { ...prev.chordShapes }

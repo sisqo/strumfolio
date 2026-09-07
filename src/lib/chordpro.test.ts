@@ -118,9 +118,40 @@ describe('parseChordPro', () => {
   })
 
   it('ignores unknown directives instead of printing them', () => {
-    const song = parseChordPro('{tempo: 120}\n[C]testo')
+    const song = parseChordPro('{album: Un album}\n[C]testo')
     assert.equal(song.sections.length, 1)
     assert.deepEqual(shape(song.sections[0].lines[0]), ['[C]testo'])
+  })
+
+  /*
+   * `{tempo}` was one of those unknown directives until the metronome had a use for it,
+   * and this pair is what changed: it is read now, and it is still not drawn. The song's
+   * words must look exactly as they did — a directive gaining a meaning is not a licence
+   * for it to appear in the lyrics.
+   */
+  it('reads the tempo without printing it', () => {
+    const song = parseChordPro('{tempo: 120}\n[C]testo')
+    assert.equal(song.tempo, 120)
+    assert.equal(song.sections.length, 1)
+    assert.deepEqual(shape(song.sections[0].lines[0]), ['[C]testo'])
+  })
+
+  it('reads {bpm} as the same directive, the way the importer already does', () => {
+    assert.equal(parseChordPro('{bpm: 76}').tempo, 76)
+  })
+
+  /* A tempo nothing can beat leaves the song saying nothing about its tempo, rather than
+     handing the metronome a NaN to divide by. Real files carry exactly this. */
+  it('says nothing for a tempo written in words', () => {
+    assert.equal(parseChordPro('{tempo: allegro}').tempo, null)
+    assert.equal(parseChordPro('[C]niente').tempo, null)
+  })
+
+  it('counts the beats in a bar from {time}, and drops the note value', () => {
+    assert.equal(parseChordPro('{time: 3/4}').beatsPerBar, 3)
+    assert.equal(parseChordPro('{time: 6/8}').beatsPerBar, 6)
+    assert.equal(parseChordPro('{time: common}').beatsPerBar, null)
+    assert.equal(parseChordPro('[C]niente').beatsPerBar, null)
   })
 
   it('does not require any metadata', () => {

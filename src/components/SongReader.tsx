@@ -2,7 +2,7 @@ import { CommentsProvider } from '@/components/CommentsProvider'
 import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { LiveComments } from '@/components/LiveComments'
 import { Footer } from '@/components/Footer'
-import { LiveControlBar, LiveSheet, SongHeading } from '@/components/LiveSong'
+import { LiveControlBar, LiveMetronome, LiveSheet, SongHeading } from '@/components/LiveSong'
 import { SongActions } from '@/components/SongActions'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SongProvider } from '@/components/SongProvider'
@@ -157,6 +157,10 @@ export async function SongReader({ song }: { song: Song }) {
         * state and show its words under the new title.
         */}
       <SongProvider key={song.slug} baked={song} bakedParsed={parsed}>
+        {/* Around both halves of the metronome at once — the Tempo chip is inside
+            `SongHeading` and the switch inside `LiveControlBar`, which is as far apart as
+            two controls on this page get. */}
+        <LiveMetronome>
         <CommentsProvider songSlug={song.slug}>
         <TopBar
           current="songs"
@@ -234,6 +238,7 @@ export async function SongReader({ song }: { song: Song }) {
 
         <LiveControlBar sequence={sequence} />
         </CommentsProvider>
+        </LiveMetronome>
       </SongProvider>
       </FavoritesProvider>
     </PrefsProvider>

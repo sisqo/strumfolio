@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
+import { useMetronomeControls } from '@/components/MetronomeProvider'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
@@ -14,6 +15,7 @@ import {
   IconChevronRight,
   IconHare,
   IconLock,
+  IconMetronome,
   IconPause,
   IconPlay,
   IconSliders,
@@ -164,7 +166,17 @@ export function ControlBar({
         )}
 
         <div className="control-dock">
-          {broadcastEnabled && <StrumToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
+          {/*
+            * The two controls that are simply on or off, wrapped together for the same
+            * reason `.control-tools` wraps the other two: on a phone this bar is a grid,
+            * and a grid cell holds one thing. Nothing at all on a wider screen, where
+            * `display: contents` leaves both as direct children of the flat flex dock
+            * exactly as they were.
+            */}
+          <div className="control-toggles">
+            {broadcastEnabled && <StrumToggle open={panel === 'sing'} onToggle={() => setPanel((current) => (current === 'sing' ? null : 'sing'))} />}
+            <MetronomeToggle />
+          </div>
 
           <button
             type="button"
@@ -428,6 +440,48 @@ function Step({
     <Link href={`/songs/${slug}`} className={classes} title={label} aria-label={label}>
       {face}
     </Link>
+  )
+}
+
+/**
+ * The metronome: one tap to start it, one to stop it, and a ring that flashes on the beat.
+ *
+ * A toggle and nothing else, deliberately. What tempo it beats at is set on the song's own
+ * header (`SongControls`' Tempo chip), on this app's own rule about where a control belongs:
+ * a value worth reading — «this one goes at 96» — cannot live shut behind a button, and a
+ * gesture a hand makes mid-song with a guitar in the other must not cost two taps and a menu.
+ * So the number is stated up there and the switch is down here, which is the same split the
+ * key and the capo already went through in the other direction.
+ *
+ * The pulse is `key`ed on the beat count so the animation restarts on every one — the same
+ * trick the play button's broadcast rings already use, and the reason `beat` is a number
+ * rather than a flag. It is drawn whether or not the click can be heard: an iPhone carried
+ * on silent mutes Web Audio outright (see `useMetronome`), and on that phone this ring is
+ * the metronome.
+ */
+function MetronomeToggle() {
+  const { running, beat, accent, bpm, toggle } = useMetronomeControls()
+
+  return (
+    <button
+      type="button"
+      className={running ? 'control-button control-metronome is-on' : 'control-button control-metronome'}
+      onClick={toggle}
+      aria-pressed={running}
+      /* The tempo is named here and drawn nowhere on this button: the bar has no room for a
+         second number beside the speed's, and the chip on the song already states it. A
+         screen reader gets what the eye gets from the chip. */
+      aria-label={running ? `Stop the metronome, ${bpm} BPM` : `Start the metronome, ${bpm} BPM`}
+    >
+      {running && beat >= 0 && (
+        <span
+          key={beat}
+          className={accent ? 'metronome-pulse is-accent' : 'metronome-pulse'}
+          aria-hidden
+        />
+      )}
+      <IconMetronome size={19} />
+    </button>
   )
 }
 

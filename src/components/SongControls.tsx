@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ChordDiagram } from '@/components/ChordDiagram'
+import { useMetronomeControls } from '@/components/MetronomeProvider'
 import { usePrefs } from '@/components/PrefsProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
 import { IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
@@ -21,6 +22,7 @@ import {
 } from '@/lib/music/capo'
 import { type Accidentals, type Spelling, formatChord, parseChord, readChord } from '@/lib/music/chord'
 import { spellingFor } from '@/lib/music/key'
+import { BEATS_PER_BAR_OPTIONS, MAX_BPM, MIN_BPM } from '@/lib/metronome/tempo'
 import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
 import {
   CHORD_DISPLAYS,
@@ -33,7 +35,7 @@ import {
 import { broadcastTranspose } from '@/lib/strumTogether/session'
 
 /** Which chip's menu is open, if any — at most one, so opening a second closes the first. */
-type Menu = 'capo' | 'chords' | null
+type Menu = 'capo' | 'chords' | 'tempo' | null
 
 /**
  * Everything about *this reading of this song*, on the song itself: the key, the capo,
@@ -82,6 +84,7 @@ export function SongControls({
   broadcastEnabled?: boolean
 }) {
   const { global, song, setSemitones, setCapo, setAccidentals, setChordDisplay } = usePrefs()
+  const metronome = useMetronomeControls()
   const [menu, setMenu] = useState<Menu>(null)
   const { broadcast } = useStrumTogether()
 
@@ -271,6 +274,30 @@ export function SongControls({
       </button>
 
       {/*
+        * The tempo, stated where the key and the capo are stated and for the same reason:
+        * «this one goes at 96» is a fact about playing this song, and a fact worth reading
+        * cannot live behind a button. What is *not* here is the switch that starts the
+        * click — that is one tap in the bar at the bottom, where a hand can reach it with a
+        * guitar in the other. See `MetronomeToggle`.
+        *
+        * The badge stays neutral whoever chose the number, unlike Key's. The distinction
+        * that colour draws there is «how far from home», and a tempo has no home to be far
+        * from: 96 is 96 whether the song wrote it or the reader did. What the song wrote is
+        * named in the menu, which is also where the way back to it lives.
+        */}
+      <button
+        type="button"
+        className={menu === 'tempo' ? 'song-chip is-menu is-open' : 'song-chip is-menu'}
+        onClick={() => setMenu((current) => (current === 'tempo' ? null : 'tempo'))}
+        aria-expanded={menu === 'tempo'}
+        title="Set the metronome"
+      >
+        Tempo
+        <span className="song-chip-badge">{metronome.bpm}</span>
+        <IconChevronDown size={11} />
+      </button>
+
+      {/*
         * The one consequence of the two steppers that is not visible on this screen:
         * while a broadcast is live, moving the key moves it on every screen following it.
         * Said only then — with nobody following there is nothing extra happening to warn
@@ -306,6 +333,8 @@ export function SongControls({
         />
       )}
 
+      {menu === 'tempo' && <TempoMenu metronome={metronome} />}
+
       {menu === 'chords' && chordsPreview !== null && (
         <ChordDisplayMenu
           chordDisplay={global.chordDisplay}
@@ -317,6 +346,111 @@ export function SongControls({
             setMenu(null)
           }}
         />
+      )}
+    </div>
+  )
+}
+
+/**
+ * What the metronome beats: the tempo, and how often it accents.
+ *
+ * Two ways to move the number, and both are needed. The steppers are for the last few
+ * beats — a song that is nearly right at 94 — and the track is for getting somewhere else
+ * entirely, which is the lesson the scroll speed already learned when it was eight dots
+ * and reaching the far end cost seven taps.
+ *
+ * The way back to the song's own tempo is a row rather than a value to step to, because it
+ * is not a number: it is «forget what I said», which is the only gesture that puts a null
+ * back in the row and lets a `{tempo: …}` edited later take effect on its own.
+ */
+function TempoMenu({ metronome }: { metronome: ReturnType<typeof useMetronomeControls> }) {
+  const { bpm, beatsPerBar, chosen, barChosen, songTempo, setBpm, setBeatsPerBar } = metronome
+
+  /* The five the menu offers, plus this song's own bar when it is not one of them —
+     `{time: 5/4}` is a real song, and a row of five buttons with none of them lit is a
+     control that looks broken. */
+  const bars = BEATS_PER_BAR_OPTIONS.map((entry) => entry as number)
+  const options = bars.includes(beatsPerBar) ? bars : [...bars, beatsPerBar].sort((a, b) => a - b)
+
+  return (
+    <div className="chip-menu">
+      <div className="chip-menu-head">
+        <span className="control-name-label">Tempo</span>
+        <span className="chip-menu-head-hint">beats per minute</span>
+      </div>
+
+      <div className="tempo-row">
+        <button
+          type="button"
+          className="tempo-step"
+          onClick={() => setBpm(bpm - 1)}
+          disabled={bpm <= MIN_BPM}
+          aria-label="One beat per minute slower"
+        >
+          −
+        </button>
+
+        <span className="tempo-value" aria-hidden>
+          {bpm}
+        </span>
+
+        <button
+          type="button"
+          className="tempo-step"
+          onClick={() => setBpm(bpm + 1)}
+          disabled={bpm >= MAX_BPM}
+          aria-label="One beat per minute faster"
+        >
+          +
+        </button>
+      </div>
+
+      <input
+        type="range"
+        className="speed-range zoom-range tempo-range"
+        min={MIN_BPM}
+        max={MAX_BPM}
+        step={1}
+        value={bpm}
+        onChange={(event) => setBpm(Number(event.target.value))}
+        aria-label="Tempo"
+        aria-valuetext={`${bpm} beats per minute`}
+        style={
+          {
+            '--fill': `${((bpm - MIN_BPM) / (MAX_BPM - MIN_BPM)) * 100}%`,
+          } as React.CSSProperties
+        }
+      />
+
+      <div className="chip-menu-head mt-3">
+        <span className="control-name-label">Accent</span>
+        <span className="chip-menu-head-hint">one beat in</span>
+      </div>
+
+      <span className="segment mt-2 w-full" role="group" aria-label="How often the metronome accents">
+        {options.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className={entry === beatsPerBar ? 'segment-button is-on flex-1' : 'segment-button flex-1'}
+            aria-pressed={entry === beatsPerBar}
+            /* One in a bar of one is every beat accented, which sounds exactly like no
+               accent at all — so that is what it is called, and there is no sixth button
+               meaning «off». */
+            aria-label={entry === 1 ? 'No accent' : `Accent one beat in ${entry}`}
+            onClick={() => setBeatsPerBar(entry)}
+          >
+            {entry === 1 ? 'None' : entry}
+          </button>
+        ))}
+      </span>
+
+      {(chosen || barChosen) && (
+        <button type="button" className="tempo-reset" onClick={() => { setBpm(null); setBeatsPerBar(null) }}>
+          {songTempo === null
+            ? 'Forget this tempo — the song does not say one'
+            : `Back to the song’s own ${songTempo}`}
+        </button>
       )}
     </div>
   )

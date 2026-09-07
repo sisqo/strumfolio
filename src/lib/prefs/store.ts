@@ -25,6 +25,8 @@ import {
   clampSpeed,
   clampZoom,
   readAccidentals,
+  readBeatsPerBar,
+  readBpm,
   readChordDisplay,
   readChordShapes,
   readInstrument,
@@ -87,6 +89,12 @@ export function readSongPrefs(slug: string): SongPrefs {
         ? clampSpeed(cached.scrollSpeed)
         : DEFAULT_SONG_PREFS.scrollSpeed,
     capo: typeof cached.capo === 'number' ? clampCapo(cached.capo) : DEFAULT_SONG_PREFS.capo,
+    /* `readBpm` and not the `typeof` test the three above use, because null is a real
+       answer here rather than a missing one: a cache with no tempo in it and a cache
+       written by a reader who went back to the song's own tempo say the same thing, and
+       both mean «the song decides». See `SongPrefs.bpm`. */
+    bpm: readBpm(cached.bpm),
+    beatsPerBar: readBeatsPerBar(cached.beatsPerBar),
     chordShapes: readChordShapes(cached.chordShapes),
     favorite: cached.favorite === true,
     tabsExpanded: cached.tabsExpanded === true,

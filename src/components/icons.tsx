@@ -430,6 +430,21 @@ export function IconSliders(props: IconProps) {
   )
 }
 
+/**
+ * The metronome: the truncated pyramid every mechanical one has, with its rod leaning
+ * off-centre — drawn mid-swing rather than upright, which is what tells it apart from a
+ * plain triangle at 19px.
+ */
+export function IconMetronome(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10.1 4.4h3.8l3.3 14.3a1.2 1.2 0 0 1-1.2 1.5H8a1.2 1.2 0 0 1-1.2-1.5z" />
+      <path d="M12 19.2 15.2 7.7" />
+      <path d="M13.1 12.9h2.3" />
+    </Icon>
+  )
+}
+
 export function IconPencil(props: IconProps) {
   return (
     <Icon {...props}>

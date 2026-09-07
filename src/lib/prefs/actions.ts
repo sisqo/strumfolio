@@ -23,6 +23,8 @@ import {
   clampSpeed,
   clampZoom,
   readAccidentals,
+  readBeatsPerBar,
+  readBpm,
   readChordDisplay,
   readChordShapes,
   readInstrument,
@@ -140,6 +142,11 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
           semitones: clampSemitones(songRows[0].semitones),
           scrollSpeed: clampSpeed(songRows[0].scrollSpeed),
           capo: clampCapo(songRows[0].capo),
+          /* Narrowed rather than clamped, and null stays null: the column is nullable
+             because «this reader has not chosen a tempo» is a real answer, and the song's
+             own `{tempo: …}` is what answers in its place. See `SongPrefs.bpm`. */
+          bpm: readBpm(songRows[0].bpm),
+          beatsPerBar: readBeatsPerBar(songRows[0].beatsPerBar),
           chordShapes: readChordShapes(songRows[0].chordShapes),
           favorite: songRows[0].favorite,
           tabsExpanded: songRows[0].tabsExpanded,
@@ -219,6 +226,11 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
     semitones: clampSemitones(prefs.semitones),
     scrollSpeed: clampSpeed(prefs.scrollSpeed),
     capo: clampCapo(prefs.capo),
+    /* `readBpm` here too, and it is the write side that makes it matter: a client sending
+       null is saying «I went back to the song's own tempo», and that has to reach the
+       column as a null rather than as a number nobody chose. */
+    bpm: readBpm(prefs.bpm),
+    beatsPerBar: readBeatsPerBar(prefs.beatsPerBar),
     chordShapes: readChordShapes(prefs.chordShapes),
   }
 

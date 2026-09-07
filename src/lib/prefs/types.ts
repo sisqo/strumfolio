@@ -2,6 +2,13 @@ import type { Accidentals, Notation } from '../music/chord'
 import type { Instrument } from '../music/shapes'
 
 export { clampCapo } from '../music/capo'
+/**
+ * The metronome's own arithmetic, re-exported so preference code has one place to import
+ * from — the same courtesy `clampCapo` above already does for the capo. It lives in
+ * `metronome/tempo.ts` because that is where the rest of the tempo reasoning is, and
+ * because `node:test` can run it there without an `AudioContext` anywhere near it.
+ */
+export { clampBeatsPerBar, clampBpm, readBeatsPerBar, readBpm } from '../metronome/tempo'
 
 /**
  * How much of a chord the sheet draws. A reader's preference, like the notation — the
@@ -144,6 +151,30 @@ export interface SongPrefs {
    */
   chordShapes: Record<string, string>
   /**
+   * The tempo this reader plays this song at, for the metronome — or null, meaning they
+   * have never said, which is what makes the song's own `{tempo: …}` directive the answer
+   * instead, and 120 the answer when the song is silent too.
+   *
+   * **Null is a value here, not a missing one**, and it is the one field in this interface
+   * where that distinction is load-bearing. Every other preference has a default that is
+   * also a real answer — no capo is 0, the written key is 0 semitones — so a reader who
+   * never chose and a reader who chose the default are indistinguishable, and nothing is
+   * lost by it. A tempo has no such number: 0 is not a slow metronome, and defaulting to
+   * 120 would silently overrule a song that says 76. So «nobody has chosen» is stored as
+   * itself, and `TempoMenu`'s tap on the value is how a reader gets back to it.
+   *
+   * A decision about this song and not about the reader, so it sits here with the capo and
+   * for the same reason: a tempo kept globally would beat the wrong one for every song
+   * never opened.
+   */
+  bpm: number | null
+  /**
+   * How many beats go by before the metronome accents again — or null, on exactly the same
+   * terms as `bpm` above: the song's `{time: 3/4}` answers first, and four when neither
+   * has said.
+   */
+  beatsPerBar: number | null
+  /**
    * Whether this reader has starred the song.
    *
    * In this interface with the key and the capo because it is the same kind of fact —
@@ -255,6 +286,10 @@ export const DEFAULT_SONG_PREFS: SongPrefs = {
   semitones: 0,
   scrollSpeed: 3,
   capo: 0,
+  /* Null rather than 120 and 4: the default is «the reader has not chosen», which is what
+     lets the song's own directives speak. See `SongPrefs.bpm`. */
+  bpm: null,
+  beatsPerBar: null,
   chordShapes: {},
   favorite: false,
   tabsExpanded: false,

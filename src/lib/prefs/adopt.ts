@@ -73,7 +73,8 @@ export function adoptStoredSong({
   stored: SongPrefs
   /** What this browser is showing, which may be newer. */
   local: SongPrefs
-  /** The key, the speed, the capo and the chosen shapes — everything `saveSongPrefs` writes. */
+  /** The key, the speed, the capo, the tempo and the chosen shapes — everything
+   *  `saveSongPrefs` writes. */
   row: ReadGuard
   /** The star, which travels on its own. */
   star: ReadGuard
@@ -89,6 +90,8 @@ export function adoptStoredSong({
     semitones: takeRow ? stored.semitones : local.semitones,
     scrollSpeed: takeRow ? stored.scrollSpeed : local.scrollSpeed,
     capo: takeRow ? stored.capo : local.capo,
+    bpm: takeRow ? stored.bpm : local.bpm,
+    beatsPerBar: takeRow ? stored.beatsPerBar : local.beatsPerBar,
     chordShapes: takeRow ? stored.chordShapes : local.chordShapes,
     favorite: takeStar ? stored.favorite : local.favorite,
     tabsExpanded: takeTabs ? stored.tabsExpanded : local.tabsExpanded,

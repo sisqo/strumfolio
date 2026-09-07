@@ -1530,6 +1530,85 @@
     font-size: 0.75rem;
   }
 
+  /* ---- The Tempo menu -------------------------------------------------- */
+
+  /*
+   * Two ways to move one number, and both earn their place: the steppers are for the last
+   * few beats — a song that is nearly right at 94 — and the track is for getting somewhere
+   * else entirely. The scroll speed learned that lesson first, when it was eight dots and
+   * reaching the far end of them cost seven taps in the middle of a song.
+   */
+  .tempo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .tempo-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  /* At either end of the range, and greyed rather than hidden: a stepper that vanished
+     would move the number under the reader's own thumb. */
+  .tempo-step:disabled {
+    color: var(--faint);
+    cursor: default;
+  }
+
+  /* The number itself, big enough to read from a stand — this is the fact the whole menu
+     exists to state, and the chip that opened it only has room for it in badge type. */
+  .tempo-value {
+    flex: 1;
+    text-align: center;
+    color: var(--ink);
+    font-size: 1.75rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* `.speed-range` is built to fill a flex row and this menu is not one, so the width it
+     would otherwise take is the input's own intrinsic guess. */
+  .tempo-range {
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+
+  /* «Forget what I said», which is a sentence rather than a value to step to — it is the
+     only gesture that puts a null back in the row and lets a `{tempo: …}` edited later
+     take effect on its own. */
+  .tempo-reset {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .tempo-step:not(:disabled):hover,
+    .tempo-reset:hover {
+      background: var(--bg);
+      color: var(--accent);
+    }
+  }
+
   /*
    * One row: what a mode is called, what it does, a look at it against the song
    * actually open, and — on the chosen row alone — the mark that says so.
@@ -11033,6 +11112,15 @@
     display: contents;
   }
 
+  /*
+   * Strum Together and the metronome, the bar's two on/off controls, wrapped for exactly
+   * the reason `.control-tools` above wraps the other two — and nothing at all here, where
+   * the dock is a flat flex row and both are already its direct children.
+   */
+  .control-toggles {
+    display: contents;
+  }
+
   /* The prev/next capsule, squared on the edge touching `.control-dock` below `sm`
      so the two read as one bar — see `.control-strip`'s own comment. */
   .control-nav {
@@ -11222,6 +11310,78 @@
     font-size: 0.9375rem;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * The metronome's own toggle, quiet until it is beating.
+   *
+   * Lit the way `.control-open.is-on` is lit rather than merely tinted, and at every width
+   * for the same reason that one gives: this is the only control on the bar that goes on
+   * making a noise after the finger has left it, so «on» has to be legible at arm's length
+   * from a music stand. `position: relative` is what the pulse below is drawn against.
+   */
+  .control-metronome {
+    position: relative;
+    color: var(--faint);
+  }
+
+  .control-metronome.is-on {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /*
+   * The beat, drawn: a ring that grows out of the button and fades, restarted on every
+   * beat by a `key` in the component — the same shape and the same trick as the play
+   * button's broadcast rings, kept inside its own box because this one fires two or three
+   * times a second rather than once a press.
+   *
+   * **Not hidden under `prefers-reduced-motion`, unlike those rings.** On an iPhone carried
+   * with the ringer on silent — which is how a phone on stage is carried — iOS mutes Web
+   * Audio outright and this ring is the entire metronome. What that setting asks for is
+   * less decoration, and a beat somebody is playing to is information; so the movement goes
+   * and the beat stays, as a fade in place.
+   */
+  .metronome-pulse {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--accent);
+    border-radius: inherit;
+    opacity: 0;
+    pointer-events: none;
+    animation: metronomeBeat 240ms ease-out forwards;
+  }
+
+  /* The first beat of the bar: the same ring, filled, so the downbeat is told apart at a
+     glance and not only by ear. */
+  .metronome-pulse.is-accent {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  @keyframes metronomeBeat {
+    from {
+      transform: scale(1);
+      opacity: 0.95;
+    }
+    to {
+      transform: scale(1.16);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .metronome-pulse {
+      animation-name: metronomeBeatStill;
+    }
+  }
+
+  @keyframes metronomeBeatStill {
+    from {
+      opacity: 0.95;
+    }
+    to {
+      opacity: 0;
+    }
   }
 
   @media (hover: hover) {
@@ -12021,15 +12181,40 @@
       display: none;
     }
 
-    .control-strum {
+    /*
+     * Two buttons in the leading cell, mirroring `.control-tools` in the trailing one —
+     * the bar reads as two, play, two. It was one button with `justify-self: start` until
+     * the metronome joined it, and the flexing below is the same arithmetic the trailing
+     * cell already documents in full: two 58px buttons and their gap overrun this column
+     * by 8px at 375px, so the buttons give rather than the column, down to the 46px floor
+     * and no further.
+     */
+    .control-toggles {
+      display: flex;
       grid-area: 2 / 1;
-      justify-self: start;
+      justify-content: flex-start;
+      gap: 0.375rem;
     }
 
-    .control-button.control-strum,
-    .control-strum.is-live {
+    /* The second selector is the same rule at a specificity that can beat `flex: none` on
+       `.control-strum.is-live`, which is two classes deep and so outranks a child selector
+       whatever the order. `.control-tools` never needed the trick: everything in it takes
+       its `flex: none` from `.control-button` alone. */
+    .control-toggles > *,
+    .control-toggles > .control-strum.is-live {
+      flex: 1 1 3.625rem;
+      min-width: 2.875rem;
+      max-width: 3.625rem;
+    }
+
+    /* Both selectors, because the live Strum Together pill is not a `.control-button`:
+       it is a shape of its own that happens to sit in the same slot. */
+    .control-toggles .control-button,
+    .control-toggles .control-strum.is-live {
+      justify-content: center;
+      width: 100%;
       height: 3.625rem;
-      min-width: 3.625rem;
+      padding: 0;
       border-radius: var(--r-panel);
     }
 
@@ -12080,7 +12265,8 @@
       height: 1.875rem;
     }
 
-    .control-strum > svg {
+    .control-strum > svg,
+    .control-metronome > svg {
       width: 1.4375rem;
       height: 1.4375rem;
     }

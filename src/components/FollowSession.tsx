@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { GuestSettingsMenu } from '@/components/GuestSettingsMenu'
+import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { PrefsProvider, usePrefs } from '@/components/PrefsProvider'
 import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
@@ -920,15 +921,20 @@ function FollowedSong({
   onStepTo: (slug: string) => void
 }) {
   const parsed = useMemo(() => parseChordPro(song.data.body), [song.data])
-  const { setCapo, setScrollSpeed } = usePrefs()
+  const { setCapo, setScrollSpeed, setBpm, setBeatsPerBar } = usePrefs()
   const [steps, setSteps] = useState<NavSteps | null>(null)
 
   useEffect(() => {
     setCapo(DEFAULT_SONG_PREFS.capo)
     setScrollSpeed(DEFAULT_SONG_PREFS.scrollSpeed)
+    /* Back to null, not to a number: null is what lets the *next* song's own `{tempo: …}`
+       speak. A guest shares one `PrefsProvider` across every song they are shown, so a
+       tempo left behind here would beat the previous song's in the next one. */
+    setBpm(DEFAULT_SONG_PREFS.bpm)
+    setBeatsPerBar(DEFAULT_SONG_PREFS.beatsPerBar)
     window.scrollTo(0, 0)
     /*
-     * Tied to the slug alone, deliberately: `setCapo`/`setScrollSpeed` are new closures
+     * Tied to the slug alone, deliberately: the four setters are new closures
      * every time this guest's prefs change — including from this very effect — so
      * putting them in the dependency array would run this again after every reset, not
      * just after a new song. `updateSong`'s own no-op check is what keeps that from
@@ -968,7 +974,15 @@ function FollowedSong({
   }, [token, song.data.slug])
 
   return (
-    <>
+    /* The metronome for whichever song is on screen, and the reason it is mounted here
+       rather than once around the whole session: `songSlug` is what stops the click when
+       the broadcast moves on, and this component deliberately never unmounts between
+       songs — see `MetronomeProvider`. */
+    <MetronomeProvider
+      songSlug={song.data.slug}
+      songTempo={parsed.tempo}
+      songBeatsPerBar={parsed.beatsPerBar}
+    >
       {song.following && <PushBroadcastKey semitones={song.semitones} />}
 
       {song.following ? (
@@ -1056,7 +1070,7 @@ function FollowedSong({
         stepsLocked={song.following}
         onStepTo={onStepTo}
       />
-    </>
+    </MetronomeProvider>
   )
 }
 

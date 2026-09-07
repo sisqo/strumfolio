@@ -9,6 +9,8 @@
  * mode this layout usually has on a phone.
  */
 
+import { parseTimeSignature, readBpm } from './metronome/tempo'
+
 export interface Part {
   /** Raw chord token from the source, still in international notation. */
   chord: string | null
@@ -71,6 +73,28 @@ export interface ParsedSong {
   link1: string | null
   link2: string | null
   link3: string | null
+  /**
+   * The tempo the song is written at, from `{tempo: 96}` — the metronome's starting
+   * point, and nothing else. Null when the song does not say, which is most of them.
+   *
+   * It stays in the body rather than becoming a column of its own, unlike the title and
+   * the links above it: nothing outside the reading screen asks a song for its tempo, and
+   * a column would have to be kept in step with a directive that the editor already
+   * preserves verbatim and the export already carries through untouched (it is not in
+   * `METADATA_DIRECTIVE`, so `toChoproFile` leaves it exactly where the writer put it).
+   *
+   * `{bpm: 96}` is read as the same thing — the importer's own dialect table already maps
+   * the two together, so a file that came in from SongbookPro or OpenSong is read here the
+   * way it was read there. A tempo written in words (`{tempo: fast}`, and files do carry
+   * that) is null: see `readBpm`.
+   */
+  tempo: number | null
+  /**
+   * How many beats are in a bar, from the numerator of `{time: 3/4}` — what the
+   * metronome's accent counts, and the only part of a time signature this app has a use
+   * for. Null when the song does not say.
+   */
+  beatsPerBar: number | null
   sections: Section[]
 }
 
@@ -93,6 +117,12 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   link1: 'link1',
   link2: 'link2',
   link3: 'link3',
+  /* Read for the metronome, and the one pair of directives here that is read as a number.
+     `bpm` is `tempo`'s own alias in the import dialect table too (`import/dialect.ts`), so
+     a file is understood the same way whichever door it came in through. */
+  tempo: 'tempo',
+  bpm: 'tempo',
+  time: 'timeSignature',
   c: 'comment',
   comment: 'comment',
   soc: 'start_of_chorus',
@@ -119,6 +149,8 @@ export function parseChordPro(source: string): ParsedSong {
     link1: null,
     link2: null,
     link3: null,
+    tempo: null,
+    beatsPerBar: null,
     sections: [],
   }
 
@@ -182,6 +214,15 @@ export function parseChordPro(source: string): ParsedSong {
           break
         case 'link3':
           song.link3 = value || null
+          break
+        /* Narrowed, not stored raw: `readBpm` and `parseTimeSignature` answer null for
+           everything that is not a number this can beat, so a directive nobody can play
+           leaves the song saying nothing rather than handing the audio clock a `NaN`. */
+        case 'tempo':
+          song.tempo = readBpm(value)
+          break
+        case 'timeSignature':
+          song.beatsPerBar = parseTimeSignature(value)
           break
         case 'comment':
           section ??= openSection(forcedKind ?? 'verse')

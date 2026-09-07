@@ -95,6 +95,16 @@ Was [Em]blind, but [D]now I [G]see.
             re-importing the same file won&apos;t move it back. Leave them out and the song lands
             wherever you&apos;re importing into.
           </li>
+          <li>
+            <strong><code>{'{tempo: 96}'}</code></strong> and{' '}
+            <strong><code>{'{time: 3/4}'}</code></strong> — what the metronome starts at when
+            somebody opens the song, and how often it accents. <code>{'{bpm: 96}'}</code> means
+            the same as the first. Whoever&apos;s reading can set their own tempo from the Tempo
+            chip, which is remembered for them and doesn&apos;t change the song; these two are
+            the song&apos;s own answer, used until somebody says otherwise. A tempo written in
+            words — <code>{'{tempo: allegro}'}</code> — isn&apos;t read, since there&apos;s no
+            number in it to beat.
+          </li>
         </ul>
         <p>
           <strong>Not <code>{'{section: ...}'}</code></strong> for the songbook division, even
@@ -104,11 +114,11 @@ Was [Em]blind, but [D]now I [G]see.
           <code>{'{division: ...}'}</code> instead.
         </p>
         <p>
-          Anything else — <code>{'{key: ...}'}</code>, <code>{'{tempo: ...}'}</code>,{' '}
-          <code>{'{capo: ...}'}</code> — is read and silently ignored, never shown to whoever opens
-          the song. Strumfolio doesn&apos;t store a key or a capo position for a song: it works the key
-          out live from the chords, and a capo is a suggestion made live to whoever&apos;s reading,
-          not a fact about the song itself — so there&apos;s nothing for either directive to set.
+          Anything else — <code>{'{key: ...}'}</code>, <code>{'{capo: ...}'}</code> — is read and
+          silently ignored, never shown to whoever opens the song. Strumfolio doesn&apos;t store a
+          key or a capo position for a song: it works the key out live from the chords, and a capo
+          is a suggestion made live to whoever&apos;s reading, not a fact about the song itself —
+          so there&apos;s nothing for either directive to set.
         </p>
 
         <h2>Chords</h2>

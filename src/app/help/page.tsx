@@ -98,6 +98,16 @@ export default function HelpPage() {
             play/pause starts auto-scroll at a speed you set with the turtle-to-hare slider next to it.
           </p>
           <p>
+            The metronome is in that same bar, one tap to start and one to stop, with a ring that
+            flashes on every beat — so it&apos;s still a metronome on an iPhone carried on silent,
+            where iOS mutes any sound an app makes. What tempo it beats at is set from the{' '}
+            <strong>Tempo</strong> chip under the song title, along with how often it accents:
+            every third beat for a waltz, every fourth for most everything else. Your tempo is
+            remembered for that song. A song that carries its own <code>{'{tempo: 96}'}</code> in
+            ChordPro starts there until you say otherwise, and the chip&apos;s menu is where you
+            hand the question back to it.
+          </p>
+          <p>
             Everything you&apos;d only change before playing, not during, lives behind the{' '}
             <strong>Chords and text</strong> button:
           </p>

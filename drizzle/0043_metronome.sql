@@ -1,0 +1,28 @@
+-- Il tempo a cui questo lettore suona questa canzone, e ogni quanti movimenti il metronomo
+-- accenta.
+--
+-- **Le due colonne sono nullable, contro il resto della tabella, e la differenza è voluta.**
+-- `capo`, `favorite` e `tabs_expanded` sono tutte `NOT NULL DEFAULT` sul ragionamento che
+-- ogni riga già esistente risponde da sé: nessuno aveva il capotasto messo, nessuno aveva
+-- ancora messo una stella. Un tempo non ha una risposta del genere. Zero non è un metronomo
+-- lento, e mettere 120 di default vorrebbe dire scavalcare in silenzio una canzone che nel
+-- corpo dichiara `{tempo: 76}` — cioè far dire al database una cosa che il lettore non ha
+-- mai detto.
+--
+-- Quindi qui NULL significa «questo lettore non ha scelto», ed è un valore che l'app scrive
+-- di proposito: toccare il numero nel menu Tempo riporta la canzone al suo `{tempo}`
+-- scritto, e quel gesto salva NULL. Non è soltanto lo stato di una riga che nessuno ha
+-- toccato.
+--
+-- `beats_per_bar` non è vincolata alle cinque battute che il menu offre: `{time: 5/4}` è una
+-- canzone vera, quindi la colonna tiene quello che `clampBeatsPerBar` ammette (da 1 a 12) e
+-- il menu aggiunge la battuta fuori elenco come bottone a sé, invece di non accenderne
+-- nessuno.
+--
+-- Additiva senza backfill: nessuna riga esistente ha un tempo da preservare, e NULL è
+-- esattamente la risposta che ognuna di esse dà già.
+--
+-- Scritta a mano, non generata, per la stessa ragione delle note di 0031-0042: `db:generate`
+-- si rifiuta di girare finché gli snapshot 0028/0029/0030 condividono un id.
+ALTER TABLE "user_song_prefs" ADD COLUMN "bpm" integer;--> statement-breakpoint
+ALTER TABLE "user_song_prefs" ADD COLUMN "beats_per_bar" integer;
