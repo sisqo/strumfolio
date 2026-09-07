@@ -14749,7 +14749,35 @@
    * up the neck, the fret they sit on is not decoration. */
   .chord-chart-shape {
     height: 6.5rem;
+    margin: 0 auto;
+  }
+
+  /*
+   * The box is the way in to the chord's other shapes — the same tap that opens
+   * `ChordPopup` on a sheet, and what `ChordChartPicker` listens for.
+   *
+   * A button around the diagram and not one stretched over the whole card: the fingering
+   * and the notes on this page are text people copy off it, and a transparent layer above
+   * them would take the selection with it. It draws no border and no chevron either — two
+   * hundred boxes each wearing a control would turn a reference into a form — so the hover
+   * tint and the count line under the card are the whole affordance, with the prose to
+   * teach it on a touchscreen that has no hover at all.
+   *
+   * `margin-top` and the diagram's own `margin: 0 auto` between them keep it exactly where
+   * the bare diagram used to sit, which is what lines it up with `.chord-chart-none` on the
+   * one ukulele card that has no shape to open.
+   */
+  .chord-chart-open {
+    display: block;
     margin: 0.625rem auto 0;
+    border-radius: 0.75rem;
+    padding-inline: 0.5rem;
+  }
+
+  @media (hover: hover) {
+    .chord-chart-open:hover {
+      background: var(--surface-2);
+    }
   }
 
   /* Where a diagram would have been. Same height, so a card without a shape does
@@ -14777,6 +14805,42 @@
     margin-top: 0.25rem;
     color: var(--muted);
     font-size: 0.75rem;
+  }
+
+  /* How many shapes sit behind the box — on 204 of the guitar's 216 cards and 213 of the
+     ukulele's, so it is on nearly every card and has to be the quietest thing on it.
+     Last line rather than beside the box: somebody scanning the chart for one fingering
+     has to be able to skip this line on every card at once. */
+  .chord-chart-more {
+    margin-top: 0.5rem;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ---- The dialog behind a box ----------------------------------------
+     The shell is the reading screen's own `.chord-card` and the picker is the same
+     `.chord-carousel` a song uses. These two lines are all the chart adds: the chord type
+     in words, which the card under it also carries, and the fingering — which the popup in
+     a song deliberately does not print, because there the picture is the whole answer and
+     here the text under it is half of what the page is for. */
+
+  .chord-chart-dialog-label {
+    margin-top: 0.125rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  /* Follows the slide rather than the card that opened the dialog. */
+  .chord-chart-dialog-fingering {
+    margin-top: 0.75rem;
+    color: var(--ink);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
   }
   /* ---------------------------------------------------------------------------
    * The setlist calculator's answer: three numbers, then the per-song table.

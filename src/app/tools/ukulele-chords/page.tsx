@@ -8,12 +8,12 @@ import { PromoPanel } from '@/components/PromoPanel'
 import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
-import { LIBRARY_FAMILIES, LIBRARY_ROOTS, LIBRARY_SIZE, chordLibrary } from '@/lib/music/chordLibrary'
+import { LIBRARY_FAMILIES, LIBRARY_ROOTS, LIBRARY_SIZE, chordLibrary, shapeCount } from '@/lib/music/chordLibrary'
 
 const TITLE = 'Ukulele chord chart'
 
 const DESCRIPTION =
-  `Every ukulele chord this app can draw: ${LIBRARY_SIZE} shapes across twelve roots and eighteen chord types, each with its fingering and its notes. Free, no account.`
+  `Every ukulele chord this app can draw: ${LIBRARY_SIZE} chords across twelve roots and eighteen chord types, every shape for each with its fingering and its notes. Free.`
 
 /** Full `openGraph` block, never inherited — see the converter page for why. */
 export const metadata: Metadata = {
@@ -39,8 +39,12 @@ export const metadata: Metadata = {
  * this call is reading what `ChordLibrary` below already computed.
  */
 const UNPLAYABLE = chordLibrary('ukulele').flatMap((group) =>
-  group.chords.filter((chord) => chord.shape === null).map((chord) => chord.name),
+  group.chords.filter((chord) => chord.shapes.length === 0).map((chord) => chord.name),
 )
+
+/** How many boxes the chart can draw in all, counted rather than written down for the
+ *  same reason `UNPLAYABLE` is: both are properties of the search, not constants. */
+const SHAPES = shapeCount('ukulele')
 
 /**
  * The ukulele half of the chord chart. `guitar-chords/page.tsx` is its twin; the switch at
@@ -68,7 +72,8 @@ export default function UkuleleChordsPage() {
           <p className="site-hero-lede">
             Every chord on four strings, in the position a hand actually takes it in — which on a ukulele is almost
             always low and compact, because there is nowhere else for it to be. {LIBRARY_ROOTS.length} roots,{' '}
-            {LIBRARY_FAMILIES.length} chord types, {LIBRARY_SIZE} boxes.
+            {LIBRARY_FAMILIES.length} chord types, {LIBRARY_SIZE} boxes — and {SHAPES - LIBRARY_SIZE} further shapes
+            behind them, one tap away.
           </p>
         </div>
       </div>
@@ -95,10 +100,18 @@ export default function UkuleleChordsPage() {
 
           <h2>Why a ukulele chart is short and a guitar chart is not</h2>
           <p>
-            Because there is hardly any choice to make. Four strings and a hand that reaches four frets leave very few
-            fingerings that are even the right chord, and almost nowhere to hide a string you would rather not play. So
-            the compact shape near the nut usually <em>is</em> the shape everybody plays, and a chart of one voicing per
-            chord is not a simplification the way it would be on six strings.
+            Because there is hardly any choice worth making. Four strings and a hand that reaches four frets leave very
+            few fingerings that are even the right chord, and almost nowhere to hide a string you would rather not
+            play. So the compact shape near the nut usually <em>is</em> the shape everybody plays, and drawing that one
+            in the grid is not the simplification it would be on six strings.
+          </p>
+          <p>
+            The search does find others, and they are behind each box the same way they are on the guitar chart — tap
+            one and you can page through every shape that chord has. What comes up is usually{' '}
+            <strong>the same grip somewhere else</strong> rather than a different way of holding the chord: a{' '}
+            <BlogChord>C</BlogChord> is <code>0003</code>, then two shapes at the fourth fret, then{' '}
+            <code>000x</code> — which is <code>0003</code> with the A string left out. Worth a look when you are
+            moving between two shapes and one of them is fighting you, and worth ignoring the rest of the time.
           </p>
           <p>
             These shapes are found rather than listed: every fingering inside the first twelve frets is tried, the ones
@@ -147,9 +160,10 @@ export default function UkuleleChordsPage() {
           <p>
             This page knows every chord and nothing about your songs. {APP_NAME} puts the same shapes{' '}
             <strong>inside the sheet you are playing from</strong>: the instrument is a setting, so the whole songbook
-            draws ukulele shapes, a chord is a tap away from its fingering with its alternatives behind it, and{' '}
-            <strong>the shape you pick is remembered for that chord in that song</strong> on every device you sign in
-            on — offline included.
+            draws ukulele shapes, and a chord in the middle of a verse opens the same picker a box on this page does.
+            The difference is that it remembers —{' '}
+            <strong>the shape you pick is kept for that chord in that song</strong> on every device you sign in on,
+            offline included, where this page forgets it as soon as you close the box.
           </p>
           <p>
             If your sheets are still text files, the <Link href="/tools/chordpro-converter">ChordPro converter</Link>{' '}

@@ -132,7 +132,7 @@ export default function ToolsIndexPage() {
             <li>
               <strong>You just want to see where the fingers go</strong> — the chord charts, for{' '}
               <Link href="/tools/guitar-chords">guitar</Link> or <Link href="/tools/ukulele-chords">ukulele</Link>.
-              Every root, every chord type, one box each.
+              Every root, every chord type, and every other way to play each one behind the box.
             </li>
           </ul>
 

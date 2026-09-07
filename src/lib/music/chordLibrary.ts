@@ -6,10 +6,13 @@
  * opposite question — *every* chord, in an order somebody can scan — so the ordering, the
  * spelling and the names live here rather than in the pages, and `npm test` covers them.
  *
- * Nothing here decides a fingering. Every shape comes from `shapeFor`, which is
- * `shapesFor`'s own first entry, so the chart cannot draw a chord differently from the way
- * the reading screen draws it — the same property `CapoCalculator` is built on, and the
- * reason these pages are worth having at all rather than being a second table to maintain.
+ * Nothing here decides a fingering. Every shape comes from `shapesFor`, whose first entry
+ * is `shapeFor`'s own answer, so the chart cannot draw a chord differently from the way the
+ * reading screen draws it — the same property `CapoCalculator` is built on, and the reason
+ * these pages are worth having at all rather than being a second table to maintain. The
+ * whole list is carried and not just that first entry, because the chart offers the same
+ * alternate-forms picker a song does (`ShapeCarousel`); on a ukulele that is four shapes a
+ * chord rather than one, and all of them come out of the search that has already run.
  *
  * It is also why this module is pure and synchronous: the ukulele's shapes come from a
  * search, about thirteen thousand fingerings per chord, and a full library is two hundred
@@ -107,7 +110,20 @@ export const LIBRARY_ROOTS: readonly LibraryRoot[] = [
 /** How many cards one instrument's chart carries — twelve roots by eighteen types. */
 export const LIBRARY_SIZE = LIBRARY_ROOTS.length * LIBRARY_FAMILIES.length
 
-/** One card: a chord, the shape to draw for it, and what to say when there is none. */
+/**
+ * One candidate shape, with the text a chart prints under it.
+ *
+ * The fingering is carried rather than derived at the point of use because the chart's
+ * picker is a client component: `fingeringText` lives in `shapes.ts` beside the whole
+ * open-position table and the ukulele search, and none of that has any business being
+ * shipped to a browser for a page that computed its answers at build time.
+ */
+export interface LibraryShape extends ChordShape {
+  /** The same shape written out the way a chart prints it — `x32010`. */
+  fingering: string
+}
+
+/** One card: a chord, every shape it has, and what to say when it has none. */
 export interface LibraryChord {
   /**
    * The chord as it is printed — `C`, `Cm7`, `F#maj9`.
@@ -121,14 +137,17 @@ export interface LibraryChord {
   name: string
   family: string
   label: string
-  /** The default shape, or null when this instrument cannot hold this chord at all. */
-  shape: ChordShape | null
-  /** `x32010`, or null with no shape to write out. */
-  fingering: string | null
+  /**
+   * Every shape this instrument has for the chord, best first — empty when it has none.
+   *
+   * `shapes[0]` is `shapeFor`'s own answer, which is what the card draws; the rest are
+   * what the picker pages through. One array rather than a default plus a count: the two
+   * used to be separate fields and the second was only ever read by a test, which is the
+   * state a redundant field ends in.
+   */
+  shapes: LibraryShape[]
   /** The chord's notes, always — the whole answer on a card with no shape. */
   notes: string[]
-  /** How many shapes exist in total, this one included. */
-  shapeCount: number
 }
 
 /** One root's section of the chart. */
@@ -176,17 +195,16 @@ export function chordLibrary(instrument: Instrument): LibraryGroup[] {
     id: rootAnchor(root.name),
     chords: LIBRARY_FAMILIES.map(({ family, label }) => {
       const chord = chordFor(root, family)
-      const shapes = shapesFor(chord, instrument)
-      const shape = shapes.length === 0 ? null : shapes[0]
 
       return {
         name: chordName(root.name, family),
         family,
         label,
-        shape,
-        fingering: shape === null ? null : fingeringText(shape.frets),
+        shapes: shapesFor(chord, instrument).map((shape) => ({
+          ...shape,
+          fingering: fingeringText(shape.frets),
+        })),
         notes: chordNoteNames(chord),
-        shapeCount: shapes.length,
       }
     }),
   }))
@@ -199,7 +217,21 @@ export function chordLibrary(instrument: Instrument): LibraryGroup[] {
  */
 export function unplayableCount(instrument: Instrument): number {
   return chordLibrary(instrument).reduce(
-    (total, group) => total + group.chords.filter((chord) => chord.shape === null).length,
+    (total, group) => total + group.chords.filter((chord) => chord.shapes.length === 0).length,
+    0,
+  )
+}
+
+/**
+ * How many boxes one instrument's chart draws in total, alternatives included — the
+ * second number the pages state about themselves, counted for the same reason
+ * `unplayableCount` is: it is a property of the shape search, and the search is retuned
+ * from time to time. `LIBRARY_SIZE` counts chords and is a constant; this counts shapes
+ * and is not.
+ */
+export function shapeCount(instrument: Instrument): number {
+  return chordLibrary(instrument).reduce(
+    (total, group) => total + group.chords.reduce((sum, chord) => sum + chord.shapes.length, 0),
     0,
   )
 }

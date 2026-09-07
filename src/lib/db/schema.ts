@@ -728,6 +728,25 @@ export const userSongPrefs = pgTable(
      */
     chordShapes: jsonb('chord_shapes').notNull().default({}),
     /**
+     * The tempo this reader plays this song at, for the metronome, and how many beats go
+     * by before it accents again.
+     *
+     * **Nullable, against the rest of this table, and deliberately.** `capo`, `favorite`
+     * and `tabs_expanded` are all `NOT NULL DEFAULT` on the reasoning that every existing
+     * row already answers them — nobody had a capo on, nobody had starred anything. A
+     * tempo has no such answer: 0 is not a slow metronome, and defaulting to 120 would
+     * silently overrule a song whose own `{tempo: 76}` directive says otherwise. Null here
+     * means «this reader has not chosen», which is what lets the song speak, and it is a
+     * value the app writes on purpose when the reader goes back to the song's own tempo —
+     * not merely the state of a row nobody has touched.
+     *
+     * `beats_per_bar` is not constrained to the five the menu offers: `{time: 5/4}` is a
+     * real song, so the column holds what `clampBeatsPerBar` admits (1 to 12) and the menu
+     * adds the odd one out as a button of its own rather than lighting none.
+     */
+    bpm: integer('bpm'),
+    beatsPerBar: integer('beats_per_bar'),
+    /**
      * When this reader last opened this song, for the home screen's "Recently
      * played" (v3.5). Null, not defaulted to now: a row can exist for reasons that
      * have nothing to do with having opened the song — a transposition saved once,

@@ -8,12 +8,20 @@ import { PromoPanel } from '@/components/PromoPanel'
 import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
 import { CARD_HEIGHT, CARD_WIDTH } from '@/lib/blog/openGraph'
-import { LIBRARY_FAMILIES, LIBRARY_ROOTS, LIBRARY_SIZE } from '@/lib/music/chordLibrary'
+import { LIBRARY_FAMILIES, LIBRARY_ROOTS, LIBRARY_SIZE, shapeCount } from '@/lib/music/chordLibrary'
 
 const TITLE = 'Guitar chord chart'
 
+/**
+ * How many boxes the page can draw, alternatives included — **counted, not written down**,
+ * for the reason the ukulele page's own `UNPLAYABLE` is: these come out of the shape
+ * search, and a retuned search would quietly turn a number in the prose below into a lie.
+ * `LIBRARY_SIZE` counts chords and is a constant; this counts shapes and is not.
+ */
+const SHAPES = shapeCount('guitar')
+
 const DESCRIPTION =
-  `Every guitar chord this app can draw: ${LIBRARY_SIZE} shapes across twelve roots and eighteen chord types, each with its fingering and its notes. Free, no account.`
+  `Every guitar chord this app can draw: ${LIBRARY_SIZE} chords across twelve roots and eighteen chord types, ${SHAPES} shapes in all, each with its fingering and its notes. Free.`
 
 /** Full `openGraph` block, never inherited — see the converter page for why. */
 export const metadata: Metadata = {
@@ -60,7 +68,8 @@ export default function GuitarChordsPage() {
           <p className="site-hero-lede">
             Every chord on six strings, drawn as the shape a hand actually holds — open at the nut where an open shape
             exists, a barre form up the neck where it does not. {LIBRARY_ROOTS.length} roots,{' '}
-            {LIBRARY_FAMILIES.length} chord types, {LIBRARY_SIZE} boxes.
+            {LIBRARY_FAMILIES.length} chord types, {LIBRARY_SIZE} boxes — and the other {SHAPES - LIBRARY_SIZE} ways of
+            playing them, one tap behind each box.
           </p>
         </div>
       </div>
@@ -106,9 +115,14 @@ export default function GuitarChordsPage() {
             them you want depends on the chord you are coming from and the one you are going to.
           </p>
           <p>
-            That is a choice a page like this cannot make for you, so {APP_NAME} lets you make it in the song: tap a
-            chord on the sheet and every shape it has is there to page through, and{' '}
-            <strong>the one you pick is remembered for that chord in that song</strong> on every device you open it on.
+            So they are all here. <strong>Tap any box</strong> and the chord opens on its own with every shape it has,
+            swiped through one at a time, the standard one first and the fingering under it changing with the picture.
+            The card says how many there are before you open it.
+          </p>
+          <p>
+            It is the same picker {APP_NAME} puts on a chord in a song, with one difference that is the whole point of
+            the app: there, <strong>the shape you land on is remembered for that chord in that song</strong>, on every
+            device you open it on. This page forgets the moment you close the box.
           </p>
 
           <h2>A ukulele is a different chart</h2>
@@ -150,7 +164,7 @@ export default function GuitarChordsPage() {
             {
               question: 'How many ways are there to play one chord on a guitar?',
               answer:
-                'More than a chart can usefully print. Most chords have an open or partly open shape near the nut and at least two movable barre forms further up, and all of them are the same chord. This page shows one per chord: the open shape where the chord has one, and otherwise the movable form lowest on the neck, because a lower shape keeps more of the instrument ringing.',
+                'More than a chart can usefully print at once. Most chords have an open or partly open shape near the nut and at least two movable barre forms further up, and all of them are the same chord. The grid on this page draws one per chord — the open shape where the chord has one, and otherwise the movable form lowest on the neck, because a lower shape keeps more of the instrument ringing — and keeps the rest behind it: tap a box and you can page through every shape that chord has.',
             },
             {
               question: 'Which chords should I learn first?',
@@ -160,7 +174,7 @@ export default function GuitarChordsPage() {
             {
               question: 'Are these shapes the same as the ones in the app?',
               answer:
-                'Yes, and not by coincidence — the page and the reading screen call the same function for the same chord, so a shape you learn here is the one the sheet will draw. What the app adds is the alternatives: tap a chord in a song and every other shape for it is there, with your choice remembered for that chord in that song.',
+                'Yes, and not by coincidence — the page and the reading screen call the same function for the same chord, so a shape you learn here is the one the sheet will draw, and tapping a box here opens the same picker tapping a chord in a song does. What the app adds is memory: in a song the shape you pick is remembered for that chord in that song, on every device you sign in on. This page forgets it when you close the box.',
             },
           ]}
         />

@@ -7,10 +7,11 @@ import {
   LIBRARY_SIZE,
   chordLibrary,
   rootAnchor,
+  shapeCount,
   unplayableCount,
 } from './chordLibrary'
 import { noteToPitchClass } from './notes'
-import { FAMILIES, INSTRUMENTS, fingeringText, shapeFor } from './shapes'
+import { FAMILIES, INSTRUMENTS, fingeringText, shapeFor, shapesFor } from './shapes'
 
 describe('the published chord types', () => {
   it('are exactly the ones shapes.ts can draw', () => {
@@ -89,16 +90,40 @@ describe('the chart itself', () => {
       // for this chord», so the chart and the song cannot disagree.
       for (const group of chordLibrary(instrument)) {
         for (const card of group.chords) {
-          const expected = shapeFor(
+          const chord = {
+            root: group.root.pitchClass,
+            rootName: group.root.name,
+            suffix: card.family,
+            bass: null,
+            bassName: null,
+          }
+          const expected = shapeFor(chord, instrument)
+
+          if (expected === null) {
+            assert.equal(card.shapes.length, 0, `${card.name}: a shape the reader would not get`)
+          } else {
+            assert.deepEqual(card.shapes[0].frets, expected.frets, `${card.name}: not the default shape`)
+          }
+        }
+      }
+    })
+
+    it(`offers the same alternatives a song does on a ${instrument}`, () => {
+      // The same property one step further out, now that the chart's own picker pages
+      // through this list: not just the default but every candidate, in the same order,
+      // so a shape a reader finds here is one the popup on a sheet would have offered.
+      for (const group of chordLibrary(instrument)) {
+        for (const card of group.chords) {
+          const expected = shapesFor(
             { root: group.root.pitchClass, rootName: group.root.name, suffix: card.family, bass: null, bassName: null },
             instrument,
           )
 
-          if (expected === null) {
-            assert.equal(card.shape, null, `${card.name}: a shape the reader would not get`)
-          } else {
-            assert.deepEqual(card.shape?.frets, expected.frets, `${card.name}: not the default shape`)
-          }
+          assert.deepEqual(
+            card.shapes.map((shape) => shape.frets),
+            expected.map((shape) => shape.frets),
+            `${card.name}: not the candidates the popup offers`,
+          )
         }
       }
     })
@@ -111,16 +136,19 @@ describe('the chart itself', () => {
           // The notes are the answer on a card with no diagram, so they are never absent.
           assert.ok(card.notes.length >= 3, `${card.name}: ${card.notes.length} notes`)
 
-          if (card.shape === null) {
-            assert.equal(card.fingering, null)
-            assert.equal(card.shapeCount, 0)
-          } else {
-            assert.equal(card.fingering, fingeringText(card.shape.frets))
-            assert.ok(card.shapeCount >= 1)
+          for (const shape of card.shapes) {
+            // Carried rather than derived on the page, because the chart's picker is a
+            // client component and `fingeringText` lives beside the ukulele search.
+            assert.equal(shape.fingering, fingeringText(shape.frets), `${card.name}: wrong fingering`)
             // Every family is asked for by its own name, so nothing is ever a near relative.
-            assert.equal(card.shape.simplified, false, `${card.name} came back simplified`)
-            assert.equal(card.shape.family, card.family)
+            assert.equal(shape.simplified, false, `${card.name} came back simplified`)
+            assert.equal(shape.family, card.family)
           }
+
+          // A shape is only ever offered once: two slides drawing the same fingering
+          // would be a dot to swipe to with nothing behind it.
+          const fingerings = card.shapes.map((shape) => shape.fingering)
+          assert.equal(new Set(fingerings).size, fingerings.length, `${card.name}: a repeated shape`)
         }
       }
     })
@@ -138,4 +166,20 @@ describe('the chart itself', () => {
     const missing = unplayableCount('ukulele')
     assert.ok(missing < 10, `${missing} ukulele chords have no shape`)
   })
+
+  for (const instrument of INSTRUMENTS) {
+    it(`counts every box behind the chart on a ${instrument}`, () => {
+      // The other number the pages state about themselves. Same reasoning as
+      // `unplayableCount`: it is a property of the search rather than a constant, so the
+      // build asks instead of the prose claiming.
+      const drawn = chordLibrary(instrument).reduce(
+        (total, group) => total + group.chords.reduce((sum, card) => sum + card.shapes.length, 0),
+        0,
+      )
+
+      assert.equal(shapeCount(instrument), drawn)
+      // More shapes than chords, or the picker has nothing to page through anywhere.
+      assert.ok(drawn > LIBRARY_SIZE, `${drawn} shapes for ${LIBRARY_SIZE} chords`)
+    })
+  }
 })
