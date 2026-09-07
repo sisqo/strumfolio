@@ -234,6 +234,21 @@ describe('splitting and joining lines', () => {
     assert.equal(edit('[la]sola', (doc) => removeLine(doc, 0)), '')
   })
 
+  it('leaves a chord past the last word where it was, and opens the line under it', () => {
+    // Enter at the end of the words: the trailing chord belongs to the line that was
+    // written, not to the empty one now waiting for the next.
+    assert.equal(
+      edit('[la]uno [mi]due[re]', (doc) => splitLine(doc, 0, 7)),
+      '[la]uno [mi]due[re]\n',
+    )
+  })
+
+  it('does the same on a line of chords with no words at all', () => {
+    // An intro: every chord is past the end of the (blank) text, so there is nothing
+    // to cut and nothing to send down either.
+    assert.equal(edit('[re] [la]', (doc) => splitLine(doc, 0, 1)), '[re] [la]\n')
+  })
+
   it('opens a blank lyrics line after a break, a marker, or a directive', () => {
     // None of the three has text of its own to cut, so a new empty line simply
     // follows it — the same as pressing Enter at the end of any other line.

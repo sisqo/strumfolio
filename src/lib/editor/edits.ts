@@ -278,7 +278,24 @@ export function splitLine(document: SongDocument, index: number, at: number): So
   const blocks = [...document.blocks]
 
   if (block.kind === 'lyrics') {
-    blocks.splice(index, 1, ...splitLyrics(block, at))
+    /**
+     * Enter after the last word opens a line, it does not cut one. The distinction
+     * only shows when a chord sits out there past the words: `splitLyrics` gives a
+     * chord exactly at the cut to the syllable that follows it, and at the end of the
+     * line there is no such syllable — the trailing chord was written to be heard
+     * after *these* words, so it stays with them, and what follows is an empty row to
+     * type the next line into. Sending it down instead left the line silent and the
+     * new one holding a chord nobody had put there.
+     *
+     * Which is what the three kinds below already do with an Enter they have no text
+     * to cut, and what a chords-only line — an intro, all chords and no words — needs
+     * for the same reason.
+     */
+    if (at >= block.text.length) {
+      blocks.splice(index + 1, 0, { kind: 'lyrics', text: '', chords: [] })
+    } else {
+      blocks.splice(index, 1, ...splitLyrics(block, at))
+    }
   } else if (block.kind === 'comment') {
     blocks.splice(
       index,
