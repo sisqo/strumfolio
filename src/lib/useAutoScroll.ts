@@ -137,8 +137,34 @@ export function useAutoScroll(speedStep: number) {
         const before = window.scrollY
         window.scrollBy(0, whole)
 
-        // Nothing moved: we are at the bottom, so there is no point continuing.
-        if (window.scrollY === before) {
+        /*
+         * Nothing moved, which used to be read as one thing and is really two: the
+         * song has ended, or the song never had anywhere to go. Only the first is a
+         * reason to stop.
+         *
+         * The reading page makes the difference easy to miss, because a song that
+         * fits leaves the document *exactly* the height of the viewport rather than a
+         * pixel over — `.song-card` carries `min-height: calc(100dvh - 4.375rem)` under
+         * a 4rem header, so the page it adds up to is one screen and not scrollable at
+         * all. Treating that as the bottom meant pressing play un-pressed itself on the
+         * first frame that wanted a whole pixel, which reads as the song stopping the
+         * instant it starts. It reached a real reader when tab blocks became collapsed
+         * by default and took ~170px out of the songs that have them, dropping a page
+         * that used to clear the window to exactly its height.
+         *
+         * So a page with nowhere to scroll keeps playing instead: `running` stays true
+         * and the wake lock stays held, which is the half that matters on stage — a
+         * short song is still a song you are looking at, and the screen going to sleep
+         * halfway through it is the thing the lock exists to prevent. Nothing moves,
+         * because there is nothing to move; if the page does grow later — a tab opened,
+         * the zoom stepped up — the loop is still there and simply starts scrolling.
+         *
+         * The geometry is read only on a frame that already failed to move, and
+         * `scrollHeight`/`clientHeight` are the pair that answers this: both exclude the
+         * scrollbars, so their difference is the room the page actually has.
+         */
+        const page = document.documentElement
+        if (window.scrollY === before && page.scrollHeight > page.clientHeight) {
           setRunning(false)
           return
         }
