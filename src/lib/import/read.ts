@@ -88,6 +88,31 @@ export async function readSongFile(file: File): Promise<ReadResult> {
   }
 
   /*
+   * A `.docx` and a `.pdf` are the two formats whose words have to be lifted out of a
+   * binary before anything here can look at them. Both come out as one text, and from
+   * that line on they are the Paste tab — the same pipeline an OnSong `.chopro` goes
+   * through, with `prepareSongs` doing every guess about chords and titles exactly once.
+   *
+   * Each parser arrives by its own `await import()`, so dropping a Word file downloads
+   * no PDF engine, and dropping a PDF downloads no Word reader. The extracted text is
+   * handed back as `text` rather than null on purpose: it is what «start over» puts in
+   * the paste box, and for these two that matters more than for any other format, since
+   * a wrong column is a thing a person may well want to fix by hand.
+   */
+  if (source.kind === 'docx' || source.kind === 'pdf') {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+
+    const extracted =
+      source.kind === 'docx'
+        ? (await import('./formats/docx')).readDocx(bytes)
+        : await (await import('./formats/pdf')).readPdf(bytes)
+
+    if (!extracted.ok) return extracted
+
+    return { ok: true, songs: prepareSongs(extracted.text), skipped: 0, text: extracted.text }
+  }
+
+  /*
    * `.html` is the one extension whose meaning genuinely cannot be read off the name.
    * iReal Pro writes one, but so does every «save this page» in every browser — which
    * happens to be the only way anything ever leaves Ultimate Guitar. So the file is

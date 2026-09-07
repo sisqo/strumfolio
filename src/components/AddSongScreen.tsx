@@ -60,7 +60,7 @@ const DIALECT_LABEL: Record<Dialect, string> = {
  * places — so both the attribute and the hint below read from here now.
  */
 const ACCEPTED =
-  '.txt,.cho,.crd,.chopro,.chord,.chordpro,.cpm,.pro,.onsong,.tab,.xml,.zip,.sbpbackup'
+  '.txt,.cho,.crd,.chopro,.chord,.chordpro,.cpm,.pro,.onsong,.tab,.xml,.zip,.sbpbackup,.docx,.pdf'
 
 /**
  * The one door into a songbook's repertoire, replacing what used to be two: a
@@ -413,6 +413,12 @@ export function AddSongScreen({
               SongSelect all write one. A whole <code>.zip</code> works too: its folders become
               sections here, and several songs in one file are read as several songs.
             </p>
+            <p className="mb-2.5 text-sm leading-[1.45] text-muted">
+              <code>.pdf</code> and Word&apos;s <code>.docx</code> work as well, read straight from
+              the page they draw. In a PDF holding several songs, a new song is taken to start
+              where a page opens with a title set larger than the words &mdash; and failing that,
+              at every page. A PDF that is a scan has no text in it to read.
+            </p>
             <label
               className={dragOver ? 'drop-zone is-over' : 'drop-zone'}
               onDragOver={(event) => {
@@ -433,7 +439,7 @@ export function AddSongScreen({
               <span className="text-sm font-medium">
                 {reading ? 'Reading…' : 'Drop a file here, or browse'}
               </span>
-              <span className="text-xs text-muted">.txt, .cho, .chopro, .onsong, .xml, .zip…</span>
+              <span className="text-xs text-muted">.txt, .cho, .chopro, .pdf, .docx, .xml, .zip…</span>
               <input
                 ref={fileInput}
                 type="file"

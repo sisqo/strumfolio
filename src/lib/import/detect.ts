@@ -16,11 +16,12 @@
  * always decided for itself.
  *
  * The `refused` kind is the reason this file exists at all rather than a widened
- * regex. Four real formats — OnSong's own backup and archive, MobileSheets' backup,
- * Guitar Pro — are files a person is *more* likely to try first than the one that
- * works, because they are what the other app's own «export everything» button
- * produces. Answering those with «that doesn't look like a .txt» is answering the
- * wrong question. Each carries the sentence that says what to do instead.
+ * regex. Five real formats — OnSong's own backup and archive, MobileSheets' backup,
+ * Guitar Pro, iReal Pro, and Word's pre-2007 `.doc` — are files a person is *more*
+ * likely to try first than the one that works, because they are what the other app's
+ * own «export everything» button produces, or simply what their songs have been sitting
+ * in for fifteen years. Answering those with «that doesn't look like a .txt» is
+ * answering the wrong question. Each carries the sentence that says what to do instead.
  */
 
 /** What opens this file. */
@@ -33,7 +34,9 @@ export type Source =
   | { kind: 'zip' }
   /** SongbookPro's `.sbpbackup`: a zip holding one line of JSON. */
   | { kind: 'songbookpro' }
+  /** A Word `.docx`: a zip whose `word/document.xml` is the text it draws. */
   | { kind: 'docx' }
+  /** A PDF, laid back out into rows and columns from the positions it draws at. */
   | { kind: 'pdf' }
   /**
    * An HTML page, which needs its content read before anything can be said about it.
@@ -116,6 +119,19 @@ const REFUSED: { pattern: RegExp; advice: string }[] = [
     pattern: /\.(irealb|irealbook)$/i,
     advice: IREAL_ADVICE,
   },
+  {
+    /*
+     * Word's own format before 2007, and the one file somebody who says «I have my songs
+     * in Word» is most likely to be holding: a binary compound document, nothing like the
+     * zip a `.docx` is, and readable only by reimplementing a format Microsoft replaced
+     * two decades ago. Every app that can open one can also save the other, so the route
+     * in is one Save As rather than a parser.
+     */
+    pattern: /\.(doc|dot)$/i,
+    advice:
+      'This is Word’s older .doc format, which only Word itself really reads. Open it and ' +
+      'save it as .docx — File → Save As, then Word Document — and drop that here.',
+  },
 ]
 
 /** The extension, lowercased, or the empty string — OpenSong's song files have none. */
@@ -132,7 +148,8 @@ export function detectSource(fileName: string): Source {
   }
 
   if (/\.sbpbackup$/i.test(name)) return { kind: 'songbookpro' }
-  if (/\.docx$/i.test(name)) return { kind: 'docx' }
+  // `.docm` is the same OOXML zip with macros in it, which are never read here.
+  if (/\.docx$|\.docm$/i.test(name)) return { kind: 'docx' }
   if (/\.pdf$/i.test(name)) return { kind: 'pdf' }
   if (/\.zip$/i.test(name)) return { kind: 'zip' }
   if (/\.html?$/i.test(name)) return { kind: 'html' }

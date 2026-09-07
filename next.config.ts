@@ -192,6 +192,36 @@ export default withSerwistInit({
   swSrc: 'src/app/sw.ts',
   swDest: 'public/sw.js',
   additionalPrecacheEntries: [...pageEntries(), ...publicEntries()],
+  /**
+   * The PDF engine, kept out of every install.
+   *
+   * `src/lib/import/formats/pdf.ts` pulls `pdfjs-dist` in by `await import()` only when
+   * somebody actually drops a `.pdf` on the import screen, so it is already out of every
+   * first load. What it is *not* out of by itself is this manifest, which takes every
+   * client asset the build emits: measured, that is **1.67 MB of the 4.81 MB** a fresh
+   * install downloads, spent on a format most people will never use. A PDF import needs
+   * the network anyway — nothing can be saved offline — so there is no offline behaviour
+   * here to lose, only a download to not make.
+   *
+   * It matches on content rather than on a file name because the bundler will not be
+   * talked out of naming these chunks after a hash of themselves: a `splitChunks`
+   * cacheGroup with a name of our own registers fine and changes nothing, which was
+   * measured too. `AnnotationEditorLayer` and `globalThis.pdfjsWorker` are pdfjs' own
+   * names, they survive minification as strings, and they appear in nothing else in the
+   * build — including the webpack runtime chunk, which merely mentions the *chunk* names
+   * and must stay precached. If a future pdfjs renames both, the two chunks quietly go
+   * back into the manifest: a bigger install, never a broken one.
+   */
+  exclude: [
+    ({ asset }) => {
+      if (!asset.name.endsWith('.js')) return false
+
+      const source = asset.source.source()
+      const code = typeof source === 'string' ? source : Buffer.from(source).toString('utf8')
+
+      return code.includes('AnnotationEditorLayer') || code.includes('globalThis.pdfjsWorker')
+    },
+  ],
   // Only ship a service worker from a real build; in dev it gets in the way.
   disable: process.env.NODE_ENV === 'development',
 })(withMDX(nextConfig))

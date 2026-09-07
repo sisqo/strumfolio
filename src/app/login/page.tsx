@@ -254,17 +254,18 @@ const FAQ: FaqGroup[] = [
          * "chords above the lyrics" is converted. Someone with a folder of exports from another
          * app was being told, in effect, to convert it first.
          *
-         * **"Thirteen" is the one count on this page typed by hand**, and it has to stay in step
+         * **"Fifteen" is the one count on this page typed by hand**, and it has to stay in step
          * with `ACCEPTED` — which is a plain `const` in a client component, not exported, so
          * there is nothing to import and read the way `count(PLANS…)` reads a limit. A format
-         * added there without a visit here makes this sentence quietly wrong.
+         * added there without a visit here makes this sentence quietly wrong. It said thirteen
+         * until PDF and Word were built.
          *
-         * The two it cannot read, PDF and Word, are deliberately not named — see
-         * `lib/import/CLAUDE.md` for the fact itself. The answer carries its weight on the
-         * positive instead ("any text you can paste"), which is true and promises no binary
-         * format; naming absences on a landing page was considered and turned down.
+         * Those two are named now, and naming them changes nothing about the rule this answer
+         * was written under: absences stay unnamed on a landing page, and what is said is said
+         * on the positive. What did change is that a person holding a folder of PDFs is no
+         * longer being told, by omission, to convert it first.
          */
-        a: 'ChordPro is what Strumfolio reads and writes — and around it, the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, and a zip holding any of those: thirteen file types in all, plus any text you can paste. Chords written above the words are converted for you, always behind a preview you can correct before anything is saved, since that conversion is a guess and not always the right one. Export hands you standard ChordPro back — one song, or the whole collection as a zip.',
+        a: 'ChordPro is what Strumfolio reads and writes — and around it, the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, PDF, Word, and a zip holding any of those: fifteen file types in all, plus any text you can paste. Chords written above the words are converted for you, always behind a preview you can correct before anything is saved, since that conversion is a guess and not always the right one. Export hands you standard ChordPro back — one song, or the whole collection as a zip.',
       },
       {
         q: 'Is there a limit to how many songs or songbooks I can create?',
