@@ -65,9 +65,10 @@ duo or a full room singing along.
 
 **A private space, not a library to browse.** Every account is one person's own, created by
 signing in with Google or with an email and password — nobody invited, nobody excluded. The
-free plan holds a real repertoire with no time limit; paid plans lift the songbook and song
-caps and add what makes sense to gate — ukulele shapes, starting a Strum Together session,
-a printed booklet — never the caps on reading, editing, or playing what's already there.
+free plan holds a real repertoire with no time limit, Strum Together included — a session
+with one other screen following; paid plans lift the songbook and song caps, bring more of
+the room into a session, and add what makes sense to gate — ukulele shapes, a printed
+booklet — never the caps on reading, editing, or playing what's already there.
 
 ## Brand Personality
 

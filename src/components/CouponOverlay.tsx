@@ -145,7 +145,12 @@ export function CouponOverlay({
           <span className="coupon-lines">
             <span className="coupon-headline">{headline}</span>
             <span className="coupon-sub">
-              <span>Every songbook, every device, Strum Together included.</span>
+              {/* «Strum Together included» was the third clause, and it stopped selling anything
+                  the day free started leading a session of its own. What a paid plan adds is the
+                  size of the room, so the clause names that instead — and stays plan-agnostic,
+                  because this ticket is mounted on /pricing, /login and /checkout alike and has
+                  no one plan to quote a number for. */}
+              <span>Every songbook, every device, more screens in a Strum Together session.</span>
               {deadline !== null && (
                 <span className="coupon-deadline">
                   <svg

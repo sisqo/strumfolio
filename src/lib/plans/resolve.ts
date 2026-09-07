@@ -291,6 +291,18 @@ export async function entitlementsOf(accountOwnerEmail: string): Promise<Entitle
  * Every failure answers `{ enforced: false }` — the same direction as `entitlementsOf` and
  * for the same reason, one level sharper here: falling shut would refuse a friend at the
  * door of a performance that is already happening, over an unreadable row.
+ *
+ * **What that costs grew when free started leading, and the direction still stands.** An
+ * unreadable or missing row hands back `UNGATED.limits.devices` with `enforced: false`, and
+ * `admits` then lets everybody in — so a free session that would seat one guest seats as many
+ * as turn up. That used to be unreachable on free: it could not lead, so there was no session
+ * of its for a failed read to over-fill, and every account this could leak on was a paying one
+ * already entitled to more. Free is now both the commonest account here and the tightest cap,
+ * which makes it the one that leaks furthest. Still not a reason to fail shut — the failure is
+ * a database that cannot be read, the remedy is the database, and the alternative is turning
+ * one bad read into a broadcast that admits nobody in the middle of a performance. It is a
+ * reason not to reach for this as a *substitute* for `entitlementsOf` anywhere the answer is
+ * about money rather than about a door.
  */
 export async function deviceCapOf(accountOwnerEmail: string): Promise<{ max: number; enforced: boolean }> {
   /* Before any query, exactly as in `entitlementsOf`: off has to cost nothing, including

@@ -327,18 +327,31 @@ function columnsFor(coupon: Campaign | null): PlanColumn[] {
      * rejects by name. The numbers are named here now (they used to live only in the table two
      * sections down) because the v3.4 cards say what living on the plan is actually like, not
      * only that it does not run out.
+     *
+     * «Just you and the instrument» was the opening clause, and it stopped being true the day
+     * free started leading a Strum Together session: one other screen follows, which is a
+     * second person in the room and the whole point of the feature. The clause now names that
+     * screen instead of denying it, and `PLANS.free.devices` is read rather than typed for the
+     * reason every number on this page is.
      */
-    audience: `Just you and the instrument. ${PLANS.free.songbooks} songbook, ${PLANS.free.songs} songs — ` +
-      'no card, no end date, no trial to run out.',
+    audience: `You, the instrument, and ${PLANS.free.devices === 1 ? 'one screen' : `${PLANS.free.devices} screens`} following. ` +
+      `${PLANS.free.songbooks} songbook, ${PLANS.free.songs} songs — no card, no end date, no trial to run out.`,
     /* Free is not sold through `checkout.ts` — it is what an account already is — so its own
        card action is never conditional on `CHECKOUT_LIVE`, unlike every paid column's. */
     cta: true,
   },
+  /*
+   * «You lead, one screen follows» opened this card until free started doing exactly that, at
+   * which point the lead clause was selling the one row of the table where Standard and Free
+   * are now identical — the worst sentence on a comparison page, since it invites a reader to
+   * pay for something they already have. What Standard actually buys over Free is the rest of
+   * the table: three times the songbooks, ten times the songs, the printed booklet and the
+   * ukulele. The card says that instead, in Plus' and Premium's own comma rhythm.
+   */
   paidColumn(
     'Standard',
     'standard',
-    `You lead, one screen follows. ${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, ` +
-      'a printed booklet.',
+    `${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, a printed booklet and the ukulele.`,
     coupon,
   ),
   {
@@ -441,11 +454,16 @@ function featureRequestCell(tier: FeatureRequestTier): string | null {
 }
 
 /**
- * The device ceiling as a table cell, with free's 0 written as no cell at all.
+ * The device ceiling as a table cell, with a cap of 0 written as no cell at all.
  *
  * Never "0", for the reason `capWorthNaming` exists in `types.ts`: "0 of 0" reads as a fault in
- * the software, and so does a 0 in a table. Free cannot lead a session at all, so this row is
- * simply not part of that plan.
+ * the software, and so does a 0 in a table — a plan that admits nobody has no number to print,
+ * it simply does not have the row.
+ *
+ * **No column reaches that branch now.** Free used to, back when it carried a cap of 0 and
+ * could not lead at all; it leads with one follower today, so all four columns print a number
+ * and this table's Strum Together rows finally read the way the feature works — every plan
+ * included, differing only in how many may follow.
  *
  * Premium's cell used to be hand-written as "Unlimited" (the v3.4 redesign's own call) rather
  * than through this function — reversed for the reason the row's own comment gives: it
@@ -556,6 +574,16 @@ const ROWS: ComparisonRow[] = [
      * given: a guest reads the same song, in the same key, on their own phone, on every plan.
      * `GUEST_LINK`'s fuller version of this same claim lived in the feature-spotlight band
      * this row's note now stands in for (v3.4 removed the band).
+     *
+     * **Four `INCLUDED` cells now, and the row stays anyway.** Every plan may lead since free
+     * started broadcasting to one follower, so `mayLead` maps to the same value four times —
+     * which is exactly what the "Reading, offline & sync" row above was folded into one line
+     * for. The difference is that this row is not alone: the devices row directly under it is
+     * where the plans actually part, and deleting this one would leave a reader to infer that
+     * a number of devices implies the session, on a page whose whole job is to spell out what
+     * is and is not included. It reads as the deliberate "yes, on every plan" the pricing
+     * decision actually is, and it is still computed from `PLANS` rather than typed, so a plan
+     * that ever loses leading empties its own cell here without anybody remembering to.
      */
     note: 'Everyone on their own screen, on your line, in your key.',
     cells: (['free', 'standard', 'plus', 'premium'] as const).map((plan) =>

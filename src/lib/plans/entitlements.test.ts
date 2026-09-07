@@ -11,7 +11,7 @@ import {
   resolveSubscription,
 } from './entitlements'
 import type { StoredPlan } from './entitlements'
-import { PLANS } from './types'
+import { PLANS, PLAN_VALUES } from './types'
 import type { LimitReason, RepertoireCounts } from './types'
 
 const NOW = new Date('2026-08-20T12:00:00Z')
@@ -39,20 +39,43 @@ function counts(songbooks: number, songs: number): RepertoireCounts {
 const EMPTY = counts(0, 0)
 
 describe('the plan matrix', () => {
-  it('gives free an empty account nothing to lead, print or strum with', () => {
+  it('gives free an empty account the booklet and the ukulele refused, and leading allowed', () => {
     const ent = entitlementsFor(stored(), NOW, EMPTY)
 
     assert.equal(ent.frozen, false)
     assert.equal(ent.refused.createSongbook, null)
     assert.equal(ent.refused.createSong, null)
     assert.equal(ent.refused.editRepertoire, null)
-    assert.equal(ent.refused.lead, 'plan-required')
+    assert.equal(ent.refused.lead, null)
     assert.equal(ent.refused.booklet, 'plan-required')
     assert.equal(ent.refused.bookletCustomFooter, 'plan-required')
     assert.equal(ent.refused.ukulele, 'plan-required')
   })
 
-  it('opens all three of those on standard, brand line included, custom footer still refused', () => {
+  /*
+   * The whole of what free's Strum Together is, asserted where the refusals are: leading is
+   * open and the cap is one other device. Both together, because either alone is a feature
+   * nobody can use — a leader with a cap of 0 broadcasts to an empty room, and a cap with no
+   * leading is a number about nothing.
+   */
+  it('lets free lead, to exactly one other device', () => {
+    const ent = entitlementsFor(stored(), NOW, EMPTY)
+
+    assert.equal(ent.refused.lead, null)
+    assert.equal(ent.limits.mayLead, true)
+    assert.equal(ent.limits.devices, 1)
+  })
+
+  /* No plan refuses leading now, so nothing can ever ask for an upgrade to it — the rule
+     `PAYWALL_FEATURES` dropped its `lead` entry for, pinned from this side too. */
+  it('never refuses leading on any plan', () => {
+    for (const plan of PLAN_VALUES) {
+      assert.equal(entitlementsFor(stored({ plan }), NOW, EMPTY).refused.lead, null, plan)
+    }
+    assert.equal(UNGATED.refused.lead, null)
+  })
+
+  it('opens the booklet and the ukulele on standard, brand line included, custom footer still refused', () => {
     const ent = entitlementsFor(stored({ plan: 'standard' }), NOW, EMPTY)
 
     assert.equal(ent.refused.lead, null)
@@ -547,14 +570,17 @@ describe('the freeze', () => {
     assert.equal(ent.refused.ukulele, null)
   })
 
-  it('still refuses those three to a frozen free account by its plan, not by the freeze', () => {
+  it('still refuses the booklet and the instrument to a frozen free account by its plan, not by the freeze', () => {
     const ent = entitlementsFor(stored(), NOW, counts(9, 900))
 
     assert.equal(ent.frozen, true)
-    assert.equal(ent.refused.lead, 'plan-required')
     assert.equal(ent.refused.booklet, 'plan-required')
     assert.equal(ent.refused.bookletCustomFooter, 'plan-required')
     assert.equal(ent.refused.ukulele, 'plan-required')
+    /* And still lets it broadcast: the freeze is a rule about the repertoire, and free's own
+       plan no longer withholds leading either — so both reasons a refusal could come from are
+       absent, on the account holding the most songs it is ever allowed to hold. */
+    assert.equal(ent.refused.lead, null)
   })
 
   /* None of the vocabulary is dead: every reason is something this file can actually produce. */

@@ -240,12 +240,16 @@ export async function getMyBroadcast(): Promise<BroadcastState | null> {
  * working the moment a new one is made, so there is never more than one live link per
  * person, and never a question of which of several is the real one.
  *
- * Requires a plan that includes leading, too — `free` does not. That refusal answers with
- * a **reason** rather than the bare `{ ok: false }` this used to return, which is why the
- * three guards below are now three branches: told "couldn't start, try again", somebody on
- * free would press it forever, since trying again is the one thing that cannot help. The
- * freeze deliberately does not reach here: leading a Strum Together changes no song, so an
- * account over its caps can still start one (see `entitlementsFor`).
+ * Still checks that the plan includes leading, and **every plan now does** — free leads with
+ * one follower (`PLANS.free.mayLead`). So `refused.lead` is null for everybody and this guard
+ * refuses nobody today; it stays because it is the server half of a rule that lives in
+ * `PLANS`, and a gate deleted the day its answer stops varying is a gate the next change
+ * reinstates in the wrong place. It kept its **reason** rather than the bare `{ ok: false }`
+ * this used to return, which is why the three guards below are three branches: told
+ * "couldn't start, try again", somebody the plan had refused would press it forever, since
+ * trying again is the one thing that cannot help. The freeze deliberately does not reach
+ * here: leading a Strum Together changes no song, so an account over its caps can still start
+ * one (see `entitlementsFor`).
  *
  * No device cap is checked here, deliberately: how many may *follow* is a question asked at
  * the door, on each guest's own poll, and `mayLead` already refuses at the only point that
@@ -680,15 +684,24 @@ async function seatDevice(
          * Two refusals, not one, and the difference is whether waiting can ever help. A cap of
          * 0 admits nobody at all, so «leave this open, a place will free up» — which is what
          * the guest's screen says on `full` — is a promise this broadcast cannot keep: no
-         * device closing its link changes 0, and the leader cannot restart to release the slots
-         * either, because `startBroadcast` refuses the same plan outright.
+         * device closing its link changes 0.
          *
-         * `free` is the only plan with 0 today, and it is reachable here for exactly the reason
-         * `pollBroadcast` says nobody is evicted: a broadcast that was already running when the
-         * subscription lapsed keeps playing, and its cap is now free's. So this is the
-         * lapsed-plan case wearing the only shape the door can see it in. Keyed on the number
-         * rather than on the plan name, because this function knows a cap and deliberately not
-         * a plan.
+         * **No plan carries 0 any more**, so `closed` is currently unreachable: free went from
+         * a cap of 0 that could not lead at all to leading with one follower, and free was the
+         * only row that ever held 0. Every refusal this door makes today is therefore `full` —
+         * most often a free leader's second guest, which is an ordinary full house and not a
+         * lapse at all.
+         *
+         * The branch stays, and not out of caution. `max` is a plain number arriving from
+         * `deviceCapOf`, and the only thing standing between it and a 0 is that no row of
+         * `PLANS` currently holds one — a sixth plan, or a cap lowered in that table, puts it
+         * back with no change here. (Not `SONGBOOK_FORCE_PLAN`, which cannot reach it: it
+         * resolves through `readPlan`, so it yields one of the five plans and an unreadable
+         * value degrades to `free`, whose cap is 1.) The whole point of splitting the two
+         * refusals is that the guest's screen must not tell somebody to wait for a place that
+         * cannot exist. Keyed on the number rather than on the plan name, because this function
+         * knows a cap and deliberately not a plan, which is also why nothing here had to change
+         * when the plan behind the 0 went away.
          *
          * Returning from inside the callback commits rather than rolls back, which is what we
          * want: the only write above is the sweep, and deleting lapsed rows is right whether
@@ -803,9 +816,11 @@ async function seatDevice(
  * Three failures now. `expired` is the old one: whether the token never existed or has simply
  * gone idle too long is not a distinction a guest can act on differently, so there is one
  * reason rather than two. `full` means the account's plan has no room for another device right
- * now. `closed` means it has no room for anybody, ever, until something about the account
- * changes — a broadcast still playing on a plan that has since lapsed to one that cannot carry
- * followers at all. The two are split because the guest's screen has to promise different
+ * now — a free leader's second guest is the everyday shape of it. `closed` means it has no
+ * room for anybody, ever, until something about the account changes: a cap of 0, which no plan
+ * carries since free started leading with one follower, so this one is unreachable today and
+ * kept for the reason `seatDevice`'s own branch gives. The two are split because the guest's
+ * screen has to promise different
  * things: waiting works for one and cannot work for the other, and a screen that says «leave
  * this open, a place will free up» to somebody for whom no place exists is a lie the code knows
  * it is telling. Neither carries a **number** — the guest has no account, no plan and nothing

@@ -85,8 +85,8 @@ describe('PLANS', () => {
       featureRequests: 'no',
       smartCapo: false,
       booklet: 'no',
-      mayLead: false,
-      devices: 0,
+      mayLead: true,
+      devices: 1,
     })
     assert.deepEqual(PLANS.standard, {
       songbooks: 3,
@@ -350,21 +350,30 @@ describe('audienceSentence', () => {
     }
   })
 
-  it('drops the cap when a plan lapsed under a live broadcast, rather than saying "of 0"', () => {
-    // free cannot *start* a broadcast, but a broadcast already running when the subscription
-    // lapses is deliberately never interrupted — so its cap becomes free's 0 with devices
-    // still on it. «2 of 0 devices following» would read as a bug in the app.
-    assert.equal(audienceSentence(2, PLANS.free.devices), '2 devices following')
-    assert.equal(audienceSentence(0, PLANS.free.devices), '0 devices following')
+  it('names free’s cap the same way it names standard’s, since they are the same 1', () => {
+    // Free leads with one follower, so this is the most-read form of the sentence in the whole
+    // installation: every free leader's panel prints it, and free is where most accounts sit.
+    assert.equal(audienceSentence(0, PLANS.free.devices), '0 of 1 device following')
+    assert.equal(audienceSentence(1, PLANS.free.devices), '1 of 1 device following')
+  })
+
+  it('drops a cap of 0 rather than saying "of 0", though no plan carries one any more', () => {
+    // Nothing in `PLANS` is 0 since free started leading with one device, so this is written
+    // against the literal rather than a plan — the branch guards `devices` being a plain
+    // number, not a plan that still holds a zero. «2 of 0 devices following» would read as a
+    // bug in the app.
+    assert.equal(audienceSentence(2, 0), '2 devices following')
+    assert.equal(audienceSentence(0, 0), '0 devices following')
   })
 
   it('drops the cap when the count has passed it, after a downgrade mid-performance', () => {
-    // A plus broadcast downgraded to standard mid-performance produces a count above the cap,
-    // and nothing stops it: a live performance is deliberately never interrupted. `seatDevice`'s
-    // read-then-write race used to be a second way here and is not one any more — `count` and
-    // `seat` share one advisory lock per broadcast — so this sentence now survives exactly one
-    // cause rather than two, and that cause is a decision rather than a gap.
+    // A plus broadcast downgraded to standard or lapsed to free mid-performance produces a count
+    // above the cap, and nothing stops it: a live performance is deliberately never interrupted.
+    // `seatDevice`'s read-then-write race used to be a second way here and is not one any more —
+    // `count` and `seat` share one advisory lock per broadcast — so this sentence now survives
+    // exactly one cause rather than two, and that cause is a decision rather than a gap.
     assert.equal(audienceSentence(2, PLANS.standard.devices), '2 devices following')
+    assert.equal(audienceSentence(3, PLANS.free.devices), '3 devices following')
     assert.equal(audienceSentence(4, PLANS.plus.devices), '4 devices following')
   })
 })
@@ -377,12 +386,19 @@ describe('audienceIsFull', () => {
     assert.equal(audienceIsFull(2, PLANS.plus.devices), false)
   })
 
-  it('is false wherever no place could ever free up, so the hint is never a false promise', () => {
-    // A lapsed plan under a live broadcast (cap 0), and a count already over the cap: in
-    // both, every device closing its link changes nothing.
+  it('is true at free’s cap of 1, the commonest full house there is', () => {
+    assert.equal(audienceIsFull(1, PLANS.free.devices), true)
     assert.equal(audienceIsFull(0, PLANS.free.devices), false)
-    assert.equal(audienceIsFull(2, PLANS.free.devices), false)
+  })
+
+  it('is false wherever no place could ever free up, so the hint is never a false promise', () => {
+    // A cap of 0, which no plan carries any more and which is therefore written as the literal,
+    // and a count already over the cap after a downgrade mid-performance: in both, every device
+    // closing its link changes nothing.
+    assert.equal(audienceIsFull(0, 0), false)
+    assert.equal(audienceIsFull(2, 0), false)
     assert.equal(audienceIsFull(2, PLANS.standard.devices), false)
+    assert.equal(audienceIsFull(3, PLANS.free.devices), false)
   })
 
   it('is false for premium, for lifetime and for plans switched off', () => {

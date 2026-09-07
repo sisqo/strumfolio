@@ -329,9 +329,17 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
        * notation) and these three are not in it, but they are the same kind of thing — what
        * one person does with the songs on their own screen, or on a stage, leaving every row
        * exactly as it was. So a frozen standard account can still broadcast and still print,
-       * and a free
-       * account is refused all three by its plan, which is a different sentence with a
-       * different remedy.
+       * and a free account is refused the booklet and the ukulele by its plan — a different
+       * sentence with a different remedy — while still broadcasting, since `mayLead` is now
+       * true on every row.
+       */
+      /*
+       * Never `'plan-required'` any more, on any plan, and the field stays anyway. Every row
+       * of `PLANS` carries `mayLead: true` (see its own comment) and so does `UNGATED`, so
+       * this is a computed constant today — but it is the shape `startBroadcast` reads, and a
+       * gate that disappears the moment its answer stops varying is a gate nobody restores
+       * correctly. What did go is the *upgrade offer*: `PAYWALL_FEATURES` has no `lead` entry,
+       * because no plan is the minimum for something every plan includes.
        */
       lead: limits.mayLead ? null : 'plan-required',
       booklet: limits.booklet === 'no' ? 'plan-required' : null,

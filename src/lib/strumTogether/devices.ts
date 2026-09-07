@@ -136,15 +136,23 @@ export function needsHeartbeat(lastSeenAt: Date, now: Date): boolean {
  *
  * `held` counts the **other** devices — the caller excludes the joining device's own row, and
  * the leader's own is never a row at all, because the leader is playing inside the app and
- * never opens the follow link. So `standard`'s 1 is a duo and `plus`' 3 is a quartet.
+ * never opens the follow link. So `free`'s and `standard`'s 1 is a duo and `plus`' 3 is a
+ * quartet.
  *
- * Free's 0 is reachable here, which is worth saying because the obvious argument that it is
- * not — free cannot start a broadcast (`PlanLimits.mayLead`), so there is no session of its to
- * refuse from — holds only at the moment a broadcast *starts*. A broadcast already running
- * when the subscription lapses is deliberately never interrupted, so it keeps playing while
- * its cap becomes free's, and this then refuses everybody. `seatDevice` tells that refusal
- * apart from an ordinary full house, because the guest's screen must not promise a place that
- * cannot free up.
+ * **Free is now the ordinary case here, not the impossible one.** Every plan may start a
+ * broadcast (`PlanLimits.mayLead`), so the commonest refusal this function will ever make is
+ * the second guest of a free leader's session — a full house at a cap of 1, no different in
+ * kind from the fourth guest of a `plus` one, and answered the same way. It is worth naming
+ * because the shape of the argument here used to be the opposite: free carried a cap of 0 and
+ * could not lead, so a refusal on free meant something had lapsed.
+ *
+ * A cap of 0 is what no plan carries any more, and nothing here special-cases it: `held < 0`
+ * is false for every non-negative `held`, so a 0 written into `devices` by anything would
+ * still refuse everybody, which is what a 0 means. What did *not* change is that a cap can
+ * still be reached from **above** — a plus broadcast already running when the subscription
+ * lapses is deliberately never interrupted, so it keeps playing with three devices on a cap of
+ * 1 — and `seatDevice` still tells that refusal apart from an ordinary full house, because the
+ * guest's screen must not promise a place that cannot free up.
  */
 export function admits(held: number, max: number, enforced: boolean): boolean {
   return !enforced || held < max

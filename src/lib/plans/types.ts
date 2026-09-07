@@ -151,14 +151,31 @@ export interface PlanLimits {
    * line), and `bookletCustomFooterAllowed` (`custom` prints the reader's own instead).
    */
   booklet: BookletTier
-  /** May start a Strum Together broadcast — read by `startBroadcast`. */
+  /**
+   * May start a Strum Together broadcast — read by `startBroadcast`, and by nothing else.
+   *
+   * `true` on every row since Free started leading, and the field stays anyway rather than
+   * being deleted as a constant: it is the shape `refused.lead` is computed from, and what
+   * says out loud that leading is granted **by decision** on every plan rather than by
+   * nobody having written the check. What Free does not get is a second follower — that is
+   * `devices` below, and it is the only line of this table Strum Together is sold on.
+   *
+   * The consequence to know before reading anything else about this gate: `refused.lead` can
+   * no longer answer `'plan-required'` for any plan, so there is no upgrade to offer for
+   * leading and `PAYWALL_FEATURES` (`paywall.ts`) has no `lead` entry to offer it with.
+   */
   mayLead: boolean
   /**
    * How many OTHER devices may follow one Strum Together broadcast at a time — read through
    * `deviceCapOf` (`resolve.ts`) and compared by `admits` (`strumTogether/devices.ts`), and by
    * nothing else. The leader's own device is never one of them: they are playing inside the
-   * app and never open the follow link, which is what makes `standard`'s 1 a duo and `plus`'
-   * 3 a quartet. Free's 0 is unreachable rather than harsh — free cannot lead at all.
+   * app and never open the follow link, which is what makes `free`'s and `standard`'s 1 a duo
+   * and `plus`' 3 a quartet.
+   *
+   * Free and Standard carry the same 1 deliberately: Free leading at all is the decision, and
+   * one follower is what makes that a real session — a duo, a singer and a phone on a stand —
+   * rather than a feature listed and unusable. What Standard buys over Free is every other row
+   * of this table, not this one.
    *
    * Premium's 100 is the technical cap the listing calls unlimited, which is why this is
    * never null. `UNGATED.limits.devices` is the same 100 deliberately, and that coincidence
@@ -183,8 +200,14 @@ export const PLANS: Record<Plan, PlanLimits> = {
     featureRequests: 'no',
     smartCapo: false,
     booklet: 'no',
-    mayLead: false,
-    devices: 0,
+    /*
+     * Free leads, with exactly one follower. The pair is the whole of the free tier's Strum
+     * Together: `mayLead: true` opens `startBroadcast`, and `devices: 1` is what `admits`
+     * compares against, so a free leader plays to one other screen and the second guest is
+     * refused at the door like any over-cap guest on any other plan.
+     */
+    mayLead: true,
+    devices: 1,
   },
   standard: {
     songbooks: 3,
@@ -406,21 +429,28 @@ export function limitSentence(limit: LimitFacts): string {
 /**
  * Whether the cap in an audience count is a number worth putting on the leader's screen.
  *
- * Three ways it is not, and only the first is obvious. The cap is `PLANS.premium.devices` or
- * above, which also covers lifetime and `SONGBOOK_PLANS` switched off, since
- * `UNGATED.limits.devices` is that same number — «2 of 100» would advertise a cap nobody
- * configured as though it were about to bite. The cap is 0, which admits nobody and makes «0
- * of 0» a ratio about nothing. Or the count is already **above** the cap, which is «2 of 1»:
- * a sentence that reads as a fault in the software.
+ * Three ways it is not, and they are no longer equally reachable. The cap is
+ * `PLANS.premium.devices` or above, which also covers lifetime and `SONGBOOK_PLANS` switched
+ * off, since `UNGATED.limits.devices` is that same number — «2 of 100» would advertise a cap
+ * nobody configured as though it were about to bite. The cap is 0, which admits nobody and
+ * makes «0 of 0» a ratio about nothing. Or the count is already **above** the cap, which is «2
+ * of 1»: a sentence that reads as a fault in the software.
  *
- * Those last two are not defensive coding, and the comment they used to carry — that free's 0
- * cannot be reached because free cannot lead — was wrong. Both are reachable while everything
- * is working exactly as decided. A plan that lapses or is downgraded **under a live
+ * The zero test is the one branch here that nothing can currently reach: no row of `PLANS`
+ * carries 0 since Free started leading with one device, and `UNGATED` never did. It stays
+ * because `devices` is a plain number rather than a positive one, and the day anything writes
+ * a 0 into it — a sixth plan, a forced local override typed wrong — «0 of 0» is what this
+ * would otherwise print. Deleting the test would make that a silent regression rather than a
+ * caught one.
+ *
+ * The over-cap test is not defensive coding, and the comment it used to carry — that free's 0
+ * cannot be reached because free cannot lead — was wrong even then. It is reachable while
+ * everything is working exactly as decided. A plan that lapses or is downgraded **under a live
  * broadcast** does not interrupt it — you do not cut a live performance, see `pollBroadcast` —
- * so a broadcast with two devices on it can find itself holding free's cap of 0 or standard's
- * 1 at the next tick of the leader's panel.
+ * so a plus broadcast with three devices on it can find itself holding free's or standard's 1
+ * at the next tick of the leader's panel.
  *
- * That is now the *only* way to reach «2 of 1». The second way used to be a read-then-write
+ * That is now the *only* way to reach «3 of 1». The second way used to be a read-then-write
  * race in `seatDevice` that could seat one device over the cap with no plan change at all;
  * `count` and `seat` run under one advisory lock per broadcast since, so the door no longer
  * produces an over-count on its own. This sentence still has to survive the case above, which
@@ -462,20 +492,21 @@ export function audienceIsFull(following: number, devices: number): boolean {
  * on a screen: flipping it off does not remove this line, it removes the «of 3». Counting is
  * measurement, not a limit.
  *
- * The bare count is also the fallback for a cap that cannot be named honestly — 0, or one the
- * count has already passed — and that is a deliberate choice of the *weaker* true sentence over
- * the stronger false one. «2 devices following» under a lapsed plan says less than the leader
- * might want, but everything it says is so; «2 of 0 devices following» reads as a bug in the
- * app, and the panel would follow it with a promise that a place frees up. Where the lapse is
- * worth explaining is the plan screen, which can name a plan, and not a line whose whole job is
- * to count who is in the room.
+ * The bare count is also the fallback for a cap that cannot be named honestly — one the count
+ * has already passed, or the 0 no plan carries any more — and that is a deliberate choice of
+ * the *weaker* true sentence over the stronger false one. «3 devices following» after a plus
+ * broadcast has lapsed to a cap of 1 says less than the leader might want, but everything it
+ * says is so; «3 of 1 devices following» reads as a bug in the app, and the panel would follow
+ * it with a promise that a place frees up. Where the lapse is worth explaining is the plan
+ * screen, which can name a plan, and not a line whose whole job is to count who is in the room.
  *
  * The two forms pluralise on different words, and getting that backwards is the easy mistake:
  * the ratio agrees with the **cap** («0 of 1 device following», «2 of 3 devices following»)
- * while the bare count agrees with the **count** («1 device following»). `standard`'s cap is 1,
- * so «0 of 1 device following» and «1 of 1 device following» are the two most-often-read forms
- * of this sentence in the whole installation rather than an edge case — the same argument
- * `limitSentence` makes for spelling out its own singular.
+ * while the bare count agrees with the **count** («1 device following»). `free`'s and
+ * `standard`'s cap is 1 and free is where most accounts sit, so «0 of 1 device following» and
+ * «1 of 1 device following» are by some distance the most-often-read forms of this sentence in
+ * the whole installation rather than an edge case — the same argument `limitSentence` makes for
+ * spelling out its own singular.
  */
 export function audienceSentence(following: number, devices: number): string {
   if (!capWorthNaming(following, devices)) {

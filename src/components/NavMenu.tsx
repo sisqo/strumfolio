@@ -149,7 +149,7 @@ export function NavMenu({ current }: { current: Section }) {
 
                 <div className="menu-divider" />
 
-                <StrumTogetherPanel onClose={close} />
+                <StrumTogetherPanel />
               </>
             )}
 

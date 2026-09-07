@@ -3,12 +3,9 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
-import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
-import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
-import { IconBroadcast, IconCheck, IconLock } from '@/components/icons'
-import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
-import { audienceIsFull, audienceSentence, PLANS } from '@/lib/plans/types'
+import { IconBroadcast, IconCheck } from '@/components/icons'
+import { audienceIsFull, audienceSentence } from '@/lib/plans/types'
 import { followUrl } from '@/lib/strumTogether/link'
 
 /**
@@ -19,32 +16,25 @@ import { followUrl } from '@/lib/strumTogether/link'
  * where it opens from, what wraps it, how it is dismissed — stays with the caller;
  * this owns only what is inside.
  *
- * `onClose` is called for exactly one reason: as `FeaturePaywallModal`'s own `onUpgrade`,
- * fired the instant its "See Standard" link is actually clicked, so whatever opened this
- * (the menu panel, the bar's popover) closes right as the navigation to `/pricing` happens
- * rather than staying open behind it. It must **not** fire the moment the refusal itself
- * happens — this component (and the modal it renders) would unmount before ever painting,
- * which is exactly what used to swallow the message entirely. Every other outcome —
- * success, a session error, a failed stop, "Not now" on the paywall — leaves this panel
- * open, since there is more here worth reading (the link, the retry).
+ * **Takes no props, and used to take an `onClose`.** That callback existed for exactly one
+ * thing: closing whatever opened this panel — the menu, the bar's popover — the instant the
+ * upgrade paywall's "See Standard" link was clicked, so the panel did not sit open behind the
+ * navigation to `/pricing`. There is no paywall here any longer, because every plan may lead
+ * (`PLANS.free.mayLead`, and see `paywall.ts` on why `lead` has no entry to offer): a free
+ * reader presses Start and broadcasts, to one follower. Nothing in this panel navigates
+ * anywhere now, so nothing needs to close anything.
+ *
+ * The one plan fact still on this screen is the follower count under the link, and it is a
+ * *measurement* rather than an offer — `audienceSentence` says «0 of 1 device following» on
+ * free and standard alike, and the sentence beside it names the mechanism by which a place
+ * frees up rather than a plan that would add one. That is deliberate; see `audienceSentence`'s
+ * own comment.
  */
-export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
+export function StrumTogetherPanel() {
   const { broadcast, askFailed, audience, busy, checkBroadcast, start, stop } = useStrumTogether()
-  const { plan } = useRole()
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  /** A refusal by the plan gets the same dialog `HomeScreen` opens for its own — see
-      `FeaturePaywallModal`'s own comment on why — instead of the inline `error` above. */
-  const [paywallOpen, setPaywallOpen] = useState(false)
-
-  /*
-   * The button's own preview of the same gate `start()` enforces server-side — see
-   * `ControlBar`'s identical `ukuleleRefused` for the reasoning this mirrors: read off
-   * `plan` rather than asked of the server, and fails open (no lock shown) whenever `plan`
-   * is null, which covers both "still loading" and "enforcement is off".
-   */
-  const leadRefused = plan !== null && !PLANS[plan].mayLead
 
   /*
    * The QR is redrawn only when the token actually changes — starting a broadcast, or
@@ -78,12 +68,16 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
     if (result.ok) return
 
     /*
-     * Told apart from every other failure on purpose: «try again» is advice, and it is
-     * false advice here — a plan that does not include leading will not start one on the
-     * second press either.
+     * Told apart from every other failure on purpose: «try again» is advice, and it is false
+     * advice here — a plan that did not include leading would not start one on the second
+     * press either. No plan refuses this today (`startBroadcast` reads `refused.lead`, which
+     * every row of `PLANS` now answers null for), so this branch is unreachable and stays for
+     * the reason the server guard behind it stays: the day some plan loses leading again, the
+     * failure it produces must not read as a hiccup. It names no plan, because there is no
+     * longer one to name.
      */
     if (result.reason === 'plan-required') {
-      setPaywallOpen(true)
+      setError('Your plan doesn’t include starting a session.')
     } else if (result.reason === 'no-session') {
       setError('Session expired. Reload the page and sign in again.')
     } else {
@@ -253,7 +247,6 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
         >
           <IconBroadcast size={16} />
           Start broadcasting
-          {leadRefused && <IconLock size={13} />}
         </button>
       )}
 
@@ -267,15 +260,6 @@ export function StrumTogetherPanel({ onClose }: { onClose: () => void }) {
           <IconBroadcast size={16} />
           Stop broadcasting
         </button>
-      )}
-
-      {paywallOpen && (
-        <FeaturePaywallModal
-          feature={PAYWALL_FEATURES.lead.label}
-          plan={PAYWALL_FEATURES.lead.minPlan}
-          onUpgrade={onClose}
-          onDismiss={() => setPaywallOpen(false)}
-        />
       )}
     </div>
   )

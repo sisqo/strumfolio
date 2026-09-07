@@ -9,11 +9,15 @@ import type { Plan } from '@/lib/plans/types'
 import { useDialogA11y } from '@/lib/useDialogA11y'
 
 /**
- * The upgrade paywall for one named, plan-gated feature — Strum Together, printable
- * booklets, ukulele chord shapes, feature requests. One template for all four ("Included
- * in {plan}" / "Upgrade to use {feature}, and everything else in the tier."), read from
- * `@/lib/plans/paywall` rather than worded here, so the four call sites can never drift
- * into four different sentences for the same kind of refusal the way they used to.
+ * The upgrade paywall for one named, plan-gated feature — printable booklets, custom booklet
+ * footers, ukulele chord shapes, feature requests. One template for all four ("Included in
+ * {plan}" / "Upgrade to use {feature}, and everything else in the tier."), read from
+ * `@/lib/plans/paywall` rather than worded here, so the four call sites can never drift into
+ * four different sentences for the same kind of refusal the way they used to.
+ *
+ * Strum Together used to be the fifth and is not gated any more: every plan may lead a
+ * session, free included, so there is no plan this template could honestly name for it — see
+ * `paywall.ts`'s own note on why the entry was removed rather than relabelled.
  *
  * `PlanUpgradeModal` still owns the other two refusals this template cannot say: a
  * numbered cap ("This plan goes up to 300 songs in all.", where no single plan is "the"
@@ -30,18 +34,10 @@ import { useDialogA11y } from '@/lib/useDialogA11y'
 export function FeaturePaywallModal({
   feature,
   plan,
-  onUpgrade,
   onDismiss,
 }: {
   feature: string
   plan: Plan
-  /**
-   * An optional side effect on top of the navigation itself, fired the instant this link
-   * is actually clicked — `StrumTogetherPanel` uses it to close the panel that opened this
-   * modal right as the `/pricing` navigation happens, rather than the moment the refusal
-   * itself does (which would unmount the modal before it ever painted).
-   */
-  onUpgrade?: () => void
   onDismiss: () => void
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
@@ -74,10 +70,7 @@ export function FeaturePaywallModal({
           <Link
             href={`/pricing?plan=${plan}`}
             className="btn btn-primary btn-sm"
-            onClick={() => {
-              onUpgrade?.()
-              onDismiss()
-            }}
+            onClick={onDismiss}
           >
             {paywallPrimaryLabel(plan)}
           </Link>

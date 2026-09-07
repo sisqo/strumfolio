@@ -215,24 +215,32 @@ const PLAN_HOLD = plansEnforced()
     'is deleted.'
 
 /**
- * The « once they open» hedge, or nothing at all — appended by the two feature cards below that
- * name a gated feature: starting a Strum Together session, and the printed booklet.
+ * The « once they open» hedge, or nothing at all — appended by the one feature card below that
+ * still names a gated feature: the printed booklet.
+ *
+ * **Two cards until Strum Together stopped being gated.** Free leads a session with one follower
+ * now (`PLANS.free.mayLead`), so that card names no plan at all and appends nothing; the booklet
+ * is the last card on this page whose sentence depends on whether the limits are real. Kept as a
+ * shared constant rather than folded into that one card's string, because the reason it exists is
+ * a rule about this whole page rather than about the booklet: a second gated feature described
+ * here later must read the flag through this and not hard-code the hedge the way both cards
+ * originally did.
  *
  * Both cards used to carry those three words as static text, and they stopped being true the day
  * `SONGBOOK_PLANS` and `SONGBOOK_MOCK_CHECKOUT` went on in production. That left this page
  * hedging about whether the limits were real while `/pricing` beside it stated the same limits as
  * plain facts — precisely the disagreement `resolve.ts`'s comment on `plansEnforced` names as the
  * failure to avoid, and it warns these two pages must flip together. `PLAN_HOLD` above was
- * already reading the flags for the FAQ answer; these two sentences were the half that was not.
+ * already reading the flags for the FAQ answer; those sentences were the half that was not.
  *
  * Keyed on `plansEnforced()` and deliberately **not** on `mockCheckoutEnabled()`: what makes
  * «part of the paid plans» true is that a free account is actually held out of the feature, which
- * is enforcement and not whether anything is on sale. With the flag off, `UNGATED` grants both
- * (`refused.lead` and `refused.booklet` are each null there), so a free account really does lead
- * and really does print, and the hedge has to stay regardless of the checkout.
+ * is enforcement and not whether anything is on sale. With the flag off, `UNGATED` grants the
+ * booklet (`refused.booklet` is null there), so a free account really does print, and the hedge
+ * has to stay regardless of the checkout.
  *
- * An empty string rather than two full sentences per card: the surrounding prose is what each
- * card is actually about, and duplicating it per branch is how the two copies come to drift.
+ * An empty string rather than two full sentences per card: the surrounding prose is what the card
+ * is actually about, and duplicating it per branch is how two copies come to drift.
  */
 const PLANS_OPEN_HEDGE = plansEnforced() ? '' : ' once they open'
 
@@ -376,13 +384,20 @@ const FAQ: FaqGroup[] = [
         /*
          * "As many as you like" was false on every plan, premium included: `PLANS.premium.devices`
          * is 100, a real technical ceiling. The leader's own device is deliberately not counted —
-         * see `PlanLimits.devices` — which is what makes standard's 1 a duo rather than a solo.
+         * see `PlanLimits.devices` — which is what makes free's and standard's 1 a duo rather
+         * than a solo.
+         *
+         * **Free is named first and by number now**, which is the fix that mattered here: the
+         * list used to begin at Standard, and a reader on the free plan could only conclude the
+         * feature was not theirs — the same silence that made the four public pages denying the
+         * metronome wrong. Free and Standard carry the same 1, so they are named together rather
+         * than as two lines saying the same number, which would read as a distinction.
          *
          * /pricing's own devices row defers to this answer for the literal 100 rather than
          * printing "Unlimited" — see its comment. Softening the number here silently un-fixes
          * that page too.
          */
-        a: `That depends on the plan of whoever is leading: Standard adds ${count(PLANS.standard.devices, 'other device')}, Plus ${PLANS.plus.devices}, Premium and Lifetime ${PLANS.premium.devices}. The device you play from is never counted, so Standard is you and one other screen. Anyone can follow with no account at all — the limit is on how many follow at once, never on who.`,
+        a: `Every plan can lead one, free included, and how many follow is what changes: Free and Standard add ${count(PLANS.free.devices, 'other device')}, Plus ${PLANS.plus.devices}, Premium and Lifetime ${PLANS.premium.devices}. The device you play from is never counted, so Free is you and one other screen. Anyone can follow with no account at all — the limit is on how many follow at once, never on who.`,
       },
       {
         q: 'Does everyone need an account to join a session?',
@@ -437,7 +452,7 @@ const FAQ: FaqGroup[] = [
          * safe — but the caveat below still has to reach the four other answers that name a
          * plan, which is exactly why it stays a single copy and does not follow the reader.
          */
-        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet, the ukulele and starting a Strum Together session; the pricing page has all four. ${PLAN_HOLD}`,
+        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, a Strum Together session with ${count(PLANS.free.devices, 'other device')} following, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet and the ukulele; the pricing page has all four. ${PLAN_HOLD}`,
       },
       {
         q: 'How does a paid plan renew, and how do I stop it?',
@@ -520,11 +535,18 @@ const FEATURES: Feature[] = [
     /* "line by line, chord by chord" was carried over from the old wording and is not what the
      * protocol does: `pollBroadcast` sends the song and the transposition, and a follower's
      * viewport is reset to the top on a song change and never touched again. "In the same key" is
-     * exactly what it does send. /pricing's guest-link band says it the same way. */
+     * exactly what it does send. /pricing's guest-link band says it the same way.
+     *
+     * The closing clause used to be «Starting a session is part of the paid plans; following one
+     * never is», with `PLANS_OPEN_HEDGE` spliced into it. Both halves are wrong now — every plan
+     * starts one — so the sentence names the free plan's own number instead, which is the fact a
+     * visitor reading this card is actually deciding on. It reads `PLANS.free.devices` rather
+     * than spelling the number, so this card cannot outlive the cap the way the old sentence
+     * outlived the gate. */
     text:
       'Share a link. Every device follows the same song, in the same key — near or far, with nothing to ' +
-      `install and no account for anyone following. Starting a session is part of the paid plans${PLANS_OPEN_HEDGE}; ` +
-      'following one never is.',
+      `install and no account for anyone following. Every plan starts one, the free plan included, with ` +
+      `${count(PLANS.free.devices, 'screen')} following; the paid plans bring more of the room in.`,
   },
   {
     icon: <IconTuningFork size={20} />,

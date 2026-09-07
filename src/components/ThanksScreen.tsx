@@ -147,10 +147,15 @@ export function ThanksScreen() {
               <br />
               Here&apos;s what&apos;s next.
             </h1>
+            {/* «to strum together» was in this list of what the paid plans add, and came out
+                when free started leading a session of its own: what a paid plan adds is screens
+                in that session, not the session. The `is-upsell` step below says the same thing
+                at length, and the two must not disagree. */}
             <p className="thanks-hero-text text-muted">
-              {PLANS.free.songbooks} songbook, {PLANS.free.songs} songs, no card and no end date.
-              Whenever you want more room, to strum together, or a printed booklet, the paid plans
-              are right there.
+              {PLANS.free.songbooks} songbook, {PLANS.free.songs} songs, a Strum Together session
+              with {PLANS.free.devices === 1 ? 'one screen' : `${PLANS.free.devices} screens`} following,
+              no card and no end date. Whenever you want more room, more screens in a session, or a
+              printed booklet, the paid plans are right there.
             </p>
           </div>
         </div>
@@ -177,8 +182,16 @@ export function ThanksScreen() {
               <span className="thanks-step-line" />
             </div>
             <div className="thanks-step-body">
-              <p className="thanks-step-title">&quot;Strum Together&quot; sessions</p>
-              <p className="thanks-step-caption">Everyone on their own screen, on your line.</p>
+              {/* Not «"Strum Together" sessions» any more: free holds one, so a step promising
+                  the feature would be selling something this reader already has. What is
+                  actually for sale is the size of the room, and the numbers are read from
+                  `PLANS` rather than typed for the reason every number on this screen is —
+                  Standard is deliberately absent from the sentence, since its cap is free's. */}
+              <p className="thanks-step-title">A bigger &quot;Strum Together&quot;</p>
+              <p className="thanks-step-caption">
+                {PLANS.free.devices === 1 ? 'One screen follows you on Free' : `${PLANS.free.devices} screens follow you on Free`} — up to{' '}
+                {PLANS.plus.devices} from Plus, the whole room from Premium.
+              </p>
             </div>
           </div>
 

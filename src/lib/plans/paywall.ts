@@ -8,29 +8,41 @@
  * reason (see this repo's `CLAUDE.md`): the copy rules below are worth a synchronous test,
  * and neither of those module kinds may export one.
  *
- * This is deliberately narrower than `LimitReason` (`types.ts`). Only the five gates below
- * ever resolve to `'plan-required'` — `entitlements.ts`'s `refused` has three more fields
- * (`createSongbook`, `createSong`, `editRepertoire`) but they only ever answer `frozen` or a
- * numbered cap, never a bare feature refusal — so `PlanUpgradeModal` still owns those two,
- * and this file's copy template ("Included in Plus") never has to say something as vague as
- * "included in Plus" about going over a song count, where the honest answer is a number.
+ * This is deliberately narrower than `LimitReason` (`types.ts`). Only the four gates below
+ * ever resolve to `'plan-required'` — `entitlements.ts`'s `refused` has four more fields
+ * (`createSongbook`, `createSong`, `editRepertoire`, `lead`) that never do — so
+ * `PlanUpgradeModal` still owns the numbered caps and the freeze, and this file's copy
+ * template ("Included in Plus") never has to say something as vague as "included in Plus"
+ * about going over a song count, where the honest answer is a number.
+ *
+ * **`lead` was the fifth and is deliberately gone**, and the argument is worth keeping because
+ * the obvious repair is the wrong one. Every row of `PLANS` now carries `mayLead: true` — free
+ * leads a Strum Together session with one follower — so `refused.lead` can never answer
+ * `'plan-required'` and, more to the point, there is no `minPlan` that could be written here
+ * without lying: the template would title itself "Included in Standard" about something Free
+ * already includes. An entry whose plan cannot be named honestly is not a gate with a stale
+ * label, it is not a gate. What free does *not* get is a second follower, and that refusal is
+ * counted rather than sold — `admits` (`strumTogether/devices.ts`) turns the guest away and
+ * the leader's own panel says so through `audienceSentence`, which names the mechanism and
+ * never a purchase.
  */
 
 import { PLAN_LABEL, type Plan } from './types'
 
-/** The five `Entitlements['refused']` fields (`entitlements.ts`) that ever answer `'plan-required'`. */
-export type PaywallGate = 'lead' | 'booklet' | 'bookletCustomFooter' | 'ukulele' | 'featureRequest'
+/** The four `Entitlements['refused']` fields (`entitlements.ts`) that ever answer `'plan-required'`. */
+export type PaywallGate = 'booklet' | 'bookletCustomFooter' | 'ukulele' | 'featureRequest'
 
 export interface PaywallFeature {
   /**
    * Lowercase, plural or uncountable, no article — the copy template has no verb for it to
    * agree with, and this is what keeps every rendered sentence grammatical with no
-   * conditional logic reading it. `lead`'s "Strum Together" is the one declared exception:
-   * a proper noun, capitalized everywhere else in this app (the reading bar's own toggle,
-   * the guest screen's `<h1>`, `thanksDevicesCaption`), and "Upgrade to use Strum Together,
-   * and everything else in the tier." is exactly as grammatical as the lowercase form would
-   * be — the rule's own reason to exist is already satisfied, so lowercasing it here would
-   * only misspell a name the rest of the app spells one way.
+   * conditional logic reading it.
+   *
+   * The rule has no exceptions now that `lead` is gone. It had exactly one, and it was that
+   * entry: "Strum Together" is a proper noun the rest of the app capitalizes, and the template
+   * read grammatically either way. A future proper-noun feature may claim the same exemption
+   * on the same grounds — declare it here and in `paywall.test.ts` together, which is the pair
+   * that stopped it from being a licence to capitalize anything.
    */
   label: string
   /** The plan whose row first grants this — see each entry's own comment for the `PLANS` fields it reads. */
@@ -38,8 +50,6 @@ export interface PaywallFeature {
 }
 
 export const PAYWALL_FEATURES: Record<PaywallGate, PaywallFeature> = {
-  // PLANS.free.mayLead === false, PLANS.standard.mayLead === true.
-  lead: { label: 'Strum Together', minPlan: 'standard' },
   // PLANS.free.booklet === 'no', PLANS.standard.booklet === 'branded'.
   booklet: { label: 'printable booklets', minPlan: 'standard' },
   // PLANS.plus.booklet === 'plain', PLANS.premium.booklet === 'custom' — the one tier that

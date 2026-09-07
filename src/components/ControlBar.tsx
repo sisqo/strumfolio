@@ -164,7 +164,7 @@ export function ControlBar({
 
         {broadcastEnabled && panel === 'sing' && (
           <div className="strum-panel">
-            <StrumTogetherPanel onClose={() => setPanel(null)} />
+            <StrumTogetherPanel />
           </div>
         )}
 
