@@ -10707,6 +10707,46 @@
     min-width: 10rem;
   }
 
+  /*
+   * The list of coupons an account has been shown (`CouponsSeenCard`), on the Payments tab.
+   *
+   * Deliberately the same shape as the outreach log above and deliberately not the same
+   * classes: the two lists agree today by coincidence, not by rule, and the outreach log is
+   * free to grow a column of its own without dragging a card about coupons along with it. What
+   * this repo refuses to state twice is a *rule* or a line of *copy*, not two lists that look
+   * alike.
+   *
+   * The chip goes last and keeps its own size, so the standings line up down the right edge and
+   * an operator can scan the column instead of reading every row.
+   */
+  .acct-seen-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .acct-seen-log li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.84375rem;
+  }
+
+  .acct-seen-when {
+    flex: none;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .acct-seen-what {
+    flex: 1;
+    min-width: 10rem;
+  }
+
   .acct-more {
     margin: 0.75rem 0 0;
     font-size: 0.84375rem;

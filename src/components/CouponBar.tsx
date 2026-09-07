@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
-import { applyCoupon, clearCoupon, rememberUrlCoupon } from '@/lib/coupons/actions'
+import { applyCoupon, clearCoupon, noteCouponView, rememberUrlCoupon } from '@/lib/coupons/actions'
 import {
   COUPON_FAILURE_MESSAGE,
   isCodeShape,
@@ -47,6 +47,7 @@ import { useOnline } from '@/lib/useOnline'
 export function CouponBar({
   applied,
   persist,
+  note,
 }: {
   /**
    * The finished rate and two lines from `appliedCopy`, or `null` when no coupon is in force.
@@ -62,6 +63,18 @@ export function CouponBar({
    * tomorrow to a bare `/pricing`.
    */
   persist?: string
+  /**
+   * The code to record as *seen* by this reader, or `undefined` for every reader there is
+   * nothing to record about.
+   *
+   * **Decided on the server, and that is the whole reason it is a prop.** The page already
+   * knows whether somebody is signed in and whether the campaign is live, and `/pricing` is a
+   * public landing page whose traffic is mostly anonymous — so the alternative, calling the
+   * action unconditionally and letting it answer «no session», is one wasted round trip per
+   * visit for the readers there is nothing to write about. `noteCouponView` re-validates the
+   * code regardless: this prop decides whether to ask, never what gets written.
+   */
+  note?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -77,6 +90,7 @@ export function CouponBar({
    * that writes the identical cookie. Harmless, and still worth not doing.
    */
   const remembered = useRef(false)
+  const noted = useRef(false)
 
   useEffect(() => {
     if (persist === undefined || remembered.current) return
@@ -85,6 +99,23 @@ export function CouponBar({
        discount, so a refresh would redraw it to say exactly the same thing. */
     void rememberUrlCoupon(persist)
   }, [persist])
+
+  /*
+   * The sighting, written from here rather than during the page's render for the reason the
+   * effect above is here at all: this is a write, and a render must not perform one. Its own
+   * ref, not the one above — the two fire on different journeys, since a reader arriving on a
+   * bare `/pricing` with the cookie already set has nothing to persist and a view to record.
+   *
+   * Fire and forget, and nothing on screen depends on it: the row it writes is read by
+   * `/accounts/[email]`, days later and by somebody else. `recordCouponView` upserts, so this
+   * running on every mount leaves one row per campaign with a moving `last_seen_at` instead of
+   * a log of page views — which is what makes it safe to call from here at all.
+   */
+  useEffect(() => {
+    if (note === undefined || noted.current) return
+    noted.current = true
+    void noteCouponView(note)
+  }, [note])
 
   const submit = async () => {
     const typed = code.trim()

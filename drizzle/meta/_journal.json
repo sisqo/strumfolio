@@ -309,6 +309,13 @@
       "when": 1788806318222,
       "tag": "0043_metronome",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1788814945103,
+      "tag": "0044_coupon_views",
+      "breakpoints": true
     }
   ]
 }

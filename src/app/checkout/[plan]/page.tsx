@@ -9,6 +9,7 @@ import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
+import { currentUser } from '@/lib/auth/session'
 import { appliedCopy, deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
 import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
@@ -53,10 +54,17 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const jar = await cookies()
   const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
   const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
-  const [campaign, lifetimeOnSale, advertisable] = await Promise.all([
+  const [campaign, lifetimeOnSale, advertisable, user] = await Promise.all([
     activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
     loadLifetimeOnSale(),
     advertisableCampaign(),
+    /*
+     * Read for one thing only: whether there is an account for `CouponBar` to record a sighting
+     * against. This screen needs no identity of its own — `mockPurchase` reads its own session
+     * when it is pressed — and the question is asked here rather than inside the action so a
+     * signed-out reader on a checkout costs no round trip, `/pricing`'s own reasoning.
+     */
+    currentUser(),
   ])
 
   /*
@@ -68,6 +76,9 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    */
   const offer = campaign === null ? advertisable : null
   const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
+
+  /* Signed in, with a live campaign applied — the only case there is a row to write. */
+  const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
 
   const coupon: CheckoutCoupon | null =
     campaign === null
@@ -97,7 +108,10 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             comment on why the page must never carry two coupon controls at once. */}
         {offer === null && (
           <div className="mb-4">
-            <CouponBar applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)} />
+            <CouponBar
+              applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
+              note={note}
+            />
           </div>
         )}
 

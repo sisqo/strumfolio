@@ -41,6 +41,7 @@ import {
   readPercent,
 } from './types'
 import type { CampaignFailure, CouponFailure } from './types'
+import { recordCouponView } from './views'
 
 /**
  * Accept a code, either typed into the banner or arriving on a URL.
@@ -165,6 +166,33 @@ export async function clearCoupon(): Promise<{ ok: true }> {
   const jar = await cookies()
   jar.delete(COUPON_COOKIE)
   return { ok: true }
+}
+
+/**
+ * Record that the reader looking at this page has been shown this coupon.
+ *
+ * The third exception to the `isOwner` rule at the top of this file, and the narrowest: it
+ * refuses anyone with no session at all, since a visitor has no account for a row to be about,
+ * and it writes about the caller's own account and no other.
+ *
+ * **Called from `CouponBar`'s effect on every mount, and gated on the server before it ever
+ * gets there.** The bar receives a code to note only when the page has already established
+ * that this reader is signed in and that the campaign is live, which is what keeps `/pricing`
+ * — a public landing page — free of a round trip for the anonymous readers who are most of its
+ * traffic. Letting this action decide instead would have been one wasted call per visit.
+ *
+ * The write itself is an upsert, so a reader who reloads the page ten times leaves one row
+ * with a moving `last_seen_at` — see `recordCouponView`, which also re-validates the code
+ * rather than trusting the argument.
+ *
+ * Answers `{ ok: false }` for every refusal and says nothing about which: nothing on screen
+ * waits for this, exactly as nothing waits for `rememberUrlCoupon`.
+ */
+export async function noteCouponView(raw: string): Promise<{ ok: boolean }> {
+  const user = await currentUser()
+  if (user === null) return { ok: false }
+
+  return recordCouponView(raw, user.accountOwnerEmail)
 }
 
 /** What the `/coupons` form submits. Every field a string, as a form gives them. */

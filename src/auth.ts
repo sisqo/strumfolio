@@ -10,6 +10,7 @@ import { readPasswordHash } from './lib/auth/credentials'
 import { splitName } from './lib/auth/nameSplit'
 import { verifyAgainstNothing, verifyPassword } from './lib/auth/password'
 import { recordSignIn } from './lib/auth/signIns'
+import { attachCouponViewFromCookie } from './lib/coupons/views'
 import { sendEmail } from './lib/email/send'
 import { welcomeEmail } from './lib/email/templates'
 import { checkRateLimit, requestIp } from './lib/rateLimit'
@@ -162,6 +163,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         await sendEmail({ to: email, ...welcomeEmail() })
         await notifyTelegram('registration', registrationNotice())
       }
+
+      /*
+       * The coupon this browser was already carrying, attached to the account that has just
+       * been admitted — the funnel `coupon_views` exists for, since the ordinary way a coupon
+       * is seen is an advertisement clicked by somebody signed out. The cookie survives a
+       * sign-in, so this is the first moment there is an account for it to be about.
+       *
+       * After `provisionAccount`, never before: on a first sign-in the row it writes is what
+       * `accountIdOf` inside `recordCouponView` resolves to, and a view recorded a statement
+       * earlier would find no account and be refused by a NOT NULL. Written against `email`,
+       * the address signing in, and not through `currentUser` — the account cookie left over
+       * from a previous session has no bearing on whose sighting this is.
+       *
+       * Its own failures are swallowed and logged (see `attachCouponViewFromCookie`), the
+       * standing rule for everything after the `email_verified` check: a sign-in must still
+       * succeed if bookkeeping trips.
+       */
+      await attachCouponViewFromCookie(email)
+
       return true
     },
   },

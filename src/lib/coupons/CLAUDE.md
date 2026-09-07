@@ -39,6 +39,29 @@ source of truth until one does. The load-bearing parts:
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the
   database is unreachable, and not during a render, which Next.js forbids.
+- **`coupon_views` records what was *shown*, `coupon_redemptions` what was *given*** — two
+  ledgers, and the first exists because a coupon somebody landed with and did not buy on used
+  to leave no trace outside their own browser. `views.ts` owns both ends of it: one row per
+  account per campaign, `first_seen_at` written once and `last_seen_at` moved by a single
+  upsert, so a reader reloading `/pricing` leaves a ledger and not a log. Whether it was
+  redeemed is a **left join** computed at every read — never a column, the `campaignStatus`
+  rule. Read on `/accounts/[email]`'s Payments tab (`CouponsSeenCard`), where `viewStanding`
+  collapses the five campaign states into the only question being asked: redeemed, still open,
+  or missed.
+- **Three seams write a view, and each covers a hole the others leave.** `noteCouponView` from
+  `CouponBar`'s effect on every mount — gated *on the server*, because `/pricing` is a public
+  page and asking an anonymous visitor's session costs a round trip for the answer «nobody».
+  `attachCouponViewFromCookie` from `auth.ts`'s `signIn` callback, since the ordinary way a
+  coupon is seen is an advertisement clicked while signed out and the cookie outlives the
+  sign-in. And the same function from `verifyEmail`, which never runs through that callback at
+  all — it issues its own cookie. Drop the third and every email/password sign-up is recorded
+  as having seen nothing.
+- **Never resolve the account with `accountIdOf` when writing a view.** `coupon_views.account_id`
+  is nullable (`ON DELETE SET NULL`) and `coupon_views_once` is partial on `WHERE account_id IS
+  NOT NULL`, so a subquery yielding NULL for an unknown address writes an unreachable row that
+  the index cannot see — the upsert silently becomes an insert and grows a row per page view.
+  `ids.ts` says this of itself; it was still found by running the function against dev, not by
+  reading it. Select the row and look at it.
 - `coupon_redemptions_once` (unique on campaign + account) makes `usage_limit` a ceiling that
   can be *verified*: `times_used` is a `COUNT(*)`, not a mirrored number.
   `coupon_campaigns_one_default` is a **partial** unique index — confirm the `WHERE

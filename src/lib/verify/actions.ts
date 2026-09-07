@@ -17,6 +17,7 @@ import { provisionAccount } from '@/lib/accounts/provision'
 import { normalizeEmail } from '@/lib/allowlist'
 import { issueSessionCookie } from '@/lib/auth/session'
 import { hashToken } from '@/lib/auth/tokens'
+import { attachCouponViewFromCookie } from '@/lib/coupons/views'
 import { db, hasDatabase } from '@/lib/db/client'
 import { credentials, pendingRegistrations } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
@@ -129,6 +130,20 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
     // invisible to "New registration" alerts while every Google one was not.
     await notifyTelegram('registration', registrationNotice())
   }
+
+  /*
+   * The coupon this browser arrived carrying, attached to the account that now exists —
+   * `coupon_views`' own funnel, and this is the half of it `auth.ts` cannot cover: a
+   * traditional registration never runs through the `signIn` callback at all, because it hands
+   * out its own cookie below rather than calling `signIn('credentials', …)`. Without this line
+   * every email/password sign-up would be recorded as having seen nothing, exactly as every
+   * one of them was invisible to the Telegram notice until that was noticed above.
+   *
+   * After `provisionAccount`, for `recordCouponView`'s reason: it resolves the account by
+   * address, so there has to be one. Before `issueSessionCookie` only because there is nothing
+   * to order them by — it reads the coupon cookie, not the session.
+   */
+  await attachCouponViewFromCookie(normalized)
 
   /*
    * Signs the person in immediately rather than sending them back to `/login` to retype

@@ -136,7 +136,7 @@ function toCampaign(row: CampaignRow, redeemed: number, now: Date): Campaign {
  * `coupon_redemptions_once` exists: this is a `count(*)` over rows that are unique per account,
  * so it is Paddle's `times_used` computed rather than mirrored.
  */
-async function redemptionCounts(): Promise<Map<string, number>> {
+export async function redemptionCounts(): Promise<Map<string, number>> {
   const rows = await db()
     .select({ campaignId: couponRedemptions.campaignId, held: count() })
     .from(couponRedemptions)
@@ -190,7 +190,16 @@ export async function redeemedCount(campaignId: string): Promise<number> {
   return rows[0]?.held ?? 0
 }
 
-async function campaignByCode(code: string, now: Date): Promise<Campaign | null> {
+/**
+ * One campaign by its code, with its state already computed — two round trips, the select and
+ * the redemption count `campaignStatus` needs.
+ *
+ * Exported for `views.ts`, which re-validates a code arriving from a client before it records
+ * that somebody was shown it. It could have selected the row itself in one query; what that
+ * would cost is a second spelling of «what state is this campaign in», which is the drift
+ * `campaignStatus` exists to prevent.
+ */
+export async function campaignByCode(code: string, now: Date): Promise<Campaign | null> {
   const rows = await db()
     .select(COLUMNS)
     .from(couponCampaigns)

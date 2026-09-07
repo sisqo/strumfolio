@@ -1278,6 +1278,81 @@ export const couponRedemptions = pgTable(
 )
 
 /**
+ * Who has *seen* a coupon, as opposed to who has redeemed one.
+ *
+ * `couponRedemptions` above is the ledger of discounts actually given; this is the ledger of
+ * discounts actually shown. Before it existed, a coupon a reader landed with and did not buy on
+ * left no trace on this side at all: `applyCoupon`/`rememberUrlCoupon` write the
+ * `songbook-coupon` cookie and nothing else, so a clicked advertisement was invisible here the
+ * moment that browser cleared its cookies. This table is what makes «saw FOUNDER30 on the 3rd,
+ * never used it» a sentence the Payments tab can print, and therefore a communication somebody
+ * could decide to send.
+ *
+ * **One row per account per campaign, not one per page view.** `firstSeenAt` is written once
+ * and never touched again; `lastSeenAt` moves on every later sighting, through the single
+ * upsert in `recordCouponView` (`lib/coupons/views.ts`). That is the difference between a
+ * ledger an operator can read and a log that grows a row every time somebody reloads
+ * `/pricing`.
+ *
+ * **Whether it was redeemed is deliberately not a column.** It is a left join against
+ * `couponRedemptions` computed at every read, the same rule `campaignStatus` and
+ * `resolveSubscription` follow: a stored flag would need the reconciliation job this repo has
+ * nowhere to put, and would be wrong from the first purchase that raced it. Do not add one.
+ *
+ * **Two account columns, and only one unique index** — the one place this table's shape differs
+ * from its two siblings, and the difference is the point. `accountId` is the pointer, nullable
+ * and `ON DELETE SET NULL` so an account stays deletable; `accountOwnerEmail` is history,
+ * written once and never updated, so a row still reads after the pointer is nulled. But
+ * `coupon_redemptions` and `outreach_actions` each carry a *second*, address-keyed unique index
+ * because each hands something out that must not be farmable by deleting an account and signing
+ * up again — and a row here hands out nothing. Delete an address and recreate it and it may be
+ * recorded as having seen one campaign twice, which is what happened.
+ *
+ * The account written is the reader's **current** account (`accountOwnerEmail` from
+ * `currentUser`), never their sign-in identity, so it agrees with what `mockPurchase` would
+ * charge. One consequence worth knowing before believing a row: a global owner browsing
+ * `/pricing` while switched into somebody else's account records the view against *that*
+ * account.
+ */
+export const couponViews = pgTable(
+  'coupon_views',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => couponCampaigns.id),
+    /** History: the address it was shown to. Never updated — see the comment above. */
+    accountOwnerEmail: text('account_owner_email').notNull(),
+    /** The pointer, and what every read asks by. Null once that account is gone. */
+    accountId: integer('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    /** A copy, so a view reads on its own without joining a campaign that may be archived. */
+    code: text('code').notNull(),
+    /** When this account first saw this campaign. Written once; the upsert never touches it. */
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    /** The most recent sighting. What tells «landed once in July» from «looking again today». */
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /**
+     * One row per live account per campaign, and the conflict target `recordCouponView`'s
+     * upsert names. Partial for `coupon_redemptions_once`'s reason — a null pointer means
+     * «that account is gone», and two gone accounts are not a collision.
+     *
+     * **The `where` here is load-bearing twice over.** Postgres infers this index from the
+     * predicate the upsert repeats, so a difference of one character between the two makes
+     * every single write fail with «no unique or exclusion constraint matching the ON CONFLICT
+     * specification» — on a path that logs and carries on, which is a feature that records
+     * nothing and reports nothing.
+     */
+    uniqueIndex('coupon_views_once')
+      .on(table.campaignId, table.accountId)
+      .where(sql`${table.accountId} is not null`),
+    /** The account screen's own read: every coupon ever shown to one account. */
+    index('coupon_views_account').on(table.accountId),
+  ],
+)
+
+/**
  * One thing the platform decided to do *to* a reader — a birthday greeting, an upgrade offer
  * carrying a voucher, whatever joins them — and the record that it has already been done.
  *

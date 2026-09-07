@@ -17,8 +17,8 @@
 import { euro } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 
-import { readPercent } from './types'
-import type { CampaignStatus } from './types'
+import { isRedeemable, readPercent } from './types'
+import type { CampaignStatus, ViewStanding } from './types'
 
 /** `'34.99'` → `3499`. `null` for anything that is not a printable decimal amount. */
 function toCents(amount: string): number | null {
@@ -172,6 +172,46 @@ export function campaignStatus(facts: CampaignFacts, now: Date, redeemed: number
   if (ceilings.length > 0 && redeemed >= Math.max(...ceilings)) return 'exhausted'
 
   return 'active'
+}
+
+/**
+ * What has become of one coupon one account was shown.
+ *
+ * Pure, and taking a `CampaignStatus` rather than the campaign, so the whole decision is two
+ * inputs an operator can see on the screen beside it: has this account redeemed this campaign,
+ * and can the campaign still be redeemed by anybody. `redeemedAt` is a date and not a boolean
+ * only because the caller has the date anyway and a `!== null` reads better than a flag
+ * somebody has to trust.
+ *
+ * **Redeemed beats everything, including a campaign long over.** A reader who bought with a
+ * code in July has not "missed" it because the campaign closed in August — the order of these
+ * two tests is the only thing standing between the Payments tab and that sentence.
+ *
+ * No clock of its own, `campaignStatus`' rule: the status handed in was already computed
+ * against a `now`, and reading a second one here would let one row be judged at two instants.
+ */
+export function viewStanding(status: CampaignStatus, redeemedAt: Date | null): ViewStanding {
+  if (redeemedAt !== null) return 'redeemed'
+  return isRedeemable(status) ? 'open' : 'gone'
+}
+
+/**
+ * When one account was shown one campaign, as the Payments tab words it.
+ *
+ * Two dates that are usually the same day and occasionally tell a story: «seen once in July»
+ * and «seen in July and again this morning» are different accounts to write to, and the second
+ * is the one worth a reminder. So they collapse to one date when they fall on the same day and
+ * stay apart when they do not, rather than always printing both and making the ordinary row
+ * read as if something had happened twice.
+ *
+ * Dates and not date-times, `rowDate`'s convention on this screen, and ISO because that is
+ * how every other date on `/accounts/[email]` is printed — sortable by eye, and unambiguous
+ * for an operator reading a row about somebody in another country.
+ */
+export function seenSpan(firstSeenAt: Date, lastSeenAt: Date): string {
+  const first = firstSeenAt.toISOString().slice(0, 10)
+  const last = lastSeenAt.toISOString().slice(0, 10)
+  return first === last ? `Seen ${first}` : `First seen ${first}, again ${last}`
 }
 
 /**

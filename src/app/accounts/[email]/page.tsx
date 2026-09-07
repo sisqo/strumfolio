@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { AccountNameForm } from '@/components/AccountNameForm'
 import { ChangeEmailForm } from '@/components/ChangeEmailForm'
 import { ClearRateLimitRow } from '@/components/ClearRateLimitRow'
+import { CouponsSeenCard } from '@/components/CouponsSeenCard'
 import { DeleteAccountRow } from '@/components/DeleteAccountRow'
 import { Footer } from '@/components/Footer'
 import { ForceExpireRow } from '@/components/ForceExpireRow'
@@ -25,6 +26,7 @@ import { giftCell, planBadge, rowStatus } from '@/lib/accounts/planText'
 import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/accounts/read'
 import { avatarInitials } from '@/lib/avatar'
 import { currentUser } from '@/lib/auth/session'
+import { couponViewsFor } from '@/lib/coupons/views'
 import { loadNewsletterSummaryFor } from '@/lib/newsletter/actions'
 import { loadOutreachFor } from '@/lib/outreach/actions'
 import { OUTREACH_MESSAGE } from '@/lib/outreach/types'
@@ -164,12 +166,20 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const query = readQuery(await searchParams)
 
-  const [history, newsletter, usage, rateLimit, outreach] = await Promise.all([
+  const [history, newsletter, usage, rateLimit, outreach, seen] = await Promise.all([
     loadAccountHistory(detail.ownerEmail),
     loadNewsletterSummaryFor(detail.ownerEmail),
     usageSummaryFor(detail.ownerEmail),
     rateLimitStatusFor(detail.ownerEmail),
     loadOutreachFor(detail.ownerEmail),
+    /*
+     * Which coupons this account has been *shown*, which is a different question from the
+     * redemptions the ledger below already carries — and the one an operator asks before
+     * deciding whether a reminder is worth sending. Read here rather than behind an action:
+     * `getAccountDetail` above has already checked `isOwner` and this page has already
+     * `notFound()` on its answer, the same arrangement `usageSummaryFor` is read under.
+     */
+    couponViewsFor(detail.ownerEmail),
   ])
 
   const isCurrent = user?.accountOwnerEmail === detail.ownerEmail
@@ -406,6 +416,8 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
                     </p>
                   )}
                 </div>
+
+                <CouponsSeenCard lines={seen} />
               </>
             )}
           </div>

@@ -16,6 +16,10 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   carries the rules; the two that reach into this directory are that the newsletter preference
   is a **consent gate** for any email-channel action (an unreadable one refuses), and that
   `accounts.suspended_at` blocks outreach as well as sign-in.
+- **The Payments tab holds two ledgers, not one**: what this account paid
+  (`PaymentHistoryTable`) and which coupons it was ever *shown* (`CouponsSeenCard`, from
+  `lib/coupons/views.ts`). The second is there so a reminder about an unused coupon is a
+  decision somebody can take from this screen; its rules are the coupons directory's own.
 - **Every sentence about a plan lives in `planText.ts`**, the list's and the detail page's
   alike — `rowStatus` is literally what the detail page's In force cell prints under its
   badge. A second spelling of "what does this subscription say" on one of the two screens is

@@ -17,7 +17,9 @@ import {
   firstYearTotal,
   liveDiscount,
   offerCopy,
+  seenSpan,
   termCopy,
+  viewStanding,
 } from './discount'
 import type { CampaignFacts } from './discount'
 import {
@@ -271,6 +273,53 @@ describe('campaignStatus', () => {
     assert.equal(campaignStatus(archived, DURING, 0), 'archived')
     assert.equal(campaignStatus(archived, new Date('2026-08-01T00:00:00Z'), 0), 'archived')
     assert.equal(campaignStatus(archived, new Date('2027-01-01T00:00:00Z'), 900), 'archived')
+  })
+})
+
+describe('viewStanding', () => {
+  const REDEEMED = new Date('2026-09-20T10:00:00Z')
+
+  it('is open while the campaign can still be redeemed', () => {
+    assert.equal(viewStanding('active', null), 'open')
+  })
+
+  /* The four states that are not `active` are four reasons a reminder cannot be sent and one
+     sentence to whoever is reading the screen. */
+  it('is gone for every state a code can no longer be used in', () => {
+    assert.equal(viewStanding('expired', null), 'gone')
+    assert.equal(viewStanding('exhausted', null), 'gone')
+    assert.equal(viewStanding('archived', null), 'gone')
+    assert.equal(viewStanding('scheduled', null), 'gone')
+  })
+
+  /*
+   * The ordering that matters: somebody who bought with a code in July has not missed it
+   * because the campaign closed in August. Without this, the Payments tab would tell an
+   * operator to remind a reader about a discount they are already paying under.
+   */
+  it('reads redeemed before anything the campaign’s own state could say', () => {
+    assert.equal(viewStanding('active', REDEEMED), 'redeemed')
+    assert.equal(viewStanding('expired', REDEEMED), 'redeemed')
+    assert.equal(viewStanding('exhausted', REDEEMED), 'redeemed')
+    assert.equal(viewStanding('archived', REDEEMED), 'redeemed')
+  })
+})
+
+describe('seenSpan', () => {
+  it('says one date when both sightings fall on the same day', () => {
+    assert.equal(
+      seenSpan(new Date('2026-09-03T08:00:00Z'), new Date('2026-09-03T22:41:00Z')),
+      'Seen 2026-09-03',
+    )
+  })
+
+  /* «Landed once in July» and «landed in July and again this morning» are different accounts
+     to write to, and only the second is worth a reminder. */
+  it('keeps the two apart when the reader came back another day', () => {
+    assert.equal(
+      seenSpan(new Date('2026-07-11T09:00:00Z'), new Date('2026-09-07T09:00:00Z')),
+      'First seen 2026-07-11, again 2026-09-07',
+    )
   })
 })
 

@@ -827,6 +827,15 @@ export default async function PricingPage({
   const persist = coupon !== null && coupon.code !== cookieCode ? coupon.code : undefined
 
   /*
+   * The code `CouponBar` records as *seen*, and the two conditions that decide it are both
+   * answered here rather than in the action for a reason worth keeping: this page is public and
+   * most of its traffic is signed out, so asking the server on every visit whether there is
+   * anybody to write about would spend a round trip on the answer «no». Signed in, with a live
+   * campaign applied, is the only case that has a row in it — see `noteCouponView`.
+   */
+  const note = identity !== null && coupon !== null && coupon.status === 'active' ? coupon.code : undefined
+
+  /*
    * The Lifetime's own two coupon facts, derived once so the block below reads as markup.
    * `null` on both whenever no campaign covers the Lifetime, which is the default state of
    * `applies_to_lifetime` and therefore the ordinary one.
@@ -902,7 +911,7 @@ export default async function PricingPage({
         */}
       {offer === null && (
         <section className="mt-8">
-          <CouponBar applied={couponBanner} persist={persist} />
+          <CouponBar applied={couponBanner} persist={persist} note={note} />
         </section>
       )}
 

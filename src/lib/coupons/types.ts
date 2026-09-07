@@ -93,6 +93,25 @@ export function isRedeemable(status: CampaignStatus): boolean {
 }
 
 /**
+ * What has become of a coupon somebody was shown — the one question the Payments tab's list of
+ * views exists to answer, and the one an operator deciding whether to remind anybody asks first.
+ *
+ * Three answers and not five, because the five `CAMPAIGN_STATUSES` collapse here: `scheduled`,
+ * `exhausted`, `expired` and `archived` are four reasons a reminder cannot be sent and one
+ * sentence to the person reading the screen. What is worth telling apart is «they bought with
+ * it», «they still could» and «that ship has sailed».
+ */
+export const VIEW_STANDINGS = ['redeemed', 'open', 'gone'] as const
+
+export type ViewStanding = (typeof VIEW_STANDINGS)[number]
+
+export const VIEW_STANDING_LABEL: Record<ViewStanding, string> = {
+  redeemed: 'Redeemed',
+  open: 'Not redeemed',
+  gone: 'Missed',
+}
+
+/**
  * A code as it is stored and compared: upper-cased and trimmed.
  *
  * Applied on the way in, so uniqueness is `unique('coupon_campaigns_code')` in the database
