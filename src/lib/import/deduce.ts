@@ -178,6 +178,19 @@ export function deduce(body: string): Deduced {
 }
 
 /**
+ * Fields whose value this app reads **out of the body**, rather than storing beside it.
+ *
+ * The exception the rule below needs, and the reason it exists: a song's tempo and its
+ * time signature have no column of their own anywhere — `parseChordPro` reads them off the
+ * body every time the song is opened, and the metronome starts there (see `ParsedSong.tempo`
+ * and `MetronomeProvider`). So for these two the body is not a leftover copy, it is the
+ * only copy, and stripping the line on the way in would mean a song imported from
+ * SongbookPro or OpenSong — both of which write `{tempo: …}` — arriving with its tempo
+ * deleted by the importer that had just understood it.
+ */
+const KEPT_IN_BODY: Field[] = ['tempo', 'timeSignature']
+
+/**
  * Whether a line is a directive this dialect reads into a field of its own, and which
  * therefore has no job left in the body — the same reasoning `METADATA_DIRECTIVE`
  * carries, applied to the names only a dialect knows.
@@ -185,11 +198,13 @@ export function deduce(body: string): Deduced {
  * A directive that was *understood and dropped* (`fieldFor` → `null`, e.g. `{album:}`)
  * stays in the body deliberately. Nothing here holds an album, and silently deleting a
  * line whose value we chose not to keep would destroy the only copy of it a person has.
+ * `KEPT_IN_BODY` is the same principle reached from the other side: understood, kept, and
+ * kept *here* — so the line stays for the same reason `{album:}` does.
  */
 function isDroppedDialectDirective(line: string, dialect: Dialect): boolean {
   const match = NAMED_DIRECTIVE.exec(line)
   if (match === null) return false
 
   const field = fieldFor(match[1], dialect)
-  return field != null
+  return field != null && !KEPT_IN_BODY.includes(field)
 }

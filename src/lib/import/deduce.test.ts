@@ -100,6 +100,20 @@ describe('deduce', () => {
     assert.ok(result.body.includes('{album: Hymns Vol. 2}'))
   })
 
+  /*
+   * The mirror of the album case above, and a directive that used to be lost exactly
+   * where it was understood: `{tempo:}` maps to a field of this importer's own, so it was
+   * stripped from the body — and then dropped, because nothing stores a tempo beside the
+   * song. The metronome reads it straight off the body (`ParsedSong.tempo`), so the body
+   * is the only copy there is, and both apps that write it — SongbookPro and OpenSong —
+   * hand it over on exactly this line.
+   */
+  it('keeps the tempo and the time signature in the body, where the metronome reads them', () => {
+    const result = deduce('{title: Prova}\n{tempo: 96}\n{time: 3/4}\n\n[C]parola')
+    assert.ok(result.body.includes('{tempo: 96}'))
+    assert.ok(result.body.includes('{time: 3/4}'))
+  })
+
   it('reports plain ChordPro as the dialect when nothing identifies the source', () => {
     assert.equal(deduce('{title: Grace}\n\n[G]Amazing').dialect, 'chordpro')
   })

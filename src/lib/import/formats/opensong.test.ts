@@ -80,7 +80,16 @@ describe('OpenSong XML', () => {
 
     assert.equal(result.title, 'Amazing Grace')
     assert.equal(result.artist, 'John Newton')
-    assert.ok(result.body.startsWith('{comment: Verse 1}'), result.body)
+    /*
+     * The tempo and the time signature lead the body now rather than being stripped out of
+     * it on the way in. This file carries both, and `deduce` used to understand them and
+     * delete them in the same breath — nothing stored a tempo, so what it understood went
+     * nowhere. The metronome reads them off the body and nothing else holds them, so the
+     * body is the only copy there is: see `KEPT_IN_BODY` in `deduce.ts`. The words start
+     * exactly where they did, after those two lines.
+     */
+    assert.ok(result.body.startsWith('{tempo: 76}\n{time: 3/4}'), result.body)
+    assert.ok(result.body.includes('{comment: Verse 1}'), result.body)
   })
 })
 
