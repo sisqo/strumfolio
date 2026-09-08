@@ -13,15 +13,15 @@ import { PublicHeader } from '@/components/PublicHeader'
  * Neither action is offered in the bar here, and that is the point of passing neither: every
  * page under this layout already cross-links its twin from inside its own card («Don't have an
  * account? Register», «Already have an account? Sign in»), and a bar offering «Sign in» above
- * the sign-in form is the dead control `PublicHeader`'s `current` exists to avoid. What the bar
- * does carry is the theme switch and the way out to the rest of the public site — a visitor who
- * arrived at a sign-up form and wants to know what this costs should not have to go back.
+ * the sign-in form is a dead control. What the bar does carry is the theme switch and one way
+ * out — «Pricing», the same pill `Home.dc.html` draws: a visitor who arrived at a sign-up form
+ * and wants to know what this costs should not have to go back to find out.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* No mark in the bar: every page under here opens with `AuthLockup`'s own. */}
-      <PublicHeader width="48rem" brand={false} />
+      <PublicHeader width="48rem" brand={false} links={[{ href: '/pricing', label: 'Pricing' }]} />
       {children}
     </>
   )

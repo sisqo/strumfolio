@@ -8,9 +8,12 @@ import { IconMenu } from '@/components/icons'
 import type { NavSection } from '@/lib/publicNav'
 
 /**
- * The public bars' sections, behind one button, on a screen too narrow to print them in a
- * row — shared by `PublicHeader` and `SiteHeader` so the two cannot behave differently for
- * the same tap.
+ * `SiteHeader`'s sections, behind one button, on a screen too narrow to print them in a row.
+ *
+ * **Rendered by that bar alone**, though it was built for both: `PublicHeader` had a section
+ * row for a few hours, and `Home.dc.html` drew the app's own bar without one — so there is
+ * nothing on that side left to collapse. Left general rather than folded into `SiteHeader`,
+ * since what it takes is a list and an action and neither is the blog's own.
  *
  * Everything here is `.menu`/`.menu-overlay`/`.menu-panel`/`.menu-item`, the app's own menu
  * vocabulary (`NavMenu` is the other reader), rather than a set of classes drawn for this
@@ -18,10 +21,10 @@ import type { NavSection } from '@/lib/publicNav'
  * `.tool-page` too — those two surfaces add `--site-width` and the `--blog-*` family and
  * redefine nothing this panel reads.
  *
- * **A client component, where the rest of both bars is server-rendered, and the deciding
- * reason is the third effect below.** A `<details>`/`<summary>` would give the open state,
- * the keyboard and a screen reader's own «expanded» for free — which is why this app already
- * reaches for one on the FAQ rows and the song-data drawer — but both bars are drawn by a
+ * **A client component, where the rest of the bar is server-rendered, and the deciding reason
+ * is the third effect below.** A `<details>`/`<summary>` would give the open state, the
+ * keyboard and a screen reader's own «expanded» for free — which is why this app already
+ * reaches for one on the FAQ rows and the song-data drawer — but the bar is drawn by a
  * *layout*, and a layout does not unmount when the page under it changes. Tapping «Blog»
  * inside a `<details>` menu would navigate and leave the panel standing open over the page
  * it had just brought you to. There is no markup-only way to close it: `<details>` has no

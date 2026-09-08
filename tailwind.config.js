@@ -28,6 +28,7 @@ module.exports = {
         muted: 'var(--muted)',
         faint: 'var(--faint)',
         line: 'var(--line)',
+        'line-soft': 'var(--line-soft)',
         accent: 'var(--accent)',
         'accent-soft': 'var(--accent-soft)',
         'on-accent': 'var(--on-accent)',

@@ -2812,73 +2812,69 @@
    * read as a form to get through, where six words and a sentence each read as a
    * handful of things this app can do.
    */
+  /*
+   * The feature tour, redrawn from `Home.dc.html`: three centred columns of icon-over-title,
+   * where this was a grid of bordered cards with the icon beside the title. The cards lost
+   * their border and fill — the mock gives each one `padding: 0 12px; text-align: center` and
+   * nothing else — so what separates them is the 32px gutter and nothing drawn.
+   *
+   * Still one column on a phone, which the mock has no opinion about: it is a fixed 1280px
+   * canvas. Two at `sm` so a tablet does not run nine full-width rows.
+   */
   .feature-grid {
     display: grid;
-    gap: 0.875rem;
+    gap: 2rem;
     grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 40rem) {
+    .feature-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (min-width: 1024px) {
     .feature-grid {
       grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
     }
   }
 
   .feature-card {
-    background: var(--surface);
-    border: 1px solid var(--edge);
-    border-radius: var(--r-xl);
-    box-shadow: var(--shadow-1);
-    padding: 1.375rem;
-  }
-
-  @media (min-width: 1024px) {
-    .feature-card {
-      background: none;
-      border: none;
-      box-shadow: none;
-      padding: 0 0.75rem;
-      text-align: center;
-    }
+    padding-inline: 0.75rem;
+    text-align: center;
   }
 
   /*
-   * Icon and title side by side on a phone — a card is already its own object, so
-   * the two can share a line. Stacked and centred once the card around them is
-   * gone: without a border to say "this is one item", the shape of the group has
-   * to say it instead.
+   * Three `@media (min-width: 1024px)` blocks stood here — one each for the card, the head and
+   * the title — and all three are gone rather than edited. They existed because the old design
+   * was two designs: a bordered card with the icon beside the title on a phone, losing its
+   * border and centring itself above 1024px, on the reasoning that «a card is already its own
+   * object, so the two can share a line». `Home.dc.html` draws only the centred one, so that
+   * is now the shape at every width and the base rules above say all of it once.
+   *
+   * `.feature-head` is what is left of the row that used to hold icon and title together: the
+   * icon is `inline-flex` and the card is `text-align: center`, so it centres itself and the
+   * title falls under it. Kept in the markup because the two are still one unit the text
+   * follows, and a wrapper that means that is easier to read than two siblings that happen to
+   * be adjacent.
    */
   .feature-head {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    display: block;
   }
 
-  @media (min-width: 1024px) {
-    .feature-head {
-      flex-direction: column;
-      gap: 0;
-    }
-  }
-
+  /* 16px under a 16px gap from the icon above it — the mock's `margin: 16px 0 0`. */
   .feature-title {
-    margin: 0;
+    margin: 1rem 0 0;
     font-size: 1rem;
     font-weight: 500;
   }
 
-  @media (min-width: 1024px) {
-    .feature-title {
-      margin-top: 1rem;
-    }
-  }
-
   .feature-text {
-    margin: 0.75rem 0 0;
+    margin: 0.5rem 0 0;
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--muted);
+    text-wrap: pretty;
   }
 
   @media (min-width: 1024px) {
@@ -2888,14 +2884,17 @@
   }
 
   /* A rounded square on a phone, inside a card; a circle once it stands alone. */
+  /* 56px and round, where this was a 40px rounded square beside the title. `border-radius:
+     50%` is the mock's own and is deliberately not a step on the radius scale: a circle is
+     what it is at any size, which is why `--r-pill` exists for the same job on a wider box. */
   .feature-icon {
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: var(--r-sm);
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
     background: var(--accent-soft);
     color: var(--accent);
   }
@@ -3043,12 +3042,14 @@
   }
 
   /* A label over a group of controls, in the reading panel and over a form field. */
+  /* `Home.dc.html`'s own: a step quieter than it was (`--faint`, not `--muted`), heavier, and
+     tracked wider — 600 at 0.1em, where this was 500 at 0.08em. */
   .group-label {
     display: block;
-    color: var(--muted);
+    color: var(--faint);
     font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
@@ -6379,8 +6380,20 @@
    */
   .faq-grid {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.5rem;
     grid-template-columns: 1fr;
+  }
+
+  /*
+   * `.card` gives this its surface and shadow; these two are the mock's departures from it.
+   * `--edge` is *transparent* in light — that is how every card in the app is drawn, edge in
+   * dark only — and `Home.dc.html` draws a visible `#e6e3dc` hairline round each question, so
+   * the border is named rather than inherited. 20px is `--r-panel`, one step under `.card`'s
+   * own `--r-xl`: a question is a popover-sized object here, not a card-sized one.
+   */
+  .faq-item {
+    border-color: var(--line-soft);
+    border-radius: var(--r-panel);
   }
 
   @media (min-width: 1024px) {
@@ -6398,37 +6411,58 @@
    * that accessible — focus, keyboard, and a screen reader's own sense of "expanded",
    * for free.
    */
+  /*
+   * The question row, from `Home.dc.html`: 15.5px at 500 on a 1.4 leading, the arrow 15px and
+   * `align-items: flex-start` so a question that wraps to two lines keeps its arrow beside the
+   * *first* line rather than centred against the pair.
+   *
+   * The card itself is `.faq-item` on `.card`, and the mock's own padding lives here on the
+   * summary rather than on the card, because `<details>` puts the answer outside the summary:
+   * padding on the card would sit above a closed answer and open a gap under every question.
+   */
   .faq-item > summary {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.75rem;
-    padding: 0.875rem 1rem;
+    padding: 1.25rem 1.375rem;
     cursor: pointer;
     list-style: none;
-    font-size: 0.9375rem;
+    font-size: 0.96875rem;
     font-weight: 500;
+    line-height: 1.4;
   }
 
   .faq-item > summary::-webkit-details-marker {
     display: none;
   }
 
+  /* `margin-top` rather than a centred row: the mock lands the arrow on the question's own
+     first line, 4px down from the top of a 15.5px/1.4 line box. */
   .faq-arrow {
     flex: none;
+    margin-top: 0.25rem;
     color: var(--faint);
     transition: rotate 120ms ease;
   }
 
+  /* Open, the arrow turns *and* takes the accent — the mock draws both, and the colour is
+     what reads at a glance across a two-column grid of eleven closed questions. */
   .faq-item[open] > summary .faq-arrow {
     rotate: 90deg;
+    color: var(--accent);
   }
 
+  /*
+   * The answer, indented to sit under the question's first character rather than under its
+   * arrow: 27px is the mock's own — the arrow's 15px plus the 12px gap beside it.
+   */
   .faq-answer {
     margin: 0;
-    padding: 0 1rem 1rem;
+    padding: 0 1.375rem 1.25rem 1.6875rem;
     color: var(--muted);
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 0.90625rem;
+    line-height: 1.55;
+    text-wrap: pretty;
   }
 
   /* A warm wash behind the card, so the page is not a flat rectangle. */
@@ -6540,8 +6574,16 @@
 
   @media (min-width: 1024px) {
     .landing-hero-grid {
-      grid-template-columns: 1fr 386px;
-      column-gap: 3.25rem;
+      /*
+       * `Home.dc.html`'s own proportions: a 560px text column and a 24px gap, the phone taking
+       * whatever is left. It drew this band right-bleeding on its 1280 canvas — text from 80px,
+       * nothing on the right — while every band under it sits in the 1120px column. Kept inside
+       * `.landing-width` here instead, so the hero's left edge and the editor band's are the
+       * same edge; what that costs is the phone sitting some 40px left of where the mock has
+       * it, since `.phone-fit` centres itself in whatever column it is given.
+       */
+      grid-template-columns: 560px 1fr;
+      column-gap: 1.5rem;
       align-items: center;
       grid-template-areas: 'text demo';
     }
@@ -6587,7 +6629,7 @@
 
   @media (min-width: 1024px) {
     .hero-badge img {
-      height: 2.125rem;
+      height: 2rem;
     }
   }
 
@@ -6603,8 +6645,10 @@
 
   @media (min-width: 1024px) {
     .landing-hero-title {
-      margin-top: 1.875rem;
-      font-size: 3.875rem;
+      /* 28px and 58px, the mock's own — down from 30px/62px. `DESIGN.md`'s `hero-title`
+         carries the same 3.625rem ceiling. */
+      margin-top: 1.75rem;
+      font-size: 3.625rem;
       line-height: 0.98;
       letter-spacing: -0.04em;
     }
@@ -6612,7 +6656,7 @@
 
   .landing-hero-lede {
     margin-top: 1rem;
-    max-width: 31rem;
+    max-width: 30rem;
     color: var(--muted);
     font-size: 0.96875rem;
     line-height: 1.5;
@@ -6620,8 +6664,8 @@
 
   @media (min-width: 1024px) {
     .landing-hero-lede {
-      margin-top: 1.625rem;
-      font-size: 1.15625rem;
+      margin-top: 1.375rem;
+      font-size: 1.125rem;
     }
   }
 
@@ -6683,7 +6727,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.875rem 1.5rem;
+    gap: 0.875rem 1.125rem;
     margin-top: 1.75rem;
   }
 
@@ -6694,26 +6738,55 @@
   }
 
   /*
-   * The second action: an anchor down to the editor band, and deliberately not a second
-   * button. Two buttons side by side ask a visitor to choose between them; a button and a
-   * quiet line say which one is the point and which one is for whoever is not ready yet.
+   * The page's one loud control, at the mock's own 64px and 21px — against the bar's 36px and
+   * 14px, which points at the same place. Its own class rather than `.btn.btn-primary` plus
+   * four utilities, the rule the `/accounts` block states for its own mock: this is a different
+   * control from a 44px `.btn`, not a variant of one.
+   *
+   * The shadow is the mock's `0 14px 32px -16px rgb(151 73 15 / 95%)` — its accent at 95%,
+   * written over the token so the dark theme's own amber casts the glow instead of a light
+   * theme's brown being painted onto a dark page.
    */
-  .landing-hero-secondary {
+  .landing-hero-cta {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    color: var(--muted);
-    font-size: 0.9375rem;
+    height: 4rem;
+    padding-inline: 2.5rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 1.3125rem;
     font-weight: 500;
-  }
-
-  .landing-hero-secondary svg {
-    color: var(--accent);
+    letter-spacing: -0.01em;
+    box-shadow: 0 14px 32px -16px color-mix(in srgb, var(--accent) 95%, transparent);
   }
 
   @media (hover: hover) {
-    .landing-hero-secondary:hover {
-      color: var(--ink);
+    .landing-hero-cta:hover {
+      background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+    }
+  }
+
+  /*
+   * «Already have an account? Sign in», beside the capsule rather than under it.
+   *
+   * It replaced an anchor down to the editor band («See how it works»), on the mock's own
+   * instruction. Not a second button, deliberately: two capsules side by side ask a visitor to
+   * choose between them, where a capsule and a sentence say which one the page is for.
+   */
+  .landing-hero-aside {
+    color: var(--muted);
+    font-size: 0.90625rem;
+  }
+
+  .landing-hero-signin {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  @media (hover: hover) {
+    .landing-hero-signin:hover {
+      text-decoration: underline;
     }
   }
 
@@ -8739,6 +8812,127 @@
   .brand img {
     height: 1.375rem;
     width: auto;
+  }
+
+  /* ---- The public bar, from `Home.dc.html` ------------------------------ */
+
+  /*
+   * `PublicHeader`'s own controls, matched value for value to the mock: a 36px quiet pill that
+   * fills on hover, and the accent capsule beside it. Its hexes were all tokens already —
+   * `#f1efe9` is `--surface-3` and `#fffaf4` is `--on-accent` — bar one, handled below.
+   *
+   * Their own classes rather than `.btn` plus utilities, the rule the `/accounts` block states
+   * for its own mock: 36px against `.btn`'s 44px is a different control, not a variant, and
+   * four utilities overriding four properties would be the harder thing to read.
+   *
+   * Scoped under `.public-bar` (not bare) for `.nav-link` below, which is a class this bar
+   * shares with the app's own header — see `PublicHeader.tsx`.
+   */
+  .public-bar-link {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 2.25rem;
+    padding-inline: 0.875rem;
+    border-radius: var(--r-pill);
+    /*
+     * The mock's `#3b4048`, which is the one colour in this bar that had no token: a step
+     * darker than `--muted` without reaching `--ink`. Written as a mix of the two rather than
+     * as the hex, the idiom `.accounts-pending` established, so dark mode follows for free
+     * instead of pinning a light-theme grey onto a dark bar.
+     */
+    color: color-mix(in srgb, var(--muted) 54%, var(--ink));
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .public-bar-cta {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 2.25rem;
+    margin-left: 0.25rem;
+    padding-inline: 1rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  @media (hover: hover) {
+    .public-bar-link:hover {
+      background: var(--surface-3);
+      color: var(--ink);
+    }
+
+    /*
+     * The mock darkens the capsule to `#7c3b0b` on hover, which is `--blog-accent-strong` —
+     * a token scoped to `.blog`/`.tool-page` and therefore not reachable here. This is the
+     * app's own accent hover (`.btn-primary`'s, to the percentage) instead, ~11 units off the
+     * drawn hex and right in both themes: in dark the "stronger" accent is *lighter*, so
+     * darkening the mock's value would lose the capsule's contrast rather than deepen it.
+     */
+    .public-bar-cta:hover {
+      background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+    }
+  }
+
+  /*
+   * The theme switch, flattened to the mock's own: 36px, no border, no fill until hover.
+   * `.nav-link` is `ThemeToggle`'s class and `TopBar` uses it for every button in the app's
+   * header, so this may only ever be written under `.public-bar`.
+   */
+  .public-bar .nav-link {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    border-color: transparent;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--muted);
+  }
+
+  @media (hover: hover) {
+    .public-bar .nav-link:hover {
+      background: var(--surface-3);
+      color: var(--ink);
+    }
+  }
+
+  /*
+   * The row has four things and no hamburger to hide any of them behind: the mock draws no
+   * menu, and `PublicNavMenu` went back to being `SiteHeader`'s alone. So the gutters and the
+   * pill padding tighten below 30rem, and «Pricing» — the one item that is navigation rather
+   * than an action, and the only one also in `Footer`'s row on every page — steps out at the
+   * very bottom rather than letting the row wrap or the capsule shrink.
+   *
+   * **20rem, measured rather than reckoned.** The first attempt put that at 26rem on an
+   * estimate, which took «Pricing» off every phone including a 390px one with 145px of the row
+   * still empty. Screenshotted at 320, 360 and 390: all three fit theme + Pricing + Sign in +
+   * Start free with the squeeze below applied, so the only width that needs to drop anything
+   * is 320 and under.
+   */
+  @media (max-width: 30rem) {
+    .public-bar .top-bar-inner {
+      gap: 0.25rem;
+      padding-inline: 0.75rem;
+    }
+
+    .public-bar-link {
+      padding-inline: 0.625rem;
+    }
+
+    .public-bar-cta {
+      padding-inline: 0.875rem;
+    }
+  }
+
+  @media (max-width: 20rem) {
+    .public-bar-link[href='/pricing'] {
+      display: none;
+    }
   }
 
   /* ---- The public site's navigation ------------------------------------ */
@@ -14871,7 +15065,14 @@
     line-height: 1.45;
   }
 
-  .faq-answer {
+  /*
+   * `.faq-list .faq-answer`, not the bare class it was: this is the blog's and the tools'
+   * FAQ (`Faq.tsx`), and the landing page has a `.faq-answer` of its own some 8,000 lines
+   * up. Same specificity, this one later in the sheet — so it silently won, and every answer
+   * on `/` rendered at this 16px/1.7 in `--blog-prose` rather than the size its own block
+   * declares. Scoped to the container it belongs to, which is also the honest statement.
+   */
+  .faq-list .faq-answer {
     margin: 0;
     color: var(--blog-prose);
     font-size: 1rem;

@@ -1,17 +1,18 @@
 /**
- * The public site's own sections — where else a visitor can go — in the order both public
- * bars print them.
+ * The public site's own sections — where else a visitor can go — in the order `SiteHeader`
+ * prints them on the blog and the free tools.
  *
- * **One list because there are two bars**, and neither may disagree with the other about what
- * this site is made of. `PublicHeader` draws the app's own chrome (`/`, the sign-in pages,
- * `/pricing`, `/changelog`, the four legal documents) and `SiteHeader` draws the paper surface
- * the blog and the free tools share. Two boxes and two palettes on purpose rather than by
- * accident: the `--blog-*` tokens `SiteHeader` is coloured from are scoped to `.blog` and
- * `.tool-page` in globals.css, so that bar cannot leave those two surfaces without dragging a
- * palette onto pages drawn in the app's own. What the two share is this answer, and the reason
- * it is a module rather than a constant in whichever file was written first is the reason
- * `publicRoutes.ts` gives for its own existence: two copies of one answer drift the first time
- * one is edited.
+ * **One reader, and it briefly had two.** It was written for both public bars on the day `/`
+ * stopped being the sign-in form, on the reasoning that neither may disagree with the other
+ * about what this site is made of. Then `Home.dc.html` arrived and drew the app's own bar with
+ * no sections at all — theme, «Pricing», «Sign in», «Start free» — and the mock won. So
+ * `PublicHeader` carries none of this, deliberately, and the list is the paper bar's alone:
+ * a reader who is *in* the blog or the tools can move around them, and everybody else has
+ * `Footer`'s row, which every page carries.
+ *
+ * Kept as a module rather than folded into `SiteHeader` for the reason it was extracted: the
+ * next surface written to be found from a search will want the same names in the same order,
+ * and a constant inside one component is where the second copy comes from.
  *
  * Deliberately **not** derived from `PUBLIC_ROUTES`. That list answers "which paths are served
  * without a session", which is a different question and gives the wrong answers here twice

@@ -12,7 +12,7 @@ export default function ChangelogLayout({ children }: { children: React.ReactNod
   return (
     <>
       {/* 48rem, matching this page's own `<main>` — a reading column, not the 70rem of /brand. */}
-      <PublicHeader width="48rem" />
+      <PublicHeader width="48rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
       {children}
     </>
   )

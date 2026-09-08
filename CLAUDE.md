@@ -348,6 +348,31 @@ Match a redesign **literally** — exact font sizes, card/table structure, copy 
 preserving prior "more accurate" wording; ask before keeping something the mock removed, but
 default to matching the mock over defending the status quo.
 
+**One qualification, learned from `Home.dc.html` (2026-09-08): a mock's copy can be older than
+the code's.** That file was drawn against the landing page as it stood some weeks earlier, so
+four of its nine feature cards carried claims this repo had already repaired and left comments
+about — «Starting a session is part of the paid plans» (every plan leads one, free included,
+`PLANS.free.mayLead`), «The paid plans remember which one you picked» about chord shapes
+(`ReadingPanel` refuses the tap itself, so guitar is free and ukulele is paid), «no starter
+library» (a new account is created with one songbook of public-domain traditionals) and the
+booklet's «once they open» hedge written out by hand where the code reads it from
+`plansEnforced()`. Its FAQ dropped the example-songbook sentence for the same reason, and it
+asked one question — «Can I switch who's leading during a session?» — about a feature
+`lib/strumTogether/` has no function for at all.
+
+So: **design from the mock, copy from the code.** The literal-match rule exists to stop anybody
+defending a *stylistic* preference against a drawing; it is not licence to re-publish a claim
+the code proves false, and a landing page contradicting `/pricing` about what the free plan does
+is the exact drift the rest of this file keeps warning about. When a mock's wording and a code
+comment disagree, the comment was written against the behaviour — check it, then decide.
+
+Colours need no such care: these mocks are drawn in this app's own light palette, so map each
+hex onto the token that already holds it (`#f6f5f2` → `--bg`, `#dcdad4` → `--line`, `#e6e3dc` →
+`--line-soft`, `#f4e7d9` → `--accent-soft`, `#f1efe9` → `--surface-3`, `#97490f` → `--accent`,
+`#fffaf4` → `--on-accent`) and write the few that have none as a `color-mix` over one that does,
+so the hand-tuned dark theme follows for free. `/accounts` and `/accounts/[email]` each state
+this at length in globals.css; the public bar's `#3b4048` is the newest instance.
+
 `DESIGN.md`'s frontmatter and prose are the living design-token source (colors, radius scale,
 typography), kept in sync by hand with what ships — including the current font (Outfit,
 replacing DM Sans as of August 2026).
@@ -367,11 +392,12 @@ that as an open problem beside its own entry for months. It is split now:
   own songbooks, unchanged.
 - **`/login` is the sign-in card**, back inside the `(auth)` group with the four other narrow
   sign-in pages, having left it only because it used to be 70rem wide.
-- **Both public bars carry the same navigation**, from one list in `lib/publicNav.ts`.
-  `PublicHeader` draws it on the app's own chrome, `SiteHeader` on the blog and the tools —
-  two components on purpose, because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`
-  and `.tool-page` and cannot leave them. Below 48rem both collapse the sections into
-  `PublicNavMenu`.
+- **The two public bars are deliberately not the same bar.** `PublicHeader` draws the app's
+  own chrome and, per `Home.dc.html`, carries no sections at all — theme, «Pricing», «Sign
+  in», «Start free». `SiteHeader` draws the paper surface the blog and the tools share and
+  does carry them, from `lib/publicNav.ts`, collapsing into `PublicNavMenu` below 48rem. Two
+  components because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`/`.tool-page` and
+  cannot leave them. Blog and tools are reachable from every page through `Footer`'s row.
 
 Four things here are expensive to get wrong, and none of them fails loudly:
 

@@ -63,7 +63,7 @@ typography:
     letterSpacing: "-0.02em"
   hero-title:
     fontFamily: "Outfit, system-ui, sans-serif"
-    fontSize: "clamp(2.5rem, 5vw, 3.875rem)"
+    fontSize: "clamp(2.5rem, 5vw, 3.625rem)"
     fontWeight: 500
     lineHeight: 1
     letterSpacing: "-0.04em"

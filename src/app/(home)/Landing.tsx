@@ -498,17 +498,17 @@ const FAQ: FaqGroup[] = [
  */
 const FEATURES: Feature[] = [
   {
-    icon: <IconImport size={20} />,
+    icon: <IconImport size={26} />,
     title: 'Bring your own songs',
     text: "No catalog to browse. Import what you already have — and start with an example songbook of public-domain songs already in place, so there's something to play from minute one. Edit it your way, export it whenever you like.",
   },
   {
-    icon: <IconOnStage size={20} />,
+    icon: <IconOnStage size={26} />,
     title: 'Always with you, even offline',
     text: "Open it on your phone like any app. Once your repertoire is saved, it's there for good — anywhere you go, no signal required.",
   },
   {
-    icon: <IconBooks size={20} />,
+    icon: <IconBooks size={26} />,
     /* "As many songbooks as you want" and "create them freely" are flatly false on the free
      * plan, which holds exactly one. The new title says what a songbook is *for* instead of how
      * many there may be, which is the part that does not depend on a plan. */
@@ -516,7 +516,7 @@ const FEATURES: Feature[] = [
     text: "Keep sets, bands and occasions apart, each one split into its own sections — always the song you're after, never an endless list. How many songbooks you can keep depends on your plan.",
   },
   {
-    icon: <IconBroadcast size={20} />,
+    icon: <IconBroadcast size={26} />,
     title: 'Strum together',
     /* "line by line, chord by chord" was carried over from the old wording and is not what the
      * protocol does: `pollBroadcast` sends the song and the transposition, and a follower's
@@ -535,19 +535,19 @@ const FEATURES: Feature[] = [
       `${count(PLANS.free.devices, 'screen')} following; the paid plans bring more of the room in.`,
   },
   {
-    icon: <IconTuningFork size={20} />,
+    icon: <IconTuningFork size={26} />,
     title: 'Key and capo, made smart',
     text: 'Transpose with a tap, sing in your key. Then let the smart capo suggestion do the math: it finds the fret with the most open chords, so you play the easiest shapes — not just the right sound.',
   },
   {
-    icon: <IconChordShape size={20} />,
+    icon: <IconChordShape size={26} />,
     title: 'Every chord, one tap away',
     /* What is gated is storing the instrument, not drawing it — see the FAQ answer above and
      * `saveGlobalPrefs`, which writes the row back with `guitar` and returns `not-in-plan`. */
     text: 'Stuck on a chord? Tap it and see the shape, ready to play — guitar on every plan, ukulele on the paid ones.',
   },
   {
-    icon: <IconNotation size={20} />,
+    icon: <IconNotation size={26} />,
     title: 'Chords in your own alphabet',
     /* No plan clause on this card, and that is checked rather than assumed: the notation is
      * a reader's own preference and `saveGlobalPrefs` (`lib/prefs/actions.ts`) gates the
@@ -564,12 +564,12 @@ const FEATURES: Feature[] = [
       'transpose it. Chosen once, for every song you read.',
   },
   {
-    icon: <IconSliders size={20} />,
+    icon: <IconSliders size={26} />,
     title: 'Zoom and scroll',
     text: 'Bigger text, auto-scroll at your pace — readable in any condition, on any phone or tablet. Your hands stay on the instrument.',
   },
   {
-    icon: <IconComment size={20} />,
+    icon: <IconComment size={26} />,
     title: 'Your notes, on the word',
     /* `IconComment` rather than a new glyph: it is already what an anchored note is drawn as
      * inside the app (`CommentsToggle`, `CommentsRail`), so one shape keeps one meaning.
@@ -583,7 +583,7 @@ const FEATURES: Feature[] = [
       'fingering, a cue, the line you always get wrong. Yours alone, and there with no signal.',
   },
   {
-    icon: <IconPrint size={20} />,
+    icon: <IconPrint size={26} />,
     title: 'Print a real booklet',
     /* "Part of the paid plans" full stop was the only sentence in this list that told a reader
      * they *cannot* do something the deployed build lets them do: `loadBooklet` reads
@@ -601,7 +601,7 @@ const FEATURES: Feature[] = [
       `and an index — ready to print and hand out. Part of the paid plans${PLANS_OPEN_HEDGE}.`,
   },
   {
-    icon: <IconUsers size={20} />,
+    icon: <IconUsers size={26} />,
     title: 'Your own space',
     text: "Sign up with your email or with Google and get your own account and your own songbooks — nothing shared, nothing to manage on anyone else's behalf. From the moment you're in, it's yours alone.",
   },
@@ -667,7 +667,10 @@ export async function Landing() {
       <PublicHeader
         width="70rem"
         brand={false}
-        link={{ href: '/login', label: 'Sign in' }}
+        links={[
+          { href: '/pricing', label: 'Pricing' },
+          { href: '/login', label: 'Sign in' },
+        ]}
         cta={{ href: '/register', label: 'Start free' }}
       />
 
@@ -681,7 +684,7 @@ export async function Landing() {
           * edge. The inner wrapper then puts the gutter back for the badge, the headline,
           * the actions and the demo — at the width every block below it shares.
           */}
-        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-16 lg:pt-16 xl:-mx-20 xl:px-20">
+        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-[5.25rem] lg:pt-[5.25rem] xl:-mx-20 xl:px-20">
           <div className="landing-hero-decor" aria-hidden />
           <div className="landing-hero-grain" aria-hidden />
 
@@ -708,6 +711,39 @@ export async function Landing() {
 
               <p className="landing-hero-lede">{LANDING_DESCRIPTION}</p>
 
+              {/*
+                * The two ways in, where the sign-in card used to stand — and, since
+                * `Home.dc.html`, *above* the pill row rather than below it. The mock's order is
+                * claim, then the way in, then the three glanceable facts; the row that was
+                * there first put the facts between the headline and the button.
+                *
+                * «Get started free» rather than the bar's «Start free», at the mock's own
+                * 64px/21px against the bar's 36px/14px: two controls with one destination, and
+                * the one in the page is allowed to be the loud one. Its own class rather than
+                * `.btn.btn-primary` plus utilities, the rule the `/accounts` block states — a
+                * 64px capsule is a different control from a 44px `.btn`, not a variant of it.
+                *
+                * The second is a sign-in, not an anchor. It read «See how it works» and pointed
+                * at the editor band, on the reasoning that a visitor should be able to see the
+                * thing before being asked for an address, with «Sign in» kept to the bar alone
+                * so the hero carried no sign-in weight at all. The mock puts «Already have an
+                * account? Sign in» here instead and that is what ships: the daily reader is the
+                * one person on this page who knows exactly what they came for, and the demo is
+                * three screenfuls of picture below whether or not a link says so.
+                */}
+              <div className="landing-hero-actions">
+                <Link href="/register" className="landing-hero-cta">
+                  Get started free
+                </Link>
+
+                <span className="landing-hero-aside">
+                  Already have an account?{' '}
+                  <Link href="/login" className="landing-hero-signin">
+                    Sign in
+                  </Link>
+                </span>
+              </div>
+
               <div className="hero-pills">
                 {HERO_PILLS.map((pill) => (
                   <span key={pill.text} className="hero-pill">
@@ -715,32 +751,6 @@ export async function Landing() {
                     {pill.text}
                   </span>
                 ))}
-              </div>
-
-              {/*
-                * The two ways in, where the sign-in card used to stand.
-                *
-                * «Start free» goes to `/register` and is the whole point of the page; the second
-                * is not a rival action but the same argument continued — an anchor down to the
-                * editor band, for the visitor who wants to see the thing before being asked for
-                * an address. A plain `#` link rather than a scroll handler: the browser already
-                * does smooth, focus and history for it, and it works before any JavaScript has
-                * run, which on the slowest connection is exactly when a first-time visitor is
-                * deciding whether to wait.
-                *
-                * «Sign in» is deliberately not here. It lives in the bar above, once, where a
-                * returning reader will look for it — repeating it in the hero would put a
-                * sign-in field's worth of weight back on the page this restructure took it off.
-                */}
-              <div className="landing-hero-actions">
-                <Link href="/register" className="btn btn-primary btn-lg">
-                  Start free
-                </Link>
-
-                <a href="#editing" className="landing-hero-secondary">
-                  See how it works
-                  <IconChevronRight size={15} />
-                </a>
               </div>
             </div>
 
@@ -769,12 +779,11 @@ export async function Landing() {
           * (see `EditorDemo`). The demo leads on a wide screen and follows the words on
           * a phone; the three points beside it are shipped behaviour, not roadmap.
           *
-          * `id="editing"` is the hero's «See how it works» anchor, and it is on the section
-          * rather than on the heading inside it so the band's own kicker is not scrolled off
-          * the top. Renaming it breaks that link silently — nothing fails, the page simply
-          * does not move.
+          * No `id` any more. It briefly had `id="editing"`, as the target of a «See how it
+          * works» anchor in the hero, and `Home.dc.html` replaced that anchor with a sign-in
+          * link. An id nothing points at is a promise to the next reader that something does.
           */}
-        <section id="editing" className="landing-width mt-11 lg:mt-14">
+        <section className="landing-width mt-11 lg:mt-20">
           <div className="editor-tour-grid">
             <div>
               <span className="landing-kicker">Editing, made visual</span>
@@ -817,7 +826,7 @@ export async function Landing() {
           * avoiding is no longer a risk either, since the band above it is now the only other
           * two-column one on the page.
           */}
-        <section className="landing-width mt-11 lg:mt-14">
+        <section className="landing-width mt-11 lg:mt-20">
           <span className="landing-kicker">Reading, on stage</span>
           <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
           <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
@@ -881,7 +890,7 @@ export async function Landing() {
           * screen" a claim a visitor can see rather than take on faith, and it is the one
           * section on this page that leans on an image rather than an icon and a sentence.
           */}
-        <section className="landing-width mt-14 lg:mt-20">
+        <section className="landing-width mt-14 lg:mt-14">
           <div className="device-tour-grid">
             <div>
               <span className="landing-kicker">No install, anywhere</span>
@@ -904,7 +913,7 @@ export async function Landing() {
           </div>
         </section>
 
-        <section className="landing-width mt-11 lg:mt-14">
+        <section className="landing-width mt-11 lg:mt-20">
           <div className="text-center">
             <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
             <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
@@ -933,10 +942,11 @@ export async function Landing() {
           * screen reader's own sense of "expanded" for free — the same choice
           * `.editor-data` already makes for the song-data drawer elsewhere in the app.
           */}
-        <section className="landing-width mt-11 lg:mt-16">
-          <h2 className="landing-section-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
+        <section className="landing-width mt-11 lg:mt-20">
+          <h2 className="landing-section-title border-b border-line-soft pb-[1.625rem]">Frequently asked questions</h2>
 
-          <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-8">
+          {/* 34px between groups, the mock's own — see `.group-label` for the label above each. */}
+          <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-[2.125rem]">
             {FAQ.map((group) => (
               <div key={group.title}>
                 <span className="group-label">{group.title}</span>

@@ -1,9 +1,7 @@
 import Link from 'next/link'
 
-import { PublicNavMenu } from '@/components/PublicNavMenu'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { APP_NAME } from '@/lib/brand'
-import { navSectionsExcept } from '@/lib/publicNav'
 
 /**
  * The header on every page that is not `TopBar`'s to draw and not the blog's: the landing
@@ -13,18 +11,20 @@ import { navSectionsExcept } from '@/lib/publicNav'
  * (`.top-bar`/`.top-bar-inner`/`.brand`, reused rather than redrawn); what changes between
  * "inside" and "outside" the app is what the row holds beside it.
  *
- * **It became a navigation the day `/` stopped being the sign-in form.** Until then this bar
- * held one mark, one theme switch and a single CTA, which was enough because there was one
- * public page and it argued for itself: `/login` pointed at `/pricing` and `/pricing` pointed
- * back. With a real landing page at `/`, a blog and six free tools, a visitor who arrives from
- * a search is somewhere in the middle of a site rather than at its one door — so the row now
- * carries the site's sections (`lib/publicNav.ts`) and up to two actions: a quiet text link
- * and a capsule.
+ * **Drawn from `Home.dc.html`, which gives this bar four things and no more**: the theme
+ * switch, a «Pricing» link, «Sign in», and «Start free» as a capsule — every quiet item a
+ * 36px pill that fills on hover, the capsule the accent. The mock's own geometry lives on
+ * `.public-bar-link` and `.public-bar-cta` rather than on `.btn` plus utilities, the rule the
+ * `/accounts` block states for its own mock: a 36px pill beside a 44px `.btn` is a different
+ * control, not a variant.
  *
- * **The section list is shared with `SiteHeader`, not copied.** That bar draws the same
- * sections on the paper surface the blog and the tools use, and the two must never disagree
- * about what this site is made of; `lib/publicNav.ts` says why the two components stay
- * separate all the same (the `--blog-*` tokens are scoped to `.blog`/`.tool-page`).
+ * **It briefly carried a section row — Pricing · Tools · Blog — and the mock took it back
+ * out.** That row was built the same day, on the reasoning that blog and tools are the
+ * surfaces a search sends people to and a visitor who lands on an article should be able to
+ * move; `Home.dc.html` draws neither, and the mock won. Both are still in `Footer`'s own row,
+ * which every page carries, and `SiteHeader` — the paper bar on the blog and the tools
+ * themselves — keeps the sections, so a reader who is *in* that part of the site can still
+ * move around it. See `lib/publicNav.ts`, which is now that bar's alone.
  *
  * `width` sets `--top-bar-width`, the same variable `.top-bar-inner` reads for `TopBar`'s own
  * `max-w-3xl`/48rem default. Every page this renders on is a different shape from every other
@@ -41,41 +41,34 @@ import { navSectionsExcept } from '@/lib/publicNav'
  * pixels below: `/`'s own hero badge, and the vertical lockup `AuthLockup` heads the five
  * sign-in-adjacent pages with. The same drawing twice on one screen, once small in the corner
  * and once large in the middle, reads as a mistake rather than as a masthead. The bar stays
- * either way — it is what holds the light/dark/auto switch and the way out to the rest of the
- * site, and a page with its own lockup needs both exactly as much as any other.
+ * either way — it is what holds the light/dark/auto switch.
  *
- * `current` names the section the page *is*, so the row does not link to it: a link to the
- * page you are standing on is a dead control. Matched on the label — see `navSectionsExcept`.
- *
- * `link` and `cta` are the two actions, and both are optional because who is reading decides
- * them and this component deliberately has no notion of a session. `/pricing` is the page that
- * proved the point: its bar used to offer «Sign in» unconditionally, to signed-in readers
- * included, and the fix was for its own layout to decide — six other layouts render this in
- * front of somebody with no session, where «Sign in» is exactly right. So the decision stays
- * at the call site. The sign-in pages pass neither: each already cross-links its twin from
- * inside its own card, and a bar offering «Sign in» above the sign-in form is the same dead
- * control `current` exists to avoid.
+ * `links` and `cta` are what differ per page, and both are optional because who is reading
+ * decides them while this component deliberately has no notion of a session. `/pricing` is the
+ * page that proved the point: its bar used to offer «Sign in» unconditionally, to signed-in
+ * readers included, and the fix was for its own layout to decide — six other layouts render
+ * this in front of somebody with no session, where «Sign in» is exactly right. So the decision
+ * stays at the call site, and so does the rule that a bar never links to the page it is
+ * standing on: `/pricing` passes no «Pricing» link.
  */
 export function PublicHeader({
   width,
   brand = true,
-  current,
-  link,
+  links = [],
   cta,
 }: {
   width: string
   brand?: boolean
-  /** The section this page belongs to, if it is one — «Pricing», «Tools», «Blog». */
-  current?: string
-  /** The quiet text action. Moves into the menu panel on a narrow screen. */
-  link?: { href: string; label: string }
-  /** The primary action, as a capsule. Stays in the bar at every width. */
+  /** The quiet pill actions, left of the capsule — «Pricing», «Sign in». */
+  links?: { href: string; label: string }[]
+  /** The primary action, as an accent capsule. */
   cta?: { href: string; label: string }
 }) {
-  const sections = navSectionsExcept(current)
-
+  /* `public-bar` beside `top-bar` is what scopes the mock's flatter, 36px controls to this
+     bar: `ThemeToggle` renders `.nav-link`, the same class `TopBar`'s own buttons use, so
+     restyling that class would restyle the app's header on every screen. */
   return (
-    <header className="top-bar">
+    <header className="top-bar public-bar">
       <div className="top-bar-inner" style={{ '--top-bar-width': width } as React.CSSProperties}>
         {brand && (
           /* Both render; CSS shows one — see the same comment in TopBar.tsx. */
@@ -87,41 +80,23 @@ export function PublicHeader({
           </Link>
         )}
 
-        {/* The sections, beside the mark rather than out on the right: they say where else
-            this site goes, which belongs with the mark that says which site it is. Hidden
-            below 48rem, where `PublicNavMenu` takes them over. */}
-        <nav className="public-nav" aria-label="Site sections">
-          {sections.map((section) => (
-            <Link key={section.href} href={section.href} className="public-nav-link">
-              {section.label}
-            </Link>
-          ))}
-        </nav>
-
         {/* Holds everything after it against the right edge, with or without a mark on the
-            left and whatever the row before it happens to hold. */}
+            left — and the mock has nothing at all on the left of `/`'s own bar. */}
         <span className="flex-1" />
 
         <ThemeToggle />
 
-        {link !== undefined && (
-          <Link href={link.href} className="public-bar-action">
+        {links.map((link) => (
+          <Link key={link.href} href={link.href} className="public-bar-link">
             {link.label}
           </Link>
-        )}
+        ))}
 
         {cta !== undefined && (
-          <Link href={cta.href} className="btn btn-primary btn-sm">
+          <Link href={cta.href} className="public-bar-cta">
             {cta.label}
           </Link>
         )}
-
-        {/*
-          * The narrow-screen way to the sections, and to `link` — which leaves the row at the
-          * same width. Rendered whenever there is anything for it to hold: a bar with no
-          * sections and no quiet action (a sign-in page, on a phone) has nothing to open.
-          */}
-        {(sections.length > 0 || link !== undefined) && <PublicNavMenu sections={sections} action={link} />}
       </div>
     </header>
   )

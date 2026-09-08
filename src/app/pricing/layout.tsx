@@ -33,9 +33,9 @@ import { hasChosenPlan } from '@/lib/plans/resolve'
  *   page itself now shows is what explains the situation instead. "Actually gated" and not
  *   "has not chosen": see `gated` below.
  *
- * `current="Pricing"` is separate from all of that and is not about who is reading: it drops
- * «Pricing» from the row of sections, because this is that page and a link to it from itself
- * is a dead control.
+ * What none of the three carries is a «Pricing» pill, and that is separate from all of the
+ * above and not about who is reading: this *is* that page, and a bar that links to the page it
+ * stands on is a dead control. `Home.dc.html` draws that pill because it draws the home.
  *
  * `currentUser()` costs no query (v3.1 — it resolves a role from the cookie and the
  * environment alone), so the price of all this is the single `hasChosenPlan` read, and only
@@ -69,13 +69,17 @@ export default async function PricingLayout({ children }: { children: React.Reac
         ? undefined
         : { href: '/', label: 'My songbooks' }
 
-  /* Only for the reader who has no account: the other two are already signed in. */
-  const link = user === null ? { href: '/login', label: 'Sign in' } : undefined
+  /*
+   * «Sign in» only for the reader who has no account: the other two are already signed in.
+   * No «Pricing» pill at any of the three, and that is the rule rather than an omission — this
+   * is that page, and a bar that links to the page it stands on is a dead control.
+   */
+  const links = user === null ? [{ href: '/login', label: 'Sign in' }] : []
 
   return (
     <>
       {/* 70rem, matching this page's own `<main className="... max-w-[70rem] ...">`. */}
-      <PublicHeader width="70rem" current="Pricing" link={link} cta={cta} />
+      <PublicHeader width="70rem" links={links} cta={cta} />
       {children}
     </>
   )
