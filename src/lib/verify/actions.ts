@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { provisionAccount } from '@/lib/accounts/provision'
+import { freezeLeadAttribution } from '@/lib/attribution/write'
 import { normalizeEmail } from '@/lib/allowlist'
 import { issueSessionCookie } from '@/lib/auth/session'
 import { hashToken } from '@/lib/auth/tokens'
@@ -144,6 +145,18 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
    * to order them by — it reads the coupon cookie, not the session.
    */
   await attachCouponViewFromCookie(normalized)
+
+  /*
+   * Seam 2 of four: point the attribution row this address already has at the account that now
+   * exists, and freeze it. Reads **no cookie**, deliberately — a verification link is very often
+   * opened on a different device from the one the registration was typed on, where this
+   * browser's cookie has never existed. The arrival was recorded by `register()`; all that is
+   * left here is the pointer.
+   *
+   * After `provisionAccount`, for `attachCouponViewFromCookie`'s reason directly above: it
+   * resolves the account by address, so there has to be one.
+   */
+  await freezeLeadAttribution(normalized)
 
   /*
    * Signs the person in immediately rather than sending them back to `/login` to retype

@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: 3 September 2026</p>
+      <p className="legal-updated">Last updated: 8 September 2026</p>
 
       <p>
         This Privacy Policy explains how Strumfolio (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and
@@ -102,6 +102,20 @@ export default function PrivacyPolicyPage() {
         a pass or fail.
       </p>
       <p>
+        <strong>Where you came from.</strong> When you arrive from a link carrying campaign
+        parameters, or from another website, we record the campaign labels in that link (its source,
+        medium and campaign name, and the optional term and content values), the identifier the
+        advertising network added to the click, the website you came from and the first page you
+        opened — for your first arrival and for your most recent one, with the date of each. It is
+        kept in a cookie on your device that lasts 90 days from your most recent such arrival, and
+        it is read once — when you begin a registration, or sign in for the first time — from which
+        moment it is stored with your registration and then with your account. It tells us which
+        channels bring musicians here; it records nothing about what you do inside the app, and it
+        is shared with nobody. <strong>If you never begin a registration, none of it ever reaches
+        us</strong>: it stays in your own browser and disappears with the cookie. Opening the
+        one-time link in a verification or password-reset email is never recorded as an arrival.
+      </p>
+      <p>
         <strong>Aggregated analytics.</strong> We use Vercel Web Analytics and Speed Insights to
         understand overall traffic and page performance. These tools do not use cookies and do not
         build cross-site profiles: visitors are identified by a temporary hash that is discarded
@@ -182,6 +196,13 @@ export default function PrivacyPolicyPage() {
           <tr>
             <td>Measure aggregate traffic and performance</td>
             <td>Legitimate interest in maintaining and improving the service — Art. 6(1)(f)</td>
+          </tr>
+          <tr>
+            <td>Understand which channels and campaigns bring people to Strumfolio</td>
+            <td>
+              Legitimate interest in measuring and improving how we reach musicians — Art. 6(1)(f).
+              You can object at any time — see section 7
+            </td>
           </tr>
         </tbody>
       </table>
@@ -280,8 +301,18 @@ export default function PrivacyPolicyPage() {
         merchant of record, under its own policy.
       </p>
       <p>
-        <strong>Short-lived data.</strong> A pending registration expires 24 hours after the
-        verification email is sent, and a password-reset link after one hour. The counters that limit
+        <strong>Where you came from.</strong> The attribution cookie in your browser lasts 90 days
+        from your most recent qualifying arrival. Once recorded with a registration or an account it
+        has no fixed expiry, because comparing one year&apos;s campaigns with the next is the whole
+        point of keeping it; it is deleted together with the account, at the same moment and by the
+        same action. If you would rather we did not keep it while keeping your account, write to us
+        at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
+      </p>
+      <p>
+        <strong>Short-lived data.</strong> The one-time link in a verification email stops working
+        after 24 hours, and a password-reset link after one hour. A registration that is never
+        confirmed is not deleted automatically: the address and name given stay on our pending
+        list, unusable for signing in, until we remove them by hand. The counters that limit
         repeated attempts hold an IP address or an email address for the ten-minute window they
         measure, and are deleted within a day. Strum Together session data is deleted
         as soon as the leader ends the session, and a session that is never explicitly ended stops
@@ -314,8 +345,8 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Your right to object.</strong> Where we process your data on the basis of our
-        legitimate interest — namely to keep the Service secure and to measure aggregate traffic and
-        performance — <strong>you have the right
+        legitimate interest — namely to keep the Service secure, to measure aggregate traffic and
+        performance, and to understand which channels bring people to Strumfolio — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate
         compelling legitimate grounds that override your interests, rights and freedoms. To object,

@@ -9,7 +9,7 @@ export default function CookiePolicyPage() {
   return (
     <>
       <h1>Cookie Policy</h1>
-      <p className="legal-updated">Last updated: 3 September 2026</p>
+      <p className="legal-updated">Last updated: 8 September 2026</p>
 
       <p>
         This Cookie Policy explains how Strumfolio uses cookies and similar technologies — local
@@ -78,6 +78,20 @@ export default function CookiePolicyPage() {
         policies, not by us.
       </p>
       <p>
+        <strong>Where you came from — one first-party cookie.</strong> If you reach Strumfolio from a
+        link that carries campaign parameters — the <code>utm_…</code> values a newsletter, a social
+        post or an advertisement adds to a URL — or from another website, we keep that information in
+        a single cookie of our own, for 90 days: the campaign&apos;s own labels, the identifier the
+        advertising network added to the click, the website you came from and the first page you
+        opened, for your first arrival and for your most recent one. It records{' '}
+        <strong>where a visit came from, never what you do</strong> on the site, and it is read once
+        only — at the moment you register, or sign in for the first time — so that we can tell which
+        channels bring musicians to Strumfolio. It is set by us, on our own domain, is never sent to
+        anyone else, and builds no profile of you across other websites. It holds no name, no email
+        address and no account identifier, so until you register it is linked to no one. Clearing
+        your site data removes it.
+      </p>
+      <p>
         <strong>Aggregate analytics — without cookies.</strong> We use Vercel Web Analytics and Speed
         Insights to measure overall traffic and page performance. These tools{' '}
         <strong>do not set cookies</strong> and do not track you across other websites: visitors are
@@ -86,16 +100,22 @@ export default function CookiePolicyPage() {
         purpose, no consent banner is required for it.
       </p>
       <p>
-        <strong>No advertising or third-party tracking.</strong> Strumfolio does not use cookies for
-        advertising, profiling, or third-party tracking of any kind, and does not share data with
-        advertising networks.
+        <strong>No advertising or third-party tracking.</strong> Strumfolio sets no third-party
+        cookies, loads no advertising or profiling scripts, and shares no data with advertising
+        networks. The attribution cookie described above is our own and stays on our own domain: we
+        use it to measure how well our own announcements work, never to target you, and it follows
+        you to no other website.
       </p>
 
       <h2>3. Managing cookies and stored data</h2>
       <p>
-        Everything described above is strictly necessary to provide the Service you requested, and
-        does not require consent. If we ever introduce non-essential cookies, we will ask for your
-        consent before placing them, and you will be able to withdraw it at any time.
+        Everything described above is either strictly necessary to provide the Service you
+        requested or, in the case of the attribution cookie, used only to measure how people find
+        Strumfolio in the first place. We place no advertising, profiling or third-party cookies,
+        and we would ask for your consent before ever doing so. Because the attribution cookie
+        rests on our legitimate interest rather than on your consent, you have the right to object
+        to it: see section 7 of our <Link href="/privacy-policy">Privacy Policy</Link>, or simply
+        clear your site data.
       </p>
       <p>
         You can manage or delete cookies, local storage and the offline cache through your browser

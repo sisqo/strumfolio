@@ -18,9 +18,8 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
 import { accounts, pendingRegistrations, rateLimitHits, songbooks, songs } from '@/lib/db/schema'
 import { liveSubscription, planStateFor, resolveSubscription } from '@/lib/plans/entitlements'
-import type { StoredPlan } from '@/lib/plans/entitlements'
-import { readPendingCycle } from '@/lib/plans/prices'
-import { readPendingPlan, readPlan, readPlanStatus } from '@/lib/plans/types'
+import { PLAN_COLUMNS, storedPlanFrom } from './planColumns'
+import type { PlanRow } from './planColumns'
 import type { Plan, PlanStatus } from '@/lib/plans/types'
 
 export interface AccountSummary {
@@ -198,57 +197,18 @@ function dayOf(value: Date | null): string | null {
  * `admin` on that one account, which would hand every customer the plan of every other.
  * Same distinction, same reason, as `listAllAccounts` and `deleteAccount`.
  */
-/** The exact column set both `listAccountPlans` and `getAccountDetail` select — one shape, so `planLineFrom` can resolve either a whole table's worth of rows or a single one with no second copy of the resolution logic. */
-const PLAN_COLUMNS = {
-  plan: accounts.plan,
-  planStatus: accounts.planStatus,
-  planExpiresAt: accounts.planExpiresAt,
-  pendingPlan: accounts.pendingPlan,
-  pendingCycle: accounts.pendingCycle,
-  grantedPlan: accounts.grantedPlan,
-  grantedUntil: accounts.grantedUntil,
-  grantedBy: accounts.grantedBy,
-  grantedAt: accounts.grantedAt,
-  grantedNote: accounts.grantedNote,
-  planChosenAt: accounts.planChosenAt,
-} as const
-
-interface PlanRow {
-  plan: string
-  planStatus: string
-  planExpiresAt: Date | null
-  pendingPlan: string | null
-  pendingCycle: string | null
-  grantedPlan: string | null
-  grantedUntil: Date | null
-  grantedBy: string | null
-  grantedAt: Date | null
-  grantedNote: string | null
-  planChosenAt: Date | null
-}
-
 /**
  * Resolves one row's worth of `PLAN_COLUMNS` into the `AccountPlanLine` a screen renders —
  * pulled out of `listAccountPlans`'s own `.map()` so `getAccountDetail` can resolve a single
  * row the exact same way instead of re-deriving the rule (v3.8).
  *
- * Built exactly as `storedPlanOf` (`plans/resolve.ts`) builds it, `readPlan`/`readPlanStatus`
- * included — these values did come out of the database, which is the one place those readers
- * are the right tool. The null rather than a `readPlan` fallback on `grantedPlan` matters for
- * the same reason it does there: it would make every ungifted account the holder of a free
- * grant, and this screen would print the gift.
+ * The `StoredPlan` mapping it used to hold inline now lives in `planColumns.ts` beside the
+ * column set, so `/leads`' rollup can reach it — a plain sibling and not this file, because
+ * this one is `'use server'` and may export only async functions. That failure appears at
+ * `next build` and never at `tsc --noEmit`.
  */
 function planLineFrom(row: PlanRow, now: Date): AccountPlanLine {
-  const stored: StoredPlan = {
-    plan: readPlan(row.plan),
-    expiresAt: row.planExpiresAt,
-    status: readPlanStatus(row.planStatus),
-    // `readPendingPlan`/`readPendingCycle`, not `readPlan` — see their own comments.
-    pendingPlan: readPendingPlan(row.pendingPlan),
-    pendingCycle: readPendingCycle(row.pendingCycle),
-    grantedPlan: row.grantedPlan === null ? null : readPlan(row.grantedPlan),
-    grantedUntil: row.grantedUntil,
-  }
+  const stored = storedPlanFrom(row)
   const state = planStateFor(stored, now)
   // The raw subscription columns resolved for display, the same rule the gate itself reads
   // through `liveSubscription`/`planStateFor` — never `stored.plan`/`.status`/`.expiresAt`

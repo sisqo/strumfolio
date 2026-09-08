@@ -57,9 +57,10 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 | `src/lib/import/CLAUDE.md` | the fifteen extensions, how PDF and Word are read, and what the importer refuses to guess |
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
+| `src/lib/attribution/CLAUDE.md` | where a lead came from, the four seams that record it, and the touch rules |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the
-three facts whose absence is expensive are repeated here rather than left behind a path:
+four facts whose absence is expensive are repeated here rather than left behind a path:
 
 - **`db:generate` does not run**, and every migration since `0024` is written by hand — the
   `.sql` file *and* its `drizzle/meta/_journal.json` entry, which is the half that is easy to
@@ -69,6 +70,13 @@ three facts whose absence is expensive are repeated here rather than left behind
   breaks sign-in rather than hardening it.
 - **While the mock checkout is on, any signed-in reader can give their account any plan for
   free.** Neither `SONGBOOK_PLANS` nor `SONGBOOK_MOCK_CHECKOUT` is a security boundary.
+- **`songbook-attribution` is the first cookie here that is not strictly necessary**, and the
+  Cookie Policy had to be rewritten for it: §2 gained a paragraph, «No advertising or third-party
+  tracking» and §3's «everything above is strictly necessary… we will ask for your consent» were
+  both no longer true as written. Its legal basis is legitimate interest, Art. 6(1)(f), so the
+  Privacy Policy's §3 table and the §7 right-to-object list both name it — **change one of those
+  five places and the others are wrong**, the rule the booklet override and the install row already
+  live under. There is no consent banner, by decision.
 
 ## Commands
 

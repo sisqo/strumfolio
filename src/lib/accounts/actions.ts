@@ -35,6 +35,8 @@ import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
 import { mayAccess, readAccountCookie, writeAccountCookie } from './current'
 import { validateGrant } from './grant'
+import { freezeLeadAttribution } from '@/lib/attribution/write'
+
 import { provisionAccount } from './provision'
 import type {
   AccountResult,
@@ -708,6 +710,17 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
     await sendEmail({ to: normalized, ...welcomeEmail() })
     await notifyTelegram('registration', registrationNotice())
   }
+
+  /*
+   * Seam 3 of four, and the one the coupon ledger next door has no equivalent of: this confirms
+   * a pending registration by hand and calls `provisionAccount` itself, so without this line
+   * every account created from the admin screen would keep a null pointer and vanish from every
+   * read — all of which ask by the id.
+   *
+   * Reads **no cookie**, and here that is not a nicety: this runs in the *operator's* browser,
+   * so a cookie read would attribute the lead to whatever campaign the admin last clicked.
+   */
+  await freezeLeadAttribution(normalized)
 
   revalidatePath('/accounts')
   return { ok: true }

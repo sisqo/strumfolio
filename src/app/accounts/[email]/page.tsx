@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { AccountNameForm } from '@/components/AccountNameForm'
+import { AttributionCard } from '@/components/AttributionCard'
 import { ChangeEmailForm } from '@/components/ChangeEmailForm'
 import { ClearRateLimitRow } from '@/components/ClearRateLimitRow'
 import { CouponsSeenCard } from '@/components/CouponsSeenCard'
@@ -24,6 +25,7 @@ import { loadAccountHistory } from '@/lib/accounts/actions'
 import { paymentSummary } from '@/lib/accounts/paymentSummary'
 import { NO_PLAN_LINE, giftCell, noPlanYet, planBadge, rowStatus } from '@/lib/accounts/planText'
 import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/accounts/read'
+import { attributionFor } from '@/lib/attribution/read'
 import { avatarInitials } from '@/lib/avatar'
 import { currentUser } from '@/lib/auth/session'
 import { couponViewsFor } from '@/lib/coupons/views'
@@ -166,7 +168,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const query = readQuery(await searchParams)
 
-  const [history, newsletter, usage, rateLimit, outreach, seen] = await Promise.all([
+  const [history, newsletter, usage, rateLimit, outreach, seen, attribution] = await Promise.all([
     loadAccountHistory(detail.ownerEmail),
     loadNewsletterSummaryFor(detail.ownerEmail),
     usageSummaryFor(detail.ownerEmail),
@@ -180,6 +182,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
      * `notFound()` on its answer, the same arrangement `usageSummaryFor` is read under.
      */
     couponViewsFor(detail.ownerEmail),
+    /* Where this account came from, for the Identity tab. Read under the same arrangement as
+       the line above: `getAccountDetail` has already established `isOwner`. */
+    attributionFor(detail.ownerEmail),
   ])
 
   const isCurrent = user?.accountOwnerEmail === detail.ownerEmail
@@ -381,6 +386,10 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
               lastName={detail.lastName}
             />
             <ChangeEmailForm ownerEmail={detail.ownerEmail} />
+            {/* Identity is where "who is this person" is answered, so where they came from
+                belongs here rather than beside the money on Payments. Read-only, like
+                everything else on this tab that is not one of the two forms above. */}
+            <AttributionCard read={attribution} />
           </div>
         )}
 

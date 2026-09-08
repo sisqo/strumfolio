@@ -2,7 +2,17 @@
 
 import Link from 'next/link'
 
-import { IconEye, IconLink, IconNote, IconReceipt, IconSettings, IconShield, IconSliders, IconSwitchAccount } from '@/components/icons'
+import {
+  IconEye,
+  IconLink,
+  IconNote,
+  IconReceipt,
+  IconSettings,
+  IconShield,
+  IconSliders,
+  IconSwitchAccount,
+  IconUsers,
+} from '@/components/icons'
 import type { Section } from '@/components/TopBar'
 
 /**
@@ -34,6 +44,10 @@ const ENTRIES: { section: Section; href: string; label: string; icon: typeof Ico
      installation's own knobs. `IconReceipt` because a campaign is about what is charged, and
      it is the one commerce mark this menu does not already spend on something else. */
   { section: 'coupons', href: '/coupons', label: 'Coupons', icon: IconReceipt },
+  /* Straight after Coupons: both are about a campaign, and this is the one that says whether the
+     campaign worked. `IconUsers` because a lead is a person who has not become an account yet,
+     and it is the one people mark this menu does not already spend elsewhere. */
+  { section: 'leads', href: '/leads', label: 'Leads', icon: IconUsers },
   /* Bookmarks to pages nothing else links to, `/thanks?preview=` among them — see that
      page's own list and its own comment on what belongs there. */
   { section: 'pages', href: '/pages', label: 'Pages', icon: IconLink },

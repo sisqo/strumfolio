@@ -28,6 +28,16 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   null and the Rate limit cell shows a dash rather than «Not hit»; the Status cell does the
   same when `admin` is null. "Nothing is wrong" and "could not tell" are opposite answers on
   the one screen built to be believed.
+- **`confirmPendingRegistration` is an attribution seam, not only a provisioning one.** It calls
+  `provisionAccount` itself, so it must also call `freezeLeadAttribution` — without it every
+  account created from this screen keeps a null pointer and disappears from every attribution
+  read, all of which ask by the id. It must **not** read the attribution cookie: this code runs in
+  the operator's browser. See `lib/attribution/CLAUDE.md`.
+- **`PLAN_COLUMNS`, `PlanRow` and `storedPlanFrom` live in `planColumns.ts`, not in `read.ts`.**
+  `read.ts` is `'use server'` and may export only async functions, so a synchronous mapper
+  exported from it compiles clean under `tsc --noEmit` and then fails at `next build` with
+  "Server Actions must be async functions" — the `testCard.ts` arrangement the root `CLAUDE.md`
+  describes. `/leads`' rollup is the third caller of that one definition.
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`forceExpireNow(ownerEmail)` takes the address explicitly**, checking `isOwner` inside; it

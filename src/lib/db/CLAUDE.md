@@ -33,6 +33,19 @@ slug is in the URL. What a future change must not get wrong:
   `changeAccountEmail`: on the coupon it would reopen the delete-and-recreate loop that
   `coupon_redemptions_once_email` exists to close, and on the outreach row the same loop would
   farm whatever an action hands out — see `src/lib/outreach/CLAUDE.md`.
+- **`lead_attribution` uses the same email-history + id-pointer shape, and that is the whole
+  reason it has it**: there is nothing to add to `changeAccountEmail`, by construction rather than
+  by anybody remembering. It differs from those two in one place — **`ON DELETE CASCADE`, not SET
+  NULL** — because nothing it holds is handed out, so there is no farming to prevent; the knowing
+  cost is that a campaign's historical total shrinks as the people it brought close their
+  accounts. On a nullable foreign key a cascade never touches the null rows, which is what lets
+  "a lead with no account survives" and "an account takes its row with it" both be true.
+  Its `email` is deliberately **not** `UNIQUE` on its own: after a `changeAccountEmail` frees an
+  address, a different person registering with it would otherwise find a frozen row as their
+  upsert's conflict target and mutate an existing customer's attribution. `lead_attribution_open`,
+  partial on `WHERE account_id IS NULL`, is the constraint that actually holds — and nothing in
+  the app repeats its predicate, since `recordLeadAttribution` inserts with a bare `ON CONFLICT DO
+  NOTHING`.
 - **`changeAccountEmail` is now one `UPDATE`** over `accounts`, `credentials`, `signIns` plus
   a stale `pendingRegistrations` delete. Needing to add a table to it is the signal that
   something is keyed by an address that should be keyed by an id.
@@ -84,7 +97,7 @@ What a future change has to know:
 `prevId`** (`8d0b1ba2…` / `c406eebf…`), so the chain drizzle-kit walks to diff against is
 broken. Verified 2026-09-06, still broken.
 
-So `0024` through `0041` were written by hand — **the `.sql` file *and* its
+So `0024` through `0045` were written by hand — **the `.sql` file *and* its
 `drizzle/meta/_journal.json` entry**, which is the half that is easy to forget and, per the
 root `CLAUDE.md`'s production-migration section, the load-bearing one. Repairing the chain is
 unattempted work, not a known-easy fix; until somebody does it, treat `npm run db:generate` in

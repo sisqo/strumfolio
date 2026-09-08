@@ -9764,6 +9764,12 @@
     grid-template-columns: minmax(10rem, 1fr) 7rem 10rem auto;
   }
 
+  /* `/leads` reuses it again: a channel, then four numbers that all want the same width. */
+  .accounts-grid.is-leads {
+    grid-template-columns: minmax(12rem, 1fr) 6rem 6rem 6rem 6rem;
+    min-width: 36rem;
+  }
+
   .accounts-table-head {
     padding-top: 0.625rem;
     padding-bottom: 0.625rem;
@@ -10272,6 +10278,30 @@
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
     background: var(--surface);
+  }
+
+  /*
+   * Where an account came from, on the Identity tab: a label column and a value column, the
+   * shape a definition list already implies. Two rows at most — one arrival, or a first and a
+   * most recent — so no scrolling and no minimum width to fight for.
+   */
+  .acct-attribution {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, auto) 1fr;
+    gap: 0.5rem 1rem;
+    align-items: baseline;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  /* The path, the referring host, the click id's network and the date, under the channel. */
+  .acct-attribution-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.1875rem;
+    color: var(--faint);
+    font-size: 0.8125rem;
   }
 
   .acct-card-title {

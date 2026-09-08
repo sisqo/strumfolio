@@ -5,6 +5,7 @@ import Google from 'next-auth/providers/google'
 import { authConfig } from './auth.config'
 import { normalizeEmail } from './lib/allowlist'
 import { provisionAccount } from './lib/accounts/provision'
+import { freezeLeadAttribution, recordLeadAttribution } from './lib/attribution/write'
 import { isAccountSuspended } from './lib/accounts/read'
 import { readPasswordHash } from './lib/auth/credentials'
 import { splitName } from './lib/auth/nameSplit'
@@ -181,6 +182,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
        * succeed if bookkeeping trips.
        */
       await attachCouponViewFromCookie(email)
+
+      /*
+       * Seam 4 of four: the Google path, which has no pending registration behind it at all, so
+       * this is both halves at once — record what the browser was carrying, then point it at the
+       * account and freeze it.
+       *
+       * **Gated on `created`**, the same boolean the welcome email above is gated on: attribution
+       * is about acquisition, so it is written on the one sign-in that creates an account and on
+       * no later one. Sharper than `attachCouponViewFromCookie`'s unconditional upsert directly
+       * above, and deliberately so — a coupon sighting is a fact about a visit, a provenance is a
+       * fact about an arrival that happened once.
+       *
+       * `recordLeadAttribution` before `freezeLeadAttribution`, because the second attaches what
+       * the first writes: for a Google sign-up there is no row yet, and for a lead who once
+       * registered and never verified there is an open one, which this pair refines and then
+       * takes over rather than duplicating.
+       */
+      if (created) {
+        await recordLeadAttribution(email)
+        await freezeLeadAttribution(email)
+      }
 
       return true
     },

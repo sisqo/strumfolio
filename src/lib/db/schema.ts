@@ -1452,3 +1452,143 @@ export const outreachActions = pgTable(
     index('outreach_actions_account').on(table.accountId),
   ],
 )
+
+/**
+ * Where one lead came from, and the only table in this schema that is about a person before
+ * that person has an account.
+ *
+ * **A satellite table and not columns on `accounts` plus `pending_registrations`**, which is the
+ * shape `firstName`/`lastName`/`newsletterOptIn` use and which would have meant twenty-two
+ * columns declared twice and carried across by hand. Two things settled it. A pending
+ * registration's row is deleted the moment it is verified, or confirmed from the admin screen,
+ * so the attribution of a lead would die exactly when it became interesting; and on `accounts`
+ * an `ADD COLUMN` appends physically **always**, which would drift the column order `0041`
+ * spent a table rebuild to establish.
+ *
+ * **`email` is history and `account_id` is the pointer, and every read asks by the id** — the
+ * arrangement `coupon_views` and `outreach_actions` already use. It buys one specific thing
+ * here: there is nothing to add to `changeAccountEmail`. A reader who changes address leaves
+ * this row exactly where it is, still pointing at their account, because no read ever looks a
+ * row up by the address on it. `db/CLAUDE.md` calls needing to add a table to that function
+ * «the signal that something is keyed by an address that should be keyed by an id»; this is
+ * what not emitting that signal looks like.
+ *
+ * **`ON DELETE CASCADE`, unlike both of those tables.** Their `SET NULL` answers a need this
+ * table does not have — neither hands anything out, so nothing here is farmable by deleting an
+ * account and signing up again. What it costs, decided knowingly: a campaign's historical
+ * total shrinks as the people it brought close their accounts, so the same aggregate run twice
+ * a year apart gives different answers. On a nullable foreign key a cascade never touches the
+ * null rows, which is what lets «a lead with no account survives» and «an account takes its own
+ * row with it» be true at once.
+ *
+ * **`frozen_at` is the border between a lead and an acquisition.** Before it, the last touch
+ * still moves: somebody who registers, never verifies, and comes back months later from another
+ * campaign has not been acquired yet. After it, nothing here is ever written again — the row
+ * answers «where did this person come from», which stays true for ever, and campaigns aimed at
+ * people who are already inside have their own ledgers in `coupon_views`, `coupon_redemptions`
+ * and `outreach_actions`.
+ *
+ * **No backfill, ever.** Every account that existed before this migration has no row and never
+ * will, exactly as `firstName`/`lastName` are «nullable forever, with no backfill». The
+ * consequence belongs on the screen rather than in the data: `/leads` counts those accounts in
+ * a «no attribution» line of its own, because a `GROUP BY` over the campaign columns would
+ * quietly drop them and read as though the first months had no traffic.
+ *
+ * And **no row for an anonymous visitor**: the cookie is the whole of what is kept before an
+ * address exists, and the row is born with the address. That is what stops this table growing
+ * by a row per page view.
+ */
+export const leadAttribution = pgTable(
+  'lead_attribution',
+  {
+    id: serial('id').primaryKey(),
+    /**
+     * The address the lead arrived as. History: written once, **never updated**, exactly like
+     * `coupon_views.account_owner_email` and for the same reason — it records what happened, and
+     * the pointer beside it records who it happened to.
+     *
+     * Not `UNIQUE` on its own, which looks like the obvious constraint and is a bug: after a
+     * `changeAccountEmail` moves an account to a new address, a *different* person registering
+     * with the freed one would find this row as their upsert's conflict target and mutate a
+     * frozen row belonging to an existing customer. `lead_attribution_open` below is the
+     * constraint that actually holds.
+     */
+    email: text('email').notNull(),
+    /** The pointer, filled when the account is created. Null for as long as the lead has none. */
+    accountId: integer('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    /** When this stopped being a lead and became an acquisition. Null while still open. */
+    frozenAt: timestamp('frozen_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+    /**
+     * The first arrival — the campaign that discovered this person.
+     *
+     * All nullable, because most of them are unknown for most leads: somebody arriving from a
+     * search has a referer host and a landing path and no campaign at all. `landing_path` is the
+     * one that is always known, since it is the path the request asked for, normalized by
+     * `attribution/touch.ts` so that no broadcast token and no unbounded value ever reaches
+     * here.
+     */
+    firstSource: text('first_source'),
+    firstMedium: text('first_medium'),
+    firstCampaign: text('first_campaign'),
+    firstTerm: text('first_term'),
+    firstContent: text('first_content'),
+    /**
+     * Which advertising network the click id belongs to — `gclid`, `fbclid`, `msclkid` — as a
+     * pair with the value beside it rather than as a column each.
+     *
+     * `text` with a narrowing reader, the choice every constrained column in this schema makes:
+     * a fourth network is then a value and a deploy, not an `ALTER TABLE`. The one thing the
+     * pair cannot express is a click carrying two ids at once, which no real click does.
+     */
+    firstClickIdKind: text('first_click_id_kind'),
+    firstClickId: text('first_click_id'),
+    firstRefererHost: text('first_referer_host'),
+    firstLandingPath: text('first_landing_path'),
+    firstTouchAt: timestamp('first_touch_at', { withTimezone: true }),
+
+    /**
+     * The most recent arrival — the campaign that closed.
+     *
+     * **All null when it would repeat the first**, which is the ordinary case of somebody who
+     * arrived once. So «this reader has one provenance» and «this reader has two» are told apart
+     * by `last_touch_at IS NULL` rather than by comparing ten columns, and the reads say
+     * `COALESCE(last_…, first_…)` wherever they want «most recently».
+     */
+    lastSource: text('last_source'),
+    lastMedium: text('last_medium'),
+    lastCampaign: text('last_campaign'),
+    lastTerm: text('last_term'),
+    lastContent: text('last_content'),
+    lastClickIdKind: text('last_click_id_kind'),
+    lastClickId: text('last_click_id'),
+    lastRefererHost: text('last_referer_host'),
+    lastLandingPath: text('last_landing_path'),
+    lastTouchAt: timestamp('last_touch_at', { withTimezone: true }),
+  },
+  (table) => [
+    /**
+     * One open lead per address, and the conflict target both writing seams name.
+     *
+     * Partial on purpose, and it is the constraint that makes the whole shape safe: a frozen row
+     * is **invisible** to this index, so a new registration on an address some other account
+     * used to own gets a row of its own instead of overwriting a customer's attribution.
+     *
+     * The `where` is therefore load-bearing, and `recordLeadAttribution` deliberately does **not**
+     * repeat it: its insert carries a bare `ON CONFLICT DO NOTHING`, which any constraint
+     * satisfies. Two registrations racing on one address is the only thing that insert has to
+     * survive, and the loser writing nothing is the right outcome — so there is no second copy of
+     * this predicate to drift from it, which is the hazard `coupon_views_once` has to live with.
+     */
+    uniqueIndex('lead_attribution_open')
+      .on(table.email)
+      .where(sql`${table.accountId} is null`),
+    /** And one row per account, once there is one. Partial for the same reason: nulls are not collisions. */
+    uniqueIndex('lead_attribution_account')
+      .on(table.accountId)
+      .where(sql`${table.accountId} is not null`),
+    /** `/leads`' own read: group every acquisition by the campaign that discovered it. */
+    index('lead_attribution_first_campaign').on(table.firstSource, table.firstMedium, table.firstCampaign),
+  ],
+)

@@ -22,6 +22,9 @@ export type Section =
   /* Beside `emails` because the menu draws them as neighbours, and because both are about
      what leaves the installation rather than about the installation itself. */
   | 'coupons'
+  /* Beside `coupons` for the same reason it sits beside `emails`: all three are about what the
+     outside world sees, and this one is about how the outside world got here. */
+  | 'leads'
   | 'pages'
   | 'design-system'
   | 'app-settings'

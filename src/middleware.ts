@@ -1,7 +1,16 @@
 import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 import { authConfig } from '@/auth.config'
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_COOKIE_MAX_DAYS,
+  decodeAttribution,
+  encodeAttribution,
+  mergeTouch,
+  readTouch,
+} from '@/lib/attribution/touch'
 import { SESSION_FREE_PATHS, isBlogPath, isFollowPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
@@ -77,9 +86,86 @@ function isPublicAsset(pathname: string): boolean {
   )
 }
 
+/**
+ * How long the attribution cookie lives, in seconds: ninety days from the most recent arrival
+ * that counted, restarted by each one. `attribution/touch.ts` says why ninety and not thirty.
+ */
+const ATTRIBUTION_MAX_AGE_SECONDS = ATTRIBUTION_COOKIE_MAX_DAYS * 24 * 60 * 60
+
+/**
+ * The new value of the attribution cookie for this request, or `null` because there is nothing
+ * to write.
+ *
+ * All the judgement is in `attribution/touch.ts`, which is a pure module covered by `npm test`;
+ * this is the glue that hands it a `NextRequest` and nothing more. It stays here rather than in
+ * that module so the module keeps importing nothing from `next/server` and remains testable.
+ *
+ * Two gates, and the second is the non-obvious one.
+ *
+ * **GET only.** A Server Action POSTs to the page's own URL, and Next.js does not merely put a
+ * `Set-Cookie` on that response — it copies the value onto the *request*
+ * (`x-middleware-set-cookie`) so that `cookies()` inside the action reads it. The device-id
+ * branch below carries the same scar with the same explanation.
+ *
+ * **No session only.** Attribution is about acquisition and nothing else: every seam that
+ * writes a row needs an address that is new, so a reader who already has a session cannot
+ * produce one and their arrival is not worth recording. The gain is not the saved work — it is
+ * that the `SESSION_FREE_PATHS` branch below can go on returning `undefined` for a signed-in
+ * reader exactly as it does today, leaving the cacheability of their `/pricing` copy, which
+ * that branch deliberately regulates, untouched.
+ */
+function attributionCookieFor(request: NextRequest & { auth?: unknown }): string | null {
+  if (request.method !== 'GET') return null
+  if (request.auth) return null
+
+  const read = readTouch(request.nextUrl, request.headers.get('referer'), request.nextUrl.host, new Date())
+  if (read === null) return null
+
+  const merged = mergeTouch(decodeAttribution(request.cookies.get(ATTRIBUTION_COOKIE)?.value), read)
+  if (merged === null) return null
+
+  return encodeAttribution(merged)
+}
+
+/**
+ * Put the attribution cookie on whatever response a branch decided to return.
+ *
+ * **Every exit of this middleware that a visitor can land on has to go through here**, and the
+ * expensive one to forget is the redirect to `/login`: `/` requires a session, so
+ * `strumfolio.com/?utm_source=…` — the most ordinary campaign URL there is — reaches that branch,
+ * and the redirect does not carry the query string with it. Miss the cookie there and the
+ * parameters exist nowhere afterwards, with nothing failing to say so. Hence one helper called
+ * at each exit rather than a `response.cookies.set` copied five times.
+ */
+function withAttribution(response: NextResponse, value: string | null): NextResponse {
+  if (value === null) return response
+
+  response.cookies.set(ATTRIBUTION_COOKIE, value, {
+    httpOnly: true,
+    /* A click from Instagram, a newsletter or WhatsApp is a cross-site top-level navigation, so
+       lax — the same reason the coupon and the follower device id are both lax. */
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: ATTRIBUTION_MAX_AGE_SECONDS,
+  })
+
+  return response
+}
+
 export default auth((request) => {
   const { pathname } = request.nextUrl
 
+  /*
+   * Computed once, before any branch, and handed to `withAttribution` at each exit. `null` for
+   * the overwhelming majority of requests — a signed-in reader, a POST, an ordinary internal
+   * navigation — in which case every `withAttribution` below is a no-op.
+   */
+  const attribution = attributionCookieFor(request)
+
+  /* No cookie here, deliberately: these are assets — the service worker, the brand images,
+     robots.txt, the promo mockup — fetched by browsers and link-preview bots, not landings
+     anybody arrives on. A campaign URL never points at one. */
   if (isPublicAsset(pathname)) return
 
   /**
@@ -142,7 +228,7 @@ export default auth((request) => {
 
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return response
+    return withAttribution(response, attribution)
   }
 
   /**
@@ -166,7 +252,7 @@ export default auth((request) => {
   if (isBlogPath(pathname)) {
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return response
+    return withAttribution(response, attribution)
   }
 
   /**
@@ -242,13 +328,21 @@ export default auth((request) => {
       })
     }
 
-    return response
+    /* An untagged arrival here is the word-of-mouth channel — `readTouch` names it
+       `strum-together`, since a link shared on WhatsApp or as a QR code is the truest referral
+       this product has and the one nothing else would record. */
+    return withAttribution(response, attribution)
   }
 
+  /*
+   * The exit `?utm_source=…` actually arrives at, since `/` requires a session — see
+   * `withAttribution`'s own comment. The redirect drops the query string, so this cookie is the
+   * only place the campaign survives.
+   */
   if (!request.auth) {
     const response = NextResponse.redirect(new URL('/login', request.nextUrl.origin))
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return response
+    return withAttribution(response, attribution)
   }
 })
 

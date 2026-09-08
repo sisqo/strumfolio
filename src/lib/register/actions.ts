@@ -15,6 +15,7 @@
 import { eq } from 'drizzle-orm'
 
 import { isEmailShape, normalizeEmail } from '@/lib/allowlist'
+import { recordLeadAttribution } from '@/lib/attribution/write'
 import { generateToken } from '@/lib/auth/tokens'
 import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
 import { verifyTurnstile } from '@/lib/captcha'
@@ -97,6 +98,16 @@ export async function register(formData: FormData): Promise<RegisterResult> {
         // discarded because only the insert branch carried it.
         set: { firstName, lastName, newsletterOptIn, passwordHash, verificationTokenHash: hash, expiresAt },
       })
+
+    /*
+     * Seam 1 of four: the moment this address stops being anonymous is the moment there is
+     * something for an attribution row to be about. Written here rather than after the email, so
+     * a send that fails still leaves the lead recorded — the pending row above already is.
+     *
+     * Reads the cookie this browser arrived carrying, which is the whole reason it happens in
+     * *this* seam: `verifyEmail` runs later, very often on another device, and cannot.
+     */
+    await recordLeadAttribution(email)
 
     const url = new URL('/verify', await requestOrigin())
     url.searchParams.set('email', email)
