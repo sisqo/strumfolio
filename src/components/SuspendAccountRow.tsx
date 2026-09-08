@@ -1,10 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 import { setAccountSuspended } from '@/lib/accounts/actions'
 import { SUSPEND_MESSAGE } from '@/lib/accounts/types'
+import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -20,22 +20,11 @@ import { useOnline } from '@/lib/useOnline'
 export function SuspendAccountRow({ ownerEmail, suspended }: { ownerEmail: string; suspended: boolean }) {
   const router = useRouter()
   const online = useOnline()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const run = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const result = await setAccountSuspended(ownerEmail, !suspended)
-      if (result.ok) router.refresh()
-      else setError(SUSPEND_MESSAGE[result.reason])
-    } catch {
-      setError(SUSPEND_MESSAGE.failed)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { busy, error, run } = useAdminAction(
+    () => setAccountSuspended(ownerEmail, !suspended),
+    SUSPEND_MESSAGE,
+    () => router.refresh(),
+  )
 
   return (
     <div className="acct-row">
@@ -44,7 +33,7 @@ export function SuspendAccountRow({ ownerEmail, suspended }: { ownerEmail: strin
         <span className="acct-row-note">
           {suspended
             ? 'Lets this address sign in again. Nothing else about the account changed while it was suspended.'
-            : 'Blocks sign-in and Strum Together. Songbooks and songs are untouched, and it can be lifted at any time.'}
+            : 'Blocks the next sign-in. A session already open — including one already broadcasting in Strum Together — keeps working until it naturally expires. Songbooks and songs are untouched, and it can be lifted at any time.'}
         </span>
         {error && (
           <p className="notice notice-error mt-2 text-sm" role="alert">

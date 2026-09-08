@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { RATE_LIMIT_MESSAGE } from '@/lib/accounts/types'
+import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { clearRateLimitFor } from '@/lib/auth/actions'
 import { useOnline } from '@/lib/useOnline'
 
@@ -16,25 +17,13 @@ import { useOnline } from '@/lib/useOnline'
  * A strip, for the reason `SendResetEmailRow` states (`Account Detail.dc.html`).
  */
 export function ClearRateLimitRow({ ownerEmail }: { ownerEmail: string }) {
+  const router = useRouter()
   const online = useOnline()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
-
-  const run = async () => {
-    setBusy(true)
-    setError(null)
-    setDone(false)
-    try {
-      const result = await clearRateLimitFor(ownerEmail)
-      if (result.ok) setDone(true)
-      else setError(RATE_LIMIT_MESSAGE[result.reason])
-    } catch {
-      setError(RATE_LIMIT_MESSAGE.failed)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { busy, error, done, run } = useAdminAction(
+    () => clearRateLimitFor(ownerEmail),
+    RATE_LIMIT_MESSAGE,
+    () => router.refresh(),
+  )
 
   return (
     <div className="acct-row">

@@ -22,7 +22,7 @@ import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { TopBar } from '@/components/TopBar'
 import { loadAccountHistory } from '@/lib/accounts/actions'
 import { paymentSummary } from '@/lib/accounts/paymentSummary'
-import { giftCell, planBadge, rowStatus } from '@/lib/accounts/planText'
+import { NO_PLAN_LINE, giftCell, noPlanYet, planBadge, rowStatus } from '@/lib/accounts/planText'
 import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/accounts/read'
 import { avatarInitials } from '@/lib/avatar'
 import { currentUser } from '@/lib/auth/session'
@@ -359,6 +359,13 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
               <p className="text-sm text-muted">Could not read the plan for this account. Reload the page.</p>
             ) : (
               <>
+                {/* The summary strip's badge and Status cell only go as far as "No plan" /
+                    "Awaiting choice" — this is the one place that says what that actually
+                    means: the account cannot get into the app at all yet. A gift is still
+                    offered below regardless — `setGrant` stamps the choice itself, so gifting
+                    a plan here is exactly how this state ends without the reader visiting
+                    `/pricing`. */}
+                {noPlanYet(plan) && <p className="mb-3 text-sm text-muted">{NO_PLAN_LINE}</p>}
                 <GiftForm ownerEmail={detail.ownerEmail} plan={plan} />
                 <ForceExpireRow ownerEmail={detail.ownerEmail} plan={plan} />
               </>

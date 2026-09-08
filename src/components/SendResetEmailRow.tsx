@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-
+import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { sendPasswordResetFor } from '@/lib/auth/actions'
 import { PASSWORD_MESSAGE } from '@/lib/auth/types'
 import { useOnline } from '@/lib/useOnline'
@@ -17,24 +16,7 @@ import { useOnline } from '@/lib/useOnline'
  */
 export function SendResetEmailRow({ ownerEmail }: { ownerEmail: string }) {
   const online = useOnline()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
-
-  const run = async () => {
-    setBusy(true)
-    setError(null)
-    setDone(false)
-    try {
-      const result = await sendPasswordResetFor(ownerEmail)
-      if (result.ok) setDone(true)
-      else setError(PASSWORD_MESSAGE[result.reason])
-    } catch {
-      setError(PASSWORD_MESSAGE.failed)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { busy, error, done, run } = useAdminAction(() => sendPasswordResetFor(ownerEmail), PASSWORD_MESSAGE)
 
   return (
     <div className="acct-row">

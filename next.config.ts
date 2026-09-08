@@ -211,8 +211,16 @@ export default withSerwistInit({
    * build — including the webpack runtime chunk, which merely mentions the *chunk* names
    * and must stay precached. If a future pdfjs renames both, the two chunks quietly go
    * back into the manifest: a bigger install, never a broken one.
+   *
+   * Serwist's own default `exclude` is `[/\.map$/, /^manifest.*\.js$/]`, and it only
+   * applies when this option is left out entirely — passing an array of our own, as
+   * this PDF rule must, replaces it rather than adding to it. Both are repeated here so
+   * a future `productionBrowserSourceMaps: true` (there are no `.map` assets to exclude
+   * today, so this was invisible) does not silently reopen the manifest to them.
    */
   exclude: [
+    /\.map$/,
+    /^manifest.*\.js$/,
     ({ asset }) => {
       if (!asset.name.endsWith('.js')) return false
 

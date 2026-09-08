@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, createContext, useContext, useEffect, useMemo } from 'react'
+import { type ReactNode, createContext, useContext, useLayoutEffect, useMemo } from 'react'
 
 import { usePrefs } from '@/components/PrefsProvider'
 import { DEFAULT_BEATS_PER_BAR, DEFAULT_BPM } from '@/lib/metronome/tempo'
@@ -77,8 +77,18 @@ export function MetronomeProvider({
    * the *follower's* screen: `FollowedSong` deliberately never unmounts between songs, so
    * without this a broadcast moving to the next song would leave a metronome beating the
    * previous one's tempo, with the chip beside it showing the new one.
+   *
+   * A layout effect, not a passive one, and that is not belt and braces: `PrefsProvider`
+   * resets `song` for the new slug in its own layout effect, so by paint `bpm` above already
+   * reads the new song's tempo, while a passive `stop()` would only flip `running` after
+   * that same paint — on the follower's non-remounting screen, one frame where the pulse
+   * still reads as running under a chip already naming the new song. This closes that one
+   * frame, not more: `useMetronome`'s own scheduler teardown (`clearInterval`, and whichever
+   * clicks were already handed to the `AudioContext` within its lookahead) is still a
+   * passive effect underneath `running`, so a click already scheduled at the old tempo can
+   * still be heard after this fires — `stop()` only stops scheduling new ones.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     stop()
   }, [songSlug, stop])
 

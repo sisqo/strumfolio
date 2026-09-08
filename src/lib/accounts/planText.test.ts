@@ -31,6 +31,7 @@ function line(overrides: Partial<AccountPlanLine> = {}): AccountPlanLine {
     subscriptionPlan: 'free',
     untilOn: null,
     planChosen: true,
+    everSubscribed: false,
     ...overrides,
   }
 }
@@ -71,7 +72,7 @@ describe('the Status column', () => {
     assert.deepEqual(rowStatus(none, 2), { text: 'Awaiting choice', tone: 'normal' })
   })
 
-  it('keeps the three rows that look like a chosen Free apart from it', () => {
+  it('keeps the four rows that look like a chosen Free apart from it', () => {
     assert.deepEqual(rowStatus(line(), 5), { text: '', tone: 'normal' })
 
     const withdrawn = line({ grantedBy: 'op@example.com', grantedOn: '2026-05-05' })
@@ -82,6 +83,11 @@ describe('the Status column', () => {
 
     const expired = line({ plan: 'premium', status: 'expired', planExpiresOn: '2026-08-01', subscriptionPlan: null })
     assert.deepEqual(rowStatus(expired, 5), { text: 'Premium expired 2026-08-01', tone: 'normal' })
+
+    // A cancellation whose scheduled date has passed resolves `plan` to `'free'` too, and
+    // must not read as the same "chose Free deliberately" row above — see `everSubscribed`.
+    const cancelled = line({ plan: 'free', subscriptionPlan: null, everSubscribed: true })
+    assert.deepEqual(rowStatus(cancelled, 5), { text: 'Cancelled', tone: 'normal' })
   })
 })
 
@@ -181,5 +187,10 @@ describe('the detail page’s summary cells and strips', () => {
     assert.equal(subscriptionHeadline(lifetime), 'Subscription: Lifetime, no end')
 
     assert.equal(subscriptionHeadline(line()), 'No subscription')
+
+    // A cancellation whose scheduled date has passed resolves `plan` to `'free'` too
+    // (`resolveSubscription`), which must not read as the same "never subscribed" account.
+    const cancelled = line({ plan: 'free', subscriptionPlan: null, everSubscribed: true })
+    assert.equal(subscriptionHeadline(cancelled), 'Subscription: cancelled')
   })
 })

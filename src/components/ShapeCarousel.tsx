@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import { ChordDiagram } from '@/components/ChordDiagram'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
@@ -108,7 +108,13 @@ export function ShapeCarousel({
 
   // A frame already queued means a scroll position `commit` has not yet read is still
   // waiting — closing the popup right now must still read and save it, not drop it.
-  useEffect(
+  //
+  // A layout effect, not a passive one: `commit()` needs `trackRef.current`, and for an
+  // unmounting node React nulls that ref during the same synchronous commit that removes
+  // it from the DOM — before a passive effect's cleanup gets a turn, only after. A `commit()`
+  // that ran there would read a ref already gone and silently do nothing, dropping this
+  // exact last swipe. Landing in the same pre-detach phase is what actually catches it.
+  useLayoutEffect(
     () => () => {
       if (frame.current !== undefined) {
         cancelAnimationFrame(frame.current)

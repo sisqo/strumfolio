@@ -61,7 +61,12 @@ export function useWakeLock(active: boolean): void {
   /** Wake locks are dropped when the page is hidden, so take it back on return. */
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && active && sentinelRef.current === null) {
+      // The browser releases the held sentinel itself on hide, but only flips its own
+      // `released` flag — nothing here observes that, so the ref still points at a
+      // sentinel that is already spent. Checking for null alone would never re-request
+      // past the first hide/show cycle.
+      const sentinel = sentinelRef.current
+      if (document.visibilityState === 'visible' && active && (sentinel === null || sentinel.released)) {
         void request()
       }
     }

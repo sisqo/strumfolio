@@ -24,5 +24,12 @@
 --
 -- Scritta a mano, non generata, per la stessa ragione delle note di 0031-0042: `db:generate`
 -- si rifiuta di girare finché gli snapshot 0028/0029/0030 condividono un id.
+--
+-- Drift accettato, non rifatto: `bpm`/`beats_per_bar` in `schema.ts` stanno in mezzo
+-- all'elenco dei campi di `userSongPrefs` (tra `chordShapes` e `lastOpenedAt`), ma un
+-- semplice `ADD COLUMN` — questo — le mette sempre in fondo fisicamente, come
+-- `src/lib/db/CLAUDE.md` avverte da `0041` in poi. La riga da seguire lì è «accettare la
+-- deriva o ricostruire la tabella come fa 0041»: qui si accetta, di proposito, invece di
+-- un `CREATE TABLE … AS SELECT` per due colonne nullable senza backfill.
 ALTER TABLE "user_song_prefs" ADD COLUMN "bpm" integer;--> statement-breakpoint
 ALTER TABLE "user_song_prefs" ADD COLUMN "beats_per_bar" integer;

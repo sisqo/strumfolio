@@ -153,6 +153,21 @@ export interface AccountPlanLine {
    * one screen whose whole purpose is to be believed.
    */
   planChosen: boolean
+  /**
+   * Whether `accounts.plan` was ever set away from `'free'` — read from the **raw** column,
+   * before `resolveSubscription` runs, because that resolution is precisely what makes
+   * `plan` above indistinguishable from "never subscribed" for an account whose
+   * cancellation has since lapsed: `resolveSubscription` collapses `plan` itself to
+   * `pendingPlan` (`'free'`) once a scheduled downgrade's date passes, with nothing in the
+   * database ever rewriting the raw column back (`checkout.ts`'s cancel path leaves
+   * `plan`/`planStatus`/`planExpiresAt` untouched on purpose, and there is no cron). A
+   * plain, uncancelled lapse does not hit this: `resolveSubscription` only rewrites `plan`
+   * when `status` is still `'active'`, so an actually-`'expired'` row keeps its paid name on
+   * `plan` above and needs no separate flag. This is the one field on this type that is
+   * **not** resolved — see `ForceExpireRow`, the one screen that needs "did this account
+   * ever hold a subscription" answered independently of whether one is live right now.
+   */
+  everSubscribed: boolean
 }
 
 /** A timestamp as the day it falls on, in UTC — see `AccountPlanLine` on why days and not instants. */
@@ -258,6 +273,7 @@ function planLineFrom(row: PlanRow, now: Date): AccountPlanLine {
     subscriptionPlan: liveSubscription(stored, now),
     untilOn: dayOf(state.until),
     planChosen: row.planChosenAt !== null,
+    everSubscribed: stored.plan !== 'free',
   }
 }
 

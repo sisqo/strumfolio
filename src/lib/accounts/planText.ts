@@ -64,6 +64,16 @@ export function stillAwaitingChoice(line: AccountPlanLine): boolean {
 }
 
 /**
+ * What the detail page's Plan & gift tab says for a `noPlanYet` account, instead of the
+ * gift/subscription forms that account has nothing to show yet. The summary strip's own
+ * badge and Status cell only go as far as "No plan" / "Awaiting choice" — true, but not the
+ * fact an operator opening this tab actually needs: that the account is not merely
+ * undecided, it is locked out of the app entirely until it picks one.
+ */
+export const NO_PLAN_LINE =
+  'No plan chosen yet: this account is sent to the pricing page on sign-in and cannot use the app until it picks one.'
+
+/**
  * A gift that was given and then taken away — `grantedPlan` back to null while `grantedBy`
  * still records who cleared it, the second of the two meanings `giftCell` has to tell apart
  * (`setGrant` writes the caller and the moment on the clear path too).
@@ -164,7 +174,7 @@ export function rowStatus(line: AccountPlanLine, signInCount: number): RowStatus
 
   if (line.effectivePlan === 'free') {
     /*
-     * A deliberate Free says nothing — the badge already does. The three rows that look
+     * A deliberate Free says nothing — the badge already does. The four rows that look
      * exactly like it on every plan column and are not (`giftWithdrawn`'s reason to exist)
      * each get their one clause here, since this column is now the only place the list can
      * tell them apart from a Free that was chosen.
@@ -177,6 +187,10 @@ export function rowStatus(line: AccountPlanLine, signInCount: number): RowStatus
       const when = line.planExpiresOn === null ? '' : ` ${line.planExpiresOn}`
       return { text: `${PLAN_LABEL[line.plan]} expired${when}`, tone: 'normal' }
     }
+    // A cancellation whose scheduled date has passed resolves `plan` to `'free'` too
+    // (`resolveSubscription`), which must not read the same as the row above it —
+    // `subscriptionHeadline`'s own "Subscription: cancelled" is what this agrees with.
+    if (line.everSubscribed) return { text: 'Cancelled', tone: 'normal' }
     return { text: '', tone: 'normal' }
   }
 
@@ -287,12 +301,15 @@ export function giftDetail(line: AccountPlanLine): string | null {
  * `line.plan`/`.status`/`.planExpiresOn` arrive already resolved through `resolveSubscription`,
  * so a scheduled downgrade whose date has passed reads here as the account's own gate sees it,
  * and `pendingPlan` is non-null only ahead of that date — which is exactly when its clause
- * belongs. The `free` branch is what an account that never bought anything would print; the
- * detail page does not draw the strip at all for one, and says so where it decides.
+ * belongs. The `free` branch is what an account that never bought anything would print — the
+ * detail page does not draw the strip at all for one, and says so where it decides — while a
+ * cancellation that has already lapsed also resolves `plan` to `'free'` (see `everSubscribed`
+ * on `AccountPlanLine`) and gets its own line rather than being read as the same "never
+ * bought anything" account.
  */
 export function subscriptionHeadline(line: AccountPlanLine): string {
   const label = PLAN_LABEL[line.plan]
-  if (line.plan === 'free') return 'No subscription'
+  if (line.plan === 'free') return line.everSubscribed ? 'Subscription: cancelled' : 'No subscription'
   if (line.status === 'expired') return `Subscription: ${label}, expired`
   // `grace` deliberately says nothing about the date: a failing card is virtually always
   // already past period end, which is the whole reason `liveSubscription` ignores dates here.

@@ -77,6 +77,18 @@ describe('a Word document', () => {
     assert.ok(documentToText(xml).includes('\f'))
   })
 
+  it('does not fuse text typed after a page break in the same paragraph', () => {
+    // A break inserted without a preceding Enter — a real pattern from producers other
+    // than Word itself — leaves text on both sides of it inside one <w:p>.
+    const xml = document(
+      '<w:p><w:r><w:t>Last line of song one</w:t></w:r>' +
+        '<w:r><w:br w:type="page"/></w:r>' +
+        '<w:r><w:t>Song two</w:t></w:r></w:p>',
+    )
+
+    assert.equal(documentToText(xml), 'Last line of song one\n\f\nSong two')
+  })
+
   it('reads a paragraph that starts a page as a form feed too', () => {
     const xml = document(p('Last line'), '<w:p><w:pPr><w:pageBreakBefore/></w:pPr><w:r><w:t>Next song</w:t></w:r></w:p>')
 

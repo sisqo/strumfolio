@@ -200,6 +200,11 @@ export function OutreachPanel({ ownerEmail, lines, history }: Props) {
         /* Skipping is refused for exactly one state, and it is the state the row already
            settles: an occurrence that is done has nothing left to prevent. */
         const skippable = row === null || row.status !== 'done'
+        /* `claimVerdict` (run.ts) refuses a 'done' occurrence outright and unconditionally,
+           with no takeover path the way 'suppressed' gets one — so a run/retry button drawn
+           for a done row can never do anything but answer with an error, which is exactly
+           the kind of button the comment on that button below says must not exist. */
+        const runnable = row === null || row.status !== 'done'
 
         return (
           <div className="acct-row" key={line.kind}>
@@ -280,7 +285,7 @@ export function OutreachPanel({ ownerEmail, lines, history }: Props) {
                     Skip
                   </button>
                 )}
-                {line.built && (
+                {line.built && runnable && (
                   /* Disabled while an attempt is in flight, because `runOutreach` refuses that
                      window outright: a button that looks live and answers with an error is a
                      screen contradicting the rule it is drawn from. */

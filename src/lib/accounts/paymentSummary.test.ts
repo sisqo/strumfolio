@@ -64,4 +64,13 @@ describe('the Payments strip', () => {
     const history = [row({ id: 'e1', amount: '99.99' }), row({ id: 'e2', amount: '0.02' })]
     assert.equal(paymentSummary(history).collected, '100.01')
   })
+
+  it('refuses a negative amount rather than mis-signing it into the total', () => {
+    // A row this app did not write (`toCents`'s own comment): a real refund event would
+    // carry a minus sign `toCents`'s regex was never built to admit, and a stray amount
+    // this app itself never charged must cost that row's contribution, not the sign of
+    // some other purchase's cents.
+    const history = [row({ id: 'e1', action: 'unknown', amount: '-4.90' }), row({ id: 'e2', amount: '10.00' })]
+    assert.deepEqual(paymentSummary(history), { collected: '10.00', events: 2, lastPaymentOn: '2026-08-23' })
+  })
 })

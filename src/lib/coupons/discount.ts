@@ -20,8 +20,14 @@ import type { BillingPeriod } from '@/lib/plans/prices'
 import { isRedeemable, readPercent } from './types'
 import type { CampaignStatus, ViewStanding } from './types'
 
-/** `'34.99'` → `3499`. `null` for anything that is not a printable decimal amount. */
-function toCents(amount: string): number | null {
+/**
+ * `'34.99'` → `3499`. `null` for anything that is not a printable decimal amount — a
+ * negative sign included, since the regex admits digits only: `accounts/paymentSummary.ts`
+ * is the other caller outside this file, over a ledger that can carry a row this app did not
+ * write, and rejecting rather than mis-parsing a sign it was never built to carry is exactly
+ * what that caller needs.
+ */
+export function toCents(amount: string): number | null {
   if (!/^\d{1,9}(\.\d{1,2})?$/.test(amount.trim())) return null
   const [whole, fraction = ''] = amount.trim().split('.')
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'))

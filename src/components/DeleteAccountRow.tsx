@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { IconTrash } from '@/components/icons'
 import { deleteAccount } from '@/lib/accounts/actions'
 import { ACCOUNT_MESSAGE } from '@/lib/accounts/types'
+import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -30,32 +31,21 @@ export function DeleteAccountRow({ ownerEmail }: { ownerEmail: string }) {
   const online = useOnline()
   const [open, setOpen] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // `router.push`, not `router.refresh()`: a refresh would re-render the detail page of an
+  // account that no longer has a row — this control no longer lives on a list row a refresh
+  // could simply drop.
+  const { busy, error, run, clearError } = useAdminAction(
+    (typed: string) => deleteAccount(ownerEmail, typed),
+    ACCOUNT_MESSAGE,
+    () => router.push('/accounts'),
+  )
 
   const matches = confirmEmail.trim().toLowerCase() === ownerEmail.toLowerCase()
 
   const cancel = () => {
     setOpen(false)
     setConfirmEmail('')
-    setError(null)
-  }
-
-  const confirm = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const result = await deleteAccount(ownerEmail, confirmEmail)
-      // `router.push`, not `router.refresh()`: a refresh would re-render the detail page of
-      // an account that no longer has a row — this control no longer lives on a list row a
-      // refresh could simply drop.
-      if (result.ok) router.push('/accounts')
-      else setError(ACCOUNT_MESSAGE[result.reason])
-    } catch {
-      setError(ACCOUNT_MESSAGE.failed)
-    } finally {
-      setBusy(false)
-    }
+    clearError()
   }
 
   return (
@@ -87,7 +77,12 @@ export function DeleteAccountRow({ ownerEmail }: { ownerEmail: string }) {
             aria-label={`Retype ${ownerEmail} to confirm deletion`}
             className="acct-field"
           />
-          <button type="button" className="acct-pill is-danger" disabled={!matches || busy} onClick={confirm}>
+          <button
+            type="button"
+            className="acct-pill is-danger"
+            disabled={!matches || busy}
+            onClick={() => void run(confirmEmail)}
+          >
             <IconTrash size={14} />
             Delete
           </button>

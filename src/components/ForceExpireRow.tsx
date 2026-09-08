@@ -1,10 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 import { subscriptionHeadline } from '@/lib/accounts/planText'
 import type { AccountPlanLine } from '@/lib/accounts/read'
+import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { forceExpireNow } from '@/lib/plans/checkout'
 import { FORCE_EXPIRE_MESSAGE } from '@/lib/plans/forceExpireMessage'
 import { useOnline } from '@/lib/useOnline'
@@ -17,13 +17,15 @@ import { useOnline } from '@/lib/useOnline'
  * calendar date.
  *
  * **Two independent conditions, and they are not the same one.** The strip is drawn for any
- * account that has ever bought something (`plan !== 'free'`), because a lapsed Premium is a
- * fact an operator needs on this page and `Account Detail.dc.html` — drawn in the live state —
- * has no other place for it. The *button* appears only for a subscription that can actually be
- * expired, which is exactly what `forceExpireNow` itself checks (`liveSubscription`,
- * `checkout.ts`): never for `lifetime`, and never for a gift, since `effectivePlan` would
- * offer the button on a free account holding only a gifted plan, where the action always
- * answers `not-applicable`.
+ * account that has ever bought something (`everSubscribed`, not `plan !== 'free'` —
+ * `resolveSubscription` collapses `plan` itself to `'free'` once a cancelled subscription's
+ * date passes, which would otherwise hide exactly the lapsed-Premium row an operator needs
+ * to see here), because a lapsed Premium is a fact an operator needs on this page and
+ * `Account Detail.dc.html` — drawn in the live state — has no other place for it. The
+ * *button* appears only for a subscription that can actually be expired, which is exactly
+ * what `forceExpireNow` itself checks (`liveSubscription`, `checkout.ts`): never for
+ * `lifetime`, and never for a gift, since `effectivePlan` would offer the button on a free
+ * account holding only a gifted plan, where the action always answers `not-applicable`.
  *
  * Returns nothing at all for an account that never subscribed — a strip reading «No
  * subscription» beside no button is a row that exists to say nothing.
@@ -31,30 +33,13 @@ import { useOnline } from '@/lib/useOnline'
 export function ForceExpireRow({ ownerEmail, plan }: { ownerEmail: string; plan: AccountPlanLine }) {
   const router = useRouter()
   const online = useOnline()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
+  const { busy, error, done, run } = useAdminAction(
+    () => forceExpireNow(ownerEmail),
+    FORCE_EXPIRE_MESSAGE,
+    () => router.refresh(),
+  )
 
-  const run = async () => {
-    setBusy(true)
-    setError(null)
-    setDone(false)
-    try {
-      const result = await forceExpireNow(ownerEmail)
-      if (result.ok) {
-        setDone(true)
-        router.refresh()
-      } else {
-        setError(FORCE_EXPIRE_MESSAGE[result.reason])
-      }
-    } catch {
-      setError(FORCE_EXPIRE_MESSAGE.failed)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (plan.plan === 'free') return null
+  if (!plan.everSubscribed) return null
 
   const expirable =
     plan.subscriptionPlan !== null && plan.subscriptionPlan !== 'free' && plan.subscriptionPlan !== 'lifetime'

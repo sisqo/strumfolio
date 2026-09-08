@@ -98,14 +98,30 @@ export function documentToText(xml: string): string {
   /** A page break seen inside a paragraph applies once the paragraph is out. */
   let breakAfter = false
   let breakBefore = false
+  /**
+   * Where, inside the paragraph's eventual `current`, the page break fell. Almost
+   * always the paragraph's own end — Word appends the break to the run it is closing —
+   * but a break can carry trailing text in the same paragraph, and that text belongs
+   * after the `\f`, not fused onto the line before it.
+   */
+  let breakSplitAt: number | null = null
 
   const flush = () => {
     if (breakBefore && lines.length > 0) lines.push('\f')
-    lines.push(current.replace(/\s+$/, ''))
-    if (breakAfter) lines.push('\f')
+    if (breakAfter && breakSplitAt !== null) {
+      const before = current.slice(0, breakSplitAt).replace(/\s+$/, '')
+      const after = current.slice(breakSplitAt).replace(/\s+$/, '')
+      lines.push(before)
+      lines.push('\f')
+      if (after !== '') lines.push(after)
+    } else {
+      lines.push(current.replace(/\s+$/, ''))
+      if (breakAfter) lines.push('\f')
+    }
     current = ''
     breakAfter = false
     breakBefore = false
+    breakSplitAt = null
   }
 
   const pattern = /<[^>]*>|[^<]+/g
@@ -160,8 +176,11 @@ export function documentToText(xml: string): string {
         if (!inParagraph) break
         if (/w:type\s*=\s*"page"/i.test(piece)) {
           // Held until the paragraph closes: a break is drawn between paragraphs even
-          // when it is stored inside the run that ends one.
+          // when it is stored inside the run that ends one. Recording the split point
+          // now is what lets text typed after the break, still in this paragraph, land
+          // on its own line rather than fusing onto the line before the break.
           breakAfter = true
+          breakSplitAt = current.length
         } else {
           lines.push(current.replace(/\s+$/, ''))
           current = ''

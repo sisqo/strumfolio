@@ -743,6 +743,12 @@ export const userSongPrefs = pgTable(
      * `beats_per_bar` is not constrained to the five the menu offers: `{time: 5/4}` is a
      * real song, so the column holds what `clampBeatsPerBar` admits (1 to 12) and the menu
      * adds the odd one out as a button of its own rather than lighting none.
+     *
+     * Declared here, in the middle of this table's fields, but `0043` only `ADD COLUMN`s —
+     * it does not rebuild the table the way `0041` does — so physically these two sit after
+     * `updated_at`, not here. Drift accepted on purpose, per this directory's own
+     * `CLAUDE.md` ("accept the drift or rebuild the table"): two nullable columns with no
+     * backfill did not earn a `CREATE TABLE … AS SELECT`.
      */
     bpm: integer('bpm'),
     beatsPerBar: integer('beats_per_bar'),
