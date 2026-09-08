@@ -233,6 +233,14 @@ describe('shapeFor', () => {
     assert.deepEqual(shapeOf('A#m')?.frets, shapeOf('Bbm')?.frets)
   })
 
+  it('draws the Italian major seventh as a major seventh', () => {
+    // Read for its leading `7` this used to be the dominant, whose seventh is a note
+    // the chord does not contain — not a simplification but a different chord.
+    assert.deepEqual(shapeOf('do7+')?.frets, shapeOf('Cmaj7')?.frets)
+    assert.deepEqual(shapeOf('G7+')?.frets, shapeOf('Gmaj7')?.frets)
+    assert.notDeepEqual(shapeOf('do7+')?.frets, shapeOf('C7')?.frets)
+  })
+
   it('keeps the shape of the base chord for a slash chord', () => {
     assert.deepEqual(shapeOf('C/G')?.frets, shapeOf('C')?.frets)
   })
@@ -326,6 +334,21 @@ describe('familyOf', () => {
     assert.equal(familyOf('Δ7')?.family, 'maj7')
     assert.equal(familyOf('°7')?.family, 'dim7')
     assert.equal(familyOf('sus')?.family, 'sus4')
+  })
+
+  /**
+   * The Italian `7+`, which read for the `7` it starts with would draw a dominant
+   * seventh — a flat seventh where the chart writes a natural one, so a shape sounding
+   * a note the chord does not contain rather than merely omitting one.
+   */
+  it('reads a trailing + as the major seventh it is', () => {
+    assert.deepEqual(familyOf('7+'), { family: 'maj7', simplified: false })
+    // A `+` before a digit raises that interval instead, and both of these are here to
+    // record that the new rule leaves them exactly as they were, not that either answer
+    // is settled: `7+9` is ambiguous in Italian sources between C7#9 and Cmaj9, and no
+    // song in this repo writes it, so it keeps whatever it read before.
+    assert.equal(familyOf('7+5'), null)
+    assert.deepEqual(familyOf('7+9'), { family: '9', simplified: true })
   })
 
   it('admits when it simplifies', () => {

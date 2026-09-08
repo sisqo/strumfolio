@@ -100,9 +100,23 @@ export interface Chord {
  * match wins, so the specific patterns have to come before the general ones:
  * `m7b5` before `m`, and the whole major-seventh family before `m`, because
  * `maj7` also starts with an `m`.
+ *
+ * `7+` is the one rule where a `+` means a major seventh instead of an augmented
+ * fifth, and position is what tells the two apart: a `+` that *opens* the suffix
+ * raises the fifth, so `C+` is augmented, while a `+` that *follows* the seven is
+ * how an Italian chart writes `Cmaj7` — `do7+`, `la7+`. Without this rule the
+ * suffix stays the uninterpreted `7+`, which `familyOf` then reads for the `7` it
+ * starts with and draws as a dominant seventh: a flat seventh where the chart asks
+ * for a natural one, one wrong note in the diagram and in the popup's list of them.
+ *
+ * The digit guard is what leaves the rest of the convention alone. In `7+5`, `7+9`,
+ * `7+11` the `+` belongs to the number after it and raises *that* interval, so those
+ * tokens are passed through exactly as written and nothing about how they are drawn
+ * changes.
  */
 const SUFFIX_ALIASES: [RegExp, string][] = [
   [/^(?:ø7|ø|m7b5|min7b5|-7b5|m7-5|mi7b5)/, 'm7b5'],
+  [/^7\+(?![0-9])/, 'maj7'],
   [/^(?:maj|Maj|MAJ|M|Δ|△|ma|j)(?=\d)/, 'maj'],
   [/^(?:maj|Maj|Δ|△)(?![a-z0-9])/, ''],
   [/^(?:dim|°|o)(?=7|$)/, 'dim'],

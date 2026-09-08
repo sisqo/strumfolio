@@ -36,6 +36,11 @@ describe('normalizeSuffix', () => {
     ['°7', 'dim7'],
     ['aug', 'aug'],
     ['+', 'aug'],
+    // A `+` after the seven is a major seventh, not the augmented fifth a leading
+    // one means; before a digit it belongs to that digit and is left alone.
+    ['7+', 'maj7'],
+    ['7+5', '7+5'],
+    ['7+9', '7+9'],
     ['m7b5', 'm7b5'],
     ['-7b5', 'm7b5'],
     ['ø', 'm7b5'],
@@ -152,6 +157,7 @@ describe('chords written in Italian', () => {
     assert.equal(parseChord('lam')?.suffix, 'm')
     assert.equal(parseChord('re-7')?.suffix, 'm7')
     assert.equal(parseChord('sol△7')?.suffix, 'maj7')
+    assert.equal(parseChord('do7+')?.suffix, 'maj7')
   })
 
   it('reads a slash bass in either notation', () => {
@@ -295,6 +301,7 @@ describe('Italian notation', () => {
     ['B', 'Si'],
     ['Cmin7', 'Do-7'],
     ['CM7', 'Do△7'],
+    ['C7+', 'Do△7'],
   ]
 
   for (const [source, expected] of cases) {
@@ -315,6 +322,7 @@ describe('international notation', () => {
     assert.equal(renderChord('Cmin7', 0, 'int', C), 'Cm7')
     assert.equal(renderChord('C-7', 0, 'int', C), 'Cm7')
     assert.equal(renderChord('CΔ7', 0, 'int', C), 'Cmaj7')
+    assert.equal(renderChord('C7+', 0, 'int', C), 'Cmaj7')
   })
 })
 

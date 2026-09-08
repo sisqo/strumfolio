@@ -130,7 +130,8 @@ Was [Em]blind, but [D]now I [G]see.
           you typed. Standard symbols are recognized — <code>m</code>, <code>7</code>,{' '}
           <code>maj7</code>, <code>sus4</code>, <code>add9</code>, <code>dim</code>, <code>aug</code>,
           slash chords like <code>C/E</code> — including their common alternate spellings
-          (<code>min7</code>, <code>-7</code>, and <code>mi7</code> are all the same chord).
+          (<code>min7</code>, <code>-7</code>, and <code>mi7</code> are all the same chord, and{' '}
+          <code>do7+</code> is the major seventh, the same chord as <code>Cmaj7</code>).
         </p>
         <p>Two edge cases worth knowing:</p>
         <ul>
