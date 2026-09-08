@@ -8,8 +8,17 @@
  * sitemap is invisible to Google, and the reverse is worse: a sitemap that advertises a URL
  * the guard bounces to `/login`.
  *
- * **Session-free and indexable are not the same question**, which is the reason this is a list
- * of objects rather than of strings. Four of the paths below are reachable without a session
+ * **Three questions are asked of this list, not one**, which is the reason it is a list of
+ * objects rather than of strings and the reason two predicates sit at the bottom of the file
+ * rather than one. In the order they arrived:
+ *
+ * 1. *Is this path served without a session?* — the guard's question (`isSessionFreePath`).
+ * 2. *Should a search engine be told it exists?* — the sitemap's (`indexable`).
+ * 3. *Is a reader standing here outside the app?* — `isOutsideAppPath`, which arrived with `/`
+ *    and is the only one of the three whose answer is not a property of the path alone.
+ *
+ * **Session-free and indexable are not the same question.** Four of the paths below are
+ * reachable without a session
  * only because they are links followed out of an email — a verification token, a password
  * reset — and offering those to a crawler would be offering it a page that cannot work for it.
  * `/register` is the odd one of that group: no token, no email, and a page somebody may
@@ -31,11 +40,29 @@ export interface PublicRoute {
 
 export const PUBLIC_ROUTES: PublicRoute[] = [
   /*
-   * The landing page, in practice: `/` requires a session and redirects here, so this is what
-   * an anonymous visitor and a crawler both actually get. That it is also the sign-in form is
-   * a problem for another day, and still open.
+   * The landing page — and the app's own home, which is what makes it unlike every other
+   * entry here. See `DUAL_AUDIENCE_PATHS` below: this one line is the reason that set exists.
+   *
+   * It used to be absent, and `/login` carried the comment this one replaces: `/` required a
+   * session and redirected there, so the sign-in form was what an anonymous visitor and a
+   * crawler both actually got, and that "is a problem for another day, and still open". This
+   * is that day. `(home)/layout.tsx` now renders the marketing page for anybody with no
+   * session and the app for anybody with one, and this row is what stops the guard bouncing
+   * the first of those two to `/login` before the layout ever runs.
    */
-  { path: '/login', indexable: true },
+  { path: '/', indexable: true },
+  /*
+   * The sign-in form, and nothing else since the restructure — no pitch, no features, no FAQ.
+   *
+   * Public forever, for the reason every entry below it is: whoever needs it has no session
+   * by definition. **Not indexable**, unlike almost everything else here, and that is a
+   * decision rather than an oversight: what a crawler was being offered under this URL was
+   * the whole argument for the product, and that argument now lives at `/`. Two URLs
+   * competing for one search intent is exactly what a sitemap is for avoiding. Note what this
+   * does *not* do — it is not a `noindex`, so a page already in an index stays there; it only
+   * stops this site advertising it.
+   */
+  { path: '/login', indexable: false },
   { path: '/pricing', indexable: true },
   { path: '/changelog', indexable: true },
   { path: '/register', indexable: true },
@@ -133,4 +160,41 @@ export function isFollowPath(pathname: string): boolean {
  */
 export function isSessionFreePath(pathname: string): boolean {
   return SESSION_FREE_PATHS.has(pathname) || isBlogPath(pathname) || isFollowPath(pathname)
+}
+
+/**
+ * The paths that are public *and* part of the app — where "public" is a fact about the request
+ * and not about the page.
+ *
+ * `/` is the only one, and it is what the whole set exists to name: with no session it is the
+ * landing page a visitor and a crawler get, and with one it is the reader's own repertoire.
+ * Every other entry in `PUBLIC_ROUTES` is one thing to everybody.
+ *
+ * A set rather than a bare `pathname === '/'` in the one function below, because the reason is
+ * a property of the list and not of that function: a second dual-audience path added later
+ * (a shared songbook, say) has to be declared *here*, where the next reader of this file is
+ * already looking, instead of appearing as a magic string inside a predicate about feedback.
+ */
+const DUAL_AUDIENCE_PATHS: ReadonlySet<string> = new Set(['/'])
+
+/**
+ * Whether somebody standing on this path is *outside* the app — reading a page written for
+ * whoever has not signed up yet, rather than using the thing they signed up for.
+ *
+ * Public and outside-the-app were the same question until `/` became the landing page, and
+ * `FeedbackProvider` was asking `isSessionFreePath` for this. Left that way, the row in
+ * `PUBLIC_ROUTES` for `/` would have silently taken the feedback bubble off the app's own home
+ * screen for every signed-in reader — a regression invisible to whoever introduced it, because
+ * signed *out* there is no bubble anywhere and the page looks correct however you check it. It
+ * is the same shape as the bug `FeedbackLauncher`'s own comment records ("both halves have to
+ * hold"), one layer up: that one had the reader half right and the page half missing, and this
+ * would have had the page half wrong.
+ *
+ * So: `/pricing`, the blog, a tool, a legal document and a Strum Together guest's screen are
+ * outside the app whoever is reading them. `/` never is — a visitor there has no session, so
+ * `FeedbackLauncher`'s own `email !== null` gate already keeps the bubble away from them, and
+ * that is the half of the question that belongs to the reader rather than to the path.
+ */
+export function isOutsideAppPath(pathname: string): boolean {
+  return isSessionFreePath(pathname) && !DUAL_AUDIENCE_PATHS.has(pathname)
 }

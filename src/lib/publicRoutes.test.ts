@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { PUBLIC_ROUTES, isBlogPath, isFollowPath, isSessionFreePath } from './publicRoutes'
+import { PUBLIC_ROUTES, isBlogPath, isFollowPath, isOutsideAppPath, isSessionFreePath } from './publicRoutes'
 
 describe('isSessionFreePath', () => {
   it('admits every path the list itself declares public', () => {
@@ -17,13 +17,22 @@ describe('isSessionFreePath', () => {
   })
 
   /**
+   * The landing page, stated on its own rather than left to the loop above — this is the row
+   * whose absence used to bounce every anonymous visitor and every crawler to `/login`, and
+   * the assertion it replaces said the opposite (`'/'` was in the list of paths that need a
+   * session, two tests down).
+   */
+  it('admits the landing page, which is also the app home', () => {
+    assert.equal(isSessionFreePath('/'), true)
+  })
+
+  /**
    * The half that matters to `FeedbackProvider`: these are the pages somebody is *using* the
    * app on, and the only ones the feedback launcher may appear on. A path wrongly admitted
    * here takes the launcher away from a screen that should have it.
    */
   it('refuses every screen that needs a session', () => {
     for (const path of [
-      '/',
       '/songs/certe-notti',
       '/songs/certe-notti/edit',
       '/songbooks/repertorio',
@@ -50,5 +59,58 @@ describe('isSessionFreePath', () => {
     assert.equal(isFollowPath('/follow'), false)
     assert.equal(isFollowPath('/follow/abc/extra'), false)
     assert.equal(isSessionFreePath('/toolsmith'), false)
+  })
+})
+
+describe('isOutsideAppPath', () => {
+  /**
+   * The one case the whole predicate exists for. `/` is session-free *and* the app's own home,
+   * so asking `isSessionFreePath` here — which is what `FeedbackProvider` did until the
+   * landing page moved — would take the feedback bubble off the home screen of every
+   * signed-in reader, and look correct to anybody checking it signed out.
+   */
+  it('does not call the landing page outside the app, though it is public', () => {
+    assert.equal(isSessionFreePath('/'), true)
+    assert.equal(isOutsideAppPath('/'), false)
+  })
+
+  it('calls every other public page outside the app', () => {
+    for (const path of ['/login', '/register', '/pricing', '/changelog', '/tools', '/privacy-policy']) {
+      assert.equal(isOutsideAppPath(path), true, `${path} should be outside the app`)
+    }
+    assert.equal(isOutsideAppPath('/blog/chordpro-explained'), true)
+    assert.equal(isOutsideAppPath('/follow/abc123'), true)
+  })
+
+  /** A page that needs a session is inside the app by definition, not merely "not public". */
+  it('calls a page that needs a session inside the app', () => {
+    assert.equal(isOutsideAppPath('/songbooks/repertorio'), false)
+    assert.equal(isOutsideAppPath('/help'), false)
+  })
+})
+
+describe('PUBLIC_ROUTES', () => {
+  /**
+   * The sitemap reads `indexable`, and these two rows are the ones a future edit is most
+   * likely to get backwards: `/` carries the whole argument for the product and must be
+   * offered, `/login` is a form whose pitch moved to `/` and must not compete with it.
+   */
+  it('offers the landing page to a crawler and withholds the sign-in form', () => {
+    const indexable = (path: string) => PUBLIC_ROUTES.find((route) => route.path === path)?.indexable
+
+    assert.equal(indexable('/'), true)
+    assert.equal(indexable('/login'), false)
+    assert.equal(indexable('/register'), true)
+  })
+
+  /** Reachable-without-a-session only because they arrive in an email: nothing to index. */
+  it('withholds the pages that only work with a token', () => {
+    for (const path of ['/verify', '/forgot-password', '/reset-password']) {
+      assert.equal(
+        PUBLIC_ROUTES.find((route) => route.path === path)?.indexable,
+        false,
+        `${path} should not be indexable`,
+      )
+    }
   })
 })

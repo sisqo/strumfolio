@@ -70,10 +70,18 @@ the same friend to four rehearsals cannot overwrite the campaign that friend arr
 
 ## The middleware has six exits and every landing one must carry the cookie
 
-The expensive one to forget: **`/` requires a session**, so `strumfolio.com/?utm_source=…` — the
-most ordinary campaign URL there is — reaches the redirect branch, and the redirect **does not
-carry the query string**. Miss the cookie there and the parameters exist nowhere afterwards. Hence
-one `withAttribution` helper called at each exit rather than five copies of a `cookies.set`.
+One `withAttribution` helper called at each exit rather than five copies of a `cookies.set`, and
+the rule survives the change that removed its own illustration.
+
+It read: **`/` requires a session**, so `strumfolio.com/?utm_source=…` — the most ordinary
+campaign URL there is — reaches the *redirect* branch, and the redirect does not carry the query
+string. **`/` is public since 2026-09-08** (`app/(home)/layout.tsx` serves the landing page to
+anybody with no session), so that URL now lands in the `SESSION_FREE_PATHS` branch with its
+parameters intact and gets its cookie there. Verified with a real GET, not by reading the code.
+
+The redirect branch still exists for every path that does need one — a bookmarked song, a shared
+songbook link — and a campaign can point at a deep link as easily as at the home page, so it
+still has to carry the cookie. Nothing to relax; only the example changed.
 
 Two gates, both deliberate: **GET only** (a Server Action POSTs to the page's own URL, and
 Next.js copies the `Set-Cookie` onto the *request* — the scar the `/follow` device-id branch
@@ -86,9 +94,24 @@ no integration runner here — so verify it by hand against dev, with **GET and 
 which sends HEAD and is refused by the method gate:
 
 ```bash
-curl -s -D - -o /dev/null 'http://localhost:3000/?utm_source=x&utm_campaign=y' | grep -i set-cookie
-curl -s -D - -o /dev/null 'http://localhost:3000/verify?token=abc' | grep -i set-cookie   # must be empty
+# Grep for the cookie by name, never for `set-cookie`: NextAuth puts `authjs.csrf-token` and
+# `authjs.callback-url` on these responses whatever this module does, so the loose grep is
+# never empty and reads as a rule-4 violation that is not there. (It said `grep -i set-cookie`
+# with «must be empty» beside it until somebody ran it.)
+curl -s -D - -o /dev/null 'http://localhost:3000/?utm_source=x&utm_campaign=y' | grep -c songbook-attribution   # 1
+curl -s -D - -o /dev/null 'http://localhost:3000/verify?token=abc'             | grep -c songbook-attribution   # 0
+curl -s -D - -o /dev/null 'http://localhost:3000/forgot-password'              | grep -c songbook-attribution   # 0
 ```
+
+## `landing_page` means two different things either side of 2026-09-08
+
+Before that date `/` redirected to `/login`, so virtually every row records `/login` as the
+landing path — the page the visitor actually got. `/` is the landing page itself now, so rows
+written after it record `/`. Same visits, same behaviour, different value: the step in any
+`GROUP BY landing_page` on `/leads` is this change and not a change in where readers arrive.
+
+No backfill, by decision, and nothing in code to fix — `normalizeLandingPath` already keeps `/`
+among its `WHOLE_PATHS`.
 
 ## Two invariants of the row
 

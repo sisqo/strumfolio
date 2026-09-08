@@ -350,6 +350,13 @@ export async function loadAccountHistory(
  * every write path re-checking access on every call is what stops it from doing harm
  * in the meantime, but the account behind this session is now gone, and leaving the
  * reader signed in to it would strand them on a page with nothing left to show.
+ *
+ * **It lands on `/` and not on `/login`, which is where it used to go**, and the two were the
+ * same page until the landing page was split out. `SignOutButton` still ends at `/login`,
+ * rightly — somebody who signed out is a reader who will sign back in. This is the other case:
+ * there is no account left to sign in to, so offering a sign-in form is offering a door to
+ * nowhere. `/` is the one page that says what they have just left, and it is what a stranger
+ * gets too, which is now what they are.
  */
 export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
@@ -370,7 +377,7 @@ export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteR
     return { ok: false, reason: 'failed' }
   }
 
-  await signOut({ redirectTo: '/login' })
+  await signOut({ redirectTo: '/' })
   // Unreachable: signOut with a redirectTo always throws to get there.
   return { ok: true }
 }

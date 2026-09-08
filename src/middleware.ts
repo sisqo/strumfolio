@@ -131,11 +131,17 @@ function attributionCookieFor(request: NextRequest & { auth?: unknown }): string
  * Put the attribution cookie on whatever response a branch decided to return.
  *
  * **Every exit of this middleware that a visitor can land on has to go through here**, and the
- * expensive one to forget is the redirect to `/login`: `/` requires a session, so
- * `strumfolio.com/?utm_source=…` — the most ordinary campaign URL there is — reaches that branch,
- * and the redirect does not carry the query string with it. Miss the cookie there and the
- * parameters exist nowhere afterwards, with nothing failing to say so. Hence one helper called
- * at each exit rather than a `response.cookies.set` copied five times.
+ * rule has not changed even though the example that used to illustrate it has. It read: the
+ * expensive one to forget is the redirect to `/login`, because `/` required a session, so
+ * `strumfolio.com/?utm_source=…` — the most ordinary campaign URL there is — reached that
+ * branch and the redirect dropped the query string.
+ *
+ * **`/` is public now** (`(home)/layout.tsx` serves the landing page to anybody with no
+ * session), so that URL lands in the `SESSION_FREE_PATHS` branch below with its parameters
+ * intact and gets its cookie there. The redirect at the bottom still exists for every path that
+ * does need a session — a bookmarked song, a shared songbook link — and still drops the query
+ * string on the way, so it still has to carry the cookie. Nothing here to relax: one helper
+ * called at each exit rather than a `response.cookies.set` copied five times.
  */
 function withAttribution(response: NextResponse, value: string | null): NextResponse {
   if (value === null) return response
@@ -169,6 +175,23 @@ export default auth((request) => {
   if (isPublicAsset(pathname)) return
 
   /**
+   * **`/` is the newest member of this list and the one that changes what the branch means.**
+   * Every other path here is one page to everybody; `/` is the public landing page without a
+   * session and the reader's own repertoire with one (`(home)/layout.tsx`). The conditional
+   * shape below — `if (request.auth) return`, written for `/pricing` — is exactly right for it
+   * and must not be "simplified" to the unconditional one `/follow` uses: a signed-in reader's
+   * home may sit in the page caches like any other screen of theirs, while a visitor's copy is
+   * marked anonymous and therefore never stored at all.
+   *
+   * That second half is load-bearing beyond privacy. `scripts/precache-routes.ts` precaches
+   * `/` with whatever cookies the device had at install time, and `sw.ts`'s
+   * `rejectUnauthenticated` refuses to store any response carrying this header. Without the
+   * header, a browser that installed the app while signed out would keep the *marketing page*
+   * under `/` and be served it as the app's home screen after signing in. Nothing would fail
+   * and nothing would say so — the same shape of silent, permanent bad cache `sw.ts`'s own
+   * header comment describes for song URLs. Before `/` was public the redirect covered this by
+   * accident (`response.redirected` is refused too); now it rests on this line.
+   *
    * The login page — and, since v3.2, registration and the whole self-serve email loop
    * next to it — is reachable without a session but still gets marked.
    *
@@ -335,9 +358,16 @@ export default auth((request) => {
   }
 
   /*
-   * The exit `?utm_source=…` actually arrives at, since `/` requires a session — see
-   * `withAttribution`'s own comment. The redirect drops the query string, so this cookie is the
-   * only place the campaign survives.
+   * Everything that genuinely needs a session and did not match a branch above: a bookmarked
+   * song, a shared songbook URL, `/help`, `/billing`, `/accounts`.
+   *
+   * **This is no longer where an ordinary campaign URL lands.** It used to be — `/` required a
+   * session, so `strumfolio.com/?utm_source=…` came through here and the redirect dropped the
+   * query string, which is why the cookie had to be set on it. `/` is public now and takes the
+   * `SESSION_FREE_PATHS` branch instead. The cookie stays on this exit all the same: a campaign
+   * can point at a deep link (an article's own songbook, a shared song) as easily as at the
+   * home page, and this redirect still throws the parameters away on the way to `/login`. See
+   * `withAttribution`'s own comment.
    */
   if (!request.auth) {
     const response = NextResponse.redirect(new URL('/login', request.nextUrl.origin))

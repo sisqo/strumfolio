@@ -291,7 +291,8 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
  * The retype-to-confirm safety net, same shape as `DeleteAccountRow`'s own — the
  * one difference being what happens on success: that button refreshes a list still on
  * screen, this one has nothing left to show, since `deleteMyAccount` ends by signing
- * the reader out and redirecting to `/login` on its own.
+ * the reader out and redirecting to `/` on its own — the public home, since there is no
+ * account left to sign in to; see that action's own comment.
  */
 function DeleteMyAccountView({ email, onBack }: { email: string; onBack: () => void }) {
   const [confirmEmail, setConfirmEmail] = useState('')

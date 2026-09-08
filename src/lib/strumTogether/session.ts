@@ -529,7 +529,7 @@ function isForeignKeyViolation(error: unknown): boolean {
  * **Open by nature — the identity is a cookie.** This is a public, unauthenticated server
  * action, so a private window is a new device and clearing one cookie is a new identity. No
  * amount of care here closes that; only requiring followers to sign in would, and «no account
- * for anyone following» is a stated promise on /pricing and /login. Reviewed and kept.
+ * for anyone following» is a stated promise on /pricing and on `/`. Reviewed and kept.
  *
  * Two further facts that are not holes in the cap but are read as such if left unsaid. The cap
  * governs *following*, never *reading*: the token stays a valid read credential and

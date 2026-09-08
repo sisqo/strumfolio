@@ -213,7 +213,7 @@ const PERIODS: { value: BillingPeriod; label: string }[] = [
  * already been made into sentences. `BillingPeriod` is a type import, which erases.
  *
  * Rejected: a CSS-only toggle — two radios and `:has()`, which needs no JavaScript at all
- * and is what the `<details>` FAQ on /login argues for in a comparable spot. It would put
+ * and is what the `<details>` FAQ on `/` argues for in a comparable spot. It would put
  * both price sets in the DOM at once, which is fine, and leave the *selected* state
  * unspeakable, which is not: a radio that visually swaps other elements' visibility
  * announces itself as a radio and says nothing about the prices that changed. Here one tap

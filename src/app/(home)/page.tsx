@@ -32,6 +32,15 @@ export default async function Home() {
    * comment for why a redirect thrown from inside this page's body was silently not
    * redirecting at all. `user` is still resolved here too, cheaply (`currentUser` reads
    * no database of its own), for this page's own data needs below.
+   *
+   * **`user === null` no longer means "a visitor" here, and the branch below reads as dead
+   * code unless that is said out loud.** `/` serves two audiences now, and the layout is what
+   * tells them apart: with a database and nobody signed in it renders the landing page instead
+   * of this file, so this component is never reached by a visitor. The one way to arrive here
+   * with no user is the no-database mode — the normal way to work locally, where songs come
+   * straight from `content/` and there is no account to scope anything to. That is exactly
+   * what the `repository.*` branch below is for. Delete it and `npm run dev` without
+   * `DATABASE_URL` stops working.
    */
   const user = hasDatabase ? await currentUser() : null
 

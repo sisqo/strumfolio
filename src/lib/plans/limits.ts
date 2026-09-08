@@ -1,8 +1,9 @@
 /**
  * A plan limit, written out with its unit and the right plural.
  *
- * It exists because the same sentence is now printed in more than one place — `/login`'s
- * feature list and the promotional panel that closes every article and every tool page — and
+ * It exists because the same sentence is now printed in more than one place — the landing
+ * page's feature list and FAQ (`/`) and the promotional panel that closes every article and
+ * every tool page — and
  * the numbers in it are facts about `PLANS` rather than words. A cap that changes has to
  * change the prose with it; a cap typed into prose is a sentence that was true once.
  *

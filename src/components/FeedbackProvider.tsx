@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 
 import { FeedbackLauncher } from '@/components/FeedbackLauncher'
 import { FeedbackSheet } from '@/components/FeedbackSheet'
-import { isSessionFreePath } from '@/lib/publicRoutes'
+import { isOutsideAppPath } from '@/lib/publicRoutes'
 
 interface FeedbackContextValue {
   open: () => void
@@ -21,20 +21,26 @@ const FeedbackContext = createContext<FeedbackContextValue | null>(null)
  * 1. **The reading screen and the editor.** `/songs/[slug]` is the reader,
  *    `/songs/[slug]/edit` the editor; nothing else in the app lives one level under
  *    `/songs/`. Attention there belongs entirely to the song.
- * 2. **Every public page** — the sign-in form, `/pricing`, `/changelog`, the tools, the
- *    legal documents, the blog, a Strum Together guest's screen. Feedback is a thing you
+ * 2. **Every page outside the app** — the sign-in form, `/pricing`, `/changelog`, the tools,
+ *    the legal documents, the blog, a Strum Together guest's screen. Feedback is a thing you
  *    give about an app you are *using*, from inside it; on the pages somebody reads while
  *    deciding whether to sign up it is a support widget on a shop window.
  *
  * The second was missing and the bug it left was invisible to whoever wrote it: signed
  * *out*, `FeedbackLauncher` renders nothing anyway, so `/pricing` and the blog looked
  * correct to anybody who checked them the obvious way. A reader with a session standing on
- * those same pages got the bubble. `isSessionFreePath` is asked rather than a second list
- * copied here, so a public page added tomorrow is covered without anybody remembering this
- * file exists.
+ * those same pages got the bubble. A predicate from `lib/publicRoutes.ts` is asked rather
+ * than a second list copied here, so a public page added tomorrow is covered without anybody
+ * remembering this file exists.
+ *
+ * **`isOutsideAppPath` and not `isSessionFreePath`**, which is what this asked until `/`
+ * became the landing page. The two answered the same question while every public path was
+ * public to everybody; `/` is public *and* the app's own home, so the older predicate would
+ * have taken the bubble off the home screen of every signed-in reader — see
+ * `isOutsideAppPath`'s own comment for why that would have looked correct to whoever did it.
  */
 function isExcludedRoute(pathname: string): boolean {
-  return /^\/songs\/[^/]+(\/edit)?$/.test(pathname) || isSessionFreePath(pathname)
+  return /^\/songs\/[^/]+(\/edit)?$/.test(pathname) || isOutsideAppPath(pathname)
 }
 
 /**

@@ -19,14 +19,23 @@ import { hasChosenPlan } from '@/lib/plans/resolve'
  *
  * Three answers, because there are three readers:
  *
- * - **Nobody signed in** — «Sign in», unchanged, and the majority case.
+ * - **Nobody signed in** — the two public actions, «Start free» as the capsule and «Sign in»
+ *   quiet beside it. The majority case. It used to be a lone «Sign in» capsule, which was the
+ *   right single control while `/login` *was* the landing page and carried the whole pitch;
+ *   with `/` doing that job, somebody reading a price list has no account yet by definition,
+ *   so the loud control is the one that gets them one.
  * - **Signed in, plan chosen** — «My songbooks», the thing they actually came from and the
- *   only place this bar can usefully send them.
+ *   only place this bar can usefully send them. No quiet action: they are signed in, so
+ *   neither «Sign in» nor «Start free» means anything.
  * - **Signed in and actually gated** — nothing at all. This is the reader `requirePlanChoice`
  *   redirected *here*, and every destination is a bounce: `/` sends them straight back. A
  *   button that returns you to the page you are on is worse than no button, and the notice the
  *   page itself now shows is what explains the situation instead. "Actually gated" and not
  *   "has not chosen": see `gated` below.
+ *
+ * `current="Pricing"` is separate from all of that and is not about who is reading: it drops
+ * «Pricing» from the row of sections, because this is that page and a link to it from itself
+ * is a dead control.
  *
  * `currentUser()` costs no query (v3.1 — it resolves a role from the cookie and the
  * environment alone), so the price of all this is the single `hasChosenPlan` read, and only
@@ -55,15 +64,18 @@ export default async function PricingLayout({ children }: { children: React.Reac
 
   const cta =
     user === null
-      ? { href: '/login', label: 'Sign in' }
+      ? { href: '/register', label: 'Start free' }
       : gated
         ? undefined
         : { href: '/', label: 'My songbooks' }
 
+  /* Only for the reader who has no account: the other two are already signed in. */
+  const link = user === null ? { href: '/login', label: 'Sign in' } : undefined
+
   return (
     <>
       {/* 70rem, matching this page's own `<main className="... max-w-[70rem] ...">`. */}
-      <PublicHeader width="70rem" cta={cta} />
+      <PublicHeader width="70rem" current="Pricing" link={link} cta={cta} />
       {children}
     </>
   )

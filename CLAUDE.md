@@ -142,8 +142,9 @@ already deployed. With no commit to push, that means `vercel redeploy <deploymen
 "Deployment belongs to a different team" even though `sisqoz` is the only team here. That
 command is blocked by Claude Code's auto-mode classifier and needs the user's explicit
 permission. Confirm the flip took effect on copy that differs between the two states, not on
-a signed-out page that looks identical either way — `/login`'s plan-limits FAQ
-(`plansEnforced() && !mockCheckoutEnabled()`) is one that does.
+a signed-out page that looks identical either way — the landing page's plan-limits FAQ at
+`/` (`plansEnforced() && !mockCheckoutEnabled()`, in `app/(home)/Landing.tsx`) is one that
+does. It was on `/login` until the public home was split out.
 
 ## Migrating the production database
 
@@ -354,6 +355,60 @@ replacing DM Sans as of August 2026).
 Chromium here is a snap and cannot write into `/tmp/claude-*` — pass `--screenshot=` a path
 under `$HOME` (e.g. `~/songbook-shots`) if a visual comparison is needed.
 
+## The public side: `/` is the landing page, `/login` is only the form
+
+Until 2026-09-08, `/` required a session and `middleware.ts` redirected anybody without one to
+`/login` — so the sign-in form was also the product's only public page, carrying the hero, the
+three demo bands, eleven features and twenty-two FAQ answers. `publicRoutes.ts` had recorded
+that as an open problem beside its own entry for months. It is split now:
+
+- **`/` serves two audiences from one URL.** `app/(home)/layout.tsx` decides: no session →
+  `Landing` (the public home, `app/(home)/Landing.tsx`); a session → `page.tsx`, the reader's
+  own songbooks, unchanged.
+- **`/login` is the sign-in card**, back inside the `(auth)` group with the four other narrow
+  sign-in pages, having left it only because it used to be 70rem wide.
+- **Both public bars carry the same navigation**, from one list in `lib/publicNav.ts`.
+  `PublicHeader` draws it on the app's own chrome, `SiteHeader` on the blog and the tools —
+  two components on purpose, because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`
+  and `.tool-page` and cannot leave them. Below 48rem both collapse the sections into
+  `PublicNavMenu`.
+
+Four things here are expensive to get wrong, and none of them fails loudly:
+
+- **The branch in `(home)/layout.tsx` has three outcomes, not two.** `hasDatabase` false makes
+  `currentUser()` null, and reading that as "a visitor" serves the marketing page at `/` on
+  every `npm run dev` with no `DATABASE_URL` — the normal way to work locally — leaving the
+  home screen unreachable. The `hasDatabase` gate wraps the whole decision for that reason.
+  The same three outcomes are why the render and `generateMetadata` share one `audience()`
+  helper: written out twice, the metadata got two of the three and local dev rendered the app
+  under the landing page's title.
+- **`/` is the first dual-audience path**, so `publicRoutes.ts` answers three questions rather
+  than two: session-free (the guard), indexable (the sitemap), and `isOutsideAppPath` — which
+  `FeedbackProvider` asks. Adding `/` to the list and stopping there takes the feedback bubble
+  off the app's own home screen for every signed-in reader, and looks correct to anybody who
+  checks it signed out. A second dual-audience path goes in `DUAL_AUDIENCE_PATHS`, not into a
+  predicate as a string.
+- **`ANONYMOUS_HEADER` on an anonymous `/` is what protects the precache.**
+  `scripts/precache-routes.ts` precaches `/` with whatever cookies the installing device had,
+  and `sw.ts`'s `rejectUnauthenticated` refuses anything carrying that header. Without it a
+  browser that installed while signed out keeps the *marketing page* under `/` and is served it
+  as the app's home after signing in — silently and permanently. The middleware's
+  `SESSION_FREE_PATHS` branch is conditional (`if (request.auth) return`) precisely so this
+  holds; do not "simplify" it to the unconditional shape `/follow` uses.
+- **`lead_attribution.landing_page` changes meaning on the cutover date**: `/login` before,
+  `/` after, for the same visits. No backfill, by decision. `attribution/CLAUDE.md` carries
+  the date.
+
+`manifest.ts` keeps `start_url: '/'`, so the installed app whose session has lapsed would open
+onto the marketing page; `StandaloneRedirect` in `Landing` sends it to `/login` instead. Done
+client-side on purpose — nothing in a request says whether the browser is running the page as
+an installed app, and the server-side alternative (`start_url: '/?app=1'`) would put a new
+parameter on the one URL the service worker precaches. That component's comment has the whole
+argument.
+
+`SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, because there is no account
+left to sign in to.
+
 ## Adding the app to the home screen
 
 The hamburger's "Add to home screen" row (`src/lib/install/`, `InstallPanel.tsx`) is one row
@@ -366,15 +421,22 @@ with two behaviours, and three facts about it are easy to break from far away:
   and `beforeinstallprompt` was firing; the phone was simply opened from its home-screen
   icon. `/app-settings` answers that question directly, in `DeviceLaunchCheck`'s own line:
   «opened from the Home Screen» or «in a browser tab».
-- **Three surfaces say this out loud and must agree**: the row itself, `/help` §7, and
-  `/login`'s public FAQ answer on installing. Change one and the other two are wrong — the
-  same rule the booklet's own override already lives under.
+- **Three surfaces say this out loud and must agree**: the row itself, `/help` §7, and the
+  public FAQ answer on installing, which is now on `/` (`app/(home)/Landing.tsx`) rather than
+  on `/login`. Change one and the other two are wrong — the same rule the booklet's own
+  override already lives under.
 - **`beforeinstallprompt` is captured by an inline script in `app/layout.tsx`**, not by a
   listener in an effect: it fires once, and on a warm cache it fires before React hydrates,
   so an effect misses it exactly on the fastest loads. Its `preventDefault()` is required —
   without it Chromium adds its own install infobar beside our row. That call now runs on
   every page, landing pages included, so **Chromium's automatic infobar is suppressed
   site-wide**; the browser's own ⋮ → "Install app" and the desktop omnibox icon still work.
-- **`/login` and `PublicHeader` have no hamburger**, so a first-time visitor cannot reach
-  the row from the landing page — the surface where the decision is actually made. Known
-  gap, deliberately not filled.
+- **A visitor still has no way to install, and that is now a decision rather than an
+  absence.** It used to hold because `/login` and `PublicHeader` had no hamburger to put the
+  row in. `PublicHeader` has one since the public site grew a navigation
+  (`PublicNavMenu`), so the row *could* go there and deliberately does not: installing is a
+  gesture for somebody who has an account, not for somebody deciding whether to get one.
+  Note what this costs, since it is invisible — `preventDefault()` on
+  `beforeinstallprompt` runs site-wide (above), so a visitor gets neither our row nor
+  Chromium's own infobar, and on iOS there is no infobar to get. Re-open the question by
+  putting the row in the public menu, not by weakening that `preventDefault()`.

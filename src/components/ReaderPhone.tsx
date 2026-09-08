@@ -21,9 +21,13 @@ import { CHORD_DISPLAY_HINT, CHORD_DISPLAY_TITLE } from '@/lib/prefs/types'
 import { chordNoteNames, fingeringText, shapeFor, shapesFor } from '@/lib/music/shapes'
 
 /**
- * The reading screen, alive, in a phone — the second of `/login`'s two moving pictures
- * and the counterpart to `EditorPhone`: that one is the song being written, this one is
- * the song being played.
+ * The reading screen, alive, in a phone — the first thing a visitor sees of the product, in
+ * the hero of `/`, and the counterpart to `EditorPhone`: that one is the song being written,
+ * this one is the song being played.
+ *
+ * It stood beside the reading band's three points until the landing page was restructured, when
+ * the sign-in form left the hero and something had to be there that was the product rather than
+ * a form. Drawn once on the page, so that band is now copy alone — see `Landing.tsx`.
  *
  * One twenty-second loop, five moves, in the order a musician actually makes them:
  * the key goes up two and every chord on the sheet reletters; the capo menu opens and

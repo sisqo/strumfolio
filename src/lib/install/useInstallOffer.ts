@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import { isInstalled } from '@/lib/install/installed'
 import { installOffer, installPlatform } from '@/lib/install/offer'
 import type { InstallMode } from '@/lib/install/offer'
 import { INSTALL_EVENT, INSTALL_PROMPT_KEY } from '@/lib/install/prompt'
@@ -90,15 +91,5 @@ function stashedPrompt(): BeforeInstallPromptEvent | null {
   return stashed == null ? null : (stashed as BeforeInstallPromptEvent)
 }
 
-/**
- * Whether this page *is* the installed app.
- *
- * Both questions asked, because neither answers it everywhere: `display-mode: standalone`
- * is the standard one and what Android reports, while iOS answered it with the
- * non-standard `navigator.standalone` years before it supported the media query, and still
- * does. Either being true is enough.
- */
-function isInstalled(): boolean {
-  if (window.matchMedia('(display-mode: standalone)').matches) return true
-  return (navigator as Navigator & { standalone?: boolean }).standalone === true
-}
+/* `isInstalled` used to be defined here, and moved to `lib/install/installed.ts` when the
+   landing page needed the same answer — see that module for why one copy rather than two. */

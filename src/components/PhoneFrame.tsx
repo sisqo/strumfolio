@@ -3,12 +3,12 @@
  * the island, the status bar and the home indicator — and, in the screen, whatever the
  * caller stands there.
  *
- * `/login` puts two of these side by side with the copy that explains them
- * (`EditorPhone`, `ReaderPhone`), and the reason it is a drawing rather than a
- * screenshot is the same reason `EditorDemo` is: what goes in the screen is the app's
- * own markup and the app's own classes, so it cannot fall out of date. The frame is the
- * only part of either band that is a picture of a thing, and it is the only part that
- * has nothing to do with the product.
+ * `/` stands three of these: `ReaderPhone` in the hero, `EditorPhone` beside the copy that
+ * explains it, and three at once in `StrumTogetherStage`. The reason it is a drawing rather
+ * than a screenshot is the same reason `EditorDemo` is: what goes in the screen is the app's
+ * own markup and the app's own classes, so it cannot fall out of date. The frame is the only
+ * part of any of those bands that is a picture of a thing, and it is the only part that has
+ * nothing to do with the product.
  *
  * The screen is 360×720 — the size the design mock's own device is, and a real phone's
  * viewport — and everything inside it is laid out at that width. What that costs is

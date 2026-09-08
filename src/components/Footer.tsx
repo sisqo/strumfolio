@@ -83,10 +83,12 @@ export function Footer() {
         <span className="app-footer-item">
           <Link href="/changelog">Changelog</Link>
         </span>
-        {/* The one place the blog is linked from inside the app. It is written for people who
-            have not arrived yet — a visitor lands on an article from a search, not from here —
-            so this row, which every screen already carries, is the whole of its billing:
-            `PublicHeader` holds one CTA and it is spent on the pair /login and /pricing. */}
+        {/* The one place the blog is linked from *inside* the app. It is written for people
+            who have not arrived yet — a visitor lands on an article from a search, not from
+            here — so this row, which every screen already carries, is the whole of its billing
+            on this side of the sign-in. Outside it the public bars now name it themselves
+            (`lib/publicNav.ts`), which is what this line used to stand in for while
+            `PublicHeader` had room for exactly one CTA and spent it on /login and /pricing. */}
         <span className="app-footer-item">
           <Link href="/blog">Blog</Link>
         </span>

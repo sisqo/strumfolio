@@ -19,8 +19,9 @@ import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
  * **Three pages, not "any page".** The mock's own note says it sits over any page; in this app
  * that would include `/songs/[slug]`, which is read while playing, where a bar fixed to the
  * bottom covers the last lines of a lyric and the auto-scroll control. Mounted on `/pricing`,
- * `/login` and `/checkout/[plan]` instead — the three screens where somebody is deciding
- * whether to pay.
+ * `/` and `/checkout/[plan]` instead — the three screens where somebody is deciding whether to
+ * pay. (The first of those three was `/login` until the landing page moved to `/`: the overlay
+ * follows the front door, not the sign-in form.)
  *
  * **The offer here is not yet applied.** That is what the mock's own controls say: a code to
  * copy and a link to the plans, never an «Apply». So this is the advertisement, and `CouponBar`
@@ -148,7 +149,7 @@ export function CouponOverlay({
               {/* «Strum Together included» was the third clause, and it stopped selling anything
                   the day free started leading a session of its own. What a paid plan adds is the
                   size of the room, so the clause names that instead — and stays plan-agnostic,
-                  because this ticket is mounted on /pricing, /login and /checkout alike and has
+                  because this ticket is mounted on /pricing, / and /checkout alike and has
                   no one plan to quote a number for. */}
               <span>Every songbook, every device, more screens in a Strum Together session.</span>
               {deadline !== null && (

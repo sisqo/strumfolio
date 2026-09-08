@@ -1,11 +1,7 @@
-import type { Metadata } from 'next'
-import { AuthError } from 'next-auth'
 import { cookies } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { signIn } from '@/auth'
 import { CouponOverlay } from '@/components/CouponOverlay'
 import { EditorPhone } from '@/components/EditorPhone'
 import { Footer } from '@/components/Footer'
@@ -16,7 +12,6 @@ import {
   IconChordShape,
   IconCode,
   IconComment,
-  IconGoogle,
   IconImport,
   IconNotation,
   IconOnStage,
@@ -26,21 +21,29 @@ import {
   IconTuningFork,
   IconUsers,
 } from '@/components/icons'
-import { LandingCounters } from '@/components/LandingCounters'
+import { PublicHeader } from '@/components/PublicHeader'
 import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { advertisableCampaign } from '@/lib/coupons/read'
 import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
+import { StandaloneRedirect } from '@/components/StandaloneRedirect'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
 import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 
-const TITLE = `${APP_NAME} — ${APP_PAYOFF}`
-/*
+/**
+ * The tab title and the share card's headline. Exported because the metadata that carries it
+ * is `generateMetadata` in `layout.tsx` beside this file, not a `metadata` export of `page.tsx`
+ * — see that layout for why the whole decision about who is reading `/` lives there.
+ */
+export const LANDING_TITLE = `${APP_NAME} — ${APP_PAYOFF}`
+
+/**
  * Read four times over — `metadata.description`, the OpenGraph and Twitter blocks, and the
  * hero's own lede — so it has to work as a spoken sentence and as a search snippet at once.
+ * Exported for the first three, which are the layout's; the fourth is a few dozen lines down.
  *
  * "Completely free." was true of this app for its whole life and stopped being true the day
  * the plans landed (see `lib/plans/types.ts`), so it had to go: /pricing lists four plans and
@@ -48,7 +51,7 @@ const TITLE = `${APP_NAME} — ${APP_PAYOFF}`
  * to start" was the obvious replacement and is rejected — it reads as a trial, and the free
  * plan is not one: it has no end date, which is the first thing /pricing says.
  */
-const DESCRIPTION =
+export const LANDING_DESCRIPTION =
   'Play and sing with your own chords and lyrics — import, edit visually, export freely. Key, capo, auto-scroll, synced everywhere. Free to use, with paid plans for bigger repertoires.'
 
 /**
@@ -70,25 +73,6 @@ const HERO_PILLS: HeroPill[] = [
   { icon: <IconOnStage size={14} />, text: 'Always with you, even offline' },
   { icon: <IconTuningFork size={14} />, text: 'Key and capo, made smart' },
 ]
-
-export const metadata: Metadata = {
-  // `absolute`, not the root template: this page names itself, and "· Strumfolio" after
-  // its own payoff would repeat the name in the same breath.
-  title: { absolute: TITLE },
-  description: DESCRIPTION,
-  openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
-    locale: 'en_US',
-    type: 'website',
-    images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
-  },
-  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION, images: ['/brand/og-image.png'] },
-}
-
-interface Props {
-  searchParams: Promise<{ error?: string; failed?: string; reset?: string }>
-}
 
 interface Feature {
   icon: React.ReactNode
@@ -130,12 +114,14 @@ const EDITOR_POINTS: SpotlightPoint[] = [
 ]
 
 /**
- * What the reading band says beside the living reader (`ReaderPhone`). Three points,
- * one per thing a musician changes with the instrument already in their hands: the key
- * and the fret that answers it, how much of a chord the sheet draws, and who is turning
- * the page. Every claim is shipped behaviour — the per-fret open-chord count is
- * `easeByFret`, the four ways of drawing a chord are `CHORD_DISPLAY_TITLE`, the
- * full-size box is `ChordPopup`, and the pace is `SCROLL_SPEEDS`.
+ * What the reading band says. Three points, one per thing a musician changes with the
+ * instrument already in their hands: the key and the fret that answers it, how much of a
+ * chord the sheet draws, and who is turning the page. Every claim is shipped behaviour — the
+ * per-fret open-chord count is `easeByFret`, the four ways of drawing a chord are
+ * `CHORD_DISPLAY_TITLE`, the full-size box is `ChordPopup`, and the pace is `SCROLL_SPEEDS`.
+ *
+ * These used to sit beside `ReaderPhone`, which now leads the hero — so the band they belong
+ * to is the copy alone, and they are the whole of it rather than a caption to a picture.
  */
 const READER_POINTS: SpotlightPoint[] = [
   {
@@ -622,33 +608,38 @@ const FEATURES: Feature[] = [
 ]
 
 /**
- * The one screen anyone sees before signing in — which makes it the app's public page
- * too, and the only one: everything else redirects here without a session (see
- * `middleware.ts`). So it carries both jobs at once. The sign-in card stays exactly
- * where it was, right under the name, because the people here every day are not
- * visitors — they are reaching for the thing they came to do. The features are what
- * turn the same screen into an answer for the one visitor who is not: a warm wash, the
- * name, the payoff, and then what the app actually does, in sentences rather than a
- * bare feature list.
+ * The public home: what an anonymous visitor and a crawler get at `/`.
  *
- * Google first, because it is the way that needs no password kept anywhere. Underneath,
- * an address and a password, for whoever would rather not hand Google another sign-in —
- * or whose address is not a Google account at all.
+ * **It used to be `/login`, sign-in form and all.** For most of this app's life `/` required a
+ * session and redirected there, so the one page a stranger could reach was the one existing
+ * readers signed in on every day — and it was built for the second of those two audiences
+ * first, with the sign-in card right under the name «because the people here every day are not
+ * visitors». That arrangement served the daily reader well and cost the site every visitor who
+ * met a password field before a sentence about what the thing does. The card is on `/login` now
+ * and this page has one job: say what Strumfolio is, and offer the two ways in. A returning
+ * reader reaches the form from «Sign in» in the bar, which is one tap more than they used to
+ * need, and that is the trade — knowingly made.
  *
- * Both refusals are one sentence. "Wrong email or password" covers a wrong
- * password, an address with no password, and an address that is not on the list,
- * because telling those apart is telling a stranger which addresses exist here.
+ * The order is an argument rather than a list. The hero says the payoff and shows the reading
+ * screen, because the product is a page of words and chords and no sentence beats looking at
+ * one. Then the editor band, which is the claim no competitor in this category can match — the
+ * sheet itself is the editor — then the reading controls, then Strum Together, which is the one
+ * thing on the page two people do at once, then the screens it runs on, then the feature grid
+ * for whoever is still reading, then the questions.
+ *
+ * Rendered by `layout.tsx` beside this file rather than by `page.tsx`, and it draws its own
+ * `PublicHeader`: see that layout for why the decision about who is asking is made there, and
+ * why this component never sees a signed-in reader.
  */
-export default async function LoginPage({ searchParams }: Props) {
-  const { error, failed, reset } = await searchParams
-
+export async function Landing() {
   /*
    * The live offer, advertised on the front door.
    *
-   * This page is the only public one in the app — everything else redirects here without a
-   * session — so it is where a campaign reaches somebody who has not decided anything yet, and
-   * the reason the overlay exists at all rather than living on `/pricing` where the prices
-   * already speak for themselves.
+   * This is where a campaign reaches somebody who has not decided anything yet, and the reason
+   * the overlay exists at all rather than living on `/pricing` where the prices already speak
+   * for themselves. It sat on `/login` while that page *was* the front door — «this page is the
+   * only public one in the app», its own comment said, which is exactly the premise the
+   * restructure removed — and it moved here with the rest of the pitch.
    *
    * No `activeCoupon` counterpart here, unlike `/pricing` and `/checkout`: this page names no
    * price, so there is nothing for an applied coupon to change and nothing to confirm. It
@@ -662,407 +653,353 @@ export default async function LoginPage({ searchParams }: Props) {
   const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
   const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
-  const message =
-    failed !== undefined
-      ? 'Wrong email or password.'
-      : error === undefined
-        ? null
-        : error === 'AccessDenied'
-          ? "Google couldn't confirm this email address. Try again, or sign in a different way."
-          : 'Sign-in failed. Please try again.'
-
-  // Only shown when there is no failure to report instead — landing here with `?reset=1`
-  // straight after `/reset-password` (v3.2) is never itself an error.
-  const success = message === null && reset !== undefined ? 'Password changed. Sign in with your new password.' : null
-
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center px-5 py-10 sm:px-8 sm:py-16 lg:px-12 xl:px-20">
+    <>
+      {/* Sends the installed app to `/login` instead of arguing for itself — see the component. */}
+      <StandaloneRedirect />
+
       {/*
-        * The hero, full-bleed: `self-stretch` rather than `w-full`, because a width of
-        * 100% is measured inside `<main>`'s padding and a negative margin only shifts
-        * a box that definite — the band stopped a gutter short of both edges. Stretched,
-        * it is the padding box that the negative margins widen, at every breakpoint
-        * `<main>`'s own padding changes, and the wash and the grain reach the viewport
-        * edge. The inner wrapper then puts the gutter back for the badge, the headline,
-        * the card and the counters — at the width every block below it shares.
+        * No mark in the bar: the hero badge a few pixels below prints the same lockup, and the
+        * same drawing twice on one screen reads as a mistake. 70rem to match `.landing-width`,
+        * which every band under it shares. Both actions, since this is the one page whose whole
+        * purpose is to offer them.
         */}
-      <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-16 lg:pt-16 xl:-mx-20 xl:px-20">
-        <div className="landing-hero-decor" aria-hidden />
-        <div className="landing-hero-grain" aria-hidden />
+      <PublicHeader
+        width="70rem"
+        brand={false}
+        link={{ href: '/login', label: 'Sign in' }}
+        cta={{ href: '/register', label: 'Start free' }}
+      />
 
-        <div className="landing-hero-grid landing-width">
-          {/* Both render; CSS shows one — see the same comment in TopBar.tsx. */}
-          <span className="hero-badge">
-            {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
-            <img src="/brand/lockup-horizontal-black.svg" alt={APP_NAME} className="lockup-light" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
-            <img src="/brand/lockup-horizontal-white.svg" alt={APP_NAME} className="lockup-dark" />
-          </span>
+      <main className="relative flex min-h-[100dvh] flex-col items-center px-5 py-10 sm:px-8 sm:py-16 lg:px-12 xl:px-20">
+        {/*
+          * The hero, full-bleed: `self-stretch` rather than `w-full`, because a width of
+          * 100% is measured inside `<main>`'s padding and a negative margin only shifts
+          * a box that definite — the band stopped a gutter short of both edges. Stretched,
+          * it is the padding box that the negative margins widen, at every breakpoint
+          * `<main>`'s own padding changes, and the wash and the grain reach the viewport
+          * edge. The inner wrapper then puts the gutter back for the badge, the headline,
+          * the actions and the demo — at the width every block below it shares.
+          */}
+        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-16 lg:pt-16 xl:-mx-20 xl:px-20">
+          <div className="landing-hero-decor" aria-hidden />
+          <div className="landing-hero-grain" aria-hidden />
 
-          {/*
-            * Two short beats rather than the one clause `APP_PAYOFF` holds for the title
-            * bar and the manifest: this is the one line on the screen that is heard, not
-            * read for information, and it earns its own wording rather than borrowing theirs.
-            */}
-          <h1 className="landing-hero-title">
-            Your favorite songs.
-            <br />
-            <span className="text-accent">Ready to play.</span>
-          </h1>
-
-          <p className="landing-hero-lede">{DESCRIPTION}</p>
-
-          <div className="hero-pills">
-            {HERO_PILLS.map((pill) => (
-              <span key={pill.text} className="hero-pill">
-                {pill.icon}
-                {pill.text}
+          <div className="landing-hero-grid landing-width">
+            <div className="landing-hero-text">
+              {/* Both render; CSS shows one — see the same comment in TopBar.tsx. */}
+              <span className="hero-badge">
+                {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
+                <img src="/brand/lockup-horizontal-black.svg" alt={APP_NAME} className="lockup-light" />
+                {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
+                <img src="/brand/lockup-horizontal-white.svg" alt={APP_NAME} className="lockup-dark" />
               </span>
-            ))}
-          </div>
 
-          <div className="landing-hero-card">
-            <div className="card card-lead login-card p-6 sm:p-7">
-              {message !== null && (
-                <p className="notice notice-error text-start" role="alert">
-                  {message}
-                </p>
-              )}
+              {/*
+                * Two short beats rather than the one clause `APP_PAYOFF` holds for the title
+                * bar and the manifest: this is the one line on the screen that is heard, not
+                * read for information, and it earns its own wording rather than borrowing theirs.
+                */}
+              <h1 className="landing-hero-title">
+                Your favorite songs.
+                <br />
+                <span className="text-accent">Ready to play.</span>
+              </h1>
 
-              {success !== null && (
-                <p className="notice notice-accent text-start" role="status">
-                  {success}
-                </p>
-              )}
+              <p className="landing-hero-lede">{LANDING_DESCRIPTION}</p>
 
-              <form
-                className={message !== null || success !== null ? 'mt-4' : undefined}
-                action={async () => {
-                  'use server'
-                  await signIn('google', { redirectTo: '/' })
-                }}
-              >
-                <button type="submit" className="btn is-page w-full justify-center py-3 text-base">
-                  <IconGoogle />
-                  Sign in with Google
-                </button>
-              </form>
-
-              <div className="login-or">
-                <span>or</span>
+              <div className="hero-pills">
+                {HERO_PILLS.map((pill) => (
+                  <span key={pill.text} className="hero-pill">
+                    {pill.icon}
+                    {pill.text}
+                  </span>
+                ))}
               </div>
 
-              <form
-                className="grid gap-2.5"
-                action={async (data: FormData) => {
-                  'use server'
+              {/*
+                * The two ways in, where the sign-in card used to stand.
+                *
+                * «Start free» goes to `/register` and is the whole point of the page; the second
+                * is not a rival action but the same argument continued — an anchor down to the
+                * editor band, for the visitor who wants to see the thing before being asked for
+                * an address. A plain `#` link rather than a scroll handler: the browser already
+                * does smooth, focus and history for it, and it works before any JavaScript has
+                * run, which on the slowest connection is exactly when a first-time visitor is
+                * deciding whether to wait.
+                *
+                * «Sign in» is deliberately not here. It lives in the bar above, once, where a
+                * returning reader will look for it — repeating it in the hero would put a
+                * sign-in field's worth of weight back on the page this restructure took it off.
+                */}
+              <div className="landing-hero-actions">
+                <Link href="/register" className="btn btn-primary btn-lg">
+                  Start free
+                </Link>
 
-                  try {
-                    await signIn('credentials', {
-                      email: String(data.get('email') ?? ''),
-                      password: String(data.get('password') ?? ''),
-                      redirectTo: '/',
-                    })
-                  } catch (thrown) {
-                    /*
-                     * `signIn` reports success by throwing a redirect, so the redirect has to
-                     * pass through untouched — only a real `AuthError` means the attempt failed.
-                     * It is answered with a flag in the URL rather than with the error's own
-                     * code, because the code distinguishes cases this page must not.
-                     */
-                    if (thrown instanceof AuthError) redirect('/login?failed=1')
-                    throw thrown
-                  }
-                }}
-              >
-                <label className="block">
-                  <span className="sr-only">Email</span>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    autoComplete="email"
-                    placeholder="Email"
-                    className="form-field"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="sr-only">Password</span>
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    autoComplete="current-password"
-                    placeholder="Password"
-                    className="form-field"
-                  />
-                  <span className="mt-1.5 block text-end">
-                    <Link href="/forgot-password" className="text-xs text-muted hover:underline">
-                      Forgot password?
-                    </Link>
-                  </span>
-                </label>
-
-                <button type="submit" className="btn btn-primary mt-1 w-full justify-center py-3">
-                  Sign in
-                </button>
-              </form>
+                <a href="#editing" className="landing-hero-secondary">
+                  See how it works
+                  <IconChevronRight size={15} />
+                </a>
+              </div>
             </div>
 
             {/*
-              * Same acceptance line as `/register`, because the Google button above is the same
-              * button: a first successful Google sign-in *is* a registration (`provisionAccount`,
-              * see `/register`'s own comment), so an account can be born here having agreed to
-              * nothing unless this line says it.
+              * The reading screen itself, above the fold — the change that mattered most in
+              * moving the form out. What stood here was a password field, so the first thing a
+              * visitor saw of a product for reading songs on stage was a form; now it is a song
+              * on a phone, with the chords over the words.
+              *
+              * `ReaderPhone` rather than a screenshot, and it is the same component the reading
+              * band lower down used to carry: it is built from the app's own reader, so it
+              * cannot drift into advertising a screen that no longer exists. **That band no
+              * longer draws it** — one illustration, one place; see its own comment.
               */}
-            <p className="mt-4 text-center text-xs text-muted">
-              By signing in you agree to our{' '}
-              <Link href="/terms-of-service" className="text-accent hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and acknowledge our{' '}
-              <Link href="/privacy-policy" className="text-accent hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </p>
-
-            <p className="mt-2 text-center text-xs text-muted">
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="text-accent hover:underline">
-                Register
-              </Link>
-            </p>
-          </div>
-
-          <LandingCounters />
-        </div>
-      </section>
-
-      {/*
-        * The visual editor, ahead of everything else this page has to say: it is the
-        * thing no other app in this category does — the sheet itself is the editor —
-        * and instead of describing it, the demo beside the copy IS it, built with the
-        * editor's own ghost-anchor technique so it can never drift from the product
-        * (see `EditorDemo`). The demo leads on a wide screen and follows the words on
-        * a phone; the three points beside it are shipped behaviour, not roadmap.
-        */}
-      <section className="landing-width mt-11 lg:mt-14">
-        <div className="editor-tour-grid">
-          <div>
-            <span className="landing-kicker">Editing, made visual</span>
-            <h2 className="landing-section-title mt-2.5">Edit the song, not the code.</h2>
-            <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
-              Words on the line, chords above them — the same layout you read from on
-              stage. Simple to use, no syntax to remember.
-            </p>
-
-            <div className="editor-points">
-              {EDITOR_POINTS.map((point) => (
-                <div key={point.title} className="editor-point">
-                  <span className="editor-point-icon">{point.icon}</span>
-                  <div>
-                    <h3 className="editor-point-title">{point.title}</h3>
-                    <p className="editor-point-text">{point.text}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="landing-hero-demo">
+              <ReaderPhone />
             </div>
           </div>
+        </section>
 
-          <div className="editor-tour-demo">
-            <EditorPhone />
-          </div>
-        </div>
-      </section>
+        {/*
+          * The visual editor, ahead of everything else this page has to say: it is the
+          * thing no other app in this category does — the sheet itself is the editor —
+          * and instead of describing it, the demo beside the copy IS it, built with the
+          * editor's own ghost-anchor technique so it can never drift from the product
+          * (see `EditorDemo`). The demo leads on a wide screen and follows the words on
+          * a phone; the three points beside it are shipped behaviour, not roadmap.
+          *
+          * `id="editing"` is the hero's «See how it works» anchor, and it is on the section
+          * rather than on the heading inside it so the band's own kicker is not scrolled off
+          * the top. Renaming it breaks that link silently — nothing fails, the page simply
+          * does not move.
+          */}
+        <section id="editing" className="landing-width mt-11 lg:mt-14">
+          <div className="editor-tour-grid">
+            <div>
+              <span className="landing-kicker">Editing, made visual</span>
+              <h2 className="landing-section-title mt-2.5">Edit the song, not the code.</h2>
+              <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
+                Words on the line, chords above them — the same layout you read from on
+                stage. Simple to use, no syntax to remember.
+              </p>
 
-      {/*
-        * The reading screen, mirrored against the editor band above it: there the phone
-        * leads and the words follow, here the words lead and the phone follows, so two
-        * bands of the same shape do not read as one long column.
-        *
-        * It comes second of the pair on purpose. The editor answers "how does my song
-        * get in here"; this answers "what happens when I play it" — and the second
-        * question is only worth asking once the first has been.
-        */}
-      <section className="landing-width mt-11 lg:mt-14">
-        <div className="reader-tour-grid">
-          <div>
-            <span className="landing-kicker">Reading, on stage</span>
-            <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
-            <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
-              Transpose with a tap and the whole sheet reletters with you — chords,
-              diagrams, fingerings, all in the new key.
-            </p>
-
-            <div className="editor-points">
-              {READER_POINTS.map((point) => (
-                <div key={point.title} className="editor-point">
-                  <span className="editor-point-icon">{point.icon}</span>
-                  <div>
-                    <h3 className="editor-point-title">{point.title}</h3>
-                    <p className="editor-point-text">{point.text}</p>
+              <div className="editor-points">
+                {EDITOR_POINTS.map((point) => (
+                  <div key={point.title} className="editor-point">
+                    <span className="editor-point-icon">{point.icon}</span>
+                    <div>
+                      <h3 className="editor-point-title">{point.title}</h3>
+                      <p className="editor-point-text">{point.text}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <ReaderPhone />
-          </div>
-        </div>
-      </section>
-
-      {/*
-        * Strum Together, raised above the feature tour below rather than folded into
-        * it: it is the one thing on this page two people are doing at once. It reads
-        * second of the two spotlights now — the editor band above leads, being the
-        * claim no competitor can match — but on the same warm, bordered panel `.promo`
-        * closes an article with, not the fill this band used to carry alone. See
-        * `.strum-tour`'s own comment in globals.css for why the tokens moved.
-        *
-        * More top margin than a plain section-to-section gap, matching the section
-        * below it: this keeps both bands close together, since the second is
-        * what makes "every screen" a claim a visitor can see rather than take on faith.
-        */}
-      <section className="landing-width mt-14 lg:mt-20">
-        <div className="strum-tour">
-          <div className="strum-tour-head">
-            <span className="landing-kicker">Strum Together</span>
-            <h2 className="strum-tour-title">One phone leads. Everyone else just plays.</h2>
-            <p className="strum-tour-text">
-              Share a link or a QR code. Whoever opens it follows the same song, in the same
-              key, scrolling on its own.
-            </p>
-          </div>
-
-          <StrumTogetherStage />
-
-          <div className="strum-tour-points">
-            {STRUM_TOGETHER_POINTS.map((point) => (
-              <div key={point.title}>
-                <h3 className="strum-tour-point-title">{point.title}</h3>
-                <p className="strum-tour-point-text">{point.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/*
-        * Cross-device, right below Strum Together: the mockup is what makes "every
-        * screen" a claim a visitor can see rather than take on faith, and it is the one
-        * section on this page that leans on an image rather than an icon and a sentence.
-        */}
-      <section className="landing-width mt-14 lg:mt-20">
-        <div className="device-tour-grid">
-          <div>
-            <span className="landing-kicker">No install, anywhere</span>
-            <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
-            <p className="mt-2.5 text-sm leading-[1.5] text-muted">
-              Organise your songbooks at the desk on Windows or Mac, then open the same library on
-              whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
-              playing if there is no signal.
-            </p>
-          </div>
-
-          <Image
-            src="/brand/device-mockup.webp"
-            alt="Strumfolio open on a laptop, tablet and phone"
-            width={2400}
-            height={1668}
-            sizes="(min-width: 1024px) 55vw, 90vw"
-            className="h-auto w-full"
-          />
-        </div>
-      </section>
-
-      <section className="landing-width mt-11 lg:mt-14">
-        <div className="text-center">
-          <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
-          <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
-            Every control is built for a thumb, not a mouse — for a hand already holding
-            an instrument.
-          </p>
-        </div>
-
-        <div className="feature-grid mt-6 lg:mt-8">
-          {FEATURES.map((feature) => (
-            <article key={feature.title} className="feature-card">
-              <div className="feature-head">
-                <span className="feature-icon">{feature.icon}</span>
-                <h3 className="feature-title">{feature.title}</h3>
-              </div>
-              <p className="feature-text">{feature.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/*
-        * `<details>` per question rather than a client component with a piece of state
-        * per row: nothing here needs JavaScript to show a paragraph of text once
-        * tapped, and the browser already gives that focus, keyboard support, and a
-        * screen reader's own sense of "expanded" for free — the same choice
-        * `.editor-data` already makes for the song-data drawer elsewhere in the app.
-        */}
-      <section className="landing-width mt-11 lg:mt-16">
-        <h2 className="landing-section-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
-
-        <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-8">
-          {FAQ.map((group) => (
-            <div key={group.title}>
-              <span className="group-label">{group.title}</span>
-
-              <div className="faq-grid mt-2.5">
-                {group.items.map((item) => (
-                  <details key={item.q} className="card faq-item">
-                    <summary>
-                      <IconChevronRight size={15} className="faq-arrow" />
-                      <span>{item.q}</span>
-                    </summary>
-                    <p className="faq-answer">{item.a}</p>
-                  </details>
                 ))}
               </div>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/*
-        * The only way to /pricing from outside the app, and it has to be here rather than
-        * inside one of the two answers that name the pricing page in words: `FaqItem.a` is
-        * typed `string` and rendered as `{item.a}`, so an answer cannot hold a link without
-        * widening that type and touching all twenty-two of them. Quiet on purpose — this is the
-        * page every existing reader signs in on every day, and it is not a sales pitch.
-        */}
-      <p className="mt-9 text-center text-sm text-muted lg:mt-12">
-        Every plan side by side, on the{' '}
-        <Link href="/pricing" className="text-accent hover:underline">
-          pricing page
-        </Link>
-        .
-      </p>
+            <div className="editor-tour-demo">
+              <EditorPhone />
+            </div>
+          </div>
+        </section>
 
-      <Footer />
+        {/*
+          * The reading controls, second of the pair on purpose: the editor above answers "how
+          * does my song get in here", this answers "what happens when I play it" — and the
+          * second question is only worth asking once the first has been.
+          *
+          * **One column, and it used to be two.** `ReaderPhone` stood here, mirrored against
+          * the editor band above — the phone leading there, the words leading here, so two
+          * bands of the same shape did not read as one long column. That phone is in the hero
+          * now, where the sign-in card used to be, and drawing it twice on one page would make
+          * the second one read as a repeat rather than as an illustration. What is left is the
+          * copy and the three points, which is what this band was always for; the shape it was
+          * avoiding is no longer a risk either, since the band above it is now the only other
+          * two-column one on the page.
+          */}
+        <section className="landing-width mt-11 lg:mt-14">
+          <span className="landing-kicker">Reading, on stage</span>
+          <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
+          <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
+            Transpose with a tap and the whole sheet reletters with you — chords,
+            diagrams, fingerings, all in the new key.
+          </p>
 
-      {/* Last in the document, fixed to the foot of the viewport by CSS — see `CouponOverlay`
-          on why reading order matters for a bar that overlays a page. The CTA goes to the price
-          list, which is where somebody who has just been told about an offer wants to land. */}
-      {offer !== null && offerWords !== null && (
-        <CouponOverlay
-          code={offer.code}
-          percent={offerWords.percent}
-          duration={offerWords.duration}
-          headline={offerWords.headline}
-          deadline={deadlineCopy(offer.expiresAt, new Date())}
-          href={`/pricing?coupon=${encodeURIComponent(offer.code)}`}
-          initiallyCollapsed={offerCollapsed}
-        />
-      )}
-    </main>
+          {/* Two columns from `lg` up, where a single column of hairline rows would run the
+              whole 70rem — the one thing the departed phone was also doing for this band. */}
+          <div className="reader-points">
+            {READER_POINTS.map((point) => (
+              <div key={point.title} className="editor-point">
+                <span className="editor-point-icon">{point.icon}</span>
+                <div>
+                  <h3 className="editor-point-title">{point.title}</h3>
+                  <p className="editor-point-text">{point.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/*
+          * Strum Together, raised above the feature tour below rather than folded into
+          * it: it is the one thing on this page two people are doing at once. It reads
+          * second of the two spotlights now — the editor band above leads, being the
+          * claim no competitor can match — but on the same warm, bordered panel `.promo`
+          * closes an article with, not the fill this band used to carry alone. See
+          * `.strum-tour`'s own comment in globals.css for why the tokens moved.
+          *
+          * More top margin than a plain section-to-section gap, matching the section
+          * below it: this keeps both bands close together, since the second is
+          * what makes "every screen" a claim a visitor can see rather than take on faith.
+          */}
+        <section className="landing-width mt-14 lg:mt-20">
+          <div className="strum-tour">
+            <div className="strum-tour-head">
+              <span className="landing-kicker">Strum Together</span>
+              <h2 className="strum-tour-title">One phone leads. Everyone else just plays.</h2>
+              <p className="strum-tour-text">
+                Share a link or a QR code. Whoever opens it follows the same song, in the same
+                key, scrolling on its own.
+              </p>
+            </div>
+
+            <StrumTogetherStage />
+
+            <div className="strum-tour-points">
+              {STRUM_TOGETHER_POINTS.map((point) => (
+                <div key={point.title}>
+                  <h3 className="strum-tour-point-title">{point.title}</h3>
+                  <p className="strum-tour-point-text">{point.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/*
+          * Cross-device, right below Strum Together: the mockup is what makes "every
+          * screen" a claim a visitor can see rather than take on faith, and it is the one
+          * section on this page that leans on an image rather than an icon and a sentence.
+          */}
+        <section className="landing-width mt-14 lg:mt-20">
+          <div className="device-tour-grid">
+            <div>
+              <span className="landing-kicker">No install, anywhere</span>
+              <h2 className="landing-section-title mt-2.5">Every screen you own is ready to play.</h2>
+              <p className="mt-2.5 text-sm leading-[1.5] text-muted">
+                Organise your songbooks at the desk on Windows or Mac, then open the same library on
+                whatever&apos;s propped up in front of you — Android or iPad — and keep reading and
+                playing if there is no signal.
+              </p>
+            </div>
+
+            <Image
+              src="/brand/device-mockup.webp"
+              alt="Strumfolio open on a laptop, tablet and phone"
+              width={2400}
+              height={1668}
+              sizes="(min-width: 1024px) 55vw, 90vw"
+              className="h-auto w-full"
+            />
+          </div>
+        </section>
+
+        <section className="landing-width mt-11 lg:mt-14">
+          <div className="text-center">
+            <h2 className="landing-section-title">Built for playing, not scrolling.</h2>
+            <p className="mx-auto mt-2 max-w-[26rem] text-sm leading-[1.45] text-muted lg:mt-2.5 lg:max-w-[30rem] lg:text-[15px] lg:leading-[1.5]">
+              Every control is built for a thumb, not a mouse — for a hand already holding
+              an instrument.
+            </p>
+          </div>
+
+          <div className="feature-grid mt-6 lg:mt-8">
+            {FEATURES.map((feature) => (
+              <article key={feature.title} className="feature-card">
+                <div className="feature-head">
+                  <span className="feature-icon">{feature.icon}</span>
+                  <h3 className="feature-title">{feature.title}</h3>
+                </div>
+                <p className="feature-text">{feature.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/*
+          * `<details>` per question rather than a client component with a piece of state
+          * per row: nothing here needs JavaScript to show a paragraph of text once
+          * tapped, and the browser already gives that focus, keyboard support, and a
+          * screen reader's own sense of "expanded" for free — the same choice
+          * `.editor-data` already makes for the song-data drawer elsewhere in the app.
+          */}
+        <section className="landing-width mt-11 lg:mt-16">
+          <h2 className="landing-section-title border-b border-line pb-[1.625rem]">Frequently asked questions</h2>
+
+          <div className="mt-6 space-y-7 lg:mt-8 lg:space-y-8">
+            {FAQ.map((group) => (
+              <div key={group.title}>
+                <span className="group-label">{group.title}</span>
+
+                <div className="faq-grid mt-2.5">
+                  {group.items.map((item) => (
+                    <details key={item.q} className="card faq-item">
+                      <summary>
+                        <IconChevronRight size={15} className="faq-arrow" />
+                        <span>{item.q}</span>
+                      </summary>
+                      <p className="faq-answer">{item.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/*
+          * The last thing the page says, and it stays a sentence rather than becoming a panel.
+          *
+          * It has to sit out here rather than inside one of the two answers that name the pricing
+          * page in words: `FaqItem.a` is typed `string` and rendered as `{item.a}`, so an answer
+          * cannot hold a link without widening that type and touching all twenty-two of them.
+          *
+          * **Its old reason for being quiet is gone and it is still quiet, by decision.** The
+          * reason used to be that this was «the page every existing reader signs in on every day,
+          * and it is not a sales pitch» — which stopped being true the moment the sign-in form
+          * moved to `/login` and this page became pure acquisition. The obvious replacement was
+          * `PromoPanel`, which already closes every article and every tool page and would have
+          * cost no new copy. Weighed and declined: the product's own voice takes «nothing
+          * decorative ships without a stated reason» seriously, and a second promotional panel
+          * for a reader who has just read twenty-two answers is decoration. The counterargument
+          * — that the home is now the one public page closing with no ask at all — is real, and
+          * worth revisiting against what `/leads` records rather than by taste.
+          */}
+        <p className="mt-9 text-center text-sm text-muted lg:mt-12">
+          Every plan side by side, on the{' '}
+          <Link href="/pricing" className="text-accent hover:underline">
+            pricing page
+          </Link>
+          .
+        </p>
+
+        <Footer />
+
+        {/* Last in the document, fixed to the foot of the viewport by CSS — see `CouponOverlay`
+            on why reading order matters for a bar that overlays a page. The CTA goes to the price
+            list, which is where somebody who has just been told about an offer wants to land. */}
+        {offer !== null && offerWords !== null && (
+          <CouponOverlay
+            code={offer.code}
+            percent={offerWords.percent}
+            duration={offerWords.duration}
+            headline={offerWords.headline}
+            deadline={deadlineCopy(offer.expiresAt, new Date())}
+            href={`/pricing?coupon=${encodeURIComponent(offer.code)}`}
+            initiallyCollapsed={offerCollapsed}
+          />
+        )}
+      </main>
+    </>
   )
 }

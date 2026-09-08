@@ -6341,21 +6341,29 @@
   }
 
   /*
-   * The reading band's own grid: the words lead and the phone follows, the mirror of
-   * the editor band above it — which is what keeps the two from reading as one long
-   * column of the same shape.
+   * The reading band's three points.
+   *
+   * This was `.reader-tour-grid` — the words in one column and `ReaderPhone` in the other,
+   * mirrored against the editor band above it so two bands of the same shape did not read as
+   * one long column. That phone leads the hero now, so the band is copy alone, and the mirror
+   * it was avoiding is moot: the editor band is the only two-column one left on the page.
+   *
+   * What the phone was also doing, unremarked, was holding these rows to half the page. With
+   * it gone they would run the full 70rem — three hairline rows as wide as the FAQ — so they
+   * take two columns of their own from `lg` up. `align-items: start`, like `.faq-grid`: rows
+   * of different lengths must not stretch each other.
    */
-  .reader-tour-grid {
+  .reader-points {
     display: grid;
-    gap: 1.75rem;
+    gap: 0 3rem;
     grid-template-columns: 1fr;
+    margin-top: 1.25rem;
+    align-items: start;
   }
 
   @media (min-width: 1024px) {
-    .reader-tour-grid {
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
+    .reader-points {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 
@@ -6501,30 +6509,47 @@
   }
 
   /*
-   * Badge, title, pitch, pills, the card and the counters, in the order a phone
-   * shows them. Named areas rather than source order plus a CSS `order`, because
-   * the card moves from the bottom of the stack to a column of its own at the same
-   * breakpoint the grid itself reshapes — one property changes, not two.
+   * Two blocks: the words and the phone. Named areas rather than source order plus a CSS
+   * `order`, because the demo moves from the bottom of the stack to a column of its own at
+   * the same breakpoint the grid itself reshapes — one property changes, not two.
+   *
+   * On a narrow screen the actions come *before* the picture: a visitor meets the claim and
+   * the way in, and the phone is what they scroll to next. Same rule the editor band states
+   * for its own demo, applied to the one above it.
+   *
+   * **Two areas and not six, and this is a scar.** It was one row per element — `badge`,
+   * `title`, `lede`, `pills`, `actions` — with `demo` spanning all five, which is what the
+   * sign-in card that used to fill this column left behind. A grid item spanning rows makes
+   * those rows at least as tall as itself, so `.phone-fit`'s literal 746px was distributed
+   * across the five and `align-items: center` then centred each element inside its stretched
+   * row: every authored gap rendered at roughly three times its value — 90px where this file
+   * says 30 — and the hero's vertical rhythm was a by-product of a phone's height rather than
+   * anything decided. Measured on a screenshot, not guessed. With the words in one area the
+   * margins below are what renders, and `align-items: center` now does the one job it should:
+   * centre the whole text block against the phone beside it.
+   *
+   * `386px`, where this said `372px` for that card: `.phone-fit` is a literal 386px-wide box
+   * and a column four pixels short of it would crop the frame's own right edge.
    */
   .landing-hero-grid {
     position: relative;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-areas: 'badge' 'title' 'lede' 'pills' 'card' 'counters';
+    grid-template-areas: 'text' 'demo';
   }
 
   @media (min-width: 1024px) {
     .landing-hero-grid {
-      grid-template-columns: 1fr 372px;
+      grid-template-columns: 1fr 386px;
       column-gap: 3.25rem;
       align-items: center;
-      grid-template-areas:
-        'badge card'
-        'title card'
-        'lede card'
-        'pills card'
-        'counters card';
+      grid-template-areas: 'text demo';
     }
+  }
+
+  /* The words. A plain block flow, so each element's own `margin-top` below is the gap. */
+  .landing-hero-text {
+    grid-area: text;
   }
 
   /* The wordmark, folded into a small pill above the headline instead of being the
@@ -6532,7 +6557,6 @@
      it sits alone above left-aligned text; left-aligned itself once there is a
      column of its own to sit in. */
   .hero-badge {
-    grid-area: badge;
     display: flex;
     align-items: center;
     width: fit-content;
@@ -6570,7 +6594,6 @@
   /* The headline itself, now the payoff rather than the name — bigger than
      `.landing-title` gets, and left-aligned rather than centred. */
   .landing-hero-title {
-    grid-area: title;
     margin-top: 1.5rem;
     font-size: 2.5rem;
     font-weight: 500;
@@ -6588,7 +6611,6 @@
   }
 
   .landing-hero-lede {
-    grid-area: lede;
     margin-top: 1rem;
     max-width: 31rem;
     color: var(--muted);
@@ -6606,7 +6628,6 @@
   /* Three short facts, as pills rather than another row of prose — glanceable
      before the visitor has committed to reading anything. */
   .hero-pills {
-    grid-area: pills;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -6643,129 +6664,76 @@
     }
   }
 
-  /* The three counters, plainly false until the real ones exist — see
-     `LandingCounters`'s own comment for why they still tick. */
-  .hero-counters {
-    grid-area: counters;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.875rem;
-    margin-top: 1.75rem;
-    padding-top: 1.625rem;
-    border-top: 1px solid var(--line);
-  }
-
-  @media (min-width: 1024px) {
-    .hero-counters {
-      grid-template-columns: repeat(3, auto);
-      justify-content: start;
-      gap: 2.75rem;
-      margin-top: 2.25rem;
-      padding-top: 1.875rem;
-    }
-  }
-
-  .hero-counter-value {
+  /*
+   * The two actions, standing where the sign-in card used to.
+   *
+   * `.landing-hero-card` was here — a 28rem box holding the whole sign-in form, which is what
+   * this hero led with while `/` redirected to `/login`. Three counters (`.hero-counters`, and
+   * `.hero-counter-*` with a rolling last digit) sat under it and are gone with it: the numbers
+   * were openly invented, climbing off the wall clock, which was defensible on a page existing
+   * readers signed in on and is not on the one page a stranger now lands on and a crawler
+   * indexes. `/leads` refuses to print a rate against a denominator it does not have, and
+   * `PRODUCT.md` says this product's warmth never comes from marketing flourish; three
+   * fabricated counters were the one thing on the page arguing with both.
+   *
+   * A flex row rather than a grid: two items of their own widths, wrapping on a narrow phone,
+   * where a grid would have to be told how wide each is.
+   */
+  .landing-hero-actions {
     display: flex;
-    align-items: baseline;
-    gap: 1px;
-    font-size: 2rem;
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    font-variant-numeric: tabular-nums;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.875rem 1.5rem;
+    margin-top: 1.75rem;
   }
 
   @media (min-width: 1024px) {
-    .hero-counter-value {
-      font-size: 2.75rem;
-      letter-spacing: -0.035em;
+    .landing-hero-actions {
+      margin-top: 2.25rem;
     }
   }
 
-  .hero-counter-value.is-accent {
+  /*
+   * The second action: an anchor down to the editor band, and deliberately not a second
+   * button. Two buttons side by side ask a visitor to choose between them; a button and a
+   * quiet line say which one is the point and which one is for whoever is not ready yet.
+   */
+  .landing-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .landing-hero-secondary svg {
     color: var(--accent);
   }
 
-  .hero-counter-label {
-    margin: 0.5rem 0 0;
-    color: var(--muted);
-    font-size: 0.8125rem;
-    line-height: 1.3;
+  @media (hover: hover) {
+    .landing-hero-secondary:hover {
+      color: var(--ink);
+    }
+  }
+
+  /*
+   * The reading screen, above the fold — `ReaderPhone`, which used to sit in the reading band
+   * further down the page.
+   *
+   * No width of its own, on purpose: `.phone-fit` is a literal 386×746 box that centres itself
+   * and scales *itself* down at 26.5rem and again at 22.5rem, because what is inside the screen
+   * is the app laid out at 360px and reflowing it would be drawing a phone no phone is. A
+   * `max-width` here would either fight that or crop it.
+   */
+  .landing-hero-demo {
+    grid-area: demo;
+    margin-top: 2.5rem;
   }
 
   @media (min-width: 1024px) {
-    .hero-counter-label {
-      margin-top: 0.75rem;
-      font-size: 0.90625rem;
-    }
-  }
-
-  /* The rolling last digit: a cropped 1-character window the old digit leaves
-     upward through as the new one arrives from underneath. */
-  .hero-counter-digit {
-    position: relative;
-    display: inline-block;
-    width: 1ch;
-    height: 1em;
-    overflow: hidden;
-    vertical-align: baseline;
-  }
-
-  .hero-counter-digit-in,
-  .hero-counter-digit-out {
-    display: block;
-    will-change: transform;
-  }
-
-  .hero-counter-digit-out {
-    position: absolute;
-    inset: 0;
-    animation: rollUpOut 520ms cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
-  }
-
-  .hero-counter-digit-in {
-    animation: rollUpIn 520ms cubic-bezier(0.3, 0.9, 0.3, 1) both;
-  }
-
-  @keyframes rollUpIn {
-    from {
-      transform: translateY(100%);
-    }
-    to {
-      transform: none;
-    }
-  }
-
-  @keyframes rollUpOut {
-    from {
-      transform: none;
-    }
-    to {
-      transform: translateY(-100%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .hero-counter-digit-in {
-      animation: none;
-    }
-    .hero-counter-digit-out {
-      display: none;
-    }
-  }
-
-  .landing-hero-card {
-    grid-area: card;
-    width: 100%;
-    max-width: 28rem;
-    margin: 1.75rem auto 0;
-  }
-
-  @media (min-width: 1024px) {
-    .landing-hero-card {
-      max-width: none;
-      margin: 0;
+    .landing-hero-demo {
+      margin-top: 0;
     }
   }
 
@@ -8771,6 +8739,78 @@
   .brand img {
     height: 1.375rem;
     width: auto;
+  }
+
+  /* ---- The public site's navigation ------------------------------------ */
+
+  /*
+   * The row of sections both public bars print — `PublicHeader` on the app's own chrome and
+   * `SiteHeader` on the blog and the tools. One rule for both, deliberately: the two bars
+   * exist separately because they are coloured from different palettes (see
+   * `lib/publicNav.ts`), but the sections are one list and printing it in two sizes would
+   * undo the point of sharing it. Both `--muted` and `--ink` below are global tokens, which
+   * `.blog`/`.tool-page` do not redefine, so this holds on the paper surface too.
+   *
+   * Absent below 48rem, where `.public-nav-menu` takes the same links over. The two rules are
+   * each other's inverse and must stay that way: a width at which both showed would print the
+   * sections twice, and one at which neither did would leave a visitor on a phone with no way
+   * off the page they landed on.
+   */
+  .public-nav {
+    display: none;
+  }
+
+  .public-nav-link {
+    color: var(--muted);
+    font-size: 0.90625rem;
+    font-weight: 500;
+  }
+
+  @media (hover: hover) {
+    .public-nav-link:hover {
+      color: var(--ink);
+    }
+  }
+
+  /*
+   * The quiet text action, right of the theme switch and left of the capsule — «Sign in», in
+   * practice. Hidden at the same width the sections are, because it goes into the menu panel
+   * with them (`PublicNavMenu`'s `action`); the capsule beside it never hides, since a
+   * landing page whose primary action is behind a hamburger has no primary action.
+   */
+  .public-bar-action {
+    display: none;
+    color: var(--muted);
+    font-size: 0.90625rem;
+    font-weight: 500;
+  }
+
+  @media (hover: hover) {
+    .public-bar-action:hover {
+      color: var(--ink);
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .public-nav {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      /* Beside the mark, not glued to it: the gap says the sections are a group of their own
+         rather than a fourth word in the wordmark. `.site-bar-pill` carries its own
+         `margin-left`, so this sits the same distance from either neighbour. */
+      margin-left: 1.75rem;
+    }
+
+    .public-bar-action {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 0.75rem;
+    }
+
+    .public-nav-menu {
+      display: none;
+    }
   }
 
   /*
@@ -13613,7 +13653,9 @@
    * The blanket rule at the foot of this file shortens every transition and
    * animation to near-zero, but an `infinite` one just keeps looping at that
    * speed instead of stopping — every frame a different opacity reads as flicker,
-   * not stillness. Same fix as `.hero-counter-digit-in` above: turn it off outright.
+   * not stillness. So it is turned off outright rather than shortened. (This used to point at
+   * `.hero-counter-digit-in` as the precedent for the same fix; that rule went with the
+   * landing page's invented counters — see `.landing-hero-actions`.)
    */
   @media (prefers-reduced-motion: reduce) {
     .skeleton {
@@ -13762,17 +13804,15 @@
     font-weight: 500;
   }
 
-  .site-bar-link {
-    margin-left: 0.5rem;
-    color: var(--muted);
-    font-size: 0.90625rem;
-    font-weight: 500;
-    text-decoration: none;
-  }
-
-  .site-bar-link:hover {
-    color: var(--ink);
-  }
+  /*
+   * `.site-bar-link` used to live here — the mock's quiet «Pricing», at 14.5px on `--muted`
+   * with `--ink` on hover. It is `.public-bar-action` now (up beside `.top-bar`), which is
+   * that rule to the pixel and to the token, and which both public bars share: the sections
+   * and the quiet action are one list drawn one way, and this bar printing them in a
+   * near-identical second rule is how the two come to differ by half a pixel and nobody
+   * knows which was meant. What is still this bar's own is the pill above and the capsule
+   * below — the two things the mock actually drew that the app's chrome has no equivalent of.
+   */
 
   .site-bar-cta {
     display: inline-flex;
@@ -15313,13 +15353,22 @@
       padding-right: 1.25rem;
     }
 
-    /* The bar has five things to fit in the 358px a 390px phone leaves clear, and at
-       their drawn sizes they need some thirty more than that — measured, with the mark
-       at its full 1.375rem. Rather than drop Pricing (the header's own docstring calls
-       it one of "the two doors out"), shrink the mark and tighten every gap so the row
-       keeps both doors instead of hiding one. This is the one width at which the mark
-       here and the mark on `/pricing` differ, and the difference is not buyable with a
-       cleverer rule: the row would have to lose something. */
+    /*
+     * The bar has five things to fit in the 358px a 390px phone leaves clear, and at their
+     * drawn sizes they need some thirty more than that — measured, with the mark at its full
+     * 1.375rem. So the mark shrinks and every gap tightens.
+     *
+     * **The five are not the five they were.** This rule was written to keep «Pricing» and
+     * «Sign in» both out in the row rather than hide one, back when they were the whole of
+     * what this bar offered — "the two doors out", in the header's own words. The public site
+     * has sections now, and below 48rem all of them, the quiet «Sign in» included, are inside
+     * `PublicNavMenu`; what is left out here is the mark, the pill, the theme switch, the
+     * «Start free» capsule and the button that opens the menu. Same count, same squeeze, and
+     * the numbers below still measure — but nothing is being *saved from hiding* any more, so
+     * do not restore a link to the row on the strength of the old reasoning.
+     *
+     * This is still the one width at which the mark here and the mark on `/pricing` differ.
+     */
     .site-bar-brand img {
       height: 1.125rem;
     }
@@ -15332,11 +15381,6 @@
       margin-left: 0.5rem;
       padding: 0.25rem 0.5rem;
       font-size: 0.71875rem;
-    }
-
-    .site-bar-link {
-      margin-left: 0.375rem;
-      font-size: 0.8125rem;
     }
 
     .site-bar-cta {

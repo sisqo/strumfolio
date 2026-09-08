@@ -20,7 +20,7 @@ import { followUrl } from '@/lib/strumTogether/link'
 
 /**
  * Strum Together, staged: a leader mid-broadcast with two phones scanning in beside them —
- * the third moving picture on `/login`, after `EditorPhone` and `ReaderPhone`, and built the
+ * the third moving picture on `/`, after `ReaderPhone` in the hero and `EditorPhone`, and built the
  * same way for the same reason: real classes (`.song-chips`, `.song-sheet`, `.sheet-*`,
  * `.notice`, `.rd-bar`) inside three `PhoneFrame`s rather than a screenshot, so none of it can
  * fall out of date on its own. One twenty-second loop, no clock of its own — every percentage
