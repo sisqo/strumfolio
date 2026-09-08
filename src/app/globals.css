@@ -6342,29 +6342,26 @@
   }
 
   /*
-   * The reading band's three points.
+   * The reading band's own grid: the words lead and the phone follows, the mirror of the editor
+   * band above it — which is what keeps the two from reading as one long column of the same
+   * shape.
    *
-   * This was `.reader-tour-grid` — the words in one column and `ReaderPhone` in the other,
-   * mirrored against the editor band above it so two bands of the same shape did not read as
-   * one long column. That phone leads the hero now, so the band is copy alone, and the mirror
-   * it was avoiding is moot: the editor band is the only two-column one left on the page.
-   *
-   * What the phone was also doing, unremarked, was holding these rows to half the page. With
-   * it gone they would run the full 70rem — three hairline rows as wide as the FAQ — so they
-   * take two columns of their own from `lg` up. `align-items: start`, like `.faq-grid`: rows
-   * of different lengths must not stretch each other.
+   * It was briefly gone, while `ReaderPhone` was in the hero and this band was copy alone (the
+   * points ran two-up under `.reader-points`, since without the phone they would have spanned
+   * the full 70rem). `Home.dc.html` keeps a phone here and puts the three-device shot in the
+   * hero, so the band is two columns again and the points are back to one.
    */
-  .reader-points {
+  .reader-tour-grid {
     display: grid;
-    gap: 0 3rem;
+    gap: 1.75rem;
     grid-template-columns: 1fr;
-    margin-top: 1.25rem;
-    align-items: start;
   }
 
   @media (min-width: 1024px) {
-    .reader-points {
-      grid-template-columns: repeat(2, 1fr);
+    .reader-tour-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
     }
   }
 
@@ -6575,23 +6572,42 @@
   @media (min-width: 1024px) {
     .landing-hero-grid {
       /*
-       * `Home.dc.html`'s own proportions: a 560px text column and a 24px gap, the phone taking
-       * whatever is left. It drew this band right-bleeding on its 1280 canvas — text from 80px,
-       * nothing on the right — while every band under it sits in the 1120px column. Kept inside
-       * `.landing-width` here instead, so the hero's left edge and the editor band's are the
-       * same edge; what that costs is the phone sitting some 40px left of where the mock has
-       * it, since `.phone-fit` centres itself in whatever column it is given.
+       * `Home.dc.html`'s own: a 560px text column, a 24px gap, and the picture taking every
+       * pixel to the right edge of the viewport — `padding: 84px 0 84px 80px` on its 1280
+       * canvas, so the band bleeds right while every band under it stays in the 1120 column.
+       *
+       * **The left edge is still the page's own**, and that is the one thing not taken from the
+       * mock: at 1280 the two agree at 80px, and above it the mock has nothing to say, so the
+       * padding below reproduces where `.landing-width` would start rather than staying glued
+       * to the section's gutter. Otherwise the headline and the editor band's kicker underneath
+       * would part company on any window wider than the drawing.
+       *
+       * `--hero-gutter` is the section's *own* left padding at this breakpoint (Tailwind
+       * `lg:px-12` / `xl:px-20`), which the sum needs because the section cancels `<main>`'s
+       * padding and re-adds its own; `70rem` is `.landing-width`. Both have to be named here:
+       * `100%` resolves against this grid's containing block, which is the section's content
+       * box, and that box is wider than the page column by exactly that gutter now that the
+       * right side is open.
        */
+      --hero-gutter: 3rem;
       grid-template-columns: 560px 1fr;
       column-gap: 1.5rem;
       align-items: center;
       grid-template-areas: 'text demo';
+      padding-inline-start: max(0px, (100% - 70rem - var(--hero-gutter)) / 2);
     }
   }
 
   /* The words. A plain block flow, so each element's own `margin-top` below is the gap. */
   .landing-hero-text {
     grid-area: text;
+  }
+
+  /* `xl:px-20` — see `--hero-gutter` above. */
+  @media (min-width: 1280px) {
+    .landing-hero-grid {
+      --hero-gutter: 5rem;
+    }
   }
 
   /* The wordmark, folded into a small pill above the headline instead of being the
@@ -6791,21 +6807,33 @@
   }
 
   /*
-   * The reading screen, above the fold — `ReaderPhone`, which used to sit in the reading band
-   * further down the page.
+   * The three-device shot, cropped to a band — the mock's own `height: 300px; overflow: hidden`
+   * with the picture pulled up 88px inside it, which frames the devices and drops the white
+   * space the full image carries above and below them.
    *
-   * No width of its own, on purpose: `.phone-fit` is a literal 386×746 box that centres itself
-   * and scales *itself* down at 26.5rem and again at 22.5rem, because what is inside the screen
-   * is the app laid out at 360px and reflowing it would be drawing a phone no phone is. A
-   * `max-width` here would either fight that or crop it.
+   * Both numbers are **proportions of the column, not pixels**, so the crop holds at any width
+   * while reproducing the drawing exactly at the one it was drawn for. The mock's demo column
+   * is 616px wide (1280 − 80 gutter − 560 text − 24 gap) and the picture is 1.4385:1, so it
+   * renders 428px tall there: a 300px window is `616 / 300`, and −88px is −14.286% — a
+   * percentage margin resolves against the container's *width*, which is what makes that one
+   * number scale correctly instead of needing the height.
    */
-  .landing-hero-demo {
+  .landing-hero-shot {
     grid-area: demo;
     margin-top: 2.5rem;
+    aspect-ratio: 616 / 300;
+    overflow: hidden;
+  }
+
+  .landing-hero-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: -14.286%;
   }
 
   @media (min-width: 1024px) {
-    .landing-hero-demo {
+    .landing-hero-shot {
       margin-top: 0;
     }
   }

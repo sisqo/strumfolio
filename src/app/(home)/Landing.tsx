@@ -684,11 +684,14 @@ export async function Landing() {
           * edge. The inner wrapper then puts the gutter back for the badge, the headline,
           * the actions and the demo — at the width every block below it shares.
           */}
-        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-[5.25rem] lg:pt-[5.25rem] xl:-mx-20 xl:px-20">
+        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-[5.25rem] lg:pr-0 lg:pt-[5.25rem] xl:-mx-20 xl:px-20 xl:pr-0">
           <div className="landing-hero-decor" aria-hidden />
           <div className="landing-hero-grain" aria-hidden />
 
-          <div className="landing-hero-grid landing-width">
+          {/* No `landing-width` on this one, unlike every band below: the grid runs to the
+              viewport's right edge from `lg` up and computes its own left edge instead — see
+              `--hero-gutter` in globals.css. */}
+          <div className="landing-hero-grid">
             <div className="landing-hero-text">
               {/* Both render; CSS shows one — see the same comment in TopBar.tsx. */}
               <span className="hero-badge">
@@ -755,18 +758,28 @@ export async function Landing() {
             </div>
 
             {/*
-              * The reading screen itself, above the fold — the change that mattered most in
-              * moving the form out. What stood here was a password field, so the first thing a
-              * visitor saw of a product for reading songs on stage was a form; now it is a song
-              * on a phone, with the chords over the words.
+              * The product on three screens, above the fold — `Home.dc.html`'s own choice, and
+              * the second answer this column has had. What stood here was a password field
+              * until the sign-in form moved to `/login`; then `ReaderPhone`, on the reasoning
+              * that a reading app should show a song being read; and now the mock's own: a
+              * laptop, a tablet and a phone, cropped to a band. It says «every screen you own»
+              * in one glance, which is the promise a visitor is weighing, and it hands the
+              * phone back to the reading band where the mock also keeps it.
               *
-              * `ReaderPhone` rather than a screenshot, and it is the same component the reading
-              * band lower down used to carry: it is built from the app's own reader, so it
-              * cannot drift into advertising a screen that no longer exists. **That band no
-              * longer draws it** — one illustration, one place; see its own comment.
+              * The same asset the device band further down uses, and the same one the mock
+              * points at: its hero names the 6000×4171 upload the designer dropped in, this is
+              * that picture already resized and shipped (2400×1668, the identical 1.4385
+              * ratio). One file, drawn twice — cropped tight here, whole there.
               */}
-            <div className="landing-hero-demo">
-              <ReaderPhone />
+            <div className="landing-hero-shot">
+              <Image
+                src="/brand/device-mockup.webp"
+                alt="Strumfolio open on a laptop, tablet and phone"
+                width={2400}
+                height={1668}
+                priority
+                sizes="(min-width: 1024px) 52vw, 100vw"
+              />
             </div>
           </div>
         </section>
@@ -813,39 +826,45 @@ export async function Landing() {
         </section>
 
         {/*
-          * The reading controls, second of the pair on purpose: the editor above answers "how
-          * does my song get in here", this answers "what happens when I play it" — and the
-          * second question is only worth asking once the first has been.
+          * The reading screen, mirrored against the editor band above it: there the phone
+          * leads and the words follow, here the words lead and the phone follows, so two
+          * bands of the same shape do not read as one long column.
           *
-          * **One column, and it used to be two.** `ReaderPhone` stood here, mirrored against
-          * the editor band above — the phone leading there, the words leading here, so two
-          * bands of the same shape did not read as one long column. That phone is in the hero
-          * now, where the sign-in card used to be, and drawing it twice on one page would make
-          * the second one read as a repeat rather than as an illustration. What is left is the
-          * copy and the three points, which is what this band was always for; the shape it was
-          * avoiding is no longer a risk either, since the band above it is now the only other
-          * two-column one on the page.
+          * It comes second of the pair on purpose. The editor answers "how does my song get in
+          * here"; this answers "what happens when I play it" — and the second question is only
+          * worth asking once the first has been.
+          *
+          * `ReaderPhone` spent a few hours in the hero, while that column was looking for
+          * something to be after the sign-in card left it. `Home.dc.html` puts the three-device
+          * shot up there and keeps a phone down here, which is also the better division of
+          * labour: the hero says «every screen you own», this band says what one screen does.
           */}
         <section className="landing-width mt-11 lg:mt-20">
-          <span className="landing-kicker">Reading, on stage</span>
-          <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
-          <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
-            Transpose with a tap and the whole sheet reletters with you — chords,
-            diagrams, fingerings, all in the new key.
-          </p>
+          <div className="reader-tour-grid">
+            <div>
+              <span className="landing-kicker">Reading, on stage</span>
+              <h2 className="landing-section-title mt-2.5">Your key, your capo, mid-song.</h2>
+              <p className="mt-2.5 max-w-[30rem] text-pretty text-sm leading-[1.5] text-muted">
+                Transpose with a tap and the whole sheet reletters with you — chords,
+                diagrams, fingerings, all in the new key.
+              </p>
 
-          {/* Two columns from `lg` up, where a single column of hairline rows would run the
-              whole 70rem — the one thing the departed phone was also doing for this band. */}
-          <div className="reader-points">
-            {READER_POINTS.map((point) => (
-              <div key={point.title} className="editor-point">
-                <span className="editor-point-icon">{point.icon}</span>
-                <div>
-                  <h3 className="editor-point-title">{point.title}</h3>
-                  <p className="editor-point-text">{point.text}</p>
-                </div>
+              <div className="editor-points">
+                {READER_POINTS.map((point) => (
+                  <div key={point.title} className="editor-point">
+                    <span className="editor-point-icon">{point.icon}</span>
+                    <div>
+                      <h3 className="editor-point-title">{point.title}</h3>
+                      <p className="editor-point-text">{point.text}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div>
+              <ReaderPhone />
+            </div>
           </div>
         </section>
 

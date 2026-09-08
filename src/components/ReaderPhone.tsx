@@ -21,13 +21,14 @@ import { CHORD_DISPLAY_HINT, CHORD_DISPLAY_TITLE } from '@/lib/prefs/types'
 import { chordNoteNames, fingeringText, shapeFor, shapesFor } from '@/lib/music/shapes'
 
 /**
- * The reading screen, alive, in a phone — the first thing a visitor sees of the product, in
- * the hero of `/`, and the counterpart to `EditorPhone`: that one is the song being written,
- * this one is the song being played.
+ * The reading screen, alive, in a phone — the second of `/`'s moving pictures, beside the
+ * reading band's three points, and the counterpart to `EditorPhone`: that one is the song being
+ * written, this one is the song being played.
  *
- * It stood beside the reading band's three points until the landing page was restructured, when
- * the sign-in form left the hero and something had to be there that was the product rather than
- * a form. Drawn once on the page, so that band is now copy alone — see `Landing.tsx`.
+ * It spent a few hours in the hero, in the column the sign-in card left empty when the landing
+ * page was split out of `/login`. `Home.dc.html` puts the three-device shot up there and keeps
+ * a phone here, which is the better division of labour anyway: the hero says «every screen you
+ * own», this band says what one screen does.
  *
  * One twenty-second loop, five moves, in the order a musician actually makes them:
  * the key goes up two and every chord on the sheet reletters; the capo menu opens and
