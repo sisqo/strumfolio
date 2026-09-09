@@ -6572,9 +6572,23 @@
   @media (min-width: 1024px) {
     .landing-hero-grid {
       /*
-       * `Home.dc.html`'s own: a 560px text column, a 24px gap, and the picture taking every
-       * pixel to the right edge of the viewport — `padding: 84px 0 84px 80px` on its 1280
-       * canvas, so the band bleeds right while every band under it stays in the 1120 column.
+       * `Home.dc.html`'s own: a 560px text column, a 24px gap, and the picture beside it —
+       * `padding: 84px 0 84px 80px` on its 1280 canvas, so the band bleeds right while every
+       * band under it stays in the 1120 column.
+       *
+       * **The picture stops at the 616px the mock drew it at**, which is the one number the
+       * drawing fixes and the geometry does not. It was `1fr`, on the reading that «bleeds to
+       * the right edge» meant «takes whatever is there» — and at 1280 the two are the same
+       * thing, since 80 + 560 + 24 + 616 is exactly 1280. They part company above it: `1fr`
+       * grew the band to 776px at 1600 and 936px at 1920, and a picture of three devices half a
+       * screen wide reads as a banner rather than as the product. Capped, the image is the drawn
+       * size at every width from 1280 up and the space beyond it stays the hero's own wash,
+       * which is what the band is for.
+       *
+       * `minmax(0, 616px)` and not a bare `616px`: between `lg` and 1280 there is less room
+       * than the three tracks need, and a fixed track would push the picture past the viewport
+       * for `.landing-hero`'s `overflow: hidden` to cut off. This shrinks instead, which is
+       * what `1fr` did there and the only thing it did right.
        *
        * **The left edge is still the page's own**, and that is the one thing not taken from the
        * mock: at 1280 the two agree at 80px, and above it the mock has nothing to say, so the
@@ -6590,7 +6604,7 @@
        * right side is open.
        */
       --hero-gutter: 3rem;
-      grid-template-columns: 560px 1fr;
+      grid-template-columns: 560px minmax(0, 616px);
       column-gap: 1.5rem;
       align-items: center;
       grid-template-areas: 'text demo';
