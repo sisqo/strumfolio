@@ -243,7 +243,7 @@ accent, exactly as before.
 **Character:** A single geometric sans carries every weight of voice in the app, from a hero headline to a field label — restrained rather than a display/body pairing, so nothing in the interface competes for attention with the song itself. Geist Mono appears only where alignment is literal (tablature), never as a stylistic accent.
 
 ### Hierarchy
-- **Hero** (500, `clamp(2.5rem, 5vw, 3.875rem)`, line-height 1, letter-spacing -0.04em): the one headline on the public page — the payoff, not the app name.
+- **Hero** (500, `clamp(2.5rem, 5vw, 3.625rem)`, line-height 1, letter-spacing -0.04em): the one headline on the public page — the payoff, not the app name.
 - **Screen title** (500, 1.875rem, line-height 1.1, letter-spacing -0.03em): the name of the current screen. Lighter weight than a bold heading would be, so it sits next to a song's own words rather than shouting over them.
 - **Section title** (500, 1.1875rem, line-height 1.2, letter-spacing -0.02em): one step down from screen title, for a section inside a screen.
 - **Body** (400, 1rem, line-height 1.5): default reading text, capped implicitly by each container's own max-width (the sheet caps at 48rem).

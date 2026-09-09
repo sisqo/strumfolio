@@ -6540,88 +6540,60 @@
   }
 
   /*
-   * Two blocks: the words and the phone. Named areas rather than source order plus a CSS
-   * `order`, because the demo moves from the bottom of the stack to a column of its own at
-   * the same breakpoint the grid itself reshapes — one property changes, not two.
+   * Two blocks: the words and the three cards beside them. Source order, no named areas —
+   * on a narrow screen the visitor meets the claim and the way in, then scrolls to the cards,
+   * which is the order they are written in. Same rule the editor band states for its own demo.
    *
-   * On a narrow screen the actions come *before* the picture: a visitor meets the claim and
-   * the way in, and the phone is what they scroll to next. Same rule the editor band states
-   * for its own demo, applied to the one above it.
-   *
-   * **Two areas and not six, and this is a scar.** It was one row per element — `badge`,
-   * `title`, `lede`, `pills`, `actions` — with `demo` spanning all five, which is what the
-   * sign-in card that used to fill this column left behind. A grid item spanning rows makes
-   * those rows at least as tall as itself, so `.phone-fit`'s literal 746px was distributed
-   * across the five and `align-items: center` then centred each element inside its stretched
-   * row: every authored gap rendered at roughly three times its value — 90px where this file
-   * says 30 — and the hero's vertical rhythm was a by-product of a phone's height rather than
-   * anything decided. Measured on a screenshot, not guessed. With the words in one area the
-   * margins below are what renders, and `align-items: center` now does the one job it should:
-   * centre the whole text block against the phone beside it.
-   *
-   * `386px`, where this said `372px` for that card: `.phone-fit` is a literal 386px-wide box
-   * and a column four pixels short of it would crop the frame's own right edge.
+   * **Neither the areas nor the six rows they replaced are here any more, and both were
+   * scars.** It was one row per element — `badge`, `title`, `lede`, `pills`, `actions` — with
+   * `demo` spanning all five, which is what the sign-in card that used to fill this column
+   * left behind. A grid item spanning rows makes those rows at least as tall as itself, so
+   * `.phone-fit`'s literal 746px was distributed across the five and `align-items: center`
+   * then centred each element inside its stretched row: every authored gap rendered at roughly
+   * three times its value — 90px where this file says 30 — and the hero's vertical rhythm was
+   * a by-product of a phone's height rather than anything decided. Measured on a screenshot,
+   * not guessed. Collapsed to two areas that stopped, and with two children in the right
+   * source order the areas themselves then had no work left to do. **Do not reintroduce a row
+   * per element**: that is the shape the bug lives in.
    */
   .landing-hero-grid {
     position: relative;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-areas: 'text' 'demo';
   }
 
   @media (min-width: 1024px) {
     .landing-hero-grid {
       /*
-       * `Home.dc.html`'s own: a 560px text column, a 24px gap, and the picture beside it —
-       * `padding: 84px 0 84px 80px` on its 1280 canvas, so the band bleeds right while every
-       * band under it stays in the 1120 column.
+       * `Home.dc.html`'s own, once its arithmetic is read out: `padding: 84px 0 84px 80px` on a
+       * 1280 canvas, a 560px text column, a 24px gap, then a `1fr` track with `padding-right:
+       * 40px` holding a 490px stack centred in it. That puts the stack at 707…1197 — so the
+       * whole hero spans 80…1197, which is 1117px of the 1120 that is 70rem. **The drawing
+       * lands on the page column**, and the flexible track and the centring are how the
+       * designer arrived there rather than something to reproduce literally.
        *
-       * **The picture stops at the 616px the mock drew it at**, which is the one number the
-       * drawing fixes and the geometry does not. It was `1fr`, on the reading that «bleeds to
-       * the right edge» meant «takes whatever is there» — and at 1280 the two are the same
-       * thing, since 80 + 560 + 24 + 616 is exactly 1280. They part company above it: `1fr`
-       * grew the band to 776px at 1600 and 936px at 1920, and a picture of three devices half a
-       * screen wide reads as a banner rather than as the product. Capped, the image is the drawn
-       * size at every width from 1280 up and the space beyond it stays the hero's own wash,
-       * which is what the band is for.
+       * So: `.landing-width` in the markup, the mock's two fixed widths here, and
+       * `space-between` for the slack. At 70rem that leaves 1120 − 560 − 490 = 70px between the
+       * columns against the drawing's 67, and the cards end on the page column's own right edge
+       * against the drawing's 3px short of it. Below 1120 there is no slack, `column-gap` is
+       * what separates them, and `minmax(0, 490px)` lets the stack shrink — a fixed track would
+       * push it past the viewport for `.landing-hero`'s `overflow: hidden` to cut off.
        *
-       * `minmax(0, 616px)` and not a bare `616px`: between `lg` and 1280 there is less room
-       * than the three tracks need, and a fixed track would push the picture past the viewport
-       * for `.landing-hero`'s `overflow: hidden` to cut off. This shrinks instead, which is
-       * what `1fr` did there and the only thing it did right.
-       *
-       * **The left edge is still the page's own**, and that is the one thing not taken from the
-       * mock: at 1280 the two agree at 80px, and above it the mock has nothing to say, so the
-       * padding below reproduces where `.landing-width` would start rather than staying glued
-       * to the section's gutter. Otherwise the headline and the editor band's kicker underneath
-       * would part company on any window wider than the drawing.
-       *
-       * `--hero-gutter` is the section's *own* left padding at this breakpoint (Tailwind
-       * `lg:px-12` / `xl:px-20`), which the sum needs because the section cancels `<main>`'s
-       * padding and re-adds its own; `70rem` is `.landing-width`. Both have to be named here:
-       * `100%` resolves against this grid's containing block, which is the section's content
-       * box, and that box is wider than the page column by exactly that gutter now that the
-       * right side is open.
+       * This is what the previous hero's `--hero-gutter` machinery was for and it is gone with
+       * the photograph it served: that column bled to the window's right edge, so the grid had
+       * to compute a left edge that agreed with `.landing-width` while ignoring its own right
+       * padding. Nothing bleeds now except the wash, which is the section's job, not the grid's.
        */
-      --hero-gutter: 3rem;
-      grid-template-columns: 560px minmax(0, 616px);
+      grid-template-columns: 560px minmax(0, 490px);
       column-gap: 1.5rem;
+      justify-content: space-between;
       align-items: center;
-      grid-template-areas: 'text demo';
-      padding-inline-start: max(0px, (100% - 70rem - var(--hero-gutter)) / 2);
     }
   }
 
   /* The words. A plain block flow, so each element's own `margin-top` below is the gap. */
   .landing-hero-text {
-    grid-area: text;
-  }
-
-  /* `xl:px-20` — see `--hero-gutter` above. */
-  @media (min-width: 1280px) {
-    .landing-hero-grid {
-      --hero-gutter: 5rem;
-    }
+    min-width: 0;
   }
 
   /* The wordmark, folded into a small pill above the headline instead of being the
@@ -6696,45 +6668,6 @@
     .landing-hero-lede {
       margin-top: 1.375rem;
       font-size: 1.125rem;
-    }
-  }
-
-  /* Three short facts, as pills rather than another row of prose — glanceable
-     before the visitor has committed to reading anything. */
-  .hero-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1.375rem;
-  }
-
-  @media (min-width: 1024px) {
-    .hero-pills {
-      gap: 0.5625rem;
-      margin-top: 2rem;
-    }
-  }
-
-  .hero-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.875rem;
-    border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
-    border: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 0.8125rem;
-  }
-
-  .hero-pill svg {
-    color: var(--accent);
-  }
-
-  @media (min-width: 1024px) {
-    .hero-pill {
-      padding: 0.5625rem 1rem;
-      font-size: 0.875rem;
     }
   }
 
@@ -6821,35 +6754,107 @@
   }
 
   /*
-   * The three-device shot, cropped to a band — the mock's own `height: 300px; overflow: hidden`
-   * with the picture pulled up 88px inside it, which frames the devices and drops the white
-   * space the full image carries above and below them.
+   * The hero's right-hand column: three cards and, under them, the free plan in one line.
    *
-   * Both numbers are **proportions of the column, not pixels**, so the crop holds at any width
-   * while reproducing the drawing exactly at the one it was drawn for. The mock's demo column
-   * is 616px wide (1280 − 80 gutter − 560 text − 24 gap) and the picture is 1.4385:1, so it
-   * renders 428px tall there: a 300px window is `616 / 300`, and −88px is −14.286% — a
-   * percentage margin resolves against the container's *width*, which is what makes that one
-   * number scale correctly instead of needing the height.
+   * `.landing-hero-shot` was here — the three-device photograph cropped to a 616×300 band with
+   * the picture pulled up inside it, which the previous `Home.dc.html` drew and this one
+   * replaces. Nothing of that crop is reusable, and the picture itself is unchanged in the
+   * «Every screen you own» band further down, so it left with its rules.
+   *
+   * `min-height` at `lg`, the mock's own 470px: the cards come to roughly 400px and the words
+   * beside them to roughly the same, so without it the band's height is whichever column
+   * happens to wrap first — which is a different number in every language and at every font
+   * size. With it the wash is the height it was drawn at and `align-items: center` on the grid
+   * has something to centre against.
    */
-  .landing-hero-shot {
-    grid-area: demo;
+  .hero-cards {
+    display: grid;
+    gap: 0.625rem;
     margin-top: 2.5rem;
-    aspect-ratio: 616 / 300;
-    overflow: hidden;
-  }
-
-  .landing-hero-shot img {
-    display: block;
-    width: 100%;
-    height: auto;
-    margin-top: -14.286%;
   }
 
   @media (min-width: 1024px) {
-    .landing-hero-shot {
+    .hero-cards {
+      align-content: center;
+      min-height: 470px;
       margin-top: 0;
     }
+  }
+
+  /*
+   * One card: the icon in its own disc, the title and the sentence beside it. `--r-xl` where
+   * the mock draws 20px, because the radius scale is keyed to a shape's job rather than its
+   * size (`DESIGN.md`) and this is a card — the nearest literal, `--r-panel`, is a popover.
+   *
+   * `--shadow-2` for the mock's `0 1px 2px …/4%, 0 20px 40px -34px …/45%` — a little tighter
+   * than the drawing's second layer, and taken over writing that layer out because both shadow
+   * tokens are `none` in the dark theme. A literal here would paint a black halo under a card
+   * on a dark page, which is the one thing the token mapping exists to prevent.
+   */
+  .hero-card {
+    display: flex;
+    gap: 0.9375rem;
+    padding: 1.25rem 1.375rem;
+    border-radius: var(--r-xl);
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-2);
+  }
+
+  .hero-card-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.625rem;
+    height: 2.625rem;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .hero-card-title {
+    display: block;
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .hero-card-text {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.90625rem;
+    line-height: 1.5;
+  }
+
+  /*
+   * The free plan, in the one shape on this page that is neither a card nor a control: a dashed
+   * capsule, so it reads as a note about the three cards above it rather than as a fourth one.
+   *
+   * Two colours with no token of their own. The mock's `#dcc9ae` dash is the accent thinned
+   * against the page, written as `color-mix(… 35%, transparent)` — the idiom this file already
+   * uses for a hairline in the accent's hue, and the one that keeps the dash visible when the
+   * dark theme swaps the accent for its amber. Its `#7c3b0b` text is the same darkening
+   * `.landing-hero-cta:hover` uses, which inverts correctly for the same reason.
+   */
+  .hero-free {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5625rem;
+    padding: 0.8125rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+    color: color-mix(in srgb, var(--accent) 88%, var(--ink));
+    font-size: 0.84375rem;
+    text-align: center;
+  }
+
+  .hero-free svg {
+    flex: none;
+    color: var(--accent);
   }
 
   /*

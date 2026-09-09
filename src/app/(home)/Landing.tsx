@@ -8,6 +8,7 @@ import { Footer } from '@/components/Footer'
 import {
   IconBooks,
   IconBroadcast,
+  IconCheck,
   IconChevronRight,
   IconChordShape,
   IconCode,
@@ -62,16 +63,44 @@ export const LANDING_DESCRIPTION =
  */
 const count = limitLabel
 
-/** The three short facts in the hero's pill row — glanceable before anyone reads a word. */
-interface HeroPill {
+/** One of the three cards standing beside the headline — see `HERO_CARDS`. */
+interface HeroCard {
   icon: React.ReactNode
+  title: string
   text: string
 }
 
-const HERO_PILLS: HeroPill[] = [
-  { icon: <IconImport size={14} />, text: 'Bring your own songs' },
-  { icon: <IconOnStage size={14} />, text: 'Always with you, even offline' },
-  { icon: <IconTuningFork size={14} />, text: 'Key and capo, made smart' },
+/**
+ * The hero's right-hand column: three cards and, under them, what the free plan holds.
+ *
+ * They replaced a row of three pills sitting *under* the actions — «Bring your own songs»,
+ * «Always with you, even offline», «Key and capo, made smart» — which said the same three
+ * things in three words each, beside a cropped band of the three-device photo. The redrawn
+ * `Home.dc.html` trades both for this: a sentence per card, and the photo left to the «Every
+ * screen you own» band further down, where it is the whole point rather than a texture.
+ *
+ * Same three subjects in the same order, deliberately — getting a repertoire in, putting it in
+ * the right key, and playing it anywhere — because that order is the product's own sequence and
+ * the bands below it repeat it. What is new is that each one now says something a stranger can
+ * act on: the example songbook a new account is created with, the capo Strumfolio names for a
+ * transposition, and the follow link.
+ */
+const HERO_CARDS: HeroCard[] = [
+  {
+    icon: <IconImport size={19} />,
+    title: 'Bring your songs in',
+    text: 'Import the files you already keep — or start from the example songbook that comes with a new account.',
+  },
+  {
+    icon: <IconTuningFork size={19} />,
+    title: 'Set the key, get the capo',
+    text: `Transpose to where you sing it and ${APP_NAME} names the capo that keeps the shapes easy.`,
+  },
+  {
+    icon: <IconComment size={19} />,
+    title: 'Play it, anywhere',
+    text: 'Any screen you own, offline, and a link that lets the room follow the same song.',
+  },
 ]
 
 interface Feature {
@@ -682,16 +711,22 @@ export async function Landing() {
           * it is the padding box that the negative margins widen, at every breakpoint
           * `<main>`'s own padding changes, and the wash and the grain reach the viewport
           * edge. The inner wrapper then puts the gutter back for the badge, the headline,
-          * the actions and the demo — at the width every block below it shares.
+          * the actions and the cards — at the width every block below it shares.
+          *
+          * `lg:pr-0`/`xl:pr-0` were here while the right-hand column was a photograph running
+          * off the edge of the window. The redrawn hero has cards there instead, and they end
+          * where the page column ends, so the padding is symmetric again — see
+          * `.landing-hero-grid`.
           */}
-        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-[5.25rem] lg:pr-0 lg:pt-[5.25rem] xl:-mx-20 xl:px-20 xl:pr-0">
+        <section className="landing-hero -mx-5 -mt-10 self-stretch px-5 pb-10 pt-10 sm:-mx-8 sm:-mt-16 sm:px-8 sm:pb-14 sm:pt-14 lg:-mx-12 lg:px-12 lg:pb-[5.25rem] lg:pt-[5.25rem] xl:-mx-20 xl:px-20">
           <div className="landing-hero-decor" aria-hidden />
           <div className="landing-hero-grain" aria-hidden />
 
-          {/* No `landing-width` on this one, unlike every band below: the grid runs to the
-              viewport's right edge from `lg` up and computes its own left edge instead — see
-              `--hero-gutter` in globals.css. */}
-          <div className="landing-hero-grid">
+          {/* `landing-width` like every band below it, which it was not while the picture bled
+              right. `Home.dc.html` draws its content from 80px to 1197px on a 1280 canvas — 1117
+              of the 1120 that is 70rem — so the drawing and the page column are the same thing
+              and the hero no longer needs a geometry of its own. */}
+          <div className="landing-width landing-hero-grid">
             <div className="landing-hero-text">
               {/* Both render; CSS shows one — see the same comment in TopBar.tsx. */}
               <span className="hero-badge">
@@ -746,40 +781,49 @@ export async function Landing() {
                   </Link>
                 </span>
               </div>
-
-              <div className="hero-pills">
-                {HERO_PILLS.map((pill) => (
-                  <span key={pill.text} className="hero-pill">
-                    {pill.icon}
-                    {pill.text}
-                  </span>
-                ))}
-              </div>
             </div>
 
             {/*
-              * The product on three screens, above the fold — `Home.dc.html`'s own choice, and
-              * the second answer this column has had. What stood here was a password field
-              * until the sign-in form moved to `/login`; then `ReaderPhone`, on the reasoning
-              * that a reading app should show a song being read; and now the mock's own: a
-              * laptop, a tablet and a phone, cropped to a band. It says «every screen you own»
-              * in one glance, which is the promise a visitor is weighing, and it hands the
-              * phone back to the reading band where the mock also keeps it.
+              * The fourth answer this column has had, and the first that is words.
               *
-              * The same asset the device band further down uses, and the same one the mock
-              * points at: its hero names the 6000×4171 upload the designer dropped in, this is
-              * that picture already resized and shipped (2400×1668, the identical 1.4385
-              * ratio). One file, drawn twice — cropped tight here, whole there.
+              * A password field stood here while `/` redirected to `/login`; then `ReaderPhone`,
+              * on the reasoning that a reading app should show a song being read; then the
+              * three-device photograph cropped to a band, which is what the previous
+              * `Home.dc.html` drew. The redrawn one puts three cards here and sends the
+              * photograph down to «Every screen you own is ready to play.», which is the only
+              * place it appears in the mock now — that band already existed and is unchanged,
+              * so the picture is moved rather than dropped.
+              *
+              * The reason the trade is worth making: a headline and a photograph both argue at
+              * once and neither says what the thing does. Three sentences beside the headline
+              * answer the visitor's actual first question — what happens after I sign up — and
+              * the capsule under them answers the second one before the pricing page has to.
               */}
-            <div className="landing-hero-shot">
-              <Image
-                src="/brand/device-mockup.webp"
-                alt="Strumfolio open on a laptop, tablet and phone"
-                width={2400}
-                height={1668}
-                priority
-                sizes="(min-width: 1024px) 52vw, 100vw"
-              />
+            <div className="hero-cards">
+              {HERO_CARDS.map((card) => (
+                <div key={card.title} className="hero-card">
+                  <span className="hero-card-icon">{card.icon}</span>
+                  <span>
+                    <span className="hero-card-title">{card.title}</span>
+                    <span className="hero-card-text">{card.text}</span>
+                  </span>
+                </div>
+              ))}
+
+              {/*
+                * What the free plan holds, read from `PLANS` rather than typed — the rule the
+                * `count` helper above exists for, and the reason the mock's own «1 songbook, 30
+                * songs» is not copied across as words even though it agrees with the table today.
+                *
+                * No `plansEnforced()` hedge, unlike the FAQ answer below: this says what the free
+                * plan *is*, which /pricing states as plain fact under either flag, where
+                * `PLAN_HOLD` answers the different question of whether the limits are being
+                * enforced yet. Said once, in the one answer that is about it — see that constant.
+                */}
+              <span className="hero-free">
+                <IconCheck size={15} />
+                Free plan: {count(PLANS.free.songbooks, 'songbook')}, {count(PLANS.free.songs, 'song')}, no card
+              </span>
             </div>
           </div>
         </section>
