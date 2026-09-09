@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import type { NextFetchEvent, NextRequest } from 'next/server'
 
 import { authConfig } from '@/auth.config'
 import {
@@ -159,7 +159,18 @@ function withAttribution(response: NextResponse, value: string | null): NextResp
   return response
 }
 
-export default auth((request) => {
+/**
+ * What `auth()` returns here, said out loud.
+ *
+ * next-auth types that one function for middleware *and* for route handlers, and TypeScript
+ * picks the route-handler overload at the call below — which wants a `params` context where
+ * middleware is handed a `NextFetchEvent`. The runtime shape is the middleware one:
+ * `handleAuth` passes its second argument straight through to the callback (which ignores
+ * it) and always answers with a `Response`.
+ */
+type SessionMiddleware = (request: NextRequest, event: NextFetchEvent) => Promise<Response>
+
+const withSession = auth((request) => {
   const { pathname } = request.nextUrl
 
   /*
@@ -381,7 +392,73 @@ export default auth((request) => {
     response.headers.set(ANONYMOUS_HEADER, '1')
     return withAttribution(response, attribution)
   }
-})
+}) as unknown as SessionMiddleware
+
+/**
+ * A session-token cookie, including the numbered chunks a JWT too large for one cookie is
+ * split into (`sessionStore.chunk`) — `authjs.session-token.0`, `.1`, and so on.
+ */
+const SESSION_COOKIE = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=/
+
+/**
+ * Whether this request is one the app itself decides the session cookie on, and where
+ * NextAuth's own refresh must therefore keep its hands off.
+ *
+ * Two cases, and both are places a cookie is *written* rather than merely read. Every
+ * non-GET, because a Server Action POSTs to the page's own URL — which is how signing out
+ * happens here (`SignOutButton`) and signing in (`login/page.tsx`). And everything under
+ * `/api/auth/`, because those are Auth.js' own handlers: the Google callback arrives as a
+ * GET and mints the session on the way through.
+ */
+function writesItsOwnSessionCookie(request: NextRequest): boolean {
+  return request.method !== 'GET' || request.nextUrl.pathname.startsWith('/api/auth/')
+}
+
+/**
+ * The middleware Next.js actually runs: `withSession` above, with one cookie taken back off
+ * the response.
+ *
+ * **This is what makes signing out work, and without it correctness rests on the order two
+ * `Set-Cookie` headers happen to land in.** `auth()` answers every request by asking Auth.js
+ * for the session, and Auth.js' `session` action does not merely read a JWT — with the `jwt`
+ * strategy it re-signs it and hands back a *fresh ninety-day cookie* to extend the expiry
+ * (`@auth/core/lib/actions/session.js`). `handleAuth` then appends that cookie to whatever
+ * this file's own callback returned, **after** the callback has returned, which is why this
+ * cannot be done from inside it.
+ *
+ * Harmless on an ordinary page view, and the whole bug on a sign-out. `signOut()` deletes the
+ * session cookie through `cookies()` inside a Server Action, and that action POSTs to the page
+ * the reader is standing on — a URL this file's matcher covers. So one response carries two
+ * `Set-Cookie` headers for the same name: the deletion, and the refresh. The browser keeps
+ * whichever arrives last, and *which* that is depends on how the platform merges middleware
+ * headers with the route's. Measured locally on 2026-09-09, both were present on the sign-out
+ * `303` and the deletion came last, so it worked; in production it did not, and the session
+ * simply outlived the logout — the reader was returned to `/login` and was still signed in.
+ *
+ * Dropping the refresh here removes the race rather than betting on it. Nothing is lost that
+ * anybody can see: the rolling ninety-day expiry still rolls, because an ordinary GET
+ * navigation — which is what a reader spends the day making — is untouched. What stops is
+ * NextAuth quietly overruling the app about a cookie the app has just decided.
+ *
+ * Deliberately narrow: only the session token, never the CSRF or callback-url cookies Auth.js
+ * sets beside it, and never the attribution or device cookies the callback above writes.
+ */
+export default async function middleware(request: NextRequest, event: NextFetchEvent) {
+  const response = await withSession(request, event)
+  if (!(response instanceof Response) || !writesItsOwnSessionCookie(request)) return response
+
+  /* `getSetCookie` keeps the headers separate; reading `get('set-cookie')` would join them
+     into one comma-spliced string that cannot be safely split again (an `Expires` date has a
+     comma in it). */
+  const cookies = response.headers.getSetCookie()
+  const kept = cookies.filter((cookie) => !SESSION_COOKIE.test(cookie))
+  if (kept.length === cookies.length) return response
+
+  response.headers.delete('set-cookie')
+  for (const cookie of kept) response.headers.append('set-cookie', cookie)
+
+  return response
+}
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
