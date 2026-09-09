@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { unstable_rethrow } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { NewsletterPrefs } from '@/components/NewsletterPrefs'
 import { NotationPicker } from '@/components/NotationPicker'
@@ -11,6 +11,8 @@ import { ThemePicker } from '@/components/ThemePicker'
 import {
   IconChevronLeft,
   IconChevronRight,
+  IconClose,
+  IconExit,
   IconKey,
   IconReceipt,
   IconSettings,
@@ -21,6 +23,7 @@ import { deleteMyAccount } from '@/lib/accounts/actions'
 import { SELF_DELETE_MESSAGE } from '@/lib/accounts/types'
 import { avatarColorIndex, avatarInitials } from '@/lib/avatar'
 import { PLAN_LABEL } from '@/lib/plans/types'
+import { useDialogA11y } from '@/lib/useDialogA11y'
 
 /**
  * The reader's own identity, next to the hamburger (v3.3) — who is signed in, and
@@ -63,7 +66,10 @@ import { PLAN_LABEL } from '@/lib/plans/types'
  * Sign-out arrives as `children`, not an import: it is a server component
  * wrapping an inline server action, and this is a client component — Next.js
  * refuses to bundle the two directly together, the same reason `NavMenu` used to
- * take it this way before sign-out moved here (see its own history).
+ * take it this way before sign-out moved here (see its own history). What changed is
+ * where it lands: `children` is no longer a row in this panel but the confirming button
+ * inside `SignOutConfirmDialog` below, and the row a reader actually taps is a plain
+ * client button here that opens it.
  */
 export function UserMenu({ children }: { children: React.ReactNode }) {
   const { email, known, plan, firstName } = useRole()
@@ -75,10 +81,18 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
    * than sitting next to them.
    */
   const [view, setView] = useState<'main' | 'settings' | 'delete'>('main')
+  /**
+   * Whether the sign-out confirmation is up. Not a fourth `view`: the dialog sits *over* this
+   * panel rather than replacing its contents, and the panel stays open behind it so that
+   * cancelling puts the reader back exactly where they were — and so that `children`, which
+   * only exists inside this panel's own tree, stays mounted while the dialog is showing it.
+   */
+  const [confirming, setConfirming] = useState(false)
 
   const close = () => {
     setOpen(false)
     setView('main')
+    setConfirming(false)
   }
 
   useEffect(() => {
@@ -86,6 +100,15 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      /*
+       * While the dialog is up, Escape belongs to the dialog: `useDialogA11y` inside it
+       * closes it, and this handler must not also retrace a rung of the menu behind it — the
+       * reader pressing Escape to back out of a confirmation should still have the panel they
+       * opened it from. First, and not folded into the ladder below: `confirming` is only ever
+       * set from `main`, so every branch under it is unreachable while it is true, and a guard
+       * placed after them would read as dead code and get "simplified" away.
+       */
+      if (confirming) return
       // One level at a time — main → settings → delete is two steps deep now, and
       // Escape should retrace it the same way the back-row buttons do, not jump
       // straight to main from delete.
@@ -95,7 +118,7 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, view])
+  }, [open, view, confirming])
 
   /*
    * A same-sized placeholder rather than nothing: `NavMenu` beside this renders on
@@ -205,7 +228,24 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
 
                 <div className="menu-divider" />
 
-                {children}
+                {/*
+                 * The row that *asks*; `children` is the button that acts, and it is in the
+                 * dialog this opens. Sign-out used to happen on this tap, which made it the one
+                 * irreversible-feeling control on the panel reachable by a mis-tap — Billing
+                 * and Change password are two rows above it, and both are recoverable by
+                 * pressing back. Signing out is not destructive, but on a phone it costs a
+                 * password to undo, which is enough to be worth a question.
+                 */}
+                <button
+                  type="button"
+                  className="menu-item w-full"
+                  role="menuitem"
+                  aria-haspopup="dialog"
+                  onClick={() => setConfirming(true)}
+                >
+                  <IconExit size={17} />
+                  Sign out
+                </button>
               </>
             )}
 
@@ -281,8 +321,75 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
 
             {view === 'delete' && <DeleteMyAccountView email={email} onBack={() => setView('settings')} />}
           </div>
+
+          {/*
+            * Beside the panel rather than inside it, and that placement is the whole reason no
+            * portal is needed here. `.upgrade-overlay` is `position: fixed; z-index: 60`, and
+            * `.menu` around all of this is `position: relative` with no `z-index` — so it
+            * creates no stacking context and the dialog lands in the root one, above
+            * `.menu-panel`'s own 40 and above everything else the app draws (45, 50 and 55 are
+            * the feedback launcher, the phone island and the feedback sheet). Rendered *inside*
+            * the panel it would be trapped in that 40 and those three would cover it.
+            */}
+          {confirming && <SignOutConfirmDialog onCancel={() => setConfirming(false)}>{children}</SignOutConfirmDialog>}
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * "Sign out?" over a dimmed page — the same `.upgrade-overlay`/`.upgrade-card` shape and the
+ * same `useDialogA11y` as `FeaturePaywallModal` and `SampleSongbookModal`, so this reads as one
+ * more of that family rather than a fourth dialog design.
+ *
+ * `children` is `SignOutButton`: a server component whose `<form>` posts to the Server Action
+ * that actually ends the session. It is rendered here, whole and untouched — **the button must
+ * stay inside its own form**, which is what keeps sign-out a real POST (see `middleware.ts`,
+ * and that component's own comment). It sits inside the ref'd card for a second reason too:
+ * `useDialogA11y`'s Tab trap only finds what is under `cardRef`, so a submit button outside it
+ * would make `aria-modal` a claim rather than a fact.
+ *
+ * Unlike the delete-account confirmation two screens away, there is nothing to retype: signing
+ * out destroys nothing, it only costs a password to undo. The question is the whole safeguard.
+ */
+function SignOutConfirmDialog({ children, onCancel }: { children: React.ReactNode; onCancel: () => void }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+
+  useDialogA11y(cardRef, onCancel)
+
+  return (
+    <div className="upgrade-overlay">
+      <div className="upgrade-backdrop" onClick={onCancel} aria-hidden />
+
+      <div
+        ref={cardRef}
+        className="upgrade-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
+        <button type="button" className="upgrade-close" onClick={onCancel} aria-label="Close">
+          <IconClose size={18} />
+        </button>
+
+        <h2 className="section-title" id={titleId}>
+          Sign out?
+        </h2>
+        <p className="mt-2 text-sm text-muted">
+          This ends your session on this device and takes you back to the sign-in page. Nothing in
+          your account changes — your songbooks are waiting the next time you sign in.
+        </p>
+
+        <div className="upgrade-actions">
+          {children}
+          <button type="button" className="btn btn-quiet btn-sm" onClick={onCancel}>
+            Stay signed in
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
