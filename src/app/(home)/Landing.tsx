@@ -42,9 +42,17 @@ import { PLANS } from '@/lib/plans/types'
 export const LANDING_TITLE = `${APP_NAME} — ${APP_PAYOFF}`
 
 /**
- * Read four times over — `metadata.description`, the OpenGraph and Twitter blocks, and the
- * hero's own lede — so it has to work as a spoken sentence and as a search snippet at once.
- * Exported for the first three, which are the layout's; the fourth is a few dozen lines down.
+ * Read three times — `metadata.description`, the OpenGraph and Twitter blocks — all of them
+ * the layout's, none of them on the page. **A search snippet, and only that.**
+ *
+ * It used to be the hero's lede as well, on the reasoning that one sentence should work spoken
+ * and as a snippet at once. That stopped being worth it: what the hero needs is the one thing
+ * the page has not said yet, and what a snippet needs is the words somebody types into a search
+ * box — import, chords, lyrics, capo, transpose, offline. The hero's own line is `HERO_SUBHEAD`
+ * below, and the two are allowed to differ now rather than one of them settling for the other.
+ *
+ * So do not "simplify" this back into the visible copy: shortening it is how the page stops
+ * being findable, and nobody reading the page would notice.
  *
  * "Completely free." was true of this app for its whole life and stopped being true the day
  * the plans landed (see `lib/plans/types.ts`), so it had to go: /pricing lists four plans and
@@ -56,6 +64,19 @@ export const LANDING_DESCRIPTION =
   'Play and sing with your own chords and lyrics — import, edit visually, export freely. Key, capo, auto-scroll, synced everywhere. Free to use, with paid plans for bigger repertoires.'
 
 /**
+ * The line under the headline, and the one piece of hero copy that is not repeated anywhere
+ * else on the screen.
+ *
+ * It replaced a lede that listed importing, the key, the capo and the free plan — every one of
+ * which is now said again within a few hundred pixels, by the four cards beside it and by the
+ * line under the button. A visitor read the same four facts three times before scrolling once.
+ * This says the thing none of them says: what Strumfolio is *not*. Not exported, unlike the
+ * description above — nothing outside this page has any use for it.
+ */
+const HERO_SUBHEAD =
+  "Not a catalogue to browse — the songs you actually play, in a songbook that's yours to edit, carry and keep."
+
+/**
  * «1 songbook», «300 songs» — every count below is read from `PLANS` rather than typed, so a
  * cap that changes changes this page too, and the plural agrees with whatever it changed to.
  * The alternative is the one this page has just been repaired for: numbers in prose that were
@@ -63,7 +84,7 @@ export const LANDING_DESCRIPTION =
  */
 const count = limitLabel
 
-/** One of the three cards standing beside the headline — see `HERO_CARDS`. */
+/** One of the four cards standing beside the headline — see `HERO_CARDS`. */
 interface HeroCard {
   icon: React.ReactNode
   title: string
@@ -71,7 +92,7 @@ interface HeroCard {
 }
 
 /**
- * The hero's right-hand column: three cards and, under them, what the free plan holds.
+ * The hero's right-hand column: four cards and, under them, what the free plan holds.
  *
  * They replaced a row of three pills sitting *under* the actions — «Bring your own songs»,
  * «Always with you, even offline», «Key and capo, made smart» — which said the same three
@@ -79,27 +100,42 @@ interface HeroCard {
  * `Home.dc.html` trades both for this: a sentence per card, and the photo left to the «Every
  * screen you own» band further down, where it is the whole point rather than a texture.
  *
- * Same three subjects in the same order, deliberately — getting a repertoire in, putting it in
- * the right key, and playing it anywhere — because that order is the product's own sequence and
- * the bands below it repeat it. What is new is that each one now says something a stranger can
- * act on: the example songbook a new account is created with, the capo Strumfolio names for a
- * transposition, and the follow link.
+ * The order is the product's own sequence, and the bands below repeat it: get a repertoire in,
+ * shape it, put it in the right key, play it anywhere.
+ *
+ * **The editor is the second card and used to be no card at all.** It is the one thing no other
+ * app in this category does — the sheet itself is the editor — and the only place the hero said
+ * so was inside the lede that `HERO_SUBHEAD` replaced, which means the flagship claim was
+ * carried entirely by a sentence being deleted for repeating everything else. Its title is the
+ * headline of the editor band further down, word for word and deliberately: a visitor who reads
+ * the card and then scrolls should arrive somewhere that confirms it, not somewhere that
+ * rephrases it.
+ *
+ * «and eleven more» is `ACCEPTED` in `AddSongScreen.tsx` — fifteen extensions, four of them
+ * named here. Typed rather than counted, so **a sixteenth format has to change this line too**;
+ * naming the formats at all is the point, since "the files you already keep" hid the longest
+ * import list in the category behind a phrase that promised nothing.
  */
 const HERO_CARDS: HeroCard[] = [
   {
     icon: <IconImport size={19} />,
     title: 'Bring your songs in',
-    text: 'Import the files you already keep — or start from the example songbook that comes with a new account.',
+    text: "Import ChordPro, OnSong, PDF, Word and eleven more — or start from the example songbook that's already there.",
+  },
+  {
+    icon: <IconPencil size={19} />,
+    title: 'Edit the song, not the code',
+    text: 'Chords above the words, nothing to learn. Fix a verse two minutes before you play.',
   },
   {
     icon: <IconTuningFork size={19} />,
     title: 'Set the key, get the capo',
-    text: `Transpose to where you sing it and ${APP_NAME} names the capo that keeps the shapes easy.`,
+    text: `Transpose to where you sing it and ${APP_NAME} finds the capo that keeps the shapes easy.`,
   },
   {
     icon: <IconComment size={19} />,
-    title: 'Play it, anywhere',
-    text: 'Any screen you own, offline, and a link that lets the room follow the same song.',
+    title: 'Play it anywhere',
+    text: 'Any screen you own, offline — or share a link and let the room follow along.',
   },
 ]
 
@@ -265,7 +301,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to create my songs from scratch, or can I import what I already have?',
-        a: "Strumfolio isn't a library you browse — there's no catalog to search. You bring your own songs, imported from what you already have. So you don't start from a blank page, a new account arrives with one example songbook of public-domain songs already in it — an ordinary songbook you can edit, rename or delete like any other.",
+        a: "Strumfolio isn't a library you browse — there's no catalogue to search. You bring your own songs, imported from what you already have. So you don't start from a blank page, a new account arrives with one example songbook of public-domain songs already in it — an ordinary songbook you can edit, rename or delete like any other.",
       },
       {
         q: 'What file formats can I import and export?',
@@ -360,11 +396,11 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to learn ChordPro to edit my songs?',
-        a: 'No. The visual editor shows the song exactly as it reads — words on the line, chords above them — and writes standard ChordPro for you underneath, byte for byte. If you like working with brackets, the Source view is one tap away, and the two can never disagree.',
+        a: 'No. The visual editor shows the song exactly as it reads — words on the line, chords above them — and writes standard ChordPro for you underneath. If you like working with brackets, the Source view is one tap away, and the two can never disagree.',
       },
       {
         q: 'How precisely can I place a chord?',
-        a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to fine-tune letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
+        a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to nudge it letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
       },
     ],
   },
@@ -529,7 +565,7 @@ const FEATURES: Feature[] = [
   {
     icon: <IconImport size={26} />,
     title: 'Bring your own songs',
-    text: "No catalog to browse. Import what you already have — and start with an example songbook of public-domain songs already in place, so there's something to play from minute one. Edit it your way, export it whenever you like.",
+    text: "No catalogue to browse. Import what you already have — and start with an example songbook of public-domain songs already in place, so there's something to play from minute one. Edit it your way, export it whenever you like.",
   },
   {
     icon: <IconOnStage size={26} />,
@@ -742,24 +778,25 @@ export async function Landing() {
                 * read for information, and it earns its own wording rather than borrowing theirs.
                 */}
               <h1 className="landing-hero-title">
-                Your favorite songs.
+                Your favourite songs.
                 <br />
                 <span className="text-accent">Ready to play.</span>
               </h1>
 
-              <p className="landing-hero-lede">{LANDING_DESCRIPTION}</p>
+              <p className="landing-hero-lede">{HERO_SUBHEAD}</p>
 
               {/*
-                * The two ways in, where the sign-in card used to stand — and, since
-                * `Home.dc.html`, *above* the pill row rather than below it. The mock's order is
-                * claim, then the way in, then the three glanceable facts; the row that was
-                * there first put the facts between the headline and the button.
+                * The two ways in, where the sign-in card used to stand. A row of three pills
+                * sat under them for a while, then between the headline and the button before
+                * that; both are gone with the cards that now say the same things properly.
                 *
-                * «Get started free» rather than the bar's «Start free», at the mock's own
-                * 64px/21px against the bar's 36px/14px: two controls with one destination, and
-                * the one in the page is allowed to be the loud one. Its own class rather than
+                * **«Start free», the same words as the bar** — it read «Get started free» here
+                * on the reasoning that the loud control could phrase itself, which is how one
+                * action came to have two names on one screen. It is still drawn loud: the
+                * mock's 64px/21px against the bar's 36px/14px, and its own class rather than
                 * `.btn.btn-primary` plus utilities, the rule the `/accounts` block states — a
                 * 64px capsule is a different control from a 44px `.btn`, not a variant of it.
+                * Louder, not differently worded.
                 *
                 * The second is a sign-in, not an anchor. It read «See how it works» and pointed
                 * at the editor band, on the reasoning that a visitor should be able to see the
@@ -771,7 +808,7 @@ export async function Landing() {
                 */}
               <div className="landing-hero-actions">
                 <Link href="/register" className="landing-hero-cta">
-                  Get started free
+                  Start free
                 </Link>
 
                 <span className="landing-hero-aside">

@@ -112,7 +112,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: LANDING_TITLE,
       description: LANDING_DESCRIPTION,
-      locale: 'en_US',
+      locale: 'en_GB',
       type: 'website',
       images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
     },

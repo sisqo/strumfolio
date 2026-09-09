@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: APP_NAME,
     description: APP_PAYOFF,
-    locale: 'en_US',
+    locale: 'en_GB',
     type: 'website',
     images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }],
   },
