@@ -99,14 +99,16 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   precacheOptions: {
     plugins: [rejectUnauthenticated],
-    /**
-     * `c` used to say which songbook was open on the home page, while opening one
-     * meant unfolding it in place. A songbook is a page of its own now, so nothing
-     * produces the parameter any more — but `/?c=repertorio` still has to resolve to
-     * the precached `/` so an old bookmark opens offline instead of missing. The two
-     * defaults are restated because setting this replaces them.
+    /*
+     * `ignoreURLParametersMatching` used to be set here to `[/^utm_/, /^fbclid$/, /^c$/]`,
+     * and all three were about `/`: the first two so a campaign URL resolved to the
+     * precached home, `c` so `/?c=repertorio` — a bookmark old enough to name a songbook in
+     * the query string, from when opening one meant unfolding it in place — did too. `/` is
+     * not precached any more (see the home rule below), which left the option inert over
+     * `/password` and the manifest, so it is gone and Serwist's own `[/^utm_/, /^fbclid$/]`
+     * apply again. The question it answered for `/` did not disappear with it — it is
+     * answered by `cacheKeyWillBeUsed` on the home rule instead.
      */
-    ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^c$/],
   },
   skipWaiting: true,
   clientsClaim: true,
@@ -125,6 +127,57 @@ const serwist = new Serwist({
     {
       matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.endsWith('/edit'),
       handler: new NetworkOnly(),
+    },
+    /**
+     * The home screen, `/` — the manifest's `start_url`, and the one page that has to open
+     * with no network at all.
+     *
+     * **It was precached until 2026-09-09, and that is what made signing out look broken.**
+     * Serwist registers its own `PrecacheRoute` inside the `Serwist` constructor, before
+     * anything in this array, and `PrecacheStrategy` answers from the cache without asking
+     * the network — so a device that installed the worker while signed in kept that reader's
+     * home under `/` for good. Sign out and the session really ended: the cookie was
+     * cleared, `/help` and every other page redirected to `/login`. Retype the address and
+     * `/` alone came back showing the app, which reads exactly like a logout that did not
+     * happen. `scripts/precache-routes.ts` carries the other half of this note.
+     *
+     * `NetworkFirst` is what puts the page back under the session's control. `/` is
+     * dual-audience — `app/(home)/layout.tsx` serves the landing page to a visitor and the
+     * reader's own songbooks to a session — so *which* of the two it is can only be answered
+     * by the server, and now it is asked on every online navigation. `rejectUnauthenticated`
+     * keeps the stored copy the signed-in one: a visitor's landing page carries the
+     * middleware's anonymous header and is never written here, which is the same guard that
+     * used to protect the precache entry.
+     *
+     * **No `ExpirationPlugin`, unlike the four rules below.** Those hold pages; this holds
+     * the way in. A precache entry never expires, so letting `/` fall through to the
+     * 24-hour, 32-entry `others` cache would have traded this bug for a worse one — the
+     * installed app failing to open at all after a day away from the network.
+     *
+     * **Navigations only**, and that is load-bearing rather than tidy: a client-side
+     * navigation to `/` is an RSC fetch whose body is not HTML, and storing it under this
+     * rule's single cache key would serve a payload where a page belongs. Those keep falling
+     * through to the RSC rules below, exactly as they already did — an RSC request carries
+     * `?_rsc=…`, so it never matched the precache either.
+     *
+     * `cacheKeyWillBeUsed` is what replaces the precache's `ignoreURLParametersMatching`
+     * (see `precacheOptions` above): `/?utm_source=…` off a campaign and `/?c=repertorio`
+     * off an old bookmark are the home page, so they are read and written as the one entry
+     * rather than as a fresh copy each.
+     *
+     * What this does **not** fix: offline and signed out, the copy served is still the last
+     * signed-in home, because nothing evicts it when a session ends. Nobody can sign in
+     * without a network either, so it misleads about nothing that could be acted on — but it
+     * is the residue of this bug, and clearing this device's copies on sign-out is what
+     * would take it away.
+     */
+    {
+      matcher: ({ request, url, sameOrigin }) =>
+        sameOrigin && url.pathname === '/' && request.mode === 'navigate',
+      handler: new NetworkFirst({
+        cacheName: 'home',
+        plugins: [{ cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href }, rejectUnauthenticated],
+      }),
     },
     ...authenticatedPageCaching,
     ...defaultCache,

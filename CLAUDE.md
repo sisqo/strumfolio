@@ -414,13 +414,25 @@ Four things here are expensive to get wrong, and none of them fails loudly:
   off the app's own home screen for every signed-in reader, and looks correct to anybody who
   checks it signed out. A second dual-audience path goes in `DUAL_AUDIENCE_PATHS`, not into a
   predicate as a string.
-- **`ANONYMOUS_HEADER` on an anonymous `/` is what protects the precache.**
-  `scripts/precache-routes.ts` precaches `/` with whatever cookies the installing device had,
-  and `sw.ts`'s `rejectUnauthenticated` refuses anything carrying that header. Without it a
-  browser that installed while signed out keeps the *marketing page* under `/` and is served it
-  as the app's home after signing in — silently and permanently. The middleware's
-  `SESSION_FREE_PATHS` branch is conditional (`if (request.auth) return`) precisely so this
-  holds; do not "simplify" it to the unconditional shape `/follow` uses.
+- **`ANONYMOUS_HEADER` on an anonymous `/` is what keeps the marketing page out of the app's
+  cache.** `sw.ts` gives `/` its own `NetworkFirst` rule and `rejectUnauthenticated` refuses
+  anything carrying that header, so a browser that visits while signed out never files the
+  *marketing page* under `/` and is never served it as the app's home afterwards. The
+  middleware's `SESSION_FREE_PATHS` branch is conditional (`if (request.auth) return`)
+  precisely so this holds; do not "simplify" it to the unconditional shape `/follow` uses.
+- **`/` is deliberately not precached** (changed 2026-09-09; `scripts/precache-routes.ts` now
+  lists only `/password` and the manifest). Serwist registers its `PrecacheRoute` before
+  anything in `runtimeCaching` and answers from the cache without asking the network, so a
+  device that installed while signed in kept that reader's home under `/` for good: the session
+  really ended — cookie cleared, every other page redirecting to `/login` — and `/` alone went
+  on showing the app, which is indistinguishable from a logout that failed. That was the bug.
+  The replacement rule is `NetworkFirst`, has no `ExpirationPlugin` (the installed app's
+  `start_url` must open offline however long it has been), and matches **navigations only** —
+  an RSC fetch for `/` carries a body that is not HTML and must keep falling through to the RSC
+  rules. Nothing session-scoped belongs in a build-time precache; `/password` is the one
+  survivor and only while its form names no account. What is still unfixed: offline and signed
+  out, the stored copy is the last signed-in home, because nothing clears this device's caches
+  on sign-out.
 - **`lead_attribution.landing_page` changes meaning on the cutover date**: `/login` before,
   `/` after, for the same visits. No backfill, by decision. `attribution/CLAUDE.md` carries
   the date.
@@ -428,9 +440,10 @@ Four things here are expensive to get wrong, and none of them fails loudly:
 `manifest.ts` keeps `start_url: '/'`, so the installed app whose session has lapsed would open
 onto the marketing page; `StandaloneRedirect` in `Landing` sends it to `/login` instead. Done
 client-side on purpose — nothing in a request says whether the browser is running the page as
-an installed app, and the server-side alternative (`start_url: '/?app=1'`) would put a new
-parameter on the one URL the service worker precaches. That component's comment has the whole
-argument.
+an installed app, and the server-side alternative (`start_url: '/?app=1'`) would need a branch
+in the middleware for a cosmetic redirect. It used to have a sharper objection than that — the
+parameter landed on the one URL the service worker precached — which the line above retired.
+That component's comment has the whole argument.
 
 `SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, because there is no account
 left to sign in to.

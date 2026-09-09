@@ -183,14 +183,21 @@ export default auth((request) => {
    * home may sit in the page caches like any other screen of theirs, while a visitor's copy is
    * marked anonymous and therefore never stored at all.
    *
-   * That second half is load-bearing beyond privacy. `scripts/precache-routes.ts` precaches
-   * `/` with whatever cookies the device had at install time, and `sw.ts`'s
-   * `rejectUnauthenticated` refuses to store any response carrying this header. Without the
-   * header, a browser that installed the app while signed out would keep the *marketing page*
-   * under `/` and be served it as the app's home screen after signing in. Nothing would fail
-   * and nothing would say so — the same shape of silent, permanent bad cache `sw.ts`'s own
-   * header comment describes for song URLs. Before `/` was public the redirect covered this by
-   * accident (`response.redirected` is refused too); now it rests on this line.
+   * That second half is load-bearing beyond privacy. `/` has its own `NetworkFirst` rule in
+   * `sw.ts`, and `rejectUnauthenticated` refuses to store any response carrying this header,
+   * so a browser that visits while signed out never files the *marketing page* under `/` and
+   * is never handed it as the app's home screen afterwards. Nothing would fail and nothing
+   * would say so — the same shape of silent bad cache `sw.ts`'s own header comment describes
+   * for song URLs. Before `/` was public the redirect covered this by accident
+   * (`response.redirected` is refused too); now it rests on this line.
+   *
+   * `/` was **precached** until 2026-09-09, and this paragraph named that as the mechanism.
+   * It is the runtime cache now, and the header matters in the same way for it — with one
+   * difference worth knowing: a precache entry is answered without ever asking the network,
+   * so a bad one was permanent, while a `NetworkFirst` entry is replaced by the next online
+   * navigation and only misleads offline. That the precache could not be corrected is
+   * precisely what made signing out look as though it had failed; `sw.ts`'s home rule has
+   * the account of it.
    *
    * The login page — and, since v3.2, registration and the whole self-serve email loop
    * next to it — is reachable without a session but still gets marked.
