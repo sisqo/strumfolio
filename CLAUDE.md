@@ -338,21 +338,31 @@ the old domain and caused cross-domain login redirects). NextAuth v5 derives the
 the request's `Host` header (`trustHost`, automatic on Vercel), which is what lets every
 attached domain work on its own. Re-add it only if the request host stops being trustworthy.
 
-**`middleware.ts` takes NextAuth's own session-token `Set-Cookie` back off the response on
-every non-GET and on `/api/auth/*`, and signing out does not work without it.** `auth()` asks
-Auth.js for the session on every request, and with the `jwt` strategy the `session` action does
-not merely read the token — it **re-signs it and returns a fresh ninety-day cookie** to extend
-the expiry. `handleAuth` appends that cookie *after* this file's own callback has returned, so
-it cannot be dropped from inside the callback; the export is wrapped for exactly that reason.
-Since a Server Action POSTs to the page's own URL, a sign-out therefore puts two `Set-Cookie`
-headers for the same name on one response — `signOut()`'s deletion and that refresh — and the
-browser keeps whichever lands last, which is decided by how the platform merges middleware
-headers with the route's, not by anything in this repo. **Measured 2026-09-09**, driving a real
-browser against `next dev`: both headers were on the sign-out `303`, the deletion came last,
-and logout worked — while in production it did not, and the session outlived the logout, so the
-reader was returned to `/login` and was still signed in when they went back. Nothing visible is
-given up: the rolling ninety-day expiry still rolls, because an ordinary GET navigation is
-untouched. Only the session token is stripped, never the CSRF or callback-url cookies beside it.
+**`middleware.ts` strips NextAuth's own session-token `Set-Cookie` from every response, and
+signing out does not work without it.** `auth()` asks Auth.js for the session on each request,
+and with the `jwt` strategy the `session` action does not merely read the token — it **re-signs
+it and returns a fresh ninety-day cookie**. `handleAuth` appends that *after* this file's
+callback has returned, so it cannot be dropped from inside the callback; the export is wrapped.
+
+That refresh rides on **every request the matcher covers** — measured against production
+2026-09-09, `/brand/og-image.png` and `/manifest.webmanifest` each answered with a session
+cookie. So when `signOut()` deletes the cookie, **any GET already in flight comes back a few
+milliseconds later carrying a fresh ninety-day cookie and restores the session**. `OfflineSync`
+makes that certain rather than unlucky: it walks the reader's whole repertoire with sequential
+`fetch()` calls, so anybody with songs always has one in flight. Reproduced in a real browser
+against production with service workers blocked.
+
+**It must be unconditional, and the narrower version is the trap.** This first shipped stripping
+only non-GET and `/api/auth/*` — which fixed the sign-out POST, verified, and changed nothing a
+reader could see, because the request that resurrects the session is an ordinary GET for a PNG.
+An account with an **empty repertoire cannot reproduce any of it**, which is what hid the bug
+through three wrong diagnoses; test with songs.
+
+**The cost, stated plainly**: the ninety days no longer roll — a session lasts ninety days from
+signing in, not from the last visit, since this was the only place the expiry was extended
+(`auth()` in a server component cannot write cookies). Auth.js' own `session.updateAge` exists
+to throttle exactly this refresh and the middleware path ignores it, so what is given up was
+never a considered design.
 
 Two service-worker bugs were found and fixed while chasing that one, and neither was the cause —
 worth knowing so the next reader does not re-derive them as suspects: `/` was precached and

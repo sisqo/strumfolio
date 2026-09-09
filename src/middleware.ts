@@ -401,51 +401,53 @@ const withSession = auth((request) => {
 const SESSION_COOKIE = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=/
 
 /**
- * Whether this request is one the app itself decides the session cookie on, and where
- * NextAuth's own refresh must therefore keep its hands off.
- *
- * Two cases, and both are places a cookie is *written* rather than merely read. Every
- * non-GET, because a Server Action POSTs to the page's own URL — which is how signing out
- * happens here (`SignOutButton`) and signing in (`login/page.tsx`). And everything under
- * `/api/auth/`, because those are Auth.js' own handlers: the Google callback arrives as a
- * GET and mints the session on the way through.
- */
-function writesItsOwnSessionCookie(request: NextRequest): boolean {
-  return request.method !== 'GET' || request.nextUrl.pathname.startsWith('/api/auth/')
-}
-
-/**
  * The middleware Next.js actually runs: `withSession` above, with one cookie taken back off
- * the response.
+ * every response.
  *
- * **This is what makes signing out work, and without it correctness rests on the order two
- * `Set-Cookie` headers happen to land in.** `auth()` answers every request by asking Auth.js
- * for the session, and Auth.js' `session` action does not merely read a JWT — with the `jwt`
- * strategy it re-signs it and hands back a *fresh ninety-day cookie* to extend the expiry
- * (`@auth/core/lib/actions/session.js`). `handleAuth` then appends that cookie to whatever
- * this file's own callback returned, **after** the callback has returned, which is why this
- * cannot be done from inside it.
+ * **This is what makes signing out work.** `auth()` answers each request by asking Auth.js for
+ * the session, and with the `jwt` strategy the `session` action does not merely read the token
+ * — it **re-signs it and returns a fresh ninety-day cookie** to roll the expiry
+ * (`@auth/core/lib/actions/session.js`). `handleAuth` appends that cookie to whatever the
+ * callback above returned, *after* it has returned, which is why this cannot be done from
+ * inside the callback and the export is wrapped instead.
  *
- * Harmless on an ordinary page view, and the whole bug on a sign-out. `signOut()` deletes the
- * session cookie through `cookies()` inside a Server Action, and that action POSTs to the page
- * the reader is standing on — a URL this file's matcher covers. So one response carries two
- * `Set-Cookie` headers for the same name: the deletion, and the refresh. The browser keeps
- * whichever arrives last, and *which* that is depends on how the platform merges middleware
- * headers with the route's. Measured locally on 2026-09-09, both were present on the sign-out
- * `303` and the deletion came last, so it worked; in production it did not, and the session
- * simply outlived the logout — the reader was returned to `/login` and was still signed in.
+ * That refresh rides on **every request this file's matcher covers**, which is very nearly all
+ * of them — measured against production on 2026-09-09, `/brand/og-image.png`,
+ * `/brand/icons/icon-192.png` and `/manifest.webmanifest` each answered with a session cookie,
+ * an icon being no different to Auth.js from a page.
  *
- * Dropping the refresh here removes the race rather than betting on it. Nothing is lost that
- * anybody can see: the rolling ninety-day expiry still rolls, because an ordinary GET
- * navigation — which is what a reader spends the day making — is untouched. What stops is
- * NextAuth quietly overruling the app about a cookie the app has just decided.
+ * And that is the whole bug. `signOut()` deletes the session cookie from inside a Server
+ * Action, and the browser applies each `Set-Cookie` as its response arrives — so **any GET
+ * already in flight when the deletion lands comes back carrying a fresh ninety-day cookie and
+ * puts the session straight back**. Nothing is wrong with the sign-out; it is simply overwritten
+ * a few milliseconds later by a request nobody thinks of as authentication, an image among them.
  *
- * Deliberately narrow: only the session token, never the CSRF or callback-url cookies Auth.js
- * sets beside it, and never the attribution or device cookies the callback above writes.
+ * `OfflineSync` is what turns that race from unlucky into certain: it walks the reader's whole
+ * repertoire with sequential `fetch()` calls, so anybody with songs always has a GET in flight.
+ * Reproduced against production in a real browser with service workers blocked — signed out,
+ * returned to `/login`, and still signed in — and it would not reproduce at all against an
+ * account with an empty repertoire, which is what kept it hidden through three wrong diagnoses.
+ *
+ * **Unconditional, and the earlier narrower version is the mistake to learn from.** This first
+ * shipped stripping only non-GET requests and `/api/auth/*`, reasoning that those were where the
+ * app writes the cookie itself. That fixed the sign-out POST and changed nothing the reader
+ * could see, because the request that resurrects the session is an ordinary GET for a PNG.
+ *
+ * **What it costs, stated plainly**: the ninety days no longer roll. A session now lasts ninety
+ * days from signing in rather than ninety from the last visit, because this was the only place
+ * the expiry was ever extended — `auth()` from a server component cannot write cookies. That is
+ * the price of a logout that is decided by the app rather than by which response happens to land
+ * last, and it is worth it. Auth.js has `session.updateAge` (a day, by default) to throttle this
+ * very refresh; the middleware path ignores it and re-signs on every request, so what is being
+ * given up was never a considered design in the first place.
+ *
+ * Deliberately narrow in the other direction: only the session token, never the CSRF or
+ * callback-url cookies Auth.js sets beside it, and never the attribution or device cookies the
+ * callback above writes.
  */
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
   const response = await withSession(request, event)
-  if (!(response instanceof Response) || !writesItsOwnSessionCookie(request)) return response
+  if (!(response instanceof Response)) return response
 
   /* `getSetCookie` keeps the headers separate; reading `get('set-cookie')` would join them
      into one comma-spliced string that cannot be safely split again (an `Expires` date has a
