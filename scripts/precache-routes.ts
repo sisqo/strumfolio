@@ -20,11 +20,31 @@
  * `NetworkFirst` rule in `sw.ts` now, which keeps the installed app openable with no
  * network without letting the page outlive the session it was rendered for.
  *
- * `/password` stays, and is the same shape with a far smaller blast radius: it needs a
- * session exactly as `/` does, so a signed-out reader who types it is shown the form
- * instead of `/login` — but that form is identical for everybody and names no account, so
- * there is nothing of the previous reader left in it. It belongs here only while that
- * stays true.
+ * **`/password` left the same day, and the reason is the sharper half of the story.** It was
+ * kept back for a moment as "the same shape with a smaller blast radius" — a form identical
+ * for everybody, naming no account — which was true and beside the point. Every URL here is
+ * fetched during the worker's `install`, with `credentials: 'same-origin'`, and
+ * `/password` needs a session: fetched without one it follows the middleware's redirect to
+ * `/login`, `sw.ts`'s `rejectUnauthenticated` refuses a redirected response, `cachePut`
+ * returns false, and `PrecacheStrategy` throws `bad-precaching-response`. Serwist awaits
+ * every entry together, so that one rejection fails **the whole install**: the new worker is
+ * discarded and the old one goes on serving.
+ *
+ * Which made the bug above self-sealing, and is why removing `/` from this list was not by
+ * itself enough to fix anybody's browser. A signed-out reader is exactly who has the stale
+ * home under `/`, and a signed-out reader was exactly who could not install the worker that
+ * would have replaced it. `sw.ts`'s header used to answer this with "registration only
+ * happens on pages that are already behind the gate, so a valid cookie exists at install
+ * time" — true of the *first* registration, and not of an **update**, which the browser
+ * starts by itself on any navigation in scope, signed in or not.
+ *
+ * **So the rule for this list is not "account-agnostic", it is "fetchable by a stranger".**
+ * Anything that answers a redirect, a 401 or a 404 to a browser with no session bricks the
+ * update path for every signed-out device, silently and for good — there is no failed
+ * request to see, only a worker that never changes. Check a candidate with
+ * `curl -sSI -o /dev/null -w '%{http_code} %{num_redirects}' https://strumfolio.com<path>`
+ * before adding it. What is left is `/manifest.webmanifest`, which is in the middleware's own
+ * `isPublicAsset`, alongside the build assets and `public/brand/` that `next.config.ts` adds.
  */
 
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -32,7 +52,6 @@ import path from 'node:path'
 
 async function main() {
   const routes = [
-    '/password',
     // A metadata route, not a file in public/, so it has to be listed here.
     '/manifest.webmanifest',
   ]

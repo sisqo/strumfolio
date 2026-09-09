@@ -429,10 +429,25 @@ Four things here are expensive to get wrong, and none of them fails loudly:
   The replacement rule is `NetworkFirst`, has no `ExpirationPlugin` (the installed app's
   `start_url` must open offline however long it has been), and matches **navigations only** —
   an RSC fetch for `/` carries a body that is not HTML and must keep falling through to the RSC
-  rules. Nothing session-scoped belongs in a build-time precache; `/password` is the one
-  survivor and only while its form names no account. What is still unfixed: offline and signed
-  out, the stored copy is the last signed-in home, because nothing clears this device's caches
-  on sign-out.
+  rules. What is still unfixed: offline and signed out, the stored copy is the last signed-in
+  home, because nothing clears this device's caches on sign-out.
+- **Every precached URL must be fetchable by a stranger, and no page is one.** This is the
+  half that made the bug above self-sealing, so it is worth more care than it looks. The
+  worker's `install` fetches every manifest entry with `credentials: 'same-origin'`; a
+  session-gated URL answers a redirect to `/login` for a browser with no session,
+  `rejectUnauthenticated` refuses a redirected response, `cachePut` returns false and
+  `PrecacheStrategy` throws — and since Serwist awaits every entry together, **one such entry
+  fails the whole install**, so the new worker is discarded and the old one serves for ever.
+  There is no error to find: no failed request, just a worker that never changes. It bit for
+  real on 2026-09-09 — removing `/` from the list shipped and fixed nothing on anybody's
+  device, because `/password` was still listed and a *signed-out* reader is both the one
+  carrying the stale home and the one who cannot install the worker that would replace it.
+  `scripts/precache-routes.ts` is down to `/manifest.webmanifest` for that reason. Check any
+  candidate before adding it: `curl -sSI -o /dev/null -w '%{http_code} %{num_redirects}'
+  https://strumfolio.com<path>` must say `200 0`. And note what this retires — `sw.ts`'s old
+  "registration only happens behind the gate, so a valid cookie exists at install time" is
+  true of the first registration and false of every **update**, which the browser starts by
+  itself on any navigation in scope.
 - **`lead_attribution.landing_page` changes meaning on the cutover date**: `/login` before,
   `/` after, for the same visits. No backfill, by decision. `attribution/CLAUDE.md` carries
   the date.

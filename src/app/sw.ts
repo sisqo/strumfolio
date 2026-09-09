@@ -9,10 +9,21 @@
  * gets the login page stored under it — and the cache *looks* full, so offline
  * you would find a login screen for every song with nothing to indicate why.
  *
- * Two defences. Registration only happens on pages that are already behind the
- * gate, so a valid cookie exists at install time; and the guard below refuses to
- * store any response that was redirected or that the middleware marked as
- * anonymous, which makes a bad cache impossible rather than merely unlikely.
+ * The guard below is what makes that impossible rather than merely unlikely: it refuses
+ * to store any response that was redirected or that the middleware marked as anonymous.
+ *
+ * **It used to claim a second defence, and that claim was false in the case that mattered.**
+ * It read: "registration only happens on pages that are already behind the gate, so a valid
+ * cookie exists at install time." True of the first registration; not true of an **update**,
+ * which the browser starts on its own on any navigation in scope, with whatever session the
+ * device has — usually none, since a signed-out reader is the one who needs the new worker
+ * most. And because the guard above and the precache pull in opposite directions, that
+ * mistake was self-sealing: a session-gated URL in the manifest redirects to `/login` for a
+ * stranger, the guard refuses the redirect, `cachePut` returns false, `PrecacheStrategy`
+ * throws, and Serwist awaits every entry together — so the whole install fails and the old
+ * worker keeps serving, for ever, with nothing anywhere to say so. `precache-routes.ts` now
+ * carries the rule that follows from it: every precached URL has to be fetchable by a
+ * stranger, and none of them is a page any more.
  */
 
 import { PAGES_CACHE_NAME, defaultCache } from '@serwist/next/worker'
