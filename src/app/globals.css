@@ -353,7 +353,7 @@
   .song-card {
     /* 12px of page either side on a phone; centred and capped on anything wider. */
     width: calc(100% - 1.5rem);
-    max-width: 48rem;
+    max-width: 56rem;
     margin: 0.375rem auto 0;
     padding: 1.25rem 1.125rem 1.125rem;
     background: var(--surface);
@@ -1021,26 +1021,31 @@
   }
 
   /*
-   * 48rem of sheet + 1rem of gap + 20.5rem of rail = 69.5rem, which is the boards' own
-   * 1112px of content. The sheet does not narrow: the rail takes the gutter that was
-   * already empty beside it.
+   * 56rem of sheet + 1rem of gap + 20.5rem of rail = 77.5rem. It was 48 + 1 + 20.5 = 69.5,
+   * the boards' own 1112px, until the sheet joined the rest of the app at 56rem; the rail
+   * kept its width, so the whole row grew by exactly what the sheet did.
    *
-   * The threshold is a choice, not a measurement — the Design project holds fixed-width
-   * artboards and not one `@media` rule anywhere, so there was no breakpoint to copy.
-   * 75rem leaves a page margin either side at the width the rail first fits.
+   * **What that costs, stated because it is invisible from the code**: the rail no longer
+   * takes a gutter the sheet was leaving empty — at 48rem it was pure surplus, and now it
+   * is 8rem of genuinely extra page. So the threshold had to move with it. It is a choice
+   * rather than a measurement either way, the Design project holding fixed-width artboards
+   * and not one `@media` rule to copy: 75rem left a comfortable margin beside 69.5rem of
+   * content, and 80rem leaves a thinner one — 20px a side at exactly 1280 — beside 77.5rem.
+   * The alternative was ~83rem, which keeps the old margin and takes the rail off every
+   * laptop between 1280 and 1328. Reaching more screens won over the wider gutter.
    */
-  @media (min-width: 75rem) {
+  @media (min-width: 80rem) {
     .reading-layout {
       display: flex;
       align-items: flex-start;
       justify-content: center;
       gap: 1rem;
-      width: 69.5rem;
+      width: 77.5rem;
       margin: 0.375rem auto 0;
     }
 
     .reading-layout .song-card {
-      width: 48rem;
+      width: 56rem;
       flex: none;
       margin: 0;
     }
@@ -8866,26 +8871,26 @@
   }
 
   /*
-   * `--top-bar-width` rather than a bare width: a bar lines up with the page under it, and
-   * the pages under this one are not one shape. Both components that draw it set the
-   * variable per call — `TopBar` defaulting to the app column, `PublicHeader` requiring it
-   * outright — so the mark and the actions fall on the content's own left and right edges
-   * instead of on a width borrowed from a screen shaped nothing like it.
+   * `--top-bar-width` rather than a bare width, and the `56rem` here is the real default
+   * rather than a fallback nobody reaches: `TopBar` sets nothing, so every screen inside the
+   * app takes this number, and so do the two places that draw `.top-bar-inner` by hand —
+   * `FollowSession`'s guest bar, and `.song-search-panel-inner` below. `PublicHeader` is the
+   * only caller that sets it, and it is required to, because the pages *outside* the app are
+   * not one shape: 70rem under the landing page and `/pricing`, 56rem under the legal pages,
+   * the changelog and the sign-in forms.
    *
-   * **The `48rem` fallback here is no longer the app's width**, and reading it as such is
-   * the trap this comment exists to close. The app column is `max-w-4xl`/56rem since the
-   * widening; 48rem survives as the fallback because the two places that reach
-   * `.top-bar-inner` *without* a component to set the variable are both still that wide:
-   * `FollowSession`, whose `<main>` stays `max-w-3xl` because it caps `SongSheet` directly
-   * with no `.song-card` around it — a guest and the leader must wrap the same song the same
-   * way — and `.song-search-panel-inner` below, which only ever opens on the reading screen,
-   * where `SongReader` passes 48rem to match the sheet.
+   * **56rem is now every width in the app, the song sheet included**, which is the fact worth
+   * carrying out of here. It was 48rem until the app widened, then briefly both — 56rem for
+   * the screens of rows and 48rem for the sheet, on the argument that the sheet's width is a
+   * wrapping measure for lyrics rather than a page column. True, and it lost anyway: opening
+   * a song moved the mark in the corner by 32px, and a reader sees that on the most travelled
+   * path in the app. One number, no step.
    */
   .top-bar-inner {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    max-width: var(--top-bar-width, 48rem);
+    max-width: var(--top-bar-width, 56rem);
     margin-inline: auto;
     padding: 0.75rem 1rem;
   }
@@ -9477,7 +9482,7 @@
   }
 
   .song-search-panel-inner {
-    max-width: var(--top-bar-width, 48rem);
+    max-width: var(--top-bar-width, 56rem);
     margin-inline: auto;
     padding: 0.75rem 1rem 1rem;
   }
@@ -11455,14 +11460,14 @@
     display: flex;
     align-items: stretch;
     justify-content: center;
-    max-width: 48rem;
+    max-width: 56rem;
     margin-inline: auto;
   }
 
   @media (min-width: 640px) {
     .control-strip.has-nav {
       gap: 0.75rem;
-      max-width: 58.75rem;
+      max-width: 66.75rem;
     }
   }
 
@@ -11489,7 +11494,7 @@
     .control-strip.has-nav .control-dock {
       /* Still `flex: 1` from the base rule above — grows to fill the row, capped
          here so it does not crowd `.control-nav` out on a wide screen. */
-      max-width: 41.25rem;
+      max-width: 49.25rem;
       border-inline-end: 1px solid var(--edge);
       border-radius: var(--r-2xl);
     }

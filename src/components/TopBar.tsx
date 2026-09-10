@@ -82,7 +82,6 @@ export function TopBar({
   back,
   steps,
   search,
-  width = '56rem',
 }: {
   current: Section
   /** A second way out, next to the brand. Leave unset when it would lead home too. */
@@ -91,27 +90,19 @@ export function TopBar({
   steps?: { previous: string | null; next: string | null }
   /** The reading page's own quick search, already wired to its account's songs. */
   search?: ReactNode
-  /**
-   * The column this bar is standing on, as `--top-bar-width` — the same variable
-   * `PublicHeader` sets per page.
-   *
-   * The default is the app column, `max-w-4xl`/56rem, which is what every screen in here
-   * caps its own `<main>` at. It is defaulted rather than required, unlike `PublicHeader`'s,
-   * because the app's screens are all one shape and a new one should get that shape without
-   * saying so — the public bar stands on six pages of six different widths, which is why
-   * there a missing prop is deliberately a build error.
-   *
-   * **The reading screen is the one caller that passes something else**, and it is not an
-   * exception that can be inferred here: `SongReader` caps the sheet in CSS (`.song-card`,
-   * still 48rem — it is a wrapping measure for lyrics whose font size the reader chooses,
-   * not a page column) so its bar has to be told the same number by hand. Widening the app
-   * around it is exactly what separated the two.
-   */
-  width?: string
 }) {
   return (
     <header className="top-bar">
-      <div className="top-bar-inner" style={{ '--top-bar-width': width } as React.CSSProperties}>
+      {/*
+        * No width to set: every screen this bar draws is 56rem, so `.top-bar-inner`'s own
+        * fallback is the whole answer and there is nothing here to keep in step with it.
+        *
+        * It briefly took a `width` prop, when the app went to 56rem and the song sheet stayed
+        * at 48 — the reading screen was then the one caller that had to say so by hand. That
+        * split lasted a day: the sheet is 56rem too now, and a prop no call site ever passes
+        * is machinery pretending to be a decision.
+        */}
+      <div className="top-bar-inner">
         {/*
           * Both render; CSS shows one (`.lockup-light`/`.lockup-dark`, globals.css) —
           * a static, precached page can't know the reader's theme, so a plain `<img>`

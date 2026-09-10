@@ -853,7 +853,7 @@ export function FollowSession({ token }: { token: string }) {
           <GuestSettingsMenu />
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">{content}</main>
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">{content}</main>
     </PrefsProvider>
   )
 }

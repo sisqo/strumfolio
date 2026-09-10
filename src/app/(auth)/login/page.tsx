@@ -27,7 +27,7 @@ interface Props {
  * `AuthLockup`, the same `.login-card`, the same `login-or` divider, the same acceptance line,
  * the same cross-link to the other page. It also moved back into the `(auth)` group with the
  * other four sign-in-adjacent pages — it had left that group only because a 70rem landing page
- * could not share their 48rem bar, and with the landing page gone the reason went with it. One
+ * could not share their narrower bar, and with the landing page gone the reason went with it. One
  * `layout.tsx` for five pages that are one card each, instead of six files for the same shape.
  *
  * Google first, because it is the way that needs no password kept anywhere. Underneath, an

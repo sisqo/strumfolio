@@ -15,14 +15,15 @@ import { PublicHeader } from '@/components/PublicHeader'
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* 48rem, matching this shell's own `<main className="... max-w-3xl ...">` below. It used
-          to be the one width every non-landing page in the app shared; the app's own screens
-          are 56rem (`max-w-4xl`) since that column was widened, and these four stayed behind
-          on purpose — 48rem is a reading measure for a document somebody reads end to end,
-          which is a different question from how wide a screen of rows should be. */}
-      <PublicHeader width="48rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
+      {/* 56rem, matching this shell's own `<main className="... max-w-4xl ...">` below — the one
+          width every page outside the landing pages now shares. These four briefly stayed at
+          48rem while the app widened around them, on the argument that a document somebody
+          reads end to end wants a reading measure rather than a screen's column; the argument
+          lost to the one that matters more here, which is that a reader moving between pages
+          should not watch the mark in the corner change place. */}
+      <PublicHeader width="56rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
 
-      <main className="mx-auto max-w-3xl px-5 pb-16 pt-8 sm:pt-12">
+      <main className="mx-auto max-w-4xl px-5 pb-16 pt-8 sm:pt-12">
         <article className="legal-content mt-6">{children}</article>
 
         <Footer />

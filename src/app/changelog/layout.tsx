@@ -11,10 +11,10 @@ import { PublicHeader } from '@/components/PublicHeader'
 export default function ChangelogLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* 48rem, matching this page's own `<main>`: a reading column, kept where it was when the
-          app's screens widened to 56rem. `/brand` — named here as the wide counterexample back
-          when this said 70rem, which it never was — is one of the screens that widened. */}
-      <PublicHeader width="48rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
+      {/* 56rem, matching this page's own `<main>` — and every other page that is not a landing
+          page. It said 48rem for a day, and before that named `/brand` as a 70rem counterexample
+          it never was; both are gone now that one number covers the lot. */}
+      <PublicHeader width="56rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
       {children}
     </>
   )

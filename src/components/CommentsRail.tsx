@@ -8,8 +8,14 @@
  * orphan badges are there on desktop too, and `SongSheet` never has to ask how wide the
  * window is.
  *
- * It occupies the gutter the reading column already left empty (768px of sheet inside
- * 1112px of content), so turning it on does not narrow the words.
+ * It sits beside the sheet without narrowing it: 896px of sheet, a 16px gap and 328px of rail,
+ * so the words are exactly as wide with it as without.
+ *
+ * **It used to be free, and it is not any more.** At 48rem the sheet left a gutter inside the
+ * 1112px the boards drew, and the rail simply moved into it. The sheet is 56rem since the app
+ * settled on one width, so the row is 1240px and the rail is genuinely 328px of extra page —
+ * which is why its threshold had to move too, to 80rem. See `.reading-layout` in globals.css
+ * for what that costs and what the alternative was.
  */
 
 import { useComments } from '@/components/CommentsProvider'
