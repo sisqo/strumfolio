@@ -214,7 +214,7 @@ export default async function AccountsPage({ searchParams }: Props) {
     <PrefsProvider songSlug={null}>
       <TopBar current="accounts" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3.5">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3.5">
         <header className="accounts-head">
           <div>
             <h1 className="screen-title">Accounts</h1>

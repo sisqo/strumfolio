@@ -70,7 +70,7 @@ export default async function LeadsPage({ searchParams }: Props) {
     <PrefsProvider songSlug={null}>
       <TopBar current="leads" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3.5">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3.5">
         <header className="mb-[1.125rem]">
           <h1 className="screen-title">Leads</h1>
           <p className="mt-2 text-sm leading-[1.45] text-muted">

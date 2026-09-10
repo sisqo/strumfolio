@@ -17,7 +17,7 @@ export default function ExportPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="export" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <ExportScreen />
 
         <Footer />

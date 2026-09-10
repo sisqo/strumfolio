@@ -2,8 +2,11 @@ import { PublicHeader } from '@/components/PublicHeader'
 
 /**
  * The shell shared by the five narrow sign-in pages — sign in, register, forgot/reset
- * password, email verification. 48rem, the one width every non-landing page in the app shares;
- * each page centers its own `max-w-sm` card independently of it.
+ * password, email verification. 48rem, which used to be the one width every non-landing page
+ * in the app shared and is now this group's own: the app's screens went to 56rem
+ * (`max-w-4xl`) when that column turned out to be a shared constant with nothing behind it,
+ * and these five did not follow, because a bar 8rem wider above five `max-w-sm` cards is a
+ * bar lining up with nothing. Each page centers its own card independently of it either way.
  *
  * **`/login` is one of the five again.** It had a `layout.tsx` of its own for one reason —
  * it was the full 70rem landing page and could not share a 48rem bar with four single cards —

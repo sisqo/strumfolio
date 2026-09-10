@@ -23,7 +23,7 @@ export default function ThanksPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="checkout" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <ThanksScreen />
 
         <Footer />

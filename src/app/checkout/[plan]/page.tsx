@@ -94,7 +94,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
     <PrefsProvider songSlug={null}>
       <TopBar current="checkout" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         {/*
           * The same bar as on /pricing, and the same component — `PaidCheckoutFields` prints
           * its price independently, so a coupon that stopped at /pricing would vanish exactly

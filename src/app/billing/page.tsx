@@ -18,7 +18,7 @@ export default function BillingPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="billing" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <BillingScreen />
 
         <Footer />

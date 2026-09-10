@@ -21,7 +21,7 @@ export default function HelpPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="help" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <article className="legal-content">
           <h1>Help</h1>
           <p className="legal-updated">A short guide to the basics — start to finish takes about five minutes.</p>

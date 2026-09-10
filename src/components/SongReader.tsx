@@ -165,6 +165,15 @@ export async function SongReader({ song }: { song: Song }) {
         <TopBar
           current="songs"
           /*
+            * 48rem, against the app's own 56rem: this screen's column is not a `<main>` at
+            * all but `.song-card`, which is still capped at 48rem in CSS because it is a
+            * wrapping measure for the words — `.sheet-word` is one unbreakable box, so the
+            * sheet's width is where a line decides to go round. The app widened around it;
+            * the sheet did not, and a bar that widened with the app would put the mark
+            * 64px left of the paper it sits on.
+            */
+          width="48rem"
+          /*
             * The way back to the songbook, which is not where the brand leads: the
             * brand goes to the list of songbooks, one level above the one you came
             * from. A song with no songbook has nowhere in between, so it gets no

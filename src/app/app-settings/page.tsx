@@ -74,7 +74,7 @@ export default async function AppSettingsPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="app-settings" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <header className="mb-[1.125rem]">
           <h1 className="screen-title">App settings</h1>
           <p className="mt-2 text-sm leading-[1.45] text-muted">

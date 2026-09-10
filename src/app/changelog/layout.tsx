@@ -11,7 +11,9 @@ import { PublicHeader } from '@/components/PublicHeader'
 export default function ChangelogLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* 48rem, matching this page's own `<main>` — a reading column, not the 70rem of /brand. */}
+      {/* 48rem, matching this page's own `<main>`: a reading column, kept where it was when the
+          app's screens widened to 56rem. `/brand` — named here as the wide counterexample back
+          when this said 70rem, which it never was — is one of the screens that widened. */}
       <PublicHeader width="48rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
       {children}
     </>

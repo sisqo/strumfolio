@@ -7619,9 +7619,9 @@
    * across — a bar the width of the room, announcing a discount to the margins. 70rem is the
    * column the pages that mount it already share (`/pricing`'s `<main>`, `/login`'s
    * `.landing-width`), so on a wide screen the ticket's edges fall where the content's do.
-   * `/checkout`'s column is narrower, 48rem, and the ticket keeps the site's width there
+   * `/checkout`'s column is narrower, 56rem, and the ticket keeps the site's width there
    * rather than its own: the single row needs about 64.5rem to hold (the stacked layout's
-   * arithmetic, below), and a 48rem ticket on a desktop would have to stack — which a
+   * arithmetic, below), and a 56rem ticket on a desktop would have to stack — which a
    * viewport-driven media query cannot know to do. Auto margins on an over-constrained fixed
    * box are how CSS centres it, and they leave the phone's `left`/`right` insets alone: the cap
    * only bites once the viewport passes 75.5rem.
@@ -8857,11 +8857,20 @@
   }
 
   /*
-   * `--top-bar-width` rather than a bare `48rem`: `TopBar` never sets it, so every screen it
-   * draws keeps today's width — the same `max-w-3xl` every internal page's own `<main>` uses
-   * — while `PublicHeader` sets it per page (`login`'s 70rem, the legal pages' 42rem, the
-   * narrow auth forms' 24rem...) so the bar above a page lines up with that page's own left
-   * and right edges instead of one width borrowed from a screen shaped nothing like it.
+   * `--top-bar-width` rather than a bare width: a bar lines up with the page under it, and
+   * the pages under this one are not one shape. Both components that draw it set the
+   * variable per call — `TopBar` defaulting to the app column, `PublicHeader` requiring it
+   * outright — so the mark and the actions fall on the content's own left and right edges
+   * instead of on a width borrowed from a screen shaped nothing like it.
+   *
+   * **The `48rem` fallback here is no longer the app's width**, and reading it as such is
+   * the trap this comment exists to close. The app column is `max-w-4xl`/56rem since the
+   * widening; 48rem survives as the fallback because the two places that reach
+   * `.top-bar-inner` *without* a component to set the variable are both still that wide:
+   * `FollowSession`, whose `<main>` stays `max-w-3xl` because it caps `SongSheet` directly
+   * with no `.song-card` around it — a guest and the leader must wrap the same song the same
+   * way — and `.song-search-panel-inner` below, which only ever opens on the reading screen,
+   * where `SongReader` passes 48rem to match the sheet.
    */
   .top-bar-inner {
     display: flex;

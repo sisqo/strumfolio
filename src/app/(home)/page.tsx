@@ -92,7 +92,7 @@ export default async function Home() {
         <SongbookProvider initial={initial}>
           <TopBar current="songs" />
 
-          <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+          <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
             {/* Not a title anyone needs to read: this is the page you land on, and the
                 search box is the first thing to do here, not something to find under a
                 heading. Still an <h1>, just not a visible one — a screen reader moving by

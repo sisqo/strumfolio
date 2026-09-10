@@ -17,7 +17,7 @@ export default function Loading() {
     <>
       <TopBar current="songbooks" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3" aria-busy="true">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3" aria-busy="true">
         <span className="sr-only" role="status">
           Loading songbook…
         </span>

@@ -88,7 +88,7 @@ export default async function BrandPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="brand" />
 
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
+      <main className="mx-auto w-full max-w-4xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
         <header className="max-w-[42rem]">
           <h1 className="screen-title">Brand</h1>
 

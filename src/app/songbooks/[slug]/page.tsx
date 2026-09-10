@@ -112,7 +112,7 @@ export default async function SongbookPage({ params }: Props) {
         <SongbookProvider initial={initial}>
           <TopBar current="songbooks" />
 
-          <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+          <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
             <Link href="/" className="back-plain mb-3.5">
               <IconChevronLeft size={15} />
               Songbooks

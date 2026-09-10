@@ -221,7 +221,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
     <PrefsProvider songSlug={null}>
       <TopBar current="accounts" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <p className="mb-3 text-sm">
           <Link href="/accounts" className="text-accent hover:underline">
             ← All accounts

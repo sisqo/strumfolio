@@ -26,8 +26,9 @@ import { APP_NAME } from '@/lib/brand'
  * themselves — keeps the sections, so a reader who is *in* that part of the site can still
  * move around it. See `lib/publicNav.ts`, which is now that bar's alone.
  *
- * `width` sets `--top-bar-width`, the same variable `.top-bar-inner` reads for `TopBar`'s own
- * `max-w-3xl`/48rem default. Every page this renders on is a different shape from every other
+ * `width` sets `--top-bar-width`, the same variable `TopBar` sets for the app's own screens
+ * (defaulted there to their 56rem column, since they are all one shape). Every page this
+ * renders on, by contrast, is a different shape from every other
  * — a 70rem landing page, a 48rem legal document, a narrow sign-in card — and a header with
  * one borrowed width would line its mark and its actions up with nothing on most of them.
  * There is no default here, on purpose: every call site names the width it actually uses, so a

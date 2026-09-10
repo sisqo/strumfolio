@@ -30,7 +30,7 @@ export default function BookletPage() {
     <PrefsProvider songSlug={null}>
       <TopBar current="booklet" />
 
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
         <BookletScreen />
 
         <Footer />

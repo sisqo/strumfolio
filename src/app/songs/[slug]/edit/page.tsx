@@ -83,7 +83,7 @@ export default async function EditSongPage({ params }: Props) {
       <PrefsProvider songSlug={null}>
         <TopBar current="songs" back={{ href: `/songs/${slug}`, label: 'Back to song' }} />
 
-        <main className="mx-auto max-w-3xl px-4 pb-12 pt-3">
+        <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
           <h1 className="screen-title mb-4">Edit</h1>
           <p className="notice notice-accent" role="status">
             <IconInfo />
@@ -124,7 +124,7 @@ export default async function EditSongPage({ params }: Props) {
           }}
         />
 
-        <main className="mx-auto max-w-3xl px-4 pb-12">
+        <main className="mx-auto max-w-4xl px-4 pb-12">
           <EditorScreen song={song} />
 
           <Footer />
