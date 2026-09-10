@@ -38,6 +38,26 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   exported from it compiles clean under `tsc --noEmit` and then fails at `next build` with
   "Server Actions must be async functions" — the `testCard.ts` arrangement the root `CLAUDE.md`
   describes. `/leads`' rollup is the third caller of that one definition.
+- **Giving a gift offers to tell the reader, and that is a second action, never part of
+  `setGrant`.** The gift is written first; `GiftNoticeModal` then opens over the saved state,
+  so dismissing it, going offline or a refused send all leave the account exactly as set. Four
+  rules hold it together, and each is cheap to break from a distance:
+  - **The modal opens only on a change the reader gains by** (`worthAnnouncing`, in
+    `giftNotice.ts`) **and only when the gift is not inert.** A corrected reason, a shortened
+    date and a lower plan all save in silence. `setGrant` rewrites `granted_at` on every save,
+    so "did the row change" is not the question.
+  - **The `before` snapshot must be taken before awaiting `setGrant`.** `run()` ends in
+    `router.refresh()`, which hands the component a `plan` prop already carrying the new gift;
+    read after, the comparison is the gift against itself and the modal never opens.
+  - **The operator types a subject and one optional line, and nothing else.** Which plan and
+    until when are re-read from the row by `sendGiftNotice`, so no call can announce a plan the
+    account does not hold. The line is escaped into the HTML and raw in the text
+    (`feedbackEmail`'s split); **the subject is a header and is never escaped**. Never
+    prefill the line from `granted_note` — those chips («Refund», «Beta tester») are audit.
+  - **`source === 'grant'` is the one predicate on both sides**: `giftActive(plan)` hides the
+    strip's «Send the notice», and `sendGiftNotice` refuses `nothing-to-announce` on the same
+    answer. The strip deliberately does **not** say whether the notice went out; a second press
+    is answered by the unique index, through `already-sent`.
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`forceExpireNow(ownerEmail)` takes the address explicitly**, checking `isOwner` inside; it

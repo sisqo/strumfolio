@@ -9,12 +9,20 @@
  * actually knows which request this is.
  */
 
+import { defaultGiftSubject } from '@/lib/accounts/giftNotice'
 import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
 
-import { passwordResetEmail, planChangeEmail, purchaseEmail, verificationEmail, welcomeEmail } from './templates'
+import {
+  giftEmail,
+  passwordResetEmail,
+  planChangeEmail,
+  purchaseEmail,
+  verificationEmail,
+  welcomeEmail,
+} from './templates'
 import type { EmailTemplate } from './templates'
 
-export type PreviewKey = 'verification' | 'welcome' | 'password-reset' | 'purchase' | 'plan-change'
+export type PreviewKey = 'verification' | 'welcome' | 'password-reset' | 'purchase' | 'plan-change' | 'gift'
 
 export const PREVIEW_KEYS: PreviewKey[] = [
   'verification',
@@ -22,6 +30,7 @@ export const PREVIEW_KEYS: PreviewKey[] = [
   'password-reset',
   'purchase',
   'plan-change',
+  'gift',
 ]
 
 export const PREVIEW_LABEL: Record<PreviewKey, string> = {
@@ -30,6 +39,7 @@ export const PREVIEW_LABEL: Record<PreviewKey, string> = {
   'password-reset': 'Reset password',
   purchase: 'Purchase confirmation',
   'plan-change': 'Plan change',
+  gift: 'Gift notice',
 }
 
 /**
@@ -80,6 +90,25 @@ const SAMPLE_PLAN_CHANGE = {
   effect: { day: '22 September 2027' },
 }
 
+/**
+ * `giftEmail`'s placeholders, and **the fullest of its shapes** rather than one tab per
+ * shape — `SAMPLE_PLAN_CHANGE`'s argument, applied to a template with fewer variations. A
+ * dated gift carrying a personal line is the only shape that shows both the day and the place
+ * an operator's own sentence lands; the two that remain — no end date, and no line at all —
+ * differ by one paragraph each and are pinned in `templates.test.ts`, which is where a rule
+ * with no new wording to look at belongs.
+ *
+ * The subject is `defaultGiftSubject`'s, not a literal: what `/emails` previews is what the
+ * confirmation dialog opens with, and a second spelling here would drift from it silently.
+ * The same fixed date as `SAMPLE_PURCHASE`, for the reason stated there.
+ */
+const SAMPLE_GIFT = {
+  planLabel: 'Premium',
+  endsOn: '22 September 2027',
+  personalLine: 'Thanks for the detailed bug report last month — this one is on us.',
+  subject: defaultGiftSubject('Premium'),
+}
+
 export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemplate> {
   return {
     verification: verificationEmail(sampleUrl(origin, '/verify')),
@@ -87,5 +116,6 @@ export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemp
     'password-reset': passwordResetEmail(sampleUrl(origin, '/reset-password')),
     purchase: purchaseEmail(SAMPLE_PURCHASE),
     'plan-change': planChangeEmail(SAMPLE_PLAN_CHANGE),
+    gift: giftEmail(SAMPLE_GIFT),
   }
 }

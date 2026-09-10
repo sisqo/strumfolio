@@ -404,6 +404,81 @@ ${APP_NAME} — ${APP_PAYOFF}`
 }
 
 /**
+ * The gift notice: an operator has put a plan on somebody's account by hand, and this is what
+ * that person is told about it.
+ *
+ * **The only template here whose subject is an argument rather than its own.** An operator
+ * reviews and may rewrite it in the confirmation dialog on `/accounts/[email]` before anything
+ * is sent, so the default lives where that dialog can reach it (`accounts/giftNotice.ts`,
+ * `defaultGiftSubject`) and arrives here already decided. The heading below is deliberately
+ * **not** that subject — unlike `planChangeEmail`, which prints its own — because a heading is
+ * HTML and this subject is a person's typing; keeping them apart is what lets the subject go
+ * out unescaped, which is correct for a mail header and wrong for a document.
+ *
+ * `personalLine` is the other half of that: the one sentence the operator may add, escaped
+ * into the HTML and raw in the plain text, exactly as `feedbackEmail` treats the message a
+ * reader typed. It sits after the gift and before the practical line, which is where a
+ * «congratulations on the album» belongs — attached to the gift rather than to the mechanics.
+ *
+ * **No figure is ever named**, unlike `purchaseEmail`: a gift that says what it is worth reads
+ * as an invoice, and it would also tie this copy to a listino that moves. And no clause
+ * describes what happens after `endsOn` — a decision, not an omission: the message is kept
+ * short and about the gift, and nothing in this repository runs on a schedule to say it later.
+ *
+ * The button goes to `/` and never to `/billing`. A hand-given plan lives in the `granted_*`
+ * columns and `loadCheckoutStatus` reports `liveSubscription`, which ignores them — so
+ * Billing tells somebody holding a gifted Premium that they have no subscription at all.
+ */
+export function giftEmail(input: {
+  /** `PLAN_LABEL`'s spelling, resolved by the caller — this file names no plans of its own. */
+  planLabel: string
+  /**
+   * The day the gift runs out, already written out («1 March 2027»), or null for one that
+   * never does — `lifetime`, or any plan given with no end date.
+   *
+   * Formatted by the caller, like `purchaseEmail`'s `endsOn` and for a sharper reason than
+   * consistency: the stored `granted_until` is the *end* of its day in UTC (23:59:59.999Z),
+   * so handing it to `toLocaleDateString` anywhere east of Greenwich prints the day after the
+   * one the operator typed and the admin screen shows.
+   */
+  endsOn: string | null
+  /** One sentence from the operator, or null. The only person-typed text in this document. */
+  personalLine: string | null
+  /** Reviewed, possibly rewritten, and already clamped by the action that sends this. */
+  subject: string
+}): EmailTemplate {
+  const { planLabel, endsOn, personalLine, subject } = input
+
+  const gift =
+    endsOn === null
+      ? `We've put ${planLabel} on your account — free, and it doesn't run out.`
+      : `We've put ${planLabel} on your account — free, and yours until ${endsOn}.`
+  const practical = `There is nothing to set up and nothing to pay: everything ${planLabel} opens up is on right now.`
+
+  const startUrl = `https://${SITE_URL}/`
+
+  const html = layout(`
+    ${heading('A gift for you')}
+    ${paragraph(gift)}
+    ${personalLine === null ? '' : paragraph(escapeHtml(personalLine))}
+    ${paragraph(practical)}
+    ${button('Open your songbooks', startUrl)}
+  `)
+
+  const text = `A gift for you
+
+${gift}
+${personalLine === null ? '' : `\n${personalLine}\n`}
+${practical}
+
+${startUrl}
+
+${APP_NAME} — ${APP_PAYOFF}`
+
+  return { subject, html, text }
+}
+
+/**
  * The "Share your feedback" sheet's one send, covering all four categories — replaces
  * `featureRequestEmail`, which only ever covered one of them.
  *

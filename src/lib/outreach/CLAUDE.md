@@ -5,11 +5,31 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
 Everything else in this repo is something a reader does; this is the one thing the platform
 does to them. A birthday greeting, an upgrade offer carrying a voucher, whatever joins them:
-the engine is written and **no action is built yet** (`HANDLERS` is all `null`), which is the
-state it was deliberately left in — the two declared kinds exist so the shape of a definition
-answers to a real example.
+the engine is written and **no action this panel can run is built yet** — `HANDLERS` is still
+all `null`, the state it was deliberately left in, and the two kinds declared beside it exist
+so the shape of a definition answers to a real example.
 
-- **The claim is an insert, and it happens before anything is sent** (`run.ts`). That single
+One message does go out, and it is the exception the first bullet below is about:
+`gift_notice` is composed and sent from `/accounts/[email]`'s Plan & gift tab and only
+*recorded* here. So «nothing is built» is true of the panel and false of the table.
+
+- **One kind is recorded here and not run from here.** `gift_notice` carries
+  `trigger: 'elsewhere'`: the moment belongs to the Plan & gift tab, where an operator gives a
+  plan by hand, and `sendGiftNotice` (`accounts/actions.ts`) claims and settles its row itself
+  because the message carries two fields somebody typed a moment earlier — a handler is called
+  with an `OutreachTarget` and nothing else, and widening that for one caller would put an
+  optional payload on every action. Three consequences worth not re-deriving:
+  `outreachViewFor` draws **no line** for such a kind (its occurrence key comes from
+  `giftOccurrenceKey`, not from a cadence, so a line would never match its own rows and would
+  read «nothing claimed yet» beside a message already sent) — the rows appear as *history*;
+  `eligibilityFor` therefore never runs for it, which is what keeps **`consentGate` from
+  refusing a transactional message** — a gift notice is on the same footing as `purchaseEmail`,
+  and the newsletter does not govern it; and `HANDLERS.gift_notice` stays `null` as a fence, so
+  nothing can ever run it with an empty subject.
+- **The claim is an insert, and it happens before anything is sent** (`claim.ts`, extracted
+  from `run.ts` once `sendGiftNotice` became its second caller — the half that must not be
+  written twice is not the insert but `claimVerdict`, since there are **two** unique indexes
+  and only a row pointing at *this* account may be taken over). That single
   ordering is the whole guarantee: a read-then-write has a window as long as a delivery, and
   two runs inside it both send. The unique indexes on `outreach_actions` answer «has this been
   done» inside one statement instead.

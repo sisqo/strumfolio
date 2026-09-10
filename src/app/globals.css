@@ -2111,6 +2111,30 @@
     margin-top: 1.25rem;
   }
 
+  /* A dialog that has to hold a form rather than a sentence and two buttons — today only the
+     gift notice, which stacks a subject field, a preview of the message and a line to add to
+     it. 22rem fits «are you sure»; it does not fit something being written. */
+  .upgrade-card.is-wide {
+    max-width: 34rem;
+  }
+
+  /* The message exactly as it will be sent, in the operator's own screen rather than an
+     inbox: the plain-text half of the template, which is one of the two bodies that actually
+     goes out and needs no iframe to be truthful. `/emails` is where the HTML is checked
+     against a real mail client; this is where the words are checked against the gift. */
+  .gift-preview {
+    max-height: 15rem;
+    padding: 0.75rem 0.875rem;
+    overflow-y: auto;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+  }
+
   /* ---- "Share your feedback" ------------------------------------------
      The floating launcher, and the sheet it opens — a bottom-anchored sheet
      below 640px, the same `.upgrade-overlay`/`.upgrade-card` shape above it. */

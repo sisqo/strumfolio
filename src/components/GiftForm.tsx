@@ -3,12 +3,16 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { GiftNoticeModal } from '@/components/GiftNoticeModal'
 import { IconCheck, IconGift } from '@/components/icons'
 import { setGrant } from '@/lib/accounts/actions'
-import { giftDetail, giftHeadline } from '@/lib/accounts/planText'
+import { worthAnnouncing } from '@/lib/accounts/giftNotice'
+import type { GiftSnapshot } from '@/lib/accounts/giftNotice'
+import { giftActive, giftDetail, giftHeadline } from '@/lib/accounts/planText'
 import { GRANT_MESSAGE, MAX_GRANT_NOTE } from '@/lib/accounts/types'
 import type { AccountPlanLine } from '@/lib/accounts/read'
 import type { GrantResult } from '@/lib/accounts/types'
+import { postDate } from '@/lib/blog/date'
 import { PLAN_LABEL, PLAN_RANK, PLAN_VALUES, type Plan } from '@/lib/plans/types'
 import { useOnline } from '@/lib/useOnline'
 
@@ -87,6 +91,15 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  /**
+   * The gift the confirmation dialog is open about, or null while it is closed.
+   *
+   * The gift itself and not a boolean, because the dialog is opened from two places that know
+   * different things: a save has just written a gift this component's `plan` prop does not
+   * describe yet, while `Send the notice` on the strip is about the one already on file. Both
+   * hand over the same two facts, so the dialog never has to ask which door it came through.
+   */
+  const [notice, setNotice] = useState<{ planLabel: string; endsOn: string | null } | null>(null)
 
   /*
    * Lifetime means "no end" on every screen that renders it, so it gets no date field at all
@@ -169,6 +182,32 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
             <span className="acct-row-title">{headline}</span>
             {detail !== null && <span className="acct-row-note">{detail}</span>}
           </div>
+          {/*
+            * Only while the gift is actually in force — `source === 'grant'` is
+            * `planStateFor`'s own answer, so this hides for a gift a live subscription
+            * outranks and for one whose date has passed, which are exactly the two states
+            * `sendGiftNotice` refuses as `nothing-to-announce`. One predicate on both sides,
+            * rather than a button that opens a dialog whose Send would be turned down.
+            *
+            * It says nothing about whether the notice has already gone out, by decision: the
+            * strip stays the record of the *gift*. An operator who presses twice is told so
+            * by the action, which is the only moment that answer is worth having.
+            */}
+          {giftActive(plan) && plan.grantedPlan !== null && (
+            <button
+              type="button"
+              className="acct-pill"
+              disabled={!online || busy}
+              onClick={() =>
+                setNotice({
+                  planLabel: PLAN_LABEL[plan.grantedPlan as Plan],
+                  endsOn: plan.grantedUntilOn === null ? null : postDate(plan.grantedUntilOn),
+                })
+              }
+            >
+              Send the notice
+            </button>
+          )}
           {plan.grantedPlan !== null && (
             <button
               type="button"
@@ -194,11 +233,35 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
         className="acct-card"
         onSubmit={(event) => {
           event.preventDefault()
+          /*
+           * Both snapshots are taken here, before anything is awaited, and the first of them
+           * has to be: `run` ends in `router.refresh()`, which re-renders the server component
+           * above and hands this one a `plan` prop already carrying the gift that was just
+           * written. Read afterwards, `before` would be the new gift, `worthAnnouncing` would
+           * compare it with itself, and the dialog would simply never open.
+           */
+          const before: GiftSnapshot = { plan: plan.grantedPlan, untilOn: plan.grantedUntilOn }
+          // `endless` sends no date at all, rather than whatever is still held in state from
+          // before the picker moved to Lifetime — which `validateGrant` would refuse.
+          const givenUntil = endless || until === '' ? null : until
+
           void run(
-            // `endless` sends no date at all, rather than whatever is still held in state from
-            // before the picker moved to Lifetime — which `validateGrant` would refuse.
-            () => setGrant(ownerEmail, { plan: giving, until: endless || until === '' ? null : until, note }),
+            () => setGrant(ownerEmail, { plan: giving, until: givenUntil, note }),
             'Gift given.',
+            () => {
+              /*
+               * Two conditions, and neither is about the save having worked. `inert` is this
+               * account's own state — a live subscription of equal or higher rank means the
+               * reader gains nothing today — and `worthAnnouncing` is about the change: a
+               * corrected reason, a shortened date or a lower plan all save perfectly well and
+               * are nobody's news. Silence here is the common case, deliberately.
+               */
+              if (inert || !worthAnnouncing(before, { plan: giving as Plan, untilOn: givenUntil })) return
+              setNotice({
+                planLabel: PLAN_LABEL[giving as Plan],
+                endsOn: givenUntil === null ? null : postDate(givenUntil),
+              })
+            },
           )
         }}
       >
@@ -310,6 +373,21 @@ export function GiftForm({ ownerEmail, plan }: { ownerEmail: string; plan: Accou
           </button>
         </div>
       </form>
+
+      {/* Outside the form on purpose: it is opened *after* a submit has already settled, and a
+          dialog nested in the form it followed would submit that form again on Enter. */}
+      {notice !== null && (
+        <GiftNoticeModal
+          ownerEmail={ownerEmail}
+          planLabel={notice.planLabel}
+          endsOn={notice.endsOn}
+          onClose={() => setNotice(null)}
+          onSent={(said) => {
+            setError(null)
+            setDone(said)
+          }}
+        />
+      )}
     </>
   )
 }

@@ -25,16 +25,23 @@ import {
   songbooks,
   songs,
 } from '@/lib/db/schema'
-import { sendEmail } from '@/lib/email/send'
-import { welcomeEmail } from '@/lib/email/templates'
+import { postDate } from '@/lib/blog/date'
+import { deliverEmail, sendEmail } from '@/lib/email/send'
+import { giftEmail, welcomeEmail } from '@/lib/email/templates'
+import { claimOccurrence, clamp, settle } from '@/lib/outreach/claim'
+import { planStateFor } from '@/lib/plans/entitlements'
 import { paymentHistoryFor } from '@/lib/plans/history'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
+import { readPendingCycle } from '@/lib/plans/prices'
+import { PLAN_LABEL, PLAN_VALUES, readPendingPlan, readPlan, readPlanStatus } from '@/lib/plans/types'
+import type { Plan } from '@/lib/plans/types'
 import { isAdmitted } from '@/lib/roles'
 import { notifyTelegram } from '@/lib/telegram/notify'
 import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
 import { mayAccess, readAccountCookie, writeAccountCookie } from './current'
 import { validateGrant } from './grant'
+import { MAX_GIFT_PERSONAL_LINE, MAX_GIFT_SUBJECT, defaultGiftSubject, giftOccurrenceKey } from './giftNotice'
 import { freezeLeadAttribution } from '@/lib/attribution/write'
 
 import { provisionAccount } from './provision'
@@ -44,6 +51,7 @@ import type {
   AdminNameResult,
   ConfirmPendingResult,
   EmailChangeResult,
+  GiftNoticeResult,
   GrantInput,
   GrantResult,
   NameResult,
@@ -308,6 +316,193 @@ export async function setGrant(accountOwnerEmail: string, grant: GrantInput | nu
 
   revalidatePath('/accounts')
   return { ok: true }
+}
+
+/**
+ * Where a reply to the gift notice goes.
+ *
+ * The support inbox and not `no-reply@`, which every other message to a customer is sent
+ * from: this is the one that is written to be answered — a thank-you, or a question about
+ * what has just been opened — and `info@` is genuinely read (ImprovMX forwards it and it is
+ * replied to from Gmail, see the root `CLAUDE.md`). A literal, like `feedback/actions.ts`'
+ * own `INBOX` and the four legal pages, rather than a shared constant: the address is already
+ * written out in five places and a sixth is cheaper to read than an import.
+ */
+const GIFT_REPLY_TO = 'info@strumfolio.com'
+
+/**
+ * Text arriving from a browser, narrowed to a string.
+ *
+ * `input` is typed, and the runtime value can still be any shape at all — the same argument
+ * `setGrant` makes for validating inside its `try`. Here the shape is simple enough to make
+ * safe rather than to catch: a missing field becomes an empty one, which the caller below
+ * already has a meaning for.
+ */
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/**
+ * Tell the reader that a plan has been put on their account.
+ *
+ * **Second in a pair, never folded into `setGrant`.** The gift is already written by the time
+ * this is called, and nothing here can undo it: a refusal, a closed dialog, a browser with no
+ * network and a Resend outage all leave the account exactly as the operator meant it. That is
+ * the same separation `run.ts` makes between claiming an occurrence and delivering it, and it
+ * is why the confirmation dialog can be dismissed without a thought.
+ *
+ * **The facts come from the row, not from the argument.** Only the subject and one optional
+ * sentence arrive from the browser; which plan, and until when, are read here — so no call to
+ * this action, however it is made, can send somebody an email announcing a plan their account
+ * does not hold. It is also what makes the occurrence key trustworthy, since that key *is*
+ * the gift.
+ *
+ * The three refusals before the claim are all «there is nothing to announce», told apart
+ * because an operator meets them as sentences (`GIFT_NOTICE_MESSAGE`). The middle one is the
+ * inert gift: `planStateFor` reports `source: 'grant'` only when the gift is live *and*
+ * outranks any subscription, so one comparison covers both a gift beaten by a live
+ * subscription and one whose own date has passed. `GiftForm` hides the control in the same
+ * state; this is the half that holds when somebody calls the action directly.
+ */
+export async function sendGiftNotice(
+  accountOwnerEmail: string,
+  input: { subject: string; personalLine: string },
+): Promise<GiftNoticeResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  const callerEmail = session?.user?.email
+  if (!callerEmail || !isOwner(callerEmail, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  /* One clock for the gift's own dates, the claim and the settle — the reason `setGrant`
+     takes one too. */
+  const now = new Date()
+
+  let target: { accountId: number; ownerEmail: string }
+  let gifted: Plan
+  let endsOn: string | null
+  let occurrenceKey: string
+
+  try {
+    const rows = await db()
+      .select({
+        id: accounts.id,
+        ownerEmail: accounts.ownerEmail,
+        plan: accounts.plan,
+        planStatus: accounts.planStatus,
+        planExpiresAt: accounts.planExpiresAt,
+        pendingPlan: accounts.pendingPlan,
+        pendingCycle: accounts.pendingCycle,
+        grantedPlan: accounts.grantedPlan,
+        grantedUntil: accounts.grantedUntil,
+      })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, normalizeEmail(accountOwnerEmail)))
+      .limit(1)
+
+    const row = rows[0]
+    if (row === undefined) return { ok: false, reason: 'unknown-account' }
+    if (row.grantedPlan === null) return { ok: false, reason: 'no-gift' }
+
+    /*
+     * `PLAN_VALUES.includes` and **never** `readPlan` — the rule `validateGrant` states for
+     * the write path, and it bites harder here. `readPlan` answers `'free'` for a cell it
+     * cannot interpret; `'free'` is a plan `liveGrant` reports perfectly happily, and against
+     * no live subscription it wins, so `source` would be `'grant'` and this would send
+     * somebody «We've put Free on your account — free, and yours until…» and claim the
+     * occurrence `free:none` for it. The generous read is right for a screen that has to
+     * render something and wrong for a message that cannot be recalled.
+     */
+    if (!PLAN_VALUES.includes(row.grantedPlan as Plan) || row.grantedPlan === 'free') {
+      return { ok: false, reason: 'unreadable-gift' }
+    }
+    const grantedPlan = row.grantedPlan as Plan
+
+    /* The same narrowing `outreachAccountFor` does on the subscription side, for its stated
+       reasons — the gift's own column is the one that had to be stricter, above. */
+    const state = planStateFor(
+      {
+        plan: readPlan(row.plan),
+        expiresAt: row.planExpiresAt,
+        status: readPlanStatus(row.planStatus),
+        pendingPlan: readPendingPlan(row.pendingPlan),
+        pendingCycle: readPendingCycle(row.pendingCycle),
+        grantedPlan,
+        grantedUntil: row.grantedUntil,
+      },
+      now,
+    )
+    if (state.source !== 'grant') return { ok: false, reason: 'nothing-to-announce' }
+
+    /* `grantedPlan` and not `state.effectivePlan`: `source === 'grant'` makes them the same
+       value, and naming the gift's own column leaves no room to wonder whether a subscription
+       could be what gets announced. */
+    gifted = grantedPlan
+    /*
+     * The UTC day, which is the same string the operator typed and the admin screen shows —
+     * `validateGrant` stores the *end* of that day (23:59:59.999Z) precisely so this
+     * round-trips. `postDate` then writes it out by splitting the string: handing the `Date`
+     * to `toLocaleDateString` instead would print the following day anywhere east of
+     * Greenwich, which in Europe/Rome is every gift.
+     */
+    const untilOn = row.grantedUntil === null ? null : row.grantedUntil.toISOString().slice(0, 10)
+    endsOn = untilOn === null ? null : postDate(untilOn)
+    occurrenceKey = giftOccurrenceKey({ plan: gifted, untilOn })
+    target = { accountId: row.id, ownerEmail: row.ownerEmail }
+  } catch (error) {
+    console.error('sendGiftNotice could not read the gift', error)
+    return { ok: false, reason: 'failed' }
+  }
+
+  /* Before the send, which is the whole guarantee — see `claim.ts`. */
+  const claim = await claimOccurrence(
+    target,
+    'gift_notice',
+    occurrenceKey,
+    'email',
+    normalizeEmail(callerEmail),
+    now,
+  )
+  if (!claim.ok) {
+    if (claim.reason === 'in-flight') return { ok: false, reason: 'in-flight' }
+    /* Every other way the claim can go — `already-done` and a query that threw — reaches an
+       operator as one of two sentences, because there is nothing else they could do about the
+       rest. */
+    return { ok: false, reason: claim.reason === 'already-done' ? 'already-sent' : 'failed' }
+  }
+
+  const planLabel = PLAN_LABEL[gifted]
+  const typed = clamp(asText(input.subject), MAX_GIFT_SUBJECT)
+  const personalLine = clamp(asText(input.personalLine), MAX_GIFT_PERSONAL_LINE)
+  const template = giftEmail({
+    planLabel,
+    endsOn,
+    personalLine: personalLine === '' ? null : personalLine,
+    /* An empty subject is the default rather than a refusal: the dialog cannot produce one,
+       and a message with no subject line is worse than one whose subject the operator meant
+       to change and did not. */
+    subject: typed === '' ? defaultGiftSubject(planLabel) : typed,
+  })
+
+  const outcome = await deliverEmail({
+    to: target.ownerEmail,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    replyTo: GIFT_REPLY_TO,
+  })
+
+  /* The subject as it actually went out — what `detail` is for, and the only record anywhere
+     of what this reader was told. */
+  await settle(
+    claim.id,
+    outcome.ok ? { ok: true, detail: template.subject } : { ok: false, reason: outcome.reason },
+    now,
+  )
+
+  return outcome.ok ? { ok: true } : { ok: false, reason: 'send-failed' }
 }
 
 /**

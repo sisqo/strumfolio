@@ -26,9 +26,29 @@ import type { Plan } from '@/lib/plans/types'
  * `Record` over this list precisely so a new member here cannot compile until somebody has
  * decided whether it has a handler yet.
  */
-export const OUTREACH_KINDS = ['birthday_greeting', 'upgrade_voucher'] as const
+export const OUTREACH_KINDS = ['birthday_greeting', 'upgrade_voucher', 'gift_notice'] as const
 
 export type OutreachKind = (typeof OUTREACH_KINDS)[number]
+
+/**
+ * What sets an action off, and therefore which screen owns it.
+ *
+ * `panel` is everything this engine was built for: the Outreach tab lists it, computes its
+ * eligibility, offers a Run button, and is where a schedule would eventually take over
+ * (`runDueOutreach`).
+ *
+ * `elsewhere` is an action another screen decides the moment for — today only `gift_notice`,
+ * which a gift being given is the trigger for. Such a kind is **still recorded here**, because
+ * this table is the answer to «what has this platform done to this reader», and the unique
+ * index is still what keeps it from happening twice. What it is not is *drivable* from the
+ * panel: `outreachViewFor` draws no line for it, so nothing offers to run it out of context,
+ * nothing computes an eligibility that would not be consulted, and its rows appear where they
+ * belong — as history. It is a field rather than a convention because the alternative is a
+ * screen quietly listing an action whose button would refuse.
+ */
+export const OUTREACH_TRIGGERS = ['panel', 'elsewhere'] as const
+
+export type OutreachTrigger = (typeof OUTREACH_TRIGGERS)[number]
 
 /**
  * How often one action comes round, and therefore what an occurrence of it is called.
@@ -151,6 +171,8 @@ export interface OutreachDefinition {
   cadence: OutreachCadence
   channel: OutreachChannel
   audience: OutreachAudience
+  /** Which screen decides the moment. See `OUTREACH_TRIGGERS`. */
+  trigger: OutreachTrigger
   /**
    * What is still missing before a handler for this can be written — printed on the screen, so
    * «Not built yet» is never left looking like an oversight — or null once nothing is.
@@ -163,8 +185,9 @@ export interface OutreachDefinition {
 
 /**
  * The two actions named when this engine was designed, declared so the shape of a definition
- * is answerable from a real example rather than from prose. Neither has a handler
- * (`handlers.ts`), and the screen says so on the row itself.
+ * is answerable from a real example rather than from prose — plus the one that is actually
+ * sent. Neither of the first two has a handler (`handlers.ts`), and the screen says so on the
+ * row itself.
  */
 export const OUTREACH: Record<OutreachKind, OutreachDefinition> = {
   birthday_greeting: {
@@ -174,6 +197,7 @@ export const OUTREACH: Record<OutreachKind, OutreachDefinition> = {
     cadence: 'yearly',
     channel: 'email',
     audience: 'everyone',
+    trigger: 'panel',
     /*
      * Nothing in this schema records a date of birth — not `accounts`, not `user_prefs` — so
      * this action is not merely unwritten, it has no input. Whoever builds it decides where the
@@ -189,12 +213,39 @@ export const OUTREACH: Record<OutreachKind, OutreachDefinition> = {
     cadence: 'once',
     channel: 'email',
     audience: 'without_paid_plan',
+    trigger: 'panel',
     /*
      * The coupon half already exists — `coupon_campaigns` mints codes and `coupon_redemptions`
      * holds the ceiling that makes one verifiable — so what is missing is the choice of which
      * campaign an offer points at, and the email itself.
      */
     missing: 'Which campaign the offer carries, and the email that carries it.',
+  },
+  gift_notice: {
+    kind: 'gift_notice',
+    label: 'Gift notice',
+    note: 'Tells a reader that a plan has been put on their account by hand.',
+    /*
+     * Read by nothing, for this kind alone. `occurrenceKeyFor` mints a key from a cadence, and
+     * this action has none — a gift is not due, somebody decides it — so its occurrences are
+     * named by `giftOccurrenceKey` (`accounts/giftNotice.ts`) after the gift itself, and the
+     * only reason a cadence is set at all is that every definition carries one. `'once'` is
+     * the nearer of the two lies: nothing about this recurs on a clock.
+     */
+    cadence: 'once',
+    channel: 'email',
+    /*
+     * Declared for the record on the row, and *not* consulted: `eligibilityFor` never runs for
+     * an `elsewhere` kind, which is what keeps `consentGate` — written for marketing mail —
+     * from refusing a message that is transactional. A gift notice reports something done to
+     * the account of the person reading it, the same footing `purchaseEmail` and
+     * `planChangeEmail` are sent on, and neither of those asks about the newsletter either.
+     */
+    audience: 'everyone',
+    trigger: 'elsewhere',
+    /* Nothing is missing: it is written and it is sent — from the Plan & gift tab, which is
+       where the decision to give a plan is taken. */
+    missing: null,
   },
 }
 

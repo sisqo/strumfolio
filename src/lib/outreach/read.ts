@@ -264,7 +264,16 @@ export async function outreachViewFor(ownerEmail: string, now: Date): Promise<Ou
   const rows = await outreachRowsFor(account.accountId)
   if (rows === null) return null
 
-  const lines = OUTREACH_LIST.map((definition) => {
+  /*
+   * Only the kinds this panel actually drives. An `elsewhere` action — `gift_notice`, decided
+   * on the Plan & gift tab — would otherwise get a line whose every field is wrong: its
+   * occurrence key comes from a cadence it does not have, so `currentRow` would never match
+   * the row it really wrote and the line would read «nothing claimed yet» beside a message
+   * already sent; its eligibility would be computed by a consent gate that does not govern it;
+   * and `isDue` would call it due for a run nothing offers. Its rows fall through to `history`
+   * below, which is where a record of something already done belongs.
+   */
+  const lines = OUTREACH_LIST.filter((definition) => definition.trigger === 'panel').map((definition) => {
     const occurrenceKey = occurrenceKeyFor(definition.cadence, now)
     const current = currentRow(rows, definition.kind, occurrenceKey)
     return {

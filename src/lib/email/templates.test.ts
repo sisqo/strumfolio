@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { planChangeEmail } from './templates'
+import { giftEmail, planChangeEmail } from './templates'
 
 const SCHEDULED_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: '22 September 2027' } } as const
 const IMMEDIATE_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: 'now' } as const
@@ -115,6 +115,105 @@ test('planChangeEmail', async (t) => {
       const mail = planChangeEmail(input)
       for (const body of [mail.html, mail.text]) {
         assert.match(body, /Nothing you have put in is deleted/)
+      }
+    }
+  })
+})
+
+/**
+ * The gift notice, whose three shapes `/emails` cannot show: it previews the dated one
+ * carrying a personal line (`SAMPLE_GIFT`), so a gift with no end date and a gift sent
+ * without a line have no screen anywhere that would reveal a regression.
+ *
+ * Two of the tests below are not about wording at all but about the two values that reach
+ * this template from a person's keyboard — the subject, which must arrive in the header
+ * exactly as typed, and the line, which must be escaped in the HTML and raw in the plain
+ * text. This is the only template with both, and getting either backwards is visible only in
+ * somebody else's inbox.
+ */
+const DATED_GIFT = {
+  planLabel: 'Premium',
+  endsOn: '1 March 2027',
+  personalLine: 'Thanks for the bug report.',
+  subject: 'Your Premium plan is on us',
+} as const
+const ENDLESS_GIFT = { planLabel: 'Lifetime', endsOn: null, personalLine: null, subject: 'Lifetime, on us' } as const
+
+test('giftEmail', async (t) => {
+  await t.test('a dated gift names the plan and the day', () => {
+    const mail = giftEmail(DATED_GIFT)
+
+    assert.equal(mail.subject, 'Your Premium plan is on us')
+    for (const body of [mail.html, mail.text]) {
+      assert.match(body, /A gift for you/)
+      assert.match(body, /free, and yours until 1 March 2027/)
+      assert.match(body, /nothing to set up and nothing to pay/)
+    }
+  })
+
+  /* «until null» was the shape to get wrong here, the way `planChangeEmail`'s dateless
+     cancellation was: a gift that never ends has no day to name and must not imply one. */
+  await t.test('a gift with no end names no day', () => {
+    const mail = giftEmail(ENDLESS_GIFT)
+
+    for (const body of [mail.html, mail.text]) {
+      assert.match(body, /free, and it doesn't run out/)
+      assert.doesNotMatch(body, /until/)
+    }
+  })
+
+  await t.test('the personal line appears when there is one, and nothing stands in for it when there is not', () => {
+    for (const body of [giftEmail(DATED_GIFT).html, giftEmail(DATED_GIFT).text]) {
+      assert.match(body, /Thanks for the bug report\./)
+    }
+    for (const body of [giftEmail(ENDLESS_GIFT).html, giftEmail(ENDLESS_GIFT).text]) {
+      assert.doesNotMatch(body, /Thanks for the bug report/)
+    }
+  })
+
+  /*
+   * The escaping split `feedbackEmail` established, checked in both directions: an
+   * unescaped `<` in the HTML is a broken document, and an escaped `&` in the plain text is
+   * an `&amp;` a reader can see.
+   */
+  await t.test('the personal line is escaped in the HTML and raw in the plain text', () => {
+    const mail = giftEmail({ ...DATED_GIFT, personalLine: 'Rock & roll <forever>' })
+
+    assert.match(mail.html, /Rock &amp; roll &lt;forever&gt;/)
+    assert.doesNotMatch(mail.html, /<forever>/)
+    assert.match(mail.text, /Rock & roll <forever>/)
+  })
+
+  /*
+   * A header is not a document. Escaping the subject would put a literal `&amp;` in the one
+   * line of this message a reader sees before opening it — the mistake the heading being a
+   * fixed string, rather than the subject, exists to make impossible.
+   */
+  await t.test('the subject goes out exactly as it was typed', () => {
+    const typed = 'A gift from Sara & the team'
+    assert.equal(giftEmail({ ...DATED_GIFT, subject: typed }).subject, typed)
+    assert.doesNotMatch(giftEmail({ ...DATED_GIFT, subject: typed }).html, /Sara/)
+  })
+
+  /* No figure, ever: a gift that says what it is worth reads as an invoice, and with the mock
+     checkout live nobody has paid the sum it would name. */
+  await t.test('no shape names a price', () => {
+    for (const input of [DATED_GIFT, ENDLESS_GIFT]) {
+      const mail = giftEmail(input)
+      for (const body of [mail.subject, mail.html, mail.text]) {
+        assert.doesNotMatch(body, /€|\bEUR\b|\bprice\b/i)
+        assert.doesNotMatch(body, /renew/i)
+      }
+    }
+  })
+
+  /* `/billing` reports `liveSubscription`, which ignores the `granted_*` columns entirely, so
+     it would tell somebody holding a gifted Premium that they have no subscription. */
+  await t.test('no shape points at Billing', () => {
+    for (const input of [DATED_GIFT, ENDLESS_GIFT]) {
+      const mail = giftEmail(input)
+      for (const body of [mail.html, mail.text]) {
+        assert.doesNotMatch(body, /billing/i)
       }
     }
   })

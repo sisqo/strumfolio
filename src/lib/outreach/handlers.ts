@@ -56,6 +56,21 @@ export type OutreachHandler = (target: OutreachTarget) => Promise<OutreachDelive
 export const HANDLERS: Record<OutreachKind, OutreachHandler | null> = {
   birthday_greeting: null,
   upgrade_voucher: null,
+  /*
+   * Null for a different reason than the two above, and the distinction matters because
+   * `isBuilt` cannot tell them apart: those are unwritten, this one is written and simply not
+   * run from here. `sendGiftNotice` (`accounts/actions.ts`) claims and settles its row itself,
+   * because the message it sends is composed with two fields an operator typed a moment
+   * earlier — and a handler is called with an `OutreachTarget` and nothing else, by design.
+   * Widening that signature so one caller could pass a subject through would put an optional
+   * payload on every action this engine will ever have.
+   *
+   * Leaving it null is therefore also a fence: `runOutreach` refuses a null handler before
+   * claiming anything, so the button on the Outreach tab — already hidden for this kind, which
+   * draws no line at all (`trigger: 'elsewhere'`) — could not send a gift notice with an empty
+   * subject even if some future screen offered it.
+   */
+  gift_notice: null,
 }
 
 /** Whether this kind can actually be run today. What the screen draws its button from. */

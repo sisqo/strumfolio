@@ -27,11 +27,18 @@ export interface EmailMessage {
   /**
    * Who a reply should go to, when that is not `FROM_ADDRESS`.
    *
-   * Unset for the four emails that go *to* a customer: `no-reply@` is the honest sender for
-   * a verification link, and pointing a reply somewhere else would invite an answer nobody
-   * reads. It exists for the emails that travel the other way — feedback arriving in the
-   * support inbox — where the address worth answering is the reader's own and cannot be the
-   * `from`, since that has to stay the verified sending domain.
+   * It exists for the emails that travel the other way — feedback arriving in the support
+   * inbox — where the address worth answering is the reader's own and cannot be the `from`,
+   * since that has to stay the verified sending domain.
+   *
+   * **Unset for the emails that carry a link and nothing else**: `no-reply@` is the honest
+   * sender for a verification or a password reset, and inviting a reply to one of those
+   * invites an answer to a robot. The gift notice is the exception and the reason this
+   * sentence is no longer "unset for everything going to a customer" — it is written to be
+   * answered, a thank-you or a question about what has just been opened, and `info@` is
+   * genuinely read: ImprovMX forwards it and it is replied to from Gmail (see the root
+   * `CLAUDE.md`). The test of whether a reply-to belongs on a message is whether somebody
+   * would read the reply, not which direction the message travels.
    */
   replyTo?: string
   /**
@@ -44,21 +51,57 @@ export interface EmailMessage {
 }
 
 /**
- * Never throws: a registration or a password reset has already written what it needed to
- * the database by the time this is called, and a failed or skipped email must not undo
- * that or fail the action it was a side effect of.
+ * Whether the message was handed to Resend, and what went wrong when it was not.
+ *
+ * `reason` is meant to be *stored*, not only logged — see `deliverEmail` — so it is a
+ * sentence and never an object: the one caller that keeps it writes it into a column an
+ * operator reads at a glance.
  */
-export async function sendEmail(message: EmailMessage): Promise<void> {
+export type EmailOutcome = { ok: true } | { ok: false; reason: string }
+
+/**
+ * The same send as `sendEmail`, reporting what happened.
+ *
+ * Added for the gift notice, which claims a row in `outreach_actions` *before* it sends and
+ * has to settle that row as `done` or `failed` afterwards — a question `sendEmail` cannot
+ * answer, because it deliberately swallows both the API's error and its own. Written as the
+ * implementation of both rather than beside it, so the fallback log, the `from` and the error
+ * handling cannot come to differ between the two.
+ *
+ * **No key configured is reported `ok`**, not as a failure: that is local development, where
+ * the fallback log *is* the delivery (see this file's header). A caller storing the outcome
+ * therefore records «sent» on a machine with no Resend account, which is the honest reading of
+ * a message that reached everything this installation has to reach.
+ */
+export async function deliverEmail(message: EmailMessage): Promise<EmailOutcome> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.log(`[email] ${message.subject} → ${message.to}\n${message.text}`)
-    return
+    return { ok: true }
   }
 
   try {
     const { error } = await new Resend(apiKey).emails.send({ from: FROM_ADDRESS, ...message })
-    if (error) console.error('sendEmail failed', error)
+    if (error) {
+      console.error('sendEmail failed', error)
+      return { ok: false, reason: `${error.name}: ${error.message}` }
+    }
+    return { ok: true }
   } catch (error) {
     console.error('sendEmail failed', error)
+    return { ok: false, reason: error instanceof Error ? error.message : 'The send threw.' }
   }
+}
+
+/**
+ * Never throws: a registration or a password reset has already written what it needed to
+ * the database by the time this is called, and a failed or skipped email must not undo
+ * that or fail the action it was a side effect of.
+ *
+ * Which is also why this one still answers nothing at all. Its five callers have no branch to
+ * take on a failure — the account exists, the token is stored, the plan is changed — and a
+ * result none of them can act on is a result each of them would have to ignore explicitly.
+ */
+export async function sendEmail(message: EmailMessage): Promise<void> {
+  await deliverEmail(message)
 }

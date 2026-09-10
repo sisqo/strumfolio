@@ -140,6 +140,60 @@ export const GRANT_MESSAGE: Record<GrantFailure, string> = {
 }
 
 /**
+ * How telling the reader about their gift can refuse — a fourth union rather than members on
+ * `GrantFailure`, the split this file already makes twice: `setGrant` can never answer
+ * `already-sent`, and none of these can answer `invalid-date`. The two actions run one after
+ * the other and share nothing but an address.
+ *
+ * Three of these describe a gift that is real and still not worth an email, and they are kept
+ * apart because an operator meeting one wants to know which: **`no-gift`** is a row with
+ * nothing in `granted_plan` (the gift was removed in another tab while this dialog was open),
+ * while **`nothing-to-announce`** is a gift that exists and is doing nothing — outranked by a
+ * live subscription, or past its own end date. **`already-sent`** is the unique index doing
+ * its job, and it is a success from the reader's point of view: the message they would have
+ * received, they already have.
+ */
+export type GiftNoticeFailure =
+  | 'not-allowed'
+  | 'no-database'
+  | 'unknown-account'
+  /** No gift on the row at all any more. */
+  | 'no-gift'
+  /**
+   * `granted_plan` holds something that is not a giveable plan. Unreachable through this
+   * screen, which only ever writes what `validateGrant` accepted — and checked for the reason
+   * that function gives about never using `readPlan` on a gift: an unreadable cell read
+   * generously becomes `'free'`, which with no live subscription wins, and the reader is sent
+   * a message announcing a gift of nothing.
+   */
+  | 'unreadable-gift'
+  /** A gift that changes nothing right now: outranked by a live subscription, or already ended. */
+  | 'nothing-to-announce'
+  /** A `done` row already exists for this exact gift — see `giftOccurrenceKey`. */
+  | 'already-sent'
+  /** Another send for this gift started moments ago and has not settled. */
+  | 'in-flight'
+  /** The row was claimed and Resend refused. It stays on file as `failed` and can be retried. */
+  | 'send-failed'
+  | 'failed'
+
+export type GiftNoticeResult = { ok: true } | { ok: false; reason: GiftNoticeFailure }
+
+export const GIFT_NOTICE_MESSAGE: Record<GiftNoticeFailure, string> = {
+  'not-allowed': 'Only a global owner may send this.',
+  'no-database': 'No database configured: nothing can be sent.',
+  'unknown-account': 'This account no longer exists. Reload the page.',
+  'no-gift': 'There is no gift on this account to tell them about.',
+  'unreadable-gift': 'This account’s gift names a plan that no longer exists, so nothing can be said about it.',
+  'nothing-to-announce':
+    'This gift is not in force — a live subscription outranks it, or it has ended — so there is nothing to announce.',
+  'already-sent': 'They have already been told about this gift. Change the plan or the end date to send again.',
+  'in-flight': 'Another send for this gift started a moment ago. Wait for it to finish.',
+  'send-failed': 'The email did not go out. The gift is saved; you can try again.',
+  failed: 'Could not send. Please try again.',
+}
+
+/**
  * Results for the handful of admin actions on `/accounts/[email]` whose only three ways
  * to fail are the same: not a global owner, no database, or something else went wrong
  * (`updateInternalNote`, `setAccountSuspended`, `clearRateLimitFor`, `accounts/actions.ts`
