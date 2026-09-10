@@ -43,6 +43,17 @@ import { useOnline } from '@/lib/useOnline'
  * offer overlay's own ticket at bar scale — `CouponOverlay` advertises an offer nobody has
  * taken with a stub exactly like this one, and a reader who accepts it there now arrives at
  * the confirmation of it wearing the same shape rather than an unrelated tinted row.
+ *
+ * **The same shape and deliberately not the same tone**, since the overlay went to its variant
+ * 1b: that one is drawn against the page — dark on the light theme, cream on the dark — and
+ * this stays quiet inside it, cream on light, because the two are asking for opposite things.
+ * An advertisement has to interrupt a reader who came to compare four prices; a receipt has to
+ * be findable and then ignored, and it sits in the page's own flow with the price list under
+ * it rather than fixed over anything. `Pricing.dc.html` still draws this bar in `#fbf5ed`,
+ * which is where its colours come from and why they did not move with the overlay's. Two
+ * palettes, then, and the prefixes keep them apart: root `--ticket-*` here, scoped `--offer-*`
+ * there — adjacent names on one object, silent if swapped, the hazard `coupons/CLAUDE.md`
+ * already names about `discountCycles` and `discountedMonths`.
  */
 export function CouponBar({
   applied,
@@ -188,9 +199,10 @@ export function CouponBar({
     return (
       <div className="coupon-bar is-on" role="status">
         {/*
-          * The stub, torn off the left edge — the overlay's own ticket at bar scale, drawn in
-          * the same three warm tones (`--ticket-*`) and against `--surface` so the perforation
-          * beside it reads as a tear rather than a rule. It replaces the check mark this bar
+          * The stub, torn off the left edge — the overlay's own ticket at bar scale, in this
+          * bar's own two warm tones (`--ticket-*`, not the overlay's `--offer-*`: see the
+          * note on this component) and against `--surface` so the perforation beside it reads
+          * as a tear rather than a rule. It replaces the check mark this bar
           * used to open with: a tick says «done», and the one thing a reader wants back from a
           * coupon they have already applied is the size of it.
           *

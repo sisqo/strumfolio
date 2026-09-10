@@ -8,13 +8,20 @@ import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 /**
  * The offer, as a ticket stub fixed to the foot of the page.
  *
- * Implemented from `Coupon Overlay.dc.html` in the Claude Design project, matched literally —
- * the 136px stub, the 38px numeral, the perforation between them, the dashed code chip in mono,
- * the pill, the × and the collapsed tab. Every value comes from that file's inline styles; the
- * ones that map onto this app's own tokens use the token (`--promo-bg`, `--promo-line`,
- * `--accent`, `--ink`, `--muted`, `--faint`, `--on-accent` are all exact matches), and the three
- * warm tones the mock introduces for the ticket effect are new — see `.coupon-ticket*` in
- * `globals.css`, which also gives them the dark values the mock has no opinion about.
+ * Implemented from `Coupon Overlay.dc.html` in the Claude Design project and matched literally
+ * — the 136px stub, the 38px numeral, the perforation between them, the dashed code chip in
+ * mono, the pill, the × and the collapsed tab. Every value comes from that file's inline
+ * styles.
+ *
+ * **In variant 1b, «tagliando scuro»**, which is the one that file marks as live and
+ * `Coupon In Page.dc.html` then draws over a real `/pricing` at 1280px and 390px, in both
+ * themes. The ticket is therefore drawn *against* the page rather than with it: a dark warm
+ * body on the light theme and a cream one on the dark, with the white matrix unchanged in
+ * either. It shipped once in the promo family instead — cream on cream — which is what a
+ * receipt should look like and not an advertisement, and the one thing this object has to do
+ * is interrupt somebody who came to compare four prices. So it carries a palette of its own,
+ * the scoped `--offer-*` block in `globals.css`, and shares none with the applied bar; that
+ * block's own comment has the mapping and the reason it is scoped.
  *
  * **Three pages, not "any page".** The mock's own note says it sits over any page; in this app
  * that would include `/songs/[slug]`, which is read while playing, where a bar fixed to the
@@ -25,12 +32,11 @@ import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
  *
  * **The offer here is not yet applied.** That is what the mock's own controls say: a code to
  * copy and a link to the plans, never an «Apply». So this is the advertisement, and `CouponBar`
- * remains the applied state — the two never show at once (see the pages that mount them). The
- * one thing added beyond the mock: the CTA carries `?coupon=`, so pressing it applies the
- * offer rather than leaving the reader to paste back a code they were just shown. A prototype
- * has no querystring to demonstrate that with — which is also why its label read «See the
- * plans» and this one reads «Apply coupon and see the plans»: the button does two things, and
- * naming one of them left the reader wondering whether the code still had to go somewhere.
+ * remains the applied state — the two never show at once (see the pages that mount them), and
+ * they no longer look alike either, which is the point of the paragraph above. The one thing
+ * added beyond the mock: the CTA carries `?coupon=`, so pressing it applies the offer rather
+ * than leaving the reader to paste back a code they were just shown — see its own comment
+ * below, and the two labels the width decides between.
  */
 export function CouponOverlay({
   code,
@@ -184,16 +190,23 @@ export function CouponOverlay({
               </span>
             </button>
             {/*
-              * «Apply coupon and see the plans», not the mock's «See the plans».
+              * «Apply coupon and see the plans», where the first prototype said «See the
+              * plans»: it had no querystring, so its link went to the price list and nothing
+              * else, while this one carries `?coupon=` and therefore *applies* the offer — and
+              * a button that does two things while naming one of them leaves the reader
+              * wondering whether they still have to paste the code in somewhere. The mock has
+              * since adopted the longer label, so this is no longer a deviation from it.
               *
-              * The mock could only say the shorter thing: a prototype has no querystring, so
-              * its link went to the price list and nothing else. This one carries `?coupon=`
-              * and therefore *applies* the offer — and a button that does two things while
-              * naming one of them leaves the reader wondering whether they still have to paste
-              * the code in somewhere. The label now says both.
+              * Two spans and not one because `Coupon In Page.dc.html` shortens it to «Apply
+              * coupon» at 390px, where the long one arrived as two centred lines. Which of them
+              * is drawn is a width question and therefore CSS's, not this component's — see
+              * `.coupon-cta-short`. The hidden one is `display: none` rather than
+              * `aria-hidden`, so it is not read out either and the link is one sentence to
+              * everybody.
               */}
             <Link href={href} className="coupon-cta">
-              Apply coupon and see the plans
+              <span className="coupon-cta-long">Apply coupon and see the plans</span>
+              <span className="coupon-cta-short">Apply coupon</span>
             </Link>
           </span>
 

@@ -70,18 +70,20 @@
   --promo-bg: #fbf5ed;
   --promo-line: #f0dfc9;
   /*
-   * The ticket stub's three warm tones, from `Coupon Overlay.dc.html` — the only colours that
-   * mock introduces which this palette did not already have. Everything else in it
-   * (`--promo-bg`, `--promo-line`, `--accent`, `--ink`, `--muted`, `--faint`, `--on-accent`)
-   * was an exact match, which is what says the design was drawn in this app's promo family
-   * rather than beside it.
+   * The two warm tones of the *applied* bar — `.coupon-bar.is-on`, the coupon a reader already
+   * holds — from `Pricing.dc.html`, which draws it in `#fbf5ed`, `#f0dfc9`, `#e0cbb0` and
+   * `#c9a97f`: the first two are `--promo-bg` and `--promo-line` exactly, and these are the
+   * other two. `--ticket-mute` is the «OFF» label, deliberately lighter than `--faint` — it
+   * sits under a 28px numeral and is the one piece of type on the bar meant to be read second;
+   * `--ticket-perf` is the perforation.
    *
-   * `--ticket-mute` is the «OFF» label, deliberately lighter than `--faint`: it sits under a
-   * 38px numeral and is the one piece of type on the bar meant to be read second.
-   * `--ticket-edge` is the code chip's dashed border, `--ticket-perf` the perforation.
+   * **Not the overlay's ticket, which no longer shares them.** `.coupon-ticket` advertises an
+   * offer nobody has taken and is drawn *against* the page rather than with it — a dark warm
+   * body on the light theme, cream on the dark one — so it carries its own complete palette,
+   * the scoped `--offer-*` block beside it. Same shape, opposite tone, and the prefix is the
+   * only thing that says which of the two a value belongs to.
    */
   --ticket-mute: #c9a97f;
-  --ticket-edge: #d8b489;
   --ticket-perf: #e0cbb0;
   /* Text on an accent fill. Not white: warm, so the fill does not look printed. */
   --on-accent: #fffaf4;
@@ -212,10 +214,9 @@
     --accent-soft: #2a2118;
     --promo-bg: #241d15;
     --promo-line: #3a2e20;
-    /* The mock is light-only; these are this palette's own dark counterparts, pitched so the
-       stub reads as warm paper on dark rather than as a lit panel. */
+    /* `Pricing.dc.html` is light-only; these are this palette's own dark counterparts, pitched
+       so the applied bar's stub reads as warm paper on dark rather than as a lit panel. */
     --ticket-mute: #8a6f4b;
-    --ticket-edge: #5c4830;
     --ticket-perf: #4a3a26;
     --on-accent: #1b1206;
     --danger: #ff9a90;
@@ -271,7 +272,6 @@
   --promo-bg: #241d15;
   --promo-line: #3a2e20;
   --ticket-mute: #8a6f4b;
-  --ticket-edge: #5c4830;
   --ticket-perf: #4a3a26;
   --on-accent: #1b1206;
   --danger: #ff9a90;
@@ -7468,12 +7468,19 @@
   }
 
   /*
-   * Applied: a ticket, and the offer overlay's own — `Pricing.dc.html` draws this bar in
+   * Applied: a ticket, and the offer overlay's own shape — `Pricing.dc.html` draws this bar in
    * `#fbf5ed`, `#f0dfc9` and `#e0cbb0`, which are `--promo-bg`, `--promo-line` and
    * `--ticket-perf` exactly. That is what says the two states of one offer were drawn as one
    * object: `.coupon-ticket` advertises what nobody has taken yet, this confirms what somebody
    * has, and a reader who accepted the first now arrives at the second wearing the same shape
    * instead of an unrelated tinted row.
+   *
+   * The **tones** stopped being shared when the overlay went to variant 1b and started drawing
+   * itself against the page. This bar did not follow, and the divergence is in the mocks
+   * themselves: `Pricing.dc.html` still draws it cream while `Coupon In Page.dc.html` draws
+   * the ticket dark over that very page. A receipt sits in the flow and is read once; an
+   * advertisement is fixed over the flow and has to interrupt. So `--ticket-*` is this bar's
+   * pair alone and `--offer-*` is the ticket's, and neither reaches for the other's.
    *
    * `padding: 0`, `gap: 0` and `flex-wrap: nowrap` all override the unapplied state's own row —
    * the stub has to reach the three edges it sits against, and `overflow: hidden` is what lets
@@ -7678,6 +7685,105 @@
     }
   }
 
+  /*
+   * The offer's own palette — variant **1b**, «tagliando scuro», the one `Coupon Overlay.dc.html`
+   * marks as live and `Coupon In Page.dc.html` then draws over a real `/pricing`.
+   *
+   * **The ticket is drawn against the page, not with it.** It first shipped in the promo family
+   * — cream on cream — which is what a *receipt* should look like and not an advertisement:
+   * the one thing this object has to do is interrupt a reader who came to compare four prices.
+   * So the body inverts and the white matrix does not, which is the whole trick. It inverts
+   * with the theme too: cream on the dark page, dark warm brown on the light one, so the
+   * contrast survives whichever way the reader has set things.
+   *
+   * That makes the dark column below almost exactly this app's **light** palette, and it is
+   * worth reading as such rather than as ten unrelated hex values — `#fbf5ed` is `--promo-bg`,
+   * `#f0dfc9` `--promo-line`, `#e0cbb0` `--ticket-perf`, `#c9a97f` `--ticket-mute`, `#16181d`
+   * `--ink`, `#5c626c` `--muted`, `#8d939c` `--faint`, `#97490f` `--accent`, `#fffaf4`
+   * `--on-accent`. The light column has no such twin: a warm dark brown that is *not* the app's
+   * dark theme, which is neutral-cool where this is paper-warm, and that difference is the
+   * point rather than an oversight.
+   *
+   * Scoped to the two elements that draw the offer, the way `--blog-*` is scoped to `.blog` —
+   * these are not app tokens and nothing outside this object may reach for them. In particular
+   * they are **not** the root `--ticket-*` pair, which serves the applied bar and stays cream;
+   * same object, opposite tone, and the prefix is all that separates them.
+   */
+  .coupon-ticket,
+  .coupon-tab {
+    --offer-bg: #2b1c10;
+    --offer-line: #40291a;
+    --offer-ink: #fdf6ee;
+    --offer-muted: #cdbca8;
+    /* The accent *on the ticket*: an amber that carries on the dark body where `--accent`'s
+       terracotta would sink into it. It is what the CTA is filled with, so `--offer-on-key` is
+       the ink that fill needs — the ticket's own body colour, which is what makes the pill read
+       as cut out of the ticket rather than laid on it. */
+    --offer-key: #f0a94b;
+    --offer-on-key: #2b1c10;
+    /* «OFF» on the white matrix, and the × on the body: both quiet, and warm and cool
+       respectively, because one is part of the printed stub and the other is a control. */
+    --offer-mute: #a9855a;
+    --offer-faint: #a9855a;
+    /* Three lines at three weights: the border against the page, the rule inside the white
+       matrix — lighter, because near-black brown on paper reads as damage — and the tear. */
+    --offer-rule: #5a3d26;
+    --offer-perf: #6b4a2d;
+    /* The code chip: a dashed edge and a fill that is the body lifted, not a second surface. */
+    --offer-edge: #c99a63;
+    --offer-chip: rgb(255 255 255 / 13%);
+    --offer-veil: rgb(255 255 255 / 10%);
+    --offer-shadow: 0 -18px 50px -20px rgb(28 16 8 / 60%);
+    --offer-tab-shadow: 0 -14px 38px -16px rgb(28 16 8 / 60%);
+    /* Declared once and never overridden, both of them: the matrix is white in both themes and
+       the ink printed on it is the app's own terracotta in both — «matrice bianca invariata»,
+       the half of variant 1b that does not move while everything around it inverts. Which is
+       also why `--offer-print` is not `--offer-key`: on the dark body the accent had to become
+       an amber to carry, and on the white matrix it did not. */
+    --offer-stub: #ffffff;
+    --offer-print: #97490f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .coupon-ticket,
+    :root:not([data-theme='light']) .coupon-tab {
+      --offer-bg: #fbf5ed;
+      --offer-line: #f0dfc9;
+      --offer-ink: #16181d;
+      --offer-muted: #5c626c;
+      --offer-key: #97490f;
+      --offer-on-key: #fffaf4;
+      --offer-mute: #c9a97f;
+      --offer-faint: #8d939c;
+      --offer-rule: #f0dfc9;
+      --offer-perf: #e0cbb0;
+      --offer-edge: #d8b489;
+      --offer-chip: #ffffff;
+      --offer-veil: #f0dfc9;
+      --offer-shadow: 0 -18px 50px -18px rgb(0 0 0 / 60%);
+      --offer-tab-shadow: 0 -14px 38px -14px rgb(0 0 0 / 60%);
+    }
+  }
+
+  :root[data-theme='dark'] .coupon-ticket,
+  :root[data-theme='dark'] .coupon-tab {
+    --offer-bg: #fbf5ed;
+    --offer-line: #f0dfc9;
+    --offer-ink: #16181d;
+    --offer-muted: #5c626c;
+    --offer-key: #97490f;
+    --offer-on-key: #fffaf4;
+    --offer-mute: #c9a97f;
+    --offer-faint: #8d939c;
+    --offer-rule: #f0dfc9;
+    --offer-perf: #e0cbb0;
+    --offer-edge: #d8b489;
+    --offer-chip: #ffffff;
+    --offer-veil: #f0dfc9;
+    --offer-shadow: 0 -18px 50px -18px rgb(0 0 0 / 60%);
+    --offer-tab-shadow: 0 -14px 38px -14px rgb(0 0 0 / 60%);
+  }
+
   /* `transform`, not the mock's `translate` shorthand: Safari shipped that property later than
      the versions this PWA is installed on, and a bar that never arrives is worse than one that
      arrives without sliding. */
@@ -7686,11 +7792,11 @@
     align-items: stretch;
     width: 100%;
     overflow: hidden;
-    border: 1px solid var(--promo-line);
+    border: 1px solid var(--offer-line);
     border-bottom: none;
     border-radius: var(--r-panel) var(--r-panel) 0 0;
-    background: var(--promo-bg);
-    box-shadow: 0 -12px 50px -22px rgb(58 36 21 / 45%);
+    background: var(--offer-bg);
+    box-shadow: var(--offer-shadow);
     animation: coupon-rise 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
 
@@ -7704,11 +7810,11 @@
     justify-content: center;
     width: 8.5rem;
     padding: 0.875rem 0;
-    background: var(--surface);
+    background: var(--offer-stub);
   }
 
   .coupon-figure {
-    color: var(--accent);
+    color: var(--offer-print);
     font-size: 2.375rem;
     font-weight: 700;
     letter-spacing: -0.045em;
@@ -7722,7 +7828,7 @@
 
   .coupon-off {
     margin-top: 0.125rem;
-    color: var(--ticket-mute);
+    color: var(--offer-mute);
     font-size: 0.71875rem;
     font-weight: 600;
     letter-spacing: 0.16em;
@@ -7731,8 +7837,8 @@
   .coupon-duration {
     margin-top: 0.4375rem;
     padding-top: 0.375rem;
-    border-top: 1px solid var(--promo-line);
-    color: var(--accent);
+    border-top: 1px solid var(--offer-rule);
+    color: var(--offer-print);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -7742,7 +7848,7 @@
   .coupon-perforation {
     flex: none;
     width: 2px;
-    background: repeating-linear-gradient(180deg, var(--ticket-perf) 0 7px, transparent 7px 14px);
+    background: repeating-linear-gradient(180deg, var(--offer-perf) 0 7px, transparent 7px 14px);
   }
 
   .coupon-ticket-body {
@@ -7761,7 +7867,7 @@
 
   .coupon-headline {
     display: block;
-    color: var(--ink);
+    color: var(--offer-ink);
     font-size: 1.03125rem;
     font-weight: 500;
     line-height: 1.3;
@@ -7777,7 +7883,7 @@
     align-items: center;
     gap: 0.625rem;
     margin-top: 0.25rem;
-    color: var(--muted);
+    color: var(--offer-muted);
     font-size: 0.84375rem;
   }
 
@@ -7786,7 +7892,7 @@
     flex: none;
     align-items: center;
     gap: 0.3125rem;
-    color: var(--accent);
+    color: var(--offer-key);
     white-space: nowrap;
   }
 
@@ -7813,26 +7919,26 @@
     box-sizing: border-box;
     height: 2.75rem;
     padding: 0 0.875rem;
-    border: 1px dashed var(--ticket-edge);
+    border: 1px dashed var(--offer-edge);
     border-radius: 0.75rem;
-    background: var(--surface);
+    background: var(--offer-chip);
     cursor: pointer;
     font: inherit;
   }
 
   .coupon-code:hover {
-    border-color: var(--accent);
+    border-color: var(--offer-key);
   }
 
   .coupon-code-text {
-    color: var(--ink);
+    color: var(--offer-ink);
     font-family: var(--font-mono);
     font-size: 0.90625rem;
     letter-spacing: 0.1em;
   }
 
   .coupon-code-copy {
-    color: var(--accent);
+    color: var(--offer-key);
     font-size: 0.78125rem;
     font-weight: 600;
   }
@@ -7845,19 +7951,38 @@
     height: 2.75rem;
     padding: 0 1.375rem;
     border-radius: var(--r-pill);
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--offer-key);
+    color: var(--offer-on-key);
     font-size: 0.90625rem;
     font-weight: 600;
     white-space: nowrap;
   }
 
-  /* The mock's own `#7c3b0b`, expressed the way this file already darkens the accent
-     elsewhere — so dark mode, where the accent is a light amber, darkens rather than
-     brightening on hover instead of needing a second literal. */
+  /*
+   * The dark mock's own `#7c3b0b`, expressed the way this file already darkens the accent
+   * elsewhere — so the light theme, where the ticket's key is an amber on a dark body, darkens
+   * rather than brightening on hover instead of needing a second literal.
+   *
+   * Not the mock's `opacity: 0.88`, which fades the label with the fill and lets the body show
+   * through a pill that is meant to be solid.
+   */
   .coupon-cta:hover {
-    background: color-mix(in srgb, var(--accent) 85%, black);
-    color: var(--on-accent);
+    background: color-mix(in srgb, var(--offer-key) 85%, black);
+    color: var(--offer-on-key);
+  }
+
+  /*
+   * Two labels, one link — «Apply coupon and see the plans» where there is room and «Apply
+   * coupon» where there is not, which is what the mock draws at 1280 and at 390.
+   *
+   * The long label is this app's own, adopted by the mock since (the prototype's was «See the
+   * plans», and the note on the component says why it grew). What the mock adds is the way out
+   * of the corner that length painted on a phone: at 390px the pill used to wrap onto two lines
+   * beside the code chip, and now it does not have to. `display: none` and not `aria-hidden`,
+   * so the hidden one is not announced either and the link reads as exactly one sentence.
+   */
+  .coupon-cta-short {
+    display: none;
   }
 
   .coupon-close {
@@ -7871,38 +7996,49 @@
     border: none;
     border-radius: var(--r-pill);
     background: none;
-    color: var(--faint);
+    color: var(--offer-faint);
     cursor: pointer;
   }
 
   .coupon-close:hover {
-    background: var(--promo-line);
-    color: var(--muted);
+    background: var(--offer-veil);
+    color: var(--offer-ink);
   }
 
-  /* The collapsed tab: the same ticket, reduced to the one fact worth interrupting for. */
+  /*
+   * The collapsed tab: the same ticket, reduced to the one fact worth interrupting for — and
+   * so drawn in the same inverted palette, or the offer would change colour on being dismissed.
+   *
+   * Sized from the mock rather than from the smaller thing that first shipped here: 23px on the
+   * figure and 15px on the label against 19 and 13, and the padding to match. Both mocks agree
+   * on those numbers and the ticket's own were matched exactly, so the tab's were drift and not
+   * a decision — and it is the state a reader sees for a fortnight after the ×, which is the
+   * one that could least afford to be quieter than drawn.
+   */
   .coupon-tab {
     display: inline-flex;
     align-items: center;
-    gap: 0.5625rem;
-    padding: 0.5rem 1rem 0.625rem;
-    border: 1px solid var(--promo-line);
+    gap: 0.6875rem;
+    padding: 0.6875rem 1.25rem 0.8125rem;
+    border: 1px solid var(--offer-line);
     border-bottom: none;
     border-radius: var(--r-sm) var(--r-sm) 0 0;
-    background: var(--surface);
-    box-shadow: 0 -10px 34px -18px rgb(58 36 21 / 45%);
+    background: var(--offer-bg);
+    box-shadow: var(--offer-tab-shadow);
     cursor: pointer;
     font: inherit;
     animation: coupon-rise 220ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
 
+  /* The border lifts to the perforation's tone — the one line in the palette that is a step
+     off the border in the right direction in both themes. */
   .coupon-tab:hover {
-    border-color: var(--ticket-edge);
+    border-color: var(--offer-perf);
   }
 
   .coupon-tab-figure {
-    color: var(--accent);
-    font-size: 1.1875rem;
+    color: var(--offer-key);
+    font-size: 1.4375rem;
     font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1;
@@ -7913,23 +8049,24 @@
   }
 
   .coupon-tab-label {
-    color: var(--ink);
-    font-size: 0.8125rem;
+    color: var(--offer-ink);
+    font-size: 0.9375rem;
     font-weight: 500;
   }
 
   /*
-   * Under 56rem the mock's single row cannot hold: the stub, two lines of prose, a code chip, a
-   * pill and a × leave the prose at two words a line. The stub goes horizontal across the top —
-   * the numeral, «OFF» and the duration in a row, keeping the ticket read — and the actions
-   * drop under the prose, where the pill can take the full width it now needs.
+   * Under 70rem the single row cannot hold: the stub, two lines of prose, a code chip, a pill
+   * and a × leave the prose at two words a line. The stub goes horizontal across the top — the
+   * numeral, «OFF» and the duration in a row, keeping the ticket read — and the actions drop
+   * under the prose, where the pill can take the full width it now needs. `Coupon In
+   * Page.dc.html` draws both ends of that, 1280px and 390px, which is what fixes the mobile
+   * half below rather than leaving it inferred.
    *
-   * 70rem, where this first shipped with 40rem: «Apply coupon and see the plans» is about twice
-   * the width of the mock's «See the plans», and that width comes straight out of the sentence
-   * beside it. Measured rather than guessed — the fixed parts of the row (stub 136, its
-   * padding, the code chip, the pill, the ×, the gaps) come to about 711px, so a page narrower
-   * than ~1120 leaves the headline under 110px and wrapping to four lines. 56rem was a first
-   * guess and was still too narrow; this is the arithmetic.
+   * 70rem and not the 40rem this first shipped with: the whole row's width comes out of the
+   * sentence beside the pill, and it was measured rather than guessed — the fixed parts (stub
+   * 136, its padding, the code chip, the pill, the ×, the gaps) come to about 711px, so a page
+   * narrower than ~1120 leaves the headline under 110px and wrapping to four lines. 56rem was
+   * a first guess and was still too narrow; this is the arithmetic.
    */
   @media (max-width: 70rem) {
     .coupon-ticket {
@@ -7953,14 +8090,14 @@
       padding-top: 0;
       padding-left: 0.5rem;
       border-top: none;
-      border-left: 1px solid var(--promo-line);
+      border-left: 1px solid var(--offer-rule);
     }
 
     /* Horizontal now, so it reads as the tear across a stub rather than beside it. */
     .coupon-perforation {
       width: 100%;
       height: 2px;
-      background: repeating-linear-gradient(90deg, var(--ticket-perf) 0 7px, transparent 7px 14px);
+      background: repeating-linear-gradient(90deg, var(--offer-perf) 0 7px, transparent 7px 14px);
     }
 
     .coupon-ticket-body {
@@ -7977,25 +8114,19 @@
       flex-wrap: wrap;
     }
 
-    /*
-     * `wrap`, because the pill's label cannot shrink: «Apply coupon and see the plans» has a
-     * min-content width of about 272px and `white-space: nowrap`, so on a phone it shared a row
-     * with the code chip and ran off the right edge of the ticket. Wrapping puts each on its
-     * own row, where both fit with room to spare.
-     */
+    /* `wrap` all the same, though the short label below means it rarely has to: the code chip
+       and the pill share this row at 390px, and a longer code than `STRUM30` is what would
+       still push the second onto its own. */
     .coupon-actions {
       flex: 1 0 100%;
       flex-wrap: wrap;
       order: 3;
     }
 
-    /*
-     * On a phone the pill has to be allowed two lines. Its label is fixed at «Apply coupon and
-     * see the plans» — about 272px of min-content that `white-space: nowrap` refuses to break —
-     * and a 360px screen leaves the ticket's inner width at roughly 300. Wrapping the actions
-     * was not enough on its own: the pill still ran past the ticket's right edge on its own
-     * row. `height` becomes `min-height` in the same breath, or a second line clips.
-     */
+    /* Full width of whatever the row leaves it, and allowed two lines: `height` becomes
+       `min-height`, or a second line clips. Below 34rem the label shortens instead — see the
+       query after this one — but the allowance stays as the floor under a 320px screen and a
+       code longer than the seven characters both mocks happen to draw. */
     .coupon-cta {
       flex: 1;
       justify-content: center;
@@ -8013,6 +8144,45 @@
       position: absolute;
       top: 0.5rem;
       right: 0.5rem;
+    }
+
+    /*
+     * Stacked, that corner is the **white matrix**, not the body — so the hover the mock draws
+     * for it would be a white veil under near-white ink, and the one control on the ticket
+     * would disappear on being pointed at. The mock cannot show this: it draws the stacked
+     * ticket at 390px, where nothing hovers. Same gesture in the matrix's own two invariant
+     * colours instead, which is the one pair that is right in both themes here.
+     */
+    .coupon-close:hover {
+      background: color-mix(in srgb, var(--offer-print) 12%, transparent);
+      color: var(--offer-print);
+    }
+  }
+
+  /*
+   * Where the CTA's label shortens to «Apply coupon» — the mock's own at 390px, in place of
+   * «Apply coupon and see the plans».
+   *
+   * **Its own query, and deliberately not the 70rem one above**, though both mocks would let
+   * them be confused: the label shortens because the *pill* has run out of room, not because
+   * the ticket has stacked, and the two happen at very different widths. Sharing the stack's
+   * breakpoint put two words in the middle of a 1100px slab of amber at tablet width, which
+   * looks like a mistake and is one.
+   *
+   * 34rem from the same arithmetic as the stack's: the long label has about 272px of
+   * min-content that `white-space: nowrap` refuses to break, the code chip and its gap take
+   * about 144 of the actions row, and the ticket's insets and padding take about 62 of the
+   * viewport — so the long one stops fitting on one line somewhere near 480px, and 544 leaves
+   * it a margin. Below that it used to arrive as two centred lines beside the chip; the short
+   * label is a third of the width and sits on one, which is what the mock draws at 390.
+   */
+  @media (max-width: 34rem) {
+    .coupon-cta-long {
+      display: none;
+    }
+
+    .coupon-cta-short {
+      display: inline;
     }
   }
 
