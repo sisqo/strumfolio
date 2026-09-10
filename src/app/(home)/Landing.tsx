@@ -64,17 +64,34 @@ export const LANDING_DESCRIPTION =
   'Play and sing with your own chords and lyrics — import, edit visually, export freely. Key, capo, auto-scroll, synced everywhere. Free to use, with paid plans for bigger repertoires.'
 
 /**
- * The line under the headline, and the one piece of hero copy that is not repeated anywhere
- * else on the screen.
+ * The line under the headline: two sentences, and nothing either of them says stands beside
+ * them on this screen.
  *
  * It replaced a lede that listed importing, the key, the capo and the free plan — every one of
  * which is now said again within a few hundred pixels, by the four cards beside it and by the
- * line under the button. A visitor read the same four facts three times before scrolling once.
- * This says the thing none of them says: what Strumfolio is *not*. Not exported, unlike the
- * description above — nothing outside this page has any use for it.
+ * capsule under them. A visitor read the same four facts three times before scrolling once. The
+ * first sentence says the thing none of them says: what Strumfolio is *not*. The second answers
+ * the question a musician asks before handing a repertoire to anybody — what is underneath it,
+ * what is not in it, and whether it can be taken back out.
+ *
+ * **The second sentence does echo further down the page, and that is deliberate.**
+ * `EDITOR_POINTS`' third point is «Plain ChordPro underneath … nothing here is locked in», and
+ * the FAQ answer on backups spells the zip of plain text out in full. Same argument as the
+ * editor card whose title is the editor band's headline word for word: a visitor who reads a
+ * hero claim and then scrolls should arrive somewhere that confirms it. What a hero must not do
+ * is repeat what sits *next to* it, which is what the old lede did.
+ *
+ * Each claim is shipped behaviour, not a slogan: every edit writes standard ChordPro and
+ * `lib/import/export.ts` hands the stored source back, one song or the whole library as a zip;
+ * and «no ads» is the Cookie Policy's own «No advertising or third-party tracking» — no
+ * advertising or profiling scripts, no data to advertising networks. The offer banner this page
+ * can carry is Strumfolio's own campaign (`advertisableCampaign`), which is a price of ours and
+ * not somebody else's advert.
+ *
+ * Not exported, unlike the description above — nothing outside this page has any use for it.
  */
 const HERO_SUBHEAD =
-  "Not a catalogue to browse — the songs you actually play, in a songbook that's yours to edit, carry and keep."
+  "Not a catalogue to browse — the songs you actually play, in a songbook that's yours to edit, carry and keep. Plain text files underneath, no ads, and nothing you can't take with you."
 
 /**
  * «1 songbook», «300 songs» — every count below is read from `PLANS` rather than typed, so a
