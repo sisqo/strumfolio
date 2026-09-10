@@ -8,9 +8,10 @@
  * see `lib/comments/store.ts` for why the preferences queue could not be reused.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { deleteComment, loadComments, saveComment } from '@/lib/comments/actions'
+import { readNotesHidden, writeNotesHidden } from '@/lib/comments/notesVisibility'
 import {
   type OutboxEntry,
   dequeue,
@@ -73,9 +74,35 @@ async function send(entry: OutboxEntry): Promise<boolean> {
 
 export function CommentsProvider({ songSlug, children }: { songSlug: string; children: React.ReactNode }) {
   const [comments, setComments] = useState<SongComment[]>([])
-  const [mode, setMode] = useState<CommentsMode>('visible')
+  const [mode, setModeState] = useState<CommentsMode>('visible')
   const [pending, setPending] = useState(0)
   const [open, setOpen] = useState<CardSubject | null>(null)
+
+  /*
+   * The reader's choice about the notes, re-applied on every mount — and this provider
+   * mounts once per song, because `SongReader` wraps it in `<SongProvider key={song.slug}>`
+   * to throw away the previous song's state. That remount was resetting the mode to
+   * `visible` on every song, which is what made the choice feel like it did not take.
+   *
+   * `useLayoutEffect` rather than a `useState` initialiser, the same shape `PrefsProvider`
+   * uses for the stored prefs: the server renders this too, so reading storage during the
+   * first render would be a hydration mismatch — and running after paint instead would show
+   * the notes for a frame before hiding them, on the screen where a clean page is the whole
+   * point of asking.
+   */
+  useLayoutEffect(() => {
+    if (readNotesHidden()) setModeState('hidden')
+  }, [])
+
+  /*
+   * Only `hidden` and `visible` are written; `adding` is armed state, not a choice — see
+   * `notesVisibility.ts`. It still moves the reader into `adding` here, it just leaves
+   * whatever they last chose standing behind it, so stopping brings them back to it.
+   */
+  const setMode = useCallback((next: CommentsMode) => {
+    setModeState(next)
+    if (next !== 'adding') writeNotesHidden(next === 'hidden')
+  }, [])
 
   // Kept in lockstep with every write so two changes in one flush merge against each
   // other rather than both against what render last saw — the same trick `PrefsProvider`
@@ -192,7 +219,7 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
 
   const value = useMemo<CommentsValue>(
     () => ({ comments: inReadingOrder(comments), mode, setMode, pending, open, setOpen, add, edit, remove }),
-    [comments, mode, pending, open, add, edit, remove],
+    [comments, mode, setMode, pending, open, add, edit, remove],
   )
 
   return <CommentsContext.Provider value={value}>{children}</CommentsContext.Provider>

@@ -1059,9 +1059,18 @@
       box-shadow: var(--shadow-1);
     }
 
-    /* The dock is centred on the page; with a rail beside the sheet, the sheet is not
-       the middle of the page any more, so the dock moves with it. */
-    .reading-layout ~ .control-bar .control-dock {
+    /*
+     * The dock is centred on the page; with a rail beside the sheet, the sheet is not
+     * the middle of the page any more, so the dock moves with it.
+     *
+     * `:has(.comments-rail)` because the rail is not always there: `CommentsRail` returns
+     * null outright when the notes are hidden, and then the flex row holds the sheet alone
+     * and centres it — back on the page's own middle, where an unconditional 21.5rem would
+     * leave the dock 10.75rem to its left. Hiding the notes was already reachable by a tap;
+     * it is worth the selector now that the choice is remembered for the session, because
+     * the misalignment would be there on arrival rather than only after a click.
+     */
+    .reading-layout:has(.comments-rail) ~ .control-bar .control-dock {
       margin-inline-end: 21.5rem;
     }
 
