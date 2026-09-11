@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { CouponBar } from '@/components/CouponBar'
+import { CouponMemory } from '@/components/CouponMemory'
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
@@ -17,7 +19,7 @@ import {
 } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
@@ -815,6 +817,18 @@ export default async function PricingPage({
   const persist = coupon !== null && coupon.code !== cookieCode ? coupon.code : undefined
 
   /*
+   * The same code again, for the memory that outlives the cookie — `CouponMemory` writes it to
+   * `localStorage` and hands it back to `rememberUrlCoupon` on a later visit, once the
+   * thirty-day cookie is gone and the campaign is not.
+   *
+   * Unrelated to `persist` above, which is about *this* journey: `persist` is `undefined` the
+   * moment the cookie already holds the code, whereas this is set on every load that has a
+   * coupon in force. That is the point — a reader whose cookie predates the feature has nothing
+   * in `localStorage`, and would otherwise never acquire it.
+   */
+  const remember = restorableCode(coupon)
+
+  /*
    * The code `CouponBar` records as *seen*, and the two conditions that decide it are both
    * answered here rather than in the action for a reason worth keeping: this page is public and
    * most of its traffic is signed out, so asking the server on every visit whether there is
@@ -901,6 +915,11 @@ export default async function PricingPage({
         */}
       <section className="mt-8">
         <CouponBar applied={couponBanner} persist={persist} note={note} />
+        {/* Renders nothing; `Suspense` only because it reads the query string, which it needs
+            in order to stand aside while `CouponBar` above is already resolving a URL coupon. */}
+        <Suspense fallback={null}>
+          <CouponMemory restorable={remember} />
+        </Suspense>
       </section>
 
       <section className="mt-5">

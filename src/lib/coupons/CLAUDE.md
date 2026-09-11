@@ -71,9 +71,9 @@ source of truth until one does. The load-bearing parts:
   `advertisableCampaign()` is **gone**: it returned any live campaign whose `entry` allowed a
   typed code, and the overlay drew it for every visitor on `/`, `/pricing` and `/checkout`, with
   no parameter in the URL. A campaign is now shown only to somebody who arrived with its link —
-  `activeCoupon` on `/` for the overlay, `CouponBar` on the other two — and for the thirty days
-  `COUPON_COOKIE_MAX_DAYS` lasts, to that same browser afterwards, which is a session that *did*
-  arrive with it and not an exception.
+  `activeCoupon` on `/` for the overlay, `CouponBar` on the other two — and to that same browser
+  afterwards for as long as the campaign runs, which is a session that *did* arrive with it and
+  not an exception. **"As long as the campaign runs", not thirty days**: see the bullet below.
   - **Do not re-derive advertising from `entry`.** That was the design this replaced, and it
     conflated two questions: `entry` says how a coupon may be *entered*, not whether it should be
     *promoted*. `HAPPYSONG` is `entry: 'both'` precisely so a reader who noted the code down can
@@ -87,6 +87,36 @@ source of truth until one does. The load-bearing parts:
     `activeCoupon` and writes the cookie; the next render draws the overlay. It refreshes only
     when the stored code differs from the one the server already rendered from, or the refresh
     loops.
+- **The cookie is not the memory** (since 2026-09-11). `songbook-coupon` lives for
+  `min(COUPON_COOKIE_MAX_DAYS, what is left of the campaign)`, and the thirty days are Google
+  Ads' *attribution* window — chosen so the cookie and the conversion figure describe the same
+  period, which is a reporting decision and never was a judgement about how long an offer should
+  keep being shown. So on day thirty-one a reader who had clicked an advertisement was served the
+  full listino with the campaign still live. `CouponMemory` is the half that outlives it: it keeps
+  the code in `localStorage` and hands it back to `rememberUrlCoupon`, which writes the cookie
+  again. **The asymmetry is deliberate — do not "fix" one to match the other.**
+  - **Only a campaign a link could bring back is remembered**, which is `restorableCode` and the
+    reason it is a function rather than an expression on each of the three pages. The restore
+    re-enters by `rememberUrlCoupon`, `entryAllowsUrl` check included, so it can never grant more
+    than the original link did — which matters, because unlike the cookie this value is writable
+    by anything running on the page. A typed-code-only campaign stored here would be refused on
+    every restore and never work.
+  - **One attempt per browsing session**, marked in `sessionStorage`. `rememberUrlCoupon` answers
+    a bare boolean and cannot tell a campaign archived yesterday from one opening tomorrow, so
+    forgetting the memory on a refusal would throw the second away — and never forgetting, with no
+    marker, would spend a round trip on a dead code at every page load for ever. The memory is
+    therefore kept indefinitely and only «Remove» deletes it (`forgetOffer`, from `CouponBar`).
+    **That call is load-bearing**: without it «Remove» works until the reader's next visit, which
+    is the «Remove» bug `withoutCouponParams` already exists for, on a longer timer.
+  - **`songs:coupon` is the third `DEVICE_KEYS` exemption** in `lib/storage/scope.ts`, after
+    `songs:theme` and `songs:scope`, and the only one whose entire audience has no account to be
+    scoped to — `keyFor` answers `null` with no session, and somebody who has just clicked an
+    advertisement has none. The argument for it is written out there; the short form is that a
+    publicly advertised code describes the browser and not the person, and authorises nothing.
+    It survives sign-out for the same reason.
+  - **Safari caps script-writable storage at seven days** without user interaction, so this is
+    *additive* to the httpOnly cookie and not a replacement for it. Keep both.
+
 - **Struck prices appear only while a coupon is applied.** That conditionality is the legal
   argument, not a styling choice: the deck rejects a reference price never charged, and what
   answers it is that the listino is genuinely what a reader without a coupon pays. The

@@ -31,6 +31,7 @@ import {
   readLimit,
   readMonths,
   readPercent,
+  restorableCode,
   withoutCouponParams,
 } from './types'
 
@@ -694,5 +695,27 @@ describe('offerCollapsedCookie', () => {
   it('scopes to the whole site', () => {
     assert.match(offerCollapsedCookie(true), /path=\//)
     assert.match(offerCollapsedCookie(true), /samesite=lax/)
+  })
+})
+
+/*
+ * The memory `CouponMemory` keeps past the thirty-day cookie, and the one rule that decides what
+ * goes into it: a restore re-enters through `rememberUrlCoupon`, which re-checks `entryAllowsUrl`,
+ * so a campaign no link can carry must not be stored to be refused later.
+ */
+describe('restorableCode', () => {
+  it('remembers a campaign a link can bring back', () => {
+    assert.equal(restorableCode({ code: 'HAPPYSONG', entry: 'both' }), 'HAPPYSONG')
+    assert.equal(restorableCode({ code: 'LINKONLY', entry: 'url' }), 'LINKONLY')
+  })
+
+  /* The whole point of the function. A typed-code-only campaign stored here would buy one
+     refused round trip per browsing session and restore nothing, for ever. */
+  it('refuses a campaign that can only be typed', () => {
+    assert.equal(restorableCode({ code: 'FLYER24', entry: 'code' }), null)
+  })
+
+  it('has nothing to remember when nothing is in force', () => {
+    assert.equal(restorableCode(null), null)
   })
 })

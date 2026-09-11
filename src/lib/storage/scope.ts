@@ -27,6 +27,10 @@
  */
 
 import { SCOPE_COOKIE, isScopeTag } from '@/lib/accounts/scope'
+/* A value import, unlike `songs:theme` beside it in `DEVICE_KEYS`, which is still spelled out:
+   `coupons/types.ts` imports nothing at all, so there is no cycle to fear and no reason for the
+   exemption list and the module that writes the key to be able to disagree about its name. */
+import { COUPON_MEMORY_KEY } from '@/lib/coupons/types'
 
 /** Where the tag of whatever is currently stored is remembered, so a change can be noticed. */
 const STORED_SCOPE_KEY = 'songs:scope'
@@ -36,7 +40,7 @@ const STORED_SCOPE_KEY = 'songs:scope'
 const APP_PREFIX = 'songs:'
 
 /**
- * The two keys under that prefix which are **not** account data and must survive a purge.
+ * The three keys under that prefix which are **not** account data and must survive a purge.
  *
  * `songs:theme` belongs to the device, not to whoever is signed in on it: it is read by the
  * inline script in `app/layout.tsx` before React exists, precisely so the page never paints in
@@ -44,8 +48,28 @@ const APP_PREFIX = 'songs:'
  * other theme — a visible regression in service of nothing, since a theme says nothing about
  * anybody. `songs:scope` is the marker this module writes to notice the change at all; taking
  * it out would make every load look like a fresh account and purge on every visit.
+ *
+ * `songs:coupon` is the third and the newest, and it is the one that needs arguing rather than
+ * stating, because the rule it is an exception to is absolute everywhere else in this app.
+ * Three things put it here:
+ *
+ * - **Its whole audience has no account.** It remembers a discount code somebody arrived with
+ *   by clicking an advertisement, and `keyFor` answers `null` for a browser with no scope
+ *   cookie. Scoping it would mean it worked for nobody it is for.
+ * - **It is not one account's data.** A campaign code is printed on the advertisement that
+ *   brought the reader here; it says nothing about them, and two people sharing a laptop seeing
+ *   the same public offer is the offer working. That is the `songs:theme` test — does the value
+ *   describe the person or the browser — and this answers "the browser".
+ * - **It authorises nothing.** `CouponMemory` hands the code to `rememberUrlCoupon`, which
+ *   re-reads the row and re-checks the campaign's state, window, ceilings and `entry` before
+ *   writing anything. The bug this module exists to end was one reader being served another's
+ *   words; the worst this key can do is show somebody a discount that is already public.
+ *
+ * It follows that it also survives `clearLocalStorageForSignOut`, which is deliberate and is
+ * stated where it is written — see `forgetOffer` in `lib/coupons/memory.ts`, the one place that
+ * removes it.
  */
-const DEVICE_KEYS: ReadonlySet<string> = new Set(['songs:theme', STORED_SCOPE_KEY])
+const DEVICE_KEYS: ReadonlySet<string> = new Set(['songs:theme', COUPON_MEMORY_KEY, STORED_SCOPE_KEY])
 
 /** Whether a key holds something belonging to an account, rather than to this browser. */
 function isAccountKey(key: string): boolean {

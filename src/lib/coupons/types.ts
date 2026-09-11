@@ -226,6 +226,60 @@ export const COUPON_COOKIE = 'songbook-coupon'
 export const COUPON_COOKIE_MAX_DAYS = 30
 
 /**
+ * Where a coupon that arrived by link is remembered past the cookie's own ceiling.
+ *
+ * **The cookie is not the memory, and the thirty days above are not a decision about how long
+ * an offer should keep being shown.** `COUPON_COOKIE_MAX_DAYS` is Google Ads' attribution
+ * window, chosen so the cookie and the conversion figure describe the same period — and on day
+ * thirty-one a reader who clicked an advertisement stopped being shown a campaign that is still
+ * live. That is the asymmetry this key exists for, so it is deliberate: the cookie measures
+ * attribution, this measures the offer, and they are not the same period. Do not "fix" one to
+ * match the other.
+ *
+ * Holds a code and nothing else, exactly like the cookie, and for the identical reason — every
+ * read re-derives the campaign's state, window and ceilings from the table, so what is stored
+ * here is a pointer and never a claim. `CouponMemory` is the only reader and writer.
+ *
+ * Named under `songs:` so `lib/storage/scope.ts` can find it, and listed in that module's
+ * `DEVICE_KEYS` so the purge leaves it alone — see the reasoning there. It is the third
+ * exemption from the rule that every key in this app is account-scoped, and the only one whose
+ * whole audience has no account to be scoped to.
+ */
+export const COUPON_MEMORY_KEY = 'songs:coupon'
+
+/**
+ * The `sessionStorage` marker that says this browsing session has already tried to restore.
+ *
+ * One attempt per session, whatever it answers. `rememberUrlCoupon` reports a bare boolean and
+ * cannot tell a campaign that has been archived from one that starts tomorrow, so deleting the
+ * memory on a refusal would forget a campaign about to open, and keeping it without this marker
+ * would spend a round trip on a dead code on every page load for ever. Bounding the attempt is
+ * cheaper than either, and it is what makes the memory safe to keep indefinitely.
+ *
+ * `sessionStorage`, so it dies with the tab and the next visit tries once more — which is also
+ * the literal reading of "remembered for the whole browsing session". Not under the purge's
+ * reach: that walks `localStorage` alone.
+ */
+export const COUPON_RESTORE_MARKER = 'songs:coupon-restored'
+
+/**
+ * The code worth remembering for next time, or `null`.
+ *
+ * Only a campaign reachable **by link** is remembered, because a restore re-enters through
+ * `rememberUrlCoupon` — the same door the reader came in by — and that function re-checks
+ * `entryAllowsUrl`. Storing a typed-code-only campaign would therefore store something that
+ * cannot be restored, and buy one refused round trip per browsing session for it.
+ *
+ * A function rather than the expression written out on each of the three pages that mount
+ * `CouponMemory`: they would be three chances for one of them to drift, which is the hazard
+ * `discountCycles`/`discountedMonths` already stands for in this feature.
+ */
+export function restorableCode(campaign: { code: string; entry: CouponEntry } | null): string | null {
+  if (campaign === null) return null
+  return entryAllowsUrl(campaign.entry) ? campaign.code : null
+}
+
+/**
  * Whether this reader has collapsed the offer bar.
  *
  * Written client-side by `CouponOverlay` with `document.cookie` and read server-side by the

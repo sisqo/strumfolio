@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import { applyCoupon, clearCoupon, noteCouponView, rememberUrlCoupon } from '@/lib/coupons/actions'
+import { forgetOffer } from '@/lib/coupons/memory'
 import {
   COUPON_FAILURE_MESSAGE,
   isCodeShape,
@@ -177,6 +178,10 @@ export function CouponBar({
    *    ticket advertising the very offer they just dismissed, which reads as the button
    *    failing a second time. The collapsed tab stays, so the offer is one tap away rather
    *    than gone.
+   * 4. **Forget the offer.** `CouponMemory` keeps the code in `localStorage` past the cookie,
+   *    and it is the only thing on the page that outlives this button — so without this line
+   *    the coupon is restored on the reader's next visit and «Remove» becomes a thing that
+   *    works until tomorrow. The same bug as (2), on a longer timer.
    *
    * `replace`, never `push`: Back should not return to a state the reader deliberately left.
    * `refresh` after it because the target URL is often the one already showing — the
@@ -187,6 +192,7 @@ export function CouponBar({
     setError(null)
     try {
       await clearCoupon()
+      forgetOffer()
       document.cookie = offerCollapsedCookie(true)
       router.replace(withoutCouponParams(pathname, searchParams.toString()))
       router.refresh()
@@ -267,7 +273,7 @@ export function CouponBar({
           autoComplete="off"
           spellCheck={false}
           maxLength={24}
-          placeholder="FOUNDER30"
+          placeholder="COUPONCODE"
           aria-describedby={error === null ? undefined : 'coupon-error'}
           aria-invalid={error === null ? undefined : true}
         />

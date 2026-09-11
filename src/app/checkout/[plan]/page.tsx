@@ -1,17 +1,19 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { CheckoutScreen } from '@/components/CheckoutScreen'
 import type { CheckoutCoupon } from '@/components/CheckoutScreen'
 import { CouponBar } from '@/components/CouponBar'
+import { CouponMemory } from '@/components/CouponMemory'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { isCheckoutPlan } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
@@ -110,6 +112,17 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
             note={note}
           />
+          {/*
+            * `persist` is withheld above and this is not the same objection. That one is about
+            * two components racing to write one cookie on the journey through /pricing; this
+            * writes `localStorage`, idempotently, with a value /pricing would have written
+            * identically — and a reader can arrive straight here from a bookmark, which is the
+            * one point in the funnel where a forgotten offer costs the discount at the moment
+            * of paying.
+            */}
+          <Suspense fallback={null}>
+            <CouponMemory restorable={restorableCode(campaign)} />
+          </Suspense>
         </div>
 
         <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />

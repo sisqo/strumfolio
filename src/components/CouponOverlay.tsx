@@ -80,6 +80,13 @@ export function CouponOverlay({
    * `localStorage`, because the server has to be able to read it — and because a promo bar that
    * reappears open on every navigation after being dismissed is exactly what the × exists to
    * prevent.
+   *
+   * **That argument is about this flag and not about the offer.** The code itself *is* kept in
+   * `localStorage`, by `CouponMemory`, and the two are opposites on purpose: a dismissal should
+   * lapse with the fortnight so the next campaign gets its own chance to be seen, while an offer
+   * somebody clicked an advertisement for should outlive the thirty-day cookie for as long as the
+   * campaign runs. Nothing server-side needs to read the code — `rememberUrlCoupon` writes the
+   * cookie back from it — which is the condition this paragraph fails.
    */
   initiallyCollapsed?: boolean
 }) {

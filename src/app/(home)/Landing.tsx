@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
+import { CouponMemory } from '@/components/CouponMemory'
 import { CouponOverlay } from '@/components/CouponOverlay'
 import { LandingOffer } from '@/components/LandingOffer'
 import { EditorPhone } from '@/components/EditorPhone'
@@ -27,7 +28,7 @@ import {
 import { PublicHeader } from '@/components/PublicHeader'
 import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
-import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
@@ -742,6 +743,11 @@ export async function Landing() {
    * drawn by one. `LandingOffer` below is the other half — it reads the parameter on the client,
    * has it resolved and stored, and asks for the render that this line then answers.
    *
+   * **And the cookie is not the whole memory**, since 2026-09-11: it lasts thirty days at most,
+   * which is an attribution window and not a judgement about the offer, so `CouponMemory` keeps
+   * the code in `localStorage` and writes the cookie again when this page finds none. What it is
+   * handed is `restorableCode` below — the campaign in force, when a link could bring it back.
+   *
    * `activeCoupon` never throws and answers `null` for any failure — see its own comment. That
    * matters more here than anywhere: a coupon table that cannot be read must not be able to
    * close the front door.
@@ -1131,6 +1137,14 @@ export async function Landing() {
             boundary; it draws nothing, so the fallback is nothing. */}
         <Suspense fallback={null}>
           <LandingOffer carriedCode={cookieCode} />
+        </Suspense>
+
+        {/* The other memory: `localStorage`, for the offer that outlives the thirty-day cookie.
+            Beside `LandingOffer` rather than inside it — that one is about a URL this page
+            cannot see, this one about a visit weeks ago — and in its own `Suspense` for the same
+            `useSearchParams` reason. */}
+        <Suspense fallback={null}>
+          <CouponMemory restorable={restorableCode(offer)} />
         </Suspense>
 
         {/* Last in the document, fixed to the foot of the viewport by CSS — see `CouponOverlay`
