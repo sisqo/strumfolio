@@ -40,9 +40,11 @@ import { useOnline } from '@/lib/useOnline'
  *
  * **Applied, that state is a ticket** (`Pricing.dc.html`), and the same one on both screens:
  * the stub carrying the percentage, a perforation, then the two lines and «Remove». It is the
- * offer overlay's own ticket at bar scale — `CouponOverlay` advertises an offer nobody has
- * taken with a stub exactly like this one, and a reader who accepts it there now arrives at
- * the confirmation of it wearing the same shape rather than an unrelated tinted row.
+ * offer overlay's own ticket at bar scale — `CouponOverlay`, on the public home, shows the offer
+ * with a stub exactly like this one, and a reader who accepts it there arrives at the
+ * confirmation of it wearing the same shape rather than an unrelated tinted row. (It used to
+ * *advertise* that offer to anybody at all, on this page too; since 2026-09-11 it is shown only
+ * to somebody who arrived with the campaign's link, and only on `/`.)
  *
  * **The same shape and deliberately not the same tone**, since the overlay went to its variant
  * 1b: that one is drawn against the page — dark on the light theme, cream on the dark — and

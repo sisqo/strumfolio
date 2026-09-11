@@ -67,6 +67,26 @@ source of truth until one does. The load-bearing parts:
   `coupon_campaigns_one_default` is a **partial** unique index — confirm the `WHERE
   (is_default AND archived_at IS NULL)` predicate survives any regeneration, because without
   it that index forbids a second *non-default* campaign.
+- **Nothing is advertised to a reader who is carrying nothing** (since 2026-09-11).
+  `advertisableCampaign()` is **gone**: it returned any live campaign whose `entry` allowed a
+  typed code, and the overlay drew it for every visitor on `/`, `/pricing` and `/checkout`, with
+  no parameter in the URL. A campaign is now shown only to somebody who arrived with its link —
+  `activeCoupon` on `/` for the overlay, `CouponBar` on the other two — and for the thirty days
+  `COUPON_COOKIE_MAX_DAYS` lasts, to that same browser afterwards, which is a session that *did*
+  arrive with it and not an exception.
+  - **Do not re-derive advertising from `entry`.** That was the design this replaced, and it
+    conflated two questions: `entry` says how a coupon may be *entered*, not whether it should be
+    *promoted*. `HAPPYSONG` is `entry: 'both'` precisely so a reader who noted the code down can
+    type it, and setting it to `'url'` to silence the overlay would have taken that away. If
+    per-campaign advertising is ever wanted again it needs a column of its own, not a fourth
+    `entry` value.
+  - **The public home cannot read its own query string**, and this is the only place that matters.
+    `Landing` is drawn by `app/(home)/layout.tsx`, and a layout is never given `searchParams`, so
+    `/?promo=1` — where campaign links point — is invisible to it. `LandingOffer` reads the
+    parameter on the client and calls `rememberUrlOffer`, which resolves it through the same
+    `activeCoupon` and writes the cookie; the next render draws the overlay. It refreshes only
+    when the stored code differs from the one the server already rendered from, or the refresh
+    loops.
 - **Struck prices appear only while a coupon is applied.** That conditionality is the legal
   argument, not a styling choice: the deck rejects a reference price never charged, and what
   answers it is that the listino is genuinely what a reader without a coupon pays. The

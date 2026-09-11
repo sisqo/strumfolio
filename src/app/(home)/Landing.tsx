@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
+import { Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 import { CouponOverlay } from '@/components/CouponOverlay'
+import { LandingOffer } from '@/components/LandingOffer'
 import { EditorPhone } from '@/components/EditorPhone'
 import { Footer } from '@/components/Footer'
 import {
@@ -24,8 +26,8 @@ import {
 } from '@/components/icons'
 import { PublicHeader } from '@/components/PublicHeader'
 import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
-import { advertisableCampaign } from '@/lib/coupons/read'
-import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
+import { activeCoupon } from '@/lib/coupons/read'
+import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
@@ -84,8 +86,8 @@ export const LANDING_DESCRIPTION =
  * `lib/import/export.ts` hands the stored source back, one song or the whole library as a zip;
  * and «no ads» is the Cookie Policy's own «No advertising or third-party tracking» — no
  * advertising or profiling scripts, no data to advertising networks. The offer banner this page
- * can carry is Strumfolio's own campaign (`advertisableCampaign`), which is a price of ours and
- * not somebody else's advert.
+ * can carry is Strumfolio's own campaign, shown only to a reader who arrived with its link — a
+ * price of ours, and not somebody else's advert.
  *
  * Not exported, unlike the description above — nothing outside this page has any use for it.
  */
@@ -730,15 +732,23 @@ export async function Landing() {
    * only public one in the app», its own comment said, which is exactly the premise the
    * restructure removed — and it moved here with the rest of the pitch.
    *
-   * No `activeCoupon` counterpart here, unlike `/pricing` and `/checkout`: this page names no
-   * price, so there is nothing for an applied coupon to change and nothing to confirm. It
-   * either has an offer to announce or it has nothing to say.
+   * **It is `activeCoupon` now, not `advertisableCampaign`, and that is the whole change.** This
+   * page used to advertise any live campaign to every visitor, which is why the overlay appeared
+   * on a bare `/` with nothing in the URL. A coupon is shown only to somebody who arrived with
+   * its link — and, for the thirty days the cookie lasts, to that same browser afterwards, which
+   * is a session that *did* arrive with it rather than an exception to the rule.
    *
-   * `advertisableCampaign` never throws and answers `null` for any failure — see its own
-   * comment. That matters more here than anywhere: a coupon table that cannot be read must not
-   * be able to close the front door.
+   * The cookie is all this can read: `searchParams` never reaches a layout, and this page is
+   * drawn by one. `LandingOffer` below is the other half — it reads the parameter on the client,
+   * has it resolved and stored, and asks for the render that this line then answers.
+   *
+   * `activeCoupon` never throws and answers `null` for any failure — see its own comment. That
+   * matters more here than anywhere: a coupon table that cannot be read must not be able to
+   * close the front door.
    */
-  const [offer, jar] = await Promise.all([advertisableCampaign(), cookies()])
+  const jar = await cookies()
+  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
+  const offer = await activeCoupon({ cookie: cookieCode })
   const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
   const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
@@ -1115,6 +1125,13 @@ export async function Landing() {
         </p>
 
         <Footer />
+
+        {/* Reads `?promo=1` / `?coupon=CODE`, which this page cannot see for itself, and stores
+            it so the render above finds it. In `Suspense` because `useSearchParams` requires a
+            boundary; it draws nothing, so the fallback is nothing. */}
+        <Suspense fallback={null}>
+          <LandingOffer carriedCode={cookieCode} />
+        </Suspense>
 
         {/* Last in the document, fixed to the foot of the viewport by CSS — see `CouponOverlay`
             on why reading order matters for a bar that overlays a page. The CTA goes to the price

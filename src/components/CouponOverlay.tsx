@@ -23,20 +23,25 @@ import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
  * the scoped `--offer-*` block in `globals.css`, and shares none with the applied bar; that
  * block's own comment has the mapping and the reason it is scoped.
  *
- * **Three pages, not "any page".** The mock's own note says it sits over any page; in this app
- * that would include `/songs/[slug]`, which is read while playing, where a bar fixed to the
- * bottom covers the last lines of a lyric and the auto-scroll control. Mounted on `/pricing`,
- * `/` and `/checkout/[plan]` instead — the three screens where somebody is deciding whether to
- * pay. (The first of those three was `/login` until the landing page moved to `/`: the overlay
- * follows the front door, not the sign-in form.)
+ * **One page now, and it used to be three.** The mock's own note says it sits over any page; in
+ * this app that would include `/songs/[slug]`, which is read while playing, where a bar fixed to
+ * the bottom covers the last lines of a lyric and the auto-scroll control. It was mounted on
+ * `/pricing`, `/` and `/checkout/[plan]` — the three screens where somebody is deciding whether
+ * to pay — and is mounted on `/` alone since 2026-09-11.
  *
- * **The offer here is not yet applied.** That is what the mock's own controls say: a code to
- * copy and a link to the plans, never an «Apply». So this is the advertisement, and `CouponBar`
- * remains the applied state — the two never show at once (see the pages that mount them), and
- * they no longer look alike either, which is the point of the paragraph above. The one thing
- * added beyond the mock: the CTA carries `?coupon=`, so pressing it applies the offer rather
- * than leaving the reader to paste back a code they were just shown — see its own comment
- * below, and the two labels the width decides between.
+ * **What changed is who sees it, and the two pages it left follow from that.** It used to draw
+ * whatever `advertisableCampaign()` returned, which was any live campaign, for every visitor
+ * with nothing in the URL: the front-door sale. A campaign is now shown only to a reader who
+ * arrived with its link, and on `/pricing` and `/checkout` that reader is already served by
+ * `CouponBar` — so there was nothing left for this to say there. The public home has no bar,
+ * which is why it keeps this.
+ *
+ * **The offer here is still not applied**, which is what the mock's own controls say: a code to
+ * copy and a link to the plans, never an «Apply». `CouponBar` remains the applied state, and the
+ * two still never show at once — now because they no longer share a page rather than because a
+ * line keeps them apart. The one thing added beyond the mock: the CTA carries `?coupon=`, so
+ * pressing it applies the offer rather than leaving the reader to paste back a code they were
+ * just shown — see its own comment below, and the two labels the width decides between.
  */
 export function CouponOverlay({
   code,

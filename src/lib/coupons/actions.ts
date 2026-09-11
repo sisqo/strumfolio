@@ -27,7 +27,7 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { couponCampaigns } from '@/lib/db/schema'
 
 import { campaignStatus, cookieMaxAge } from './discount'
-import { allCampaigns, campaignById, redeemedCount, resolveTypedCode } from './read'
+import { activeCoupon, allCampaigns, campaignById, redeemedCount, resolveTypedCode } from './read'
 import {
   COUPON_COOKIE,
   COUPON_COOKIE_MAX_DAYS,
@@ -108,6 +108,38 @@ export async function applyCoupon(
  * the same mistake as trusting the cookie: a client can pass anything, so the campaign is
  * re-read here.
  */
+/**
+ * Resolve whatever a campaign link is carrying — `?coupon=CODE` or `?promo=1` — and remember it.
+ *
+ * **Why the home page needs its own door.** `/pricing` reads both parameters during its own
+ * render and hands `CouponBar` the code to persist, but the public home cannot: it is drawn by
+ * `app/(home)/layout.tsx`, and a layout in the App Router is never given `searchParams`. Since
+ * campaign links point at the home, the parameter would otherwise be invisible exactly where it
+ * arrives. `LandingOffer` reads it on the client and calls this.
+ *
+ * Resolution is `activeCoupon`'s, not a second copy: precedence between the two parameters, the
+ * `entryAllowsUrl` check and the campaign's whole state are decided in one place, so the home
+ * and `/pricing` can never disagree about what a link means. `cookie: null` because this asks
+ * what the *URL* carries; a reader who already holds one needs nothing written.
+ *
+ * Persisting goes through `rememberUrlCoupon`, which re-reads the row and computes the
+ * campaign-aware `Max-Age`. The second round trip is the price of not copying that logic, and it
+ * is paid once per arrival.
+ *
+ * Answers the code it stored so the caller can tell «already had this» from «just got it» and
+ * refresh only in the second case — see `LandingOffer`.
+ */
+export async function rememberUrlOffer(input: {
+  coupon?: string
+  promo?: string
+}): Promise<{ ok: boolean; code: string | null }> {
+  const campaign = await activeCoupon({ coupon: input.coupon, promo: input.promo, cookie: null })
+  if (campaign === null) return { ok: false, code: null }
+
+  const stored = await rememberUrlCoupon(campaign.code)
+  return { ok: stored.ok, code: stored.ok ? campaign.code : null }
+}
+
 export async function rememberUrlCoupon(raw: string): Promise<{ ok: boolean }> {
   const code = normalizeCode(raw)
   if (!isCodeShape(code) || !hasDatabase) return { ok: false }

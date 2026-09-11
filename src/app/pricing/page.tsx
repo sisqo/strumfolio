@@ -3,7 +3,6 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 
 import { CouponBar } from '@/components/CouponBar'
-import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { IconCheck } from '@/components/icons'
 import { LifetimeCta, PricingPlans } from '@/components/PricingPlans'
@@ -13,14 +12,12 @@ import { loadIdentity } from '@/lib/auth/actions'
 import { APP_NAME } from '@/lib/brand'
 import {
   appliedCopy,
-  deadlineCopy,
   discountedAmount,
-  offerCopy,
   termCopy,
 } from '@/lib/coupons/discount'
-import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
+import { activeCoupon } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
 import { mockCheckoutEnabled } from '@/lib/plans/resolve'
@@ -792,31 +789,22 @@ export default async function PricingPage({
    */
   const jar = await cookies()
   const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
-  /* Read here rather than in the component, so the bar is in the server-rendered HTML in the
-     state this reader left it — see `CouponOverlay.initiallyCollapsed`. */
-  const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
-  const [coupon, lifetimeIsOpen, advertisable] = await Promise.all([
+  const [coupon, lifetimeIsOpen] = await Promise.all([
     activeCoupon({
       coupon: typeof couponParam === 'string' ? couponParam : undefined,
       promo: typeof promoParam === 'string' ? promoParam : undefined,
       cookie: cookieCode,
     }),
     loadLifetimeOnSale(),
-    /*
-     * The offer to *advertise*, which is a different question from the one applied: the overlay
-     * sells a campaign to somebody who has not taken it, and `CouponBar` confirms one that has
-     * been taken. Read unconditionally rather than behind `coupon === null` so both answers
-     * come from the same instant — a campaign that expires between two awaits would otherwise
-     * leave the page showing an applied discount and an advertisement for it at once.
-     */
-    advertisableCampaign(),
   ])
 
-  /* The two never show together, and this is the one line that guarantees it. */
-  const offer = coupon === null ? advertisable : null
-  /* Derived once: `offerCopy` returns all three strings together precisely so the numeral, the
-     stub and the headline cannot be computed from different inputs. */
-  const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
+  /*
+   * **Nothing is advertised here any more.** This page used to read `advertisableCampaign()` and
+   * show the overlay to whoever was *not* already carrying a coupon — the front-door sale. A
+   * campaign is now shown only to a reader who arrived with its link, which is `CouponBar`'s
+   * job from the coupon resolved above, so there is no second thing to draw and no «the two
+   * never show together» line left to keep them apart.
+   */
 
   /*
    * The URL brought a coupon the cookie does not hold yet — handed to `CouponBar`, which
@@ -904,16 +892,16 @@ export default async function PricingPage({
         * already formed the wrong idea about the listino.
         */}
       {/*
-        * `CouponBar` is now the *applied* state and the typed-code input, and nothing else: the
-        * overlay below has taken over advertising an offer nobody has claimed. So this row is
-        * hidden exactly when the overlay is showing, which is the one arrangement in which the
-        * page never carries two coupon controls at once — see `offer`.
+        * `CouponBar` is the applied state and the typed-code input, and now the only coupon
+        * control on this page. It used to be hidden whenever the overlay was advertising an
+        * unclaimed offer, so the page never carried two at once; with nothing advertised here
+        * there is no second control to yield to, and the row is unconditional. The typed-code
+        * input is the half that matters most now — a reader who noted a code down has no link
+        * to arrive by, and this is where they use it.
         */}
-      {offer === null && (
-        <section className="mt-8">
-          <CouponBar applied={couponBanner} persist={persist} note={note} />
-        </section>
-      )}
+      <section className="mt-8">
+        <CouponBar applied={couponBanner} persist={persist} note={note} />
+      </section>
 
       <section className="mt-5">
         <PricingPlans
@@ -1023,25 +1011,6 @@ export default async function PricingPage({
 
       <Footer />
 
-      {/*
-        * Last in the document, and fixed to the foot of the viewport by CSS.
-        *
-        * The order is the accessibility half of the design: a bar that overlays a page should
-        * come *after* the page in reading order rather than interrupting it, so a screen reader
-        * reaches the price list before the advertisement for it. `role="region"` with a name is
-        * what makes it findable anyway (see `CouponOverlay`).
-        */}
-      {offer !== null && offerWords !== null && (
-        <CouponOverlay
-          code={offer.code}
-          percent={offerWords.percent}
-          duration={offerWords.duration}
-          headline={offerWords.headline}
-          deadline={deadlineCopy(offer.expiresAt, new Date())}
-          href={`/pricing?coupon=${encodeURIComponent(offer.code)}`}
-          initiallyCollapsed={offerCollapsed}
-        />
-      )}
     </main>
   )
 }

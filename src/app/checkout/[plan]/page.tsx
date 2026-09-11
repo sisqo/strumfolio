@@ -5,14 +5,13 @@ import { notFound } from 'next/navigation'
 import { CheckoutScreen } from '@/components/CheckoutScreen'
 import type { CheckoutCoupon } from '@/components/CheckoutScreen'
 import { CouponBar } from '@/components/CouponBar'
-import { CouponOverlay } from '@/components/CouponOverlay'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { currentUser } from '@/lib/auth/session'
-import { appliedCopy, deadlineCopy, offerCopy } from '@/lib/coupons/discount'
-import { activeCoupon, advertisableCampaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
+import { appliedCopy } from '@/lib/coupons/discount'
+import { activeCoupon } from '@/lib/coupons/read'
+import { COUPON_COOKIE } from '@/lib/coupons/types'
 import { isCheckoutPlan } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
@@ -53,11 +52,9 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    */
   const jar = await cookies()
   const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
-  const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
-  const [campaign, lifetimeOnSale, advertisable, user] = await Promise.all([
+  const [campaign, lifetimeOnSale, user] = await Promise.all([
     activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
     loadLifetimeOnSale(),
-    advertisableCampaign(),
     /*
      * Read for one thing only: whether there is an account for `CouponBar` to record a sighting
      * against. This screen needs no identity of its own — `mockPurchase` reads its own session
@@ -68,14 +65,12 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   ])
 
   /*
-   * The offer to advertise, or nothing when one is already applied — the same single line
-   * `/pricing` uses, so the two pages cannot disagree about whether the overlay and the bar may
-   * coexist. On this page the overlay matters more than on any other: a reader who reached a
-   * checkout without claiming a live offer is one click from paying full price for something
-   * that is on sale.
+   * **Nothing is advertised here any more.** This screen used to read `advertisableCampaign()`
+   * and show the overlay to a reader who was not already carrying a coupon. A campaign is now
+   * shown only to whoever arrived with its link, which `CouponBar` already does from the
+   * coupon resolved above — so there is nothing left for an overlay to say on a page whose
+   * whole subject is a price this reader is about to pay.
    */
-  const offer = campaign === null ? advertisable : null
-  const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
   /* Signed in, with a live campaign applied — the only case there is a row to write. */
   const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
@@ -104,16 +99,14 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           * the cookie, and doing it here as well would mean two components racing to write the
           * same value on the one journey that passes through both.
           */}
-        {/* Hidden exactly when the overlay is showing — see `offer`, and `/pricing`'s own
-            comment on why the page must never carry two coupon controls at once. */}
-        {offer === null && (
-          <div className="mb-4">
-            <CouponBar
-              applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
-              note={note}
-            />
-          </div>
-        )}
+        {/* The only coupon control here now: it used to be hidden while the overlay advertised
+            an unclaimed offer, and nothing is advertised on this screen any more. */}
+        <div className="mb-4">
+          <CouponBar
+            applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
+            note={note}
+          />
+        </div>
 
         <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
         <Footer />
@@ -121,17 +114,6 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
         {/* Last in the document, fixed to the foot of the viewport — see `/pricing`. The CTA
             points back at this same plan rather than at the price list: somebody who is already
             on a checkout has chosen, and sending them to compare again would undo that. */}
-        {offer !== null && offerWords !== null && (
-          <CouponOverlay
-            code={offer.code}
-            percent={offerWords.percent}
-            duration={offerWords.duration}
-            headline={offerWords.headline}
-            deadline={deadlineCopy(offer.expiresAt, new Date())}
-            href={`/checkout/${plan}?cycle=${initialCycle}&coupon=${encodeURIComponent(offer.code)}`}
-            initiallyCollapsed={offerCollapsed}
-          />
-        )}
       </main>
     </PrefsProvider>
   )
