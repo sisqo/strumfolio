@@ -316,7 +316,15 @@ Google sign-in started failing:
 - **Cloudflare Turnstile** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, the CAPTCHA on registration and
   recovery) — a per-widget hostname allowlist in the Cloudflare dashboard, separate from DNS
   and Vercel. The site key doesn't change with the domain, only the allowlist. No credential
-  here: manual every time, unverifiable by an agent.
+  here: manual every time, unverifiable by an agent. `localhost` is not on it, so the widget
+  answers 400 locally and never draws its iframe — expected, and not a thing to debug.
+  **`TurnstileWidget` must render explicitly (`?render=explicit` + `turnstile.render()`), never
+  by Cloudflare's implicit `.cf-turnstile` scan**: that scan runs once, at script load, and
+  `next/script` will not re-run a script it has already loaded, so with implicit rendering any
+  *client-side* arrival at `/register`, `/forgot-password` or `/verify`'s resend — each
+  reachable by `Link` from another page that carries the widget — got no widget and, worse, no
+  hidden `captchaToken` input at all. Fixed 2026-09-11; it had made registration silently
+  impossible for anybody who reached the form by navigating rather than by loading it.
 - **Gmail "Invia messaggi come"** — to *reply* as `info@<domain>` rather than the personal
   address, Gmail relays through `smtp.resend.com:587`, user `resend`, password a dedicated
   Resend key with `permission: sending_access` scoped to that domain (deliberately not the

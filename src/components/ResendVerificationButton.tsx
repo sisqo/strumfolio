@@ -29,12 +29,17 @@ export function ResendVerificationButton({ email }: { email: string }) {
       if (result.ok) {
         setSent(true)
       } else {
-        resetTurnstile()
+        /* The message first, the reset after — `resetTurnstile` is a call into Cloudflare's
+           script, and this app's own error reporting must not be downstream of whether a
+           third party throws. It cannot throw any more (see its own comment); it did, and
+           this ordering is what stops that class of accident recurring rather than the guard
+           alone. Same in the `catch` below, which is the rescue path this outranks. */
         setError(RESEND_MESSAGE[result.reason])
+        resetTurnstile()
       }
     } catch {
-      resetTurnstile()
       setError(RESEND_MESSAGE.failed)
+      resetTurnstile()
     } finally {
       setBusy(false)
     }

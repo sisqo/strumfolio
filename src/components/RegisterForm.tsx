@@ -21,7 +21,7 @@ type Phase = 'form' | 'sent'
  * without failing (see `lib/register/actions.ts`).
  *
  * `TurnstileWidget` itself is never remounted across that switch — see the comment
- * next to it below for why a fresh instance would be worse, not better, for "Resend".
+ * next to it below for why a fresh instance would hand "Resend" a token it has not earned.
  */
 export function RegisterForm() {
   const [phase, setPhase] = useState<Phase>('form')
@@ -61,12 +61,17 @@ export function RegisterForm() {
         setPhase('sent')
         setSentCount((count) => count + 1)
       } else {
-        resetTurnstile()
+        /* The message first, the reset after — `resetTurnstile` is a call into Cloudflare's
+           script, and this app's own error reporting must not be downstream of whether a
+           third party throws. It cannot throw any more (see its own comment); it did, and
+           this ordering is what stops that class of accident recurring rather than the guard
+           alone. Same in the `catch` below, which is the rescue path this outranks. */
         setError(REGISTER_MESSAGE[result.reason])
+        resetTurnstile()
       }
     } catch {
-      resetTurnstile()
       setError(REGISTER_MESSAGE.failed)
+      resetTurnstile()
     } finally {
       setBusy(false)
     }
@@ -190,16 +195,21 @@ export function RegisterForm() {
       )}
 
       {/*
-       * Never remounted (no `key`) across the phase switch: Cloudflare's implicit
-       * rendering (`TurnstileWidget`'s own comment) scans the DOM exactly once, at
-       * script load, so a fresh `.cf-turnstile` node inserted later is never picked up
-       * at all — remounting here would leave "Resend" with no captcha token, not
-       * merely a stale one. `submit` only calls `resetTurnstile()` on the failure path,
-       * not on success: keeping the same spent token across the phase switch means
-       * "Resend" clicked right after "Create account" is correctly refused by
-       * `verifyTurnstile` (Turnstile tokens are single-use), the same way a plain retry
-       * after a failed "Create account" now gets a fresh token instead of resending the
-       * one `verifyTurnstile` already consumed.
+       * Never remounted (no `key`) across the phase switch, and **the reason is no longer the
+       * one that used to be written here.** It read: Cloudflare's implicit rendering scans the
+       * DOM once at script load, so a fresh node inserted later is never picked up, and
+       * remounting would leave "Resend" with no captcha token at all. That was true, and it
+       * was also the bug — the same one-time scan broke this form outright on any client-side
+       * arrival, which is why `TurnstileWidget` renders explicitly now and a remount here
+       * would be perfectly safe.
+       *
+       * What survives is the argument that was always the real one: `submit` calls
+       * `resetTurnstile()` only on the failure path, not on success, so the token stays spent
+       * across the phase switch and "Resend" clicked straight after "Create account" is
+       * correctly refused by `verifyTurnstile` (Turnstile tokens are single-use) — while a
+       * plain retry after a *failed* "Create account" gets a fresh one instead of resending
+       * the token Cloudflare has already consumed. A remount would hand "Resend" an unspent
+       * token and quietly retire that.
        */}
       <TurnstileWidget />
 
