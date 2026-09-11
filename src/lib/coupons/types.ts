@@ -256,6 +256,14 @@ export const COUPON_MEMORY_KEY = 'songs:coupon'
  * would spend a round trip on a dead code on every page load for ever. Bounding the attempt is
  * cheaper than either, and it is what makes the memory safe to keep indefinitely.
  *
+ * **What that costs, so it is not discovered as a surprise**: the marker is claimed before the
+ * action answers, so a *transient* failure — a cold database, a dropped request — spends the
+ * session's one attempt too, and a reader whose campaign is perfectly live sees no offer until
+ * they open a new tab. Releasing it on `{ ok: false }` is the obvious fix and is the wrong one:
+ * that is the same bare boolean, so it would release on a dead code as well and hand back the
+ * round trip at every page load. The next visit tries again, which is the right size of remedy
+ * for the right size of problem.
+ *
  * `sessionStorage`, so it dies with the tab and the next visit tries once more — which is also
  * the literal reading of "remembered for the whole browsing session". Not under the purge's
  * reach: that walks `localStorage` alone.
