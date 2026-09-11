@@ -134,9 +134,14 @@ export default function PrivacyPolicyPage() {
         <strong>Notifications to us.</strong> A few events send a short message to the developer,
         through a private Telegram chat, so that the Service can be run without watching a
         dashboard: that an account was created, that a plan was bought (which plan, and the amount),
-        scheduled for a downgrade or cancelled, and that a piece of feedback arrived. These messages
-        contain <strong>no personal data</strong> — no name, no email address, none of your words —
-        only the kind of event.
+        scheduled for a downgrade or cancelled, and that a piece of feedback arrived.
+      </p>
+      <p>
+        The message sent when an account is created names the <strong>email address</strong> that
+        registered and, where we have it, the <strong>first and last name</strong> given at
+        registration. Every other message of this kind carries no personal data — no name, no email
+        address, none of your words — only the kind of event, and for a purchase the plan and the
+        amount. See section 5 on where this message travels.
       </p>
       <p>
         For details on cookies, local storage and the offline cache, see our{' '}
@@ -242,11 +247,12 @@ export default function PrivacyPolicyPage() {
           recovery, which processes your IP address and browser signals to tell a person from a
           script.
         </li>
+        <li>
+          <strong>Telegram FZ-LLC</strong> — delivery of the private notification described in
+          section 2. For the message sent when an account is created this is your email address and,
+          where we have it, your name; the other messages of that kind contain no personal data.
+        </li>
       </ul>
-      <p>
-        The operational notifications described in section 2 travel through Telegram, but carry no
-        personal data, so Telegram processes none of yours.
-      </p>
       <p>Two providers are different, because they are independent data controllers for their part:</p>
       <ul>
         <li>
@@ -282,6 +288,14 @@ export default function PrivacyPolicyPage() {
         which the European Commission recognises as providing adequate protection. You can obtain a
         copy of the safeguards in place, or further details about them, by writing to the contact
         address above.
+      </p>
+      <p>
+        <strong>Telegram FZ-LLC is the exception, and we say so plainly.</strong> It is established
+        in the United Arab Emirates, which is not covered by an adequacy decision, and it is not
+        certified under the EU-U.S. Data Privacy Framework. The only personal data that reaches it is
+        the message described in section 2 announcing that an account was created: an email address
+        and, where we have it, a name. If you would rather that message did not travel there, write
+        to the contact address above and we will stop sending it for your account.
       </p>
 
       <h2>6. How long we keep your data</h2>

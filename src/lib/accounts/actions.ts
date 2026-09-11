@@ -900,17 +900,23 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
 
   if (!result.ok) return { ok: false, reason: 'not-found' }
 
-  const created = await provisionAccount(
-    normalized,
+  /* One expression, two readers: `provisionAccount` fills the account row from it and the
+     notice names the person with it. Written out twice, a change to either would quietly make
+     the notification disagree with the row it announces. */
+  const registeredName =
     result.firstName !== null && result.lastName !== null
       ? { firstName: result.firstName, lastName: result.lastName }
-      : undefined,
+      : undefined
+
+  const created = await provisionAccount(
+    normalized,
+    registeredName,
     result.newsletterOptIn,
   )
 
   if (created) {
     await sendEmail({ to: normalized, ...welcomeEmail() })
-    await notifyTelegram('registration', registrationNotice())
+    await notifyTelegram('registration', registrationNotice(normalized, registeredName))
   }
 
   /*

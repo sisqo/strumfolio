@@ -516,6 +516,27 @@ URL whose only promise is to show the landing page unconditionally.
 `SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, because there is no account
 left to sign in to.
 
+## The registration notice names a person, and three texts have to agree
+
+`registrationNotice()` (`src/lib/telegram/registrationNotice.ts`) sends the registrant's **email
+address, plus their name when one is known**, to a private Telegram chat, and carries no link.
+Between 2026-09-03 and 2026-09-11 it took no parameters and named nobody, precisely so no caller
+could hand it an address; that was reversed on request, because the notice is read on a phone away
+from a signed-in browser and «something happened, go and look» is not worth a notification.
+
+**It is personal data leaving the EEA, so the Privacy Policy carries it in three places and all
+three move together**: §2 says what the message contains, the processors list names Telegram
+FZ-LLC and what it receives, and §5 states that it is established in the UAE, covered by no
+adequacy decision and not certified under the Data Privacy Framework, with an opt-out by email.
+Change the notice text and those three are wrong — the rule the booklet override and the install
+row already live under. Telegram offers no Chapter V safeguard to sign, which is why §5 states the
+position rather than claiming one; if that exposure is ever judged too high, the fix is to stop
+sending the field, not to soften the sentence.
+
+The three callers (`auth.ts`, `verify/actions.ts`, `accounts/actions.ts`) each pass the very
+`{firstName, lastName} | undefined` they already build for `provisionAccount`, from one local
+`registeredName`, so the notification cannot describe a different person than the row it announces.
+
 ## Everything this app stores in a browser is scoped to one account
 
 **Every `localStorage` key here must be built by `keyFor` (`src/lib/storage/scope.ts`), never

@@ -162,7 +162,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const created = await provisionAccount(email, googleName)
       if (created) {
         await sendEmail({ to: email, ...welcomeEmail() })
-        await notifyTelegram('registration', registrationNotice())
+        await notifyTelegram('registration', registrationNotice(email, googleName))
       }
 
       /*

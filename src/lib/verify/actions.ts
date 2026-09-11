@@ -109,11 +109,17 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
    * or a visit to `/profile` fill the name in instead of writing empty strings that
    * would block `provisionAccount`'s own opportunistic fill from ever running.
    */
-  const created = await provisionAccount(
-    normalized,
+  /* One expression, two readers: `provisionAccount` fills the account row from it and the
+     notice names the person with it. Written out twice, a change to either would quietly make
+     the notification disagree with the row it announces. */
+  const registeredName =
     result.firstName !== null && result.lastName !== null
       ? { firstName: result.firstName, lastName: result.lastName }
-      : undefined,
+      : undefined
+
+  const created = await provisionAccount(
+    normalized,
+    registeredName,
     result.newsletterOptIn,
   )
 
@@ -129,7 +135,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
     // path never runs through that callback at all (it signs in with `issueSessionCookie`
     // below, not `signIn`), so without this line every email/password registration was
     // invisible to "New registration" alerts while every Google one was not.
-    await notifyTelegram('registration', registrationNotice())
+    await notifyTelegram('registration', registrationNotice(normalized, registeredName))
   }
 
   /*
