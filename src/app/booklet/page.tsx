@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 
 import { BookletScreen } from '@/components/BookletScreen'
@@ -25,7 +26,11 @@ export const metadata: Metadata = { title: 'Booklet' }
  * preference out of it and passes it to `bookletToBlob`, so the PDF is drawn in the notation
  * they read songs in.
  */
-export default function BookletPage() {
+export default async function BookletPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="booklet" />

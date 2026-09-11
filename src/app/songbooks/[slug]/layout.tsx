@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { ReactNode } from 'react'
 
 import { requirePlanChoice } from '@/lib/plans/gate'
@@ -11,6 +12,10 @@ import { requirePlanChoice } from '@/lib/plans/gate'
  * boundary its own segment's `loading.tsx` introduces, so `redirect()` here still works.
  */
 export default async function SongbookLayout({ children }: { children: ReactNode }) {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   await requirePlanChoice()
 
   return <>{children}</>

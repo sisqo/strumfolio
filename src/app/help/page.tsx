@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -16,7 +17,11 @@ export const metadata: Metadata = { title: 'Help' }
  * long-form headings and paragraphs, and nothing about them is specific to the four
  * pages that happened to need it first.
  */
-export default function HelpPage() {
+export default async function HelpPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="help" />

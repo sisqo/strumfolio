@@ -9,6 +9,8 @@
  * server/client boundary as a server action.
  */
 
+import { cache } from 'react'
+
 import { asc, eq, inArray } from 'drizzle-orm'
 
 import { auth } from '@/auth'
@@ -400,6 +402,44 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
  * cannot answer: an unreadable suspension must never lock someone out who was never
  * suspended.
  */
+/**
+ * Whether an account row still exists for this address.
+ *
+ * **The question nothing on the request path used to ask.** The session cookie is a ninety-day
+ * JWT and `currentUser` derives everything from it plus `ALLOWED_EMAILS` and normalization —
+ * all pure, no database — so `roleOf` answered `admin` for a reader looking at the account named
+ * by their own email whether or not that account existed. Deleting somebody's account removed
+ * their rows and left their browser signed in, for up to ninety days, with every write still
+ * permitted. `deleteMyAccount` calls `signOut` and so never showed it; `deleteAccount`, which is
+ * an operator removing *somebody else's* account, cannot reach that browser at all.
+ *
+ * **Fails open, deliberately, in both directions.** No database configured is the normal local
+ * way to work and must not lock anybody out; a database that cannot be read is a blip, and
+ * answering "gone" would sign out every reader of the app at once — far worse than a deleted
+ * account surviving a few more minutes. Same direction as `isAccountSuspended` below, and the
+ * same reasoning `verifyTurnstile` gives for its own missing-key case.
+ *
+ * `cache` from React, so the several `currentUser()` calls a single request makes — the home
+ * layout alone asks twice, once to render and once for its metadata — cost one query between
+ * them. It is per-request memoization, not a cache with a lifetime: nothing survives the
+ * response, so a deletion takes effect on the very next request.
+ */
+export const accountExists = cache(async (ownerEmail: string): Promise<boolean> => {
+  if (!hasDatabase) return true
+
+  try {
+    const rows = await db()
+      .select({ ownerEmail: accounts.ownerEmail })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+      .limit(1)
+    return rows.length > 0
+  } catch (error) {
+    console.error('accountExists failed', error)
+    return true
+  }
+})
+
 export async function isAccountSuspended(email: string): Promise<boolean> {
   if (!hasDatabase) return false
 

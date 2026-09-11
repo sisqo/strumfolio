@@ -23,11 +23,13 @@
 
 import { encode } from 'next-auth/jwt'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { authConfig } from '@/auth.config'
+import { accountExists } from '@/lib/accounts/read'
 import { currentAccountFor, readAccountCookie } from '@/lib/accounts/current'
-import { normalizeEmail } from '@/lib/allowlist'
+import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { entitlementsOf } from '@/lib/plans/resolve'
 import type { Entitlements } from '@/lib/plans/entitlements'
 import { type Role, canEdit, roleOf } from '@/lib/roles'
@@ -69,7 +71,59 @@ export async function currentUser(): Promise<CurrentUser | null> {
   const accountOwnerEmail = currentAccountFor(normalized, raw, requested)
 
   const role = roleOf(normalized, raw, accountOwnerEmail)
-  return role === null ? null : { email: normalized, accountOwnerEmail, role }
+  if (role === null) return null
+
+  /*
+   * **The one question every check above answers without asking: does this account still
+   * exist?** Everything before this line is pure — the JWT, `ALLOWED_EMAILS`, normalization —
+   * so `roleOf` answers `admin` for a reader looking at the account named by their own email
+   * whether or not a row backs it. Delete somebody's account and their browser stayed signed in
+   * for the rest of the ninety-day cookie, with every write still permitted, and nothing
+   * anywhere noticed. `deleteMyAccount` hid it by calling `signOut`; `deleteAccount` — an
+   * operator removing *somebody else's* account — cannot reach that browser at all.
+   *
+   * This is the line that ends the session's independence from the account, and the cost is
+   * stated plainly because it reverses something this file used to promise: `currentUser` is no
+   * longer free. It is one indexed lookup, memoized per request by `accountExists`, on pages
+   * that already query for songs and songbooks. A ninety-day window in which a removed account
+   * keeps working is not worth saving it.
+   *
+   * A global owner is exempt, the same exemption `isAdmitted` states: their admission comes
+   * from `ALLOWED_EMAILS` rather than from a row, and they may be standing inside a customer's
+   * account — including one that has just been deleted from the very screen they are on.
+   */
+  if (!isOwner(normalized, raw) && !(await accountExists(accountOwnerEmail))) return null
+
+  return { email: normalized, accountOwnerEmail, role }
+}
+
+/**
+ * Send a reader whose account no longer exists back to `/login`, instead of leaving them inside
+ * an app with nothing in it.
+ *
+ * `currentUser` answering `null` is the half that protects: every write goes through `permit`,
+ * which refuses on `no-session`, so a removed account can change nothing from the moment the row
+ * goes. What it does *not* do is get anybody off the screen — the pages read `currentUser` to
+ * scope their data, not as a gate, and `middleware.ts` cannot ask this question at all, since it
+ * runs on the edge where this app's Postgres driver does not reach. So the redirect is here, and
+ * has to be called.
+ *
+ * **Silent when there is no session at all**, which is deliberate: that case belongs to the
+ * middleware, which redirects it already, and answering it here too would mean a public page
+ * that happens to call this bouncing an ordinary visitor.
+ *
+ * Call it from a **layout** wherever the segment has a `loading.tsx` — `(home)` and
+ * `songbooks/[slug]` are the two that do. A `redirect()` thrown from inside a page's own async
+ * body is not a redirect at all once Suspense is streaming a shell around it; that scar is
+ * written out in full in `(home)/layout.tsx`.
+ */
+export async function requireAccount(): Promise<void> {
+  const session = await auth()
+  if (!session?.user?.email) return
+
+  if ((await currentUser()) !== null) return
+
+  redirect('/login')
 }
 
 /**

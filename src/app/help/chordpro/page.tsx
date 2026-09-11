@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -14,7 +15,11 @@ export const metadata: Metadata = { title: 'ChordPro format' }
  * exists so a specific directive or edge case has a stable place to be looked up,
  * linked to from the import screen and handed to an AI doing the converting instead.
  */
-export default function ChordProHelpPage() {
+export default async function ChordProHelpPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="help" />

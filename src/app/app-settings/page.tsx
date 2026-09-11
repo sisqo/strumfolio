@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
@@ -45,6 +46,10 @@ export const dynamic = 'force-dynamic'
  * not exist" and "this is not yours" should look identical from outside.
  */
 export default async function AppSettingsPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const session = await auth()
   if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) notFound()
 

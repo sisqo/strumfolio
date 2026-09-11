@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 
 import { ExportScreen } from '@/components/ExportScreen'
@@ -12,7 +13,11 @@ export const metadata: Metadata = { title: 'Export' }
  * about their role, which arrives after mount (see `RoleProvider`'s own comment), so
  * there is nothing here for a build to bake in.
  */
-export default function ExportPage() {
+export default async function ExportPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="export" />

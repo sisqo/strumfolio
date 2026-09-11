@@ -8,7 +8,7 @@ import { CouponBar } from '@/components/CouponBar'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { currentUser } from '@/lib/auth/session'
+import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE } from '@/lib/coupons/types'
@@ -34,6 +34,10 @@ interface Props {
 }
 
 export default async function CheckoutPage({ params, searchParams }: Props) {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const { plan } = await params
   if (!isCheckoutPlan(plan)) notFound()
 

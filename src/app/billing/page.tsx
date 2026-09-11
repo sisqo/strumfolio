@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 
 import { BillingScreen } from '@/components/BillingScreen'
@@ -13,7 +14,11 @@ export const metadata: Metadata = { title: 'Billing' }
  * switched on, what this account already holds, its payment history — is asked from the
  * client, by `BillingScreen`, on mount.
  */
-export default function BillingPage() {
+export default async function BillingPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="billing" />

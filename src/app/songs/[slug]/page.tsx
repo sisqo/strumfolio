@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 
 import { SongReader } from '@/components/SongReader'
 import { repository } from '@/lib/data'
-import { accessTo } from '@/lib/auth/session'
+import { accessTo, requireAccount } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { hasDatabase } from '@/lib/db/client'
 import { requirePlanChoice } from '@/lib/plans/gate'
@@ -46,6 +46,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SongPage({ params }: Props) {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const { slug } = await params
 
   /* A bookmarked song is one of the two real ways into the app that used to skip the

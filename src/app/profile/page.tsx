@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 
 import { Footer } from '@/components/Footer'
@@ -12,7 +13,11 @@ export const metadata: Metadata = { title: 'Profile' }
  * `/password`, with nothing baked in: whether a name is already set is a fact about the
  * server, and this page has no idea who will open it.
  */
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="profile" />

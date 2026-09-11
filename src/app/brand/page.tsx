@@ -1,3 +1,4 @@
+import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -76,6 +77,10 @@ const FAVICONS = [
  * them — only this index of them is gated.
  */
 export default async function BrandPage() {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const session = await auth()
   if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) notFound()
 

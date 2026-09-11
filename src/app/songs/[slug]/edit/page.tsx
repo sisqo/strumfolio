@@ -7,7 +7,7 @@ import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { EditorScreen } from '@/components/editor/EditorScreen'
 import { IconInfo } from '@/components/icons'
-import { accessTo } from '@/lib/auth/session'
+import { accessTo, requireAccount } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { repository } from '@/lib/data'
@@ -40,6 +40,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function EditSongPage({ params }: Props) {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const { slug } = await params
 
   /* Gated like the reading page it is reached from — see `requirePlanChoice`. An editor deep

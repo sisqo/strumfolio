@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
    also the truer statement — it is this segment's other half, not a component from elsewhere. */
 import { Landing, LANDING_DESCRIPTION, LANDING_TITLE } from './Landing'
 import { StandaloneRedirect } from '@/components/StandaloneRedirect'
-import { currentUser } from '@/lib/auth/session'
+import { currentUser, requireAccount } from '@/lib/auth/session'
 import type { CurrentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 import { requirePlanChoice } from '@/lib/plans/gate'
@@ -71,6 +71,10 @@ async function audience(): Promise<{ landing: boolean; user: CurrentUser | null 
  *   so its Suspense boundary never opens and no fallback exists to flash.
  */
 export default async function HomeLayout({ children }: { children: ReactNode }) {
+  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
+     no session at all, which is the middleware's case and not this one. */
+  await requireAccount()
+
   const { landing, user } = await audience()
 
   /*

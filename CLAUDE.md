@@ -537,6 +537,41 @@ The three callers (`auth.ts`, `verify/actions.ts`, `accounts/actions.ts`) each p
 `{firstName, lastName} | undefined` they already build for `provisionAccount`, from one local
 `registeredName`, so the notification cannot describe a different person than the row it announces.
 
+## A session no longer outlives its account
+
+**`currentUser()` now asks the database whether the account still exists**, and that reverses a
+property this repo used to state as a feature: it was deliberately query-free — `auth()` reads the
+JWT cookie, `readAccountCookie` a cookie, `roleOf` the environment. Everything in that chain is
+pure, so `roleOf` answered `admin` for a reader looking at the account named by their own email
+whether or not a row backed it. **Deleting somebody's account removed their rows and left their
+browser signed in for the rest of the ninety-day cookie, with every write still permitted.**
+`deleteMyAccount` hid it by calling `signOut`; `deleteAccount` — an operator removing *somebody
+else's* account — cannot reach that browser at all. Reproduced and fixed 2026-09-11.
+
+- **Two halves, and only one of them is automatic.** `currentUser()` answering `null` closes the
+  writes everywhere at once, because every write funnels through `permit()`. Getting the reader
+  off the screen is `requireAccount()` (`lib/auth/session.ts`), and that has to be *called* — the
+  pages read `currentUser` to scope their data, not as a gate.
+- **`middleware.ts` cannot do this**, which is why it is not there: it runs on the edge, where
+  this app's Postgres driver does not reach — the same constraint that makes `rememberUrlCoupon`
+  a client effect. The only universal gate in the app is the one that cannot ask the question.
+- **`src/lib/auth/gatedRoutes.test.ts` is what stops a new route forgetting.** It walks
+  `src/app/**/page.tsx`, skips what `publicRoutes.ts` calls session-free plus a named exempt set,
+  and fails when a page has no `requireAccount` in itself or in a layout above it. It earned its
+  place immediately: it caught `/brand`, `/help/chordpro` and `/songs/[slug]/edit` — the editor —
+  in the same commit that added it.
+- **Put the call in a layout wherever the segment has a `loading.tsx`** (`(home)` and
+  `songbooks/[slug]` are the two). A `redirect()` thrown from inside a page's own async body is
+  not a redirect once Suspense is streaming a shell around it; `(home)/layout.tsx` carries that
+  scar in full.
+- **A global owner is exempt**, the same exemption `isAdmitted` already stated: their admission
+  comes from `ALLOWED_EMAILS` rather than a row, and they may be standing inside a customer's
+  account they have just deleted from that very screen.
+- **`accountExists` fails open** — no database configured, or a read that throws, both answer
+  "exists". Answering "gone" on a blip would sign out every reader of the app at once, which is
+  far worse than a deleted account surviving a few more minutes. Memoized with React `cache()`,
+  the first use of it here, so the several `currentUser()` calls one request makes cost one query.
+
 ## Everything this app stores in a browser is scoped to one account
 
 **Every `localStorage` key here must be built by `keyFor` (`src/lib/storage/scope.ts`), never
