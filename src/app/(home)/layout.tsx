@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
    group's parentheses inside a module path, which resolves but reads as a glob. `./Landing` is
    also the truer statement — it is this segment's other half, not a component from elsewhere. */
 import { Landing, LANDING_DESCRIPTION, LANDING_TITLE } from './Landing'
+import { StandaloneRedirect } from '@/components/StandaloneRedirect'
 import { currentUser } from '@/lib/auth/session'
 import type { CurrentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
@@ -72,7 +73,23 @@ async function audience(): Promise<{ landing: boolean; user: CurrentUser | null 
 export default async function HomeLayout({ children }: { children: ReactNode }) {
   const { landing, user } = await audience()
 
-  if (landing) return <Landing />
+  /*
+   * `StandaloneRedirect` is here rather than inside `Landing`, where it lived until `/home`
+   * arrived. Its whole argument is about *this URL* — `manifest.ts` has `start_url: '/'`, so
+   * whoever taps the Home Screen icon after their session lapsed would open onto a page arguing
+   * that they should try the app they installed months ago. `Landing` is now also served at
+   * `/home` to anybody who asks for it, and that reader has asked for the marketing page on
+   * purpose; bouncing them to `/login` because they happen to be in the installed app would
+   * break the one promise that URL makes.
+   */
+  if (landing) {
+    return (
+      <>
+        <StandaloneRedirect />
+        <Landing />
+      </>
+    )
+  }
 
   /* The mandatory plan-choice gate (v3.7) — `/` is the page every sign-in path lands on. It
      returns immediately with no database, which is the one case that reaches here with a null

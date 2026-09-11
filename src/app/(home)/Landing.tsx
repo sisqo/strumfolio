@@ -27,7 +27,6 @@ import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { advertisableCampaign } from '@/lib/coupons/read'
 import { OFFER_COLLAPSED_COOKIE } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
-import { StandaloneRedirect } from '@/components/StandaloneRedirect'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
@@ -711,7 +710,15 @@ const FEATURES: Feature[] = [
  *
  * Rendered by `layout.tsx` beside this file rather than by `page.tsx`, and it draws its own
  * `PublicHeader`: see that layout for why the decision about who is asking is made there, and
- * why this component never sees a signed-in reader.
+ * why this component never sees a signed-in reader — at `/`, at least. It is also rendered by
+ * `app/home/page.tsx`, which serves this same page at `/home` to anybody, session or not, so
+ * the marketing page can be read without signing out of the app to see it.
+ *
+ * **That second caller is why `StandaloneRedirect` is no longer in here.** It used to be the
+ * first thing this component returned; it belongs to `/` — the argument is entirely about
+ * `manifest.ts`' `start_url` — so it sits in that layout's landing branch now. Left here it
+ * would have followed this page to `/home` and sent the installed app to `/login` from the one
+ * URL whose whole purpose is to show the landing page unconditionally.
  */
 export async function Landing() {
   /*
@@ -737,9 +744,6 @@ export async function Landing() {
 
   return (
     <>
-      {/* Sends the installed app to `/login` instead of arguing for itself — see the component. */}
-      <StandaloneRedirect />
-
       {/*
         * No mark in the bar: the hero badge a few pixels below prints the same lockup, and the
         * same drawing twice on one screen reads as a mistake. 70rem to match `.landing-width`,

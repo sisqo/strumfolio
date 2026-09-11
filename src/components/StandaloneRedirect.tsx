@@ -5,7 +5,13 @@ import { useEffect } from 'react'
 import { isInstalled } from '@/lib/install/installed'
 
 /**
- * Sends the installed app to `/login` when it opens the landing page.
+ * Sends the installed app to `/login` when the Home Screen icon opens `/` and finds the landing
+ * page there.
+ *
+ * **Rendered by `(home)/layout.tsx`, not by `Landing`**, which is where it sat until the same
+ * component started being served at `/home` as well. Everything below argues from this one URL
+ * — the manifest's `start_url` — and none of it is true of a reader who typed `/home` to look
+ * at the marketing page on purpose. Keep it attached to the path, not to the page.
  *
  * The case it exists for: `manifest.ts` has `start_url: '/'`, so tapping the Home Screen icon
  * opens `/`. With a valid session that is the reader's own repertoire, which is right. With a

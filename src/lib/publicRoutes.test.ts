@@ -27,6 +27,16 @@ describe('isSessionFreePath', () => {
   })
 
   /**
+   * `/home` is the landing page at a URL that ignores the session, so the guard must let it
+   * through — but the row is easy to delete as a duplicate of `/` by somebody who has not read
+   * `app/home/page.tsx`, and the symptom would be the page redirecting to `/login` for exactly
+   * the reader it was added for: the one who is signed in and wants to see the public home.
+   */
+  it('admits the session-ignoring copy of the landing page', () => {
+    assert.equal(isSessionFreePath('/home'), true)
+  })
+
+  /**
    * The half that matters to `FeedbackProvider`: these are the pages somebody is *using* the
    * app on, and the only ones the feedback launcher may appear on. A path wrongly admitted
    * here takes the launcher away from a screen that should have it.
@@ -72,6 +82,16 @@ describe('isOutsideAppPath', () => {
   it('does not call the landing page outside the app, though it is public', () => {
     assert.equal(isSessionFreePath('/'), true)
     assert.equal(isOutsideAppPath('/'), false)
+  })
+
+  /**
+   * `/home` *is* the landing page, but not the dual-audience URL — a reader standing there has
+   * asked for the marketing page whatever their session says, so no feedback bubble. The
+   * opposite answer to `/` two tests up, from the same component, which is the point of asking
+   * about the path rather than about the page.
+   */
+  it('calls the session-ignoring copy outside the app, unlike the dual-audience one', () => {
+    assert.equal(isOutsideAppPath('/home'), true)
   })
 
   it('calls every other public page outside the app', () => {

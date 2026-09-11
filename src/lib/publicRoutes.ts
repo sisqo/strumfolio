@@ -63,6 +63,23 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
    * stops this site advertising it.
    */
   { path: '/login', indexable: false },
+  /*
+   * The landing page again, at a URL that ignores the session — `app/home/page.tsx` renders
+   * the same component `/` gives a visitor, to anybody who asks. It exists because `/` is
+   * dual-audience, so the public home is the one page of this site that whoever works on it
+   * cannot open without signing out first.
+   *
+   * **Not indexable, and that is the whole of the care it needs.** It is a duplicate of `/`
+   * down to the byte, so offering it to a crawler would put two URLs in front of one search
+   * intent — the same reason `/login` lost its own row above, at a point where the duplication
+   * is total rather than partial. The page carries a `noindex` of its own as well, because
+   * this flag only stops *this site* advertising it and says nothing to a crawler that arrives
+   * from a link somebody pasted.
+   *
+   * It is session-free like every row here, but for the opposite reason to most of them:
+   * nothing about it needs a reader without a session — it needs not to *care*.
+   */
+  { path: '/home', indexable: false },
   { path: '/pricing', indexable: true },
   { path: '/changelog', indexable: true },
   { path: '/register', indexable: true },

@@ -423,6 +423,15 @@ that as an open problem beside its own entry for months. It is split now:
   own songbooks, unchanged.
 - **`/login` is the sign-in card**, back inside the `(auth)` group with the four other narrow
   sign-in pages, having left it only because it used to be 70rem wide.
+- **`/home` is the same landing page at a URL that ignores the session** (`app/home/page.tsx`,
+  added 2026-09-11), so the public home can be read without signing out of the app to see it.
+  It renders `(home)/Landing` directly with no branch of any kind — not a redirect or a rewrite
+  to `/`, which cannot work: the request would reach `(home)/layout.tsx` still carrying the
+  session cookie and be served the app. Its row in `publicRoutes.ts` is `indexable: false` and
+  the page adds a `robots` `noindex` of its own, because the two flags answer different
+  questions — one stops this site advertising the URL, the other stops a crawler that arrived
+  from a pasted link putting a byte-identical duplicate of `/` in front of the same search
+  intent. Nothing links to it, by design: it is a tool for whoever works on the page.
 - **The two public bars are deliberately not the same bar.** `PublicHeader` draws the app's
   own chrome and, per `Home.dc.html`, carries no sections at all — theme, «Pricing», «Sign
   in», «Start free». `SiteHeader` draws the paper surface the blog and the tools share and
@@ -484,12 +493,17 @@ Four things here are expensive to get wrong, and none of them fails loudly:
   the date.
 
 `manifest.ts` keeps `start_url: '/'`, so the installed app whose session has lapsed would open
-onto the marketing page; `StandaloneRedirect` in `Landing` sends it to `/login` instead. Done
-client-side on purpose — nothing in a request says whether the browser is running the page as
-an installed app, and the server-side alternative (`start_url: '/?app=1'`) would need a branch
-in the middleware for a cosmetic redirect. It used to have a sharper objection than that — the
-parameter landed on the one URL the service worker precached — which the line above retired.
-That component's comment has the whole argument.
+onto the marketing page; `StandaloneRedirect` sends it to `/login` instead. Done client-side on
+purpose — nothing in a request says whether the browser is running the page as an installed app,
+and the server-side alternative (`start_url: '/?app=1'`) would need a branch in the middleware
+for a cosmetic redirect. It used to have a sharper objection than that — the parameter landed on
+the one URL the service worker precached — which the line above retired. That component's
+comment has the whole argument.
+
+**It is rendered by `(home)/layout.tsx`'s landing branch, not by `Landing`**, which is where it
+sat until `/home` arrived. Its whole argument is about that one URL, so riding along inside the
+component would have followed the page to `/home` and bounced the installed app away from the
+URL whose only promise is to show the landing page unconditionally.
 
 `SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, because there is no account
 left to sign in to.
