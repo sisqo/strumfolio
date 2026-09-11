@@ -24,6 +24,16 @@ import type { Fret } from './shapes'
  * anybody learns, and both are separate fingers. `isEasyShape` in `shapes.ts` makes the
  * same distinction from the other side and its comment says why — a test for "looks
  * like a barre" catches open A, so neither of these decides by looks alone.
+ *
+ * "Not available" is the load-bearing half of the first case, and reading it as merely
+ * "something is fretted higher" is what drew a bar across a ukulele's G (`0232`): C and
+ * A at the second fret with E at the third between them, so the finger would have to
+ * pass under — but only three strings are stopped at all, the other fingers are free,
+ * and every player holds it with three of them. `underAnother` below is why F# (`3121`)
+ * keeps its bar in the same geometry: a fourth string is fretted there, so the hand has
+ * genuinely run out. A bar that passes under nothing is unaffected, which is what keeps
+ * the small ones — a ukulele's Gm7 (`0211`) and a guitar's Dm7 (`xx0211`), two adjacent
+ * strings under one index — exactly as they were.
  */
 export interface Barre {
   /** The fret the finger lies across. */
@@ -68,6 +78,21 @@ function openInside(frets: Fret[], from: number, to: number): boolean {
 }
 
 /**
+ * Whether the finger would have to lie *under* a string stopped higher up the neck.
+ *
+ * Worth laying it flat only when the hand has no finger left over, which is why the
+ * caller pairs this with `TOO_MANY_FINGERS`: one per stopped string is what a shape
+ * costs without a bar, and a hand has four to give.
+ */
+function underAnother(frets: Fret[], fret: number, from: number, to: number): boolean {
+  for (let string = from + 1; string < to; string += 1) {
+    const value = frets[string]
+    if (value !== null && value > fret) return true
+  }
+  return false
+}
+
+/**
  * The bars in a shape, lowest fret first.
  *
  * Usually one, sometimes two. The second is the ring finger of a movable form played
@@ -88,10 +113,14 @@ export function barresOf(frets: Fret[]): Barre[] {
   const onLowest = stringsAt(frets, lowest)
   const from = onLowest[0]
   const to = onLowest[onLowest.length - 1]
+  const crowded = onLowest.length >= TOO_MANY_FINGERS
+  const enoughFingers =
+    underAnother(frets, lowest, from, to) && fretted.length < TOO_MANY_FINGERS
   if (
     onLowest.length >= 2 &&
     !openInside(frets, from, to) &&
-    (highest > lowest || onLowest.length >= TOO_MANY_FINGERS)
+    !enoughFingers &&
+    (highest > lowest || crowded)
   ) {
     found.push({ fret: lowest, from, to })
   }

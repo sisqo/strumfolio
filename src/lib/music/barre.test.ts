@@ -30,6 +30,11 @@ describe('where a chart draws a bar', () => {
     ['Bm', '4222', ['2:1-3']],
     ['C#', '1114', ['1:0-2']],
     ['Gm7', '0211', ['1:2-3']],
+    // Same geometry as F#, one stopped string fewer: three fingers, so no bar. The
+    // pair is the whole rule — a finger goes under another only when none is spare.
+    ['G', '0232', []],
+    ['Gdim', '0131', []],
+    ['Ddim', '121x', []],
     ['Fm7', '1313', ['1:0-2']],
     ['Bb7', '1211', ['1:0-3']],
     // Not adjacent, and the string between them is fretted higher: still one finger.
@@ -68,6 +73,9 @@ describe('where a chart draws a bar', () => {
     ['C', 'x32010', []],
     ['G', '320003', []],
     ['E', '022100', []],
+    // The ukulele G an octave of strings away, and just as much a three-finger shape.
+    ['D', 'xx0232', []],
+    ['Adim', 'x0121x', []],
   ]
 
   for (const [instrument, table] of [
@@ -87,9 +95,10 @@ describe('where a chart draws a bar', () => {
   })
 
   it('allows a muted string inside a bar, and refuses an open one', () => {
-    // The finger lying across the string is often *why* it is silent.
-    assert.deepEqual(write(barresOf([1, null, 2, 1])), ['1:0-3'])
-    assert.deepEqual(write(barresOf([1, 0, 2, 1])), [])
+    // The finger lying across the string is often *why* it is silent. Six strings, so
+    // the hand is out of fingers either way and only the muting is under test.
+    assert.deepEqual(write(barresOf(read('1x3211'))), ['1:0-5'])
+    assert.deepEqual(write(barresOf(read('103211'))), [])
   })
 
   it('lists the lower bar first, so the index finger is drawn under the ring', () => {
