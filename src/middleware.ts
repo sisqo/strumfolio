@@ -11,6 +11,8 @@ import {
   mergeTouch,
   readTouch,
 } from '@/lib/attribution/touch'
+import { ACCOUNT_COOKIE, SCOPE_COOKIE, accountScopeTag, currentAccountFor } from '@/lib/accounts/scope'
+import { normalizeEmail } from '@/lib/allowlist'
 import { SESSION_FREE_PATHS, isBlogPath, isFollowPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
@@ -159,6 +161,59 @@ function withAttribution(response: NextResponse, value: string | null): NextResp
   return response
 }
 
+
+/**
+ * The value the account-scope cookie should carry for this request, or `null` because it
+ * already carries it — or because there is nobody signed in to scope anything to.
+ *
+ * **What it is for.** Every cache this app keeps in the browser used to be keyed by a constant,
+ * so it recorded what was stored and never whose it was, and nothing emptied any of it when a
+ * different account signed in on the same browser. The next reader inherited the previous one's
+ * songbook names — visibly, because `SongbookProvider` reads its cache in a `useLayoutEffect`,
+ * before the browser paints — and their words and chords in `songs:edits`. The client builds
+ * every key from this tag now; `lib/storage/scope.ts` is the other half.
+ *
+ * **Computed on every signed-in request rather than only when the cookie is missing**, which
+ * costs one SHA-256 of a short string and buys the case that would otherwise need somebody to
+ * remember it: a global owner switching to a customer's account changes `songbook-account`, and
+ * this recomputes from it, so the tag follows the switch on the very next request with no second
+ * place to keep in step. `writeAccountCookie` therefore stays a cookie write and nothing more.
+ *
+ * Not `httpOnly`, unlike every other cookie here, and that is the point of it: the consumer is
+ * the page's own script. It authorises nothing — the server scopes every read by
+ * `accountOwnerEmail` regardless — so a forged value buys a browser nothing but the right to
+ * read a cache it wrote itself.
+ */
+async function scopeCookieFor(
+  request: NextRequest & { auth?: { user?: { email?: string | null } | null } | null },
+): Promise<string | null> {
+  const email = request.auth?.user?.email
+  if (!email) return null
+
+  const account = currentAccountFor(
+    normalizeEmail(email),
+    process.env.ALLOWED_EMAILS,
+    request.cookies.get(ACCOUNT_COOKIE)?.value ?? null,
+  )
+  const tag = await accountScopeTag(account)
+
+  return request.cookies.get(SCOPE_COOKIE)?.value === tag ? null : tag
+}
+
+/** Put the scope cookie on a response, for the exits that have a reason to carry it. */
+function withScope(response: NextResponse, tag: string): NextResponse {
+  response.cookies.set(SCOPE_COOKIE, tag, {
+    /* Readable by the page's own scripts — see `scopeCookieFor`. */
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: ONE_YEAR_SECONDS,
+  })
+
+  return response
+}
+
 /**
  * What `auth()` returns here, said out loud.
  *
@@ -170,7 +225,7 @@ function withAttribution(response: NextResponse, value: string | null): NextResp
  */
 type SessionMiddleware = (request: NextRequest, event: NextFetchEvent) => Promise<Response>
 
-const withSession = auth((request) => {
+const withSession = auth(async (request) => {
   const { pathname } = request.nextUrl
 
   /*
@@ -179,6 +234,11 @@ const withSession = auth((request) => {
    * navigation — in which case every `withAttribution` below is a no-op.
    */
   const attribution = attributionCookieFor(request)
+
+  /* `null` for everybody who already carries the right tag, which after the first request of a
+     session is everybody — so the two exits below go on returning `undefined` exactly as they
+     did, and nothing about the ordinary request changes. */
+  const scope = await scopeCookieFor(request)
 
   /* No cookie here, deliberately: these are assets — the service worker, the brand images,
      robots.txt, the promo mockup — fetched by browsers and link-preview bots, not landings
@@ -265,7 +325,7 @@ const withSession = auth((request) => {
    * email, and there is nothing in any of them for a crawler.
    */
   if (SESSION_FREE_PATHS.has(pathname)) {
-    if (request.auth) return
+    if (request.auth) return scope === null ? undefined : withScope(NextResponse.next(), scope)
 
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
@@ -392,6 +452,11 @@ const withSession = auth((request) => {
     response.headers.set(ANONYMOUS_HEADER, '1')
     return withAttribution(response, attribution)
   }
+
+  /* Signed in, on a page of the app itself: the one exit that used to return nothing at all.
+     Returning `NextResponse.next()` here is the same "carry on" as returning `undefined`, with
+     a cookie attached — and only on the requests that still need one. */
+  if (scope !== null) return withScope(NextResponse.next(), scope)
 }) as unknown as SessionMiddleware
 
 /**

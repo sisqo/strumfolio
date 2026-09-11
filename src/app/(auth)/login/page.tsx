@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { signIn } from '@/auth'
+import { StorageCleanup } from '@/components/StorageCleanup'
 import { AuthLockup } from '@/components/AuthLockup'
 import { Footer } from '@/components/Footer'
 import { IconGoogle } from '@/components/icons'
@@ -58,6 +59,10 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center px-5 py-10 sm:py-16">
+      {/* Empties this device's caches when nobody is signed in — this is where `signOut()`
+          lands, and where another account's words must stop being readable. */}
+      <StorageCleanup />
+
       <div className="login-glow" aria-hidden />
 
       <AuthLockup payoff="Welcome back." />

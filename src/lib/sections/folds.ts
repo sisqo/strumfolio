@@ -13,6 +13,9 @@
  * back from — without overruling anybody.
  */
 
+import { keyFor } from '@/lib/storage/scope'
+
+/** Base name; `keyFor` scopes it to the signed-in account — see `lib/storage/scope.ts`. */
 const KEY = 'songs:sections'
 
 /** sectionId → open, for the sections of one songbook. */
@@ -23,8 +26,13 @@ type Stored = Record<string, Folds>
 function readAll(): Stored {
   if (typeof window === 'undefined') return {}
 
+  /* No scope, no cache — never an unscoped one. Everything stays closed, which is the same
+     answer this already gives when storage is unavailable. */
+  const key = keyFor(KEY)
+  if (key === null) return {}
+
   try {
-    const raw = window.localStorage.getItem(KEY)
+    const raw = window.localStorage.getItem(key)
     if (raw === null) return {}
 
     const parsed = JSON.parse(raw) as unknown
@@ -49,8 +57,11 @@ export function readFolds(songbookSlug: string): Folds {
 export function writeFolds(songbookSlug: string, folds: Folds): void {
   if (typeof window === 'undefined') return
 
+  const key = keyFor(KEY)
+  if (key === null) return
+
   try {
-    window.localStorage.setItem(KEY, JSON.stringify({ ...readAll(), [songbookSlug]: folds }))
+    window.localStorage.setItem(key, JSON.stringify({ ...readAll(), [songbookSlug]: folds }))
   } catch {
     // The memory is optional by design: the fold still works for this visit.
   }

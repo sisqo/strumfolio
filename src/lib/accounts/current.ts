@@ -19,37 +19,21 @@
 
 import { cookies } from 'next/headers'
 
-import { isOwner, normalizeEmail } from '@/lib/allowlist'
-
-const COOKIE_NAME = 'songbook-account'
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
-
-/** Whether `email` may open the account owned by `accountOwnerEmail` at all. */
-export function mayAccess(
-  email: string,
-  accountOwnerEmail: string,
-  raw: string | undefined | null,
-): boolean {
-  if (isOwner(email, raw)) return true
-  return normalizeEmail(email) === normalizeEmail(accountOwnerEmail)
-}
+import { normalizeEmail } from '@/lib/allowlist'
+import { ACCOUNT_COOKIE, currentAccountFor, mayAccess } from './scope'
 
 /**
- * The account this request should show: the cookie's value, if the reader may still open
- * it, and their own account otherwise. That fallback is also what makes "open your own
- * account by default" true with no separate code path — an absent, stale, or
- * no-longer-accessible cookie all collapse to the same safe answer.
+ * Re-exported, not defined here any more: `middleware.ts` needs the same two rules to work out
+ * which account a browser's local caches belong to, and it runs on the edge runtime, where this
+ * module cannot follow — it imports `next/headers`. They moved to `./scope`, which is pure, and
+ * this line keeps every existing caller reading them from where they have always been. One copy
+ * of the rule, which is the whole point: a second one would decide a different account than the
+ * session does, and the two would disagree about whose songs a device may keep.
  */
-export function currentAccountFor(
-  email: string,
-  raw: string | undefined | null,
-  requestedAccount: string | null,
-): string {
-  if (requestedAccount !== null && mayAccess(email, requestedAccount, raw)) {
-    return normalizeEmail(requestedAccount)
-  }
-  return normalizeEmail(email)
-}
+export { ACCOUNT_COOKIE, currentAccountFor, mayAccess }
+
+const COOKIE_NAME = ACCOUNT_COOKIE
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 
 /** The account named by the current request's cookie, unvalidated — see `currentAccountFor`. */
 export async function readAccountCookie(): Promise<string | null> {

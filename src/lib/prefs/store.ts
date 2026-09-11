@@ -33,11 +33,24 @@ import {
   readNotation,
 } from './types'
 
+import { keyFor } from '@/lib/storage/scope'
+
+/* Base names; `keyFor` scopes each to the signed-in account — `lib/storage/scope.ts`. */
 const GLOBAL_KEY = 'songs:prefs'
 const SONG_KEY_PREFIX = 'songs:song:'
 
-function read(key: string): unknown {
+/**
+ * Every read in this file goes through here, which is why the account scoping is here and not
+ * at the call sites: one place to get right rather than one per key, and no way to add a key
+ * later that quietly escapes it. `null` when there is no scope — the callers all fall back to
+ * their defaults, which is the same thing they do when storage is unavailable.
+ */
+function read(base: string): unknown {
   if (typeof window === 'undefined') return null
+
+  const key = keyFor(base)
+  if (key === null) return null
+
   try {
     const raw = window.localStorage.getItem(key)
     return raw === null ? null : JSON.parse(raw)
@@ -48,8 +61,12 @@ function read(key: string): unknown {
   }
 }
 
-function write(key: string, value: unknown): void {
+function write(base: string, value: unknown): void {
   if (typeof window === 'undefined') return
+
+  const key = keyFor(base)
+  if (key === null) return
+
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
   } catch {

@@ -9,15 +9,31 @@
  * build happened to bake in.
  */
 
+import { keyFor } from '@/lib/storage/scope'
 import type { SongbookState } from './types'
 
+/**
+ * The base name; the key actually used is this scoped to the signed-in account by `keyFor`.
+ *
+ * **This cache is why another account's songbook names used to flash on screen.**
+ * `SongbookProvider` reads it in a `useLayoutEffect` — before the browser paints — so it
+ * replaced the correct, server-rendered state with whatever the previous reader of this
+ * browser had left here, and `refresh()` only put it right a round trip later. The key said
+ * what was stored and never whose it was, and nothing emptied it at sign-out.
+ */
 const KEY = 'songs:songbooks'
 
 export function readSongbookCache(): SongbookState | null {
   if (typeof window === 'undefined') return null
 
+  /* No scope means no cache, never an unscoped one: the snapshot baked into the page is
+     always present and always this account's, so refusing costs a cache miss where guessing
+     would cost the bug above. */
+  const key = keyFor(KEY)
+  if (key === null) return null
+
   try {
-    const raw = window.localStorage.getItem(KEY)
+    const raw = window.localStorage.getItem(key)
     if (raw === null) return null
 
     const parsed = JSON.parse(raw) as Partial<SongbookState>
@@ -55,8 +71,12 @@ export function readSongbookCache(): SongbookState | null {
 
 export function writeSongbookCache(state: SongbookState): void {
   if (typeof window === 'undefined') return
+
+  const key = keyFor(KEY)
+  if (key === null) return
+
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(state))
+    window.localStorage.setItem(key, JSON.stringify(state))
   } catch {
     // The cache is optional by design.
   }

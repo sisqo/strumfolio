@@ -17,13 +17,21 @@
  * and reading it while rendering would produce markup the server never sent.
  */
 
+import { keyFor } from '@/lib/storage/scope'
+
+/** Base name; `keyFor` scopes it to the signed-in account — see `lib/storage/scope.ts`. */
 const KEY = 'songs:favorites-only'
 
 export function readFavoritesOnly(): boolean {
   if (typeof window === 'undefined') return false
 
+  /* No scope, no cache — never an unscoped one. The unfiltered list is the safe answer and
+     the one this function already gives when storage is unavailable. */
+  const key = keyFor(KEY)
+  if (key === null) return false
+
   try {
-    return window.localStorage.getItem(KEY) === 'true'
+    return window.localStorage.getItem(key) === 'true'
   } catch {
     // Private-mode browsers and disabled storage both throw. Everything shows: the
     // filter is a convenience, and the unfiltered list is the safe answer.
@@ -34,8 +42,11 @@ export function readFavoritesOnly(): boolean {
 export function writeFavoritesOnly(only: boolean): void {
   if (typeof window === 'undefined') return
 
+  const key = keyFor(KEY)
+  if (key === null) return
+
   try {
-    window.localStorage.setItem(KEY, only ? 'true' : 'false')
+    window.localStorage.setItem(key, only ? 'true' : 'false')
   } catch {
     // The memory is optional by design: the filter still works for this visit.
   }
