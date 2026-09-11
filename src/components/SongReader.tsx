@@ -20,7 +20,7 @@ import {
 } from '@/lib/data/db'
 import { hasDatabase } from '@/lib/db/client'
 import { type SongIndexRow, toIndexRow } from '@/lib/search-index'
-import { type Series, seriesOf, siblingsOf } from '@/lib/songbooks/series'
+import { type Series, type SongStep, seriesOf, siblingsOf } from '@/lib/songbooks/series'
 
 /** The songbook this song is in: where the header's way back leads. */
 interface Home {
@@ -49,9 +49,11 @@ interface Home {
  * together, once, did not change with it.)
  *
  * `siblings` and `favorites` ride along for the browser's own narrowing of that same
- * order — see `useSequence` in `LiveSong.tsx`. Slugs and a set rather than a second
- * sequence: which songs are starred is the reader's answer and can change while the page
- * is open, so the server hands over the raw materials and not a conclusion.
+ * order — see `useSequence` in `LiveSong.tsx`. The songbook's own list and a set of stars
+ * rather than a second sequence: which songs are starred is the reader's answer and can
+ * change while the page is open, so the server hands over the raw materials and not a
+ * conclusion. Each sibling is a slug *and* a title, because the reading bar names the
+ * neighbour it steps to and the narrowing happens after the server is out of the picture.
  *
  * Scoped to the song's own account (v3.0), not read globally: the siblings a reader
  * steps through must be this account's songs, never another one's read alongside them
@@ -73,8 +75,8 @@ async function placeOf(
   home: Home | null
   section: string | null
   series: Series | null
-  /** The songbook's slugs in reading order, for the browser's own filtered sequence. */
-  siblings: string[]
+  /** The songbook's songs in reading order, for the browser's own filtered sequence. */
+  siblings: SongStep[]
   favorites: string[]
   library: { song: SongIndexRow; under: string | null }[]
 }> {

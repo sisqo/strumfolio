@@ -25,7 +25,7 @@ import { chordTokens } from '@/lib/chordpro'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
 import { fromSource } from '@/lib/editor/document'
-import { type Series, favoritesSeries } from '@/lib/songbooks/series'
+import { type Series, type SongStep, favoritesSeries } from '@/lib/songbooks/series'
 
 /**
  * The sequence this song is being read in, and what it is cut from.
@@ -33,11 +33,12 @@ import { type Series, favoritesSeries } from '@/lib/songbooks/series'
  * Two shapes because the answer depends on something the server does not know: with the
  * favorites filter on, the arrows step between starred songs and the count counts those.
  * `series` is the whole songbook as the server worked it out; `siblings` is that
- * songbook's slugs in the same order, for the browser to narrow.
+ * songbook's songs in the same order — slug and title both, since the bar names the
+ * neighbour it steps to — for the browser to narrow.
  */
 export interface Sequence {
   series: Series | null
-  siblings: string[]
+  siblings: SongStep[]
 }
 
 /**

@@ -26,6 +26,7 @@ import { INSTRUMENTS, INSTRUMENT_LABEL, type Instrument } from '@/lib/music/shap
 import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
 import { PLANS } from '@/lib/plans/types'
 import { SCROLL_SPEEDS, ZOOM_STEPS } from '@/lib/prefs/types'
+import type { SongStep } from '@/lib/songbooks/series'
 import { broadcastPlay } from '@/lib/strumTogether/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
@@ -34,8 +35,8 @@ import { useAutoScroll } from '@/lib/useAutoScroll'
  *  the one case that applies to today: `FollowSession` mounts `ControlBar` directly, with
  *  no `steps` prop, rather than passing one with nothing in it. */
 export interface NavSteps {
-  previous: string | null
-  next: string | null
+  previous: SongStep | null
+  next: SongStep | null
   position: number
   total: number
 }
@@ -87,7 +88,7 @@ export function ControlBar({
    * way to start a broadcast of their own.
    */
   broadcastEnabled?: boolean
-  /** This song's place in the songbook it was opened from, for the prev/next capsule.
+  /** This song's place in the songbook it was opened from, for the prev/next row.
    *  `null` when there is none to show — a guest's reading page with no songbook open,
    *  or a song with no songbook of its own. */
   steps?: NavSteps | null
@@ -222,31 +223,33 @@ export function ControlBar({
             {running ? <IconPause size={16} /> : <IconPlay size={16} />}
           </button>
 
-          {/* The full slider, shown from the width the two capsules can no longer
-              share the row at — see `.speed-full`'s own rule. */}
-          <div className="speed speed-full">
-            <IconTurtle size={24} />
-            <input
-              type="range"
-              className="speed-range"
-              min={0}
-              max={lastSpeed}
-              step={1}
-              value={song.scrollSpeed}
-              onChange={(event) => setScrollSpeed(Number(event.target.value))}
-              style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
-              aria-label="Scroll speed"
-              aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
-            />
-            <IconHare size={24} />
-          </div>
-
           {/*
-            * Speed and the panel button, wrapped together — one cell of the phone's grid,
-            * and nothing at all here, where `.control-tools` is `display: contents` and
-            * these two are direct children of the dock exactly as they were.
+            * Speed and the panel button: the trailing cell of the bar's lower row, at
+            * every width. The speed control inside it has two shapes — the full track
+            * from `sm` up, and an icon that opens the same slider standing on end below
+            * that — and both live here rather than one of them sitting outside the
+            * wrapper, because a grid cell holds one thing and on a phone this is that
+            * one thing. See `.speed-full`/`.speed-compact`.
             */}
           <div className="control-tools">
+            {/* The full slider, shown from the width the row has room to spread it out. */}
+            <div className="speed speed-full">
+              <IconTurtle size={24} />
+              <input
+                type="range"
+                className="speed-range"
+                min={0}
+                max={lastSpeed}
+                step={1}
+                value={song.scrollSpeed}
+                onChange={(event) => setScrollSpeed(Number(event.target.value))}
+                style={{ '--fill': `${(song.scrollSpeed / lastSpeed) * 100}%` } as React.CSSProperties}
+                aria-label="Scroll speed"
+                aria-valuetext={`${song.scrollSpeed + 1} of ${SCROLL_SPEEDS.length}`}
+              />
+              <IconHare size={24} />
+            </div>
+
             {/* The collapsed version, below that width: an icon that opens the same
                 slider standing on end above it. */}
             <div className="speed-compact">
@@ -329,21 +332,22 @@ export function ControlBar({
  * them — moved down from the header so it sits with the rest of what a hand reaches
  * for mid-song rather than at the top of the page, out of reach on a stand.
  *
- * `steps.previous`/`.next` are slugs, not hrefs: what stepping to one *means* differs
+ * `steps.previous`/`.next` are songs, not hrefs: what stepping to one *means* differs
  * by who is reading. A signed-in reader gets a real navigation, `/songs/‹slug›`, built
  * here rather than by every caller, since this is the one place that already knows the
  * route a song reads at. A follower has no such page — `FollowSession` shows a song by
  * swapping state in place — so it hands in `onStepTo` instead, and a slug is handed
  * back rather than a page changing under it.
  *
- * `locked` renders both arrows the same inert way `slug === null` already does, whether
+ * `locked` renders both arrows the same inert way `step === null` already does, whether
  * or not there is actually somewhere to step to — while still leaving a follower able to
- * see where the leader is in the songbook. That last part used to be this capsule's own
- * count, and on a phone it no longer is: the count is hidden below `sm`, where the mock
- * gives this row to two labelled buttons instead. So both screens that render a bar now
- * carry the position in their header — `SongReader` always did («Prima parte · 3 of 12»),
- * and `FollowedSong` gained it when the count left the bar rather than after somebody
- * noticed it missing.
+ * see where the leader is in the songbook.
+ *
+ * The count sits between them, in the middle column the play circle takes on the row
+ * below, and it is there at every width now: the bar's top row is this and nothing else,
+ * so there is room for it on a phone too. The header still carries its own
+ * («Prima parte · 3 of 12»), which is the count a reader who has scrolled past the bar's
+ * row still has — `useSequence` is what keeps the two from ever disagreeing.
  */
 function PrevNext({
   steps,
@@ -357,48 +361,58 @@ function PrevNext({
   return (
     <div className="control-nav">
       <Step
-        slug={steps.previous}
+        step={steps.previous}
         label="Previous song"
         direction="previous"
         locked={locked}
         onStepTo={onStepTo}
       />
       <span className="control-nav-count">
-        {steps.position}/{steps.total}
+        {steps.position} of {steps.total}
       </span>
-      <Step slug={steps.next} label="Next song" direction="next" locked={locked} onStepTo={onStepTo} />
+      <Step step={steps.next} label="Next song" direction="next" locked={locked} onStepTo={onStepTo} />
     </div>
   )
 }
 
 function Step({
-  slug,
+  step,
   label,
   direction,
   locked,
   onStepTo,
 }: {
-  slug: string | null
+  step: SongStep | null
   label: string
   direction: 'previous' | 'next'
   locked: boolean
   onStepTo?: (slug: string) => void
 }) {
   /*
-   * The chevron on its own from `sm` up, and the chevron with its name on a phone,
-   * where this is a button filling half the bar's top row rather than one of three
-   * things in a capsule (`.control-step`). Written on the leading side for Previous
-   * and the trailing side for Next, so each arrow points away from the label the way
-   * the mock draws them; `.control-step-label` hides the words on a wider screen.
+   * Two names for one button, one shown per width, because what the row has room to say
+   * changes with it. On a phone the word — «Previous» — is all that fits beside a chevron
+   * in half a bar. From `sm` up the button is a whole column of a 768px row, so it says
+   * *which* song it leads to, which is the thing a reader mid-set actually wants to know
+   * and the only reason the title is threaded all the way down from `siblingsOf`.
+   *
+   * Both are rendered and CSS shows one (`.control-step-label`/`.control-step-title`): a
+   * breakpoint is not something this component can see, and the accessible name does not
+   * change with it — `aria-label` below names the song at every width, so a screen reader
+   * is told the same thing a wide screen is shown.
+   *
+   * Written on the leading side for Previous and the trailing side for Next, so each
+   * arrow points away from the name the way the boards draw them.
    */
   const face =
     direction === 'previous' ? (
       <>
         <IconChevronLeft size={22} />
         <span className="control-step-label">Previous</span>
+        {step !== null && <span className="control-step-title">{step.title}</span>}
       </>
     ) : (
       <>
+        {step !== null && <span className="control-step-title">{step.title}</span>}
         <span className="control-step-label">Next</span>
         <IconChevronRight size={22} />
       </>
@@ -407,7 +421,7 @@ function Step({
   const classes = `control-button control-step is-${direction}`
 
   // Nowhere to go, said to nobody: an arrow that holds its place needs no name.
-  if (slug === null) {
+  if (step === null) {
     return (
       <span className={`${classes} is-off`} aria-hidden>
         {face}
@@ -415,19 +429,24 @@ function Step({
     )
   }
 
+  /* Names the song as well as the direction, at every width — on a phone that is more
+     than the button draws, which is the point: «Next song, Rock of Ages» is the whole
+     answer where «Next» is half of it. */
+  const named = `${label}, ${step.title}`
+
   /*
    * There genuinely is a song in this direction, but a follower may not step to it
    * while the broadcast is still choosing for them — unlike the `null` case above,
-   * this is worth a name: the position in the header ("3 of 12") says where the leader
-   * is, and a reason for why the arrows beside it do nothing is the difference between
-   * that reading as broken and reading as expected.
+   * this is worth a name: the position beside it ("3 of 12") says where the leader
+   * is, and a reason for why the arrows do nothing is the difference between that
+   * reading as broken and reading as expected.
    */
   if (locked) {
     return (
       <span
         className={`${classes} is-off`}
         title="Following the leader"
-        aria-label={`${label}, following the leader`}
+        aria-label={`${named}, following the leader`}
       >
         {face}
       </span>
@@ -436,14 +455,20 @@ function Step({
 
   if (onStepTo !== undefined) {
     return (
-      <button type="button" className={classes} title={label} aria-label={label} onClick={() => onStepTo(slug)}>
+      <button
+        type="button"
+        className={classes}
+        title={label}
+        aria-label={named}
+        onClick={() => onStepTo(step.slug)}
+      >
         {face}
       </button>
     )
   }
 
   return (
-    <Link href={`/songs/${slug}`} className={classes} title={label} aria-label={label}>
+    <Link href={`/songs/${step.slug}`} className={classes} title={label} aria-label={named}>
       {face}
     </Link>
   )
