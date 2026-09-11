@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
    also the truer statement — it is this segment's other half, not a component from elsewhere. */
 import { Landing, LANDING_DESCRIPTION, LANDING_TITLE } from './Landing'
 import { StandaloneRedirect } from '@/components/StandaloneRedirect'
-import { currentUser, requireAccount } from '@/lib/auth/session'
+import { currentUser } from '@/lib/auth/session'
 import type { CurrentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 import { requirePlanChoice } from '@/lib/plans/gate'
@@ -71,10 +71,23 @@ async function audience(): Promise<{ landing: boolean; user: CurrentUser | null 
  *   so its Suspense boundary never opens and no fallback exists to flash.
  */
 export default async function HomeLayout({ children }: { children: ReactNode }) {
-  /* A session whose account no longer exists — see `requireAccount`. Silent for a visitor with
-     no session at all, which is the middleware's case and not this one. */
-  await requireAccount()
-
+  /*
+   * **No `requireAccount()` here, and that is deliberate — `/` is the one route that must never
+   * answer with `/login`.** Every other gated route redirects a session whose account has been
+   * deleted (see `requireAccount`), because those pages have nothing to show such a reader. This
+   * one does: `/` is dual-audience, and `audience()` below already resolves a deleted account to
+   * `landing: true` through `currentUser()` answering null — so they get the public home with
+   * «Sign in» in the bar, which is true, and is the way out rather than a dead end.
+   *
+   * The rule this protects is about the brand mark: `TopBar`, `PublicHeader` and `SiteHeader`
+   * all point it at `/`, and it must land there. A redirect here would make the logo bounce to
+   * the sign-in form from every page in the app for anybody in that state, which reads as the
+   * app throwing you out of its own front door.
+   *
+   * Nothing is weakened by it: `currentUser()` still answers null, so `permit()` still refuses
+   * every write, and none of this reader's own content is rendered — the landing page is the
+   * same marketing page a stranger gets.
+   */
   const { landing, user } = await audience()
 
   /*

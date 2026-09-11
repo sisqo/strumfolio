@@ -51,8 +51,16 @@ function pagesUnder(dir: string, base = ''): string[] {
  * admission comes from `ALLOWED_EMAILS` and not from a row, so there is no deleted account to
  * catch — and they may be standing inside a customer's account they have just removed from that
  * very screen. `/password` is the standalone tool, and `/design-system` a reference page.
+ *
+ * **`/` is the interesting one, and it is an exemption rather than an omission.** It is the only
+ * dual-audience route: `(home)/layout.tsx` already resolves a deleted account to the public home,
+ * because `currentUser()` answers null and `audience()` reads that as a visitor. Redirecting it
+ * would make the brand mark — which `TopBar`, `PublicHeader` and `SiteHeader` all point at `/` —
+ * bounce to the sign-in form from every page in the app, which reads as being thrown out of the
+ * product's own front door. Nothing is weakened: `permit()` still refuses every write, and the
+ * page rendered is the same marketing page a stranger gets.
  */
-const EXEMPT = new Set(['/accounts', '/accounts/x', '/coupons', '/leads', '/pages', '/emails', '/design-system', '/password'])
+const EXEMPT = new Set(['/', '/accounts', '/accounts/x', '/coupons', '/leads', '/pages', '/emails', '/design-system', '/password'])
 
 describe('every route that needs a session throws out a deleted account', () => {
   it('calls requireAccount, in the page or in a layout above it', () => {
