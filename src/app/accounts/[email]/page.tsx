@@ -11,7 +11,7 @@ import { DeleteAccountRow } from '@/components/DeleteAccountRow'
 import { Footer } from '@/components/Footer'
 import { ForceExpireRow } from '@/components/ForceExpireRow'
 import { GiftForm } from '@/components/GiftForm'
-import { IconCheck, IconGift } from '@/components/icons'
+import { IconCheck, IconGift, IconReceipt, IconSend, IconShield, IconUser } from '@/components/icons'
 import { InternalNoteForm } from '@/components/InternalNoteForm'
 import { OutreachPanel } from '@/components/OutreachPanel'
 import { PasswordForm } from '@/components/PasswordForm'
@@ -23,7 +23,7 @@ import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { TopBar } from '@/components/TopBar'
 import { loadAccountHistory } from '@/lib/accounts/actions'
 import { paymentSummary } from '@/lib/accounts/paymentSummary'
-import { NO_PLAN_LINE, giftCell, noPlanYet, planBadge, rowStatus } from '@/lib/accounts/planText'
+import { NO_PLAN_LINE, giftCell, giftWithdrawn, noPlanYet, planBadge, rowStatus } from '@/lib/accounts/planText'
 import { getAccountDetail, rateLimitStatusFor, usageSummaryFor } from '@/lib/accounts/read'
 import { attributionFor } from '@/lib/attribution/read'
 import { avatarInitials } from '@/lib/avatar'
@@ -54,7 +54,13 @@ export const dynamic = 'force-dynamic'
  */
 type Tab = 'plan' | 'identity' | 'payments' | 'security' | 'outreach'
 
-const TABS: readonly Tab[] = ['plan', 'identity', 'payments', 'security', 'outreach']
+/**
+ * The order they are drawn in, which is not the order `readQuery` defaults to: Identity comes
+ * first because it is who this account *is*, and Plan is what an operator most often opens the
+ * page for, so it stays the landing tab. Security is last — nothing there is read, everything
+ * there is done, and two of the five are irreversible.
+ */
+const TABS: readonly Tab[] = ['identity', 'plan', 'payments', 'outreach', 'security']
 
 const TAB_LABEL: Record<Tab, string> = {
   plan: 'Plan & gift',
@@ -62,6 +68,15 @@ const TAB_LABEL: Record<Tab, string> = {
   payments: 'Payments',
   security: 'Security',
   outreach: 'Outreach',
+}
+
+/** One mark each (`Account Detail.dc.html`), so the row is scannable before it is read. */
+const TAB_ICON: Record<Tab, (props: { size?: number }) => React.ReactElement> = {
+  plan: IconGift,
+  identity: IconUser,
+  payments: IconReceipt,
+  security: IconShield,
+  outreach: IconSend,
 }
 
 /**
@@ -132,21 +147,23 @@ function readEmailParam(raw: string): string | null {
   }
 }
 
-/** «42 sign-ins», or the one honest sentence for an account that has never had any. */
-function signInClause(count: number): string {
-  return count === 0 ? 'Never signed in' : `${count} sign-in${count === 1 ? '' : 's'}`
-}
-
 /**
  * One account's administrative detail, laid out after `Account Detail.dc.html`: the header
- * with its monogram and `Enter as this account`, a four-cell summary strip (in force, gift,
- * content, newsletter), the internal note, then the tabs holding every control — the mock's
- * four, plus Outreach, which postdates it (see `Tab` above).
+ * with its monogram and `Enter as this account`, a summary strip, the internal note, then the
+ * tabs holding every control — the mock's five, Outreach included, which the earlier handoff
+ * did not have (see `Tab` above).
  *
  * **The strip is read-only and the tabs are where anything is written**, which is the whole
- * point of the shape: the previous version stacked eight always-open fieldsets, so opening an
- * account to check what plan it was on meant scrolling past the field that sets its password.
- * Four cells now answer that without a single control on screen.
+ * point of the shape: the version before the tabs stacked eight always-open fieldsets, so
+ * opening an account to check what plan it was on meant scrolling past the field that sets its
+ * password. The strip answers that without a single control on screen.
+ *
+ * **It is two halves and they are not the same kind of thing.** The tinted panel on the left is
+ * the *answer* — what this account is entitled to and the gift queued behind it, which is the
+ * question the page is opened with. The seven cells on the right are facts checked against it,
+ * and three of them (Status, Last sign-in, Rate limit) came up out of the Security tab in this
+ * redesign: they were behind the one tab that also holds the password field and the delete row,
+ * so reading three numbers meant opening the place where a wrong click is expensive.
  *
  * The tabs are `<Link>`s and their state is a URL param, so this stays a server component
  * with no tab state to hold — the same choice `/accounts`' own four tabs make, and the reason
@@ -209,10 +226,28 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const fullName = [detail.firstName, detail.lastName].filter((part) => part !== null && part !== '').join(' ')
   const facts = [
     fullName === '' ? null : fullName,
-    signInClause(detail.signInCount),
     `Registered ${detail.createdAt.slice(0, 10)}`,
+    /* The strip's Status cell says this too, and it is still worth saying twice: it is the one
+       fact here that changes what every control below does, and the header is read first. */
     suspended ? 'Suspended' : null,
   ].filter((fact) => fact !== null)
+
+  /*
+   * The gift, as the one line that goes under the plan in the strip's left panel — and only
+   * when there is something to say. `giftCell` answers for three states and they are not
+   * interchangeable: a gift on file, a gift an operator withdrew (whose audit has nowhere else
+   * to go on this page), and an account nobody ever gifted anything, which is the ordinary
+   * case and earns no line at all. Keyed on `giftWithdrawn` rather than on the cell's own
+   * words, so this cannot drift out of step with what `planText.ts` writes.
+   */
+  const giftLine =
+    plan === null || gift === null
+      ? null
+      : gift.plan !== null
+        ? { plan: gift.plan, text: gift.text }
+        : giftWithdrawn(plan)
+          ? { plan: null, text: gift.text }
+          : null
 
   const events = history.ok ? history.history : []
   const shown = query.events === 'all' ? events : events.slice(0, EVENTS_PREVIEW)
@@ -252,86 +287,129 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
           )}
         </header>
 
-        {/* Four read-only answers, no control among them — see this component's own header. */}
+        {/* Read-only, no control among them — see this component's own header. */}
         <div className="acct-summary">
-          <div className="acct-cell">
-            <span className="acct-cell-label">In force</span>
-            {badge === null || status === null ? (
+          {/* The answer: what this account is entitled to, and the gift queued behind it. */}
+          <div className="acct-force">
+            <span className="acct-force-label">In force</span>
+            {badge === null || status === null || plan === null ? (
               <>
-                <span className="acct-cell-main is-faint">—</span>
-                <span className="acct-cell-note">Plan columns unavailable</span>
+                <span className="acct-force-plan is-quiet">—</span>
+                <span className="acct-force-note">Plan columns unavailable</span>
               </>
             ) : (
               <>
-                <span className={`acct-cell-plan ${badge.className}`}>{badge.label}</span>
+                {/* «No plan» is not an entitlement, so it is not lettered like one: 27px of
+                    accent over a warm panel reads as *this account has something*. */}
+                <span className={`acct-force-plan${noPlanYet(plan) ? ' is-quiet' : ''}`}>{badge.label}</span>
                 {/* The list's own Status column, verbatim: «Until 2027-03-14», «Awaiting
                     choice», «Premium expired 2026-08-01». One vocabulary for the two screens. */}
                 {status.text !== '' && (
-                  <span className={`acct-cell-note${status.tone === 'alert' ? ' is-alert' : ''}`}>{status.text}</span>
+                  <span className={`acct-force-note${status.tone === 'alert' ? ' is-alert' : ''}`}>{status.text}</span>
                 )}
               </>
             )}
-          </div>
 
-          <div className="acct-cell">
-            <span className="acct-cell-label">Gift</span>
-            {gift === null ? (
-              <span className="acct-cell-main is-faint">—</span>
-            ) : gift.plan === null ? (
-              <span className="acct-cell-main is-faint">{gift.text}</span>
-            ) : (
-              <>
-                <span className="acct-cell-main is-row">
-                  <span className="acct-cell-gift" aria-hidden>
-                    <IconGift size={13} />
-                  </span>
-                  {PLAN_LABEL[gift.plan]}
+            {giftLine !== null && (
+              <span className="acct-force-gift">
+                <span className="acct-cell-gift" aria-hidden>
+                  <IconGift size={13} />
                 </span>
-                <span className="acct-cell-note">{gift.text}</span>
-              </>
+                {/* «gifted,» is the label the strip's old Gift column carried, now that the
+                    panel has no room for a heading of its own — the clause after it is
+                    `giftCell`'s, untouched. */}
+                <span>
+                  {giftLine.plan === null ? (
+                    giftLine.text
+                  ) : (
+                    <>
+                      <strong>{PLAN_LABEL[giftLine.plan]}</strong> gifted, {giftLine.text}
+                    </>
+                  )}
+                </span>
+              </span>
             )}
           </div>
 
-          <div className="acct-cell">
-            <span className="acct-cell-label">Content</span>
-            {usage === null ? (
-              <>
-                <span className="acct-cell-main is-faint">—</span>
-                <span className="acct-cell-note">Usage data unavailable</span>
-              </>
-            ) : (
-              <>
+          {/* The facts checked against that answer. Every one of the seven has a branch for a
+              read that failed, and none of them may answer it with a number: «0 songbooks» and
+              «Not hit» are what an operator would *believe*, and "could not tell" is a dash. */}
+          <div className="acct-cells">
+            <div className="acct-cell">
+              <span className="acct-cell-label">Songbooks</span>
+              <span className={usage === null ? 'acct-cell-main is-faint' : 'acct-cell-main is-count'}>
+                {usage === null ? '—' : usage.songbookCount}
+              </span>
+              {/* Said once, under the first of the three dashes, rather than three times. */}
+              {usage === null && <span className="acct-cell-note">Usage data unavailable</span>}
+            </div>
+
+            <div className="acct-cell">
+              <span className="acct-cell-label">Songs</span>
+              <span className={usage === null ? 'acct-cell-main is-faint' : 'acct-cell-main is-count'}>
+                {usage === null ? '—' : usage.songCount}
+              </span>
+            </div>
+
+            <div className="acct-cell">
+              <span className="acct-cell-label">Peak devices</span>
+              <span className={usage === null ? 'acct-cell-main is-faint' : 'acct-cell-main is-count'}>
+                {usage === null ? '—' : usage.singAlongPeakDevices}
+              </span>
+            </div>
+
+            <div className="acct-cell">
+              <span className="acct-cell-label">Status</span>
+              {/* «—», never «Active», when the `0036` columns could not be read at all. */}
+              <span className={detail.admin === null ? 'acct-cell-main is-faint' : 'acct-cell-main'}>
+                {detail.admin === null ? '—' : suspended ? 'Suspended' : 'Active'}
+              </span>
+            </div>
+
+            <div className="acct-cell">
+              <span className="acct-cell-label">Last sign-in</span>
+              <span
+                className={detail.lastSignInAt === null ? 'acct-cell-main is-faint' : 'acct-cell-main is-nums'}
+              >
+                {detail.lastSignInAt?.slice(0, 10) ?? 'Never'}
+              </span>
+              {/* No «0 in all» under «Never»: the date already said it, twice would be a tally. */}
+              {detail.signInCount > 0 && <span className="acct-cell-note is-faint">{detail.signInCount} in all</span>}
+            </div>
+
+            <div className="acct-cell">
+              <span className="acct-cell-label">Rate limit</span>
+              {/* «—», never «Not hit», when the read failed: see `rateLimitStatusFor`. */}
+              <span className={rateLimit === null ? 'acct-cell-main is-faint' : 'acct-cell-main'}>
+                {rateLimit === null
+                  ? '—'
+                  : rateLimit.attempts === 0
+                    ? 'Not hit'
+                    : `${rateLimit.attempts} attempt${rateLimit.attempts === 1 ? '' : 's'}`}
+              </span>
+            </div>
+
+            <div className="acct-cell is-wide">
+              <span className="acct-cell-label">Newsletter</span>
+              {newsletter === null ? (
+                <>
+                  <span className="acct-cell-main is-faint">—</span>
+                  <span className="acct-cell-note">Newsletter data unavailable</span>
+                </>
+              ) : (
                 <span className="acct-cell-main">
-                  <strong>{usage.songbookCount}</strong> {usage.songbookCount === 1 ? 'songbook' : 'songbooks'} ·{' '}
-                  <strong>{usage.songCount}</strong> {usage.songCount === 1 ? 'song' : 'songs'}
+                  {newsletter.subscribed ? `Subscribed · ${newsletter.frequency}` : 'Not subscribed'}{' '}
+                  {/* Read-only here on purpose: the account's own `/profile` is where this is
+                      changed (`lib/accounts/CLAUDE.md`). */}
+                  {newsletter.subscribed && newsletter.subscribedAt !== null && (
+                    <span className="text-faint">since {newsletter.subscribedAt.slice(0, 10)}</span>
+                  )}
+                  {!newsletter.subscribed && newsletter.unsubscribedAt !== null && (
+                    <span className="text-faint">unsubscribed {newsletter.unsubscribedAt.slice(0, 10)}</span>
+                  )}
                 </span>
-                <span className="acct-cell-note">{usage.singAlongPeakDevices} Strum Together peak devices</span>
-              </>
-            )}
-          </div>
-
-          <div className="acct-cell">
-            <span className="acct-cell-label">Newsletter</span>
-            {newsletter === null ? (
-              <>
-                <span className="acct-cell-main is-faint">—</span>
-                <span className="acct-cell-note">Newsletter data unavailable</span>
-              </>
-            ) : (
-              <>
-                <span className="acct-cell-main">
-                  {newsletter.subscribed ? `Subscribed · ${newsletter.frequency}` : 'Not subscribed'}
-                </span>
-                {/* Read-only here on purpose: the account's own `/profile` is where this is
-                    changed (`lib/accounts/CLAUDE.md`). */}
-                {newsletter.subscribed && newsletter.subscribedAt !== null && (
-                  <span className="acct-cell-note">since {newsletter.subscribedAt.slice(0, 10)}</span>
-                )}
-                {!newsletter.subscribed && newsletter.unsubscribedAt !== null && (
-                  <span className="acct-cell-note">unsubscribed {newsletter.unsubscribedAt.slice(0, 10)}</span>
-                )}
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -342,6 +420,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         <nav className="acct-tabs" aria-label="Account sections">
           {TABS.map((tab) => {
             const active = tab === query.tab
+            const Mark = TAB_ICON[tab]
             return (
               <Link
                 key={tab}
@@ -349,6 +428,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
                 className={`acct-tab${active ? ' is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
               >
+                <Mark size={15} />
                 {TAB_LABEL[tab]}
                 {tab === 'payments' && ledger !== null && ledger.events > 0 && (
                   <span className="acct-tab-count">{ledger.events}</span>
@@ -457,34 +537,10 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
         {query.tab === 'security' && (
           <div className="acct-panel">
-            <div className="acct-stats is-quiet">
-              <span className="acct-stat">
-                <span className="acct-cell-label">Status</span>
-                <span className="acct-stat-value">
-                  {detail.admin === null ? '—' : suspended ? 'Suspended' : 'Active'}
-                </span>
-              </span>
-              <span className="acct-stat">
-                <span className="acct-cell-label">Sign-ins</span>
-                <span className="acct-stat-value">{detail.signInCount}</span>
-              </span>
-              <span className="acct-stat">
-                <span className="acct-cell-label">Last sign-in</span>
-                <span className="acct-stat-value is-nums">{detail.lastSignInAt?.slice(0, 10) ?? 'Never'}</span>
-              </span>
-              <span className="acct-stat">
-                <span className="acct-cell-label">Rate limit</span>
-                {/* «—», never «Not hit», when the read failed: see `rateLimitStatusFor`. */}
-                <span className="acct-stat-value">
-                  {rateLimit === null
-                    ? '—'
-                    : rateLimit.attempts === 0
-                      ? 'Not hit'
-                      : `${rateLimit.attempts} attempt${rateLimit.attempts === 1 ? '' : 's'}`}
-                </span>
-              </span>
-            </div>
-
+            {/* Four facts about access used to stand at the top of this tab and are in the
+                summary strip now (`Account Detail.dc.html`): reading whether an account is
+                suspended should not mean opening the one tab that also sets a password. What
+                is left here is only what *acts*, which is why it is the last tab. */}
             <PasswordForm ownerEmail={detail.ownerEmail} />
             <SendResetEmailRow ownerEmail={detail.ownerEmail} />
             {/* Absent, not disabled, when the `0036` columns cannot be read: a toggle whose

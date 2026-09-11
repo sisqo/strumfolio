@@ -10581,13 +10581,20 @@
   }
 
   /*
-   * The summary strip: four read-only cells, and not one control among them. The 1px grid gap
-   * over a `--line-soft` ground is what draws the three dividers — cheaper than three borders
-   * that have to know which cell is last, and it survives the cells wrapping.
+   * The summary strip: read-only, not one control among them, and two halves answering two
+   * different kinds of question. The 1px grid gap over a `--line-soft` ground is what draws
+   * every divider in it — cheaper than borders that have to know which cell is last, and it
+   * survives the nested grid and a cell spanning the row alike.
+   *
+   * The left panel is the page's *answer* and is given the whole of it; the seven cells on the
+   * right are the facts checked against that answer. Redrawn from `Account Detail.dc.html`,
+   * which pulled Status, Last sign-in and Rate limit up out of the Security tab — they were
+   * behind the one tab that also holds the field setting a password, so reading three facts
+   * meant opening the place on this page where a wrong click is expensive.
    */
   .acct-summary {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 16.75rem 1fr;
     gap: 1px;
     overflow: hidden;
     margin-top: 1rem;
@@ -10596,9 +10603,98 @@
     background: var(--line-soft);
   }
 
+  /*
+   * What this account is entitled to, in `--promo-bg` — the tint this app keeps for a panel
+   * about a plan, so the one cell that is not a fact reads as a different kind of thing.
+   */
+  .acct-force {
+    padding: 1.125rem;
+    background: var(--promo-bg);
+  }
+
+  /* The one label on the page that is not `--faint`: it names the accent block it sits in. */
+  .acct-force-label {
+    display: block;
+    color: var(--accent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * The plan, as type rather than as the list's chip: at 27px it is the largest thing on the
+   * page after the address, which is the point — an operator opening an account is asking this
+   * question first. Accent, not `.plan-badge-*`'s per-plan colour, because a whole panel tinted
+   * in one hue and lettered in another is two decorations arguing.
+   */
+  .acct-force-plan {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--accent);
+    font-size: 1.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+
+  /*
+   * «No plan», and the dash of a plan column that could not be read, are not answers to be
+   * lettered in the accent: 27px of it says *this account has something*, which is the
+   * opposite of what both mean.
+   */
+  .acct-force-plan.is-quiet {
+    color: var(--muted);
+  }
+
+  .acct-force-note {
+    display: block;
+    margin-top: 0.375rem;
+    color: var(--muted);
+    font-size: 0.84375rem;
+  }
+
+  .acct-force-note.is-alert {
+    color: var(--danger);
+  }
+
+  /*
+   * The gift, under a rule of `--promo-line` inside the panel rather than in a cell of its own
+   * — it qualifies the plan above it and is unreadable apart from it («Plus gifted» means
+   * nothing until you know the subscription it is queued behind).
+   */
+  .acct-force-gift {
+    display: flex;
+    align-items: center;
+    gap: 0.4375rem;
+    margin-top: 0.875rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--promo-line);
+    color: var(--muted);
+    font-size: 0.84375rem;
+  }
+
+  .acct-force-gift strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* The facts, three across. `auto-fit` is not wanted: three is the column count the labels were sized for. */
+  .acct-cells {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line-soft);
+  }
+
   .acct-cell {
-    padding: 0.875rem 1rem;
+    padding: 0.75rem 0.875rem;
     background: var(--surface);
+  }
+
+  /* Newsletter: a sentence rather than a figure, so it takes the row it is on. */
+  .acct-cell.is-wide {
+    grid-column: 1 / -1;
   }
 
   /* Also every field label and stat label on the page: one voice for "what this value is". */
@@ -10611,22 +10707,34 @@
     text-transform: uppercase;
   }
 
+  /* A half-step down inside the strip, where seven of them sit in a 14px-padded cell. */
+  .acct-cells .acct-cell-label {
+    font-size: 0.65625rem;
+  }
+
   /*
-   * `block`, not `flex`, and that is load-bearing: the Content cell's value is one sentence
-   * with text nodes in it («**6** songbooks · **184** songs»), and a flex container makes
-   * every one of those a flex item — the middot lands on a line of its own and the row breaks
-   * into five. Only the Gift cell has an icon to align, and it asks for `is-row`.
+   * `block`, not `flex`, and that is load-bearing: a cell's value can be a sentence with text
+   * nodes in it, and a flex container makes every one of those a flex item — a middot lands on
+   * a line of its own and the row breaks into five.
    */
   .acct-cell-main {
     display: block;
-    margin-top: 0.4375rem;
+    margin-top: 0.3125rem;
     font-size: 0.875rem;
   }
 
-  .acct-cell-main.is-row {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
+  /*
+   * A cell whose value is a number rather than a word. Bolder and a step up, so the three
+   * counts read across the top row as one line of figures — which is how they are compared.
+   */
+  .acct-cell-main.is-count {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .acct-cell-main.is-nums {
+    font-variant-numeric: tabular-nums;
   }
 
   .acct-cell-main.is-faint {
@@ -10639,25 +10747,24 @@
 
   .acct-cell-note {
     display: block;
-    margin-top: 0.3125rem;
+    margin-top: 0.125rem;
     color: var(--muted);
     font-size: 0.78125rem;
+  }
+
+  /*
+   * A figure that qualifies the one above it — «42 in all» under a date. Lighter than the
+   * note it shares a class with, because that one is usually a failed read saying so.
+   */
+  .acct-cell-note.is-faint {
+    color: var(--faint);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
 
   /* The one state in the strip an operator has to act on — `rowStatus`'s own red. */
   .acct-cell-note.is-alert {
     color: var(--danger);
-  }
-
-  /* The plan chip, a shade larger than the list's `.accounts-plan`: this is the page's answer. */
-  .acct-cell-plan {
-    display: inline-flex;
-    align-items: center;
-    margin-top: 0.4375rem;
-    padding: 2px 0.625rem;
-    border-radius: var(--r-pill);
-    font-size: 0.84375rem;
-    font-weight: 600;
   }
 
   .acct-cell-gift {
@@ -10806,6 +10913,48 @@
     margin: 0 0 0.75rem;
     font-size: 0.90625rem;
     font-weight: 500;
+  }
+
+  /*
+   * The gift, as one card rather than a strip above a form (`Account Detail.dc.html`). What is
+   * written down and what edits it were two blocks with a 12px gap between them, which drew
+   * them as two unrelated things — and they are one thing read twice: the head is the gift, the
+   * body is the same three fields it was made from.
+   */
+  .acct-gift {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+
+  .acct-gift-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8125rem 1rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .acct-gift-body {
+    padding: 1rem;
+  }
+
+  /*
+   * A form whose labels stand beside their fields instead of over them, on a fixed 96px column.
+   * Three rows of label-over-field is a tall card for what is one decision; beside, the three
+   * read as one sentence with three blanks in it.
+   */
+  .acct-rows {
+    display: grid;
+    grid-template-columns: 6rem 1fr;
+    gap: 0.875rem 1rem;
+    align-items: center;
+  }
+
+  /* The label's own bottom margin is for the stacked arrangement, and there is none here. */
+  .acct-rows .acct-label {
+    margin-bottom: 0;
   }
 
   /*
@@ -11035,44 +11184,46 @@
     gap: 0.875rem;
   }
 
-  /* The date on a fixed 168px, the reason wide: one is ten characters, the other a sentence. */
-  .acct-gift-grid {
-    display: grid;
-    grid-template-columns: 10.5rem 1fr;
-    align-items: start;
-    gap: 0.875rem;
-  }
-
-  .acct-plans {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
-  }
-
-  .acct-plan-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.375rem;
-    padding: 0.625rem 0.8125rem;
-    border: 1px solid var(--line);
-    border-radius: 0.8125rem;
-    background: var(--bg);
-    color: var(--ink);
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-align: left;
+  /* Ten characters, on a field sized for ten characters — the mock's 168px. */
+  .acct-field.is-date {
+    width: 10.5rem;
   }
 
   /*
-   * The chosen plan. The `box-shadow` doubles the accent border rather than thickening it: a
-   * 2px border would move the label 1px and make the row of four twitch as the choice changes.
+   * The plan picker as a segmented control: four options on one recessed track, the chosen one
+   * lifted out of it on white. Four separate bordered boxes said "four things you could press";
+   * a track says "one of these four", which is what a radiogroup is.
    */
-  .acct-plan-option.is-on {
-    border-color: var(--accent);
-    background: var(--promo-bg);
-    box-shadow: 0 0 0 1px var(--accent);
+  .acct-seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-self: start;
+    padding: 3px;
+    border: 1px solid var(--line-soft);
+    border-radius: 0.75rem;
+    background: var(--surface-3);
+  }
+
+  /*
+   * The transparent border is load-bearing rather than tidy: `is-on` below adds a real one, and
+   * without a border reserved here the four labels would shift 1px sideways as the choice moves.
+   */
+  .acct-seg-option {
+    padding: 0.375rem 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 0.5625rem;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  .acct-seg-option.is-on {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
     color: var(--accent);
     font-weight: 600;
   }
@@ -11101,12 +11252,16 @@
 
   /*
    * The one thing the form says before it is submitted — that this gift will change nothing
-   * yet. Accent ink and no fill: `.notice-accent` beside four fields would be a paragraph
-   * shouting where a caption is what is wanted.
+   * yet. It stands on the closing line *beside* Save rather than under the picker it is about,
+   * because it is a caveat on pressing that button and is read in the second before pressing
+   * it. Faint and unfilled: `.notice-accent` beside three fields would be a paragraph shouting
+   * where a caption is what is wanted.
    */
   .acct-status {
-    margin: 0.5rem 0 0;
-    color: var(--accent);
+    flex: 1;
+    min-width: 15rem;
+    margin: 0;
+    color: var(--faint);
     font-size: 0.78125rem;
     line-height: 1.45;
   }
@@ -11127,12 +11282,6 @@
     margin-top: 0.25rem;
     font-size: 1rem;
     font-weight: 600;
-  }
-
-  /* Facts about access rather than money: the same strip, read at a normal weight. */
-  .acct-stats.is-quiet .acct-stat-value {
-    font-size: 0.90625rem;
-    font-weight: 500;
   }
 
   .acct-stat-value.is-nums {
@@ -11200,39 +11349,83 @@
   }
 
   /*
-   * The Outreach tab's «Earlier occurrences» list: a date, what it was, and how it ended.
+   * The Outreach tab's «Earlier occurrences» — a table now, where this was a three-part list
+   * (`Account Detail.dc.html`). The occurrence key earned it: «plus:2026-12-31», «2025», «once
+   * ever» are the values that say whether two rows are about the same thing, and read down a
+   * column of their own they answer that at a glance where inside a sentence they did not.
    *
-   * A list and not a table, unlike the payments ledger one tab over, because its three cells
-   * are not columns worth aligning — the middle one is a sentence of variable length, and the
-   * badge belongs at the end of it rather than under a heading. The date keeps tabular figures
-   * so the left edge still reads as a column.
+   * Its own class rather than `.acct-ledger` one tab over, which it now resembles: that one is
+   * `PaymentHistoryTable look="ledger"`, shared verbatim with the reader's own `/billing`, and
+   * this is four columns with a mark in one of them. They agree today by coincidence.
    */
-  .acct-outreach-log {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .acct-log {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
   }
 
-  .acct-outreach-log li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-    font-size: 0.84375rem;
+  .acct-log th {
+    padding: 0 0.75rem 0.5rem 0;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
-  .acct-outreach-when {
-    flex: none;
+  .acct-log td {
+    padding: 0.5625rem 0.75rem 0.5625rem 0;
+    vertical-align: top;
+  }
+
+  .acct-log tbody tr {
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* The date and the occurrence key: both compared down their column, neither ever wrapped. */
+  .acct-log td:first-child,
+  .acct-log-key {
     color: var(--muted);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
-  .acct-outreach-what {
-    flex: 1;
-    min-width: 10rem;
+  .acct-log th:last-child,
+  .acct-log td:last-child {
+    padding-right: 0;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .acct-log-what {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /*
+   * Which kind of thing was aimed at this reader, as a mark — a gift, a cake, a voucher. The
+   * neutral circle and not the accent one the gift strip carries: here it is the row's subject,
+   * not something being offered.
+   */
+  .acct-log-mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    color: var(--muted);
+  }
+
+  .acct-log-detail {
+    display: block;
+    margin-top: 1px;
+    color: var(--faint);
+    font-size: 0.78125rem;
   }
 
   /*
@@ -11313,29 +11506,54 @@
       background: var(--line-soft);
     }
 
-    .acct-plan-option:not(.is-on):hover {
-      border-color: var(--line);
-      background: var(--surface-3);
+    /* Nothing moves on the track — only the ink, since the chosen one owns the white box. */
+    .acct-seg-option:not(.is-on):hover {
+      color: var(--ink);
     }
   }
 
   /*
-   * Under 44rem the four-cell strip halves into two rows of two, the plan picker into two rows
-   * of two, and the gift's date and reason stack — the mock is a 1280px operator screen, and
-   * these are the three grids whose columns stop being readable before the page does.
+   * Under 44rem the strip's two halves stack, its seven cells halve into rows of two, and the
+   * gift form's labels go back over their fields — the mock is a 1280px operator screen, and
+   * these are the grids whose columns stop being readable before the page does. The plan
+   * picker needs nothing: its track already wraps.
+   *
+   * `.acct-cell.is-wide` is deliberately not re-declared. `grid-column: 1 / -1` is the whole
+   * row whatever the column count is, which is what makes it survive this — the version that
+   * would break here is the literal `span 3` the mock writes.
    */
   @media (max-width: 44rem) {
     .acct-summary {
+      grid-template-columns: 1fr;
+    }
+
+    .acct-cells {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    .acct-plans {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .acct-gift-grid,
+    .acct-rows,
     .acct-grid-2 {
       grid-template-columns: 1fr;
+    }
+
+    /* Stacked, a 96px label column's `center` alignment would hang each label beside nothing. */
+    .acct-rows {
+      align-items: stretch;
+      gap: 0.875rem;
+    }
+
+    .acct-rows .acct-label {
+      margin-bottom: 0.4375rem;
+    }
+
+    /*
+     * A strip's sentence takes the whole line so its controls wrap under it. `flex: 1` with
+     * `min-width: 0` lets the text squeeze indefinitely instead, and the gift head — the one
+     * strip carrying *two* pills — then wraps «Gift of Plus, active until 2026-12-31» into a
+     * column about six characters wide beside them.
+     */
+    .acct-row-text {
+      min-width: 100%;
     }
   }
 

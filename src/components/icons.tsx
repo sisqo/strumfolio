@@ -595,6 +595,43 @@ export function IconBroadcast(props: IconProps) {
   )
 }
 
+/** A birthday greeting: a cake with two candles, one of the Outreach log's three marks. */
+export function IconCake(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20h16v-4.5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z" />
+      <path d="M8.5 13.5V10M15.5 13.5V10" />
+      <path d="M8.5 7.2v.6M15.5 7.2v.6" />
+    </Icon>
+  )
+}
+
+/** A voucher: a torn ticket, for the upgrade offer that carries a coupon code. */
+export function IconVoucher(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="6.5" width="18" height="11" rx="2" />
+      <path d="M14.5 6.5v11" />
+      <path d="M6.5 12h4" />
+    </Icon>
+  )
+}
+
+/**
+ * Something aimed at a reader: a paper plane, the Outreach tab's own mark
+ * (`Account Detail.dc.html`). Deliberately not `IconBroadcast`, which is Strum
+ * Together's live signal — one goes out to a single address and waits for nothing,
+ * the other is a room listening.
+ */
+export function IconSend(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 3L3 10.5l7 2.5 2.5 7L21 3z" />
+      <path d="M10 13.5L21 3" />
+    </Icon>
+  )
+}
+
 /** Whoever presses play leads: the same mark as the control itself, ringed like a badge. */
 export function IconLeads(props: IconProps) {
   return (

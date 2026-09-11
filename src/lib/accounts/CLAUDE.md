@@ -3,13 +3,24 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-- **`/accounts/[email]` is the admin surface** — a read-only summary strip over five tabs:
-  the mock's four (`Account Detail.dc.html`: Plan & gift, Identity, Payments, Security) plus
-  **Outreach**, which postdates the handoff, so its absence from the mock is not a deviation to
-  reconcile. The tab is a URL param (`?tab=`), not client state, which is what keeps the page a
-  server component and the «All N events» link a link; the strip above the tabs holds no
-  control at all. Newsletter is **read-only** there (`loadNewsletterSummaryFor`); the name *is*
-  admin-editable, while `/profile` is the reader's own self-service page for it.
+- **`/accounts/[email]` is the admin surface** — a read-only summary strip over five tabs, all
+  five now the mock's own (`Account Detail.dc.html`, redrawn 2026-09-11: Identity, Plan & gift,
+  Payments, Outreach, Security, in that order). Outreach postdated the *first* handoff and its
+  absence from that one was never a deviation to reconcile; the current mock draws it. The tab
+  is a URL param (`?tab=`), not client state, which is what keeps the page a server component
+  and the «All N events» link a link; the strip above the tabs holds no control at all.
+  Newsletter is **read-only** there (`loadNewsletterSummaryFor`); the name *is* admin-editable,
+  while `/profile` is the reader's own self-service page for it.
+- **The strip is two halves and only the left one is an answer.** The tinted `.acct-force` panel
+  states the plan in force and the gift queued behind it; the seven `.acct-cells` beside it are
+  facts checked against that. Three of those seven — Status, Last sign-in, Rate limit — came up
+  out of the Security tab in the redesign, and that is the point of it: reading whether an
+  account is suspended used to mean opening the one tab that also holds the password field and
+  the delete row. **The Security tab is now controls only**, which is why it is drawn last.
+- **The redesign kept one thing the mock drops: Outreach's action rows.** The mock draws that
+  tab as «Earlier occurrences» alone, and the tab exists to *trigger* an action by hand (the
+  bullet below) — a log with no way to act on it would remove the subsystem's only entry point.
+  The history list underneath became the mock's four-column table, occurrence key and all.
 - **The Outreach tab is the only caller of `lib/outreach/`**, and the whole reason it exists is
   that nothing in this repo runs on a schedule: it is where an action is triggered by hand and
   where the record that it already happened is read back. That subsystem's own `CLAUDE.md`
@@ -21,13 +32,17 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   `lib/coupons/views.ts`). The second is there so a reminder about an unused coupon is a
   decision somebody can take from this screen; its rules are the coupons directory's own.
 - **Every sentence about a plan lives in `planText.ts`**, the list's and the detail page's
-  alike — `rowStatus` is literally what the detail page's In force cell prints under its
-  badge. A second spelling of "what does this subscription say" on one of the two screens is
+  alike — `rowStatus` is literally what the detail page's In force panel prints under the plan
+  name, and `giftCell` the clause after «gifted,» in the line below it. A second spelling of "what does this subscription say" on one of the two screens is
   the drift that module exists to prevent.
 - **A read that failed renders «—», never a reassuring value.** `rateLimitStatusFor` answers
   null and the Rate limit cell shows a dash rather than «Not hit»; the Status cell does the
   same when `admin` is null. "Nothing is wrong" and "could not tell" are opposite answers on
-  the one screen built to be believed.
+  the one screen built to be believed. **The rule got wider when the strip split Content into
+  three counted cells**: a failed `usageSummaryFor` must print three dashes and not three
+  zeroes, since «0 songbooks» is a sentence about an empty account. The mock draws only the
+  happy path for all seven cells, so a literal match of it silently drops every one of these
+  branches — check them before checking anything cosmetic.
 - **`confirmPendingRegistration` is an attribution seam, not only a provisioning one.** It calls
   `provisionAccount` itself, so it must also call `freezeLeadAttribution` — without it every
   account created from this screen keeps a null pointer and disappears from every attribution
@@ -55,9 +70,9 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
     (`feedbackEmail`'s split); **the subject is a header and is never escaped**. Never
     prefill the line from `granted_note` — those chips («Refund», «Beta tester») are audit.
   - **`source === 'grant'` is the one predicate on both sides**: `giftActive(plan)` hides the
-    strip's «Send the notice», and `sendGiftNotice` refuses `nothing-to-announce` on the same
-    answer. The strip deliberately does **not** say whether the notice went out; a second press
-    is answered by the unique index, through `already-sent`.
+    gift card head's «Send the notice», and `sendGiftNotice` refuses `nothing-to-announce` on
+    the same answer. The head deliberately does **not** say whether the notice went out; a
+    second press is answered by the unique index, through `already-sent`.
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`forceExpireNow(ownerEmail)` takes the address explicitly**, checking `isOwner` inside; it

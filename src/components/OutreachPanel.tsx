@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { IconCake, IconGift, IconSend, IconVoucher } from '@/components/icons'
 import { INELIGIBLE_LABEL } from '@/lib/outreach/eligibility'
 import { cadenceLabel, occurrenceLabel } from '@/lib/outreach/occurrence'
 import type { OutreachLine, OutreachRow } from '@/lib/outreach/read'
@@ -41,6 +42,19 @@ const STATUS_CLASS: Record<OutreachStatus, string> = {
   failed: 'badge plan-badge-unchosen',
   suppressed: 'badge plan-badge-none',
   pending: 'badge plan-badge-free',
+}
+
+/**
+ * A mark per kind for the log's Action column (`Account Detail.dc.html`) — a gift, a cake, a
+ * voucher. Keyed by `OutreachKind` and reached only through `readOutreachKind`, never by the
+ * stored string: a row naming a kind this deploy no longer declares is a real possibility (the
+ * log below prints its raw name for exactly that reason), and indexing this with it would be an
+ * `undefined` rendered as a blank circle.
+ */
+const KIND_ICON: Record<OutreachKind, (props: { size?: number }) => React.ReactElement> = {
+  gift_notice: IconGift,
+  birthday_greeting: IconCake,
+  upgrade_voucher: IconVoucher,
 }
 
 /** «by f.limberti@…», or nothing at all for a row a schedule wrote. */
@@ -311,24 +325,51 @@ export function OutreachPanel({ ownerEmail, lines, history }: Props) {
             Nothing has been aimed at this account before the occurrences above.
           </p>
         ) : (
-          <ul className="acct-outreach-log">
-            {history.map((row) => {
-              const kind = readOutreachKind(row.kind)
-              return (
-                <li key={row.id}>
-                  <span className="acct-outreach-when">{rowDate(row)}</span>
-                  <span className="acct-outreach-what">
-                    {/* A row naming a kind this deploy no longer declares prints the stored
-                        string: rewriting it to something recognised would invent history. */}
-                    {kind === null ? row.kind : OUTREACH[kind].label} · {occurrenceLabel(row.occurrenceKey)}
-                    {row.detail !== null && ` — ${row.detail}`}
-                    {row.detail === null && row.reason !== null && ` — ${row.reason}`}
-                  </span>
-                  <span className={STATUS_CLASS[row.status]}>{STATUS_LABEL[row.status]}</span>
-                </li>
-              )
-            })}
-          </ul>
+          <table className="acct-log">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Action</th>
+                <th scope="col">Occurrence</th>
+                <th scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((row) => {
+                const kind = readOutreachKind(row.kind)
+                /* A row naming a kind this deploy no longer declares still has a date, an
+                   occurrence and an outcome worth reading, so it gets the neutral mark rather
+                   than no row — and its stored name, since rewriting that would invent history. */
+                const Mark = kind === null ? IconSend : KIND_ICON[kind]
+                /* `detail` is what a settled row says about itself and `reason` what a skipped
+                   or failed one says; a row never usefully has both, and detail wins. */
+                const detail = row.detail ?? row.reason
+                return (
+                  <tr key={row.id}>
+                    <td>{rowDate(row)}</td>
+                    <td>
+                      <span className="acct-log-what">
+                        <span className="acct-log-mark" aria-hidden>
+                          <Mark size={13} />
+                        </span>
+                        <span className="min-w-0">
+                          {kind === null ? row.kind : OUTREACH[kind].label}
+                          {detail !== null && <span className="acct-log-detail">{detail}</span>}
+                        </span>
+                      </span>
+                    </td>
+                    {/* Which occurrence of it — «plus:2026-12-31», «2025», «once ever». Its own
+                        column since the redesign: it is the value that says whether two rows are
+                        about the same thing, which inside a sentence it did not answer. */}
+                    <td className="acct-log-key">{occurrenceLabel(row.occurrenceKey)}</td>
+                    <td>
+                      <span className={STATUS_CLASS[row.status]}>{STATUS_LABEL[row.status]}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </>
