@@ -294,8 +294,9 @@ export default function PrivacyPolicyPage() {
         in the United Arab Emirates, which is not covered by an adequacy decision, and it is not
         certified under the EU-U.S. Data Privacy Framework. The only personal data that reaches it is
         the message described in section 2 announcing that an account was created: an email address
-        and, where we have it, a name. If you would rather that message did not travel there, write
-        to the contact address above and we will stop sending it for your account.
+        and, where we have it, a name. It is sent once, at the moment the account is created, and is
+        not repeated. You can ask us to delete it from that chat by writing to the contact address
+        above.
       </p>
 
       <h2>6. How long we keep your data</h2>
