@@ -17,16 +17,20 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   out of the Security tab in the redesign, and that is the point of it: reading whether an
   account is suspended used to mean opening the one tab that also holds the password field and
   the delete row. **The Security tab is now controls only**, which is why it is drawn last.
-- **The redesign kept one thing the mock drops: Outreach's action rows.** The mock draws that
-  tab as «Earlier occurrences» alone, and the tab exists to *trigger* an action by hand (the
-  bullet below) — a log with no way to act on it would remove the subsystem's only entry point.
-  The history list underneath became the mock's four-column table, occurrence key and all.
-- **The Outreach tab is the only caller of `lib/outreach/`**, and the whole reason it exists is
-  that nothing in this repo runs on a schedule: it is where an action is triggered by hand and
-  where the record that it already happened is read back. That subsystem's own `CLAUDE.md`
-  carries the rules; the two that reach into this directory are that the newsletter preference
-  is a **consent gate** for any email-channel action (an unreadable one refuses), and that
-  `accounts.suspended_at` blocks outreach as well as sign-in.
+- **The Outreach tab is a log now, and nothing else** (decided 2026-09-11, matching the mock).
+  Its `Run now` / `Skip` / `Run everything due` rows are gone, so `OutreachPanel` is a server
+  component holding the mock's four-column table and no control. The rows cost little to lose —
+  `HANDLERS` is all `null`, so each button could only answer «not built yet», and the one
+  message that really goes out (`gift_notice`) is sent from the Plan & gift tab, which keeps its
+  «Send the notice». `skipOutreach` is what genuinely went: `suppressed` is still storable and
+  no longer writable from anywhere. See `lib/outreach/CLAUDE.md`.
+- **The Outreach tab is the only reader of `lib/outreach/`**, and since it stopped triggering
+  anything it is the only caller of it at all — `loadOutreachFor` is the one function of that
+  directory this app still invokes. That subsystem's own `CLAUDE.md` carries the rules; the two
+  that reach into this directory are that the newsletter preference is a **consent gate** for
+  any email-channel action (an unreadable one refuses), and that `accounts.suspended_at` blocks
+  outreach as well as sign-in. Both still hold — they are computed on every read — but nothing
+  on this screen can act on what they answer.
 - **The Payments tab holds two ledgers, not one**: what this account paid
   (`PaymentHistoryTable`) and which coupons it was ever *shown* (`CouponsSeenCard`, from
   `lib/coupons/views.ts`). The second is there so a reminder about an unused coupon is a

@@ -96,9 +96,13 @@ export interface OutreachLine {
 export interface OutreachView {
   lines: OutreachLine[]
   /**
-   * Everything else on file for this account: past occurrences, and rows naming a kind this
-   * deploy does not declare. Deliberately excludes the rows already shown as `current`, so
-   * nothing appears twice and «history» means what it says.
+   * Everything on file for this account, newest occurrence included — past occurrences, the
+   * current one, and rows naming a kind this deploy does not declare.
+   *
+   * It is **not** «everything except `lines`», which is what it meant while the panel drew the
+   * current occurrence in a section of its own. `lines` survives for `dueKinds` and the
+   * run-everything pass, which are server-side; nothing renders it, so a row omitted here is a
+   * row nobody can see.
    */
   history: OutreachRow[]
 }
@@ -286,14 +290,19 @@ export async function outreachViewFor(ownerEmail: string, now: Date): Promise<Ou
     }
   })
 
-  const shown = new Set(lines.map((line) => line.current?.id).filter((id) => id !== undefined))
-
   return {
     lines,
-    /* A row whose kind this deploy no longer declares falls through to here rather than
-       disappearing: `readOutreachKind` answers null for it, no line is built for it, and it is
-       history like any past occurrence. */
-    history: rows.filter((row) => !shown.has(row.id)),
+    /*
+     * Every row on file, the current occurrence's included. It used to exclude the rows already
+     * carried on `lines`, because the panel drew those in a section of its own and a row shown
+     * twice reads as two occurrences — and that section is gone (`OutreachPanel`), so the
+     * exclusion now only hides this year's greeting from the one table that lists them.
+     *
+     * A row whose kind this deploy no longer declares belongs here for the same reason it
+     * always did: `readOutreachKind` answers null for it, no line is built for it, and it is
+     * history like any past occurrence.
+     */
+    history: rows,
   }
 }
 

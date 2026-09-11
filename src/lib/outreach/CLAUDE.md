@@ -5,13 +5,22 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
 Everything else in this repo is something a reader does; this is the one thing the platform
 does to them. A birthday greeting, an upgrade offer carrying a voucher, whatever joins them:
-the engine is written and **no action this panel can run is built yet** — `HANDLERS` is still
-all `null`, the state it was deliberately left in, and the two kinds declared beside it exist
-so the shape of a definition answers to a real example.
+the engine is written and **no action is built yet** — `HANDLERS` is still all `null`, the
+state it was deliberately left in, and the two kinds declared beside it exist so the shape of a
+definition answers to a real example.
 
 One message does go out, and it is the exception the first bullet below is about:
 `gift_notice` is composed and sent from `/accounts/[email]`'s Plan & gift tab and only
-*recorded* here. So «nothing is built» is true of the panel and false of the table.
+*recorded* here. So «nothing is built» is true of the engine and false of the table.
+
+**And since 2026-09-11 nothing calls the engine at all.** `OutreachPanel` was redesigned to the
+mock, which draws that tab as a log and nothing else, so `runOutreachNow`, `skipOutreach` and
+`runEverythingDue` have no caller anywhere in the app. They stay exported on purpose — they are
+what a schedule would call, which is the whole shape this directory was built to, and they
+re-check `isOwner` themselves — but read every sentence below about «an operator presses» as
+describing a capability with no button left. The one that is now unreachable rather than merely
+unbuilt is **`skipOutreach`**: `suppressed` is a first-class outcome this deploy can still store
+and no longer offers any way to write.
 
 - **One kind is recorded here and not run from here.** `gift_notice` carries
   `trigger: 'elsewhere'`: the moment belongs to the Plan & gift tab, where an operator gives a
@@ -46,7 +55,8 @@ One message does go out, and it is the exception the first bullet below is about
 - **`suppressed` is a first-class outcome**, not a missing row: «we were allowed to and chose
   not to» and «nothing has happened here» are opposite answers, the distinction
   `rateLimitStatusFor` already refuses to collapse. A skip claims the occurrence exactly as a
-  send does, so it is as binding as one until somebody presses `Run anyway`.
+  send does, so it is as binding as one until it is deliberately taken over — which `claimVerdict`
+  still allows and, since the panel became a log, no screen still asks for.
 - **An unreadable newsletter preference refuses** (`eligibility.ts`, `consentGate`). This is
   the one place that inverts `readBooleanSetting`'s stated direction, and the inversion is the
   point: what quietly happens if a null reads as `true` is marketing mail sent without verified
@@ -84,7 +94,7 @@ One message does go out, and it is the exception the first bullet below is about
   something the action would refuse. The constant lives with the vocabulary and not in `run.ts`
   because `read.ts` needs it too and cannot import `run.ts`.
 - **`types.ts` imports no `@/lib/db` and carries no `'use server'`**, the `coupons/types.ts`
-  arrangement: the panel value-imports it, and a `'use server'` module may export only async
+  arrangement: the panel value-imports it for its labels, and a `'use server'` module may export only async
   functions. `actions.ts` is the only module here that checks a session, and it re-checks
   `isOwner` in every one of its four exports — a server action is reachable by anything holding
   a cookie.

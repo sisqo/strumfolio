@@ -55,10 +55,15 @@ export const dynamic = 'force-dynamic'
 type Tab = 'plan' | 'identity' | 'payments' | 'security' | 'outreach'
 
 /**
- * The order they are drawn in, which is not the order `readQuery` defaults to: Identity comes
- * first because it is who this account *is*, and Plan is what an operator most often opens the
- * page for, so it stays the landing tab. Security is last — nothing there is read, everything
- * there is done, and two of the five are irreversible.
+ * The order they are drawn in, and the first of them is also the one the page opens on —
+ * `readQuery`'s fallback and `hrefFor`'s omitted param are both `identity` for that reason.
+ * Identity is who this account *is*, which is what an operator wants confirmed before reading
+ * anything else about it. Security is last: nothing there is read, everything there is done,
+ * and two of its rows are irreversible.
+ *
+ * Changing this order means changing those two constants with it — the landing tab is the one
+ * a URL with no `?tab=` resolves to, so a first tab that is not the default would leave the
+ * page opening on a tab that is not the one drawn first.
  */
 const TABS: readonly Tab[] = ['identity', 'plan', 'payments', 'outreach', 'security']
 
@@ -95,7 +100,7 @@ interface Query {
 /** An unrecognised or absent param always falls back to the least surprising default, never to an error — the same rule `/accounts` reads its four params by. */
 function readQuery(raw: { tab?: string; events?: string }): Query {
   return {
-    tab: TABS.includes(raw.tab as Tab) ? (raw.tab as Tab) : 'plan',
+    tab: TABS.includes(raw.tab as Tab) ? (raw.tab as Tab) : TABS[0],
     events: raw.events === 'all' ? 'all' : 'preview',
   }
 }
@@ -104,7 +109,7 @@ function readQuery(raw: { tab?: string; events?: string }): Query {
 function hrefFor(address: string, query: Query, overrides: Partial<Query>): string {
   const merged = { ...query, ...overrides }
   const params = new URLSearchParams()
-  if (merged.tab !== 'plan') params.set('tab', merged.tab)
+  if (merged.tab !== TABS[0]) params.set('tab', merged.tab)
   if (merged.events !== 'preview') params.set('events', merged.events)
 
   const search = params.toString()
@@ -524,11 +529,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
             {/* The failure is printed, never an empty panel: «nothing has ever been sent to
                 this account» is the one sentence a failed read must not be mistaken for. */}
             {outreach.ok ? (
-              <OutreachPanel
-                ownerEmail={detail.ownerEmail}
-                lines={outreach.view.lines}
-                history={outreach.view.history}
-              />
+              <OutreachPanel history={outreach.view.history} />
             ) : (
               <p className="text-sm text-muted">{OUTREACH_MESSAGE[outreach.reason]}</p>
             )}
