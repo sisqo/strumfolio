@@ -2,9 +2,10 @@
 
 /**
  * Switching which account a signed-in reader is looking at, and — for a global owner
- * only — deleting one, or hand-assigning it a plan on another address's behalf. Creating
- * one by hand is gone (v3.8): self-service registration and automatic
- * provisioning on any first sign-in cover every real case it used to.
+ * only — creating one, deleting one, or hand-assigning it a plan on another address's
+ * behalf. Creating one by hand was gone between v3.8 and 2026-09-11, on the grounds that
+ * self-service registration covers every real case; `createAccount` at the foot of this
+ * file says which cases it does not.
  */
 
 import { eq, inArray, sql } from 'drizzle-orm'
@@ -12,7 +13,8 @@ import { revalidatePath } from 'next/cache'
 
 import { auth, signOut } from '@/auth'
 import { isEmailShape, isOwner, normalizeEmail } from '@/lib/allowlist'
-import { deletePasswordHash } from '@/lib/auth/credentials'
+import { deletePasswordHash, writePasswordHash } from '@/lib/auth/credentials'
+import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
 import {
@@ -50,6 +52,8 @@ import type {
   AdminActionResult,
   AdminNameResult,
   ConfirmPendingResult,
+  CreateAccountInput,
+  CreateAccountResult,
   EmailChangeResult,
   GiftNoticeResult,
   GrantInput,
@@ -932,4 +936,145 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
 
   revalidatePath('/accounts')
   return { ok: true }
+}
+
+/**
+ * Opens an account from `/accounts` — address, name, and optionally a password the operator
+ * chooses on its behalf.
+ *
+ * **Back after v3.8 removed it**, and the reason is not that the argument for removing it was
+ * wrong: self-service registration really does cover everybody who *asks* for an account. Two
+ * cases are left over. The pre-`02ac495` quirk `accounts/CLAUDE.md` records ends «delete and
+ * recreate the account from the Accounts admin page», and the second half of that repair has
+ * been impossible since the section was written. And an operator opening an account for
+ * somebody who has asked for nothing yet — a bandmate at a rehearsal, an address that will
+ * never find the registration form — had no path at all. The old `createAccount` this revives
+ * took only an address and left the account with no name and no way in but Google;
+ * `provision.ts`'s own header still names it in the present tense, which this makes true again.
+ *
+ * **Mirrors `confirmPendingRegistration` above, minus one thing and plus one.** Minus the
+ * Telegram notice: `registrationNotice` exists so the owner learns somebody registered, and
+ * nobody needs telling about the account they are creating with their own hands — which is also
+ * why the root `CLAUDE.md`'s «three callers» of that notice is still three. Plus the password,
+ * which the confirmation path inherits from the pending row and this one has nowhere to get.
+ *
+ * **The password is optional, and empty is a real answer**, not a field left unfinished: the
+ * detail page can set one (`PasswordForm`) or email a one-time link (`SendResetEmailRow`), and
+ * Google is a way in that needs no password here at all. It is written *after* the account row
+ * and never before, which is not tidiness: written first, an insert that then lost the race to
+ * another tab would have replaced the password of the account that tab had just created.
+ *
+ * **`already-exists` is guarded on the `accounts` row alone, and the two tables deliberately
+ * left out of it are the whole reason this function works at all.** `changeAccountEmail` checks
+ * three before it renames onto an address, because a rename inherits whatever is already there;
+ * creating does not, and copying that check here breaks the repair this exists for.
+ * `removeAccountAndContent` never touches `signIns`, so **every account that ever signed in
+ * leaves its sign-in row behind when it is deleted** — guarding on that table would answer
+ * `already-exists` to the second half of «delete and recreate», for exactly the accounts the
+ * quirk affects. And it clears `credentials` only for an address that is *not* still admitted,
+ * so a global owner keeps their password with no account row at all (v3.1), which is an ordinary
+ * state here and not a leftover. `register()` guards on the same one table, for its own reasons.
+ *
+ * The price of that, stated because nothing on screen says it: an account opened on an address
+ * that still has a `credentials` row keeps **that** password when the form is left empty.
+ * Deliberate where it is a global owner's own address, and the reason the field replaces rather
+ * than merely fills — `writePasswordHash` upserts, so typing one is always the last word.
+ *
+ * **Refuses a pending registration rather than absorbing it.** `confirmPendingRegistration` is
+ * one button below on the same screen and keeps the password the person actually chose;
+ * overwriting that row from here would throw away a decision somebody already made, and
+ * silently, since both paths end with an account for the same address.
+ *
+ * **No newsletter.** `provisionAccount` is called with no opt-in and the row reads as not
+ * subscribed, for the reason the Google default was reversed on 2026-09-03: a default is not
+ * the consent the Privacy Policy declares as the basis for it, and an operator cannot give that
+ * consent on somebody else's behalf. `/accounts/[email]` shows the preference; only the account
+ * itself can change it.
+ *
+ * Accepted risk, the same one `confirmPendingRegistration` states and one step further along:
+ * this creates a real, immediately-usable account for an address that never proved control of
+ * its own inbox — and where that one at least had a registration behind it, here the address
+ * was typed by an operator who may have mistyped it. `already-exists` guards a duplicate
+ * address, which is not the same thing as the wrong one.
+ */
+export async function createAccount(input: CreateAccountInput): Promise<CreateAccountResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  const email = normalizeEmail(input.email)
+  const firstName = input.firstName.trim()
+  const lastName = input.lastName.trim()
+  const password = input.password
+
+  if (!isEmailShape(email)) return { ok: false, reason: 'invalid-email' }
+  if (firstName === '' || lastName === '') return { ok: false, reason: 'invalid-name' }
+  /* Only when one was typed: an empty password is this form's way of saying "later". */
+  if (password !== '' && !isPasswordAcceptable(password)) return { ok: false, reason: 'weak-password' }
+
+  let created = false
+  try {
+    const [account, pending] = await Promise.all([
+      db().select({ x: accounts.ownerEmail }).from(accounts).where(eq(accounts.ownerEmail, email)).limit(1),
+      db()
+        .select({ x: pendingRegistrations.email })
+        .from(pendingRegistrations)
+        .where(eq(pendingRegistrations.email, email))
+        .limit(1),
+    ])
+    if (account.length > 0) return { ok: false, reason: 'already-exists' }
+    if (pending.length > 0) return { ok: false, reason: 'pending-registration' }
+
+    created = await provisionAccount(email, { firstName, lastName })
+  } catch (error) {
+    console.error('createAccount failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+
+  /* `provisionAccount` answers false for an address that already has an account, which the
+     check above has just ruled out — so false here is a failed insert or another tab winning
+     the same race, and either way there is nothing to send an email about. A retry then reads
+     `already-exists`, which is the truth by that point. */
+  if (!created) return { ok: false, reason: 'failed' }
+
+  /*
+   * Past this line the account exists, and nothing below may answer `failed`: that would send
+   * the operator back to a form which now refuses the same address, for a row that is really
+   * there. The password is the one thing that can still trip, so it is reported instead of
+   * thrown away — `PasswordForm` on the detail page does not say whether an account *has* a
+   * password, so an operator who is not told would have no way of finding out but to ask the
+   * person to try signing in.
+   */
+  let passwordSaved = true
+  if (password !== '') {
+    try {
+      await writePasswordHash(email, await hashPassword(password))
+    } catch (error) {
+      console.error('createAccount could not write the password', error)
+      passwordSaved = false
+    }
+  }
+
+  /* Never throws, by its own contract — the five callers before this one have no branch to
+     take on a failed send either, for the same reason this one does not. */
+  await sendEmail({ to: email, ...welcomeEmail() })
+
+  /*
+   * Seam 5 of five, and the only one with nothing to find in the ordinary case: an account
+   * opened here never passed through `register()`, which is the seam that writes the open row,
+   * so there is usually no attribution at all — a no-op, and correct as one. It is called all
+   * the same because an address can have an open row from a registration it abandoned, and
+   * leaving that row unfrozen would let it be taken over by the next registration on the same
+   * address long after this account existed.
+   *
+   * Reads **no cookie**, for seam 3's reason exactly: this runs in the operator's browser, and
+   * a cookie read would attribute the lead to whatever campaign the admin last clicked.
+   */
+  await freezeLeadAttribution(email)
+
+  revalidatePath('/accounts')
+  return { ok: true, email, passwordSaved }
 }

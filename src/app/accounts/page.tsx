@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 
 import { AutoSubmitSelect } from '@/components/AutoSubmitSelect'
 import { ConfirmPendingRegistrationButton } from '@/components/ConfirmPendingRegistrationButton'
+import { CreateAccountForm } from '@/components/CreateAccountForm'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
@@ -148,9 +149,14 @@ interface Props {
  * whole state lives in the URL and the page stays a server component with one client
  * component in it (`AutoSubmitSelect`, the sort order).
  *
- * No longer offers creating an account (v3.8, replacing the old "Create"
- * section): self-service registration and automatic provisioning on any first sign-in — Google
- * or password — cover every real case an admin-created account used to.
+ * Offers creating an account again (2026-09-11), which v3.8 removed as covered by
+ * self-service registration and automatic provisioning on any first sign-in. It covers
+ * everybody who *asks* for an account and neither of the two cases left: the pre-`02ac495`
+ * quirk whose documented repair ends «delete and recreate the account from the Accounts admin
+ * page», and an address that will never find the registration form. `CreateAccountForm` is
+ * drawn by nothing in `Accounts.dc.html` — the mock predates the decision to bring this back,
+ * and the literal-match rule is about not defending a stylistic status quo against a drawing,
+ * not about refusing what was asked for since it was drawn.
  *
  * Filtering by tab and sorting operate in memory, on the *resolved* plan `listAccountPlans`
  * already computes — not a second copy of that rule expressed as SQL. Correct and simple at
@@ -235,6 +241,8 @@ export default async function AccountsPage({ searchParams }: Props) {
             </a>
           )}
         </header>
+
+        <CreateAccountForm />
 
         {/* The only place `SONGBOOK_PLANS` reaches a screen anywhere in this app. Without it,
             «I gifted premium and nothing changed» is a support call with no visible cause. */}

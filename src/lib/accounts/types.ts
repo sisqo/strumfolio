@@ -8,12 +8,19 @@
  * beside `setGrant`: the client component needs both, and the action's own module cannot
  * export either.
  *
- * No longer names creating an account (v3.8): self-service registration
- * and automatic provisioning on any first sign-in — Google or password — cover every real
- * case an admin-created account used to, and `deleteAccount` never answered `invalid-email`
- * or `already-exists` — this project does not model states a function cannot reach, the
- * same discipline `SelfDeleteFailure` below already states for itself.
+ * Names creating an account again (2026-09-11), which v3.8 removed on the grounds that
+ * self-service registration and automatic provisioning on any first sign-in «cover every real
+ * case an admin-created account used to». That is true of somebody *asking* for an account and
+ * was never true of the two cases left over: the pre-`02ac495` quirk whose documented repair is
+ * «delete and recreate the account from the Accounts admin page» (`accounts/CLAUDE.md`), which
+ * has had no second half since, and an operator opening an account for somebody who has asked
+ * for nothing yet. `CreateAccountFailure` is its own union at the foot of this file rather than
+ * new members here, which is the discipline that removal itself argued from: `deleteAccount` can
+ * never answer `already-exists`, and this project does not model states a function cannot reach
+ * — the same rule `SelfDeleteFailure` below states for itself.
  */
+
+import { MIN_PASSWORD } from '@/lib/auth/types'
 
 export type AccountFailure =
   | 'not-allowed'
@@ -282,4 +289,68 @@ export const CONFIRM_PENDING_MESSAGE: Record<ConfirmPendingFailure, string> = {
   'no-database': 'No database configured: nothing to confirm.',
   'not-found': 'No pending registration for this address. It may already be confirmed.',
   failed: 'Confirm failed. Please try again.',
+}
+
+/**
+ * Results for opening an account by hand from `/accounts` (`createAccount`) — the address,
+ * the name, and optionally a password the operator chooses on the account's behalf.
+ *
+ * `already-exists` and `pending-registration` are two answers and not one on purpose: the
+ * first is a dead end and the second is a button away, on the very same screen, along the
+ * path that keeps the password the person actually chose. `weak-password` is only reachable
+ * when a password was typed at all — an empty one is a decision, not a mistake.
+ *
+ * **Success carries two things, and both exist because the alternative is a lie.** `email` is
+ * the address as the server normalized and actually wrote it, the arrangement
+ * `EmailChangeResult` already uses, so no caller has to re-spell that rule to build a link to
+ * the row. `passwordSaved` answers the one failure that can happen *after* the account exists:
+ * returning `failed` there would send an operator back to a form that now answers
+ * `already-exists`, and returning a bare `ok` would let them walk away believing a password is
+ * in place that is not.
+ */
+export type CreateAccountFailure =
+  | 'not-allowed'
+  | 'no-database'
+  | 'invalid-email'
+  /** First or last name missing, or only whitespace — checked after trimming both. */
+  | 'invalid-name'
+  | 'weak-password'
+  /** An account, a password or a sign-in already exists for this address. */
+  | 'already-exists'
+  /** The address registered on its own and is waiting for its link to be followed. */
+  | 'pending-registration'
+  | 'failed'
+
+export type CreateAccountResult =
+  | {
+      ok: true
+      /** The address as written, normalized — never the raw string the form submitted. */
+      email: string
+      /** False only when a password was asked for and the write after the account tripped. */
+      passwordSaved: boolean
+    }
+  | { ok: false; reason: CreateAccountFailure }
+
+export const CREATE_ACCOUNT_MESSAGE: Record<CreateAccountFailure, string> = {
+  'not-allowed': 'Only a global owner may create an account.',
+  'no-database': 'No database configured: accounts cannot be created.',
+  'invalid-email': 'Enter a real email address.',
+  'invalid-name': 'Enter a first and last name.',
+  'weak-password': `The password must be at least ${MIN_PASSWORD} characters.`,
+  'already-exists': 'That address already has an account.',
+  'pending-registration': 'That address registered on its own: confirm it under “Pending registrations” below instead, so it keeps the password it chose.',
+  failed: 'Could not create the account. Please try again.',
+}
+
+/**
+ * What `createAccount` is given. An object rather than four positional strings because two of
+ * them are names and one is a secret, and `createAccount('a@b.c', '', '', 'hunter2000')` says
+ * nothing about which is which at the call site.
+ */
+export interface CreateAccountInput {
+  email: string
+  firstName: string
+  lastName: string
+  /** Empty when the operator would rather the account chose its own — see the action. */
+  password: string
 }

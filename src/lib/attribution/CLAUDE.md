@@ -1,4 +1,4 @@
-# Attribution (`src/lib/attribution/`) — where a lead came from, and the four seams that record it
+# Attribution (`src/lib/attribution/`) — where a lead came from, and the five seams that record it
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
@@ -10,7 +10,7 @@ first time it is given and frozen when it becomes an account. One row per lead i
 ## The four seams, and what happens if one is dropped
 
 `coupons/CLAUDE.md` says of its three: «Drop the third and every email/password sign-up is
-recorded as having seen nothing.» Here there are **four**, and dropping one does not fail
+recorded as having seen nothing.» Here there are **five**, and dropping one does not fail
 anything — it silently removes a whole sign-up path from the numbers.
 
 1. **`register()`** (`lib/register/actions.ts`) — inserts the open row from the cookie, in the
@@ -24,11 +24,16 @@ anything — it silently removes a whole sign-up path from the numbers.
 4. **`signIn` callback** (`auth.ts`) — the Google path, which has no pending registration at
    all, so it is both halves at once and is **gated on `created`**, the same boolean the welcome
    email uses.
+5. **`createAccount()`** (`lib/accounts/actions.ts`, back on 2026-09-11) — the admin screen
+   opening an account for an address that never registered, so unlike every seam above it
+   ordinarily has **nothing to freeze**, and that is not a reason to drop the call: an address
+   can carry an open row from a registration it abandoned, and an unfrozen row is eligible to be
+   taken over by the next registration on the same address long after the account exists.
 
 **Only seams 1 and 4 read the cookie**, and that asymmetry is not something to tidy up:
 
-- seam 3 runs in the **operator's** browser, so reading the cookie there would attribute the
-  lead to whatever campaign the admin last clicked;
+- seams 3 and 5 run in the **operator's** browser, so reading the cookie there would attribute
+  the lead to whatever campaign the admin last clicked;
 - seam 2 runs in the reader's own browser but often **not the same device** — a verification
   link is very frequently opened elsewhere — so it must not depend on finding a cookie.
 

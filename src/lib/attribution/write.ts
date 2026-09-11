@@ -1,17 +1,17 @@
 /**
- * The database half of attribution: the two writes, and the four seams that call them.
+ * The database half of attribution: the two writes, and the five seams that call them.
  *
  * A plain module and not `'use server'`, `coupons/views.ts`' own arrangement — every caller is
- * already server-side (`register`, `verifyEmail`, `confirmPendingRegistration`, the `signIn`
- * callback) and none of them arrives from a browser on its own.
+ * already server-side (`register`, `verifyEmail`, `confirmPendingRegistration`, `createAccount`,
+ * the `signIn` callback) and none of them arrives from a browser on its own.
  *
- * **Only two of the four seams read the cookie, and that is not an oversight to tidy up.**
+ * **Only two of the five seams read the cookie, and that is not an oversight to tidy up.**
  * `recordLeadAttribution` reads it, because it runs in the lead's own browser;
  * `freezeLeadAttribution` matches by address and fills the pointer, nothing more. The reasons
  * are specific:
  *
- * - `confirmPendingRegistration` runs in the **operator's** browser. Reading the cookie there
- *   would attribute the lead to whatever campaign the admin last clicked.
+ * - `confirmPendingRegistration` and `createAccount` run in the **operator's** browser. Reading
+ *   the cookie there would attribute the lead to whatever campaign the admin last clicked.
  * - `verifyEmail` runs in the reader's own browser but not necessarily the same one: a
  *   verification link is very often opened on another device, where this cookie has never
  *   existed. It must not depend on finding one.
@@ -142,11 +142,11 @@ export async function recordLeadAttribution(email: string): Promise<void> {
 /**
  * Point an open lead at the account that has just been created for it, and freeze it.
  *
- * **Seams 2, 3 and the second half of 4** — `verifyEmail`, `confirmPendingRegistration`, and the
- * `signIn` callback. Called *after* `provisionAccount`, never before, for the reason
- * `attachCouponViewFromCookie` already carries: on a first admission the row that
- * `provisionAccount` writes is the one this needs to point at, and a moment earlier there is no
- * account to find.
+ * **Seams 2, 3, 5 and the second half of 4** — `verifyEmail`, `confirmPendingRegistration`,
+ * `createAccount` and the `signIn` callback. Called *after* `provisionAccount`, never before,
+ * for the reason `attachCouponViewFromCookie` already carries: on a first admission the row
+ * that `provisionAccount` writes is the one this needs to point at, and a moment earlier there
+ * is no account to find.
  *
  * Reads no cookie, by design — see this module's header. Finding no open row is an ordinary
  * outcome and not a failure: an account created before this feature shipped, or a lead who

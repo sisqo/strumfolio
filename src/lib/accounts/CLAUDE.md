@@ -47,11 +47,32 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   zeroes, since «0 songbooks» is a sentence about an empty account. The mock draws only the
   happy path for all seven cells, so a literal match of it silently drops every one of these
   branches — check them before checking anything cosmetic.
+- **Creating an account by hand is back on `/accounts` (2026-09-11), and the reason is the
+  quirk at the foot of this file.** v3.8 removed it as covered by self-service registration,
+  which is true of everybody who *asks* for an account and was never true of the two cases left:
+  the pre-`02ac495` repair that ends «delete and recreate the account from the Accounts admin
+  page», whose second half had been impossible since, and an address that will never find the
+  registration form. `createAccount` mirrors `confirmPendingRegistration` **minus the Telegram
+  notice** — nobody needs telling about the account they are creating with their own hands,
+  which is why the root `CLAUDE.md`'s «three callers» of `registrationNotice` is still three —
+  and **plus a password**, which the confirmation path inherits from the pending row and this
+  one has nowhere to get. The password is optional, and empty is an answer: `PasswordForm` and
+  `SendResetEmailRow` on the detail page are the rest of it, and Google needs none. A pending
+  registration on the address is **refused, never absorbed** — `Confirm now` is a button below
+  on the same screen and keeps the password the person actually chose. **`already-exists` is
+  guarded on the `accounts` row alone**, and not on the three tables `changeAccountEmail` checks
+  before a rename: `removeAccountAndContent` never deletes `signIns`, so guarding on that one
+  would refuse the second half of «delete and recreate» for every account that ever signed in —
+  which is every account the quirk affects. No newsletter opt-in, for
+  2026-09-03's reason: an operator cannot give that consent on somebody else's behalf.
+  `Accounts.dc.html` draws no such control, and that is the mock predating the decision rather
+  than a deviation to reconcile.
 - **`confirmPendingRegistration` is an attribution seam, not only a provisioning one.** It calls
   `provisionAccount` itself, so it must also call `freezeLeadAttribution` — without it every
   account created from this screen keeps a null pointer and disappears from every attribution
   read, all of which ask by the id. It must **not** read the attribution cookie: this code runs in
-  the operator's browser. See `lib/attribution/CLAUDE.md`.
+  the operator's browser. **`createAccount` is the fifth seam** on those same two rules, and the
+  only one that ordinarily finds nothing to freeze. See `lib/attribution/CLAUDE.md`.
 - **`PLAN_COLUMNS`, `PlanRow` and `storedPlanFrom` live in `planColumns.ts`, not in `read.ts`.**
   `read.ts` is `'use server'` and may export only async functions, so a synchronous mapper
   exported from it compiles clean under `tsc --noEmit` and then fails at `next build` with
@@ -99,3 +120,6 @@ shared accounts with view-only member roles — can get stuck unable to edit the
 The current permission code (`src/lib/roles.ts`, `src/lib/accounts/current.ts`) is correct
 and tested; the failure is leftover data on those rows, not a logic bug. Fix is to delete and
 recreate the account from the Accounts admin page, not to debug the permission code again.
+Both halves of that repair exist again as of 2026-09-11 — between v3.8 and that date this
+paragraph named a screen that could no longer do what it says, which is the argument that
+brought `createAccount` back.
