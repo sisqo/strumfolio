@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { CourtesyConfirmModal } from '@/components/CourtesyConfirmModal'
 import type { CourtesyKind } from '@/components/CourtesyConfirmModal'
-import { IconMail } from '@/components/icons'
+import { IconComment, IconSend } from '@/components/icons'
 
 interface Props {
   ownerEmail: string
@@ -14,10 +14,19 @@ interface Props {
 }
 
 /**
- * The two courtesy-email icons on one row of `/accounts` — one column, two independent
- * buttons, each with three states: **sendable** (dim, clickable), **sent** (solid, a `done`
+ * The two courtesy-email buttons in the Actions column of `/accounts` — two independent
+ * controls, each with three states: **sendable** (dim, clickable), **sent** (solid, a `done`
  * row exists, no longer clickable), and **blocked** (dim and disabled for a reason other than
  * "already sent" — the check-in before its thank-you, or the address opted out).
+ *
+ * Returns a fragment rather than its own wrapping element: the page draws one flex row per
+ * account (`.accounts-courtesy`) holding these two plus the row's own View control, so the
+ * three read as one "Actions" group rather than two groups sitting side by side.
+ *
+ * Different glyphs for the two, where a single `IconMail` used to stand for both and told
+ * them apart only by tooltip: `IconSend` is this app's own mark for something aimed at a
+ * reader (`Account Detail.dc.html`'s Outreach tab), which is what the thank-you is, first
+ * touch; `IconComment` is the check-in, which is a question rather than an announcement.
  *
  * State is seeded from `listCourtesyStatus()` (the initial page load) and flipped locally the
  * moment a send actually succeeds, so an operator sees the icon light up without a full page
@@ -36,7 +45,7 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
   const checkinBlocked = !thanksSent
 
   return (
-    <span className="accounts-courtesy">
+    <>
       <button
         type="button"
         className={`accounts-courtesy-icon${thanksSent ? ' is-sent' : ''}`}
@@ -51,7 +60,7 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
         }
         onClick={() => setOpen('thanks')}
       >
-        <IconMail size={13} />
+        <IconSend size={13} />
       </button>
       <button
         type="button"
@@ -77,7 +86,7 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
         }
         onClick={() => setOpen('checkin')}
       >
-        <IconMail size={13} />
+        <IconComment size={13} />
       </button>
 
       {open !== null && (
@@ -88,6 +97,6 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
           onSent={() => (open === 'thanks' ? setThanksSent(true) : setCheckinSent(true))}
         />
       )}
-    </span>
+    </>
   )
 }

@@ -9,7 +9,7 @@ import { CreateAccountForm } from '@/components/CreateAccountForm'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { IconChevronDown, IconChevronUp, IconGift, IconInfo, IconSearch } from '@/components/icons'
+import { IconChevronDown, IconChevronRight, IconChevronUp, IconGift, IconInfo, IconSearch } from '@/components/icons'
 import { auth } from '@/auth'
 import { listAccountPlans, listAllAccounts, listPendingRegistrations } from '@/lib/accounts/read'
 import type { AccountPlanLine, AccountSummary } from '@/lib/accounts/read'
@@ -148,10 +148,15 @@ interface Props {
  *
  * Laid out after `Accounts.dc.html` (v4.4): a title row with the pending
  * registrations as a pill on its right, four tabs with the search and the sort order on the
- * same line, and one table — avatar and address, a gift mark, the plan badge, the status,
- * the sign-in count, View. The tabs are links and the search is a plain GET form, so the
- * whole state lives in the URL and the page stays a server component with one client
- * component in it (`AutoSubmitSelect`, the sort order).
+ * same line, and one table — avatar and address, a gift mark, an Actions column, the plan
+ * badge, the status, the sign-in count. The tabs are links and the search is a plain GET
+ * form, so the whole state lives in the URL and the page stays a server component with one
+ * client component in it (`AutoSubmitSelect`, the sort order).
+ *
+ * Actions is three controls in one column, not the mock's separate Courtesy and View: the
+ * two courtesy sends (`CourtesyIcons`) and View itself, as a matching icon rather than a
+ * word, so a row's controls read as one group instead of two — drawn nowhere in
+ * `Accounts.dc.html`, the same kind of addition `CreateAccountForm` already is (2026-09-12).
  *
  * Offers creating an account again (2026-09-11), which v3.8 removed as covered by
  * self-service registration and automatic provisioning on any first sign-in. It covers
@@ -334,7 +339,7 @@ export default async function AccountsPage({ searchParams }: Props) {
                   </Link>
                 </span>
                 <span className="text-center">Gift</span>
-                <span className="text-center">Courtesy</span>
+                <span className="text-center">Actions</span>
                 <span>Plan</span>
                 <span>Status</span>
                 <span className="text-right">
@@ -343,7 +348,6 @@ export default async function AccountsPage({ searchParams }: Props) {
                     {query.sort === 'signins' && <IconChevronDown size={11} />}
                   </Link>
                 </span>
-                <span />
               </div>
 
               {pageRows.map(({ account, line, status, courtesy }) => {
@@ -371,13 +375,21 @@ export default async function AccountsPage({ searchParams }: Props) {
                         </span>
                       )}
                     </span>
-                    <span className="flex justify-center">
+                    <span className="accounts-courtesy">
                       <CourtesyIcons
                         ownerEmail={account.ownerEmail}
                         thanksSent={courtesy?.thanksSent ?? false}
                         checkinSent={courtesy?.checkinSent ?? false}
                         optedOut={courtesy?.optedOut ?? false}
                       />
+                      <Link
+                        href={`/accounts/${encodeURIComponent(account.ownerEmail)}`}
+                        className="accounts-courtesy-icon"
+                        title="View"
+                        aria-label={`View ${account.ownerEmail}`}
+                      >
+                        <IconChevronRight size={13} />
+                      </Link>
                     </span>
                     <span>{badge !== null && <span className={`accounts-plan ${badge.className}`}>{badge.label}</span>}</span>
                     <span className={`accounts-status${status?.tone === 'alert' ? ' is-alert' : status?.tone === 'faint' ? ' is-faint' : ''}`}>
@@ -385,11 +397,6 @@ export default async function AccountsPage({ searchParams }: Props) {
                     </span>
                     <span className="accounts-count" aria-label={signIns}>
                       {account.signInCount}
-                    </span>
-                    <span className="text-right">
-                      <Link href={`/accounts/${encodeURIComponent(account.ownerEmail)}`} className="accounts-view">
-                        View
-                      </Link>
                     </span>
                   </div>
                 )
