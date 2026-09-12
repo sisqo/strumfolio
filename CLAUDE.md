@@ -317,17 +317,30 @@ It now carries its own `AUTH_SECRET`, `ALLOWED_EMAILS` and `SONGBOOK_PLANS=on`.
 - **`AUTH_GOOGLE_*` is absent too**, and the build survives it. Google sign-in could not work on
   a preview regardless: the URL is not among the OAuth client's authorised redirect URIs, and
   adding each one by hand is exactly the manual step that section warns about.
-- **Every `*.vercel.app` URL answers 302, production's included.** `ssoProtection` is
-  `all_except_custom_domains`, so the exemption belongs to `strumfolio.com` and not to the
-  deployment behind it. An automated caller gets through with the automation bypass token as a
-  query parameter — and **only that parameter**: adding `x-vercel-set-bypass-cookie=false`
-  beside it turns the 400 back into a 307, which Paddle would count as a failed delivery.
+- **`all_except_custom_domains` means the *production* custom domain, and nothing else.** The
+  name reads as "any custom domain is exempt" and that is wrong — measured 2026-09-12 by adding
+  `preview.strumfolio.com`, binding it to the `paddle-checkout` branch, and watching it answer
+  the same 302 to `vercel.com/sso-api` that every `*.vercel.app` URL does, production's
+  included. So a custom domain on a *preview* deployment buys a readable, durable URL and no
+  change in protection at all. That is the better outcome of the two: the preview stays closed,
+  which matters here because its Turnstile keys are gone and its registration is open.
+- **An automated caller gets through with the automation bypass token as a query parameter —
+  and only that parameter.** Adding `x-vercel-set-bypass-cookie=false` beside it turns the 400
+  back into a 307, which Paddle counts as a failed delivery. The header form works too, but
+  Paddle's notification destinations send no custom headers, so the query parameter is the only
+  shape that helps.
 - **`strumfolio-sisqoz.vercel.app` is production.** It looks like a project-wide preview alias
   and is not: it resolves to the latest `main` deployment. Pointing a sandbox webhook at it
   would write sandbox subscriptions into the customers' database. A preview needs the
   *branch* alias, `strumfolio-git-<branch>-sisqoz.vercel.app`, which exists only once git has
   built that branch — a deployment made with `vercel deploy` from the CLI gets a hashed URL and
-  no branch alias.
+  no branch alias. **`preview.strumfolio.com` is bound to the branch in the project's Domains
+  settings** and is the durable name for the same thing: if the preview ever moves to another
+  branch, that binding changes in one place instead of in Paddle's destination config.
+- **A branch that points at an already-built commit does not deploy.** `paddle-checkout` was
+  created at `main`'s own HEAD and Vercel never built it — no check run, no deployment, nothing
+  to find. It is commit-SHA deduplication and not a broken integration; the first real commit on
+  the branch built immediately.
 - **`vercel integration add` rewrites `.env.local` too.** The warning above is written about
   `vercel env pull`, and it applies verbatim here: the command reported
   `- PADDLE_NOTIFICATION_WEBHOOK_SECRET` among its changes and took it out. Anything local that
