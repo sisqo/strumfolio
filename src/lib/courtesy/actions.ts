@@ -28,43 +28,11 @@ import { OUTREACH } from '@/lib/outreach/types'
 import type { OutreachFailure } from '@/lib/outreach/types'
 import { requestOrigin } from '@/lib/rateLimit'
 
+import type { CourtesyFailure, CourtesyResult } from './types'
 import { courtesyUnsubscribeToken } from './unsubscribe'
 
 const COURTESY_FROM = 'Francesco from Strumfolio <info@strumfolio.com>'
 const COURTESY_REPLY_TO = 'info@strumfolio.com'
-
-export type CourtesyFailure =
-  | 'not-allowed'
-  | 'no-database'
-  /** `COURTESY_UNSUBSCRIBE_SECRET` is unset — refused before anything is claimed. */
-  | 'no-secret'
-  | 'unknown-account'
-  /** This address has used the one-click link; sending would ignore it. */
-  | 'opted-out'
-  | 'suspended'
-  /** `courtesy_checkin` only: no `done` row for `courtesy_thanks` on this address yet. */
-  | 'send-thanks-first'
-  /** A `done` row already exists for this occurrence. */
-  | 'already-sent'
-  | 'in-flight'
-  | 'send-failed'
-  | 'failed'
-
-export type CourtesyResult = { ok: true } | { ok: false; reason: CourtesyFailure }
-
-export const COURTESY_MESSAGE: Record<CourtesyFailure, string> = {
-  'not-allowed': 'Only a global owner may send this.',
-  'no-database': 'No database configured: nothing can be sent.',
-  'no-secret': 'COURTESY_UNSUBSCRIBE_SECRET is not configured, so no unsubscribe link can be signed.',
-  'unknown-account': 'This account no longer exists. Reload the page.',
-  'opted-out': 'This reader unsubscribed from courtesy emails.',
-  suspended: 'This account is suspended.',
-  'send-thanks-first': 'Send the thank-you email first.',
-  'already-sent': 'This has already been sent to this account.',
-  'in-flight': 'Another send for this account started a moment ago. Wait for it to finish.',
-  'send-failed': 'The email did not go out. You can try again.',
-  failed: 'Could not send. Please try again.',
-}
 
 interface CourtesyAccountRow {
   id: number

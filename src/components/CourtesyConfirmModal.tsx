@@ -3,7 +3,8 @@
 import { useId, useRef, useState } from 'react'
 
 import { IconClose } from '@/components/icons'
-import { COURTESY_MESSAGE, sendCourtesyCheckin, sendCourtesyThanks } from '@/lib/courtesy/actions'
+import { sendCourtesyCheckin, sendCourtesyThanks } from '@/lib/courtesy/actions'
+import { COURTESY_MESSAGE } from '@/lib/courtesy/types'
 import { courtesyCheckinEmail, courtesyThanksEmail } from '@/lib/email/templates'
 import { useDialogA11y } from '@/lib/useDialogA11y'
 import { useOnline } from '@/lib/useOnline'
