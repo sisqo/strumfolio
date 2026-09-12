@@ -50,7 +50,7 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 | File | Covers |
 |---|---|
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
-| `src/lib/plans/CLAUDE.md` | plans, entitlements, the mock checkout and its two env flags |
+| `src/lib/plans/CLAUDE.md` | plans, entitlements, the mock checkout and its two env flags, which Paddle id the code holds, and how the catalogue is verified |
 | `src/lib/coupons/CLAUDE.md` | campaigns, `liveDiscount`, and what a coupon is not allowed to decide |
 | `src/lib/accounts/CLAUDE.md` | the admin surface, names, the newsletter preference, the old-account quirk |
 | `src/lib/music/CLAUDE.md` | the song chips, alternate chord shapes, German and Nashville notation |
@@ -293,6 +293,90 @@ dashboard writes.
 - **`vercel integration resource disconnect`/`remove` is blocked by the auto-mode
   classifier**, so the old `strumfolio-db` resource still shows as "connected" in `vercel
   integration ls` with none of its env vars left anywhere — cosmetic, harmless to leave.
+
+## Paddle: three MCP servers, two catalogues, and one promise about tax
+
+The payment processor. Nothing in the app talks to it yet — the mock checkout still writes the
+columns a real webhook will write (`plans/CLAUDE.md`) — but the sandbox catalogue exists since
+2026-09-12 and the facts below are the ones that cost something to rediscover.
+
+**Three MCP servers, three different authentications, and the server name *is* the
+environment** — there is no flag to pass and no way to point one at the other:
+
+- **`paddle-sandbox`** (`sandbox-mcp.paddle.com/mcp`) — a `pdl_sdbx_…` API key held in the
+  plugin's own user config, injected as `Authorization: Bearer ${user_config.sandbox_api_key}`.
+  Deliberately **not** an env var and nothing in this repo: `.env.local` never sees it, so
+  `vercel env pull` cannot clobber it and no script picks it up. With no key the server answers
+  401 at connect time and its tools are simply absent from the session — the failure looks like
+  "the capability does not exist", not like "the token is wrong", which is the one way to lose
+  an hour here. Set it through `/plugin`, not by editing a file: there is no `claude plugin
+  config` verb.
+- **`paddle-live`** (`mcp.paddle.com/mcp`) — OAuth in the browser, no key. **The connection
+  starts read-only**, so a write answering `forbidden` is the expected state and not a bug;
+  write permissions are granted under Paddle → Connectors → MCP, capped by that Paddle user's
+  role.
+- **`paddle-docs`** (`paddlehq.mcp.kapa.ai`) — OAuth, documentation search only, no account
+  data.
+
+The two catalogues are **completely separate**: a `pro_…`/`pri_…` id from sandbox does not
+exist in live, and vice versa. Always `search` before `execute` — method paths are camelCase
+(`client.pricingPreview.preview`) while body params and response fields are snake_case
+(`tax_category`, `unit_price`, `billing_cycle`), and an unknown parameter throws rather than
+being ignored.
+
+### The sandbox catalogue
+
+Four products, seven prices, created 2026-09-12. `free` has no product and must never get one:
+it is what an account already is, not something that is sold.
+
+| Plan | Product | Year | Month |
+|---|---|---|---|
+| Standard | `pro_01m2avn0cfjpvx8kadw23he2td` | `pri_01m2avn0eetkfxqcar0twcjrn6` | `pri_01m2avn0g2xgpv2hhz14gqrm7s` |
+| Plus | `pro_01m2avn0kfrqhah231rbsaw2cc` | `pri_01m2avn0n3c0amp7bxmvecdnvr` | `pri_01m2avn0q6d87rcrnys59basw1` |
+| Premium | `pro_01m2avn0sqywy1naz9apb8w23p` | `pri_01m2avn0xgm83yjc4bccw952gc` | `pri_01m2avn112qdts12bqcvx1mxyz` |
+| Lifetime | `pro_01m2avn14bpkya89e6cdzkaq6q` | — | `pri_01m2avn164vxawbm08p2khskyp` |
+
+Every price carries `custom_data: {plan, cycle}` and every product `{plan}`, so a webhook maps
+a `pri_…` back to one of `PRICES`' rows from the payload itself — no second table to keep in
+step with this one, which is the failure mode every other "two places must agree" note in this
+file describes.
+
+### `tax_mode: 'internal'` is what makes `prices.ts`'s central sentence true
+
+`prices.ts` promises that «the number written here is the number the customer pays, wherever
+they are». **That is a property of the Paddle price, not of this repository**, and it holds
+only because all seven prices set `tax_mode: 'internal'` explicitly. Omitting the field
+defaults it to `account_setting`; if that account setting is ever tax-exclusive, VAT is added
+*on top* and the promise — plus /pricing's lede, which spends a sentence on it — becomes false
+in production with no code change and nothing to find. Measured against the sandbox on
+2026-09-12 with `pricingPreview`, Standard yearly:
+
+| Country | Taxable base | VAT | **Total** |
+|---|---|---|---|
+| Italy (22%) | 28.68 | 6.31 | **34.99** |
+| Germany (19%) | 29.40 | 5.59 | **34.99** |
+
+The base moves and the total does not — which is the whole claim, demonstrated rather than
+inferred. Verify this way after any catalogue change, on the *total*: a `200` from
+`prices.create` proves only that the field was accepted. **Never `tax_mode: 'location'`**,
+whose per-jurisdiction behaviour is the exact opposite of "wherever they are".
+
+Everything else about the catalogue is checked by `scripts/verify-paddle-catalogue.ts`, which
+compares it against `PRICES` row by row — `--sandbox` matches on the stamped `custom_data` and
+needs no ids, and since no Paddle credential lives in this repo the catalogue is fetched
+through the MCP server and passed in with `--from`. `plans/CLAUDE.md` has the rest.
+
+Three more properties of that catalogue, each of which is a decision rather than a default:
+
+- **`tax_category` cannot be changed after a product's first sale.** All four are `saas`, and
+  **the live catalogue must use the same value** or the two environments issue different
+  invoices for the same product.
+- **No price carries a `trial_period`, and that is copy rather than an oversight.** The Free
+  card on `/pricing` says «no card, no end date, no trial to run out», and the lede spends a
+  sentence denying the trial reading. A trial in Paddle would contradict copy already shipped.
+- **No `unit_price_overrides`.** Euro only, as `prices.ts` argues at length: a localised price
+  is a claim a statically generated page cannot make, and what a non-euro cardholder's bank
+  charges is not ours to promise.
 
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 

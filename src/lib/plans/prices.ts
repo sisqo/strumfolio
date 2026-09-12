@@ -10,15 +10,13 @@
  * checkout is written and names the amounts a second time.
  *
  * **This table and Paddle's catalogue are two things that must agree, and nothing in this
- * repository can check that they do.** Paddle holds the prices that are actually charged;
- * this holds the prices that are shown. Until the checkout exists there is no API call to
- * compare them with, so the agreement is maintained by hand, in one direction: a price is
- * changed in Paddle first and here second, in the same change, and the Paddle price id is
- * written into `PlanPrice.paddleId` at the same time. The day the checkout lands, the
- * verification that replaces the manual rule is a single script that reads Paddle's
- * `/prices` and asserts every `paddleId` here still carries these `amount` values — which
- * is why the field exists now, empty, rather than being added later: an empty string is a
- * visible gap in a table, and a missing field is not.
+ * repository can check that they do on its own.** Paddle holds the prices that are actually
+ * charged; this holds the prices that are shown. The comparison itself now exists —
+ * `catalogue.ts`, run by `scripts/verify-paddle-catalogue.ts` — but it needs a catalogue to
+ * read and this repo holds no Paddle credential, so it is something a person runs and not
+ * something the build does. Until the live ids are written into the `paddleId` fields below,
+ * that agreement is still maintained by hand, in one direction: a price is changed in Paddle
+ * first and here second, in the same change, and the id is written in at the same time.
  *
  * Euro only, and tax-inclusive: the number written here is the number the customer pays,
  * wherever they are — a statement about *tax*, and about nothing else. It does not say what a
@@ -79,10 +77,20 @@ export interface PlanPrice {
   /** Euro, tax included, as it is printed: no thousands separator, `.` as the decimal point. */
   amount: string
   /**
-   * The id of the matching price in Paddle's catalogue, or `''` while the catalogue does not
-   * exist yet. Empty is honest and a placeholder like `'pri_TODO'` is not: an id-shaped string
-   * that resolves to nothing is the one value a future checkout could pass to Paddle without
-   * noticing, where an empty string cannot survive the first call.
+   * The id of the matching price in Paddle's **live** catalogue, or `''` while that catalogue
+   * does not exist yet. Empty is honest and a placeholder like `'pri_TODO'` is not: an
+   * id-shaped string that resolves to nothing is the one value a future checkout could pass to
+   * Paddle without noticing, where an empty string cannot survive the first call.
+   *
+   * Live specifically, and that is the decision rather than the obvious reading: one string
+   * cannot hold two environments' ids, and the catalogue that takes real money is the one
+   * whose agreement with this table is worth asserting. The sandbox catalogue already exists —
+   * the root `CLAUDE.md` lists its ids — and they are deliberately not here, because a sandbox
+   * id in this field would point the verification script at the wrong catalogue from
+   * production. `verify-paddle-catalogue.ts --sandbox` finds those prices by the
+   * `{plan, cycle}` stamped on them instead, so checking sandbox needs no ids and no
+   * configuration; a sandbox *checkout* needs them at runtime and reads them from the
+   * environment.
    */
   paddleId: string
 }
