@@ -519,6 +519,16 @@ export function IconClose(props: IconProps) {
   )
 }
 
+/** A map pin: the cue that asks a reader to put a note somewhere in the song. */
+export function IconPin(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20.5s7.5-4.6 7.5-9.8A5.2 5.2 0 0 0 12 5.8a5.2 5.2 0 0 0-7.5 4.9c0 5.2 7.5 9.8 7.5 9.8z" />
+      <circle cx="12" cy="10.6" r="1.9" />
+    </Icon>
+  )
+}
+
 /** A wrapped box with its bow: a plan somebody was given, on the `/accounts` list. */
 export function IconGift(props: IconProps) {
   return (

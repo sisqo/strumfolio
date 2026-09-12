@@ -94,19 +94,63 @@ export function commentFromRow(row: CommentRow): SongComment {
 }
 
 /**
- * What the open card is about: a stack of notes being read, or a point being written at.
- *
- * Here rather than beside the component that renders it, so the provider can hold this as
- * state without the component and the provider importing each other.
+ * Where on the screen something was tapped. Here rather than beside the component that
+ * renders it, so the provider can hold it as state without the two importing each other.
  */
 export interface CardPoint {
   x: number
   y: number
 }
 
-export type CardSubject =
-  | { kind: 'read'; ids: string[]; at: CardPoint }
-  | { kind: 'write'; anchor: CommentAnchor; label: string; at: CardPoint }
+/** A stack of notes opened for reading — every note sharing one point, since one card
+ *  shows them together. */
+export interface OpenNotes {
+  ids: string[]
+  at: CardPoint
+}
+
+/**
+ * A note being written: what it will hang on, what that reads as, and where the reader
+ * picked it.
+ *
+ * It used to be the second half of the card's own subject — `{ kind: 'write', … }` beside
+ * `{ kind: 'read', … }` — on the reasoning that both opened the same card. They no longer
+ * do: a draft is composed in the notes panel wherever there is one on screen, and only
+ * falls back to a card at the point when there is not. So the thing being written outlived
+ * the card it used to be a mode of, and it is its own shape now.
+ *
+ * `at` survives that move because the fallback still needs it, and because it costs one
+ * pair of numbers taken at the moment of the tap — by the time anything renders, the
+ * element that was tapped is one of hundreds and nothing else identifies it.
+ */
+export interface NoteDraft {
+  anchor: CommentAnchor
+  label: string
+  at: CardPoint
+}
+
+/**
+ * What number a note anchored *here* would carry — the badge it will get, worked out
+ * before it exists.
+ *
+ * The panel needs it twice over: on the draft being written, and on the placeholder
+ * standing in for one not yet placed. Derived from the same rule `inReadingOrder` sorts
+ * by rather than reimplementing it loosely, because the two disagreeing would mean a
+ * draft numbered 4 turning into a badge numbered 1 the moment it was saved.
+ *
+ * `<=` on a matching offset, not `<`: a note sharing a point with an existing one is the
+ * newer of the two, and `inReadingOrder` breaks that tie by age.
+ */
+export function positionFor(comments: readonly SongComment[], anchor: CommentAnchor): number {
+  const before = comments.filter(
+    (comment) =>
+      comment.anchor !== null &&
+      (comment.anchor.blockIndex < anchor.blockIndex ||
+        (comment.anchor.blockIndex === anchor.blockIndex &&
+          comment.anchor.charOffset <= anchor.charOffset)),
+  )
+  return before.length + 1
+}
 
 /** An orphan is exactly a comment with no anchor. One test, named once. */
 export function isOrphan(comment: SongComment): boolean {

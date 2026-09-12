@@ -5,7 +5,6 @@ import { Fragment, useMemo, useState } from 'react'
 import { ChordDiagram } from '@/components/ChordDiagram'
 import { ChordPopup } from '@/components/ChordPopup'
 import { usePrefs } from '@/components/PrefsProvider'
-import type { CommentsMode } from '@/components/CommentsProvider'
 import { IconChevronDown, IconChevronUp, IconTab } from '@/components/icons'
 import { type AnchorMap, type PartAnchor, notesAt } from '@/lib/comments/anchorMap'
 import type { CardPoint, CommentAnchor, SongComment } from '@/lib/comments/types'
@@ -40,10 +39,17 @@ export interface SheetNotes {
   anchors: AnchorMap
   /** In reading order: the badge numbers are positions in this list. */
   comments: SongComment[]
-  mode: CommentsMode
+  /** Whether the notes are shown at all — false gives back the line exactly as written. */
+  visible: boolean
+  /**
+   * Whether every word and chord is a target. Two booleans rather than the mode itself,
+   * because this component takes plain props: the reading states it would have to know
+   * about are the provider's vocabulary, and all it needs from them is these two answers.
+   */
+  armed: boolean
   /** A badge was tapped: every note sharing that point, since one card stacks them. */
   onOpen: (ids: string[], at: CardPoint) => void
-  /** A word or a chord was tapped while `adding` was armed. */
+  /** A word or a chord was tapped while the sheet was armed. */
   onPlace: (anchor: CommentAnchor, at: CardPoint) => void
 }
 
@@ -135,7 +141,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
    */
   let lyricLine = -1
 
-  const showNotes = notes !== undefined && notes.mode !== 'hidden'
+  const showNotes = notes !== undefined && notes.visible
   const orphans = showNotes ? notes.comments.filter((comment) => comment.anchor === null) : []
 
   /*
@@ -185,7 +191,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
 
       <div
         translate="no"
-        className={showNotes && notes.mode === 'adding' ? 'song-sheet is-adding' : 'song-sheet'}
+        className={showNotes && notes.armed ? 'song-sheet is-adding' : 'song-sheet'}
         style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}
       >
         {song.sections.map((section, sectionIndex) => (
@@ -511,7 +517,7 @@ function SheetLine({
                         number={lyric.number}
                         label={part.text}
                         stacked={lyric.ids.length}
-                        interactive={notes.mode !== 'adding'}
+                        interactive={!notes.armed}
                         onOpen={(at) => notes.onOpen(lyric.ids, at)}
                       />
                     )}
@@ -520,7 +526,7 @@ function SheetLine({
                         number={chordNote.number}
                         label={part.chord ?? ''}
                         stacked={chordNote.ids.length}
-                        interactive={notes.mode !== 'adding'}
+                        interactive={!notes.armed}
                         onOpen={(at) => notes.onOpen(chordNote.ids, at)}
                       />
                     )}
@@ -544,7 +550,7 @@ function SheetLine({
                         notes === undefined || anchor === undefined
                           ? undefined
                           : {
-                              mode: notes.mode,
+                              armed: notes.armed,
                               marked: (chordNote?.ids.length ?? 0) > 0,
                               onPlace: (at: CardPoint) =>
                                 notes.onPlace({ ...anchor, target: 'chord' }, at),
@@ -552,7 +558,7 @@ function SheetLine({
                       }
                     />
                   )}
-                  {notes !== undefined && anchor !== undefined && notes.mode === 'adding' ? (
+                  {notes !== undefined && anchor !== undefined && notes.armed ? (
                     <button
                       type="button"
                       className="sheet-lyric sheet-lyric-target"
@@ -679,9 +685,9 @@ function SheetChord({
    * opening the fingering — the chord slot is the only control on the sheet that already
    * had a job, and arming the mode has to take it over rather than compete with it.
    */
-  note?: { mode: CommentsMode; marked: boolean; onPlace: (at: CardPoint) => void }
+  note?: { armed: boolean; marked: boolean; onPlace: (at: CardPoint) => void }
 }) {
-  const arming = note?.mode === 'adding'
+  const arming = note?.armed === true
 
   if (raw === null) {
     // Nothing to note and nothing to play: an empty slot stays inert even while arming,

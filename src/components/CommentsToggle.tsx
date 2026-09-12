@@ -1,16 +1,21 @@
 'use client'
 
 /**
- * The three-segment track in the song header: hidden, visible, adding.
+ * The three-segment track in the song header: hidden, visible, and the pen that arms the
+ * page for a new note.
  *
  * Three states rather than two, and only the active segment carries a word, so the control
  * stays the width of one label plus two icons and never grows past the header row. The
  * count rides in the middle segment, where it answers «are there any?» without a fourth
  * element.
  *
- * Arming `adding` tints the **whole track**, not just its own segment: while it is on,
- * every word in the song behaves differently, and a control that looked merely selected
- * would undersell that.
+ * **Armed, the pen fills and says «Placing».** The whole track used to take a tint instead,
+ * on the reasoning that arming changes what every word in the song does and a control that
+ * looked merely selected would undersell it. The reasoning held; the tint was the wrong
+ * answer to it, because a shade of blue is not an instruction — a reader who pressed the pen
+ * was left on a page that looked exactly as before, with nothing saying a tap was expected
+ * or what it would do. A word says it. The tint is gone, and the fill sits on the segment
+ * that owns the state rather than on its two neighbours as well.
  *
  * Not in `ControlBar`. That dock's rule — a control tapped mid-song lives out here, one set
  * once lives behind the settings button — does not decide this one, because this is not a
@@ -18,29 +23,29 @@
  * both reader boards put it.
  */
 
-import type { CommentsMode } from '@/components/CommentsProvider'
 import { IconComment, IconCommentAdd, IconCommentOff } from '@/components/icons'
 
 export function CommentsToggle({
-  mode,
+  hidden,
+  armed,
   count,
-  onChange,
+  onShow,
+  onToggleArm,
 }: {
-  mode: CommentsMode
+  hidden: boolean
+  /** True while a note is being placed or written — `waiting` or `composing`. */
+  armed: boolean
   count: number
-  onChange: (mode: CommentsMode) => void
+  onShow: (visible: boolean) => void
+  onToggleArm: () => void
 }) {
   return (
-    <span
-      className={mode === 'adding' ? 'comments-toggle is-arming' : 'comments-toggle'}
-      role="group"
-      aria-label="Notes"
-    >
+    <span className="comments-toggle" role="group" aria-label="Notes">
       <button
         type="button"
-        className={mode === 'hidden' ? 'comments-segment is-on' : 'comments-segment'}
-        onClick={() => onChange('hidden')}
-        aria-pressed={mode === 'hidden'}
+        className={hidden ? 'comments-segment is-on' : 'comments-segment'}
+        onClick={() => onShow(false)}
+        aria-pressed={hidden}
         aria-label="Hide notes"
         title="Hide notes"
       >
@@ -49,9 +54,9 @@ export function CommentsToggle({
 
       <button
         type="button"
-        className={mode === 'visible' ? 'comments-segment is-on' : 'comments-segment'}
-        onClick={() => onChange('visible')}
-        aria-pressed={mode === 'visible'}
+        className={hidden ? 'comments-segment' : 'comments-segment is-on'}
+        onClick={() => onShow(true)}
+        aria-pressed={!hidden}
         title="Notes are visible"
       >
         <IconComment size={17} />
@@ -63,13 +68,20 @@ export function CommentsToggle({
 
       <button
         type="button"
-        className={mode === 'adding' ? 'comments-segment is-on' : 'comments-segment'}
-        onClick={() => onChange(mode === 'adding' ? 'visible' : 'adding')}
-        aria-pressed={mode === 'adding'}
-        aria-label={mode === 'adding' ? 'Stop adding notes' : 'Tap a word or a chord to write a note'}
-        title="Tap a word or a chord to write a note"
+        className={armed ? 'comments-segment is-placing' : 'comments-segment'}
+        onClick={onToggleArm}
+        aria-pressed={armed}
+        aria-label={armed ? 'Stop adding a note' : 'Add a note on a word or a chord'}
+        title={armed ? 'Stop adding a note' : 'Add a note on a word or a chord'}
       >
         <IconCommentAdd size={17} />
+        {/*
+          * Only while armed, and that asymmetry is the point: idle, the pen is one icon in a
+          * row of icons; armed, it is the thing on screen that says what the page is waiting
+          * for. A word that were always there would make it a third label competing with
+          * «Notes» for a header that has none to spare.
+          */}
+        {armed && <span className="comments-placing-label">Placing</span>}
       </button>
     </span>
   )

@@ -20,31 +20,83 @@ import {
   readOutbox,
   writeComments,
 } from '@/lib/comments/store'
-import { type CardSubject, type CommentAnchor, type SongComment, inReadingOrder } from '@/lib/comments/types'
+import {
+  type CardPoint,
+  type CommentAnchor,
+  type NoteDraft,
+  type OpenNotes,
+  type SongComment,
+  inReadingOrder,
+  positionFor,
+} from '@/lib/comments/types'
 
 /**
- * Three states, not two — and the third is not merely "selected".
+ * Four states, and writing a note is two of them.
  *
- * `adding` arms every word and every chord on the page as a target, which is destructive
- * of the reading surface, so the control that turns it on has to look armed. `hidden`
- * gives back exactly the line as it was written, badges and all removed, which is the
- * only state in which the sheet wraps the way it does with the feature switched off.
+ * It used to be three, with one `adding` covering both halves of putting a note down. That
+ * is the flow this split exists to repair: a reader who armed it was left on a page that
+ * looked exactly as before, with nothing anywhere saying a tap was expected or what it
+ * would do. Naming the two halves is what lets each say its own thing — `waiting` can ask
+ * for the tap, `composing` can show the note being written and what it ended up attached
+ * to.
+ *
+ * Both arm every word and every chord on the page as a target, which is destructive of the
+ * reading surface, so the control that turns them on has to look armed. `composing` stays
+ * armed on purpose: picking a second word before saving is how a reader corrects a mis-tap,
+ * and disarming would make that cost a cancel and a fresh start.
+ *
+ * `hidden` gives back exactly the line as it was written, badges and all removed, which is
+ * the only state in which the sheet wraps the way it does with the feature switched off.
  */
-export type CommentsMode = 'hidden' | 'visible' | 'adding'
+export type CommentsMode = 'hidden' | 'visible' | 'waiting' | 'composing'
+
+/**
+ * The state as one value, so the two halves cannot drift apart.
+ *
+ * `composing` carries its own draft rather than sitting beside a nullable one: a mode
+ * saying a note is being written while no note is being written is a state this way
+ * cannot represent, and every surface reads the draft off the mode that guarantees it.
+ */
+type Session =
+  | { kind: 'hidden' }
+  | { kind: 'visible' }
+  | { kind: 'waiting' }
+  | { kind: 'composing'; draft: NoteDraft }
 
 interface CommentsValue {
   comments: SongComment[]
   mode: CommentsMode
-  setMode: (mode: CommentsMode) => void
+  /** Whether every word and chord is a target — `waiting` or `composing`, asked once here
+   *  rather than compared against two strings everywhere it matters. */
+  armed: boolean
+  /** The note being written, non-null exactly while `mode` is `composing`. */
+  draft: NoteDraft | null
+  /** The two states that are a reader's *choice*; the other two are armed, not chosen. */
+  show: (visible: boolean) => void
+  /** Ask for a word or a chord. */
+  arm: () => void
+  /** A word or a chord was picked: this is the note's anchor. */
+  place: (anchor: CommentAnchor, label: string, at: CardPoint) => void
+  /** Back to reading, whichever half we were in. */
+  cancel: () => void
+  /** Write the draft down. Silently does nothing on an empty body or with no draft. */
+  commit: (body: string) => void
+  /**
+   * The note just written, for the moment of confirmation that follows it — and it earns
+   * its place by answering the one question the act itself cannot: a reader typing into a
+   * panel on the right has no way to see the badge appear in the song, so this says which
+   * number landed on which word. Cleared on a timer.
+   */
+  saved: { number: number; label: string } | null
   /** How many notes are waiting for a network, for the pending dot. */
   pending: number
   /**
-   * The card currently open, held here rather than in either surface that opens one: a
-   * badge on the sheet and a row in the rail open the same card, and two copies of this
-   * state would let both be open at once.
+   * The stack currently open for reading, held here rather than in either surface that
+   * opens one: a badge on the sheet and a row in the panel open the same card, and two
+   * copies of this state would let both be open at once.
    */
-  open: CardSubject | null
-  setOpen: (subject: CardSubject | null) => void
+  open: OpenNotes | null
+  setOpen: (subject: OpenNotes | null) => void
   add: (anchor: CommentAnchor, anchorLabel: string, body: string) => void
   edit: (id: string, body: string) => void
   remove: (id: string) => void
@@ -74,9 +126,10 @@ async function send(entry: OutboxEntry): Promise<boolean> {
 
 export function CommentsProvider({ songSlug, children }: { songSlug: string; children: React.ReactNode }) {
   const [comments, setComments] = useState<SongComment[]>([])
-  const [mode, setModeState] = useState<CommentsMode>('visible')
+  const [session, setSession] = useState<Session>({ kind: 'visible' })
+  const [saved, setSaved] = useState<{ number: number; label: string } | null>(null)
   const [pending, setPending] = useState(0)
-  const [open, setOpen] = useState<CardSubject | null>(null)
+  const [open, setOpen] = useState<OpenNotes | null>(null)
 
   /*
    * The reader's choice about the notes, re-applied on every mount — and this provider
@@ -91,18 +144,28 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
    * point of asking.
    */
   useLayoutEffect(() => {
-    if (readNotesHidden()) setModeState('hidden')
+    if (readNotesHidden()) setSession({ kind: 'hidden' })
   }, [])
 
   /*
-   * Only `hidden` and `visible` are written; `adding` is armed state, not a choice — see
-   * `notesVisibility.ts`. It still moves the reader into `adding` here, it just leaves
-   * whatever they last chose standing behind it, so stopping brings them back to it.
+   * Only the two chosen states are written; the two armed ones are not a choice — see
+   * `notesVisibility.ts`. Nothing restores a reader into an armed page, waiting for a tap
+   * they meant to make yesterday.
    */
-  const setMode = useCallback((next: CommentsMode) => {
-    setModeState(next)
-    if (next !== 'adding') writeNotesHidden(next === 'hidden')
+  const show = useCallback((visible: boolean) => {
+    setSession({ kind: visible ? 'visible' : 'hidden' })
+    writeNotesHidden(!visible)
   }, [])
+
+  const arm = useCallback(() => setSession({ kind: 'waiting' }), [])
+
+  const place = useCallback(
+    (anchor: CommentAnchor, label: string, at: CardPoint) =>
+      setSession({ kind: 'composing', draft: { anchor, label, at } }),
+    [],
+  )
+
+  const cancel = useCallback(() => setSession({ kind: 'visible' }), [])
 
   // Kept in lockstep with every write so two changes in one flush merge against each
   // other rather than both against what render last saw — the same trick `PrefsProvider`
@@ -143,6 +206,7 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
     setComments(cached)
     setPending(readOutbox().length)
     setOpen(null)
+    setSaved(null)
   }, [songSlug])
 
   useEffect(() => {
@@ -179,7 +243,7 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
   }, [drain])
 
   const add = useCallback(
-    (anchor: CommentAnchor, anchorLabel: string, body: string) => {
+    (anchor: CommentAnchor, anchorLabel: string, body: string): SongComment => {
       const now = new Date().toISOString()
       const comment: SongComment = {
         // Minted here, not by the database: a note written with no signal needs an
@@ -194,9 +258,46 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
       }
       store([...ref.current, comment])
       queue({ kind: 'save', songSlug, comment })
+      return comment
     },
     [queue, songSlug, store],
   )
+
+  /*
+   * Writes the draft down and says so.
+   *
+   * The number it reports is the one the *badge* will carry, read back out of
+   * `inReadingOrder` rather than counted as "one more than there were" — the notes are
+   * numbered by where they sit in the song, so a note added to the first verse of a song
+   * that already has three takes number 1 and pushes the rest down. Announcing it as
+   * number 4 would name a badge that does not exist.
+   */
+  const commit = useCallback(
+    (body: string) => {
+      if (session.kind !== 'composing') return
+      const text = body.trim()
+      if (text === '') return
+
+      const { anchor, label } = session.draft
+      const number = positionFor(ref.current, anchor)
+      add(anchor, label, text)
+
+      setSession({ kind: 'visible' })
+      setSaved({ number, label })
+    },
+    [add, session],
+  )
+
+  /*
+   * The confirmation clears itself, and the timer is keyed on the note it belongs to so a
+   * second save restarts it rather than inheriting the first one's remaining time. Cleared
+   * on unmount too, which here means moving to another song mid-flight.
+   */
+  useEffect(() => {
+    if (saved === null) return
+    const timer = setTimeout(() => setSaved(null), 3200)
+    return () => clearTimeout(timer)
+  }, [saved])
 
   const edit = useCallback(
     (id: string, body: string) => {
@@ -218,8 +319,25 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
   )
 
   const value = useMemo<CommentsValue>(
-    () => ({ comments: inReadingOrder(comments), mode, setMode, pending, open, setOpen, add, edit, remove }),
-    [comments, mode, setMode, pending, open, add, edit, remove],
+    () => ({
+      comments: inReadingOrder(comments),
+      mode: session.kind,
+      armed: session.kind === 'waiting' || session.kind === 'composing',
+      draft: session.kind === 'composing' ? session.draft : null,
+      show,
+      arm,
+      place,
+      cancel,
+      commit,
+      saved,
+      pending,
+      open,
+      setOpen,
+      add,
+      edit,
+      remove,
+    }),
+    [comments, session, show, arm, place, cancel, commit, saved, pending, open, add, edit, remove],
   )
 
   return <CommentsContext.Provider value={value}>{children}</CommentsContext.Provider>

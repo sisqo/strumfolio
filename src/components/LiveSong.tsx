@@ -66,8 +66,18 @@ function useSequence({ series, siblings }: Sequence): Series | null {
 
 /** The three-segment track, in the header row beside Edit — where both reader boards put it. */
 function HeadingNotes() {
-  const { comments, mode, setMode } = useComments()
-  return <CommentsToggle mode={mode} count={comments.length} onChange={setMode} />
+  const { comments, mode, armed, show, arm, cancel } = useComments()
+  return (
+    <CommentsToggle
+      hidden={mode === 'hidden'}
+      armed={armed}
+      count={comments.length}
+      onShow={show}
+      /* The pen is a switch, not a one-way door: pressing it again while a note is half
+         written is the fastest way out of a flow started by mistake. */
+      onToggleArm={armed ? cancel : arm}
+    />
+  )
 }
 
 /**
@@ -172,7 +182,7 @@ export function SongHeading({
  */
 export function LiveSheet() {
   const { song, parsed } = useSong()
-  const { comments, mode, setOpen } = useComments()
+  const { comments, mode, armed, setOpen, place } = useComments()
 
   const anchors = useMemo(() => buildAnchorMap(song.body), [song.body])
 
@@ -182,10 +192,13 @@ export function LiveSheet() {
       notes={{
         anchors,
         comments,
-        mode,
-        onOpen: (ids, at) => setOpen({ kind: 'read', ids, at }),
-        onPlace: (anchor, at) =>
-          setOpen({ kind: 'write', anchor, label: labelFor(fromSource(song.body), anchor), at }),
+        visible: mode !== 'hidden',
+        armed,
+        onOpen: (ids, at) => setOpen({ ids, at }),
+        /* Picking a word does not open anything by itself any more — it fills in the half
+           of the draft the reader had not yet said. Where that draft is then *shown* is
+           `LiveComments`' business, and depends on whether the notes panel is on screen. */
+        onPlace: (anchor, at) => place(anchor, labelFor(fromSource(song.body), anchor), at),
       }}
     />
   )

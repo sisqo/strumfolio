@@ -16,10 +16,11 @@
  * hoisting the state above the key would fix the same thing, but only until a reload, and
  * on stage the app is reloaded by every stumble back into it.
  *
- * **A boolean, not a `CommentsMode`.** The mode has three states and only two of them are
- * a choice: `adding` arms every word on the page as a target, and restoring a reader into
- * it — page armed, waiting for a tap they made yesterday — is never what they meant. It
- * collapses to `visible` here by never being written.
+ * **A boolean, not a `CommentsMode`.** The mode has four states and only two of them are
+ * a choice: `waiting` and `composing` arm every word on the page as a target, and restoring
+ * a reader into either — page armed, waiting for a tap they meant to make yesterday, or
+ * holding a half-written note about a word they no longer remember picking — is never what
+ * they meant. Both collapse to `visible` here by never being written.
  */
 
 const KEY = 'songs:notes-hidden'
