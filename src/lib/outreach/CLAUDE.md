@@ -5,13 +5,19 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
 Everything else in this repo is something a reader does; this is the one thing the platform
 does to them. A birthday greeting, an upgrade offer carrying a voucher, whatever joins them:
-the engine is written and **no action is built yet** — `HANDLERS` is still all `null`, the
-state it was deliberately left in, and the two kinds declared beside it exist so the shape of a
-definition answers to a real example.
+the engine is written and **`birthday_greeting`/`upgrade_voucher` are not built** — their
+`HANDLERS` entries are `null`, the state they were deliberately left in, and both are declared
+so the shape of a definition answers to a real example rather than to prose alone.
 
-One message does go out, and it is the exception the first bullet below is about:
-`gift_notice` is composed and sent from `/accounts/[email]`'s Plan & gift tab and only
-*recorded* here. So «nothing is built» is true of the engine and false of the table.
+**Three kinds go out for real, and none of them runs through this engine's own dispatch.**
+`gift_notice` is composed and sent from `/accounts/[email]`'s Plan & gift tab;
+`courtesy_thanks`/`courtesy_checkin` (`lib/courtesy/`) are composed and sent from icons on
+`/accounts`' list. All three are only *recorded* here — `outreach_actions`, the claim/settle
+path in `claim.ts` — and all three carry `trigger: 'elsewhere'` and a `null` handler for the
+same reason: each has a refusal `runOutreach` cannot express (a gift not yet given, an address
+opted out, a check-in with no thank-you sent first), and a handler is called with an
+`OutreachTarget` and nothing else, by design. So «nothing is built» is true of `HANDLERS` and
+false of the table — for three kinds now, not one.
 
 **And since 2026-09-11 nothing calls the engine at all.** `OutreachPanel` was redesigned to the
 mock, which draws that tab as a log and nothing else, so `runOutreachNow`, `skipOutreach` and
@@ -22,26 +28,32 @@ describing a capability with no button left. The one that is now unreachable rat
 unbuilt is **`skipOutreach`**: `suppressed` is a first-class outcome this deploy can still store
 and no longer offers any way to write.
 
-- **One kind is recorded here and not run from here.** `gift_notice` carries
-  `trigger: 'elsewhere'`: the moment belongs to the Plan & gift tab, where an operator gives a
-  plan by hand, and `sendGiftNotice` (`accounts/actions.ts`) claims and settles its row itself
-  because the message carries two fields somebody typed a moment earlier — a handler is called
-  with an `OutreachTarget` and nothing else, and widening that for one caller would put an
-  optional payload on every action. Three consequences worth not re-deriving:
-  `outreachViewFor` draws **no line** for such a kind (its occurrence key comes from
-  `giftOccurrenceKey`, not from a cadence, so a line would never match its own rows and would
-  read «nothing claimed yet» beside a message already sent) — the rows appear as *history*;
-  `eligibilityFor` therefore never runs for it, which is what keeps **`consentGate` from
-  refusing a transactional message** — a gift notice is on the same footing as `purchaseEmail`,
-  and the newsletter does not govern it; and `HANDLERS.gift_notice` stays `null` as a fence, so
-  nothing can ever run it with an empty subject.
+- **Three kinds are recorded here and not run from here — `gift_notice`, `courtesy_thanks` and
+  `courtesy_checkin`, all carrying `trigger: 'elsewhere'`.** The moment for `gift_notice`
+  belongs to the Plan & gift tab, where an operator gives a plan by hand; the moment for the two
+  courtesy kinds belongs to icons on `/accounts`' own list. Each of the three composes its own
+  message and claims/settles its own row (`sendGiftNotice` in `accounts/actions.ts`;
+  `sendCourtesyThanks`/`sendCourtesyCheckin` in `lib/courtesy/actions.ts`) rather than going
+  through `runOutreach` — a handler is called with an `OutreachTarget` and nothing else, and
+  each of these three needs something that shape cannot carry: two operator-typed fields for
+  the gift, an opted-out check and a "thank-you sent first" ordering for the courtesy pair.
+  Widening the handler signature for three callers with three different extra needs would put
+  an optional payload on every action this engine will ever have. Consequences worth not
+  re-deriving: `outreachViewFor` draws **no line** for any `elsewhere` kind (`gift_notice`'s
+  occurrence key comes from `giftOccurrenceKey`, not a cadence, so a line would never match its
+  own rows and would read «nothing claimed yet» beside a message already sent) — their rows
+  appear as *history*; `eligibilityFor` therefore never runs for any of the three, which is what
+  keeps **`consentGate` from refusing a transactional or legitimate-interest message** — see
+  `lib/courtesy/CLAUDE.md` for why that matters more for the courtesy pair than it ever did for
+  the gift notice; and each `HANDLERS` entry stays `null` as a fence, so none of the three can
+  ever be run by anything but its own dedicated action.
 - **The claim is an insert, and it happens before anything is sent** (`claim.ts`, extracted
-  from `run.ts` once `sendGiftNotice` became its second caller — the half that must not be
-  written twice is not the insert but `claimVerdict`, since there are **two** unique indexes
-  and only a row pointing at *this* account may be taken over). That single
-  ordering is the whole guarantee: a read-then-write has a window as long as a delivery, and
-  two runs inside it both send. The unique indexes on `outreach_actions` answer «has this been
-  done» inside one statement instead.
+  from `run.ts` once `sendGiftNotice` became its second caller and now shared by two more — the
+  half that must not be written twice is not the insert but `claimVerdict`, since there are
+  **two** unique indexes and only a row pointing at *this* account may be taken over). That
+  single ordering is the whole guarantee: a read-then-write has a window as long as a delivery,
+  and two runs inside it both send. The unique indexes on `outreach_actions` answer «has this
+  been done» inside one statement instead.
 - **`occurrenceKey` is what makes a recurring action expressible**, and it is minted by one
   pure function (`occurrence.ts`): `'2026'` for a yearly cadence, `'once'` for a one-shot. It
   is a **year and not a date** on purpose — a day-shaped key would let a yearly action out

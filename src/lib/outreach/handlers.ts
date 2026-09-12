@@ -71,6 +71,18 @@ export const HANDLERS: Record<OutreachKind, OutreachHandler | null> = {
    * subject even if some future screen offered it.
    */
   gift_notice: null,
+  /*
+   * Null for the same reason as `gift_notice`, and for the same reason it stays null:
+   * `sendCourtesyThanks`/`sendCourtesyCheckin` (`lib/courtesy/actions.ts`) claim and settle
+   * their own rows, because each has a refusal `runOutreach` cannot express — an opted-out
+   * address, and (for the check-in alone) a thank-you that has not gone out yet. Widening this
+   * engine's handler signature to carry that would put a courtesy-specific check on every
+   * action it will ever have. Leaving it null is also the same fence `gift_notice` uses: there
+   * is no line for either kind on the Outreach tab (`trigger: 'elsewhere'`), so nothing could
+   * reach `runOutreach` with one of these even if it tried.
+   */
+  courtesy_thanks: null,
+  courtesy_checkin: null,
 }
 
 /** Whether this kind can actually be run today. What the screen draws its button from. */

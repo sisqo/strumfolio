@@ -74,6 +74,15 @@ export default function PrivacyPolicyPage() {
         switched off, and the settings are where you turn it on.
       </p>
       <p>
+        <strong>Courtesy emails.</strong> Within a few weeks of signing up, the person who runs
+        Strumfolio may send you one or two personal emails — not marketing, and not part of the
+        newsletter above — asking about your instrument and repertoire, or whether there is
+        something you are looking for and cannot find. They contain your first name when we have
+        one on file, and nothing else personal. Each carries its own one-click link to stop
+        receiving them, independent of your newsletter setting, and at most one further such email
+        is ever sent after the first.
+      </p>
+      <p>
         <strong>Preferences.</strong> Display and reading settings you choose — theme, zoom, scroll
         speed, notation, instrument — and, per song, the key, capo and chord display you last used.
         They are stored with your account, and on your device so that the app behaves the way you left
@@ -188,6 +197,14 @@ export default function PrivacyPolicyPage() {
             <td>Your consent — Art. 6(1)(a) — which you can withdraw at any time from the settings</td>
           </tr>
           <tr>
+            <td>Send you one or two personal emails after you sign up</td>
+            <td>
+              Legitimate interest in understanding how musicians use Strumfolio and being reachable
+              by the person who reads your replies — Art. 6(1)(f). You can object at any time — see
+              section 7, or use the link in the email itself
+            </td>
+          </tr>
+          <tr>
             <td>Answer feedback and feature requests you send us</td>
             <td>Performance of a contract — Art. 6(1)(b)</td>
           </tr>
@@ -240,7 +257,8 @@ export default function PrivacyPolicyPage() {
         </li>
         <li>
           <strong>Resend</strong> — delivery of the emails we send you (email verification, password
-          reset, purchase and plan-change notices, the newsletter once it exists).
+          reset, purchase and plan-change notices, the newsletter once it exists, and the two
+          courtesy emails a new account may receive).
         </li>
         <li>
           <strong>Cloudflare, Inc.</strong> — the Turnstile challenge on registration and password
@@ -361,11 +379,14 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Your right to object.</strong> Where we process your data on the basis of our
         legitimate interest — namely to keep the Service secure, to measure aggregate traffic and
-        performance, and to understand which channels bring people to Strumfolio — <strong>you have the right
+        performance, to understand which channels bring people to Strumfolio, and to send you the
+        one or two personal emails described in section 2 — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate
         compelling legitimate grounds that override your interests, rights and freedoms. To object,
-        write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
+        write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. For the two personal emails
+        specifically, the one-click link each of them carries does the same thing without writing
+        to us at all.
       </p>
       <p>
         Strumfolio lets you <strong>export your full collection, change your newsletter preference and

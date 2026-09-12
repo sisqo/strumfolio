@@ -10,9 +10,11 @@
  */
 
 import { defaultGiftSubject } from '@/lib/accounts/giftNotice'
-import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
+import { SAMPLE_EMAIL, SAMPLE_NAME, SAMPLE_TOKEN } from '@/lib/previewSample'
 
 import {
+  courtesyCheckinEmail,
+  courtesyThanksEmail,
   giftEmail,
   passwordResetEmail,
   planChangeEmail,
@@ -22,7 +24,15 @@ import {
 } from './templates'
 import type { EmailTemplate } from './templates'
 
-export type PreviewKey = 'verification' | 'welcome' | 'password-reset' | 'purchase' | 'plan-change' | 'gift'
+export type PreviewKey =
+  | 'verification'
+  | 'welcome'
+  | 'password-reset'
+  | 'purchase'
+  | 'plan-change'
+  | 'gift'
+  | 'courtesy-thanks'
+  | 'courtesy-checkin'
 
 export const PREVIEW_KEYS: PreviewKey[] = [
   'verification',
@@ -31,6 +41,8 @@ export const PREVIEW_KEYS: PreviewKey[] = [
   'purchase',
   'plan-change',
   'gift',
+  'courtesy-thanks',
+  'courtesy-checkin',
 ]
 
 export const PREVIEW_LABEL: Record<PreviewKey, string> = {
@@ -40,6 +52,8 @@ export const PREVIEW_LABEL: Record<PreviewKey, string> = {
   purchase: 'Purchase confirmation',
   'plan-change': 'Plan change',
   gift: 'Gift notice',
+  'courtesy-thanks': 'Courtesy: thank-you',
+  'courtesy-checkin': 'Courtesy: check-in',
 }
 
 /**
@@ -66,7 +80,7 @@ const SAMPLE_PURCHASE = {
  * can never show is the *valid* one — see `/verify` and `/reset-password`'s own
  * `?preview=1` (`/pages`) for that.
  */
-function sampleUrl(origin: string, path: '/verify' | '/reset-password'): string {
+function sampleUrl(origin: string, path: '/verify' | '/reset-password' | '/courtesy-unsubscribe'): string {
   const url = new URL(path, origin)
   url.searchParams.set('email', SAMPLE_EMAIL)
   url.searchParams.set('token', SAMPLE_TOKEN)
@@ -110,6 +124,15 @@ const SAMPLE_GIFT = {
 }
 
 export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemplate> {
+  /*
+   * `SAMPLE_TOKEN` here too, never `courtesyUnsubscribeToken` — a `[Preview]` copy of a
+   * courtesy email goes to the signed-in global owner's own address, which has a real account.
+   * A working HMAC link in that preview would let the owner opt themselves out of courtesy
+   * emails by clicking their own test message. See `sampleUrl`'s own header, and
+   * `previewSample.ts`.
+   */
+  const courtesyUnsubscribeUrl = sampleUrl(origin, '/courtesy-unsubscribe')
+
   return {
     verification: verificationEmail(sampleUrl(origin, '/verify')),
     welcome: welcomeEmail(),
@@ -117,5 +140,7 @@ export function buildEmailPreviews(origin: string): Record<PreviewKey, EmailTemp
     purchase: purchaseEmail(SAMPLE_PURCHASE),
     'plan-change': planChangeEmail(SAMPLE_PLAN_CHANGE),
     gift: giftEmail(SAMPLE_GIFT),
+    'courtesy-thanks': courtesyThanksEmail({ firstName: SAMPLE_NAME, unsubscribeUrl: courtesyUnsubscribeUrl }),
+    'courtesy-checkin': courtesyCheckinEmail({ firstName: SAMPLE_NAME, unsubscribeUrl: courtesyUnsubscribeUrl }),
   }
 }

@@ -285,6 +285,19 @@ export const accounts = pgTable(
     couponPercent: text('coupon_percent'),
     /** `null` while a coupon holds forever, and whenever `couponCode` is null. */
     discountEndsAt: timestamp('discount_ends_at', { withTimezone: true }),
+    /**
+     * When this address asked, by the one-click link in a courtesy email, never to receive
+     * another one — `null` means it never has. Read by `lib/courtesy/actions.ts` before
+     * either send, and written only by `lib/courtesy/publicActions.ts`'s
+     * `confirmCourtesyUnsubscribe`, which needs no session at all: the HMAC token in the link
+     * is the authorization, the same way a verification or reset token is, except this one has
+     * no expiry to check.
+     *
+     * Deliberately separate from `newsletter_prefs.subscribed`: courtesy emails are sent under
+     * legitimate interest, not the newsletter's consent, so unsubscribing from one says
+     * nothing about the other — see `lib/outreach/CLAUDE.md`'s courtesy section.
+     */
+    courtesyOptedOutAt: timestamp('courtesy_opted_out_at', { withTimezone: true }),
   },
   (table) => [
     unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId),

@@ -89,6 +89,14 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/verify', indexable: false },
   { path: '/forgot-password', indexable: false },
   { path: '/reset-password', indexable: false },
+  /*
+   * A courtesy email's one-click unsubscribe. Session-free by construction — a reader who
+   * followed this link out of an email has no reason to be signed in, and the HMAC token in
+   * the query string is the whole authorization (`lib/courtesy/unsubscribe.ts`), not a cookie.
+   * Not indexable, the same reason as the three rows above it: with no token this can only show
+   * its own "this link is not valid" state.
+   */
+  { path: '/courtesy-unsubscribe', indexable: false },
 
   /*
    * The free pages under `/tools`: four small single-purpose tools that do their whole job in

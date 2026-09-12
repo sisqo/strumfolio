@@ -3,6 +3,14 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
+- **`/accounts`' own list, not the detail page, is where the two courtesy emails are sent.**
+  Two icons per row (`CourtesyIcons.tsx`), lit once a `done` row exists, dim and clickable while
+  none does, and dim-and-disabled either when the address opted out or — for the check-in
+  icon alone — before the thank-you has gone out. A click opens a confirm dialog
+  (`CourtesyConfirmModal.tsx`) with the fixed copy already written; nothing here is typed by an
+  operator the way the gift notice's subject and personal line are, which is why this needed no
+  `GiftForm`-shaped screen of its own. See `lib/courtesy/CLAUDE.md` for the send path, the
+  unsubscribe link, and why these two bypass the newsletter consent gate entirely.
 - **`/accounts/[email]` is the admin surface** — a read-only summary strip over five tabs, all
   five now the mock's own (`Account Detail.dc.html`, redrawn 2026-09-11: Identity, Plan & gift,
   Payments, Outreach, Security, in that order). Outreach postdated the *first* handoff and its
@@ -24,13 +32,20 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   message that really goes out (`gift_notice`) is sent from the Plan & gift tab, which keeps its
   «Send the notice». `skipOutreach` is what genuinely went: `suppressed` is still storable and
   no longer writable from anywhere. See `lib/outreach/CLAUDE.md`.
-- **The Outreach tab is the only reader of `lib/outreach/`**, and since it stopped triggering
-  anything it is the only caller of it at all — `loadOutreachFor` is the one function of that
-  directory this app still invokes. That subsystem's own `CLAUDE.md` carries the rules; the two
-  that reach into this directory are that the newsletter preference is a **consent gate** for
-  any email-channel action (an unreadable one refuses), and that `accounts.suspended_at` blocks
-  outreach as well as sign-in. Both still hold — they are computed on every read — but nothing
-  on this screen can act on what they answer.
+- **The Outreach tab is no longer the only reader of `lib/outreach/`, and `/accounts` (the
+  list) is the second.** `loadOutreachFor` is still the one function of that directory this
+  *tab* invokes, but `/accounts`' own list calls `listCourtesyStatus` (`lib/courtesy/read.ts`)
+  to draw its two courtesy icons, and each icon's confirm dialog calls a send action
+  (`sendCourtesyThanks`/`sendCourtesyCheckin`, `lib/courtesy/actions.ts`) that claims and
+  settles a row in `outreach_actions` exactly the way `sendGiftNotice` already does — a second
+  caller of that claim/settle path, not only of the read. That subsystem's own `CLAUDE.md`
+  carries the rules; the two that reach into this directory are that the newsletter preference
+  is a **consent gate** for any email-channel action declared with `trigger: 'panel'` (an
+  unreadable one refuses), and that `accounts.suspended_at` blocks outreach as well as sign-in.
+  Both still hold for `birthday_greeting`/`upgrade_voucher` — computed on every read, acted on
+  by nothing, since the Outreach tab still has no button — but neither one governs the two
+  courtesy kinds: those are sent under legitimate interest, gated by their own
+  `courtesy_opted_out_at` column instead, for the reasons `lib/courtesy/CLAUDE.md` states.
 - **The Payments tab holds two ledgers, not one**: what this account paid
   (`PaymentHistoryTable`) and which coupons it was ever *shown* (`CouponsSeenCard`, from
   `lib/coupons/views.ts`). The second is there so a reminder about an unused coupon is a

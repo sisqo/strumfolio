@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 
 import { AutoSubmitSelect } from '@/components/AutoSubmitSelect'
 import { ConfirmPendingRegistrationButton } from '@/components/ConfirmPendingRegistrationButton'
+import { CourtesyIcons } from '@/components/CourtesyIcons'
 import { CreateAccountForm } from '@/components/CreateAccountForm'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
@@ -16,6 +17,8 @@ import { giftActive, isPaying, planBadge, rowStatus } from '@/lib/accounts/planT
 import type { RowStatus } from '@/lib/accounts/planText'
 import { isOwner } from '@/lib/allowlist'
 import { avatarInitials } from '@/lib/avatar'
+import { listCourtesyStatus } from '@/lib/courtesy/read'
+import type { CourtesyStatus } from '@/lib/courtesy/read'
 import { forcedPlanNotice, plansEnforced } from '@/lib/plans/resolve'
 
 export const metadata: Metadata = { title: 'Accounts' }
@@ -114,6 +117,7 @@ interface Row {
   account: AccountSummary
   line: AccountPlanLine | null
   status: RowStatus | null
+  courtesy: CourtesyStatus | null
 }
 
 /**
@@ -170,12 +174,17 @@ export default async function AccountsPage({ searchParams }: Props) {
   const query = readQuery(await searchParams)
 
   /*
-   * Two reads, not one widened query — `listAccountPlans` names migration 0024's/0026's/0027's
-   * columns and therefore fails until they are applied, with its own null, which must cost the
-   * plan columns and nothing else. Widening `listAllAccounts` instead would put the whole
+   * Separate reads, not one widened query — `listAccountPlans` names migration 0024's/0026's/
+   * 0027's columns and `listCourtesyStatus` names 0046's, and each fails with its own null,
+   * costing only what it reads. Widening `listAllAccounts` to carry either would put the whole
    * screen behind those same migrations.
    */
-  const [all, plans, pending] = await Promise.all([listAllAccounts(), listAccountPlans(), listPendingRegistrations()])
+  const [all, plans, pending, courtesy] = await Promise.all([
+    listAllAccounts(),
+    listAccountPlans(),
+    listPendingRegistrations(),
+    listCourtesyStatus(),
+  ])
 
   /*
    * Read once, here, for the two notices below. `plansEnforced()` first and not merely
@@ -194,7 +203,12 @@ export default async function AccountsPage({ searchParams }: Props) {
     .filter((account) => needle === '' || account.ownerEmail.toLowerCase().includes(needle))
     .map((account) => {
       const line = plans?.get(account.ownerEmail) ?? null
-      return { account, line, status: line === null ? null : rowStatus(line, account.signInCount) }
+      return {
+        account,
+        line,
+        status: line === null ? null : rowStatus(line, account.signInCount),
+        courtesy: courtesy?.get(account.ownerEmail) ?? null,
+      }
     })
 
   /*
@@ -320,6 +334,7 @@ export default async function AccountsPage({ searchParams }: Props) {
                   </Link>
                 </span>
                 <span className="text-center">Gift</span>
+                <span className="text-center">Courtesy</span>
                 <span>Plan</span>
                 <span>Status</span>
                 <span className="text-right">
@@ -331,7 +346,7 @@ export default async function AccountsPage({ searchParams }: Props) {
                 <span />
               </div>
 
-              {pageRows.map(({ account, line, status }) => {
+              {pageRows.map(({ account, line, status, courtesy }) => {
                 const badge = line === null ? null : planBadge(line)
                 const signIns =
                   account.signInCount === 0
@@ -355,6 +370,14 @@ export default async function AccountsPage({ searchParams }: Props) {
                           <IconGift size={13} />
                         </span>
                       )}
+                    </span>
+                    <span className="flex justify-center">
+                      <CourtesyIcons
+                        ownerEmail={account.ownerEmail}
+                        thanksSent={courtesy?.thanksSent ?? false}
+                        checkinSent={courtesy?.checkinSent ?? false}
+                        optedOut={courtesy?.optedOut ?? false}
+                      />
                     </span>
                     <span>{badge !== null && <span className={`accounts-plan ${badge.className}`}>{badge.label}</span>}</span>
                     <span className={`accounts-status${status?.tone === 'alert' ? ' is-alert' : status?.tone === 'faint' ? ' is-faint' : ''}`}>

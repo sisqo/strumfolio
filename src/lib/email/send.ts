@@ -25,6 +25,13 @@ export interface EmailMessage {
   html: string
   text: string
   /**
+   * Who this message claims to be from, when that is not `FROM_ADDRESS` — the courtesy
+   * emails' `Francesco from Strumfolio <info@strumfolio.com>`, a **named** sender rather than
+   * only a reply-to, because those two messages are written to read as one person rather than
+   * the product. Every other caller leaves this unset and gets the default.
+   */
+  from?: string
+  /**
    * Who a reply should go to, when that is not `FROM_ADDRESS`.
    *
    * It exists for the emails that travel the other way — feedback arriving in the support
@@ -81,7 +88,15 @@ export async function deliverEmail(message: EmailMessage): Promise<EmailOutcome>
   }
 
   try {
-    const { error } = await new Resend(apiKey).emails.send({ from: FROM_ADDRESS, ...message })
+    /*
+     * `message` spread first, `from` computed after: `EmailMessage.from` is optional, and a
+     * caller that never sets it still has `from: undefined` once the field exists on the
+     * object literal. Spreading `message` over a default (`{ from: FROM_ADDRESS, ...message }`)
+     * would let that `undefined` win and send with no sender at all — the opposite order
+     * spreads first and decides `from` last, so a caller's own address wins when given and the
+     * default does otherwise.
+     */
+    const { error } = await new Resend(apiKey).emails.send({ ...message, from: message.from ?? FROM_ADDRESS })
     if (error) {
       console.error('sendEmail failed', error)
       return { ok: false, reason: `${error.name}: ${error.message}` }

@@ -26,7 +26,13 @@ import type { Plan } from '@/lib/plans/types'
  * `Record` over this list precisely so a new member here cannot compile until somebody has
  * decided whether it has a handler yet.
  */
-export const OUTREACH_KINDS = ['birthday_greeting', 'upgrade_voucher', 'gift_notice'] as const
+export const OUTREACH_KINDS = [
+  'birthday_greeting',
+  'upgrade_voucher',
+  'gift_notice',
+  'courtesy_thanks',
+  'courtesy_checkin',
+] as const
 
 export type OutreachKind = (typeof OUTREACH_KINDS)[number]
 
@@ -245,6 +251,44 @@ export const OUTREACH: Record<OutreachKind, OutreachDefinition> = {
     trigger: 'elsewhere',
     /* Nothing is missing: it is written and it is sent — from the Plan & gift tab, which is
        where the decision to give a plan is taken. */
+    missing: null,
+  },
+  courtesy_thanks: {
+    kind: 'courtesy_thanks',
+    label: 'A thank-you and a question',
+    note: "The founder's own note after signing up, asking what a reader plays and where.",
+    /* Same reasoning as `gift_notice`'s own comment: a one-shot with no clock behind it. */
+    cadence: 'once',
+    channel: 'email',
+    /*
+     * Declared and not consulted, for the same reason as `gift_notice`: this is a one-to-one
+     * message under legitimate interest (Art. 6(1)(f)), not marketing mail, so the newsletter
+     * preference does not govern it — see `lib/courtesy/CLAUDE.md`. `accounts.
+     * courtesy_opted_out_at` is the gate that actually applies, checked by
+     * `lib/courtesy/actions.ts` itself rather than by this engine's `eligibilityFor`, which
+     * `elsewhere` kinds never reach.
+     */
+    audience: 'everyone',
+    trigger: 'elsewhere',
+    /* Nothing is missing: written and sent — from an icon on `/accounts`, one account at a
+       time, an operator's own decision each time rather than a schedule. */
+    missing: null,
+  },
+  courtesy_checkin: {
+    kind: 'courtesy_checkin',
+    label: 'Anything you need?',
+    note: "A second and last note, asking whether there's something the reader can't find.",
+    cadence: 'once',
+    channel: 'email',
+    audience: 'everyone',
+    trigger: 'elsewhere',
+    /*
+     * Written and sent, same as `courtesy_thanks` — but its own send action refuses unless
+     * `courtesy_thanks` already has a `done` row for the same address: the copy says "still
+     * Francesco" and "a second and last time," both false if this were ever the first message
+     * an account received. That ordering is enforced in `lib/courtesy/actions.ts`, not by this
+     * registry, which has no concept of "after another kind."
+     */
     missing: null,
   },
 }

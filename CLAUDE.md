@@ -57,6 +57,7 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 | `src/lib/import/CLAUDE.md` | the fifteen extensions, how PDF and Word are read, and what the importer refuses to guess |
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
+| `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the four seams that record it, and the touch rules |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the

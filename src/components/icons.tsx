@@ -616,6 +616,21 @@ export function IconCake(props: IconProps) {
   )
 }
 
+/**
+ * An envelope: the two courtesy emails' own mark, on `/accounts`' list and in the Outreach
+ * log alike. Distinct from `IconSend` (the Outreach log's generic fallback, a paper plane) —
+ * this one specifically means "a message with a reply address," which is what a courtesy email
+ * is and a `birthday_greeting`/`upgrade_voucher` broadcast is not.
+ */
+export function IconMail(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </Icon>
+  )
+}
+
 /** A voucher: a torn ticket, for the upgrade offer that carries a coupon code. */
 export function IconVoucher(props: IconProps) {
   return (

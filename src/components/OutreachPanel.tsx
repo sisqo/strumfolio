@@ -1,4 +1,4 @@
-import { IconCake, IconGift, IconSend, IconVoucher } from '@/components/icons'
+import { IconCake, IconGift, IconMail, IconSend, IconVoucher } from '@/components/icons'
 import { occurrenceLabel } from '@/lib/outreach/occurrence'
 import type { OutreachRow } from '@/lib/outreach/read'
 import { OUTREACH, STATUS_LABEL, readOutreachKind } from '@/lib/outreach/types'
@@ -51,6 +51,11 @@ const KIND_ICON = {
   gift_notice: IconGift,
   birthday_greeting: IconCake,
   upgrade_voucher: IconVoucher,
+  /* Both courtesy kinds share the envelope mark: they are the same kind of thing (a
+     one-to-one, reply-carrying note) as far as this log is concerned, and are told apart by
+     their own label right beside it. */
+  courtesy_thanks: IconMail,
+  courtesy_checkin: IconMail,
 } as const
 
 /** The date a row is filed under: when it settled if it ever did, otherwise when it was claimed. */

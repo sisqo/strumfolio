@@ -109,12 +109,13 @@ test('planChangeEmail', async (t) => {
   })
 
   /* The reassurance /pricing's trust note makes, in the one message that reports a plan going
-     away — the moment a musician is most likely to wonder about it. */
-  await t.test('every shape says nothing is deleted', () => {
+     away — the moment a musician is most likely to wonder about it. "Touched" and not
+     "deleted": nothing here is ever deleted by a plan ending, only ever locked behind one. */
+  await t.test('every shape says nothing is touched', () => {
     for (const input of EVERY_SHAPE) {
       const mail = planChangeEmail(input)
       for (const body of [mail.html, mail.text]) {
-        assert.match(body, /Nothing you have put in is deleted/)
+        assert.match(body, /Nothing you have put in is touched/)
       }
     }
   })

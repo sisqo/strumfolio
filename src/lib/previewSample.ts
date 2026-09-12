@@ -10,3 +10,11 @@
 
 export const SAMPLE_EMAIL = 'preview@strumfolio.com'
 export const SAMPLE_TOKEN = 'preview-token'
+
+/**
+ * The fixed first name every preview that needs one renders with — the courtesy emails, so
+ * far, are the only templates that interpolate a name at all. Reused rather than invented
+ * per-preview for the same reason `SAMPLE_EMAIL`/`SAMPLE_TOKEN` are: two previews of the same
+ * template should be the same bytes.
+ */
+export const SAMPLE_NAME = 'Alex'

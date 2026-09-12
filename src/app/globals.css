@@ -10611,10 +10611,10 @@
 
   .accounts-grid {
     display: grid;
-    grid-template-columns: minmax(10rem, 1fr) 30px 104px 170px 46px 56px;
+    grid-template-columns: minmax(10rem, 1fr) 30px 84px 104px 170px 46px 56px;
     gap: 0.75rem;
     align-items: center;
-    min-width: 40rem;
+    min-width: 46rem;
     padding: 0.6875rem 0.875rem;
   }
 
@@ -10710,6 +10710,52 @@
     border-radius: var(--r-pill);
     background: var(--accent-soft);
     color: var(--accent);
+  }
+
+  /* The two courtesy icons, side by side in one column. */
+  .accounts-courtesy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  /*
+   * One button per courtesy kind, three states: sendable (an outline waiting to be filled),
+   * sent (solid, done), and blocked (the check-in before the thank-you has gone out, or the
+   * account opted out) — dimmer than sendable so the two never read the same at a glance.
+   */
+  .accounts-courtesy-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3125rem;
+    height: 1.3125rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--faint);
+    cursor: pointer;
+  }
+
+  .accounts-courtesy-icon:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--muted);
+  }
+
+  .accounts-courtesy-icon.is-sent {
+    background: var(--accent-soft);
+    color: var(--accent);
+    cursor: default;
+  }
+
+  .accounts-courtesy-icon.is-sent:hover {
+    background: var(--accent-soft);
+  }
+
+  .accounts-courtesy-icon:disabled {
+    color: var(--surface-3);
+    cursor: not-allowed;
   }
 
   /* The plan chip — `.badge`'s shape a size down, colour from `.plan-badge-*` as ever. */

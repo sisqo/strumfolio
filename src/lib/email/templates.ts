@@ -114,21 +114,40 @@ function fallbackLink(url: string): string {
   </p>`
 }
 
+/**
+ * The line that makes a courtesy email answerable to its own opt-out — the two messages that
+ * carry it are the only ones in this file sent under legitimate interest rather than as a
+ * reply-carrying transaction, so they are the only ones that owe a reader a way to say "stop."
+ *
+ * Deliberately inside the white card rather than folded into `layout()`'s own signature line
+ * below it: every other template shares that footer unchanged, and widening it for two
+ * callers would put a conditional inside a function whose whole point is to be the same for
+ * everybody.
+ */
+function unsubscribeLine(url: string): string {
+  return `<p style="margin:20px 0 0;color:${MUTED};font-size:12px;line-height:1.5;">
+    You're getting this because you signed up for ${APP_NAME}. <a href="${url}" style="color:${ACCENT};">Unsubscribe from these occasional notes</a>.
+  </p>`
+}
+
 export function verificationEmail(url: string): EmailTemplate {
   const subject = `Verify your email for ${APP_NAME}`
 
   const html = layout(`
-    ${heading('Verify your email')}
-    ${paragraph('Click the button below to verify your email address and finish setting up your account. This link expires in 24 hours.')}
+    ${heading('Verify your address')}
+    ${paragraph("One step left: open the link below to confirm your address and finish creating your account. The link expires in 24 hours.")}
     ${button('Verify email', url)}
     ${fallbackLink(url)}
+    ${paragraph("If you didn't sign up, you can ignore this email. Until it's confirmed, the address isn't used for anything.")}
   `)
 
-  const text = `Verify your email
+  const text = `Verify your address
 
-Click the link below to verify your email address and finish setting up your account. This link expires in 24 hours.
+One step left: open the link below to confirm your address and finish creating your account. The link expires in 24 hours.
 
 ${url}
+
+If you didn't sign up, you can ignore this email. Until it's confirmed, the address isn't used for anything.
 
 ${APP_NAME} — ${APP_PAYOFF}`
 
@@ -157,12 +176,12 @@ export function welcomeEmail(): EmailTemplate {
 
   const html = layout(`
     ${heading(`Welcome to ${APP_NAME}`)}
-    ${paragraph(`Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}`)}
+    ${paragraph(`Your account is ready, and it isn't empty: there's a songbook in it already, nine traditionals, so there's something to open straight away. When you're ready, bring in the songs you already have, build your own songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}`)}
   `)
 
   const text = `Welcome to ${APP_NAME}
 
-Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}
+Your account is ready, and it isn't empty: there's a songbook in it already, nine traditionals, so there's something to open straight away. When you're ready, bring in the songs you already have, build your own songbooks, and take them with you — on stage, in rehearsal, even with no signal.${planClause}
 
 ${APP_NAME} — ${APP_PAYOFF}`
 
@@ -259,24 +278,17 @@ export function purchaseEmail(input: {
       ? 'There is nothing to renew — it stays yours, for good.'
       : `It runs until ${endsOn}, and you can change or cancel it any time from Billing.`
 
-  const startUrl = `https://${SITE_URL}/`
   const billingUrl = `https://${SITE_URL}/billing`
 
   const html = layout(`
     ${heading(`Thanks — you're on ${planLabel}`)}
     ${paragraph(`${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}`)}
-    ${paragraph('Next: make a songbook, put your first songs in it, and take it with you — on stage, in rehearsal, even with no signal.')}
-    ${button('Start your songbook', startUrl)}
     ${paragraph(`Your payment history and this plan's settings are in <a href="${billingUrl}" style="color:${ACCENT};">Billing</a>.`)}
   `)
 
   const text = `Thanks — you're on ${planLabel}
 
 ${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}
-
-Next: make a songbook, put your first songs in it, and take it with you — on stage, in rehearsal, even with no signal.
-
-${startUrl}
 
 Your payment history and this plan's settings are in Billing: ${billingUrl}
 
@@ -369,7 +381,7 @@ export function planChangeEmail(input: {
      `PLANS.free.booklet === 'no'`, so `loadBooklet` refuses, and the booklet PDF is the only
      way to print anything in this app. This message is sent precisely when the plan ends, so
      it is the one place the reader could act on the claim the same day it stopped being true. */
-  const kept = 'Nothing you have put in is deleted: your songs stay readable and exportable.'
+  const kept = 'Nothing you have put in is touched: your songs stay readable and exportable.'
 
   /* «before then» rather than «before that day», so the one sentence serves the named-day shape
      and the dateless one alike — after «ends on 22 September 2027» it reads the same. */
@@ -453,7 +465,7 @@ export function giftEmail(input: {
     endsOn === null
       ? `We've put ${planLabel} on your account — free, and it doesn't run out.`
       : `We've put ${planLabel} on your account — free, and yours until ${endsOn}.`
-  const practical = `There is nothing to set up and nothing to pay: everything ${planLabel} opens up is on right now.`
+  const practical = `There is nothing to set up and nothing to pay: everything ${planLabel} opens up is already on.`
 
   const startUrl = `https://${SITE_URL}/`
 
@@ -472,6 +484,110 @@ ${personalLine === null ? '' : `\n${personalLine}\n`}
 ${practical}
 
 ${startUrl}
+
+${APP_NAME} — ${APP_PAYOFF}`
+
+  return { subject, html, text }
+}
+
+/**
+ * The founder's own note, a week or so after signing up — sent by hand, one account at a
+ * time, from an icon on `/accounts` (`lib/courtesy/actions.ts`), never on a schedule.
+ *
+ * **The only two templates in this file with no heading tier.** Every other message here reads
+ * as a document with a headline; these two are meant to read as a personal email starting with
+ * "Hi," because that is the whole argument for sending them — see the root `CLAUDE.md`'s
+ * courtesy/transactional split: "courtesy emails have a face, transactional ones don't." A bold
+ * H1 above the greeting would undercut the one thing this message is for.
+ *
+ * `from`/`replyTo` are both set by the caller to `Francesco from Strumfolio <info@strumfolio.com>`
+ * — a **named** sender, not only a reply-to, unlike every transactional template in this file
+ * including `giftEmail`. That is a decision about how this app looks in an inbox, not a fact
+ * this function has an opinion about, so it is not baked in here.
+ */
+export function courtesyThanksEmail(input: {
+  /** Escaped in the HTML greeting, raw in the text — the `personalLine`/`quoted` convention
+      this file already applies to anything it did not itself write, even a name. */
+  firstName: string | null
+  /** Built by the caller from `courtesyUnsubscribeToken` — never a real one in a preview. */
+  unsubscribeUrl: string
+}): EmailTemplate {
+  const subject = 'A thank-you and a question'
+  const { firstName, unsubscribeUrl } = input
+  const greetingHtml = firstName === null ? 'Hi,' : `Hi ${escapeHtml(firstName)},`
+  const greetingText = firstName === null ? 'Hi,' : `Hi ${firstName},`
+
+  const html = layout(`
+    ${paragraph(greetingHtml)}
+    ${paragraph("I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.")}
+    ${paragraph('What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.')}
+    ${paragraph("The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.")}
+    ${paragraph('Just reply to this email — I read it myself. One sentence is plenty.')}
+    ${paragraph('Francesco')}
+    ${paragraph('P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.')}
+    ${unsubscribeLine(unsubscribeUrl)}
+  `)
+
+  const text = `${greetingText}
+
+I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.
+
+What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.
+
+The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.
+
+Just reply to this email — I read it myself. One sentence is plenty.
+
+Francesco
+
+P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.
+
+You're getting this because you signed up for ${APP_NAME}. Unsubscribe from these occasional notes: ${unsubscribeUrl}
+
+${APP_NAME} — ${APP_PAYOFF}`
+
+  return { subject, html, text }
+}
+
+/**
+ * The second and last note, sent only once `courtesyThanksEmail` has actually gone out to the
+ * same address — enforced in `lib/courtesy/actions.ts`, not here: this function has no way to
+ * know what has already been sent, and "still Francesco" / "a second and last time" are only
+ * true when that ordering holds. See `courtesyThanksEmail`'s own header for the rest of the
+ * shared reasoning (no heading tier, the named `from`).
+ */
+export function courtesyCheckinEmail(input: {
+  firstName: string | null
+  unsubscribeUrl: string
+}): EmailTemplate {
+  const subject = 'Anything you need?'
+  const { firstName, unsubscribeUrl } = input
+  const greetingHtml = firstName === null ? 'Hi,' : `Hi ${escapeHtml(firstName)},`
+  const greetingText = firstName === null ? 'Hi,' : `Hi ${firstName},`
+
+  const html = layout(`
+    ${paragraph(greetingHtml)}
+    ${paragraph("Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.")}
+    ${paragraph("It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.")}
+    ${paragraph("Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.")}
+    ${paragraph('Just reply to this email — I read it myself.')}
+    ${paragraph('Francesco')}
+    ${unsubscribeLine(unsubscribeUrl)}
+  `)
+
+  const text = `${greetingText}
+
+Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.
+
+It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.
+
+Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.
+
+Just reply to this email — I read it myself.
+
+Francesco
+
+You're getting this because you signed up for ${APP_NAME}. Unsubscribe from these occasional notes: ${unsubscribeUrl}
 
 ${APP_NAME} — ${APP_PAYOFF}`
 
@@ -528,16 +644,19 @@ export function passwordResetEmail(url: string): EmailTemplate {
 
   const html = layout(`
     ${heading('Reset your password')}
-    ${paragraph("Click the button below to choose a new password. If you didn't request this, you can safely ignore this email — your password won't change.")}
+    ${paragraph('Open the link below to choose a new password. The link expires in one hour.')}
     ${button('Reset password', url)}
     ${fallbackLink(url)}
+    ${paragraph("If you didn't ask for this, you can ignore this email: your password stays as it is.")}
   `)
 
   const text = `Reset your password
 
-Click the link below to choose a new password. If you didn't request this, you can safely ignore this email — your password won't change.
+Open the link below to choose a new password. The link expires in one hour.
 
 ${url}
+
+If you didn't ask for this, you can ignore this email: your password stays as it is.
 
 ${APP_NAME} — ${APP_PAYOFF}`
 
