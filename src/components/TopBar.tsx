@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { AdminMenu } from '@/components/AdminMenu'
 import { NavMenu } from '@/components/NavMenu'
 import { SignOutButton } from '@/components/SignOutButton'
 import { UserMenu } from '@/components/UserMenu'
@@ -18,20 +19,19 @@ export type Section =
   | 'password'
   | 'profile'
   | 'accounts'
-  | 'emails'
-  /* Beside `emails` because the menu draws them as neighbours, and because both are about
-     what leaves the installation rather than about the installation itself. */
-  | 'coupons'
-  /* Beside `coupons` for the same reason it sits beside `emails`: all three are about what the
-     outside world sees, and this one is about how the outside world got here. */
+  /* Beside `accounts`, ahead of `coupons`: a lead is a person who has not become an account
+     yet, so `AdminPanel`'s own comment groups it with `accounts` rather than with `emails` —
+     see that file for the rest of the ordering it drives. */
   | 'leads'
+  | 'coupons'
+  | 'emails'
   | 'pages'
   | 'design-system'
+  | 'brand'
   | 'app-settings'
   | 'help'
   | 'checkout'
   | 'billing'
-  | 'brand'
 
 /**
  * The header, on every screen inside the app.
@@ -52,11 +52,15 @@ export type Section =
  * server renders it: these pages are statically generated and precached, and
  * nothing here should be able to change that.
  *
- * Two openers at the end of the bar, and only two: the account menu and the hamburger.
- * The theme switch used to sit between the steps and the avatar, and the admin shield
- * beside it; four icons in a row is more than a phone affords once the way back and,
- * from inside a song, the search button are also on this line, so both moved inside the
- * panels — see the comment at the openers themselves.
+ * Three openers at the end of the bar for a global owner, two for everyone else: the
+ * account menu, the admin shield (`AdminMenu`) and the hamburger. The shield was a
+ * fourth icon here once already, folded into the hamburger's first entry when the bar
+ * needed to survive a phone with the way back and, from inside a song, the search
+ * button also on this line — see `AdminPanel`'s own comment for that reasoning in full.
+ * Split back out 2026-09-12: nesting it cost every one of its eight screens a second
+ * tap, which is a worse trade than a fourth icon nobody but a global owner ever sees,
+ * since `AdminMenu` returns `null` outright for everyone else rather than reserving
+ * the room.
  *
  * `back` used to carry its songbook's name as visible text; it is icon-only now; the
  * label survives only as `aria-label`/`title`, because dropping the text is what freed
@@ -155,16 +159,20 @@ export function TopBar({
         <ViewingAsPill />
 
         {/*
-         * Two openers, and only two. The theme switch used to sit here as a third icon
-         * and the admin shield as a fourth; both have moved inside the panels — theme
-         * into the account menu's own Settings (as `ThemePicker`, which names all three
-         * states instead of cycling through them), admin into the hamburger's first
-         * entry. `PublicHeader` still carries `ThemeToggle` as an icon, because there is
-         * no account menu in front of a session to put it in.
+         * The theme switch and the admin shield were a third and fourth icon here once.
+         * Theme moved into the account menu's own Settings (as `ThemePicker`, which
+         * names all three states instead of cycling through them) and stayed there —
+         * every reader has an opinion about it, so it could not be conditional the way
+         * admin is. The shield left for the hamburger's first entry on the same
+         * room-for-a-phone reasoning and came back out 2026-09-12 as `AdminMenu`, its
+         * own opener again — see `AdminPanel`'s own comment for the reversal.
+         * `PublicHeader` still carries `ThemeToggle` as an icon, because there is no
+         * account menu in front of a session to put it in.
          */}
         <UserMenu>
           <SignOutButton />
         </UserMenu>
+        <AdminMenu current={current} />
         <NavMenu current={current} />
       </div>
     </header>

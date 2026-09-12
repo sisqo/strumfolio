@@ -22,7 +22,7 @@ import { avatarInitials } from '@/lib/avatar'
  * This sits in a crowded corner of a bar rendered on every screen, and an accidental tap
  * would drop the impersonated view with no warning.
  *
- * `'use client'`, reading `useRole()` the same way `AdminPanel`/`UserMenu` already do —
+ * `'use client'`, reading `useRole()` the same way `AdminMenu`/`UserMenu` already do —
  * deliberately not something `TopBar` itself resolves server-side: see that component's own
  * comment on why calling `auth()`/`cookies()` there would opt every page that renders it out
  * of static generation.

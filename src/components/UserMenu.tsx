@@ -37,8 +37,8 @@ import { useDialogA11y } from '@/lib/useDialogA11y'
  * **Identical for every reader, a global owner included.** This panel used to carry an
  * "Owner" badge beside the plan, which made it the one place the user menu was a different
  * shape for one person; running the installation is not a fact about being this reader, and
- * it lives behind the hamburger's own Admin entry instead (`AdminPanel`). That an owner is
- * an owner is still visible — they are the only one who sees that entry at all. Delete
+ * it lives behind its own shield instead (`AdminMenu`, beside this menu in `TopBar`). That an
+ * owner is an owner is still visible — they are the only one who sees that opener at all. Delete
  * account nests one level under Settings rather than sitting beside the preference
  * pickers: it is a consequence of the account — leaving altogether — not a preference to
  * set.

@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { AdminPanel, isAdminSection } from '@/components/AdminPanel'
 import { useFeedback } from '@/components/FeedbackProvider'
 import { InstallPanel } from '@/components/InstallPanel'
 import { useRole } from '@/components/RoleProvider'
@@ -20,7 +19,6 @@ import {
   IconMenu,
   IconNote,
   IconPrint,
-  IconShield,
   IconTuningFork,
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
@@ -37,28 +35,23 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * the panel every entry carries its label, which the icon-only row on a phone
  * could not.
  *
- * **Admin is the one entry that depends on who is asking**, and it is the first one (the
- * home-screen row near the bottom is conditional too, but on the browser rather than on
- * the reader, which is not the same test):
- * everything about running the installation lives behind it, offered to a global owner
- * and simply absent for everybody else. It used to be a shield of its own in the header
- * — the reasoning being that "an opener that is either there or not" beats "a panel with
- * holes in it for one reader" — and that still holds; what changed is that the header
- * could not afford a third icon beside the avatar and the hamburger on a phone, so the
- * either/or moved down here to the panel's first row. `mayEdit` gates the booklet and
- * Export further down, and that is not the same kind of test: with a single grantable
- * role (v3.1) every signed-in reader is admin on their own account, so it is false only
- * before the answer arrives.
+ * Reading-only now. Admin used to be the first entry here, either present or absent
+ * depending on who is asking — the same either/or a shield of its own in the header once
+ * tested. Nesting it a screen deep cost every one of those eight links a second tap,
+ * which is what moved it back out to its own opener (`AdminMenu`, beside this one in
+ * `TopBar`) on 2026-09-12 — see `AdminPanel`'s own comment for the reversal in full.
+ * `mayEdit` gates the booklet and Export further down, and that is not the same kind of
+ * test Admin's was: with a single grantable role (v3.1) every signed-in reader is admin
+ * on their own account, so it is false only before the answer arrives.
  *
- * Strum Together, Admin and the home-screen instructions are all second screens inside
- * this same panel rather than pages of their own: Strum Together is reached mid-song, where
- * a real navigation would cost the reader the page they were reading to get there and again
- * to get back; Admin is a list of six links that would otherwise need a screen to hold six
- * links; and «how to add this to your home screen» is three sentences that would be absurd
- * as a page, quite apart from being unreachable on the one browser that needs them most —
- * see `useInstallOffer` for what that row does when the browser can install by itself.
- * `view` resets to `main` on every close, so the panel always opens where it left off
- * closing — at the top, not wherever any of them happened to leave it.
+ * Strum Together and the home-screen instructions are second screens inside this same
+ * panel rather than pages of their own: Strum Together is reached mid-song, where a real
+ * navigation would cost the reader the page they were reading to get there and again to
+ * get back; and «how to add this to your home screen» is three sentences that would be
+ * absurd as a page, quite apart from being unreachable on the one browser that needs
+ * them most — see `useInstallOffer` for what that row does when the browser can install
+ * by itself. `view` resets to `main` on every close, so the panel always opens where it
+ * left off closing — at the top, not wherever either of them happened to leave it.
  * `StrumTogetherPanel` owns its own screen — whether a broadcast is already running, the
  * QR, start and stop — shared with the reading bar's own toggle so the two can never
  * disagree about the same broadcast; see `StrumTogetherProvider`'s own comment for why that
@@ -66,8 +59,8 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  */
 export function NavMenu({ current }: { current: Section }) {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'main' | 'strum-together' | 'admin' | 'install'>('main')
-  const { mayEdit, isGlobalOwner } = useRole()
+  const [view, setView] = useState<'main' | 'strum-together' | 'install'>('main')
+  const { mayEdit } = useRole()
   const { open: openFeedback } = useFeedback()
   const { mode: installMode, install } = useInstallOffer()
 
@@ -153,26 +146,6 @@ export function NavMenu({ current }: { current: Section }) {
               </>
             )}
 
-            {view === 'admin' && (
-              <>
-                {/* Same back row as Strum Together's, for the same reason — see its comment. */}
-                <button
-                  type="button"
-                  className="menu-item w-full"
-                  role="menuitem"
-                  aria-label="Back to the menu"
-                  onClick={() => setView('main')}
-                >
-                  <IconChevronLeft size={17} />
-                  Admin
-                </button>
-
-                <div className="menu-divider" />
-
-                <AdminPanel current={current} onNavigate={close} />
-              </>
-            )}
-
             {view === 'install' && installMode !== null && installMode !== 'prompt' && (
               <>
                 {/* Same back row again — see Strum Together's comment. */}
@@ -195,31 +168,6 @@ export function NavMenu({ current }: { current: Section }) {
 
             {view === 'main' && (
               <>
-                {/*
-                  * First, and the only entry in this panel that depends on who is asking:
-                  * an installation-wide owner gets it, nobody else sees it at all. Its own
-                  * divider below rather than sitting flush with Home — what is behind it is
-                  * about running the installation, not about reading from it, and that is a
-                  * bigger step than the one between any two entries under it.
-                  */}
-                {isGlobalOwner && (
-                  <>
-                    <button
-                      type="button"
-                      className={isAdminSection(current) ? 'menu-item is-on w-full' : 'menu-item w-full'}
-                      role="menuitem"
-                      aria-label="Admin, opens the administration pages"
-                      onClick={() => setView('admin')}
-                    >
-                      <IconShield size={17} />
-                      Admin
-                      <IconChevronRight size={15} className="ms-auto" />
-                    </button>
-
-                    <div className="menu-divider" />
-                  </>
-                )}
-
                 <Link href="/" className={item('songs')} role="menuitem" onClick={close}>
                   <IconNote size={17} />
                   Home

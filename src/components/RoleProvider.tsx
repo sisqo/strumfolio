@@ -31,10 +31,11 @@ interface RoleContextValue {
   mayEdit: boolean
   /**
    * A true, installation-wide owner (`isOwner`) — what decides whether the header offers
-   * `AdminPanel` at all, the one entry that is either present or absent rather than a panel
+   * `AdminMenu` at all, an opener that is either present or absent rather than a panel
    * with an entry missing from it. It used to answer for two readers instead: the Accounts
    * entry inside `NavMenu` and the user menu's own "Owner" badge, both of which have gone,
-   * so the two menus every reader uses are now the same shape for everybody.
+   * so `UserMenu`/`NavMenu` are now the same shape for everybody, and only `AdminMenu`
+   * itself still asks the question.
    *
    * `HomeScreen` reads it too, for a different kind of question: whether to offer copying a
    * songbook *into another account*, which is a power over two accounts at once
