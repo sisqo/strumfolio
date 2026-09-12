@@ -27,13 +27,13 @@
  * gate disappears when the campaigns have `paddle_discount_id` to pass as `discount_id`.
  */
 
-import { Environment, Paddle } from '@paddle/paddle-node-sdk'
 import { eq } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
 
+import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
@@ -50,22 +50,6 @@ export type PaddleCheckoutFailure =
 export type PaddleCheckoutResult =
   | { ok: true; transactionId: string }
   | { ok: false; reason: PaddleCheckoutFailure }
-
-/**
- * Built per call rather than once at module scope: `PADDLE_API_KEY` is read fresh, the same
- * way `resolve.ts` reads its two flags, so an environment change needs a redeploy and not a
- * cold start to take effect — and a missing key is a refusal here rather than a throw at import
- * time, which would take down every route that happens to share the bundle.
- */
-function paddleClient(): Paddle | null {
-  const key = process.env.PADDLE_API_KEY
-  if (!key) return null
-
-  return new Paddle(key, {
-    environment:
-      process.env.NEXT_PUBLIC_PADDLE_ENV === 'production' ? Environment.production : Environment.sandbox,
-  })
-}
 
 /**
  * `cycle` is nullable because Lifetime has none, and `paddlePriceId` refuses the mismatch in
