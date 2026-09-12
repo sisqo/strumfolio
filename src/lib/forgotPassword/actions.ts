@@ -12,18 +12,15 @@ import { eq } from 'drizzle-orm'
 import { isEmailShape, normalizeEmail } from '@/lib/allowlist'
 import { writePasswordHash } from '@/lib/auth/credentials'
 import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
-import { generateToken } from '@/lib/auth/tokens'
 import { verifyTurnstile } from '@/lib/captcha'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, passwordResetTokens } from '@/lib/db/schema'
-import { sendEmail } from '@/lib/email/send'
-import { passwordResetEmail } from '@/lib/email/templates'
-import { checkRateLimit, requestIp, requestOrigin } from '@/lib/rateLimit'
+import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { checkPasswordResetToken } from './check'
+import { sendPasswordResetToken } from './sendToken'
 import type { RequestResetResult, ResetPasswordResult } from './types'
 
-const EXPIRES_IN_MS = 60 * 60 * 1000
 
 /**
  * Proposed, not tuned — same status as `register`'s own constant.
@@ -72,34 +69,6 @@ export async function requestPasswordReset(formData: FormData): Promise<RequestR
     console.error('requestPasswordReset failed', error)
     return { ok: false, reason: 'failed' }
   }
-}
-
-/**
- * The token-and-email half of a password reset, shared by `requestPasswordReset` above
- * (self-service, behind captcha/rate-limit/anti-enumeration) and `sendPasswordResetFor`
- * (`lib/auth/actions.ts`, an admin action on `/accounts/[email]` that needs none of
- * those three) — one place to keep `EXPIRES_IN_MS`,
- * the token, and the link in agreement, rather than a second hand-typed copy of this
- * exact block. Assumes the caller has already normalized `email` and decided it is
- * worth sending to; this does not check whether an account exists at all.
- */
-export async function sendPasswordResetToken(email: string): Promise<void> {
-  const { raw, hash } = generateToken()
-  const expiresAt = new Date(Date.now() + EXPIRES_IN_MS)
-
-  await db()
-    .insert(passwordResetTokens)
-    .values({ email, tokenHash: hash, expiresAt })
-    .onConflictDoUpdate({
-      target: passwordResetTokens.email,
-      set: { tokenHash: hash, expiresAt },
-    })
-
-  const url = new URL('/reset-password', await requestOrigin())
-  url.searchParams.set('email', email)
-  url.searchParams.set('token', raw)
-
-  await sendEmail({ to: email, ...passwordResetEmail(url.toString()) })
 }
 
 /**

@@ -27,7 +27,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { authConfig } from '@/auth.config'
-import { accountExists } from '@/lib/accounts/read'
+import { accountExists } from '@/lib/accounts/status'
 import { currentAccountFor, readAccountCookie } from '@/lib/accounts/current'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { entitlementsOf } from '@/lib/plans/resolve'

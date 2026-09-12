@@ -127,13 +127,31 @@ function purgeIfForeign(scope: string): void {
   void clearPageCaches()
 }
 
-/** Drop every Cache Storage entry. Best effort — an old browser or a denied permission simply
- *  leaves the service worker's own `rejectUnauthenticated` and `NetworkFirst` as they were. */
+/**
+ * The Cache Storage entries that hold rendered, account-scoped screens: `sw.ts`'s own `home`
+ * and Serwist's `others` and three page caches. Everything else Cache Storage holds is
+ * account-agnostic — the Serwist **precache** (the whole app shell: every JS/CSS chunk, the
+ * webmanifest, the brand assets) and the `next-*`/`static-*`/font/image caches — so none of it
+ * carries one account's data into another's session, and none of it may be wiped here.
+ *
+ * **Wiping all of it was the bug this list ends.** `clearPageCaches` ran on every signed-out
+ * `/login` visit (`StorageCleanup`) and on every foreign-account detection (`purgeIfForeign`),
+ * and `caches.delete` took the precache with the rest. The precache is written once, at the
+ * worker's `install`, and never again until the next deploy — so a single anonymous `/login`
+ * (the bounce `StandaloneRedirect` itself causes among them) stripped the installed app's whole
+ * offline shell until a deploy rebuilt the worker. These five names are used verbatim by the
+ * worker (Serwist does not prefix an explicit `cacheName`), confirmed against the built `sw.js`.
+ */
+const PAGE_CACHES: ReadonlySet<string> = new Set(['home', 'others', 'pages', 'pages-rsc', 'pages-rsc-prefetch'])
+
+/** Drop every Cache Storage entry that can hold another account's rendered screens, and only
+ *  those — see `PAGE_CACHES`. Best effort: an old browser or a denied permission simply leaves
+ *  the service worker's own `rejectUnauthenticated` and `NetworkFirst` as they were. */
 export async function clearPageCaches(): Promise<void> {
   try {
     if (typeof caches === 'undefined') return
     const names = await caches.keys()
-    await Promise.all(names.map((name) => caches.delete(name)))
+    await Promise.all(names.filter((name) => PAGE_CACHES.has(name)).map((name) => caches.delete(name)))
   } catch {
     // Nothing to do: this is a defence in depth, not the defence.
   }

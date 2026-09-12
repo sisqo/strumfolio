@@ -16,7 +16,7 @@
 import { and, asc, eq, isNull, max, or, sql } from 'drizzle-orm'
 
 import { accessTo, asEditor } from '@/lib/auth/session'
-import { reanchorSongComments } from '@/lib/comments/actions'
+import { reanchorSongComments } from '@/lib/comments/reanchorSong'
 import { songAccountOf } from '@/lib/data/access'
 import { placeAfter } from '@/lib/songbooks/order'
 import { rowToSong } from '@/lib/data/db'

@@ -232,4 +232,16 @@ export default withSerwistInit({
   ],
   // Only ship a service worker from a real build; in dev it gets in the way.
   disable: process.env.NODE_ENV === 'development',
+  /**
+   * **Off, and the default is the trap.** `@serwist/next` defaults `reloadOnOnline` to `true`,
+   * which injects `window.addEventListener('online', () => location.reload())` into every page
+   * (confirmed in the production bundle). For an app whose whole purpose is to be read on stage
+   * on flaky wifi, a full reload on every reconnection is exactly the wrong reflex: it fires
+   * mid-song, and it kills `prefsQueue`'s in-memory drain at the very moment the returning
+   * network was about to flush the transposition/capo changes made offline. Everything the
+   * reload was meant to achieve — re-reading a role, draining the comment outbox, refreshing a
+   * stale badge — this app already does with its own `online` listeners, without throwing the
+   * page away. `disable` above hides this in dev, so it is set explicitly rather than trusted.
+   */
+  reloadOnOnline: false,
 })(withMDX(nextConfig))
