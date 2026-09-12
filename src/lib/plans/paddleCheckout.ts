@@ -67,7 +67,15 @@ function paddleClient(): Paddle | null {
   })
 }
 
-export async function startPaddleCheckout(plan: string, cycle: BillingPeriod): Promise<PaddleCheckoutResult> {
+/**
+ * `cycle` is nullable because Lifetime has none, and `paddlePriceId` refuses the mismatch in
+ * either direction rather than guessing — a cycle passed for Lifetime, or none passed for a
+ * plan that renews, answers `no-price` instead of selling something nobody chose.
+ */
+export async function startPaddleCheckout(
+  plan: string,
+  cycle: BillingPeriod | null,
+): Promise<PaddleCheckoutResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
   if (!isCheckoutPlan(plan)) return { ok: false, reason: 'invalid-plan' }
 
@@ -77,7 +85,8 @@ export async function startPaddleCheckout(plan: string, cycle: BillingPeriod): P
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
-  /* Lifetime is bought once; everything else renews on the cycle asked for. */
+  /* The browser picks a cycle, never a price: which price that cycle is sold at is decided
+     here, from the table, so a tampered value can only ever name a plan we do sell. */
   const priceId = paddlePriceId(plan, plan === 'lifetime' ? null : cycle)
   if (priceId === null) return { ok: false, reason: 'no-price' }
 

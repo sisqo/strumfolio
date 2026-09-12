@@ -15,7 +15,7 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
-import { euro, isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
+import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
@@ -135,11 +135,15 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           * Paddle branch names its own amount rather than inheriting one.
           */}
         {paddleCheckoutEnabled() ? (
-          <PaddleCheckout
-            plan={plan}
-            cycle={initialCycle}
-            amount={plan === 'lifetime' ? euro(LIFETIME.amount) : euro(PRICES[plan][initialCycle].amount)}
-          />
+          plan === 'lifetime' ? (
+            <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
+          ) : (
+            <PaddleCheckout
+              plan={plan}
+              initialCycle={initialCycle}
+              amounts={{ year: PRICES[plan].year.amount, month: PRICES[plan].month.amount }}
+            />
+          )
         ) : (
           <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
         )}
