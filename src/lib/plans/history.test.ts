@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { mostRecentCycleFor } from './history'
+import { mostRecentCycleFor, readLine } from './history'
 import type { PaymentHistoryLine } from './history'
 
 const PAST = new Date('2026-05-03T00:00:00Z')
@@ -64,5 +64,77 @@ describe('the cycle a plan was last actually bought on', () => {
   it('says nothing when no purchase of this plan is on record', () => {
     assert.equal(mostRecentCycleFor('plus', [paidRow()]), null)
     assert.equal(mostRecentCycleFor('standard', []), null)
+  })
+})
+
+describe('readLine — reading a stored payload as a ledger line', () => {
+  /* The real shape, trimmed to the fields this reads: everything lives under `data`. */
+  const subscriptionCreated = JSON.stringify({
+    event_id: 'evt_1',
+    event_type: 'subscription.created',
+    data: {
+      id: 'sub_1',
+      items: [{ price: { id: 'pri_1', custom_data: { plan: 'premium', cycle: 'year' } } }],
+    },
+  })
+
+  const transactionCompleted = JSON.stringify({
+    event_id: 'evt_2',
+    event_type: 'transaction.completed',
+    data: {
+      id: 'txn_1',
+      subscription_id: 'sub_1',
+      items: [{ price: { id: 'pri_1', custom_data: { plan: 'premium', cycle: 'year' } } }],
+      details: { totals: { subtotal: '8196', tax: '1803', total: '9999', currency_code: 'EUR' } },
+    },
+  })
+
+  /*
+   * The defect this whole branch exists for. Before it, every field was read off the top level
+   * — the mock's shape — so a real event produced no plan, no amount and action `'unknown'`,
+   * which the table prints as a bare «Event» and the Payments strip totals as €0.00.
+   */
+  it('reads the plan and cycle out of `data`, not off the top level', () => {
+    const line = readLine('subscription.created', subscriptionCreated)
+
+    assert.equal(line.action, 'started')
+    assert.equal(line.plan, 'premium')
+    assert.equal(line.cycle, 'year')
+  })
+
+  it('reads the charged total, tax included, off a completed transaction', () => {
+    const line = readLine('transaction.completed', transactionCompleted)
+
+    assert.equal(line.action, 'payment')
+    /* `total`, not `subtotal`: these prices are tax-inclusive, so it is what was actually paid. */
+    assert.equal(line.amount, '99.99')
+  })
+
+  /* A subscription event describes a state, not a charge — reading a figure off one would
+     invent money that never moved, and double-count the transaction that did. */
+  it('gives a subscription event no amount even when one could be computed', () => {
+    assert.equal(readLine('subscription.created', subscriptionCreated).amount, null)
+  })
+
+  it('refuses a non-euro total rather than stamping a € on it', () => {
+    const inDollars = transactionCompleted.replace('"EUR"', '"USD"')
+
+    assert.equal(readLine('transaction.completed', inDollars).amount, null)
+  })
+
+  it('still yields a line for a payload it cannot read at all', () => {
+    for (const payload of ['not json', 'null', '[]', '{}']) {
+      const line = readLine('subscription.created', payload)
+      assert.equal(line.plan, null)
+      assert.equal(line.amount, null)
+    }
+  })
+
+  it('keeps reading the mock shape, which is flat', () => {
+    const line = readLine('mock.purchase', JSON.stringify({ plan: 'plus', cycle: 'month', amount: '6.99' }))
+
+    assert.equal(line.action, 'purchase')
+    assert.equal(line.plan, 'plus')
+    assert.equal(line.amount, '6.99')
   })
 })

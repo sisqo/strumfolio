@@ -21,6 +21,27 @@ function describeEvent(line: PaymentHistoryLine): string {
       return `Expired now (test) — was ${plan}`
     case 'kept_current':
       return `Kept ${plan}, cleared a scheduled change`
+
+    /* Paddle's own events. `started` and `activated` arrive within the same second of a first
+       purchase and say different things — one is the subscription existing, the other it being
+       live — so they are not collapsed into one line. */
+    case 'payment':
+      return cycleWord === null ? `Paid for ${plan}` : `Paid for ${plan} (${cycleWord})`
+    case 'started':
+      return `Subscription started — ${plan}`
+    case 'activated':
+      return `Subscription activated — ${plan}`
+    case 'changed':
+      return `Subscription changed — ${plan}`
+    case 'cancelled':
+      return `Subscription cancelled — was ${plan}`
+    case 'past_due':
+      return `Payment failed — ${plan} in grace`
+    case 'paused':
+      return `Subscription paused — ${plan}`
+    case 'resumed':
+      return `Subscription resumed — ${plan}`
+
     default:
       return 'Event'
   }
@@ -78,7 +99,12 @@ export function PaymentHistoryTable({
               style={ledger ? undefined : { borderColor: 'var(--surface-2)' }}
             >
               <td className={ledger ? undefined : 'whitespace-nowrap py-1.5 pr-3'}>
-                {dates === 'plain' ? formatPlanDate(line.occurredAt) : line.occurredAt.toISOString().slice(0, 10)}
+                {/* The operator's column carries the minute as well as the day: a first purchase
+                    fires three events inside the same second, and a ledger that prints only the
+                    date makes them look like three unrelated things that happened «that day». */}
+                {dates === 'plain'
+                  ? formatPlanDate(line.occurredAt)
+                  : line.occurredAt.toISOString().slice(0, 16).replace('T', ' ')}
               </td>
               <td className={ledger ? undefined : 'py-1.5 pr-3'}>{describeEvent(line)}</td>
               {/* A row with no amount is a plan change, not money: the mock greys the whole

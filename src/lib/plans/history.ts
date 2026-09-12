@@ -34,6 +34,48 @@ import type { Plan } from './types'
 export type MockEventAction = 'purchase' | 'scheduled_change' | 'cancelled_now' | 'force_expired' | 'kept_current'
 
 /**
+ * What a *real* Paddle event did, in the same vocabulary a ledger line is read in.
+ *
+ * Separate from `MockEventAction` rather than folded into it, because the two describe
+ * different worlds: the mock's actions are what a stand-in *decided*, these are what a payment
+ * processor *reported*. Only `payment` moves money — `paymentSummary` collects on that and on
+ * `purchase`, and on nothing else.
+ */
+export type PaddleEventAction =
+  | 'payment'
+  | 'started'
+  | 'activated'
+  | 'changed'
+  | 'cancelled'
+  | 'past_due'
+  | 'paused'
+  | 'resumed'
+
+const PADDLE_ACTIONS: Record<string, PaddleEventAction> = {
+  'transaction.completed': 'payment',
+  'subscription.created': 'started',
+  'subscription.activated': 'activated',
+  'subscription.updated': 'changed',
+  'subscription.canceled': 'cancelled',
+  'subscription.past_due': 'past_due',
+  'subscription.paused': 'paused',
+  'subscription.resumed': 'resumed',
+}
+
+/**
+ * Cents as Paddle sends them, as euro as `PRICES` prints it: `'9999'` → `'99.99'`.
+ *
+ * String arithmetic rather than a division, for `yearlyTotalOfMonthly`'s reason turned around:
+ * `9999 / 100` is exact today and `Number.toFixed` hides the case where it is not, and this is
+ * a figure somebody was charged. Anything that is not a run of digits answers `null`, because a
+ * total this cannot read must show as «no amount» rather than as a number nobody was billed.
+ */
+function centsToEuro(cents: string): string | null {
+  if (!/^\d+$/.test(cents)) return null
+  return `${cents.slice(0, -2) || '0'}.${cents.slice(-2).padStart(2, '0')}`
+}
+
+/**
  * One row of history, already parsed for a screen to render — never the raw `payload`, which
  * stays this file's own concern.
  *
@@ -45,7 +87,7 @@ export type MockEventAction = 'purchase' | 'scheduled_change' | 'cancelled_now' 
 export interface PaymentHistoryLine {
   id: string
   occurredAt: Date
-  action: MockEventAction | 'unknown'
+  action: MockEventAction | PaddleEventAction | 'unknown'
   plan: Plan | null
   cycle: BillingPeriod | null
   /** Euro, as `PRICES`/`LIFETIME` already print it — a fake charge, never a real one. */
@@ -153,6 +195,100 @@ export async function logMockEvent(input: {
   })
 }
 
+/** Everything a ledger line says beyond its id and its date. */
+export type LineFields = Omit<PaymentHistoryLine, 'id' | 'occurredAt'>
+
+const NOTHING: LineFields = {
+  action: 'unknown',
+  plan: null,
+  cycle: null,
+  amount: null,
+  couponCode: null,
+  couponPercent: null,
+  fullAmount: null,
+}
+
+/** The mock's own payload: flat fields this file wrote itself. */
+function fromMockPayload(eventType: string, payload: Record<string, unknown>): LineFields {
+  const { plan, cycle, amount, couponCode, couponPercent, fullAmount } = payload
+
+  return {
+    action: eventType.slice('mock.'.length) as MockEventAction,
+    plan: typeof plan === 'string' ? readPlan(plan) : null,
+    cycle: cycle === 'year' || cycle === 'month' ? cycle : null,
+    amount: typeof amount === 'string' ? amount : null,
+    couponCode: typeof couponCode === 'string' ? couponCode : null,
+    couponPercent: typeof couponPercent === 'string' ? couponPercent : null,
+    fullAmount: typeof fullAmount === 'string' ? fullAmount : null,
+  }
+}
+
+/**
+ * A real Paddle webhook payload, which is shaped nothing like the mock's.
+ *
+ * **This is why the Payments panel read blank the day real events started arriving**: everything
+ * above reads flat top-level fields, and a Paddle event keeps all of it under `data` — so plan,
+ * cycle and amount all came back null and the action fell through to `'unknown'`, which the
+ * table prints as a bare «Event».
+ *
+ * The plan comes from the `custom_data` stamped on the price at catalogue creation, the same
+ * field `webhook.ts` grants from — so the ledger and the entitlement can never disagree about
+ * what was bought. The amount comes from the transaction's own totals and **only from
+ * `transaction.completed`**: a subscription event describes a state, not a charge, and reading
+ * a figure off one would invent money that never moved. `total` rather than `subtotal` because
+ * these prices are tax-inclusive — it is the number the customer actually paid.
+ *
+ * Non-euro totals answer `null` rather than being printed: `euro()` would stamp a € on them.
+ * The listino is euro-only, so this is a guard against a future that has not happened yet.
+ */
+function fromPaddleEvent(eventType: string, payload: Record<string, unknown>): LineFields {
+  const data = payload.data
+  if (data === null || typeof data !== 'object') return NOTHING
+
+  const { items, details } = data as Record<string, unknown>
+
+  const stamp = Array.isArray(items)
+    ? (items
+        .map((item) => (item as { price?: { custom_data?: unknown } } | null)?.price?.custom_data)
+        .find((custom) => custom !== null && typeof custom === 'object') as
+        | { plan?: unknown; cycle?: unknown }
+        | undefined)
+    : undefined
+
+  const totals = (details as { totals?: { total?: unknown; currency_code?: unknown } } | undefined)?.totals
+  const chargeable = eventType === 'transaction.completed' && totals?.currency_code === 'EUR'
+
+  return {
+    ...NOTHING,
+    action: PADDLE_ACTIONS[eventType] ?? 'unknown',
+    plan: typeof stamp?.plan === 'string' ? readPlan(stamp.plan) : null,
+    cycle: stamp?.cycle === 'year' || stamp?.cycle === 'month' ? stamp.cycle : null,
+    amount: chargeable && typeof totals?.total === 'string' ? centsToEuro(totals.total) : null,
+  }
+}
+
+/**
+ * One stored row as a ledger line, whichever of the two payload shapes it holds.
+ *
+ * An unparseable payload answers `NOTHING`, so the row still shows with its date and a bare
+ * event label — `paddle_events`' own promise that «the ledger's job is to have the event, not
+ * to have understood it», kept on the reading side too.
+ */
+export function readLine(eventType: string, payload: string): LineFields {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(payload)
+  } catch {
+    return NOTHING
+  }
+
+  if (parsed === null || typeof parsed !== 'object') return NOTHING
+
+  return eventType.startsWith('mock.')
+    ? fromMockPayload(eventType, parsed as Record<string, unknown>)
+    : fromPaddleEvent(eventType, parsed as Record<string, unknown>)
+}
+
 /**
  * One account's payment history, newest first — every row in `paddle_events` for that
  * address, not only the ones this file wrote. A row whose `eventType` carries no `mock.`
@@ -181,48 +317,9 @@ export async function paymentHistoryFor(accountOwnerEmail: string): Promise<Paym
     .where(eq(paddleEvents.accountId, accountIdOf(accountOwnerEmail)))
     .orderBy(desc(paddleEvents.receivedAt))
 
-  return rows.map((row) => {
-    const action = row.eventType.startsWith('mock.') ? (row.eventType.slice('mock.'.length) as MockEventAction) : 'unknown'
-
-    let plan: Plan | null = null
-    let cycle: BillingPeriod | null = null
-    let amount: string | null = null
-    let couponCode: string | null = null
-    let couponPercent: string | null = null
-    let fullAmount: string | null = null
-    try {
-      const parsed: unknown = JSON.parse(row.payload)
-      if (parsed !== null && typeof parsed === 'object') {
-        const {
-          plan: rawPlan,
-          cycle: rawCycle,
-          amount: rawAmount,
-          couponCode: rawCode,
-          couponPercent: rawPercent,
-          fullAmount: rawFull,
-        } = parsed as Record<string, unknown>
-        if (typeof rawPlan === 'string') plan = readPlan(rawPlan)
-        if (rawCycle === 'year' || rawCycle === 'month') cycle = rawCycle
-        if (typeof rawAmount === 'string') amount = rawAmount
-        if (typeof rawCode === 'string') couponCode = rawCode
-        if (typeof rawPercent === 'string') couponPercent = rawPercent
-        if (typeof rawFull === 'string') fullAmount = rawFull
-      }
-    } catch {
-      // Not a payload this file wrote — occurredAt/receivedAt and the bare event type are
-      // still shown, exactly as this function's own header promises.
-    }
-
-    return {
-      id: row.eventId,
-      occurredAt: row.occurredAt ?? row.receivedAt,
-      action,
-      plan,
-      cycle,
-      amount,
-      couponCode,
-      couponPercent,
-      fullAmount,
-    }
-  })
+  return rows.map((row) => ({
+    id: row.eventId,
+    occurredAt: row.occurredAt ?? row.receivedAt,
+    ...readLine(row.eventType, row.payload),
+  }))
 }

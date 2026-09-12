@@ -47,11 +47,14 @@ function decimal(total: number): string {
 export function paymentSummary(history: PaymentHistoryLine[]): PaymentSummary {
   let total = 0
   for (const line of history) {
-    if (line.action !== 'purchase' || line.amount === null) continue
+    /* `purchase` is the mock's word for it and `payment` is Paddle's; both are money that
+       actually moved, and every other action is a plan changing. Adding Paddle's here is what
+       stopped this reading €0.00 for accounts that had genuinely paid. */
+    if ((line.action !== 'purchase' && line.action !== 'payment') || line.amount === null) continue
     total += toCents(line.amount) ?? 0
   }
 
-  const paid = history.find((line) => line.action === 'purchase')
+  const paid = history.find((line) => line.action === 'purchase' || line.action === 'payment')
 
   return {
     collected: decimal(total),
