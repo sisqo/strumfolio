@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { IconCheck } from '@/components/icons'
+import { COURTESY_FROM, COURTESY_REPLY_TO } from '@/lib/courtesy/types'
 import { sendTestEmail } from '@/lib/email/actions'
-import { PREVIEW_KEYS, PREVIEW_LABEL } from '@/lib/email/preview'
+import { PREVIEW_KEYS, PREVIEW_LABEL, isCourtesyPreview } from '@/lib/email/preview'
 import type { PreviewKey } from '@/lib/email/preview'
 import type { EmailTemplate } from '@/lib/email/templates'
 import { useOnline } from '@/lib/useOnline'
@@ -13,24 +15,46 @@ const FAILURE_MESSAGE: Record<'no-session' | 'not-owner', string> = {
   'not-owner': 'Only a global owner can send a test email.',
 }
 
+/** The two tab rows (`Email Previews.dc.html`), derived from `PREVIEW_KEYS` rather than
+    listed a second time here. */
+const TRANSACTIONAL_KEYS = PREVIEW_KEYS.filter((key) => !isCourtesyPreview(key))
+const COURTESY_KEYS = PREVIEW_KEYS.filter(isCourtesyPreview)
+
+/** How long "Sent — check your inbox." stands before it clears itself. */
+const SENT_TIMEOUT_MS = 3500
+
 /**
- * The tabbed viewer behind `/emails`: one template at a time, its subject, an HTML/plain-text
- * toggle, and a button that sends the real thing to whoever is signed in.
+ * The tabbed viewer behind `/emails`: two rows of templates — six transactional, two
+ * courtesy — each's sender, its subject, an HTML/plain-text toggle, and a button that sends
+ * the real thing to whoever is signed in.
  *
  * The HTML goes into an `<iframe srcDoc>`, not straight into this page's DOM: those inline
  * styles are built for a mail client, not to sit next to Tailwind and this page's own resets
  * — and unlike the rest of this app, the frame is deliberately always light, because that is
  * what every inbox will actually show regardless of the reader's own theme.
+ *
+ * `defaultFrom` arrives as a prop rather than a constant declared here: the real value can
+ * carry an env override (`RESEND_FROM`), read by `email/send.ts`, which pulls in the Resend
+ * SDK — importing that here would put it in this client component's bundle for nothing. The
+ * two courtesy templates need no such prop: `COURTESY_FROM`/`COURTESY_REPLY_TO` live in
+ * `courtesy/types.ts`, written to be safely importable from client code (see that file's own
+ * header) since a `'use server'` module may not export a plain constant at all.
  */
-export function EmailPreview({ previews }: { previews: Record<PreviewKey, EmailTemplate> }) {
+export function EmailPreview({ previews, defaultFrom }: { previews: Record<PreviewKey, EmailTemplate>; defaultFrom: string }) {
   const online = useOnline()
   const [active, setActive] = useState<PreviewKey>('verification')
   const [mode, setMode] = useState<'html' | 'text'>('html')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(doneTimer.current), [])
 
   const template = previews[active]
+  const courtesy = isCourtesyPreview(active)
+  const from = courtesy ? COURTESY_FROM : defaultFrom
+  const replyTo = courtesy ? COURTESY_REPLY_TO : null
 
   const select = (key: PreviewKey) => {
     setActive(key)
@@ -44,8 +68,15 @@ export function EmailPreview({ previews }: { previews: Record<PreviewKey, EmailT
     setDone(null)
     try {
       const result = await sendTestEmail(active)
-      if (result.ok) setDone('Sent — check your inbox.')
-      else setError(FAILURE_MESSAGE[result.reason])
+      if (result.ok) {
+        setDone('Sent — check your inbox.')
+        clearTimeout(doneTimer.current)
+        // Transient rather than left standing: an operator sending several templates in a
+        // row would otherwise read a stale "Sent" beside a template it was never true of.
+        doneTimer.current = setTimeout(() => setDone(null), SENT_TIMEOUT_MS)
+      } else {
+        setError(FAILURE_MESSAGE[result.reason])
+      }
     } catch {
       setError('Could not send the test email.')
     } finally {
@@ -53,10 +84,13 @@ export function EmailPreview({ previews }: { previews: Record<PreviewKey, EmailT
     }
   }
 
-  return (
-    <div className="card p-4">
-      <div className="segment mb-4 w-fit" role="tablist" aria-label="Email">
-        {PREVIEW_KEYS.map((key) => (
+  const tabRow = (keys: readonly PreviewKey[], label: string) => (
+    <div className="flex flex-wrap items-center gap-2.5">
+      <span className="w-[6.625rem] flex-none text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-faint">
+        {label}
+      </span>
+      <div className="segment w-fit flex-wrap" role="tablist" aria-label={`${label} emails`}>
+        {keys.map((key) => (
           <button
             key={key}
             type="button"
@@ -69,10 +103,28 @@ export function EmailPreview({ previews }: { previews: Record<PreviewKey, EmailT
           </button>
         ))}
       </div>
+    </div>
+  )
 
-      <p className="mb-3 text-sm text-muted">
-        Subject: <span className="text-ink">{template.subject}</span>
-      </p>
+  return (
+    <div className="card p-4">
+      <div className="mb-4 flex flex-col gap-2">
+        {tabRow(TRANSACTIONAL_KEYS, 'Transactional')}
+        {tabRow(COURTESY_KEYS, 'Courtesy')}
+      </div>
+
+      <dl className="mb-4 grid grid-cols-[6.625rem_1fr] gap-x-2.5 gap-y-2.5 border-t border-line-soft pt-4 text-[0.96875rem]">
+        <dt className="text-[0.6875rem] font-semibold uppercase leading-[1.5] tracking-[0.07em] text-faint">From</dt>
+        <dd className="m-0 break-words text-ink">{from}</dd>
+        {replyTo !== null && (
+          <>
+            <dt className="text-[0.6875rem] font-semibold uppercase leading-[1.5] tracking-[0.07em] text-faint">Reply to</dt>
+            <dd className="m-0 break-words text-ink">{replyTo}</dd>
+          </>
+        )}
+        <dt className="text-[0.6875rem] font-semibold uppercase leading-[1.5] tracking-[0.07em] text-faint">Subject</dt>
+        <dd className="m-0 font-medium text-ink">{template.subject}</dd>
+      </dl>
 
       <div className="segment mb-3 w-fit" role="group" aria-label="View as">
         <button
@@ -111,13 +163,14 @@ export function EmailPreview({ previews }: { previews: Record<PreviewKey, EmailT
         </p>
       )}
       {done && (
-        <p className="notice notice-accent mt-3" role="status">
+        <p className="notice notice-success mt-3" role="status">
+          <IconCheck />
           {done}
         </p>
       )}
 
       <button type="button" className="btn btn-primary btn-sm mt-3" disabled={!online || busy} onClick={() => void send()}>
-        Send test copy to myself
+        Send to myself
       </button>
     </div>
   )

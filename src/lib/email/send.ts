@@ -16,8 +16,13 @@ import { Resend } from 'resend'
  * deploy (see CLAUDE.md's domain-move checklist) — but the default is the real address,
  * since there is exactly one of these per installation and it costs nothing for local dev
  * or the current deployment to leave unset.
+ *
+ * Exported so `/emails`'s server component can hand the real configured address to the
+ * preview UI as a prop — the one value there that cannot be computed client-side, since
+ * `RESEND_FROM` is a plain (not `NEXT_PUBLIC_`) env var and this module pulls in the Resend
+ * SDK, which has no business in that page's client bundle.
  */
-const FROM_ADDRESS = process.env.RESEND_FROM ?? 'Strumfolio <no-reply@strumfolio.com>'
+export const FROM_ADDRESS = process.env.RESEND_FROM ?? 'Strumfolio <no-reply@strumfolio.com>'
 
 export interface EmailMessage {
   to: string

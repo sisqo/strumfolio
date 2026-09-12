@@ -29,10 +29,8 @@ import type { OutreachFailure } from '@/lib/outreach/types'
 import { requestOrigin } from '@/lib/rateLimit'
 
 import type { CourtesyFailure, CourtesyResult } from './types'
+import { COURTESY_FROM, COURTESY_REPLY_TO } from './types'
 import { courtesyUnsubscribeToken } from './unsubscribe'
-
-const COURTESY_FROM = 'Francesco from Strumfolio <info@strumfolio.com>'
-const COURTESY_REPLY_TO = 'info@strumfolio.com'
 
 interface CourtesyAccountRow {
   id: number

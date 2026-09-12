@@ -57,6 +57,19 @@ export const PREVIEW_LABEL: Record<PreviewKey, string> = {
 }
 
 /**
+ * The two keys `/emails` (`Email Previews.dc.html`) draws as their own tab row, apart from
+ * the six transactional ones above — a named list rather than a `.startsWith('courtesy')`
+ * string test, so the two places that need to agree on which keys these are (`EmailPreview`'s
+ * tab grouping, `sendTestEmail`'s choice of sender) read the same source instead of each
+ * spelling the prefix out for itself.
+ */
+const COURTESY_PREVIEW_KEYS: readonly PreviewKey[] = ['courtesy-thanks', 'courtesy-checkin']
+
+export function isCourtesyPreview(key: PreviewKey): boolean {
+  return COURTESY_PREVIEW_KEYS.includes(key)
+}
+
+/**
  * The purchase confirmation's own placeholders. A fixed date rather than one derived from
  * today, for the reason this module's header gives about `origin`: `buildEmailPreviews` stays a
  * plain function of its argument, with no clock of its own, so two previews of the same

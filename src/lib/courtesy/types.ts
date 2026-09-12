@@ -37,6 +37,17 @@ export type CourtesyFailure =
 
 export type CourtesyResult = { ok: true } | { ok: false; reason: CourtesyFailure }
 
+/**
+ * The identity these two emails send under — a **named** person, not the product, and a
+ * reply-to that is genuinely read (see `email/send.ts`'s own comment on the distinction).
+ * Exported from here rather than left private to `actions.ts`, so `/emails`'s own
+ * `sendTestEmail` (`email/actions.ts`) can send a `[Preview]` copy under the same identity a
+ * real courtesy send uses instead of the default `no-reply@` — the two must not drift apart
+ * silently the way a hand-duplicated literal would let them.
+ */
+export const COURTESY_FROM = 'Francesco from Strumfolio <info@strumfolio.com>'
+export const COURTESY_REPLY_TO = 'info@strumfolio.com'
+
 export const COURTESY_MESSAGE: Record<CourtesyFailure, string> = {
   'not-allowed': 'Only a global owner may send this.',
   'no-database': 'No database configured: nothing can be sent.',
