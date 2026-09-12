@@ -34,16 +34,13 @@
 import { randomUUID } from 'crypto'
 
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
-import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import { discountEnd, discountedAmount, durationCopy, liveDiscount } from '@/lib/coupons/discount'
 import type { LiveDiscount } from '@/lib/coupons/discount'
-import { activeCoupon, redeemability } from '@/lib/coupons/read'
-import type { Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { redeemableCouponFor } from './redeemable'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
 import { accounts, couponRedemptions } from '@/lib/db/schema'
@@ -56,7 +53,7 @@ import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
 import { entitlementsOf, mockCheckoutEnabled } from './resolve'
 import { euro, isCheckoutPlan, periodEnd, readPendingCycle } from './prices'
-import type { BillingPeriod, CheckoutPlan } from './prices'
+import type { BillingPeriod } from './prices'
 import { PLAN_LABEL, PLAN_RANK, readPendingPlan, readPlan, readPlanStatus } from './types'
 import type { Plan, PlanStatus } from './types'
 import { sendEmail } from '@/lib/email/send'
@@ -426,38 +423,6 @@ export async function activatePlanChoice(): Promise<{ ok: true } | { ok: false; 
  * `readPlan`, which would fall back to `'free'` and write that to a paying account's row
  * with no error for a typo to be seen in.
  */
-/**
- * The campaign this purchase may actually redeem, re-read from the server's own cookie.
- *
- * The one place a coupon becomes money, and therefore the one place it is decided. Nothing
- * client-side reaches this: the code comes from the request's own cookie jar, the campaign from
- * the table, and `redeemability` re-checks every gate — state, window, both ceilings, whether
- * the campaign covers this plan at all, and whether this account has redeemed it before.
- *
- * `null` for every refusal, and the purchase then proceeds at the listino. That is deliberate:
- * declining to sell a plan because a discount lapsed between two page loads would be the more
- * surprising behaviour of the two, and the screen has no discount left to show by the time
- * anybody reloads it.
- *
- * Never throws — a coupon system being unreachable must not be a reason a plan cannot be
- * bought.
- */
-async function redeemableCouponFor(plan: CheckoutPlan, accountOwnerEmail: string): Promise<Campaign | null> {
-  try {
-    const cookie = (await cookies()).get(COUPON_COOKIE)?.value ?? null
-    if (cookie === null) return null
-
-    const campaign = await activeCoupon({ cookie })
-    if (campaign === null) return null
-
-    const allowed = await redeemability(campaign, plan, accountOwnerEmail)
-    return allowed.ok ? campaign : null
-  } catch (error) {
-    console.error('redeemableCouponFor failed', error)
-    return null
-  }
-}
-
 export async function mockPurchase(
   plan: string,
   cycle: BillingPeriod,
