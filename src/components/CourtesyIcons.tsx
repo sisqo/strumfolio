@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { CourtesyConfirmModal } from '@/components/CourtesyConfirmModal'
 import type { CourtesyKind } from '@/components/CourtesyConfirmModal'
-import { IconComment, IconSend } from '@/components/icons'
+import { IconMail } from '@/components/icons'
 
 interface Props {
   ownerEmail: string
@@ -14,19 +14,18 @@ interface Props {
 }
 
 /**
- * The two courtesy-email buttons in the Actions column of `/accounts` — two independent
- * controls, each with three states: **sendable** (dim, clickable), **sent** (solid, a `done`
- * row exists, no longer clickable), and **blocked** (dim and disabled for a reason other than
- * "already sent" — the check-in before its thank-you, or the address opted out).
+ * The two courtesy-email buttons in the Actions column of `/accounts` (`Accounts.dc.html`,
+ * revised 2026-09-12) — two independent controls, each with three states: **sendable** (dim,
+ * clickable), **sent** (solid, a `done` row exists, no longer clickable), and **blocked**
+ * (dim and disabled for a reason other than "already sent" — the check-in before its
+ * thank-you, or the address opted out).
  *
- * Returns a fragment rather than its own wrapping element: the page draws one flex row per
- * account (`.accounts-courtesy`) holding these two plus the row's own View control, so the
- * three read as one "Actions" group rather than two groups sitting side by side.
- *
- * Different glyphs for the two, where a single `IconMail` used to stand for both and told
- * them apart only by tooltip: `IconSend` is this app's own mark for something aimed at a
- * reader (`Account Detail.dc.html`'s Outreach tab), which is what the thank-you is, first
- * touch; `IconComment` is the check-in, which is a question rather than an announcement.
+ * Both share one glyph, the mail mark — they are the same kind of thing, a one-to-one,
+ * reply-carrying note, the same reasoning `OutreachPanel`'s own `KIND_ICON` already gives for
+ * its courtesy rows — and are told apart by a small numbered badge instead (1 for the
+ * thank-you, 2 for the check-in), which is what the mock draws. An earlier version of this
+ * column gave the two different glyphs (a paper plane, a speech bubble); the mock settled on
+ * one shape plus a badge instead, and this now matches it exactly.
  *
  * State is seeded from `listCourtesyStatus()` (the initial page load) and flipped locally the
  * moment a send actually succeeds, so an operator sees the icon light up without a full page
@@ -60,7 +59,10 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
         }
         onClick={() => setOpen('thanks')}
       >
-        <IconSend size={13} />
+        <IconMail size={14} />
+        <span className="accounts-courtesy-badge" aria-hidden>
+          1
+        </span>
       </button>
       <button
         type="button"
@@ -86,7 +88,10 @@ export function CourtesyIcons({ ownerEmail, thanksSent: initialThanksSent, check
         }
         onClick={() => setOpen('checkin')}
       >
-        <IconComment size={13} />
+        <IconMail size={14} />
+        <span className="accounts-courtesy-badge" aria-hidden>
+          2
+        </span>
       </button>
 
       {open !== null && (

@@ -10609,12 +10609,9 @@
     background: var(--surface);
   }
 
-  /* Actions widened from the mock's Courtesy column (84px, two icons) to fit a third —
-     View joined the two courtesy sends as a matching icon, so the column it moved out of
-     no longer needs a track of its own. */
   .accounts-grid {
     display: grid;
-    grid-template-columns: minmax(10rem, 1fr) 30px 108px 104px 170px 46px;
+    grid-template-columns: minmax(10rem, 1fr) 64px 30px 104px 170px 58px 36px;
     gap: 0.75rem;
     align-items: center;
     min-width: 46rem;
@@ -10658,7 +10655,7 @@
   }
 
   /*
-   * "Sign-ins" in caps and tracked is wider than the 46px its numbers need. Kept on one
+   * "Sign-ins" in caps and tracked is wider than the 64px its numbers need. Kept on one
    * line and hung from the column's right edge — a grid item wider than its track with
    * `justify-self: end` overflows toward the start, into the gap — so the header's right
    * edge still sits over the digits below it.
@@ -10715,7 +10712,7 @@
     color: var(--accent);
   }
 
-  /* Actions: the two courtesy sends and View, side by side in one column. */
+  /* Actions: the two courtesy sends, side by side in their own column. */
   .accounts-courtesy {
     display: flex;
     align-items: center;
@@ -10724,13 +10721,14 @@
   }
 
   /*
-   * One control per action, all the same size. The two courtesy sends carry three states:
-   * sendable (an outline waiting to be filled), sent (solid, done), and blocked (the
-   * check-in before the thank-you has gone out, or the account opted out) — dimmer than
-   * sendable so the two never read the same at a glance. View is a plain link wearing the
-   * same shape, always in the sendable look, since it has nothing to report.
+   * One button per courtesy kind, three states: sendable (an outline waiting to be filled),
+   * sent (solid, done), and blocked (the check-in before the thank-you has gone out, or the
+   * account opted out) — dimmer than sendable so the two never read the same at a glance.
+   * `position: relative` anchors the numbered badge (`.accounts-courtesy-badge`) that tells
+   * the two buttons apart, since both wear the same mail glyph.
    */
   .accounts-courtesy-icon {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -10761,6 +10759,50 @@
   .accounts-courtesy-icon:disabled {
     color: var(--surface-3);
     cursor: not-allowed;
+  }
+
+  /*
+   * The "1"/"2" that tells the two same-glyph courtesy buttons apart, tucked into the
+   * button's own corner. Its three colours track the button's own three states rather than
+   * repeating them independently — sendable's `--muted` fill on `--on-accent` text, since
+   * `--on-accent` is already the ink this app puts on a filled mid-tone surface in both
+   * themes (dark mode's `--muted` is a light tone, the same shape its `--accent` is).
+   */
+  .accounts-courtesy-badge {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--r-pill);
+    background: var(--muted);
+    color: var(--on-accent);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .accounts-courtesy-icon.is-sent .accounts-courtesy-badge {
+    background: var(--accent);
+  }
+
+  .accounts-courtesy-icon:disabled .accounts-courtesy-badge {
+    background: var(--surface-2);
+    color: var(--muted);
+  }
+
+  /* View, its own trailing column — a plain chevron in a circle, lit accent on hover. */
+  .accounts-view-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-pill);
+    color: var(--faint);
   }
 
   /* The plan chip — `.badge`'s shape a size down, colour from `.plan-badge-*` as ever. */
@@ -10838,6 +10880,11 @@
 
     .accounts-row:hover {
       background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+    }
+
+    .accounts-view-icon:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
     }
   }
 

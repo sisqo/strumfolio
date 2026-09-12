@@ -146,17 +146,17 @@ interface Props {
  * slug-reached page in this app — "this does not exist" and "this is not yours" should look
  * identical from outside.
  *
- * Laid out after `Accounts.dc.html` (v4.4): a title row with the pending
+ * Laid out after `Accounts.dc.html` (v4.4, revised 2026-09-12): a title row with the pending
  * registrations as a pill on its right, four tabs with the search and the sort order on the
- * same line, and one table — avatar and address, a gift mark, an Actions column, the plan
- * badge, the status, the sign-in count. The tabs are links and the search is a plain GET
- * form, so the whole state lives in the URL and the page stays a server component with one
- * client component in it (`AutoSubmitSelect`, the sort order).
+ * same line, and one table — avatar and address, the sign-in count, a gift mark, the plan
+ * badge, the status, an Actions column, View. The tabs are links and the search is a plain
+ * GET form, so the whole state lives in the URL and the page stays a server component with
+ * one client component in it (`AutoSubmitSelect`, the sort order).
  *
- * Actions is three controls in one column, not the mock's separate Courtesy and View: the
- * two courtesy sends (`CourtesyIcons`) and View itself, as a matching icon rather than a
- * word, so a row's controls read as one group instead of two — drawn nowhere in
- * `Accounts.dc.html`, the same kind of addition `CreateAccountForm` already is (2026-09-12).
+ * Actions and View are the mock's own two columns, not one merged column: Actions holds only
+ * the two courtesy sends (`CourtesyIcons`), sharing one glyph — the mail mark both already
+ * carried — told apart by a small numbered badge (1, 2) rather than by two different icons;
+ * View is its own trailing, unlabeled column, a plain chevron circle rather than a word.
  *
  * Offers creating an account again (2026-09-11), which v3.8 removed as covered by
  * self-service registration and automatic provisioning on any first sign-in. It covers
@@ -338,16 +338,17 @@ export default async function AccountsPage({ searchParams }: Props) {
                     {query.sort === 'za' && <IconChevronDown size={11} />}
                   </Link>
                 </span>
-                <span className="text-center">Gift</span>
-                <span className="text-center">Actions</span>
-                <span>Plan</span>
-                <span>Status</span>
                 <span className="text-right">
                   <Link href={hrefFor(query, { sort: 'signins', page: 1 })} className={query.sort === 'signins' ? 'is-sorted' : undefined}>
                     Sign-ins
                     {query.sort === 'signins' && <IconChevronDown size={11} />}
                   </Link>
                 </span>
+                <span className="text-center">Gift</span>
+                <span>Plan</span>
+                <span>Status</span>
+                <span className="text-center">Actions</span>
+                <span />
               </div>
 
               {pageRows.map(({ account, line, status, courtesy }) => {
@@ -368,12 +369,19 @@ export default async function AccountsPage({ searchParams }: Props) {
                       </span>
                       <span className="accounts-email">{account.ownerEmail}</span>
                     </span>
+                    <span className="accounts-count" aria-label={signIns}>
+                      {account.signInCount}
+                    </span>
                     <span className="flex justify-center">
                       {line !== null && giftActive(line) && (
                         <span className="accounts-gift" title="Gift" aria-label="Gift">
                           <IconGift size={13} />
                         </span>
                       )}
+                    </span>
+                    <span>{badge !== null && <span className={`accounts-plan ${badge.className}`}>{badge.label}</span>}</span>
+                    <span className={`accounts-status${status?.tone === 'alert' ? ' is-alert' : status?.tone === 'faint' ? ' is-faint' : ''}`}>
+                      {status?.text ?? ''}
                     </span>
                     <span className="accounts-courtesy">
                       <CourtesyIcons
@@ -382,21 +390,16 @@ export default async function AccountsPage({ searchParams }: Props) {
                         checkinSent={courtesy?.checkinSent ?? false}
                         optedOut={courtesy?.optedOut ?? false}
                       />
+                    </span>
+                    <span className="flex justify-center">
                       <Link
                         href={`/accounts/${encodeURIComponent(account.ownerEmail)}`}
-                        className="accounts-courtesy-icon"
-                        title="View"
-                        aria-label={`View ${account.ownerEmail}`}
+                        className="accounts-view-icon"
+                        title="Open this account"
+                        aria-label={`Open this account: ${account.ownerEmail}`}
                       >
-                        <IconChevronRight size={13} />
+                        <IconChevronRight size={17} />
                       </Link>
-                    </span>
-                    <span>{badge !== null && <span className={`accounts-plan ${badge.className}`}>{badge.label}</span>}</span>
-                    <span className={`accounts-status${status?.tone === 'alert' ? ' is-alert' : status?.tone === 'faint' ? ' is-faint' : ''}`}>
-                      {status?.text ?? ''}
-                    </span>
-                    <span className="accounts-count" aria-label={signIns}>
-                      {account.signInCount}
                     </span>
                   </div>
                 )
