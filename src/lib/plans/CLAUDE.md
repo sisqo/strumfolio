@@ -17,8 +17,14 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - `resolve.ts` — two env flags read fresh at call time: `plansEnforced()` (`SONGBOOK_PLANS=on`)
   gates enforcement, `mockCheckoutEnabled()` (`SONGBOOK_MOCK_CHECKOUT=on`) gates `/checkout`
   and the "Choose <plan>" buttons on `/pricing`. **Neither is a security boundary** — while the mock
-  checkout is on, any signed-in reader can give their account any plan for free. Both are
-  currently `on` in production, which is why a stale "not on sale yet" notice is a real bug.
+  checkout is on, any signed-in reader can give their account any plan for free. **`SONGBOOK_PLANS` is `on` in production and
+  `SONGBOOK_MOCK_CHECKOUT` is not set there at all** — measured 2026-09-12 against the full
+  list of sixteen production variables, not inferred. Both flags are a strict `=== 'on'`, so an
+  absent variable is `false`: the mock checkout is **off** in production, which is worth saying
+  plainly because this file claimed the opposite for weeks. The consequence is that production
+  today has no way to buy anything — `/checkout` and `/pricing`'s "Choose" buttons are both
+  behind that flag — so the real Paddle checkout will be the first purchase path there rather
+  than the second, and there is no window in which both exist.
 - `testCard.ts` — the mock's "processor": `isAcceptedTestCard` accepts only
   `4111 1111 1111 1111` (digits compared, formatting ignored); everything else declines
   client-side in `CheckoutScreen.tsx`, before `mockPurchase` is called.

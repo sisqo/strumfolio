@@ -294,6 +294,49 @@ dashboard writes.
   classifier**, so the old `strumfolio-db` resource still shows as "connected" in `vercel
   integration ls` with none of its env vars left anywhere — cosmetic, harmless to leave.
 
+### Preview is a third database, and until 2026-09-12 it was nothing at all
+
+The section heading above says two databases; there are three. `neon-byzantium-harbor`
+(`ep-blue-mode-avih2w94`, Postgres 18.6) was created on 2026-09-12 with
+`vercel integration add neon -e preview --plan free_v3 -m region=iad1 -m auth=false`, connected
+to **Preview only**, so sandbox purchases have somewhere to land that is neither production nor
+the dev snapshot of it. The integration writes `DATABASE_URL` itself, which is the point: no
+connection string passes through a person or a shell on the way in.
+
+**Preview had never been configured**, and the bullet above claiming `strumfolio-db-dev` serves
+"local/preview work" was true of local and aspirational about preview: the environment had no
+`DATABASE_URL` and no `AUTH_SECRET`, so every preview deployment ran with no database at all.
+It now carries its own `AUTH_SECRET`, `ALLOWED_EMAILS` and `SONGBOOK_PLANS=on`.
+
+- **The Turnstile keys are deliberately absent from Preview.** `captcha.ts` answers `true` when
+  `TURNSTILE_SECRET_KEY` is missing — the documented local-development fallback — and leaving
+  the key in place would have made registration *impossible* there rather than merely
+  unprotected, because the widget never draws on a hostname Cloudflare has not been told about
+  and a present key with no token is a refusal. Removing both keys is what lets an account be
+  created on a preview at all.
+- **`AUTH_GOOGLE_*` is absent too**, and the build survives it. Google sign-in could not work on
+  a preview regardless: the URL is not among the OAuth client's authorised redirect URIs, and
+  adding each one by hand is exactly the manual step that section warns about.
+- **Every `*.vercel.app` URL answers 302, production's included.** `ssoProtection` is
+  `all_except_custom_domains`, so the exemption belongs to `strumfolio.com` and not to the
+  deployment behind it. An automated caller gets through with the automation bypass token as a
+  query parameter — and **only that parameter**: adding `x-vercel-set-bypass-cookie=false`
+  beside it turns the 400 back into a 307, which Paddle would count as a failed delivery.
+- **`strumfolio-sisqoz.vercel.app` is production.** It looks like a project-wide preview alias
+  and is not: it resolves to the latest `main` deployment. Pointing a sandbox webhook at it
+  would write sandbox subscriptions into the customers' database. A preview needs the
+  *branch* alias, `strumfolio-git-<branch>-sisqoz.vercel.app`, which exists only once git has
+  built that branch — a deployment made with `vercel deploy` from the CLI gets a hashed URL and
+  no branch alias.
+- **`vercel integration add` rewrites `.env.local` too.** The warning above is written about
+  `vercel env pull`, and it applies verbatim here: the command reported
+  `- PADDLE_NOTIFICATION_WEBHOOK_SECRET` among its changes and took it out. Anything local that
+  is not also in Vercel's Development environment is lost on the next run of either command.
+- **No fresh database is ever empty.** `0015_v3_accounts_additive.sql` and its breaking half
+  carry a backfill with `f.limberti@gmail.com` written out as a literal, so migrating an empty
+  database creates that account as id 1 with a `newsletter_prefs` row beside it. Harmless, and
+  not a seed anybody chose — a historical data migration that keeps running for ever.
+
 ## Paddle: three MCP servers, two catalogues, and one promise about tax
 
 The payment processor. Nothing in the app talks to it yet — the mock checkout still writes the
