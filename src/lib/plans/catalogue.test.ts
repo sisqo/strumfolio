@@ -23,6 +23,7 @@ function agreeing(): CataloguePrice[] {
     frequency: row.cycle ? 1 : null,
     hasTrial: false,
     overrides: 0,
+    quantity: { minimum: 1, maximum: 1 },
     status: 'active',
   }))
 }
@@ -146,6 +147,22 @@ describe('compareCatalogue', () => {
 
     assert.equal(report.failures.length, 1)
     assert.match(report.failures[0], /lifetime billing cycle/)
+  })
+
+  /*
+   * The default nobody chooses: Paddle sets 1-100 when `quantity` is omitted at creation, and
+   * the webhook grants the same plan whatever arrives — so a reader could be charged five times
+   * for one Premium. It happened here, and was caught by somebody looking at the overlay.
+   */
+  it('catches a price that can be bought more than once', () => {
+    const report = compareCatalogue(
+      expectedCatalogue(),
+      withPrice({ quantity: { minimum: 1, maximum: 100 } }, isStandardYear),
+      'custom-data',
+    )
+
+    assert.equal(report.failures.length, 1)
+    assert.match(report.failures[0], /quantity/)
   })
 
   it('catches a price that is no longer in the catalogue', () => {

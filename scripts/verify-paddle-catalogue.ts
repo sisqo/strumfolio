@@ -37,6 +37,7 @@ interface PaddlePrice {
   tax_mode: string
   unit_price: { amount: string; currency_code: string }
   unit_price_overrides?: unknown[]
+  quantity?: { minimum?: number; maximum?: number } | null
   billing_cycle?: { interval: string; frequency: number } | null
   trial_period?: unknown
   custom_data?: { plan?: string; cycle?: string } | null
@@ -54,6 +55,11 @@ function normalise(price: PaddlePrice): CataloguePrice {
     frequency: price.billing_cycle?.frequency ?? null,
     hasTrial: price.trial_period != null,
     overrides: price.unit_price_overrides?.length ?? 0,
+    /* Absent means Paddle's own 1-100 default, which is exactly the state worth catching. */
+    quantity: {
+      minimum: price.quantity?.minimum ?? 1,
+      maximum: price.quantity?.maximum ?? 100,
+    },
     status: price.status,
   }
 }

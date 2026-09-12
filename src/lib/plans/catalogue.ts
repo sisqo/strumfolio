@@ -44,6 +44,8 @@ export interface CataloguePrice {
   hasTrial: boolean
   /** How many `unit_price_overrides` the price carries. Must be zero: the listino is euro-only. */
   overrides: number
+  /** Paddle's per-price purchase limits. Must be exactly one — see the check below. */
+  quantity: { minimum: number; maximum: number }
   status: string
 }
 
@@ -161,6 +163,18 @@ export function compareCatalogue(
     if (price.interval !== row.cycle) fail('billing cycle', price.interval, row.cycle)
     if (row.cycle && price.frequency !== 1) fail('billing frequency', price.frequency, 1)
     if (price.hasTrial) fail('trial period', 'present', 'none')
+
+    /*
+     * **A plan is bought once per account, and nothing downstream enforces that.** Omitting
+     * `quantity` at creation makes Paddle default to 1-100, so the checkout offers to buy up to
+     * a hundred subscriptions — and `planOfItems` reads the first item's price and grants the
+     * plan whatever the quantity says. Five would be charged five times and grant exactly the
+     * same Premium. The cap belongs on the price because that is where the overlay reads it;
+     * this asserts it has not drifted back.
+     */
+    if (price.quantity.minimum !== 1 || price.quantity.maximum !== 1) {
+      fail('quantity', `${price.quantity.minimum}-${price.quantity.maximum}`, '1-1')
+    }
     if (price.overrides !== 0) fail('regional overrides', price.overrides, 0)
     if (price.status !== 'active') fail('status', price.status, 'active')
 

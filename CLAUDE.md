@@ -433,6 +433,14 @@ Three more properties of that catalogue, each of which is a decision rather than
 - **No `unit_price_overrides`.** Euro only, as `prices.ts` argues at length: a localised price
   is a claim a statically generated page cannot make, and what a non-euro cardholder's bank
   charges is not ours to promise.
+- **Every price is capped at `quantity: {minimum: 1, maximum: 1}`, and omitting that field is
+  the trap.** Paddle fills it with **1-100** when a price is created without it, so the checkout
+  overlay grows a quantity selector offering up to a hundred subscriptions — and nothing
+  downstream refuses them: `planOfItems` reads the first item's price and grants the plan
+  whatever the quantity says, so five would be charged five times and grant exactly the same
+  Premium. It shipped that way on 2026-09-12 and was caught by somebody looking at the overlay,
+  not by any check. `catalogue.ts` asserts it now, so **the live catalogue must be created with
+  the cap set** rather than relying on whoever makes it to remember.
 
 ### The webhook, and the two traps in the SDK
 
