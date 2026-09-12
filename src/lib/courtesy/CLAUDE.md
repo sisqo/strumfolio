@@ -20,6 +20,18 @@ same reason: the send is composed here, not run through `runOutreach`.
   gate built for marketing mail, extended to a second case. Because of this, the Privacy
   Policy's own processing-purposes table carries a row for these two under Art. 6(1)(f), not
   under the consent row the newsletter uses.
+- **These two carry no design at all, and that is load-bearing rather than a style.** They are
+  the only templates in `lib/email/templates.ts` that do not go through `layout()`: no wash, no
+  card, no lockup, no payoff footer, no heading — and below that not one `style` attribute, so
+  the text inherits whatever font the client reads mail in. The helper is `plainMessage()`,
+  written beside `layout()` so the choice between the two is visible in one screen; the whole
+  argument, the accepted costs (Outlook may pick a serif, and long lines on a wide window,
+  since no `max-width` is declared either) and the refusal of a `List-Unsubscribe` header are in
+  `courtesyThanksEmail`'s own header. Five tests in `templates.test.ts` hold the line, because
+  nothing about `layout()` makes it look wrong to wrap these two in it "for consistency" with
+  the six templates around them. The opt-out line moved into the body's own voice at the same
+  time — same size, same ink, last line of both halves — for the same reason: small grey type
+  is the one thing left in a message that announces a machine wrote it.
 - **`accounts.courtesy_opted_out_at` is the gate that actually governs these two, and it is
   checked here, in `actions.ts`, never by the engine.** A dedicated column rather than the
   newsletter's, because unsubscribing from one must say nothing about the other — a reader who

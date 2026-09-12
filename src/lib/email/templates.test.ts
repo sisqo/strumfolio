@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { giftEmail, planChangeEmail } from './templates'
+import { courtesyCheckinEmail, courtesyThanksEmail, giftEmail, planChangeEmail } from './templates'
 
 const SCHEDULED_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: '22 September 2027' } } as const
 const IMMEDIATE_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: 'now' } as const
@@ -218,4 +218,106 @@ test('giftEmail', async (t) => {
       }
     }
   })
+})
+/*
+ * The two courtesy notes, checked for the one thing no comment can enforce: that they still
+ * carry no design. They read as a personal email rather than as the product speaking, which
+ * is the whole argument for sending them — and nothing about `layout()` makes it obviously
+ * wrong to wrap them in it "for consistency" with the six templates around them. This is what
+ * stops that, since a message is the one thing in this app a reload cannot correct.
+ */
+const COURTESY_UNSUBSCRIBE_URL = 'https://strumfolio.com/courtesy-unsubscribe?email=a%40b.com&token=deadbeef'
+
+const COURTESY = [
+  { label: 'courtesyThanksEmail', build: courtesyThanksEmail },
+  { label: 'courtesyCheckinEmail', build: courtesyCheckinEmail },
+] as const
+
+/** Every paragraph handed to `plainMessage`, which is what both halves are built from. */
+const COURTESY_PARAGRAPHS = {
+  courtesyThanksEmail: ['Hi Marco,', "I'm Francesco", 'What do you play?', 'Just reply to this email', 'Francesco'],
+  courtesyCheckinEmail: ['Hi Marco,', 'Still Francesco.', "It could be a feature", 'Just reply to this email', 'Francesco'],
+} as const
+
+test('the courtesy notes carry no chrome', async (t) => {
+  for (const { label, build } of COURTESY) {
+    await t.test(label, () => {
+      const mail = build({ firstName: 'Marco', unsubscribeUrl: COURTESY_UNSUBSCRIBE_URL })
+
+      /* The lockup, the card, the wash, the headline: each is one `layout()` away from
+         coming back, and each would make this read as a document from a company. */
+      assert.doesNotMatch(mail.html, /<img/)
+      assert.doesNotMatch(mail.html, /background:/)
+      assert.doesNotMatch(mail.html, /border-radius/)
+      assert.doesNotMatch(mail.html, /<h1/)
+
+      /* No declared font and no declared size either — the message inherits the client's own,
+         which is what a hand-typed one does. The only attribute in the whole document is the
+         `href` on the opt-out link, plus the wrapper's `dir`. */
+      assert.doesNotMatch(mail.html, /style=/)
+      assert.match(mail.html, /^<div dir="ltr">/)
+    })
+  }
+})
+
+test('the courtesy notes can always be unsubscribed from', async (t) => {
+  for (const { label, build } of COURTESY) {
+    await t.test(label, () => {
+      const mail = build({ firstName: 'Marco', unsubscribeUrl: COURTESY_UNSUBSCRIBE_URL })
+
+      /* Both halves: a client that refuses HTML gets only the second, and these two are sent
+         under legitimate interest, so the way out is not optional in either. */
+      assert.match(mail.html, /<a href="https:\/\/strumfolio\.com\/courtesy-unsubscribe\?/)
+      assert.ok(mail.text.includes(COURTESY_UNSUBSCRIBE_URL))
+
+      /* In the body's own voice, not in a footer's: no size and no colour were declared for
+         it, which the chrome test above already proves for the document as a whole. What this
+         adds is that the sentence is the last thing in both halves. */
+      assert.match(mail.html, /unsubscribe<\/a>\.<\/div>$/)
+      assert.match(mail.text, /unsubscribe: \S+$/)
+    })
+  }
+})
+
+test('the two halves of a courtesy note say the same words', async (t) => {
+  for (const { label, build } of COURTESY) {
+    await t.test(label, () => {
+      const mail = build({ firstName: 'Marco', unsubscribeUrl: COURTESY_UNSUBSCRIBE_URL })
+
+      /*
+       * Asserted paragraph by paragraph rather than by stripping the tags and comparing the
+       * documents, because two differences are there by construction and a whole-document
+       * comparison would only ever be re-deriving them: `escapeHtml` writes `&#39;` where the
+       * text half has an apostrophe, and the opt-out line ends in a link on one side and a
+       * spelled-out address on the other (covered by the test above).
+       */
+      for (const paragraph of COURTESY_PARAGRAPHS[label]) {
+        assert.ok(mail.text.includes(paragraph), `${label}: text is missing «${paragraph}»`)
+        const escaped = paragraph.replace(/'/g, '&#39;')
+        assert.ok(mail.html.includes(escaped), `${label}: html is missing «${escaped}»`)
+      }
+    })
+  }
+})
+
+/* The one part of these messages this file did not write. `plainMessage` escapes every
+   paragraph for the HTML half, so the greeting is covered without the template remembering to
+   ask — which is the reason the escape moved in there. */
+test('a courtesy note escapes the name it was given', () => {
+  const mail = courtesyThanksEmail({ firstName: 'Ada <script>', unsubscribeUrl: COURTESY_UNSUBSCRIBE_URL })
+  assert.match(mail.html, /Hi Ada &lt;script&gt;,/)
+  assert.doesNotMatch(mail.html, /<script>/)
+  assert.match(mail.text, /Hi Ada <script>,/)
+})
+
+/* No name on file is the common case on `/accounts`, whose list has the address and not the
+   first name (`CourtesyConfirmModal`), so this is the shape most sends actually take. */
+test('a courtesy note with no name opens on a bare greeting', async (t) => {
+  for (const { label, build } of COURTESY) {
+    await t.test(label, () => {
+      const mail = build({ firstName: null, unsubscribeUrl: COURTESY_UNSUBSCRIBE_URL })
+      assert.match(mail.html, /^<div dir="ltr">Hi,<br><br>/)
+      assert.match(mail.text, /^Hi,\n\n/)
+    })
+  }
 })

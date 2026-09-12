@@ -146,10 +146,16 @@ export function EmailPreview({ previews, defaultFrom }: { previews: Record<Previ
       </div>
 
       {mode === 'html' ? (
+        /* `p-4` insets the document inside the frame without changing a byte of it: the two
+           courtesy notes carry no chrome of their own (`plainMessage`, `email/templates.ts`),
+           so without it they sit at the browser's default 8px from the border and read as
+           broken — when in a real inbox that air is what the client puts there. Unconditional
+           rather than behind `isCourtesyPreview`: the six transactional templates bring their
+           own wash and cannot tell the difference. */
         <iframe
           title={`${PREVIEW_LABEL[active]} preview`}
           srcDoc={template.html}
-          className="h-[520px] w-full rounded-[var(--r-lg)] border border-line bg-white"
+          className="h-[520px] w-full rounded-[var(--r-lg)] border border-line bg-white p-4"
         />
       ) : (
         <pre className="h-[520px] overflow-auto whitespace-pre-wrap rounded-[var(--r-lg)] border border-line bg-nested p-3 text-sm text-ink">

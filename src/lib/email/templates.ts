@@ -1,14 +1,20 @@
 /**
- * The five emails Resend sends: verification, welcome and password reset (v3.2
- * point 8), the purchase thank-you added with the checkout's own flow, and the plan-change
- * notice that is its counterpart for a plan going away. Each returns `{ subject, html, text }`
- * — plain data, no `sendEmail` call inside — so the flows that own the actual send
- * (registration, verification, password recovery, `mockPurchase`, `mockCancel`) decide the
- * recipient themselves.
+ * Every email Resend sends, each returning `{ subject, html, text }` — plain data, no
+ * `sendEmail` call inside — so the flows that own the actual send (registration,
+ * verification, password recovery, `mockPurchase`, `mockCancel`, `/accounts`' own icons)
+ * decide the recipient themselves.
+ *
+ * **They come in two shapes, and the split is the point.** The six transactional ones —
+ * verification, welcome, password reset, purchase, plan change, gift notice — go through
+ * `layout()`: the wash, the white card, the lockup, the payoff line. The two courtesy notes
+ * go through `plainMessage()` and carry no chrome of any kind, because they are written to
+ * read as one person typing rather than as the product announcing something. See
+ * `courtesyThanksEmail`'s own header for the whole argument.
  *
  * Colors are the light half of `globals.css`'s palette, copied as hex rather than
  * `var(--x)`: most webmail clients strip `<style>` blocks and custom properties along
- * with them, and there is no dark mode to switch between in an inbox anyway.
+ * with them, and there is no dark mode to switch between in an inbox anyway. They apply to
+ * the transactional half only — the courtesy notes declare no colour at all.
  */
 
 import { APP_NAME, APP_PAYOFF, SITE_URL } from '@/lib/brand'
@@ -50,9 +56,11 @@ export interface EmailTemplate {
 }
 
 /**
- * The chrome every email shares: the wash and the card go on a wrapper `<div>`, not on
- * `<body>` — Gmail and most other webmail rewrite or drop a message's own `<body>` tag
- * and whatever is styled directly on it.
+ * The chrome the six transactional emails share — not every email in this file: the two
+ * courtesy notes deliberately have none, and `plainMessage()` below is what they use instead.
+ *
+ * The wash and the card go on a wrapper `<div>`, not on `<body>` — Gmail and most other
+ * webmail rewrite or drop a message's own `<body>` tag and whatever is styled directly on it.
  */
 function layout(bodyHtml: string): string {
   return `<div style="background:${BG};padding:32px 16px;font-family:${FONT};">
@@ -115,19 +123,39 @@ function fallbackLink(url: string): string {
 }
 
 /**
- * The line that makes a courtesy email answerable to its own opt-out — the two messages that
- * carry it are the only ones in this file sent under legitimate interest rather than as a
- * reply-carrying transaction, so they are the only ones that owe a reader a way to say "stop."
+ * A message with no chrome at all — no wash, no card, no lockup, no payoff line — in the shape
+ * Gmail itself emits when a person types one: a `<div dir="ltr">`, paragraphs separated by
+ * `<br><br>`, and not one `style` attribute anywhere, so the text inherits whatever font the
+ * client reads mail in. `layout()` above is the six transactional templates; this is the two
+ * that are meant to read as one person writing.
  *
- * Deliberately inside the white card rather than folded into `layout()`'s own signature line
- * below it: every other template shares that footer unchanged, and widening it for two
- * callers would put a conditional inside a function whose whole point is to be the same for
- * everybody.
+ * **The shape, not the bytes.** Every paragraph goes through `escapeHtml`, so an apostrophe
+ * leaves here as `&#39;` where Gmail would send the character — what renders is identical,
+ * the source is not. The escape is what keeps `firstName` safe, the one part of these two
+ * messages this file did not write, so it stays: the sentence above is not licence to remove
+ * it.
+ *
+ * **Both halves come out of the same array**, which is the other reason this exists rather
+ * than the two templates each spelling out an `html` and a `text` literal the way the
+ * transactional ones do. With the HTML down to `<br><br>` the two are all but the same bytes,
+ * and two hand-written copies of the same sentences drift in silence — a correction made in
+ * one of them reaches nobody until it reaches a reader.
+ *
+ * The unsubscribe URL is a parameter rather than a last paragraph precisely because it is the
+ * one place the halves *must* differ: a link on one side, the address spelled out on the
+ * other. The line it builds is not decoration — these two are the only messages in this file
+ * sent under legitimate interest rather than as a reply-carrying transaction, so they are the
+ * only ones that owe a reader a way to say "stop." It reads in the body's own voice, the same
+ * size as everything above it, because a footer in small grey type would be the one thing left
+ * in the message announcing a machine wrote it.
  */
-function unsubscribeLine(url: string): string {
-  return `<p style="margin:20px 0 0;color:${MUTED};font-size:12px;line-height:1.5;">
-    You're getting this because you signed up for ${APP_NAME}. <a href="${url}" style="color:${ACCENT};">Unsubscribe from these occasional notes</a>.
-  </p>`
+function plainMessage(paragraphs: string[], unsubscribeUrl: string): { html: string; text: string } {
+  const optOut = "If you'd rather not get these, "
+
+  const htmlParts = [...paragraphs.map(escapeHtml), `${escapeHtml(optOut)}<a href="${unsubscribeUrl}">unsubscribe</a>.`]
+  const textParts = [...paragraphs, `${optOut}unsubscribe: ${unsubscribeUrl}`]
+
+  return { html: `<div dir="ltr">${htmlParts.join('<br><br>')}</div>`, text: textParts.join('\n\n') }
 }
 
 export function verificationEmail(url: string): EmailTemplate {
@@ -494,59 +522,62 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * The founder's own note, a week or so after signing up — sent by hand, one account at a
  * time, from an icon on `/accounts` (`lib/courtesy/actions.ts`), never on a schedule.
  *
- * **The only two templates in this file with no heading tier.** Every other message here reads
- * as a document with a headline; these two are meant to read as a personal email starting with
- * "Hi," because that is the whole argument for sending them — see the root `CLAUDE.md`'s
- * courtesy/transactional split: "courtesy emails have a face, transactional ones don't." A bold
- * H1 above the greeting would undercut the one thing this message is for.
+ * **The only two messages in this file with no design at all**, and the reason `plainMessage`
+ * exists next to `layout`. Every other template here is a document: a lockup, a card, a
+ * headline, a colour. These two are meant to read as an email one person typed to another, so
+ * they carry no wash, no card, no logo, no payoff footer, no heading tier — and, below that,
+ * not one `style` attribute, which is what a message composed in Gmail actually looks like on
+ * the wire. See the root `CLAUDE.md`'s courtesy/transactional split: "courtesy emails have a
+ * face, transactional ones don't." The chrome was the last thing left contradicting it.
+ *
+ * **The cost is real and was accepted.** With no `font-family` declared, the message inherits
+ * the client's own reading font: in Gmail — where these are read, and which is the target —
+ * that is indistinguishable from something typed by hand; in Outlook desktop it may come out
+ * in a serif. There is no `max-width` either, so on a wide window the lines run the width of
+ * it, because Gmail sends none. Declaring a font stack would fix both and would also be the
+ * first visible thing these messages did that a person writing one would not.
+ *
+ * **The opt-out line is in the body's own voice**, the same size and colour as everything
+ * above it, rather than in the small grey type every bulk sender uses (see `plainMessage`).
+ * It cannot be dropped: these two are sent under legitimate interest, Art. 6(1)(f), which the
+ * Privacy Policy's §3 table and §7 right-to-object list both name — and `lib/courtesy/`'s own
+ * `CLAUDE.md` carries the rest. No `List-Unsubscribe` header goes with it, deliberately:
+ * Gmail draws its own "Unsubscribe" button beside the sender for mail it reads as bulk, and
+ * that button would be the one thing in the window announcing a machine, after everything
+ * else was taken away to avoid announcing one.
  *
  * `from`/`replyTo` are both set by the caller to `Francesco from Strumfolio <info@strumfolio.com>`
  * — a **named** sender, not only a reply-to, unlike every transactional template in this file
- * including `giftEmail`. That is a decision about how this app looks in an inbox, not a fact
+ * including `giftEmail`. The display name keeps "from Strumfolio" on purpose: a reader who
+ * signed up a week ago does not know the name, and a bare first name from an unknown domain
+ * is the shape of spam. That is a decision about how this app looks in an inbox, not a fact
  * this function has an opinion about, so it is not baked in here.
  */
 export function courtesyThanksEmail(input: {
-  /** Escaped in the HTML greeting, raw in the text — the `personalLine`/`quoted` convention
-      this file already applies to anything it did not itself write, even a name. */
+  /** Escaped by `plainMessage` for the HTML half and left raw for the text one — the
+      convention this file already applies to anything it did not itself write, even a name. */
   firstName: string | null
   /** Built by the caller from `courtesyUnsubscribeToken` — never a real one in a preview. */
   unsubscribeUrl: string
 }): EmailTemplate {
-  const subject = 'A thank-you and a question'
   const { firstName, unsubscribeUrl } = input
-  const greetingHtml = firstName === null ? 'Hi,' : `Hi ${escapeHtml(firstName)},`
-  const greetingText = firstName === null ? 'Hi,' : `Hi ${firstName},`
+  const greeting = firstName === null ? 'Hi,' : `Hi ${firstName},`
 
-  const html = layout(`
-    ${paragraph(greetingHtml)}
-    ${paragraph("I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.")}
-    ${paragraph('What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.')}
-    ${paragraph("The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.")}
-    ${paragraph('Just reply to this email — I read it myself. One sentence is plenty.')}
-    ${paragraph('Francesco')}
-    ${paragraph('P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.')}
-    ${unsubscribeLine(unsubscribeUrl)}
-  `)
-
-  const text = `${greetingText}
-
-I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.
-
-What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.
-
-The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.
-
-Just reply to this email — I read it myself. One sentence is plenty.
-
-Francesco
-
-P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.
-
-You're getting this because you signed up for ${APP_NAME}. Unsubscribe from these occasional notes: ${unsubscribeUrl}
-
-${APP_NAME} — ${APP_PAYOFF}`
-
-  return { subject, html, text }
+  return {
+    subject: 'A thank-you and a question',
+    ...plainMessage(
+      [
+        greeting,
+        "I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.",
+        'What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.',
+        "The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.",
+        'Just reply to this email — I read it myself. One sentence is plenty.',
+        'Francesco',
+        'P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.',
+      ],
+      unsubscribeUrl,
+    ),
+  }
 }
 
 /**
@@ -554,44 +585,29 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * same address — enforced in `lib/courtesy/actions.ts`, not here: this function has no way to
  * know what has already been sent, and "still Francesco" / "a second and last time" are only
  * true when that ordering holds. See `courtesyThanksEmail`'s own header for the rest of the
- * shared reasoning (no heading tier, the named `from`).
+ * shared reasoning (no chrome, no declared font, the named `from`).
  */
 export function courtesyCheckinEmail(input: {
   firstName: string | null
   unsubscribeUrl: string
 }): EmailTemplate {
-  const subject = 'Anything you need?'
   const { firstName, unsubscribeUrl } = input
-  const greetingHtml = firstName === null ? 'Hi,' : `Hi ${escapeHtml(firstName)},`
-  const greetingText = firstName === null ? 'Hi,' : `Hi ${firstName},`
+  const greeting = firstName === null ? 'Hi,' : `Hi ${firstName},`
 
-  const html = layout(`
-    ${paragraph(greetingHtml)}
-    ${paragraph("Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.")}
-    ${paragraph("It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.")}
-    ${paragraph("Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.")}
-    ${paragraph('Just reply to this email — I read it myself.')}
-    ${paragraph('Francesco')}
-    ${unsubscribeLine(unsubscribeUrl)}
-  `)
-
-  const text = `${greetingText}
-
-Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.
-
-It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.
-
-Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.
-
-Just reply to this email — I read it myself.
-
-Francesco
-
-You're getting this because you signed up for ${APP_NAME}. Unsubscribe from these occasional notes: ${unsubscribeUrl}
-
-${APP_NAME} — ${APP_PAYOFF}`
-
-  return { subject, html, text }
+  return {
+    subject: 'Anything you need?',
+    ...plainMessage(
+      [
+        greeting,
+        "Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.",
+        "It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.",
+        "Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.",
+        'Just reply to this email — I read it myself.',
+        'Francesco',
+      ],
+      unsubscribeUrl,
+    ),
+  }
 }
 
 /**
