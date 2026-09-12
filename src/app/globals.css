@@ -1021,26 +1021,42 @@
   }
 
   /*
-   * 56rem of sheet + 1rem of gap + 20.5rem of rail = 77.5rem. It was 48 + 1 + 20.5 = 69.5,
-   * the boards' own 1112px, until the sheet joined the rest of the app at 56rem; the rail
-   * kept its width, so the whole row grew by exactly what the sheet did.
+   * **The rail floats over the sheet; it does not stand beside it.** That is the whole of
+   * this block, and it is a reversal: the rail used to be a second column, so the row was
+   * 56rem of sheet + 1rem + 20.5rem of rail = 77.5rem, and opening the notes slid the song
+   * 10.75rem to the left to make room. The board draws it as a panel laid *on* the page's
+   * right edge, and it is right — the song is the thing being read, and it must not move
+   * under a reader's eye because a side panel opened.
    *
-   * **What that costs, stated because it is invisible from the code**: the rail no longer
-   * takes a gutter the sheet was leaving empty — at 48rem it was pure surplus, and now it
-   * is 8rem of genuinely extra page. So the threshold had to move with it. It is a choice
-   * rather than a measurement either way, the Design project holding fixed-width artboards
-   * and not one `@media` rule to copy: 75rem left a comfortable margin beside 69.5rem of
-   * content, and 80rem leaves a thinner one — 20px a side at exactly 1280 — beside 77.5rem.
-   * The alternative was ~83rem, which keeps the old margin and takes the rail off every
-   * laptop between 1280 and 1328. Reaching more screens won over the wider gutter.
+   * So the row is 56rem, the sheet's own width and nothing more, and the rail contributes
+   * **zero** to it: the two negative margins sum to exactly its own 20.5rem, which is what
+   * takes it out of the row's width while leaving it in normal flow — and in flow is the
+   * half that matters, because `position: sticky` needs it. Absolute positioning would have
+   * been simpler and would scroll the notes off the top of a long song, which is the one
+   * screen where they are worth having.
+   *
+   * The leading margin is what sets the overlap. `-9.5rem` against no `gap` puts the panel's
+   * left edge 9.5rem inside the sheet and its right edge 11rem past it.
+   *
+   * **Why 9.5rem and not the board's 6rem.** The board is drawn at 1280 against a 768px
+   * sheet, and it protrudes until 24px short of its own right edge — so it is already at
+   * its minimum viable width, and the 96px overlap is what *that* geometry left over. Our
+   * sheet is 128px wider, so copying the overlap would have pushed the whole panel 128px
+   * further right and taken the notes off every screen below ~88rem. Deepening the overlap
+   * by exactly what the sheet gained is what keeps the threshold where it is. The
+   * relationship the board encodes — the panel ends a gutter short of the viewport at the
+   * width it first appears — is preserved; the number it draws is not.
+   *
+   * The threshold stays 80rem for that reason, and it is now a statement about the *panel*
+   * fitting rather than about the row: 1280 leaves 192px each side of the sheet, the panel
+   * wants 176px of them, and 16px is left as a gutter.
    */
   @media (min-width: 80rem) {
     .reading-layout {
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      gap: 1rem;
-      width: 77.5rem;
+      width: 56rem;
       margin: 0.375rem auto 0;
     }
 
@@ -1050,42 +1066,50 @@
       margin: 0;
     }
 
+    /*
+     * `z-index` because it is laid over the page now: sticky positions it, so DOM order
+     * alone would already paint it above the unpositioned sheet, but saying so is what
+     * stops the next positioned thing added to this card from landing on top of it. 1 is
+     * deliberately far below `.control-bar`'s 30 and the menus' own — the notes are over
+     * the *song*, never over a control.
+     *
+     * `--shadow-float` rather than the `--shadow-1` hairline it had as a column. It is the
+     * app's own token for a surface that hovers over another, which is what this became;
+     * the board's two-layer shadow is the same intent drawn by hand.
+     */
     .comments-rail {
       display: block;
       position: sticky;
+      z-index: 1;
       top: 4.875rem;
       width: 20.5rem;
       flex: none;
+      /*
+       * Down the page far enough to clear the song's own header, and across far enough to
+       * overlap its right edge. The block offset is the board's own `top: 76px` and it is
+       * load-bearing rather than cosmetic: the star, the notes track and the pencil sit at
+       * 91–135px inside the sheet, so a panel resting at the sheet's top lands **on the
+       * very control that closes it**. Sticky then unpins it from here at `top` once the
+       * header has scrolled away, which is when there is nothing left to clear.
+       */
+      margin-block-start: 4.75rem;
+      margin-inline: -9.5rem -11rem;
       box-sizing: border-box;
       padding: 0.375rem 0.375rem 0.5rem;
       background: var(--surface);
       border: 1px solid var(--edge);
       border-radius: var(--r-xl);
-      box-shadow: var(--shadow-1);
+      box-shadow: var(--shadow-float);
     }
 
     /*
-     * The bar is centred on the page; with a rail beside the sheet, the sheet is not
-     * the middle of the page any more, so the bar moves with it.
-     *
-     * **On `.control-bar`, as padding — not as a margin on the thing inside it.** This
-     * used to be `margin-inline-end` on `.control-dock`, which worked because the dock was
-     * a flex *item*: a trailing margin there shrank it in place. The bar is one grid inside
-     * a block with `margin-inline: auto` now, and on that, a trailing margin beside an auto
-     * leading one hands every spare pixel to the leading side and pushes the bar the *other
-     * way* — 10.75rem right of centre instead of left of it. Narrowing the box the strip
-     * centres itself in is what actually moves it, and it needs no transform.
-     *
-     * `:has(.comments-rail)` because the rail is not always there: `CommentsRail` returns
-     * null outright when the notes are hidden, and then the flex row holds the sheet alone
-     * and centres it — back on the page's own middle, where an unconditional 21.5rem would
-     * leave the bar 10.75rem to its left. Hiding the notes was already reachable by a tap;
-     * it is worth the selector now that the choice is remembered for the session, because
-     * the misalignment would be there on arrival rather than only after a click.
+     * Nothing here moves the reading bar any more, and the absence is the point. While the
+     * rail was a column, opening the notes shifted the sheet left and the bar had to be
+     * pushed after it — a `:has(.comments-rail)` rule that had to know the rail's width and
+     * stay in step with it. The panel takes no width now, so the sheet is centred on the
+     * page whether the notes are open or shut, and the bar is centred under it by having
+     * been left alone.
      */
-    .reading-layout:has(.comments-rail) ~ .control-bar {
-      padding-inline-end: 22.25rem;
-    }
 
     .comments-segment-label {
       display: inline;

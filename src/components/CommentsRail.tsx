@@ -1,21 +1,22 @@
 'use client'
 
 /**
- * The list of notes beside the sheet, on a wide screen.
+ * The list of notes over the sheet, on a wide screen.
  *
  * Pure surplus: it lists exactly what the badges already reach, so a phone losing it loses
  * no note. That is what lets the sheet render the same way at every width — the parked
  * orphan badges are there on desktop too, and `SongSheet` never has to ask how wide the
  * window is.
  *
- * It sits beside the sheet without narrowing it: 896px of sheet, a 16px gap and 328px of rail,
- * so the words are exactly as wide with it as without.
+ * **It is laid on the page's right edge rather than standing beside it**, overlapping the
+ * sheet's own margin and taking no width from the row. So the song does not move when the
+ * notes open: the sheet is centred on the page, and stays exactly where it is whether these
+ * are shown or hidden.
  *
- * **It used to be free, and it is not any more.** At 48rem the sheet left a gutter inside the
- * 1112px the boards drew, and the rail simply moved into it. The sheet is 56rem since the app
- * settled on one width, so the row is 1240px and the rail is genuinely 328px of extra page —
- * which is why its threshold had to move too, to 80rem. See `.reading-layout` in globals.css
- * for what that costs and what the alternative was.
+ * It spent a while as a second column, which cost a shift of the whole page each way — and
+ * a rule pushing the reading bar after it — every time a reader tapped the notes on or off.
+ * See `.reading-layout` in globals.css for the arithmetic that replaced it, and for why the
+ * overlap here is deeper than the board's own.
  */
 
 import { useComments } from '@/components/CommentsProvider'
