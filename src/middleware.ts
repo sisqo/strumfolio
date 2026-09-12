@@ -57,6 +57,18 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 function isPublicAsset(pathname: string): boolean {
   return (
     pathname.startsWith('/api/auth') ||
+    /*
+     * Paddle's webhook. Not an asset and not a page — the one entry here that is neither —
+     * but this is the early return, and what it needs is the same: no session, no redirect,
+     * no scope cookie. Paddle signs each delivery and `api/paddle/webhook/route.ts` verifies
+     * it, so the endpoint authenticates itself and has no use for one of ours.
+     *
+     * Without this line every delivery is answered with a redirect to `/login`. Paddle does
+     * not follow redirects and counts one as a failed delivery, so the symptom is not an
+     * error anywhere in this app: it is three days of retries against a sign-in form, and a
+     * payment that never reaches the account that made it.
+     */
+    pathname === '/api/paddle/webhook' ||
     pathname === '/sw.js' ||
     pathname === '/sw.js.map' ||
     pathname.startsWith('/swe-worker-') ||

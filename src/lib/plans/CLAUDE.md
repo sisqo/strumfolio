@@ -58,3 +58,47 @@ consequences land in *this* directory:
   what a real checkout would take. Harmless only while the mock checkout is the only checkout,
   and the first thing to settle after the catalogue, before any Paddle checkout goes in front
   of a reader.
+
+## The webhook: what an event is allowed to conclude
+
+`webhook.ts` is the mapping — pure, `node:test`-covered, reading Paddle's wire format —
+and `webhookApply.ts` is the database half. The route and the two SDK traps behind it are in
+the root `CLAUDE.md`. What belongs here is what the rules *decide*:
+
+- **Every unreadable thing answers "changes nothing", never "free".** An unstamped or
+  unrecognised price makes `planOfPrice` answer `null`, and an unknown Paddle status reads as
+  `active`. Both are the asymmetry `readPlan` and `readPlanStatus` already argue for, pointed
+  at a webhook: an unreadable plan must never grant, and an unreadable status must never
+  revoke. `readPlan` is deliberately *not* used on a payload — its fallback to `'free'` would
+  turn a renamed price into a silent cancellation.
+- **`past_due` and `paused` both become `grace`.** A failing card is not a lapsed customer and
+  a pause is not a cancellation, and `grace` ignores dates entirely — which `resolveSubscription`
+  explains is exactly why it exists, since by the time a payment has failed the paid period is
+  virtually always already over. There is no fourth `PlanStatus` for a pause, on purpose.
+- **The expiry written is always `current_billing_period.ends_at`** — the end of the period
+  *now paid for*. `liveSubscription` states the requirement this satisfies and it is
+  unguessable from outside: a past `expiresAt` ends a subscription even while the status still
+  says `active`, so a renewal recorded with anything later than period end downgrades a paying
+  customer for that window.
+- **The Lifetime arrives as `transaction.completed` and nowhere else**, and only when the
+  transaction carries **no** `subscription_id` — every renewal completes a transaction too, and
+  acting on both would have two writes racing over one row with the newer expiry possibly
+  losing. Its `expiresAt` is `null`, meaning never.
+- **The account contract, which the checkout has to satisfy**: `custom_data.account_id` (the
+  numeric `accounts.id`), then `accounts.paddle_subscription_id`, then
+  `accounts.paddle_customer_id`. Only the first works on a *first* purchase, when neither
+  column has been written — so **the checkout must stamp the account id onto the transaction**.
+  Numeric and not the email, per `db/CLAUDE.md`, and because an address in Paddle's records
+  goes stale the day somebody changes theirs.
+- **Idempotency is `paddle_events.event_id` being the primary key**, not a second ledger:
+  Paddle re-sends the same id on every retry, so the insert is the dedup and a conflict means
+  "already applied, answer 200". The insert and the account update share one transaction,
+  because an event recorded by a delivery whose write then failed would be skipped by the retry
+  and the account would never change at all.
+- **`granted*` is never touched**, the same standing decision `mockPurchase` records: a gift
+  lives in those columns and a renewal re-asserting `plan`/`planStatus` would erase it.
+- **Paddle cannot schedule a downgrade, and this is the gap to know.** Its `scheduled_change`
+  is only `cancel`, `pause` or `resume`, so a cancellation maps cleanly onto
+  `pendingPlan: 'free'` and a move to a *cheaper paid plan* has nothing to map from. That half
+  of `pendingPlan`/`pendingCycle` stays the app's own job, and belongs with the work that
+  changes a subscription rather than with the one that reads events.

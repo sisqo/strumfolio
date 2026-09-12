@@ -378,6 +378,49 @@ Three more properties of that catalogue, each of which is a decision rather than
   is a claim a statically generated page cannot make, and what a non-euro cardholder's bank
   charges is not ours to promise.
 
+### The webhook, and the two traps in the SDK
+
+`POST /api/paddle/webhook` (`app/api/paddle/webhook/route.ts`) is where Paddle says money
+moved. Verified 2026-09-12 against a locally-signed delivery: a valid event applies, a replay
+of the same `event_id` answers `duplicate`, a wrong secret answers 401, and an event for an
+account that does not exist is recorded as `unmatched`.
+
+- **`middleware.ts` has to carry the path, and `isPublicAsset` is where it is.** Without that
+  line a delivery is answered with a redirect to `/login` — which Paddle does not follow and
+  counts as a failure, so the symptom is not an error anywhere in this app but three days of
+  retries against a sign-in form, with nothing in the route ever running.
+- **`NodeRuntime.initialize()` must be called by hand, and nothing warns when it is not.** The
+  SDK keeps its crypto implementation in a static `RuntimeProvider` that **only the `Paddle`
+  constructor fills in** — the node entry point wraps `Paddle` in a subclass whose constructor
+  calls it. `Webhooks`, used standalone so the route needs no API key, initialises nothing, and
+  with the provider unset `isSignatureValid` returns **false for every signature**. Every
+  legitimate delivery is then refused, and the log says «signature verification failed», which
+  is indistinguishable from a wrong secret. Found by signing a request by hand and watching a
+  known-good signature be refused.
+- **The signature is checked with the SDK; the body is read as Paddle's wire format.**
+  `unmarshal` does both at once and is the documented path, but it deserialises `data` into
+  entities whose fields are **camelCase** (`currentBillingPeriod`, `customerId`) — snake_case
+  reads come back `undefined`, so a mapping written against the documented payload silently
+  grants nothing for ever. It also **throws** on a payload missing a field it expects, and a
+  throw is a 500, which is retried for three days: one unexpected shape becomes an event that
+  can never be delivered. `isSignatureValid` plus `JSON.parse` keeps `webhook.ts`'s defensive
+  readers in charge, and reads the same bytes that `paddle_events.payload` stores.
+- **Only a 2xx means "delivered".** Every other status is retried (3 attempts over ~15 minutes
+  in sandbox, 60 over ~3 days in live), so the one answer that loses an event is a 2xx on a
+  failure. A missing `DATABASE_URL` therefore answers 500 too, against the instinct: it is a
+  fault that will be fixed, and the retry window is what turns a fixed fault into no lost
+  payment.
+- **`PADDLE_NOTIFICATION_WEBHOOK_SECRET` is the route's only secret**, and it belongs to *one*
+  notification destination. Sandbox and live have separate destinations with separate secrets;
+  crossing them fails every delivery in exactly the way the `initialize()` trap does. It is
+  **not** `PADDLE_API_KEY`, which this route deliberately does not hold.
+
+**Still to do before any of this takes money**: no notification destination exists yet, because
+its URL is a decision — a tunnel to a dev server would expose the dev database, which holds
+real accounts and password hashes copied from production on 2026-08-29. The checkout, the
+Paddle Discounts behind `lib/coupons/`, and turning `SONGBOOK_MOCK_CHECKOUT` off are the rest
+of the sequence.
+
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 
 The production domain moved twice on 2026-08-21 (`songbook.sisqo.dev` →
