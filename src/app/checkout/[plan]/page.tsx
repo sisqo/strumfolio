@@ -6,6 +6,7 @@ import { Suspense } from 'react'
 import { CheckoutScreen } from '@/components/CheckoutScreen'
 import type { CheckoutCoupon } from '@/components/CheckoutScreen'
 import { CouponBar } from '@/components/CouponBar'
+import { PaddleCheckout } from '@/components/PaddleCheckout'
 import { CouponMemory } from '@/components/CouponMemory'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
@@ -14,8 +15,9 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
-import { isCheckoutPlan } from '@/lib/plans/prices'
+import { euro, isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
+import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 
@@ -125,7 +127,22 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           </Suspense>
         </div>
 
-        <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
+        {/*
+          * Two ways to sell, and the environment decides which — see `paddleCheckoutEnabled`.
+          * They are deliberately exclusive rather than stacked: a disabled "not on sale yet"
+          * button beside a working one is a screen nobody can read correctly, and the mock is
+          * on its way out. `CheckoutScreen` keeps the cycle toggle and the coupon copy, so the
+          * Paddle branch names its own amount rather than inheriting one.
+          */}
+        {paddleCheckoutEnabled() ? (
+          <PaddleCheckout
+            plan={plan}
+            cycle={initialCycle}
+            amount={plan === 'lifetime' ? euro(LIFETIME.amount) : euro(PRICES[plan][initialCycle].amount)}
+          />
+        ) : (
+          <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
+        )}
         <Footer />
 
         {/* Last in the document, fixed to the foot of the viewport — see `/pricing`. The CTA

@@ -91,6 +91,24 @@ export function mockCheckoutEnabled(): boolean {
 }
 
 /**
+ * Whether a real Paddle checkout can be opened from this deployment.
+ *
+ * Both halves are required and neither is a flag somebody flips: the server needs
+ * `PADDLE_API_KEY` to create the transaction, the browser needs the public client token to
+ * open it, and a deployment holding one without the other would offer a button that cannot
+ * work. So configuration *is* the switch — there is no `SONGBOOK_PADDLE=on` to forget, and no
+ * state where the environment says yes and the integration says no.
+ *
+ * Read fresh at call time like the two above, so an environment change takes effect on the
+ * next deploy rather than on the next cold start. **Server-only**: `PADDLE_API_KEY` is
+ * deliberately not a `NEXT_PUBLIC_` name, so this answers `false` in a browser whatever the
+ * deployment holds — call it from a server component, never from a client one.
+ */
+export function paddleCheckoutEnabled(): boolean {
+  return Boolean(process.env.PADDLE_API_KEY) && Boolean(process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN)
+}
+
+/**
  * Only warned about once per process, not once per request: a forced plan has to be
  * impossible to mistake for a real one in a log, and a line on every write would bury the
  * log it is trying to annotate.
