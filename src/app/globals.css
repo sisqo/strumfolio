@@ -10756,7 +10756,16 @@
     background: var(--accent-soft);
   }
 
-  .accounts-courtesy-icon:disabled {
+  /*
+   * Blocked, which is **not** every disabled button: a sent one is disabled too — there is
+   * nothing left to press — and must keep the lit look `.is-sent` gives it. Written as
+   * `:not(.is-sent)` rather than left to source order, because the two selectors weigh the
+   * same (one class plus one pseudo-class against two classes) and whichever came last won.
+   * `:disabled` did, so every sent icon drew its glyph in `--surface-3` on the `--accent-soft`
+   * circle — the same colour, near enough — and an operator saw an empty beige disc where the
+   * envelope should be. Reported from a real screen, 2026-09-12.
+   */
+  .accounts-courtesy-icon:disabled:not(.is-sent) {
     color: var(--surface-3);
     cursor: not-allowed;
   }
@@ -10789,7 +10798,7 @@
     background: var(--accent);
   }
 
-  .accounts-courtesy-icon:disabled .accounts-courtesy-badge {
+  .accounts-courtesy-icon:disabled:not(.is-sent) .accounts-courtesy-badge {
     background: var(--surface-2);
     color: var(--muted);
   }
