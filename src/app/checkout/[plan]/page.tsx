@@ -26,6 +26,9 @@ import { loadLifetimeOnSale } from '@/lib/settings/read'
 
 export const metadata: Metadata = { title: 'Checkout' }
 
+/** The answer when nobody asked — see the `Promise.all` below. */
+const NOTHING_LIVE = Promise.resolve({ ok: false, reason: 'no-subscription' } as const)
+
 interface Props {
   params: Promise<{ plan: string }>
   /*
@@ -89,10 +92,14 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      * only the newer of the two is ever cancellable from here. The mock could not do this — it
      * wrote columns and had nothing to leave running.
      *
-     * Costs one Paddle call, and only for an account that has a subscription id at all; the
-     * reader making a first purchase pays one indexed read on a page that already makes three.
+     * Costs one Paddle call, and only where it can change what is drawn: not at all with the
+     * mock branch rendering, and not for an account with no subscription id, which is every
+     * reader making a first purchase — they pay one indexed read on a page that already makes
+     * three. The branch sits here rather than inside the loader because the *action* must be
+     * able to move a plan whether or not a client token exists: that token is for the browser
+     * overlay, and a plan change never opens one.
      */
-    livePaddleSubscription(),
+    paddleCheckoutEnabled() ? livePaddleSubscription() : NOTHING_LIVE,
   ])
 
   /* Buy, switch, or say nothing doing — `checkoutMode` holds the rule and the argument for it,
