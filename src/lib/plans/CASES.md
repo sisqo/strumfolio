@@ -1,0 +1,125 @@
+# I casi di cambio piano, e come si verifica che funzionino
+
+**Questo file è un indice, non una descrizione.** Le decisioni e il perché stanno in
+`src/lib/plans/CLAUDE.md` e nei commenti dei moduli, dove sono scritte una volta sola; qui c'è
+una riga per caso che dice *cosa facciamo* in poche parole, *dove* sta, e soprattutto **come si
+controlla che regga**. Serve a rispondere in dieci secondi a «questo caso è coperto?» senza
+leggere quattro file, e a non poter più credere che lo sia quando non lo è.
+
+La numerazione è quella del documento d'analisi (`strumfolio-upgrade-downgrade-paddle.md`), così
+le due cose si leggono affiancate. Dove abbiamo deciso **diversamente** dalla proposta di quel
+documento, la riga lo dice: è il punto in cui una tabella vale più di un discorso.
+
+`cases.test.ts` tiene onesto questo file: gira dentro `npm test`, pretende che ci siano tutti e
+41 i casi e che ogni test citato qui **esista davvero** con quel nome. Rinomina un test e la
+build te lo dice, invece di lasciare qui una citazione morta. È lo stesso trucco di
+`gatedRoutes.test.ts`, ed è la ragione per cui questo non diventa un file di PLAN.
+
+**Come si legge la colonna «Dal vivo».** `npm test` copre solo la parte pura — le decisioni, le
+letture dei payload, le frasi. Nessun test in questo repo tocca Paddle o un browser, quindi
+«Dal vivo» è l'unica colonna che dice se qualcuno l'ha **visto succedere**. `mai` non è un
+difetto da correggere subito; è il conto aperto, ed è lì che vanno le ore quando ce ne sono.
+
+Vocabolario chiuso per le due colonne di verifica, così non si può scrivere una cella vaga:
+
+| Valore | Significato |
+|---|---|
+| `file.test.ts › nome del test` | quel test, in `npm test` |
+| `—` | non c'è niente da testare in modo puro, o il caso è impossibile per costruzione |
+| `sandbox AAAA-MM-GG` | misurato contro il sandbox Paddle quel giorno |
+| `browser AAAA-MM-GG` | guardato funzionare su una pagina vera quel giorno |
+| `mai` | nessuno l'ha ancora visto succedere |
+| `n/d` | non si applica |
+
+## A. Partenza da Free
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| A1 | Free → piano mensile | Subito, prezzo pieno. Nuova subscription, non un update — `paddleCheckout.ts` | `paddlePrices.test.ts › names a price for every row of the listino` | `sandbox 2026-09-12` |
+| A2 | Free → piano annuale | Come A1, sull'altro prezzo | `catalogue.test.ts › covers every paid plan in both cycles, plus Lifetime, and nothing else` | `sandbox 2026-09-12` |
+| A3 | Free → Lifetime | Subito, una tantum, `expiresAt` nullo. Transazione senza `subscription_id` | `webhook.test.ts › grants the Lifetime, with no expiry at all` | `mai` |
+| A4 | Free → Free | Non esiste un percorso che lo chieda: `/checkout/[plan]` accetta solo `PaidPlan` e la card Free di /pricing porta a `/billing?cancel=1` | `—` | `n/d` |
+
+## B. Partenza da piano pagato attivo
+
+La regola che copre B2, B4, B6, B7 e B8 è una sola: **un cambio che restituirebbe denaro aspetta
+la fine del periodo pagato, e solo un cambio che incassa avviene subito.** Le righe qui sotto
+sono quella frase applicata, non cinque decisioni separate.
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| B1 | Tier ↑, stesso ciclo | Subito, `prorated_immediately`, prorata netta | `planChange.test.ts › agrees with PLAN_RANK on every pair of paid plans` | `sandbox 2026-09-13` |
+| B2 | Tier ↓, stesso ciclo | Pending. `do_not_bill` + stamp in `custom_data`, periodo intatto | `webhook.test.ts › writes the plan that was paid for, with the cheaper one behind it` | `sandbox 2026-09-13` |
+| B3 | Stesso tier, mensile → annuale | Subito. Il periodo riparte, ed è il punto | `planChange.test.ts › treats yearly as the upgrade when only the cycle moves` | `mai` |
+| B4 | Stesso tier, annuale → mensile | Pending, e una seconda chiamata rimette `next_billed_at` sulla data pagata | `planChange.test.ts › holds a year-to-month move to the end of the year, and pins the billing date` | `sandbox 2026-09-13` |
+| B5 | Tier ↑ + mensile → annuale | Subito. Salgono entrambe le dimensioni, non c'è niente da restituire | `planChange.test.ts › waits for exactly the moves that would give money back, whatever the tier does` | `mai` |
+| B6 | Tier ↓ + annuale → mensile | Pending + pin, come B4 | `planChange.test.ts › makes a drop in tier and cycle together wait, and pins the date` | `mai` |
+| B7 | Tier ↑ + annuale → mensile | Pending + pin. **Deciso 2026-09-14 contro la proposta** del documento, che era Pending per la ragione giusta ma senza nominarla: il credito dell'anno non goduto | `planChange.test.ts › makes a rise in tier wait when it shortens a paid year` | `mai` |
+| B8 | Tier ↓ + mensile → annuale | Pending + pin all'indietro. **Deciso 2026-09-13 contro la proposta** del documento, che era Subito perché incassa prima | `planChange.test.ts › makes premium/month to standard/year wait, though it bills more per period` | `sandbox 2026-09-13` |
+| B9 | Qualsiasi piano → Lifetime | Subito, come transazione a sé. La subscription si disdice dal webhook a `next_billing_period` dopo l'incasso. **Nessun credito per la sovrapposizione**, contro la domanda aperta del documento: i giorni non sono persi, sono scavalcati | `webhook.test.ts › lets no subscription event write over a Lifetime` | `mai` |
+| B10 | Cancellazione | Pending → free, nessun rimborso. È l'unica cosa che Paddle sa programmare da sé | `webhook.test.ts › reads a scheduled cancellation as a pending downgrade to free` | `sandbox 2026-09-13` |
+| B11 | Stesso identico piano | Rifiutato con `same`, così non nasce una ricevuta che non descrive niente | `planChange.test.ts › refuses a change that changes nothing` | `n/d` |
+
+## C. Quando esiste già un cambio in sospeso
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| C1 | Pending + arriva un upgrade | **Divergenza voluta.** Il documento dice «azzera il pending e applica subito»; noi rifiutiamo con `pending-downgrade` e chiediamo di annullare prima su /billing, perché Paddle quoterebbe la cifra sugli item già spostati e ne addebiterebbe un'altra | `planChange.test.ts › refuses the two priced moves until the arranged change is called off` | `n/d` |
+| C2 | Pending + un secondo cambio gratuito | Sostituisce, ristampato sempre dal piano **pagato**, così niente si accumula | `planChange.test.ts › replaces one arranged downgrade with another` | `n/d` |
+| C3 | Pending cancellazione + ripensamento | `keepPaddleSubscription` annulla sia lo `scheduled_change` di Paddle sia uno stamp nostro | `planChange.test.ts › reads a return to the paid plan as a revert, not as an upgrade` | `sandbox 2026-09-13` |
+| C4 | Pending downgrade + cancellazione | La cancellazione vince e `pendingPlan` diventa `free`; il piano tenuto fino alla data non cambia | `webhook.test.ts › lets a cancellation take the place of the downgrade it sits on` | `mai` |
+| C5 | Arriva la scadenza con un pending | `resolveSubscription` lo collassa **leggendo**, a ogni lettura. Nessun cron, nessuna scrittura al rinnovo | `entitlements.test.ts › becomes the pending plan the instant its date passes, with nothing left pending` | `mai` |
+| C6 | Pending attivo, l'utente guarda il piano | Una frase con la data e la destinazione, su /billing e sopra il pulsante del checkout | `subscriptionCopy.test.ts › names the plan and the cycle a scheduled change lands on` | `mai` |
+
+## D. Lifetime
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| D1 | Lifetime → downgrade o cancellazione | Non offerto. `expiresAt` nullo non dà una data su cui far scattare niente, e `mayWritePlan` impedisce anche a un evento in ritardo di toglierlo | `planChange.test.ts › refuses Lifetime on both sides, and says which side` | `n/d` |
+| D2 | Lifetime → upgrade | Non esiste nulla sopra | `types.test.ts › ranks lifetime strictly above premium` | `n/d` |
+| D3 | Rimborso su Lifetime | Caso di supporto. La revoca è possibile scrivendo `expired`, che vale anche contro un Lifetime — **ma il flusso non è deciso** e non c'è nulla che lo faccia partire | `entitlements.test.ts › lets it revoke a lifetime too, because refunds exist` | `mai` |
+
+## E. Pagamenti, rinnovi e stati eccezionali
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| E1 | Rinnovo riuscito, nessun pending | `expiresAt` = fine del periodo ora pagato, mai più in là | `webhook.test.ts › writes the end of the period being paid for as the expiry` | `mai` |
+| E2 | Rinnovo riuscito, con un pending | Lo stamp si ritira da solo: il nuovo periodo comincia dove finiva quello pagato. **Il caso che nessuno eserciterà a mano prima di un mese**, e il più importante da guardare quando succederà | `webhook.test.ts › is spent once the period it named has begun` | `mai` |
+| E3 | Rinnovo fallito | `grace`, che ignora le date apposta: chi ha la carta che non passa è quasi sempre già oltre la scadenza | `entitlements.test.ts › keeps the full plan on a failed renewal, past date and all` | `mai` |
+| E4 | Pagamento recuperato nel grace | Torna `active` e il webhook scrive il periodo nuovo | `webhook.test.ts › reads an unknown status as active rather than revoking` | `mai` |
+| E5 | Grace esaurito | **Non è una finestra nostra**, ed è una decisione: niente qui sposta un account fuori da `grace`. Finisce il dunning di Paddle, arriva `canceled`, e quello vale `expired` | `webhook.test.ts › ends a canceled subscription` | `mai` |
+| E6 | Upgrade chiesto durante il grace | Di fatto non si offre nulla: `checkoutMode` risponde `stalled` per tutto ciò che potrebbe ancora fatturare. **Unica eccezione il Lifetime** (B9), che è proprio la via d'uscita di chi ha la carta che non passa. Come *politica* il documento lo lascia aperto e lo è ancora | `planChange.test.ts › offers nothing while anything may still be running` | `mai` |
+| E7 | Rimborso emesso dal supporto | **Non deciso.** Revocare subito o lasciare scadere è la domanda del documento, e nessuno l'ha ancora chiusa | `—` | `mai` |
+| E8 | Chargeback | **Non implementato, e l'accesso non viene revocato.** Il webhook agisce solo su `subscription.*` e `transaction.completed`; un evento di chargeback viene registrato in `paddle_events` e non fa nulla | `—` | `mai` |
+| E9 | Recesso 14 giorni UE/UK | Pubblicato su `/` e nei Termini, che nominano il Lifetime. Paddle è merchant of record e il rimborso passa da loro. È la sola ragione per cui B9 disdice a `next_billing_period` invece che subito | `—` | `mai` |
+| E10 | Regalo sovrapposto a un abbonamento | La direzione di un cambio si decide sulla subscription **pagata**, letta da Paddle, non sul piano effettivo, così il regalo non falsa il verso | `entitlements.test.ts › never takes anything away from a better subscription` | `n/d` |
+| E11 | Regalo che scade mentre l'abbonamento vive | Il piano effettivo scende a quello pagato, senza nessun evento di fatturazione | `entitlements.test.ts › stops contributing once its own date has passed` | `n/d` |
+
+## F. Robustezza
+
+| # | Caso | Come lo gestiamo | Test | Dal vivo |
+|---|---|---|---|---|
+| F1 | Webhook duplicato | `paddle_events.event_id` è la primary key: l'insert **è** il dedup, e sta nella stessa transazione della scrittura sull'account | `—` | `sandbox 2026-09-12` |
+| F2 | Webhook fuori ordine | **Divergenza nota e accettata.** Niente confronta `occurred_at`: vince l'ultimo arrivato. Le due chiamate di un cambio di ciclo producono due eventi, e invertiti lascerebbero lo stato di prima. Il rimedio, se servirà, è un confronto con l'ultimo `occurred_at` applicato per quella subscription | `—` | `n/d` |
+| F3 | Webhook mai arrivato | **Non implementato.** Nessuna riconciliazione periodica contro Paddle esiste da nessuna parte | `—` | `n/d` |
+| F4 | Checkout chiuso a metà | Nessun cambio di stato: niente viene scritto finché non arriva il webhook, che è anche il motivo per cui il redirect di successo non concede nulla | `—` | `sandbox 2026-09-12` |
+| F5 | Doppio click sul cambio piano | Il pulsante si disabilita su `busy` per tutta la durata della chiamata | `—` | `mai` |
+| F6 | Stato divergente fra noi e Paddle | Paddle è la fonte di verità per la fatturazione: piano e ciclo vivi si leggono da lì a ogni decisione, non dalle nostre colonne | `planChange.test.ts › changes the plan of a live subscription` | `n/d` |
+
+## Il conto aperto, in ordine di quanto costa sbagliarlo
+
+Non è una lista di cose da fare: è cosa si rompe per primo se si rompe, letto dalle colonne
+qui sopra.
+
+1. **E2, il rinnovo che applica un cambio in sospeso.** Tutto il meccanismo «si ripaga in tempo,
+   non in denaro» finisce lì, e nessun rinnovo reale è ancora scaduto. Il primo che scade va
+   guardato.
+2. **E8, il chargeback che non revoca niente.** È l'unico caso in cui qualcuno tiene un piano
+   senza averlo pagato, e oggi non ci accorgeremmo.
+3. **Le schermate, che non ha mai guardato nessuno.** La branch `subscribed` di
+   `/checkout/[plan]` e la riga di C6 sono compilate e testate nella parte pura, mai viste
+   funzionare: servono una sessione e un preview deployment.
+4. **F3, nessuna riconciliazione.** Regge finché Paddle consegna, e Paddle consegna. Ma tre
+   giorni di retry esauriti sono un evento perso per sempre e in silenzio.
+5. **E7 e D3**, che sono la stessa domanda non decisa vista da due lati: cosa fa il supporto
+   quando rimborsa.

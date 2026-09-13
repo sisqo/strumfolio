@@ -55,6 +55,23 @@ Three things about the demolition are worth knowing rather than rediscovering:
 - `SONGBOOK_FORCE_PLAN` — a deliberately risky local-only escape hatch (forces every read to
   one plan); never meant to run in production.
 
+## `CASES.md` is the index of the cases, and it is checked by the build
+
+Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,
+A1 to F6 — saying what we do, which test covers it, and whether anybody has ever seen it happen
+against Paddle or in a browser. It is an index and not a second description: the reasoning stays
+here and in the module comments, written once.
+
+**It is not a PLAN file and `cases.test.ts` is what keeps it from becoming one.** That test runs
+in `npm test`, insists every case id is present exactly once, and resolves every test name the
+document cites against the file it names — so a renamed test breaks the build instead of leaving
+a citation that reads like coverage and points at nothing. Same defence as
+`lib/auth/gatedRoutes.test.ts`, aimed at a different kind of forgetting.
+
+Two habits it is worth keeping: decide a case, and the row moves in the same commit; watch one
+work for real, and the «Dal vivo» cell gets the date. The column is mostly `mai` today, and that
+is the honest state rather than an omission.
+
 ## What Paddle already decides, and what it does not yet
 
 The sandbox catalogue exists since 2026-09-12 — the ids, the tax argument and the three MCP

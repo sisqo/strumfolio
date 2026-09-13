@@ -51,6 +51,7 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 |---|---|
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
 | `src/lib/plans/CLAUDE.md` | plans, entitlements, the mock checkout and its two env flags, which Paddle id the code holds, and how the catalogue is verified |
+| `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
 | `src/lib/coupons/CLAUDE.md` | campaigns, `liveDiscount`, and what a coupon is not allowed to decide |
 | `src/lib/accounts/CLAUDE.md` | the admin surface, names, the newsletter preference, the old-account quirk |
 | `src/lib/music/CLAUDE.md` | the song chips, alternate chord shapes, German and Nashville notation |
