@@ -183,6 +183,34 @@ watched working by anybody.
   - **B6 and B8 are the same rule with the cycle moving too**, and cost only the extra call B4
     already pays for. There is no branch for them: every drop in tier is `do_not_bill` and
     `period-end`, and `pinBillingDate` follows from whether the frequency moves.
+- **CASO B7 — un aumento di Tier che accorcia il ciclo aspetta comunque** (decided 2026-09-14),
+  and it is the case that turned four rules into one. Standard yearly → Premium monthly *raises*
+  the tier, so it read as an upgrade and was billed on the spot — and what `prorated_immediately`
+  does to the paid year on the way is credit whatever is left of it. **Paddle issues that as
+  account credit, not as a refund to the card**, which is the one detail worth stating precisely:
+  no money leaves the business that day, but it is money owed back, sitting against monthly
+  invoices that would take the best part of a year to absorb and lost to the reader entirely if
+  they leave before then. Either way it is the opposite of what the rest of this directory
+  promises. So the rule is now stated by *direction of money*: **a change that would give money
+  back waits for the period already paid for; only a change that takes money happens now.**
+  - **It is the one waiting case where the reader is asking for more and is made to wait**, so
+    the screen says so plainly before the press: you keep what you paid for until the day, and
+    the bigger plan starts then, billed monthly. Every other waiting case is in the reader's
+    favour; this one is not, and pretending otherwise in the copy would be the drift this file
+    exists to stop.
+  - **The alternative was weighed and not built**: grant the tier now at the *yearly* price,
+    take the prorated difference, and turn the billing monthly at the renewal. That collects
+    money instead of owing it and gives the reader what they asked for the same day — but it is
+    three Paddle calls and a second kind of stamp, one carrying a cycle with no plan beside it.
+  - **The failure mode is the safe one, unlike every other waiting case.** If the stamp is ever
+    lost or unreadable the code «believes the items», which here means granting the *higher*
+    tier early — features given away, where losing a downgrade's stamp takes away a plan
+    somebody paid for.
+  - **`pendingDowngrade` now sometimes holds a plan that ranks *above* the live one.** The name
+    is the stamp's history, not a claim: `readDowngradeStamp` never compared ranks and
+    `resolveSubscription` only swaps to `pendingPlan` on the date, so both carry a rise without
+    a change. What does read the direction is `direction`, which stays honest (`upgrade`) while
+    `when` is the field the screens branch on — do not use one as a proxy for the other.
 - **Two proration modes are used and there is deliberately no third.**
   `prorated_next_billing_period` was used for downgrades and is gone: it repays in *money* on the
   next invoice where this product repays in *time*, and Paddle refuses every deferred mode on a
@@ -194,7 +222,8 @@ watched working by anybody.
   billed today, a whole year up front, and the analysis document proposed exactly that because
   the cash arrives sooner. Decided the other way: «a downgrade is never immediate» was already
   written down as a rule, and the single exception where the exception collects more money is
-  the kind a customer notices. So B2, B4, B6 and B8 are now one sentence rather than four cases.
+  the kind a customer notices. So B2, B4, B6, B7 and B8 are now one sentence rather than five
+  cases — and B7 is what forced that sentence to be about money rather than about tiers.
 - **CASO B4 — yearly to monthly keeps the whole paid year, and costs one extra call.** Same
   shape as B2 with one measured difference that decides everything: **`do_not_bill` preserves
   the billing period only while the frequency is unchanged.** Moving a subscription between the

@@ -489,8 +489,11 @@ deferred, through `proration_billing_mode` — and `scheduled_change` models `ca
 runs out». What is done instead: the items move now under `do_not_bill`, which charges and
 credits nothing and leaves the billing period alone, and a `custom_data` stamp carries the date
 the reader keeps their old plan until, which the webhook turns into `pendingPlan`. No cron and
-no renewal-time write. **Every drop in tier waits that way and every rise is billed at once** —
-two proration modes in the whole app, and no third. `plans/CLAUDE.md` carries the rest, including the five measurements that
+no renewal-time write. **What decides the timing is which way the money goes, not which way the
+plan goes: a change that would hand money back waits, and only a change that collects money
+happens now** — so a drop in tier waits, and so does any move onto monthly billing while a year
+is paid for, even one that raises the tier (B7). Two proration modes in the whole app, and no
+third. `plans/CLAUDE.md` carries the rest, including the five measurements that
 settle it: `scheduled_change: null` may not travel with any other field; a subscription carrying
 a scheduled change refuses the deferred proration modes; a nested object inside `custom_data`
 comes back verbatim; **`do_not_bill` preserves the period only while the frequency is

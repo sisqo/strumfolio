@@ -136,6 +136,78 @@ describe('planChangeEffect', () => {
     })
   })
 
+  /*
+   * **B7 — the case that is up in tier and down in cycle, and waits because of the cycle.**
+   * Standard yearly to Premium monthly reads as an upgrade and used to be billed on the spot;
+   * what Paddle does to the paid year on the way is credit the months left of it, which is
+   * money owed back against monthly invoices that would take most of a year to absorb.
+   *
+   * So the direction stays honest — it *is* a rise in tier — while `when` and `proration` are
+   * the ones that decide, and both say wait. Decided 2026-09-14.
+   */
+  it('makes a rise in tier wait when it shortens a paid year', () => {
+    assert.deepEqual(planChangeEffect({ plan: 'standard', cycle: 'year' }, { plan: 'premium', cycle: 'month' }), {
+      ok: true,
+      direction: 'upgrade',
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate: true,
+    })
+  })
+
+  /*
+   * The rule as a rule, in both directions at once, so no later branch can reintroduce an
+   * immediate change that hands money back for one combination out of the twelve.
+   *
+   * **What the sweep is really asserting is the `year → month` column**, since the tier rising
+   * is what makes each of these look billable; the `month → year` and same-cycle columns are
+   * there to hold the other half of the line in place, i.e. that raising the tier without
+   * shortening the cycle still charges today.
+   */
+  it('waits for exactly the moves that would give money back, whatever the tier does', () => {
+    for (const from of PAID_PLANS) {
+      for (const to of PAID_PLANS) {
+        if (PLAN_RANK[to] <= PLAN_RANK[from]) continue
+        for (const fromCycle of ['year', 'month'] as const) {
+          for (const toCycle of ['year', 'month'] as const) {
+            const effect = planChangeEffect({ plan: from, cycle: fromCycle }, { plan: to, cycle: toCycle })
+            const givesMoneyBack = fromCycle === 'year' && toCycle === 'month'
+
+            assert.deepEqual(
+              effect,
+              {
+                ok: true,
+                direction: 'upgrade',
+                proration: givesMoneyBack ? 'do_not_bill' : 'prorated_immediately',
+                when: givesMoneyBack ? 'period-end' : 'now',
+                pinBillingDate: givesMoneyBack,
+              },
+              `${from}/${fromCycle} -> ${to}/${toCycle}`,
+            )
+          }
+        }
+      }
+    }
+  })
+
+  /*
+   * B7 bills nothing, so it falls on the free side of the line `pending-downgrade` draws and
+   * may replace what is already arranged — unlike the rise in tier that keeps the cycle, which
+   * is refused two tests below. The pin follows the *items*, which a B4 has already moved to
+   * monthly, so this second press needs none.
+   */
+  it('lets a rise in tier replace an arranged change of cycle, without pinning twice', () => {
+    const goingMonthly = { plan: 'standard', cycle: 'year', pendingDowngrade: { plan: 'standard', cycle: 'month' } } as const
+
+    assert.deepEqual(planChangeEffect(goingMonthly, { plan: 'premium', cycle: 'month' }), {
+      ok: true,
+      direction: 'upgrade',
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate: false,
+    })
+  })
+
   /* An update with the items it already carries still prorates zero, still fires an event and
      still writes a receipt for nothing. */
   it('refuses a change that changes nothing', () => {

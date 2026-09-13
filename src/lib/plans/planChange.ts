@@ -10,10 +10,12 @@
  *
  * What this app does with that:
  *
- * - **An upgrade applies now and is billed now** (`prorated_immediately`): the unused part of
- *   the old plan is credited against the charge, and the reader has the bigger plan before the
- *   page has finished reloading.
- * - **A downgrade of tier keeps the plan that was paid for until the period ends** — case B2,
+ * - **A change that collects money applies now and is billed now** (`prorated_immediately`):
+ *   the unused part of the old plan is credited against the charge, and the reader has the
+ *   bigger plan before the page has finished reloading. That is a rise in tier, or the longer
+ *   commitment of going yearly — and only while the cycle is not being shortened underneath it.
+ * - **A change that would hand money back keeps the plan that was paid for until the period
+ *   ends** — case B2,
  *   and the rule the whole product is written around: nobody pays for Premium to the 13th and
  *   loses it on the 2nd. Paddle cannot schedule that, but it can be *made* to behave as if it
  *   had: the items move now under `do_not_bill`, so no money changes hands in either direction,
@@ -25,10 +27,11 @@
  *   cron, no scheduler, no renewal-time write**, which is what made the rejected alternative —
  *   hold the change app-side and apply it at the renewal — impossible here: until that
  *   scheduler ran Paddle would renew at the old, higher price.
- * - **A downgrade that changes the cycle too waits in exactly the same way** (B4, B6, B8), and
- *   costs one extra call: `do_not_bill` preserves the billing period only while the *frequency*
- *   is unchanged, and restarts it otherwise — so the billing date is put back by a second call
- *   afterwards. `paddleApply.ts` owns that sequence and the measurement behind it.
+ * - **A change that shortens the cycle waits in exactly the same way** (B4, B6, B8 — and B7,
+ *   which raises the tier and waits anyway), and costs one extra call: `do_not_bill` preserves
+ *   the billing period only while the *frequency* is unchanged, and restarts it otherwise — so
+ *   the billing date is put back by a second call afterwards. `paddleApply.ts` owns that
+ *   sequence and the measurement behind it.
  *
  * `pendingPlan` therefore has two sources on the Paddle path: `'free'`, written from a
  * `scheduled_change` of `cancel`, which is the one action Paddle does model; and a plan, written
@@ -80,16 +83,19 @@ export type ChangeDirection = 'upgrade' | 'downgrade' | 'revert'
  * of billing frequency, so the cases that most needed it — a tier drop that also changes cycle —
  * could never have used it anyway.
  *
- * What is left is one rule with two halves: **what the reader pays more for happens now and is
- * billed now; what they pay less for happens at the end of the period they have already paid
- * for, and bills nothing at all.**
+ * What is left is one rule with two halves, and the halves are told apart by **which way the
+ * money goes, not by which way the plan goes**: a change that takes money happens now and is
+ * billed now; a change that would give money back happens at the end of the period already paid
+ * for, and bills nothing at all. B7 is what forced that wording — it raises the tier, which
+ * sounds like the first half, and shortens a paid year, which puts it squarely in the second.
  */
 export type ProrationMode = 'prorated_immediately' | 'do_not_bill'
 
 /**
  * When the reader actually stops having the plan they have now. `now` for everything Paddle
- * bills on the spot; `period-end` for a downgrade held back to the last day of what they paid
- * for, which is the whole of case B2.
+ * bills on the spot; `period-end` for a change held back to the last day of what they paid for,
+ * which is the whole of case B2 — and, since B7, not only for changes that go *down*: this is
+ * the field the screens read, and `direction` is not a substitute for it.
  */
 export type ChangeWhen = 'now' | 'period-end'
 
@@ -210,58 +216,90 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
     return { ok: false, reason: 'already-scheduled' }
   }
 
-  if (PLAN_RANK[to.plan] > PLAN_RANK[from.plan]) {
+
+  const risesInTier = PLAN_RANK[to.plan] > PLAN_RANK[from.plan]
+  const dropsInTier = PLAN_RANK[to.plan] < PLAN_RANK[from.plan]
+  /*
+   * Shortens against **what was paid for**, not against what the items carry — `pinBillingDate`
+   * is the one that asks the items. A reader who has already arranged to go monthly has monthly
+   * items and a paid *year* underneath them, and it is the year that must not be handed back.
+   */
+  const shortensTheCycle = from.cycle === 'year' && to.cycle === 'month'
+
+  /*
+   * **The whole rule, in one condition: a change that would hand money back waits for the
+   * period that has been paid for.** Nothing is charged and nothing is credited — the items
+   * move now only because that is the single way to make Paddle renew at the new price by
+   * itself, and a `custom_data` stamp (`webhook.ts`) carries the date, which is what keeps this
+   * app's account of the plan honest while Paddle's items are ahead of it.
+   *
+   * Two things get a reader money back, and both are here: **dropping a tier** (B2 with the
+   * cycle unchanged, B6 and B8 when it moves as well) and **shortening the cycle**, which
+   * ends a year that was paid in full (B4, and B7 below).
+   *
+   * **B7 is why this is one condition rather than a branch per case** (decided 2026-09-14).
+   * Standard yearly → Premium monthly *raises* the tier, so it read as an upgrade and was
+   * billed on the spot — and what Paddle does to a paid year on the way is credit the eleven
+   * months left of it. That credit is money owed back, sitting on the account against monthly
+   * invoices it would take the best part of a year to absorb, and lost outright if the reader
+   * then leaves. So the tier rising does not make a change collect money; the cycle shortening
+   * decides it either way, and a rise in tier over a paid year waits for that year like
+   * everything else. The reader is told so before they press: they keep what they paid for
+   * until the day, and the bigger plan starts then, billed monthly.
+   *
+   * **What it costs is stated rather than hidden**: this is the one waiting case where the
+   * reader is asking for *more* and is made to wait for it. The alternative — grant the tier
+   * now at the yearly price, take the prorated difference, and turn the billing monthly at the
+   * renewal — collects money instead of owing it and would give them what they asked for the
+   * same day, but it is three Paddle calls and a second kind of stamp carrying a cycle with no
+   * plan beside it. Not built, and this is the note saying it was weighed.
+   *
+   * **B8 had to be decided the same way** and against the same instinct, since it is where
+   * waiting costs the business most: Premium monthly to Standard yearly could be billed today,
+   * a whole year up front, and the analysis document proposed exactly that. Decided the other
+   * way on 2026-09-13, for the reason that now covers B7 too — the rule a reader has been told
+   * holds everywhere or it is not a rule, and the single exception where the exception collects
+   * more money is the kind a customer notices.
+   *
+   * **C2 falls out of the same line**: a second, different waiting change while one is pending
+   * is decided against the *paid* plan like the first, so the last one asked for wins and
+   * nothing accumulates. Nothing is billed, so there is no figure to quote wrongly and no
+   * reason to refuse it — the line `pending-downgrade` draws is between priced changes and free
+   * ones, which is why this block asks nothing about `pending`.
+   */
+  if (dropsInTier || shortensTheCycle) {
+    return {
+      ok: true,
+      /* The tier is what the reader calls up and down, and B7 is genuinely up — only its
+         billing waits. The screens read `when` for the sentence and `direction` only for the
+         two cases that move money, so naming this one honestly costs nothing and stops the
+         fallback copy calling a rise in tier a downgrade. */
+      direction: risesInTier ? 'upgrade' : 'downgrade',
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate,
+    }
+  }
+
+  /*
+   * Everything left takes money now: a rise in tier that does not shorten the cycle, and B3 —
+   * monthly to yearly, a bigger commitment paid for on the spot. The period restarting under
+   * B3 is the point of it rather than a side effect, so nothing is pinned.
+   *
+   * Refused while something is arranged, where the block above is not, and the line between
+   * them is exactly whether money is quoted: Paddle would price this against the items, which
+   * have already moved, while the sequence that would actually run credits the plan that was
+   * paid for. Calling the arranged change off first is one press, on /billing.
+   */
+  if (risesInTier || (from.cycle === 'month' && to.cycle === 'year')) {
     return pending === null
       ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now', pinBillingDate: false }
       : { ok: false, reason: 'pending-downgrade' }
   }
 
-  /*
-   * **Every move to a lower tier waits for the period that has been paid for** — B2 with the
-   * cycle unchanged, B6 and B8 when it moves as well, one line for all three. Nothing is charged
-   * and nothing is credited: the items move now only because that is the single way to make
-   * Paddle renew at the new price by itself, and a `custom_data` stamp (`webhook.ts`) carries
-   * the date, which is what keeps this app's account of the plan honest while Paddle's items are
-   * ahead of it.
-   *
-   * **B8 was the one that had to be decided rather than derived**, since it is the case where
-   * waiting costs the business the most: Premium monthly to Standard yearly could be billed
-   * today, a whole year up front, and the analysis document proposed exactly that. Decided the
-   * other way on 2026-09-13. The rule a reader has been told holds everywhere or it is not a
-   * rule — «a downgrade is never immediate» was already written down, and a single exception
-   * where the exception happens to collect more money is the kind a customer notices.
-   *
-   * **C2 falls out of the same line**: a second, different downgrade while one is pending is
-   * decided against the *paid* plan like the first, so the last one asked for wins and nothing
-   * accumulates. Nothing is billed, so there is no figure to quote wrongly and no reason to
-   * refuse it — the line `pending-downgrade` draws is between priced changes and free ones.
-   */
-  if (PLAN_RANK[to.plan] < PLAN_RANK[from.plan]) {
-    return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end', pinBillingDate }
-  }
-
-  if (from.cycle === to.cycle) return { ok: false, reason: 'same' }
-
-  /*
-   * **B4 — the same tier, yearly to monthly.** A year has been paid for and the reader is not
-   * asking to be refunded any of it: they keep the yearly plan to its last day, and the billing
-   * turns monthly from there. Same shape as B2, one call longer, because the frequency moves.
-   *
-   * Allowed even with something already arranged, where B3 below is not, and the line between
-   * them is exactly whether money is quoted: `do_not_bill` bills nothing, so there is no figure
-   * to get wrong against items that have already moved, and the last thing asked for simply
-   * wins (C2). A priced change has a figure, and that figure would be computed against the
-   * wrong plan.
-   */
-  if (to.cycle === 'month') {
-    return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end', pinBillingDate }
-  }
-
-  /* B3 — monthly to yearly, which is a bigger commitment paid for now. The period restarting is
-     the point of it rather than a side effect, so nothing is pinned. */
-  return pending === null
-    ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now', pinBillingDate: false }
-    : { ok: false, reason: 'pending-downgrade' }
+  /* Two plans of equal rank under different names, on one cycle: not a direction this file can
+     order, and not a move worth billing for. Unreachable while `PLAN_RANK` stays injective. */
+  return { ok: false, reason: 'same' }
 }
 
 /**

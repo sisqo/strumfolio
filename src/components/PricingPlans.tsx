@@ -510,10 +510,12 @@ export function PricingPlans({
                     </p>
                     {/*
                       * The one action this card still needs: re-buying the plan already held
-                      * is how a billing-cycle change has always worked (`planChange.ts`'s own
-                      * comment — equal rank applies immediately, like a small upgrade) and
-                      * there is nowhere else in the app to do it, since the active cycle
-                      * itself is not even a stored column. Worded apart from "Upgrade"/
+                      * is how a billing-cycle change has always worked, and there is nowhere
+                      * else in the app to do it, since the active cycle itself is not even a
+                      * stored column. **Which way it goes decides when it lands** — going
+                      * yearly is billed on the spot, going monthly waits for the year that has
+                      * been paid for and bills nothing (B4, `planChange.ts`) — so this link
+                      * leads to a screen that says which, rather than promising either here. Worded apart from "Upgrade"/
                       * "Switch" below, which both change *which* plan this is — this changes
                       * nothing about the plan, only how often it bills.
                       *
