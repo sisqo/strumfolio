@@ -6,16 +6,47 @@ import { useEffect, useState } from 'react'
 import { IconInfo } from '@/components/icons'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
 import {
-  clearPendingChange,
   loadCheckoutStatus,
   loadFreezeState,
   loadMyPaymentHistory,
-  mockCancel,
   type MockSubscriptionState,
 } from '@/lib/plans/checkout'
+import {
+  cancelPaddleSubscription,
+  keepPaddleSubscription,
+  type PaddleKeepFailure,
+} from '@/lib/plans/paddleSubscription'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
-import { cancelQuestion, discountLine, lastPaymentLine, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
+import {
+  cancelledOnLine,
+  cancelQuestion,
+  discountLine,
+  lastPaymentLine,
+  subscriptionStatusLine,
+} from '@/lib/plans/subscriptionCopy'
 import { LIMIT_MESSAGE, PLAN_LABEL, type Plan } from '@/lib/plans/types'
+
+/**
+ * What each Paddle refusal is called to a reader, and why this is a map rather than one
+ * sentence.
+ *
+ * The two buttons used to answer «that didn't go through. Try again.» to everything except one
+ * reason — which was tolerable while every failure really was transient. It is not any more:
+ * `no-subscription` is what an account whose plan never came from Paddle gets, and no amount of
+ * trying again will change it. Telling somebody to retry something that cannot work is worse
+ * than telling them nothing. The same map `PaddleCheckout` already keeps for the checkout side.
+ */
+const REFUSALS: Record<PaddleKeepFailure, string> = {
+  'not-configured': 'Payments are not switched on here yet.',
+  'no-database': 'We could not reach your account. Please try again in a moment.',
+  'no-subscription': 'This plan was not bought through our payment provider, so there is nothing to change here.',
+  gone: 'Your subscription has already ended.',
+  'not-live': 'Your subscription is on hold at the moment — usually a payment that needs a fresh card.',
+  'unexpected-items': 'Your subscription has an unusual shape. Please write to us and we will sort it out.',
+  unreadable: 'We could not read your subscription just now. Please try again in a moment.',
+  'nothing-scheduled': 'Nothing is scheduled, so there is nothing to call off.',
+  failed: "That didn't go through. Try again.",
+}
 
 type Status =
   | { state: 'loading' }
@@ -151,15 +182,13 @@ export function BillingScreen() {
   }, [])
 
   /*
-   * `said` is a function of the result, not a fixed string: `mockCancel` now reports whether
-   * the cancellation was scheduled for a period end or applied at once (a plan with no
-   * `planExpiresAt` has no period end to wait for), and telling somebody their plan "cancels
-   * once the period already paid for ends" when it has just ended is the kind of small lie this
-   * screen is here to avoid.
+   * `said` is a function of the result rather than a fixed string, so the cancellation can name
+   * the day it lands on — Paddle answers with the `scheduled_change` it has just written, and a
+   * date the reader can check beats «at the end of the period».
    */
-  const run = async (
-    action: () => Promise<{ ok: true; effect?: 'immediate' | 'scheduled' } | { ok: false; reason: string }>,
-    said: (result: { effect?: 'immediate' | 'scheduled' }) => string,
+  const run = async <R extends { ok: true } | { ok: false; reason: PaddleKeepFailure }>(
+    action: () => Promise<R>,
+    said: (result: Extract<R, { ok: true }>) => string,
   ) => {
     setBusy(true)
     setError(null)
@@ -167,10 +196,10 @@ export function BillingScreen() {
     try {
       const result = await action()
       if (!result.ok) {
-        setError(result.reason === 'not-applicable' ? 'Nothing to do here right now.' : "That didn't go through. Try again.")
+        setError(REFUSALS[result.reason])
         return
       }
-      setDone(said(result))
+      setDone(said(result as Extract<R, { ok: true }>))
       refresh()
     } catch {
       setError("That didn't go through. Try again.")
@@ -277,7 +306,9 @@ export function BillingScreen() {
                   type="button"
                   className="btn btn-sm"
                   disabled={busy}
-                  onClick={() => void run(clearPendingChange, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)}
+                  onClick={() =>
+                    void run(keepPaddleSubscription, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)
+                  }
                 >
                   Keep {PLAN_LABEL[status.current.plan]}
                 </button>
@@ -308,11 +339,10 @@ export function BillingScreen() {
                       className="btn btn-danger btn-sm"
                       disabled={busy}
                       onClick={() =>
-                        void run(mockCancel, (result) =>
-                          result.effect === 'immediate'
-                            ? 'Cancelled — this account is back on Free.'
-                            : 'Scheduled — this plan cancels once the period already paid for ends.',
-                        )
+                        /* `cancelQuestion` above asked with a date in it; answering with the
+                           date Paddle has just written is what makes the pair one exchange.
+                           `cancelledOnLine` holds the rule about an unreadable one. */
+                        void run(cancelPaddleSubscription, (result) => cancelledOnLine(result.effectiveAt))
                       }
                     >
                       Cancel it

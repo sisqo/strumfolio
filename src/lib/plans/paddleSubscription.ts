@@ -25,26 +25,23 @@
  * makes the page pick it up without a manual reload.
  */
 
-import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
-import { currentUser } from '@/lib/auth/session'
-import { db, hasDatabase } from '@/lib/db/client'
-import { accounts } from '@/lib/db/schema'
+import { hasDatabase } from '@/lib/db/client'
 
+import { livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
 
-export type PaddleCancelFailure =
-  | 'not-configured'
-  | 'no-database'
-  | 'no-session'
-  /** Nothing to cancel: this account has never completed a Paddle checkout. */
-  | 'no-subscription'
-  | 'failed'
+export type PaddleCancelFailure = 'not-configured' | 'no-database' | 'failed' | NoLiveSubscription
 
 export type PaddleCancelResult =
   | { ok: true; effectiveAt: string | null }
   | { ok: false; reason: PaddleCancelFailure }
+
+/** Nothing was scheduled, so there is nothing to call off — not a fault, and worth its own word. */
+export type PaddleKeepFailure = PaddleCancelFailure | 'nothing-scheduled'
+
+export type PaddleKeepResult = { ok: true } | { ok: false; reason: PaddleKeepFailure }
 
 export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
@@ -52,19 +49,17 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
 
-  const user = await currentUser()
-  if (user === null) return { ok: false, reason: 'no-session' }
-
   try {
-    const [account] = await db()
-      .select({ subscriptionId: accounts.paddleSubscriptionId })
-      .from(accounts)
-      .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
-      .limit(1)
+    /*
+     * `livePaddleSubscription` rather than the account column, which says «has had a
+     * subscription» and not «has one» — the webhook writes it on `subscription.canceled` too and
+     * nothing ever nulls it. Cancelling against a dead id answers a Paddle error and reaches the
+     * reader as «that didn't go through», when the truth is that it already has.
+     */
+    const live = await livePaddleSubscription()
+    if (!live.ok) return { ok: false, reason: live.reason }
 
-    if (!account?.subscriptionId) return { ok: false, reason: 'no-subscription' }
-
-    const canceled = await paddle.subscriptions.cancel(account.subscriptionId, {
+    const canceled = await paddle.subscriptions.cancel(live.id, {
       effectiveFrom: 'next_billing_period',
     })
 
@@ -74,6 +69,49 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
     return { ok: true, effectiveAt: canceled.scheduledChange?.effectiveAt ?? null }
   } catch (error) {
     console.error('cancelPaddleSubscription failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * Calling off a cancellation that has not happened yet — «Keep Premium».
+ *
+ * **This is the one mock capability that maps onto Paddle exactly**, and it is worth saying why,
+ * because its neighbour does not. `clearPendingChange` undid whatever sat in
+ * `pendingPlan`/`pendingCycle`, which for the mock could be either a cancellation *or* a
+ * scheduled downgrade. On the Paddle path `pendingPlan` is only ever `'free'`, written from a
+ * `scheduled_change` of `cancel` — there are no scheduled downgrades, for the reason
+ * `planChange.ts` sets out at length — so «undo the pending change» and «clear the scheduled
+ * cancellation» are the same act here, where on the mock they were two.
+ *
+ * `scheduled_change: null` travels alone: Paddle refuses it beside any other field. It also
+ * restores `next_billed_at`, which cancelling had nulled, so the subscription comes back to the
+ * row it was on. Both measured 2026-09-13.
+ *
+ * Writes no plan columns, like everything else on this path: the `subscription.updated` that
+ * follows is what clears `pendingPlan`.
+ */
+export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const paddle = paddleClient()
+  if (paddle === null) return { ok: false, reason: 'not-configured' }
+
+  try {
+    const live = await livePaddleSubscription()
+    if (!live.ok) return { ok: false, reason: live.reason }
+
+    /* Asked of the same read that established the subscription is live, never of a second
+       fetch — see `livePaddleSubscription`'s own note on why one snapshot. */
+    if (!live.scheduled) return { ok: false, reason: 'nothing-scheduled' }
+
+    await paddle.subscriptions.update(live.id, { scheduledChange: null })
+
+    revalidatePath('/billing')
+
+    return { ok: true }
+  } catch (error) {
+    console.error('keepPaddleSubscription failed', error)
     return { ok: false, reason: 'failed' }
   }
 }

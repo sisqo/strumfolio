@@ -213,3 +213,25 @@ export function discountLine(
   const until = `${reduction} until ${formatPlanDate(discount.endsAt)}`
   return fullAmount === null ? `${until}.` : `${until}, then ${euro(fullAmount)}.`
 }
+
+/**
+ * What `/billing` says once a cancellation has been scheduled.
+ *
+ * Here rather than inline in `BillingScreen` because there is a rule in it: the date arrives as
+ * Paddle's own RFC 3339 string, and `new Date(…)` on anything it cannot parse yields a `Date`
+ * whose `toLocaleDateString` is the literal words «Invalid Date». Printed into this sentence
+ * that reads «this plan cancels on Invalid Date» to somebody who has just cancelled a plan they
+ * pay for — the one moment on the screen where a reader is most entitled to a straight answer.
+ * The dateless sentence is true in every case, so it is what an unreadable date falls back to.
+ *
+ * **Paddle's date and not `planExpiresAt`**, though the two agree today: the authority on when a
+ * subscription stops is the system that will stop it, and this screen's own copy of the date is
+ * a row the webhook has not necessarily updated yet.
+ */
+export function cancelledOnLine(effectiveAt: string | null): string {
+  const day = effectiveAt === null ? null : new Date(effectiveAt)
+
+  return day === null || Number.isNaN(day.getTime())
+    ? 'Scheduled — this plan cancels once the period already paid for ends.'
+    : `Scheduled — this plan cancels on ${formatPlanDate(day)}.`
+}

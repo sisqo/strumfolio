@@ -5,7 +5,7 @@ import type { MockSubscriptionState } from './checkout'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
 import type { PaymentHistoryLine } from './history'
-import { cancelQuestion, formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
+import { cancelledOnLine, cancelQuestion, formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
 
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -252,5 +252,27 @@ describe('the cancellation question', () => {
       cancelQuestion(state({ plan: 'premium' })),
       `Cancel Premium at the end of the period already paid for, on ${formatPlanDate(FUTURE)}?`,
     )
+  })
+})
+
+describe('cancelledOnLine', () => {
+  it('names the day Paddle scheduled the cancellation for', () => {
+    assert.equal(
+      cancelledOnLine('2027-09-12T19:15:54.036229Z'),
+      'Scheduled — this plan cancels on 12 September 2027.',
+    )
+  })
+
+  /*
+   * The reason this is a function. `new Date('nonsense').toLocaleDateString()` is the literal
+   * words «Invalid Date», and this sentence is read by somebody who has just cancelled a plan
+   * they pay for — the worst moment on the screen to print gibberish at them. The dateless
+   * form is true in every case, so it is what anything unreadable falls back to.
+   */
+  it('falls back to the dateless sentence rather than printing «Invalid Date»', () => {
+    const dateless = 'Scheduled — this plan cancels once the period already paid for ends.'
+    for (const value of [null, '', 'next tuesday', 'nonsense', '2027-13-45T99:99:99Z']) {
+      assert.equal(cancelledOnLine(value), dateless, JSON.stringify(value))
+    }
   })
 })
