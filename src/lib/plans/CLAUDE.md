@@ -325,6 +325,17 @@ watched working by anybody.
     immediate cancel would leave a reader who withdraws from the Lifetime with no plan at all.
   - **Nothing is refunded or credited for the overlap**, and that is the same rule as every
     other case here: the remaining days are not lost, they are simply outranked.
+  - **Every status but `canceled` is cancelled, and `paused` is why that is not a check for
+    `active`.** A paused subscription is not a dead one — it resumes and bills — so a guard
+    reading `status !== 'active'` would skip precisely the case this function exists to prevent
+    and, being an early return rather than a throw, would tell nobody. `past_due` is the same
+    argument: dunning that succeeds is a charge. The only two silent returns left are a
+    subscription that is already `canceled` and one already scheduled to cancel.
+  - **A paid plan with no `paddle_subscription_id` sends the operator a line rather than
+    returning quietly.** Almost every Lifetime sale reaches that branch with nothing to do, so
+    it cannot alert on all of them; the stored plan tells the two apart. An account this app
+    believed was billing and cannot name is worth a person looking, and nothing in code can act
+    on it.
   - **`mayWritePlan` is what keeps the Lifetime once it is granted.** The cancellation lands
     *after* it — `subscription.updated` carrying the schedule, then `subscription.canceled` at
     the period end — each naming the subscription's own plan, and the second reading as

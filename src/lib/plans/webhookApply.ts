@@ -206,22 +206,52 @@ async function announcePayment(event: IncomingPaddleEvent, rawBody: string, owne
  * ids in the message: the remedy is one click in Paddle's own dashboard, and the cost of nobody
  * knowing is a subscription that renews for ever beside a Lifetime.
  */
-async function endSubscriptionBoughtOut(subscriptionId: string, ownerEmail: string) {
+async function endSubscriptionBoughtOut(account: { paddleSubscriptionId: string | null; plan: string; ownerEmail: string }) {
+  const subscriptionId = account.paddleSubscriptionId
+
+  /*
+   * **No pointer, but we thought they were subscribed.** Every ordinary Lifetime sale reaches
+   * here with no subscription id and nothing to do, so this must not become an alert on each
+   * one — the stored plan is what tells the two apart. A recurring paid plan with no
+   * subscription id is an account this app believed was billing and cannot name, which is worth
+   * a person looking even though nothing here can act on it.
+   */
+  if (subscriptionId === null) {
+    const was = readPlan(account.plan)
+    if (was !== 'free' && was !== 'lifetime') {
+      await notifyTelegram(
+        'purchase',
+        `⚠️ Lifetime comprato da ${account.ownerEmail}, che risultava su ${PLAN_LABEL[was]} ma senza ` +
+          'subscription id: controlla su Paddle se ne ha una viva da disdire.',
+      )
+    }
+    return
+  }
+
   const paddle = paddleClient()
   if (paddle === null) return
 
   try {
     const subscription = await paddle.subscriptions.get(subscriptionId)
-    if (subscription.status !== 'active') return
+
+    /* Already over, or already on its way out: nothing to do and nothing to report. */
+    if (subscription.status === 'canceled') return
     if (subscription.scheduledChange?.action === 'cancel') return
 
+    /*
+     * **Every status that is not `canceled` gets cancelled, `paused` included**, and that one is
+     * the reason this is not a check for `active`. A paused subscription is not a dead one: it
+     * resumes and bills, so skipping it would leave exactly the thing this function exists to
+     * prevent, sitting quietly for however long the pause lasts. `past_due` is the same
+     * argument — dunning that succeeds is a charge.
+     */
     await paddle.subscriptions.cancel(subscriptionId, { effectiveFrom: 'next_billing_period' })
   } catch (error) {
     console.error('endSubscriptionBoughtOut failed', subscriptionId, error)
     await notifyTelegram(
       'purchase',
-      `⚠️ Lifetime comprato da ${ownerEmail} ma la subscription ${subscriptionId} non si è riusciti a disdirla: ` +
-        'va disdetta a mano su Paddle, altrimenti rinnova accanto al Lifetime.',
+      `⚠️ Lifetime comprato da ${account.ownerEmail} ma la subscription ${subscriptionId} non si è riusciti a ` +
+        'disdirla: va disdetta a mano su Paddle, altrimenti rinnova accanto al Lifetime.',
     )
   }
 }
@@ -301,11 +331,19 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
   if (outcome === 'applied' && account) {
     await announcePayment(event, rawBody, account.ownerEmail)
 
-    /* The Lifetime is the one purchase that ends something else — see `endSubscriptionBoughtOut`.
-       The subscription id is the one read *before* this event, which is why the write above
-       stopped nulling it. */
-    if (effect?.columns?.plan === 'lifetime' && account.paddleSubscriptionId) {
-      await endSubscriptionBoughtOut(account.paddleSubscriptionId, account.ownerEmail)
+    /*
+     * The Lifetime is the one purchase that ends something else — see `endSubscriptionBoughtOut`.
+     * Read from the effect rather than from the guarded `columns` inside the transaction, and
+     * that is the same value here rather than a shortcut: `mayWritePlan` only ever withholds a
+     * *subscription* event's columns, and this branch is a transaction's. The event type is
+     * named anyway so the condition says what it means, and so a second Lifetime transaction on
+     * an account that already holds one still reaches a function that finds nothing to do.
+     *
+     * The subscription id is the one read *before* this event, which is why the write above
+     * stopped nulling it.
+     */
+    if (event.eventType === 'transaction.completed' && effect?.columns?.plan === 'lifetime') {
+      await endSubscriptionBoughtOut(account)
     }
   }
 
