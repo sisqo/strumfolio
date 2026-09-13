@@ -15,6 +15,7 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
+import { paddleAccountRef } from '@/lib/plans/paddleAccount'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
@@ -60,7 +61,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    */
   const jar = await cookies()
   const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
-  const [campaign, lifetimeOnSale, user] = await Promise.all([
+  const [campaign, lifetimeOnSale, user, paddleAccount] = await Promise.all([
     activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
     loadLifetimeOnSale(),
     /*
@@ -70,7 +71,23 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      * signed-out reader on a checkout costs no round trip, `/pricing`'s own reasoning.
      */
     currentUser(),
+    /*
+     * Whether this account already has a Paddle subscription, which decides what the button on
+     * this screen does. Without this branch an existing subscriber pressing «Pay» opened a
+     * *second* checkout, and a second completed checkout is a second subscription: two plans
+     * billing side by side on one account, with the webhook overwriting
+     * `paddle_subscription_id` so only the newer of the two is ever cancellable from here. The
+     * mock could not do this — it wrote columns and had nothing to leave running.
+     *
+     * Read even when Paddle is switched off, because `Promise.all` is not a place for a branch;
+     * it costs one indexed read on a page that already makes three.
+     */
+    paddleAccountRef(),
   ])
+
+  /* A row is never proof the subscription is still live — `changePaddlePlan` asks Paddle for
+     that — but a *missing* id is proof there is nothing to move. */
+  const subscribed = paddleAccount?.subscriptionId != null
 
   /*
    * **Nothing is advertised here any more.** This screen used to read `advertisableCampaign()`
@@ -136,12 +153,29 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           */}
         {paddleCheckoutEnabled() ? (
           plan === 'lifetime' ? (
-            <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
+            /*
+             * Lifetime is a one-time price, and `subscriptions.update` takes recurring items
+             * only — so there is no way to *move* a subscription onto it. Selling it anyway
+             * would leave the subscription billing beside a plan bought for ever, which is the
+             * one outcome worth a dead end on the screen rather than a refusal after the card.
+             * The remedy is stated rather than implied; the order matters, and getting it
+             * wrong costs a month.
+             */
+            subscribed ? (
+              <p className="mt-6 text-lg">
+                Lifetime is bought once, and cannot take the place of a subscription while it is
+                running. Cancel your current plan first — it stays with you until the period you
+                have paid for ends — and Lifetime is here when it does.
+              </p>
+            ) : (
+              <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
+            )
           ) : (
             <PaddleCheckout
               plan={plan}
               initialCycle={initialCycle}
               amounts={{ year: PRICES[plan].year.amount, month: PRICES[plan].month.amount }}
+              subscribed={subscribed}
             />
           )
         ) : (

@@ -103,8 +103,55 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   and the account would never change at all.
 - **`granted*` is never touched**, the same standing decision `mockPurchase` records: a gift
   lives in those columns and a renewal re-asserting `plan`/`planStatus` would erase it.
-- **Paddle cannot schedule a downgrade, and this is the gap to know.** Its `scheduled_change`
-  is only `cancel`, `pause` or `resume`, so a cancellation maps cleanly onto
-  `pendingPlan: 'free'` and a move to a *cheaper paid plan* has nothing to map from. That half
-  of `pendingPlan`/`pendingCycle` stays the app's own job, and belongs with the work that
-  changes a subscription rather than with the one that reads events.
+- **Paddle cannot schedule a downgrade**, and the next section says what was done about it.
+  `scheduled_change` is only `cancel`, `pause` or `resume`, so a cancellation maps cleanly onto
+  `pendingPlan: 'free'` and a move to a *cheaper paid plan* has nothing to map from. On the
+  Paddle path `pendingPlan` therefore carries `'free'` and nothing else.
+
+## Changing the plan on a subscription that exists (2026-09-13)
+
+`planChange.ts` decides, `paddlePlanChange.ts` does the I/O, and the `subscribed` branch on
+`/checkout/[plan]` is what routes a reader to one rather than the other. Everything below was
+measured against the sandbox with `subscriptions.preview` and one reversible `cancel`/clear
+round trip, not read off the documentation.
+
+- **A downgrade now applies at once and is repaid in money, not in time — a real change from
+  what the mock promised.** `mockPurchase` kept the reader on the plan they had paid for until
+  its last day and scheduled the smaller one behind it. Paddle has no way to express that:
+  `subscriptions.update` replaces the items immediately and only the *billing* can be deferred,
+  through `proration_billing_mode`. So this follows Paddle's own customer portal — upgrade
+  `prorated_immediately`, downgrade `prorated_next_billing_period`. Holding the change
+  app-side instead was rejected rather than postponed: with no scheduler, Paddle would renew at
+  the **old, higher** price, which is the shown-price/charged-price gap in the direction that
+  takes more money than was agreed.
+- **Direction is plan rank first, cycle only as the tiebreak.** Comparing amounts instead reads
+  premium/month → standard/year as a *rise* — €9.99 becomes €34.99 — and would charge on the
+  spot for a move made to spend less. With the plan unchanged, yearly is the upgrade.
+- **`scheduled_change: null` cannot travel with anything else**: «you cannot combine updating
+  schedule_change with other fields». So clearing a pending cancellation is a call of its own,
+  and it must come **first** — a subscription carrying a scheduled change refuses the deferred
+  proration modes outright, so a downgrade attempted before the clear fails for every reader
+  who cancelled and changed their mind. Cancelling also nulls `next_billed_at`; clearing
+  restores it.
+- **A change of plan within one cycle leaves `current_billing_period` alone; a change of
+  *cycle* restarts it.** premium/year → premium/month moved the period end from 2027 to one
+  month out, with the credit funding the renewals from there. The webhook writes whatever
+  Paddle reports either way, so nothing special-cases it — but a date that jumps on /billing is
+  this, not a bug.
+- **Items are replaced, not appended** — one item in, one item out, so `planOfItems` reading
+  the first is safe here. The action still refuses a subscription carrying more than one active
+  item rather than rewriting it down to one.
+- **Lifetime is refused on both sides.** It is a one-time price and `subscriptions.update`
+  takes recurring items only, so there is no way to move a subscription onto it; selling it
+  through a fresh transaction would leave the subscription billing beside a plan bought for
+  ever. `/checkout/lifetime` says so to a subscriber instead of offering the button. **This is
+  the one plan change a paying reader cannot make in one step**, and it is an open question
+  rather than a finished answer.
+- **The live plan and cycle are read from Paddle, never from this database.** `accounts` has
+  no column for the live *cycle* and never has, so the direction of a move cannot be decided
+  without asking — and asking Paddle compares against what is actually being billed.
+- **Without the `subscribed` branch on `/checkout/[plan]`, an existing subscriber pressing
+  «Pay» opened a second checkout** — and a second completed checkout is a second subscription,
+  both billing, with the webhook overwriting `paddle_subscription_id` so only the newer one
+  stays cancellable. That shipped on 2026-09-12 and was live until this change. The mock could
+  not do it: it wrote columns and had nothing left running.

@@ -479,6 +479,17 @@ account that does not exist is recorded as `unmatched`.
   crossing them fails every delivery in exactly the way the `initialize()` trap does. It is
   **not** `PADDLE_API_KEY`, which this route deliberately does not hold.
 
+### Changing plan: Paddle repays in money, the mock repaid in time
+
+`subscriptions.update` replaces a subscription's items **immediately** — only the billing can be
+deferred, through `proration_billing_mode` — and `scheduled_change` models `cancel`, `pause` and
+`resume` and nothing else. There is therefore no way to say «move this to Standard when the year
+runs out», so a downgrade applies now and is credited on the next invoice, as Paddle's own
+customer portal does. `plans/CLAUDE.md` carries the rest, including the three measurements that
+settle it: `scheduled_change: null` may not travel with any other field, a subscription carrying
+a scheduled change refuses the deferred proration modes, and a change of *cycle* restarts
+`current_billing_period` while a change of plan within one cycle does not.
+
 **Still to do before any of this takes money**: no notification destination exists yet, because
 its URL is a decision — a tunnel to a dev server would expose the dev database, which holds
 real accounts and password hashes copied from production on 2026-08-29. The checkout, the

@@ -28,6 +28,7 @@ import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle
 import { useEffect, useRef, useState } from 'react'
 
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
+import { changePaddlePlan, type PaddlePlanChangeFailure } from '@/lib/plans/paddlePlanChange'
 import { euro, yearlyTotalOfMonthly, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
 import { PLAN_LABEL } from '@/lib/plans/types'
 
@@ -49,6 +50,32 @@ const REFUSALS: Record<PaddleCheckoutFailure, string> = {
   failed: 'Something went wrong starting your checkout. Please try again.',
 }
 
+/**
+ * The same for a plan *change*, which fails in places a first purchase cannot. `same` and
+ * `lifetime-target` are the two worth reading closely: neither is a fault, and both would
+ * otherwise reach the reader as «something went wrong» for a button the screen offered them.
+ */
+const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
+  'not-configured': REFUSALS['not-configured'],
+  'no-database': REFUSALS['no-database'],
+  'no-session': REFUSALS['no-session'],
+  'invalid-plan': REFUSALS['invalid-plan'],
+  'no-price': REFUSALS['no-price'],
+  'coupon-unsupported': REFUSALS['coupon-unsupported'],
+  'no-subscription': 'There is no subscription on this account to move.',
+  'not-live': 'Your subscription is not active at the moment, so it cannot be moved from here.',
+  'unexpected-items':
+    'Your subscription carries more than one item, which this page will not rewrite. ' +
+    'Please write to us and we will move it for you.',
+  same: 'That is the plan you are already on.',
+  'lifetime-target':
+    'Lifetime is bought once and cannot replace a running subscription. Cancel your plan ' +
+    'first, and buy Lifetime when it has ended.',
+  'lifetime-live': 'You already have Lifetime, so there is nothing left to change.',
+  unreadable: 'We could not read what your subscription is on. Please try again in a moment.',
+  failed: 'Something went wrong changing your plan. Please try again.',
+}
+
 type Props =
   | {
       plan: PaidPlan
@@ -60,6 +87,14 @@ type Props =
        * that already carries a currency symbol cannot be added up.
        */
       amounts: Record<BillingPeriod, string>
+      /**
+       * Whether this account already has a Paddle subscription, which changes what the button
+       * *is*: a second checkout would create a second subscription and bill both, so an
+       * existing subscriber moves plan through `changePaddlePlan` instead. The page decides
+       * this from `paddle_subscription_id`; the action re-reads it and asks Paddle for the
+       * live status, so a stale `false` here can at worst offer a checkout that refuses.
+       */
+      subscribed: boolean
     }
   | { plan: 'lifetime'; amount: string }
 
@@ -117,6 +152,38 @@ export function PaddleCheckout(props: Props) {
     setBusy(false)
   }
 
+  /**
+   * The other half of the button, for an account that already pays. No overlay opens: Paddle
+   * has the card on file, so a change of plan is a server call and a sentence — see
+   * `planChange.ts` for why a downgrade applies at once and is repaid on the next invoice
+   * rather than waiting for the period to run out, which is what the mock did.
+   *
+   * The plan itself appears once `subscription.updated` reaches the webhook, the same second or
+   * two `checkout.completed` already warns about above, so this says what was arranged rather
+   * than claiming the account already shows it.
+   */
+  async function change() {
+    if (props.plan === 'lifetime') return
+
+    setBusy(true)
+    setMessage(null)
+
+    const result = await changePaddlePlan(props.plan, cycle)
+
+    setMessage(
+      result.ok
+        ? result.direction === 'upgrade'
+          ? `Moving you to ${PLAN_LABEL[props.plan]}. What you have not used of your old plan ` +
+            'comes off the charge, and the new plan appears in a moment.'
+          : `Moving you to ${PLAN_LABEL[props.plan]}. The difference is credited against your ` +
+            'next invoice, and the new plan appears in a moment.'
+        : CHANGE_REFUSALS[result.reason],
+    )
+    setBusy(false)
+  }
+
+  const subscribed = props.plan !== 'lifetime' && props.subscribed
+
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
 
   return (
@@ -156,14 +223,31 @@ export function PaddleCheckout(props: Props) {
         </p>
       )}
 
+      {/* `ready` gates the overlay and nothing else: a plan change never opens one, so waiting
+          for Paddle.js to load before allowing it would disable a working button for the sake
+          of a script it does not use. */}
       <button
         type="button"
         className="btn btn-primary mt-4 w-full"
-        onClick={() => void buy()}
-        disabled={!ready || busy}
+        onClick={() => void (subscribed ? change() : buy())}
+        disabled={busy || (!subscribed && !ready)}
       >
-        {busy ? 'One moment…' : `Pay for ${PLAN_LABEL[props.plan]}`}
+        {busy
+          ? 'One moment…'
+          : subscribed
+            ? `Switch to ${PLAN_LABEL[props.plan]}`
+            : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
+
+      {/* Said before the press, not after it. The difference between «you keep what you paid
+          for until it runs out» and «the difference comes back on your next invoice» is the
+          kind of thing a reader is entitled to know while deciding. */}
+      {subscribed && (
+        <p className="mt-2 text-sm opacity-80">
+          You are changing a plan you already pay for. An upgrade is charged now, less whatever
+          you have not used; a smaller plan is credited against your next invoice.
+        </p>
+      )}
 
       {message !== null && (
         <p className="mt-3 text-sm" role="status">
