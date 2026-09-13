@@ -37,13 +37,12 @@ import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 
-import { paddleAccountRef } from './paddleAccount'
+import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
 import { planChangeEffect, type ChangeDirection, type ChangeRefusal } from './planChange'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
-import { planOfPrice } from './webhook'
 
 export type PaddlePlanChangeFailure =
   | 'not-configured'
@@ -53,7 +52,9 @@ export type PaddlePlanChangeFailure =
   | 'no-price'
   /** Nothing to change: this account has no Paddle subscription to move. */
   | 'no-subscription'
-  /** The subscription is not `active` — cancelled, or already cancelling. */
+  /** The subscription has ended, so there is nothing to move — there is something to buy. */
+  | 'gone'
+  /** Live but not `active`: a failing card or a hold, where the next move is not a plan. */
   | 'not-live'
   /** More than one recurring item, which this app never creates and will not reduce. */
   | 'unexpected-items'
@@ -87,32 +88,17 @@ export async function changePaddlePlan(
     const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)
     if (coupon !== null) return { ok: false, reason: 'coupon-unsupported' }
 
-    const account = await paddleAccountRef()
-    if (!account?.subscriptionId) return { ok: false, reason: 'no-subscription' }
-
-    const subscription = await paddle.subscriptions.get(account.subscriptionId)
-
     /*
-     * `active` only. A `canceled` subscription cannot be reinstated by an update, and `paused`
-     * or `past_due` would have the change land on a billing relationship that is already in
-     * trouble — the reader's next move there is a card, not a plan.
+     * Read again here, though `/checkout/[plan]` has already read it to decide which button to
+     * draw. That read is a page render and this one is a press, and between the two a card can
+     * fail, a cancellation can land or somebody can change the plan in another tab — so the
+     * screen's answer decides what is *offered* and this one decides what is *done*. The same
+     * split `mockPurchase` states about the coupon it re-reads rather than accepting.
      */
-    if (subscription.status !== 'active') return { ok: false, reason: 'not-live' }
+    const live = await livePaddleSubscription()
+    if (!live.ok) return { ok: false, reason: live.reason }
 
-    const items = (subscription.items ?? []).filter((item) => item.status === 'active')
-    if (items.length !== 1) return { ok: false, reason: 'unexpected-items' }
-
-    /*
-     * `planOfPrice` reads the snake_case shape the webhook receives; the SDK hands back a
-     * camelCase entity whose `customData` is the same object under another name. The cast is
-     * that one rename and nothing more — see the SDK trap in the repo's own CLAUDE.md, which
-     * is why this file never assumes the two spellings are interchangeable anywhere else.
-     */
-    const live = planOfPrice({
-      id: items[0].price?.id ?? '',
-      custom_data: (items[0].price?.customData ?? null) as { plan?: unknown; cycle?: unknown } | null,
-    })
-    if (live === null) return { ok: false, reason: 'unreadable' }
+    const subscription = await paddle.subscriptions.get(live.id)
 
     const effect = planChangeEffect(live, { plan, cycle: plan === 'lifetime' ? null : cycle })
     if (!effect.ok) return { ok: false, reason: effect.reason }
@@ -143,10 +129,10 @@ export async function changePaddlePlan(
      * comes back to exactly the row it was — verified rather than assumed.
      */
     if (subscription.scheduledChange) {
-      await paddle.subscriptions.update(account.subscriptionId, { scheduledChange: null })
+      await paddle.subscriptions.update(live.id, { scheduledChange: null })
     }
 
-    await paddle.subscriptions.update(account.subscriptionId, {
+    await paddle.subscriptions.update(live.id, {
       items: [{ priceId, quantity: 1 }],
       prorationBillingMode: effect.proration,
     })

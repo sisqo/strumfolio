@@ -63,6 +63,7 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
   'no-price': REFUSALS['no-price'],
   'coupon-unsupported': REFUSALS['coupon-unsupported'],
   'no-subscription': 'There is no subscription on this account to move.',
+  gone: 'Your subscription has already ended. Reload the page and this plan is yours to buy.',
   'not-live': 'Your subscription is not active at the moment, so it cannot be moved from here.',
   'unexpected-items':
     'Your subscription carries more than one item, which this page will not rewrite. ' +
@@ -88,13 +89,17 @@ type Props =
        */
       amounts: Record<BillingPeriod, string>
       /**
-       * Whether this account already has a Paddle subscription, which changes what the button
-       * *is*: a second checkout would create a second subscription and bill both, so an
-       * existing subscriber moves plan through `changePaddlePlan` instead. The page decides
-       * this from `paddle_subscription_id`; the action re-reads it and asks Paddle for the
-       * live status, so a stale `false` here can at worst offer a checkout that refuses.
+       * What Paddle is billing this account for right now, or `null` when it is billing nothing
+       * — which changes what the button *is*. A second checkout on a live subscription would
+       * create a second subscription and bill both, so an existing subscriber moves plan through
+       * `changePaddlePlan` instead. The page resolves this from Paddle rather than from
+       * `paddle_subscription_id`, which survives a cancellation and would strand a returning
+       * customer on a button that refuses.
+       *
+       * `label` is what to call the plan they are on, already formatted: this component knows
+       * `PLAN_LABEL` but not what a cycle is called in a sentence.
        */
-      subscribed: boolean
+      live: { cycle: BillingPeriod | null; label: string } | null
     }
   | { plan: 'lifetime'; amount: string }
 
@@ -104,8 +109,20 @@ export function PaddleCheckout(props: Props) {
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  /*
+   * **The live cycle wins over the one in the URL**, and for a subscriber that is the
+   * difference between a button that does what it says and one that quietly downgrades.
+   * `initialCycle` falls back to `month` for any link without `?cycle=`, so a premium/year
+   * subscriber arriving from an ordinary link would have found «Switch to Premium» sitting on
+   * Monthly — and pressing it is a year→month move, which restarts the billing period and
+   * trades the rest of their year for a credit. Legitimate when chosen, not when defaulted
+   * into. `loadMostRecentCycleFor` is what the mock had for this; here the answer is better,
+   * because it is what Paddle is billing rather than what was last bought.
+   */
   const [cycle, setCycle] = useState<BillingPeriod>(
-    props.plan === 'lifetime' ? 'year' : props.initialCycle,
+    props.plan === 'lifetime'
+      ? 'year'
+      : (props.live?.cycle ?? props.initialCycle),
   )
 
   useEffect(() => {
@@ -182,7 +199,7 @@ export function PaddleCheckout(props: Props) {
     setBusy(false)
   }
 
-  const subscribed = props.plan !== 'lifetime' && props.subscribed
+  const live = props.plan === 'lifetime' ? null : props.live
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
 
@@ -229,12 +246,12 @@ export function PaddleCheckout(props: Props) {
       <button
         type="button"
         className="btn btn-primary mt-4 w-full"
-        onClick={() => void (subscribed ? change() : buy())}
-        disabled={busy || (!subscribed && !ready)}
+        onClick={() => void (live ? change() : buy())}
+        disabled={busy || (!live && !ready)}
       >
         {busy
           ? 'One moment…'
-          : subscribed
+          : live
             ? `Switch to ${PLAN_LABEL[props.plan]}`
             : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
@@ -242,10 +259,10 @@ export function PaddleCheckout(props: Props) {
       {/* Said before the press, not after it. The difference between «you keep what you paid
           for until it runs out» and «the difference comes back on your next invoice» is the
           kind of thing a reader is entitled to know while deciding. */}
-      {subscribed && (
+      {live !== null && (
         <p className="mt-2 text-sm opacity-80">
-          You are changing a plan you already pay for. An upgrade is charged now, less whatever
-          you have not used; a smaller plan is credited against your next invoice.
+          You are on {live.label} today. A bigger plan is charged now, less whatever you have
+          not used; a smaller one is credited against your next invoice.
         </p>
       )}
 

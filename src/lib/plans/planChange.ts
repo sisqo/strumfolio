@@ -33,8 +33,9 @@
  * down because a reader of `subscriptionCopy` will otherwise wonder why one date jumped.
  */
 
-import { PLAN_RANK, type Plan } from './types'
+import type { LivePaddleSubscription } from './paddleAccount'
 import type { BillingPeriod } from './prices'
+import { PLAN_RANK, type Plan } from './types'
 
 /** What Paddle is billing for right now, read from the subscription's own item. */
 export interface SubscribedTo {
@@ -99,4 +100,28 @@ export function planChangeEffect(from: SubscribedTo, to: SubscribedTo): PlanChan
   return to.cycle === 'year'
     ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately' }
     : { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period' }
+}
+
+/**
+ * Which of three things `/checkout/[plan]` may do, given what Paddle is billing.
+ *
+ * Pure and tested because getting it wrong charges somebody twice, and because that is
+ * precisely the kind of rule that reads as obviously correct in a page and is not.
+ *
+ * - **`sell`** — open a checkout. Allowed on exactly two answers: no subscription has ever
+ *   existed, and one that has **ended**. A reader who cancelled and lapsed back to free wants
+ *   to buy, the same as a first-timer, and the `paddle_subscription_id` still sitting on their
+ *   row must not stand between them and the button.
+ * - **`change`** — move the subscription they have.
+ * - **`stalled`** — say something, offer nothing. A failing card, a hold, a shape this app
+ *   cannot read, Paddle not answering: each means something **may still be running**, and a
+ *   checkout opened beside it is a second subscription billing alongside the first. The
+ *   cautious answer is the cheap one here — the cost of `stalled` is a reader who has to come
+ *   back, the cost of guessing `sell` is two charges a month for as long as nobody notices.
+ */
+export type CheckoutMode = 'sell' | 'change' | 'stalled'
+
+export function checkoutMode(live: LivePaddleSubscription): CheckoutMode {
+  if (live.ok) return 'change'
+  return live.reason === 'no-subscription' || live.reason === 'gone' ? 'sell' : 'stalled'
 }

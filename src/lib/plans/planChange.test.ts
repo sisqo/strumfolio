@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { planChangeEffect } from './planChange'
+import type { LivePaddleSubscription, NoLiveSubscription } from './paddleAccount'
+import { checkoutMode, planChangeEffect } from './planChange'
 import { PAID_PLANS } from './prices'
 import { PLAN_RANK } from './types'
 
@@ -96,5 +97,39 @@ describe('planChangeEffect', () => {
       ok: false,
       reason: 'unreadable',
     })
+  })
+})
+
+describe('checkoutMode', () => {
+  it('sells to somebody who has never subscribed, and to somebody whose subscription ended', () => {
+    for (const reason of ['no-subscription', 'gone'] as const) {
+      assert.equal(checkoutMode({ ok: false, reason }), 'sell')
+    }
+  })
+
+  it('changes the plan of a live subscription', () => {
+    assert.equal(checkoutMode({ ok: true, id: 'sub_1', plan: 'plus', cycle: 'year' }), 'change')
+  })
+
+  /*
+   * The expensive half. Each of these means something may still be billing, and a checkout
+   * opened beside it is a second subscription nobody asked for — the exact shape of the defect
+   * this branch was added to close, arrived at from the other direction.
+   */
+  it('offers nothing while anything may still be running', () => {
+    for (const reason of ['not-live', 'unexpected-items', 'unreadable'] as const) {
+      assert.equal(checkoutMode({ ok: false, reason }), 'stalled', reason)
+    }
+  })
+
+  /*
+   * A reason added later defaults to `stalled`, never to `sell`. Stated as a test rather than
+   * trusted to whoever adds it: the switch is written so the two selling reasons are named and
+   * everything else falls through, and this is what holds that shape in place.
+   */
+  it('refuses to sell on a reason nobody has thought about yet', () => {
+    const invented = 'something-new' as NoLiveSubscription
+    const live: LivePaddleSubscription = { ok: false, reason: invented }
+    assert.equal(checkoutMode(live), 'stalled')
   })
 })

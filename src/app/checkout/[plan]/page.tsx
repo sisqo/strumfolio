@@ -15,11 +15,13 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
-import { paddleAccountRef } from '@/lib/plans/paddleAccount'
+import { livePaddleSubscription } from '@/lib/plans/paddleAccount'
+import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 
 export const metadata: Metadata = { title: 'Checkout' }
@@ -61,7 +63,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    */
   const jar = await cookies()
   const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
-  const [campaign, lifetimeOnSale, user, paddleAccount] = await Promise.all([
+  const [campaign, lifetimeOnSale, user, live] = await Promise.all([
     activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
     loadLifetimeOnSale(),
     /*
@@ -72,22 +74,50 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      */
     currentUser(),
     /*
-     * Whether this account already has a Paddle subscription, which decides what the button on
-     * this screen does. Without this branch an existing subscriber pressing «Pay» opened a
-     * *second* checkout, and a second completed checkout is a second subscription: two plans
-     * billing side by side on one account, with the webhook overwriting
-     * `paddle_subscription_id` so only the newer of the two is ever cancellable from here. The
-     * mock could not do this — it wrote columns and had nothing to leave running.
+     * What Paddle is billing this account for right now, which decides what the button on this
+     * screen *is*. Without this branch an existing subscriber pressing «Pay» opened a *second*
+     * checkout, and a second completed checkout is a second subscription: two plans billing
+     * side by side on one account, with the webhook overwriting `paddle_subscription_id` so
+     * only the newer of the two is ever cancellable from here. The mock could not do this — it
+     * wrote columns and had nothing to leave running.
      *
-     * Read even when Paddle is switched off, because `Promise.all` is not a place for a branch;
-     * it costs one indexed read on a page that already makes three.
+     * Costs one Paddle call, and only for an account that has a subscription id at all; the
+     * reader making a first purchase pays one indexed read on a page that already makes three.
      */
-    paddleAccountRef(),
+    livePaddleSubscription(),
   ])
 
-  /* A row is never proof the subscription is still live — `changePaddlePlan` asks Paddle for
-     that — but a *missing* id is proof there is nothing to move. */
-  const subscribed = paddleAccount?.subscriptionId != null
+  /* Buy, switch, or say nothing doing — `checkoutMode` holds the rule and the argument for it,
+     pure and tested, because the version of it that is wrong charges somebody twice. */
+  const mode = checkoutMode(live)
+
+  /* What to call the plan they are on, built here because the component knows `PLAN_LABEL` but
+     not how a cycle reads in a sentence. */
+  const liveProps = live.ok
+    ? {
+        cycle: live.cycle,
+        label: `${PLAN_LABEL[live.plan]}${live.cycle === null ? '' : live.cycle === 'year' ? ', billed yearly' : ', billed monthly'}`,
+      }
+    : null
+
+  /*
+   * The third state, which is neither «buy» nor «switch»: something is running that this page
+   * cannot safely act on. Leaving it to fall through to the buy button is the bug this whole
+   * branch exists to close — a reader whose card is retrying would open a second subscription
+   * beside the first, and both would bill. So the screen says what it knows and offers nothing.
+   *
+   * Written out per reason rather than as one apology, because the remedies differ: a held
+   * subscription is the reader's own to sort out, and a shape we cannot read is ours.
+   */
+  const stalled: string | null =
+    mode !== 'stalled' || live.ok
+      ? null
+      : live.reason === 'not-live'
+        ? 'Your subscription is on hold at the moment — usually a payment that needs a fresh card. ' +
+          'Sort that out first and this page will let you change plan again. We will not start a ' +
+          'second subscription beside one that is still running.'
+        : 'We cannot read the state of your subscription just now, so we are not going to sell you ' +
+          'anything on top of it. Try again in a moment, and write to us if it persists.'
 
   /*
    * **Nothing is advertised here any more.** This screen used to read `advertisableCampaign()`
@@ -161,21 +191,23 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
              * The remedy is stated rather than implied; the order matters, and getting it
              * wrong costs a month.
              */
-            subscribed ? (
+            mode === 'sell' ? (
+              <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
+            ) : (
               <p className="mt-6 text-lg">
                 Lifetime is bought once, and cannot take the place of a subscription while it is
                 running. Cancel your current plan first — it stays with you until the period you
                 have paid for ends — and Lifetime is here when it does.
               </p>
-            ) : (
-              <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
             )
+          ) : stalled !== null ? (
+            <p className="mt-6 text-lg">{stalled}</p>
           ) : (
             <PaddleCheckout
               plan={plan}
               initialCycle={initialCycle}
               amounts={{ year: PRICES[plan].year.amount, month: PRICES[plan].month.amount }}
-              subscribed={subscribed}
+              live={liveProps}
             />
           )
         ) : (

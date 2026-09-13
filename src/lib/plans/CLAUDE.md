@@ -158,8 +158,24 @@ watched working by anybody.
 - **The live plan and cycle are read from Paddle, never from this database.** `accounts` has
   no column for the live *cycle* and never has, so the direction of a move cannot be decided
   without asking — and asking Paddle compares against what is actually being billed.
-- **Without the `subscribed` branch on `/checkout/[plan]`, an existing subscriber pressing
-  «Pay» opened a second checkout** — and a second completed checkout is a second subscription,
-  both billing, with the webhook overwriting `paddle_subscription_id` so only the newer one
-  stays cancellable. That shipped on 2026-09-12 and was live until this change. The mock could
-  not do it: it wrote columns and had nothing left running.
+- **Without the branch on `/checkout/[plan]`, an existing subscriber pressing «Pay» opened a
+  second checkout** — and a second completed checkout is a second subscription, both billing,
+  with the webhook overwriting `paddle_subscription_id` so only the newer one stays cancellable.
+  That shipped on 2026-09-12 and was live until this change. The mock could not do it: it wrote
+  columns and had nothing left running.
+- **`paddle_subscription_id` means «has had a subscription», not «has one».** The webhook writes
+  it on *every* subscription event, `subscription.canceled` included, and nothing ever nulls it —
+  so a reader who cancelled and lapsed back to free still carries the id of what they left.
+  Branching on the column offers that reader «Switch to Standard», which then refuses: a
+  returning customer with no way to pay. `checkoutMode` is the rule instead, over
+  `livePaddleSubscription`, which asks Paddle. Three outcomes, and the third is the one that is
+  easy to leave out: **sell** only when nothing has ever run or it has *ended*; **change** a live
+  one; and **stalled** — say something, offer nothing — for a failing card, a hold, an unreadable
+  shape or Paddle not answering, because each of those may still be billing. It is pure and
+  tested, including that a reason invented later falls to `stalled` rather than to `sell`.
+- **The cycle toggle opens on the live cycle, not on `?cycle=`.** `initialCycle` falls back to
+  `month` for any link without the parameter, so a premium/year subscriber arriving from an
+  ordinary link met «Switch to Premium» sitting on Monthly — and pressing it is a year→month
+  move, which restarts the billing period and trades the rest of their year for a credit.
+  Legitimate when chosen, not when defaulted into. The screen also names what they are on, since
+  «you are changing a plan you already pay for» does not say *which*.
