@@ -73,7 +73,7 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
   'unexpected-items':
     'Your subscription carries more than one item, which this page will not rewrite. ' +
     'Please write to us and we will move it for you.',
-  same: 'That is the plan you are already on.',
+  same: 'That is the plan you are already on, so there is nothing to change.',
   'lifetime-target':
     'Lifetime is bought once and cannot replace a running subscription. Cancel your plan ' +
     'first, and buy Lifetime when it has ended.',
@@ -128,6 +128,13 @@ export function PaddleCheckout(props: Props) {
    * price under the button is a wrong one.
    */
   const [cost, setCost] = useState<ChangeCost | null>(null)
+  /**
+   * Why there is no price, when there is none. The preview refuses in exactly the places the
+   * write refuses, so this turns every one of those refusals into something said **before** the
+   * press rather than after it — «that is the plan you are already on» most of all, which is no
+   * fault at all and read as one until this existed.
+   */
+  const [noPrice, setNoPrice] = useState<PaddlePlanChangeFailure | null>(null)
   const [pricing, setPricing] = useState(false)
 
   /* Lifetime never reaches the change path, so it never carries a live subscription here —
@@ -192,16 +199,19 @@ export function PaddleCheckout(props: Props) {
   useEffect(() => {
     if (live === null) {
       setCost(null)
+      setNoPrice(null)
       return
     }
 
     let stale = false
     setPricing(true)
     setCost(null)
+    setNoPrice(null)
 
     void previewPaddlePlanChange(props.plan, cycle).then((result) => {
       if (stale) return
       setCost(result.ok ? result.cost : null)
+      setNoPrice(result.ok ? null : result.reason)
       setPricing(false)
     })
 
@@ -337,8 +347,10 @@ export function PaddleCheckout(props: Props) {
             ? 'Working out what this change costs…'
             : cost !== null
               ? changeCostLine(cost)
-              : 'We could not work out what this change costs just now, so we are not going to ' +
-                'move it. Try again in a moment.'}
+              : noPrice !== null
+                ? CHANGE_REFUSALS[noPrice]
+                : 'We could not work out what this change costs just now, so we are not going to ' +
+                  'move it. Try again in a moment.'}
         </p>
       )}
 
