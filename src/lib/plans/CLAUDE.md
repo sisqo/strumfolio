@@ -107,9 +107,6 @@ break from a distance:
   reader who opened the checkout to look at it is stuck with it until they reload, on the one
   screen where being stuck reads as «this is about to charge me». It calls `Checkout.close()` and
   drops the id; the unpaid transaction is harmless and the next press makes another.
-- **The cycle toggle is frozen while a form is open**: the transaction behind it was made
-  server-side for one price, and letting the toggle move under it would leave the reader looking
-  at a form charging the other cycle under a page saying this one.
 - **Three settings are passed and one is deliberately not.** `theme` is read from
   `documentElement` at the moment of opening — Paddle defaults to `light` whatever the page is
   doing, which inside our own column would be a white card in a dark one, and `auto` sets no
@@ -170,6 +167,17 @@ break from a distance:
   move the page under the reader; the checkout itself is the width that page gives its lede,
   because a payment form stretched to the width of a four-column price table is one nobody can
   read a line of.
+- **A paid form is never redrawn.** The theme rule above stops at `checkout.completed`: Paddle's
+  own «thank you» lives inside the frame, and re-opening a transaction that has been paid would
+  put a payment form back in front of somebody who had just paid — the one redraw that could
+  read as «it wants the money again». Found on the fifth pass, a day after the theme rule that
+  introduced it.
+- **The gutter is 16px where /pricing's is 20**, the one deliberate difference between the two
+  shells: Paddle gives the frame a hard `min-width` (286px, or 312px with checkout padding on in
+  the dashboard, which nothing here can read), and on a 320px phone those four pixels a side
+  decide whether the page scrolls sideways. The card around the frame drops its own side padding
+  below `sm` for the same reason and carries `overflow-x-auto` so that if the floor is ever
+  higher than the room, the card scrolls and the body does not.
 - **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
   nobody has watched is the frame itself — its width on a phone, the theme matching, and that
   footer being visible.
@@ -663,8 +671,10 @@ watched working by anybody.
   one; and **stalled** — say something, offer nothing — for a failing card, a hold, an unreadable
   shape or Paddle not answering, because each of those may still be billing. It is pure and
   tested, including that a reason invented later falls to `stalled` rather than to `sell`.
-- **The cycle toggle opens on what the link asked for, then on the live cycle, then monthly** —
-  and the middle step is what was missing. A bare link carries no `?cycle=`, which collapsed to
+- **The cycle comes from what the link asked for, then from the live cycle, then monthly** —
+  and the middle step is what was missing. (It was a visible toggle on the checkout until
+  2026-09-14; it is now the value the page charges, and a control only on a bare link — see the
+  inline section above.) A bare link carries no `?cycle=`, which collapsed to
   `month` for everybody, so a premium/year subscriber arriving from a typed or bookmarked link
   met «Switch to Premium» sitting on Monthly — and pressing it is a year→month move, which
   restarts the billing period and trades the rest of their year for a credit. Legitimate when

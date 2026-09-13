@@ -150,10 +150,15 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   return (
     /*
      * The shell `/pricing` uses, rather than the app's — see this route's own `layout.tsx` for
-     * why the bar above changed with it. Same 70rem and the same gutters, so the step from the
-     * price list to the checkout does not move the page under the reader.
+     * why the bar above changed with it. Same 70rem and the same `sm:` gutter, so the step from
+     * the price list to the checkout does not move the page under the reader.
+     *
+     * **The narrow gutter is 16px and not /pricing's 20**, which is the one deliberate
+     * difference: Paddle's frame has a hard minimum width, and on a 320px phone those four
+     * pixels a side are the difference between a page that fits and one that scrolls sideways.
+     * Nobody can see the difference; the overflow, everybody could.
      */
-    <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
+    <main className="mx-auto w-full max-w-[70rem] px-4 pb-16 pt-8 sm:px-8 sm:pt-12">
       {/*
         * **The page is 70rem and the checkout is not.** A payment form stretched to the width
         * of a four-column price table is a form nobody can read a line of; the column is the

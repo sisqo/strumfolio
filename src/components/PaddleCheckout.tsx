@@ -211,7 +211,6 @@ type Props =
     }
   | { plan: 'lifetime'; amount: string }
 
-
 export function PaddleCheckout(props: Props) {
   const paddle = useRef<Paddle | null>(null)
   const [ready, setReady] = useState(false)
@@ -425,11 +424,16 @@ export function PaddleCheckout(props: Props) {
   const opened = useRef<string | null>(null)
   useEffect(() => {
     if (openTransaction === null || !ready) return
+    /* **Never after the money has moved.** Paddle's own «thank you» state lives in the frame,
+       and re-opening a paid transaction would replace it with a form for a payment that has
+       already happened — the one redraw that could make somebody think they had to pay twice.
+       A theme mismatch on a form nobody is filling in any more costs nothing by comparison. */
+    if (paid) return
     const drawn = `${openTransaction}:${theme}`
     if (opened.current === drawn) return
     opened.current = drawn
     paddle.current?.Checkout.open({ transactionId: openTransaction, settings: checkoutSettings() })
-  }, [openTransaction, ready, theme])
+  }, [openTransaction, ready, theme, paid])
 
   /**
    * **The cycle was chosen on /pricing, so this screen does not ask again.**
@@ -748,7 +752,16 @@ export function PaddleCheckout(props: Props) {
             * and a lifted panel in the dark theme, so one card serves both, and `frameStyle`
             * stays transparent so the colour comes from this element.
             */}
-          <div className="rounded-card border border-line-soft bg-surface p-2 shadow-card sm:p-3">
+          {/*
+            * **No side padding until there is room for it, and a scroller either way.** Paddle
+            * gives the frame a hard `min-width` — 286px, or 312px if checkout padding is on in
+            * the dashboard, which is not a setting this repository can see — and a 320px phone
+            * leaves 288px inside the page's own gutter. Padding here would push the frame past
+            * that on the narrowest screens, and `overflow-x-auto` is what guarantees that if it
+            * ever happens anyway, the card scrolls rather than the page: this repo's rule is
+            * that the body never scrolls sideways, and a table or a frame gets its own box.
+            */}
+          <div className="overflow-x-auto rounded-card border border-line-soft bg-surface py-2 shadow-card sm:p-3">
             <div className={FRAME_TARGET} />
           </div>
           {/* Absent once the money has moved: there is nothing left to back out of, and a way
