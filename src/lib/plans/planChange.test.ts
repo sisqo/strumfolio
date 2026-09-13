@@ -78,6 +78,12 @@ describe('planChangeEffect', () => {
    * The rule stated as a rule rather than case by case: **nothing that lowers the tier is ever
    * billed immediately, whatever the cycle does.** Written as a sweep so a later branch cannot
    * quietly reintroduce an immediate downgrade for one combination out of six.
+   *
+   * Its `pinBillingDate` assertion is deliberately weak and must not be read as protecting that
+   * rule: with no `pendingDowngrade` in the fixture the items' cycle *is* the paid cycle, so the
+   * expectation restates the implementation. The case that actually bites — the pin measured
+   * against the items rather than against what was paid — is «pins the date when the items, not
+   * the paid plan, change frequency» below, which is therefore not redundant with this.
    */
   it('never bills a drop in tier now, in any combination of cycles', () => {
     for (const from of PAID_PLANS) {

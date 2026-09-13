@@ -539,10 +539,12 @@ export function PricingPlans({
                         /* A change of cycle also calls off a scheduled cancellation, by design
                          * — `changePaddlePlan` reads it as changing your mind about leaving, and
                          * clears the `scheduled_change` before moving the plan. A scheduled
-                         * *downgrade* it does not undo: that one is refused until the reader
-                         * calls it off on /billing, because the price of a cycle change cannot
-                         * be quoted honestly while the items are already on the cheaper plan.
-                         * See `planChange.ts`. */
+                         * *downgrade* is a different matter and the answer depends on direction:
+                         * moving to monthly bills nothing, so it simply replaces what was
+                         * arranged, while moving to yearly is billed now and is refused until
+                         * the reader calls that change off on /billing — a price cannot be
+                         * quoted honestly against items already on the cheaper plan. See
+                         * `planChange.ts`. */
                         title="Switches this plan to the other billing cycle. If a cancellation is scheduled, this calls it off."
                       >
                         Change billing cycle

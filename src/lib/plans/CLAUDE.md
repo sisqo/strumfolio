@@ -211,6 +211,15 @@ watched working by anybody.
     `current_billing_period` still ending on the paid year's last day, and `next_transaction` a
     **one-month** period starting that day. Paddle renews monthly from there with nothing having
     to run in between.
+  - **The pin works in both directions, and B8 needs the backward one.** B4 moves the date
+    *forward* (a monthly subscription pinned a year out); B8 moves it *back* — after its first
+    call the items are yearly and the period has restarted a year out, and the date has to come
+    back to the end of the month the reader actually paid for. Measured on 2026-09-13 by staging
+    the real first call in the sandbox and previewing the second: accepted, nothing billed, the
+    period ends on the paid date, and `next_transaction` is a **full year** of the new plan
+    beginning that day. So the rule is one sentence — **`next_billed_at` says when the next
+    cycle starts, and Paddle then bills one whole cycle of whatever items the subscription
+    carries** — and it is independent of which way the date moves and of the item's own cycle.
   - **The middle state is the dangerous one**, so `applyItemChange` (`paddleApply.ts`) owns the
     sequence for both writers: it retries the date once, and if it still cannot be set it puts
     the items back and pins again. The rollback goes back to what Paddle *had*, never forward —
@@ -333,5 +342,7 @@ watched working by anybody.
   also names what they are on, since «you are changing a plan you already pay for» does not say
   *which*.
 - **`/pricing`'s «Change billing cycle» tooltip** says a scheduled *cancellation* gets called
-  off, which is true and is all it claims. A scheduled *downgrade* is not undone by it: a cycle
-  change is one of the moves refused while one stands, so that reader is sent to /billing first.
+  off, which is true and is all it claims. Against a scheduled *downgrade* the answer depends on
+  direction, and the line is the same one everywhere: moving to monthly bills nothing and simply
+  replaces what was arranged, moving to yearly is billed now and is refused until the reader
+  calls that change off on /billing.
