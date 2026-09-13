@@ -38,6 +38,7 @@ import { formatPlanDate } from './subscriptionCopy'
 import { paddleClient } from './paddleClient'
 import { PLAN_LABEL, readPlan } from './types'
 import {
+  adjustmentEffect,
   mayWritePlan,
   subscriptionEffect,
   transactionEffect,
@@ -67,6 +68,10 @@ function effectOf(event: IncomingPaddleEvent): PaddleEventEffect | null {
 
   if (event.eventType.startsWith('subscription.')) return subscriptionEffect(data)
   if (event.eventType === 'transaction.completed') return transactionEffect(data)
+  /* Money going back. Only ever acts on an adjustment with no subscription behind it — which in
+     this catalogue means the Lifetime, the one purchase Paddle cannot revoke on our behalf by
+     cancelling something. `adjustmentEffect` carries the whole argument. */
+  if (event.eventType.startsWith('adjustment.')) return adjustmentEffect(data)
 
   return null
 }
@@ -298,7 +303,17 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * subscription. It also cost every later event the second of `findAccount`'s three ways to
      * recognise the account.
      */
-    if (columns || effect.account.paddleCustomerId || effect.account.paddleSubscriptionId) {
+    /*
+     * **One column, and deliberately not four.** An adjustment says money went back; it says
+     * nothing about which plan was bought, when the period ends, or what is scheduled next —
+     * and `plan` surviving a revocation is what lets a contested chargeback be undone by
+     * writing `active` back over it. It is guarded like any other write over a Lifetime, which
+     * here means allowed: `mayWritePlan` withholds only `subscription.` events, and revoking a
+     * refunded Lifetime is the entire point of this branch.
+     */
+    const statusOnly = effect.statusOnly ?? null
+
+    if (columns || statusOnly || effect.account.paddleCustomerId || effect.account.paddleSubscriptionId) {
       await tx
         .update(accounts)
         .set({
@@ -311,6 +326,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
                 pendingCycle: columns.pendingCycle,
               }
             : {}),
+          ...(statusOnly && !columns ? { planStatus: statusOnly } : {}),
           ...(effect.account.paddleCustomerId ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
           ...(effect.account.paddleSubscriptionId
             ? { paddleSubscriptionId: effect.account.paddleSubscriptionId }

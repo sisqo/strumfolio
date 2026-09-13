@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  adjustmentEffect,
   downgradeStamp,
   mayWritePlan,
   planOfPrice,
@@ -10,6 +11,7 @@ import {
   subscriptionEffect,
   transactionEffect,
   transactionPeriodEnd,
+  type PaddleAdjustmentData,
   type PaddleSubscriptionData,
   type PaddleTransactionData,
 } from './webhook'
@@ -288,6 +290,91 @@ describe('mayWritePlan', () => {
   it('leaves every other plan alone', () => {
     for (const plan of ['free', 'standard', 'plus', 'premium'] as const) {
       assert.equal(mayWritePlan(plan, 'subscription.updated'), true, plan)
+    }
+  })
+})
+
+/**
+ * Money going back. The only path by which a **Lifetime** can ever be taken away — everything
+ * else Paddle revokes on our behalf by cancelling the subscription, which arrives as
+ * `subscription.canceled`.
+ */
+describe('adjustmentEffect', () => {
+  const adjustment = (over: Partial<PaddleAdjustmentData> = {}): PaddleAdjustmentData => ({
+    id: 'adj_1',
+    action: 'refund',
+    status: 'approved',
+    customer_id: 'ctm_1',
+    transaction_id: 'txn_1',
+    items: [{ type: 'full' }],
+    ...over,
+  })
+
+  it('revokes on a fully approved refund, and on a chargeback', () => {
+    assert.equal(adjustmentEffect(adjustment()).statusOnly, 'expired')
+    for (const action of ['chargeback', 'chargeback_warning']) {
+      assert.equal(adjustmentEffect(adjustment({ action, status: 'approved' })).statusOnly, 'expired', action)
+    }
+  })
+
+  /*
+   * **The gate that keeps this off every subscription.** Paddle cancels a subscription itself
+   * when one of its transactions is charged back or withdrawn from, and that cancellation
+   * already arrives as `subscription.canceled`. Acting here as well would end a live
+   * subscription over a partial refund of one renewal — a goodwill gesture read as a
+   * cancellation.
+   */
+  it('leaves every adjustment that belongs to a subscription alone', () => {
+    for (const action of ['refund', 'chargeback', 'chargeback_reverse']) {
+      const effect = adjustmentEffect(adjustment({ action, subscription_id: 'sub_1' }))
+      assert.equal(effect.statusOnly, null, action)
+      assert.equal(effect.columns, null, action)
+      /* Still recognised, so the event is recorded against the account rather than as
+         `unmatched` — it is a fact about them even where it changes nothing. */
+      assert.equal(effect.account.paddleSubscriptionId, 'sub_1', action)
+    }
+  })
+
+  /*
+   * A refund is `pending_approval` when it is created and only becomes `approved` on a later
+   * `adjustment.updated`. Acting on the first would take a plan away over a request Paddle may
+   * yet turn down.
+   */
+  it('waits for Paddle to approve a refund, and never acts on one it refused', () => {
+    for (const status of ['pending_approval', 'rejected', 'reversed']) {
+      assert.equal(adjustmentEffect(adjustment({ status })).statusOnly, null, status)
+    }
+  })
+
+  /* `type` is per item and there is no adjustment-level «full», so full means every item says
+     so. A partial refund that happens to add up to the whole price does not revoke: that is the
+     safe side, and it is stated rather than left to be discovered. */
+  it('revokes only when every item was refunded in full', () => {
+    for (const items of [[{ type: 'partial' }], [{ type: 'full' }, { type: 'partial' }], [], null]) {
+      assert.equal(adjustmentEffect(adjustment({ items })).statusOnly, null, JSON.stringify(items))
+    }
+    assert.equal(adjustmentEffect(adjustment({ items: [{ type: 'full' }, { type: 'full' }] })).statusOnly, 'expired')
+  })
+
+  /* Contested and won: the money is ours again, so the plan is theirs again. It works because
+     revoking never cleared `plan` — one column wide in both directions. */
+  it('gives the plan back when Paddle wins the dispute', () => {
+    for (const action of ['chargeback_reverse', 'chargeback_warning_reverse']) {
+      assert.equal(adjustmentEffect(adjustment({ action })).statusOnly, 'active', action)
+    }
+  })
+
+  /* Explicit no-ops rather than omissions: a credit adjusts an invoice instead of returning
+     money to a card, and its reversal undoes that. Neither is a purchase being undone. */
+  it('does nothing for a credit, or for an action it has never heard of', () => {
+    for (const action of ['credit', 'credit_reverse', 'something_paddle_added_later', null]) {
+      assert.equal(adjustmentEffect(adjustment({ action })).statusOnly, null, String(action))
+    }
+  })
+
+  it('never writes the other four columns, whatever it decides', () => {
+    for (const action of ['refund', 'chargeback_reverse', 'credit']) {
+      assert.equal(adjustmentEffect(adjustment({ action })).columns, null, action)
     }
   })
 })

@@ -77,7 +77,7 @@ sono quella frase applicata, non cinque decisioni separate.
 |---|---|---|---|---|
 | D1 | Lifetime → downgrade o cancellazione | Non offerto. `expiresAt` nullo non dà una data su cui far scattare niente, e `mayWritePlan` impedisce anche a un evento in ritardo di toglierlo | `planChange.test.ts › refuses Lifetime on both sides, and says which side` | `n/d` |
 | D2 | Lifetime → upgrade | Non esiste nulla sopra | `types.test.ts › ranks lifetime strictly above premium` | `n/d` |
-| D3 | Rimborso su Lifetime | Caso di supporto. La revoca è possibile scrivendo `expired`, che vale anche contro un Lifetime — **ma il flusso non è deciso** e non c'è nulla che lo faccia partire | `entitlements.test.ts › lets it revoke a lifetime too, because refunds exist` | `mai` |
+| D3 | Rimborso su Lifetime | **La buca che nient'altro copriva**: niente subscription da disdire, quindi l'account teneva il Lifetime per sempre. Ora un rimborso pieno o un chargeback scrivono `expired`, e un `chargeback_reverse` lo ridà se Paddle vince la contestazione — `plan` non viene mai cancellato, ed è questo a rendere la revoca reversibile | `entitlements.test.ts › lets it revoke a lifetime too, because refunds exist` · `webhook.test.ts › gives the plan back when Paddle wins the dispute` | `mai` |
 
 ## E. Pagamenti, rinnovi e stati eccezionali
 
@@ -89,9 +89,9 @@ sono quella frase applicata, non cinque decisioni separate.
 | E4 | Pagamento recuperato nel grace | Torna `active` e il webhook scrive il periodo nuovo | `webhook.test.ts › reads an unknown status as active rather than revoking` | `mai` |
 | E5 | Grace esaurito | **Non è una finestra nostra**, ed è una decisione: niente qui sposta un account fuori da `grace`. Finisce il dunning di Paddle, arriva `canceled`, e quello vale `expired` | `webhook.test.ts › ends a canceled subscription` | `mai` |
 | E6 | Upgrade chiesto durante il grace | Di fatto non si offre nulla: `checkoutMode` risponde `stalled` per tutto ciò che potrebbe ancora fatturare. **Unica eccezione il Lifetime** (B9), che è proprio la via d'uscita di chi ha la carta che non passa. Come *politica* il documento lo lascia aperto e lo è ancora | `planChange.test.ts › offers nothing while anything may still be running` | `mai` |
-| E7 | Rimborso emesso dal supporto | **Non deciso.** Revocare subito o lasciare scadere è la domanda del documento, e nessuno l'ha ancora chiusa | `—` | `mai` |
-| E8 | Chargeback | **Non implementato, e l'accesso non viene revocato.** Il webhook agisce solo su `subscription.*` e `transaction.completed`; un evento di chargeback viene registrato in `paddle_events` e non fa nulla | `—` | `mai` |
-| E9 | Recesso 14 giorni UE/UK | Pubblicato su `/` e nei Termini, che nominano il Lifetime. Paddle è merchant of record e il rimborso passa da loro. È la sola ragione per cui B9 disdice a `next_billing_period` invece che subito | `—` | `mai` |
+| E7 | Rimborso emesso dal supporto | Un rimborso **pieno e approvato** revoca — `planStatus` a `expired`, `plan` intatto. Su una subscription non facciamo nulla: la disdice Paddle. Segue la decisione che il documento aveva già preso per E9, «rimborso pieno, accesso revocato» | `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` · `webhook.test.ts › waits for Paddle to approve a refund, and never acts on one it refused` | `mai` |
+| E8 | Chargeback | Su una subscription **la disdice Paddle** — il suo log di history registra il motivo `chargeback` — e la disdetta arriva qui come `subscription.canceled`, che vale `expired`. **Documentato, mai osservato.** Sul Lifetime, che non ha nessuna subscription da disdire, revochiamo noi leggendo l'adjustment | `webhook.test.ts › leaves every adjustment that belongs to a subscription alone` · `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` | `mai` |
+| E9 | Recesso 14 giorni UE/UK | Pubblicato su `/` e nei Termini, che nominano il Lifetime. Paddle è merchant of record. Tecnicamente è E7: Paddle disdice la subscription col motivo `eu_withdrawal` (**documentato, mai osservato**) e rimborsa; sul Lifetime revoca l'adjustment. È la sola ragione per cui B9 disdice a `next_billing_period` invece che subito | `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` | `mai` |
 | E10 | Regalo sovrapposto a un abbonamento | La direzione di un cambio si decide sulla subscription **pagata**, letta da Paddle, non sul piano effettivo, così il regalo non falsa il verso | `entitlements.test.ts › never takes anything away from a better subscription` | `n/d` |
 | E11 | Regalo che scade mentre l'abbonamento vive | Il piano effettivo scende a quello pagato, senza nessun evento di fatturazione | `entitlements.test.ts › stops contributing once its own date has passed` | `n/d` |
 
@@ -114,8 +114,13 @@ qui sopra.
 1. **E2, il rinnovo che applica un cambio in sospeso.** Tutto il meccanismo «si ripaga in tempo,
    non in denaro» finisce lì, e nessun rinnovo reale è ancora scaduto. Il primo che scade va
    guardato.
-2. **E8, il chargeback che non revoca niente.** È l'unico caso in cui qualcuno tiene un piano
-   senza averlo pagato, e oggi non ci accorgeremmo.
+2. **Che Paddle disdica davvero su chargeback e su recesso è documentato e mai visto.** Quattro
+   righe qui sopra ci si appoggiano (E7, E8, E9, e per differenza D3). Se quell'inferenza fosse
+   sbagliata, il caso «qualcuno tiene un piano senza averlo pagato» sarebbe ancora aperto e lo
+   crederemmo chiuso. Si prova nel sandbox rimborsando una transazione di subscription.
+   **La destination deve essere iscritta a `adjustment.created` e `adjustment.updated`**, o
+   niente di tutto questo parte: aggiunti a quella del preview il 14/09/2026, e la live non
+   esiste ancora.
 3. **Le schermate, che non ha mai guardato nessuno.** La branch `subscribed` di
    `/checkout/[plan]` e la riga di C6 sono compilate e testate nella parte pura, mai viste
    funzionare: servono una sessione e un preview deployment.

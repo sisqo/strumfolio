@@ -503,7 +503,10 @@ is ignored beside an items change and refused alone, so it is always a second ca
 
 **Still to do before any of this takes money in production**: the live catalogue does not exist
 (create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,
-maximum: 1}` — see the traps above), Production has no `PADDLE_*` variables at all, and the
+maximum: 1}` — see the traps above), the live notification destination does not exist either and
+must subscribe to **`adjustment.created` and `adjustment.updated`** alongside the subscription and
+transaction events — without them a refunded Lifetime is never revoked and nothing anywhere
+errors (`plans/CLAUDE.md`) — Production has no `PADDLE_*` variables at all, and the
 campaigns in `lib/coupons/` have no Paddle Discount behind them, which is why both write paths
 refuse a sale outright while a coupon is redeemable rather than charging the listino.
 

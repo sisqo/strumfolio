@@ -61,6 +61,23 @@ export interface PaddleSubscriptionData {
   items?: PaddleItemRef[] | null
 }
 
+/**
+ * `data` on `adjustment.created` and `adjustment.updated` — a refund, a credit or a chargeback.
+ *
+ * `items[].type` is per **item**: there is no adjustment-level «full or partial», which is the
+ * one shape surprise here and the reason `adjustmentEffect` has to decide what full means.
+ */
+export interface PaddleAdjustmentData {
+  id: string
+  action?: string | null
+  status?: string | null
+  /** Present when the adjustment belongs to a subscription — the whole gate, see below. */
+  subscription_id?: string | null
+  transaction_id?: string | null
+  customer_id?: string | null
+  items?: { type?: string | null }[] | null
+}
+
 /** `data` on `transaction.completed`, narrowed the same way. */
 export interface PaddleTransactionData {
   id: string
@@ -89,6 +106,14 @@ export interface AccountRef {
 export interface PaddleEventEffect {
   account: AccountRef
   columns: SubscriptionColumns | null
+  /**
+   * A write of `planStatus` **and nothing else** — the shape an adjustment needs and the reason
+   * this is not a `columns`. Revoking must not touch `plan`: what somebody bought is a fact
+   * about the past, the four other columns describe a subscription an adjustment says nothing
+   * about, and leaving `plan` in place is exactly what lets a contested chargeback be undone by
+   * writing `active` back over it.
+   */
+  statusOnly?: PlanStatus | null
 }
 
 /**
@@ -147,6 +172,11 @@ function readAccountId(custom: { account_id?: unknown } | null | undefined): num
   const raw = custom?.account_id
   const id = typeof raw === 'string' ? Number(raw) : typeof raw === 'number' ? raw : NaN
   return Number.isInteger(id) && id > 0 ? id : null
+}
+
+/** A field that must be a non-empty string to mean anything — anything else reads as absent. */
+function readString(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
 }
 
 function asDate(value: string | null | undefined): Date | null {
@@ -286,6 +316,79 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
       pendingCycle: null,
     },
   }
+}
+
+/**
+ * Money going back, as a change to what the account holds — `adjustment.created` and
+ * `adjustment.updated`, which carry a refund, a credit or a chargeback.
+ *
+ * **The gate is `subscription_id`, and it is the whole design.** An adjustment that belongs to a
+ * subscription is Paddle's business, not this app's: Paddle cancels a subscription itself when
+ * one of its transactions is charged back (its own history log records the reason as
+ * `chargeback`) and again when a customer exercises the EU right of withdrawal (`eu_withdrawal`),
+ * and that cancellation arrives here as `subscription.canceled`, which this file has always read
+ * as `expired`. Acting on the adjustment as well would revoke a live subscription over a partial
+ * refund of a single renewal — a goodwill gesture turned into a cancellation. It is the same
+ * rule `transactionEffect` already applies for the same reason, pointed at the other event.
+ *
+ * **So what is left is exactly the hole: the Lifetime.** A one-off purchase has no subscription
+ * for Paddle to cancel, so a refunded or charged-back Lifetime produced no event this app acted
+ * on at all, and the account kept a plan it had been given its money back for — for ever, since
+ * nothing later would ever contradict it.
+ *
+ * Two decisions are written into the table below rather than left to be inferred:
+ *
+ * - **Only a wholly-full adjustment revokes.** `type` is per item and there is no adjustment-level
+ *   «full», so full means every item says so. A partial refund that happens to add up to the whole
+ *   price will therefore *not* revoke, which is the safe side of a line that has to be drawn
+ *   somewhere: leaving somebody their plan after a partial refund is a business decision, taking
+ *   it away after a goodwill gesture is a support ticket. The reader's own document already
+ *   decided the full case — «Rimborso pieno, accesso revocato» (E9).
+ * - **A refund is only acted on once Paddle has approved it.** Refunds are created
+ *   `pending_approval` and become `approved` or `rejected` on a later `adjustment.updated`, so
+ *   revoking on creation would take a plan away over a request Paddle may yet reject. Chargebacks
+ *   carry no such gate: Paddle creates them already applied, the money already returned.
+ *
+ * Everything else is deliberately nothing, and says so: a `credit` adjusts an invoice rather than
+ * returning money to a card, `credit_reverse` undoes one, a `rejected` refund never happened, and
+ * a `pending_approval` one has not happened yet.
+ */
+export function adjustmentEffect(data: PaddleAdjustmentData): PaddleEventEffect {
+  const account: AccountRef = {
+    /* An adjustment carries no `custom_data`, so the customer id is the only handle it offers —
+       written by the Lifetime's own `transaction.completed` before any of this can happen. */
+    accountId: null,
+    paddleSubscriptionId: readString(data.subscription_id),
+    paddleCustomerId: readString(data.customer_id),
+  }
+
+  const nothing: PaddleEventEffect = { account, columns: null, statusOnly: null }
+
+  /* Paddle's to handle — see above. The account is still identified, so the event is recorded
+     against it rather than as `unmatched`. */
+  if (account.paddleSubscriptionId !== null) return nothing
+
+  const action = readString(data.action)
+  const status = readString(data.status)
+
+  /* Contested and won: the money is ours again, so the plan is theirs again. `plan` was never
+     cleared, which is what makes this one column wide — the same reversibility that decided
+     `next_billing_period` for the Lifetime's own cancellation. */
+  if (action === 'chargeback_reverse' || action === 'chargeback_warning_reverse') {
+    return { account, columns: null, statusOnly: 'active' }
+  }
+
+  const takesTheMoneyBack =
+    action === 'refund' ? status === 'approved' : action === 'chargeback' || action === 'chargeback_warning'
+  if (!takesTheMoneyBack) return nothing
+
+  /* An adjustment with no items says nothing about how much of the purchase it undid, and an
+     unreadable shape must never revoke — `planOfPrice`'s asymmetry, on a bigger lever. */
+  const items = Array.isArray(data.items) ? data.items : []
+  if (items.length === 0) return nothing
+  if (!items.every((item) => readString(item?.type) === 'full')) return nothing
+
+  return { account, columns: null, statusOnly: 'expired' }
 }
 
 /**

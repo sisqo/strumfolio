@@ -88,6 +88,39 @@ and must stand alone, where a sentence may say only what moves. And **the buy pa
 dialog**: Paddle's own overlay shows the price before it takes anything and is itself the second
 look, so a dialog in front of it would be a dialog in front of a dialog.
 
+## Money going back: `adjustment.*`, and why it only ever touches the Lifetime (2026-09-14)
+
+- **Paddle revokes for us on every subscription, and nobody had written that down.** It cancels a
+  subscription itself when one of its transactions is charged back, and again when a customer
+  exercises the EU right of withdrawal — its own subscription-history log records the two reasons
+  as `chargeback` and `eu_withdrawal`. That cancellation arrives as `subscription.canceled`, which
+  `statusOf` has always read as `expired`. So E8 and E9 were already covered for subscribers, by
+  Paddle's behaviour rather than by design. **Documented, never observed** — say it that way until
+  somebody drives a real refund in the sandbox, because four rows of `CASES.md` rest on it.
+- **The hole was the Lifetime**, and it is the whole reason `adjustmentEffect` exists. A one-off
+  purchase has no subscription for Paddle to cancel, so a refunded or charged-back Lifetime
+  produced nothing this app acted on, and the account kept — for ever — a plan it had been given
+  its money back for. Nothing later would ever have contradicted it.
+- **The gate is `subscription_id` on the adjustment**: present means Paddle's business, absent
+  means ours. Same rule `transactionEffect` already applies to renewals, pointed at the other
+  event. Without it, a partial refund of one renewal — a goodwill gesture — would end a live
+  subscription.
+- **One column, not four.** Revoking writes `planStatus: 'expired'` and leaves `plan` alone: what
+  somebody bought is a fact about the past, the other columns describe a subscription an
+  adjustment says nothing about, and `plan` surviving is exactly what lets `chargeback_reverse`
+  give it back by writing `active` over the top. The same reversibility argument as B9.
+- **Two decisions, stated because they are not derivable.** Only a *wholly* full adjustment
+  revokes — `type` is per item and there is no adjustment-level «full», so a partial refund that
+  happens to add up to the whole price does not revoke, which is the safe side. And a refund is
+  acted on only once `approved`: refunds are created `pending_approval` and may be rejected, so
+  acting on `adjustment.created` alone would take a plan away over a request Paddle turns down.
+  Chargebacks carry no such gate — Paddle creates them already applied.
+- **The destination has to carry the events or none of this fires.** `adjustment.created` and
+  `adjustment.updated` were added to the sandbox preview destination on 2026-09-14 (it had nine
+  event types and neither of them); **the live destination does not exist yet and must be created
+  with them**. This is the silent failure the root `CLAUDE.md` already warns about in general —
+  a handler nothing ever calls, with no error anywhere to find.
+
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
 Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,
