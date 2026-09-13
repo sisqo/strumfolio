@@ -18,7 +18,7 @@ import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
-import { changeNames, formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { changeNames, formatPlanDate, planWithCycle } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 
@@ -108,7 +108,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
     ? {
         plan: live.plan,
         cycle: live.cycle,
-        label: `${PLAN_LABEL[live.plan]}${live.cycle === null ? '' : live.cycle === 'year' ? ', billed yearly' : ', billed monthly'}`,
+        label: planWithCycle(live.plan, live.cycle),
         /* What is already arranged, said on the screen where a further move is being
            considered — case C6. `live.plan` above is the plan *paid for*, which while this is
            non-null is deliberately not the plan Paddle's items carry. */

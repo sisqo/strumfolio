@@ -69,7 +69,7 @@ sono quella frase applicata, non cinque decisioni separate.
 | C3 | Pending cancellazione + ripensamento | `keepPaddleSubscription` annulla sia lo `scheduled_change` di Paddle sia uno stamp nostro | `planChange.test.ts › reads a return to the paid plan as a revert, not as an upgrade` | `sandbox 2026-09-13` |
 | C4 | Pending downgrade + cancellazione | La cancellazione vince e `pendingPlan` diventa `free`; il piano tenuto fino alla data non cambia | `webhook.test.ts › lets a cancellation take the place of the downgrade it sits on` | `mai` |
 | C5 | Arriva la scadenza con un pending | `resolveSubscription` lo collassa **leggendo**, a ogni lettura. Nessun cron, nessuna scrittura al rinnovo | `entitlements.test.ts › becomes the pending plan the instant its date passes, with nothing left pending` | `mai` |
-| C6 | Pending attivo, l'utente guarda il piano | Una frase con la data e la destinazione, su /billing e sopra il pulsante del checkout | `subscriptionCopy.test.ts › names the plan and the cycle a scheduled change lands on` | `mai` |
+| C6 | Pending attivo, l'utente guarda il piano | Una frase con la data e la destinazione su /billing, e sul checkout una riga del riepilogo prima della pressione e di nuovo nel modale di conferma | `subscriptionCopy.test.ts › names the plan and the cycle a scheduled change lands on` · `changeSummary.test.ts › carries a change already arranged into the summary — case C6` | `mai` |
 
 ## D. Lifetime
 

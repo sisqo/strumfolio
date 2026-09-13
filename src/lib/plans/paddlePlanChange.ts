@@ -48,6 +48,7 @@ import { applyItemChange } from './paddleApply'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
 import { readChangeCost, type ChangeCost } from './changePreview'
+import { nextChargeOf, type NextCharge } from './changeSummary'
 import { planChangeEffect, type ChangeDirection, type ChangeRefusal, type ChangeWhen } from './planChange'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
@@ -86,7 +87,21 @@ export type PaddlePlanChangeResult =
   | { ok: false; reason: PaddlePlanChangeFailure }
 
 export type PaddleChangeCostResult =
-  | { ok: true; direction: ChangeDirection; when: ChangeWhen; effectiveAt: string | null; cost: ChangeCost }
+  | {
+      ok: true
+      direction: ChangeDirection
+      when: ChangeWhen
+      effectiveAt: string | null
+      cost: ChangeCost
+      /**
+       * What the reader will be billed once this has taken effect, and the fact the screen used
+       * to leave out entirely. Every waiting change costs «nothing» today, which is true and is
+       * the least useful thing that can be said to somebody deciding what they will pay from
+       * now on. `nextChargeOf` owns where the figure comes from — two places, for a reason it
+       * states at length.
+       */
+      nextCharge: NextCharge | null
+    }
   | { ok: false; reason: PaddlePlanChangeFailure }
 
 /**
@@ -151,12 +166,38 @@ export async function previewPaddlePlanChange(
     })
     if (cost === null) return { ok: false, reason: 'unreadable' }
 
+    /*
+     * The pinned date is the one this change promises, and it is the *period end* whether or not
+     * the change itself waits: B4 moves the reader's billing to monthly from the last day of the
+     * paid year, and `when` there is `period-end` anyway. Read once and used for both, so the
+     * date in the summary and the date in the stamp cannot be two different days.
+     */
+    const periodEnd = live.periodEndsAt?.toISOString() ?? null
+
     return {
       ok: true,
       direction: effect.direction,
       when: effect.when,
-      effectiveAt: effect.when === 'period-end' ? (live.periodEndsAt?.toISOString() ?? null) : null,
+      effectiveAt: effect.when === 'period-end' ? periodEnd : null,
       cost,
+      nextCharge:
+        plan === 'lifetime' || cycle === null
+          ? null
+          : nextChargeOf({
+              to: { plan, cycle },
+              pinBillingDate: effect.pinBillingDate,
+              effectiveAt: periodEnd,
+              /* Paddle's own answer for the state its first call would leave — right except
+                 where a second call is about to move the date under it, which is exactly what
+                 `pinBillingDate` says and `nextChargeOf` branches on. */
+              fromPaddle:
+                previewed.nextTransaction?.billingPeriod?.startsAt && previewed.nextTransaction.details?.totals?.total
+                  ? {
+                      total: previewed.nextTransaction.details.totals.total,
+                      startsAt: previewed.nextTransaction.billingPeriod.startsAt,
+                    }
+                  : null,
+            }),
     }
   } catch (error) {
     console.error('previewPaddlePlanChange failed', error)

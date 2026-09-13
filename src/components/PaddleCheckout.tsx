@@ -27,7 +27,9 @@
 import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
 
+import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
+import { changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
 import { callOffLine, changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
 import type { ChangeDirection, ChangeWhen } from '@/lib/plans/planChange'
 import {
@@ -165,7 +167,14 @@ export function PaddleCheckout(props: Props) {
     direction: ChangeDirection
     when: ChangeWhen
     effectiveAt: string | null
+    nextCharge: NextCharge | null
   } | null>(null)
+  /**
+   * Whether the confirmation dialog is open. A plain boolean and not the summary itself: the
+   * summary is derived from `preview` below, so holding a copy here would let the dialog go on
+   * showing a figure the page had already replaced.
+   */
+  const [confirming, setConfirming] = useState(false)
   /**
    * Why there is no price, when there is none. The preview refuses in exactly the places the
    * write refuses, so this turns every one of those refusals into something said **before** the
@@ -245,12 +254,21 @@ export function PaddleCheckout(props: Props) {
     setPricing(true)
     setPreview(null)
     setNoPrice(null)
+    /* The cycle toggle moved, so whatever the dialog was asking about is no longer what the
+       page is offering. Closing it beats letting it stand over a fresh quotation. */
+    setConfirming(false)
 
     void previewPaddlePlanChange(props.plan, cycle).then((result) => {
       if (stale) return
       setPreview(
         result.ok
-          ? { cost: result.cost, direction: result.direction, when: result.when, effectiveAt: result.effectiveAt }
+          ? {
+              cost: result.cost,
+              direction: result.direction,
+              when: result.when,
+              effectiveAt: result.effectiveAt,
+              nextCharge: result.nextCharge,
+            }
           : null,
       )
       setNoPrice(result.ok ? null : result.reason)
@@ -297,7 +315,14 @@ export function PaddleCheckout(props: Props) {
 
     const result = await changePaddlePlan(props.plan, cycle)
 
+    /*
+     * **The sentence comes from the write, never from what the dialog said.** `changePaddlePlan`
+     * decides again server-side at the moment of the press, so a change that lands differently
+     * from the quotation — a preview gone stale while the reader was reading, a renewal that
+     * fell due in between — reports what actually happened rather than what was promised.
+     */
     setMessage(result.ok ? arranged(result) : CHANGE_REFUSALS[result.reason])
+    setConfirming(false)
     setBusy(false)
   }
 
@@ -334,6 +359,41 @@ export function PaddleCheckout(props: Props) {
         'new plan appears in a moment.'
   }
 
+
+  /**
+   * The change as a handful of labelled facts, built once and rendered in two places — under
+   * the button and inside the dialog — so the two can never describe the press differently.
+   *
+   * `null` whenever there is nothing to summarise: no live subscription, no price yet, or a
+   * refusal. The button is disabled in exactly those cases, so the dialog can never open onto
+   * an empty summary.
+   */
+  const summary =
+    live === null || preview === null || props.plan === 'lifetime'
+      ? null
+      : changeSummary({
+          from: live,
+          to: { plan: props.plan, cycle },
+          direction: preview.direction,
+          when: preview.when,
+          effectiveAt: preview.effectiveAt,
+          cost: preview.cost,
+          nextCharge: preview.nextCharge,
+          arranged: live.scheduled,
+          /* The three sentences this screen may say, chosen exactly as they were before the
+             summary existed — each owns its own argument for its wording, and none of them is
+             rewritten here. */
+          headline:
+            preview.direction === 'revert'
+              ? callOffLine(live.label)
+              : preview.when === 'period-end' && preview.effectiveAt !== null
+                ? scheduledChangeLine(
+                    changeNames(live, { plan: props.plan, cycle }).from,
+                    changeNames(live, { plan: props.plan, cycle }).to,
+                    formatPlanDate(new Date(preview.effectiveAt)),
+                  )
+                : changeCostLine(preview.cost),
+        })
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
 
@@ -374,19 +434,62 @@ export function PaddleCheckout(props: Props) {
         </p>
       )}
 
+      {/*
+        * **Everything the press does, before the press** — the change this screen exists to
+        * explain, as labelled facts rather than as one sentence at the end.
+        *
+        * It used to sit *below* the button and say only what the change cost today, which for
+        * every waiting change is «nothing»: true, and the least useful thing that can be said
+        * to somebody deciding what they will pay from now on. The rows carry what that left
+        * out — the day it lands, and the next charge with its date — and they sit above the
+        * button because a reader who has already pressed is not reading them.
+        *
+        * `summary` is `null` in exactly the states the button is disabled in, so what replaces
+        * it here is never a missing explanation for an offer that is still live.
+        */}
+      {live !== null && (
+        <div className="mt-4">
+          {summary !== null ? (
+            <>
+              <dl className="grid grid-cols-1 gap-x-3 gap-y-1 border-t border-line-soft pt-3 text-sm sm:grid-cols-[10.5rem_1fr] sm:gap-y-2">
+                {summary.rows.map((row) => (
+                  <div key={row.label} className="contents">
+                    <dt className="text-muted">{row.label}</dt>
+                    <dd className="font-medium">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-sm opacity-80">{summary.headline}</p>
+            </>
+          ) : (
+            <p className="text-sm opacity-80">
+              You are on {live.label} today.{' '}
+              {live.scheduled !== null && `${live.scheduled} `}
+              {pricing
+                ? 'Working out what this change costs…'
+                : noPrice !== null
+                  ? CHANGE_REFUSALS[noPrice]
+                  : 'We could not work out what this change costs just now, so we are not going to ' +
+                    'move it. Try again in a moment.'}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* `ready` gates the overlay and nothing else: a plan change never opens one, so waiting
           for Paddle.js to load before allowing it would disable a working button for the sake
           of a script it does not use. */}
       <button
         type="button"
         className="btn btn-primary mt-4 w-full"
-        onClick={() => void (live ? change() : buy())}
+        onClick={() => (live ? setConfirming(true) : void buy())}
         /*
          * **A change is not offered until its price is known**, and that is a safety rule rather
-         * than a nicety: pressing this takes a real amount off a real card, there is no
-         * confirmation step behind it, and «we could not work out what this costs» is not a state
-         * to let somebody press through. A first purchase is different — the overlay shows the
-         * price itself before anything is taken — which is why only the change path waits.
+         * than a nicety: «we could not work out what this costs» is not a state to let somebody
+         * press through, and it is also the state in which there would be no summary for the
+         * dialog to show. A first purchase is different — Paddle's own overlay shows the price
+         * before anything is taken, and is itself the second look — which is why only the change
+         * path waits, and why only the change path opens a dialog of ours.
          */
         disabled={busy || (live ? pricing || preview === null : !ready)}
       >
@@ -402,43 +505,20 @@ export function PaddleCheckout(props: Props) {
             : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
 
-      {/*
-        * Said before the press, not after it — and said as a **number**, because that is what a
-        * reader will look for on their statement. The sentence this replaced described the kind
-        * of thing that would happen («a bigger plan is charged now, less whatever you have not
-        * used») and named no amount, which left the one press on this screen that moves money as
-        * the only one nobody could check beforehand.
-        *
-        * `cost` is null while Paddle is being asked, and also when the answer could not be read.
-        * Those are deliberately the same case here: neither is a licence to print a figure.
-        */}
-      {live !== null && (
-        <p className="mt-2 text-sm opacity-80">
-          You are on {live.label} today.{' '}
-          {live.scheduled !== null && `${live.scheduled} `}
-          {pricing
-            ? 'Working out what this change costs…'
-            : preview !== null
-              ? /* Three sentences for three shapes of «nothing to pay», which the cost line
-                   alone cannot tell apart: a change that waits for a date, a press that calls
-                   one off, and an ordinary free change. The reader is deciding about the date
-                   and the effect as much as about the figure. */
-                preview.direction === 'revert'
-                ? callOffLine(live.label)
-                : preview.when === 'period-end' && preview.effectiveAt !== null
-                  ? /* `changeNames`, not two `PLAN_LABEL` lookups: B4 moves the billing and not
-                       the plan, and «you keep Premium until 13 September 2027, and move to
-                       Premium that day» is a false sentence rather than an awkward one. */
-                    (() => {
-                      const names = changeNames(live, { plan: props.plan, cycle })
-                      return scheduledChangeLine(names.from, names.to, formatPlanDate(new Date(preview.effectiveAt)))
-                    })()
-                  : changeCostLine(preview.cost)
-              : noPrice !== null
-                ? CHANGE_REFUSALS[noPrice]
-                : 'We could not work out what this change costs just now, so we are not going to ' +
-                  'move it. Try again in a moment.'}
-        </p>
+      {/* Only ever reachable with a summary in hand: the button that opens it is disabled in
+          every state where `summary` is null. */}
+      {confirming && summary !== null && (
+        <PlanChangeConfirm
+          summary={summary}
+          confirmLabel={
+            preview?.direction === 'revert'
+              ? `Stay on ${PLAN_LABEL[props.plan]}`
+              : `Switch to ${PLAN_LABEL[props.plan]}`
+          }
+          busy={busy}
+          onConfirm={() => void change()}
+          onClose={() => setConfirming(false)}
+        />
       )}
 
       {message !== null && (

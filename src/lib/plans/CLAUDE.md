@@ -55,6 +55,39 @@ Three things about the demolition are worth knowing rather than rediscovering:
 - `SONGBOOK_FORCE_PLAN` — a deliberately risky local-only escape hatch (forces every read to
   one plan); never meant to run in production.
 
+## What the reader is told before the press, and the press after the press (2026-09-14)
+
+`changeSummary.ts` builds it, `PaddleCheckout` renders it above the button, `PlanChangeConfirm`
+renders **the same object** in a dialog. Three things are worth knowing rather than rediscovering:
+
+- **The summary is one object rendered twice, deliberately.** A confirmation dialog written as a
+  second description of the screen is a second copy of the copy, and the day one is edited it
+  starts lying about the other. The dialog therefore writes no sentence of its own — and the
+  headline is not written in `changeSummary` either, but chosen among `callOffLine`,
+  `scheduledChangeLine` and `changeCostLine`, which already own those three sentences and the
+  arguments for their wording.
+- **The next charge was missing from the screen entirely, and it is the fact the reader is
+  actually deciding about.** Every waiting change costs nothing today — true, and the least
+  informative true sentence available, since it says the same thing about a move to Standard and
+  a move to Plus. `nextChargeOf` is where the figure comes from, and it comes from **two**
+  places: Paddle's own preview normally, and the listino when `pinBillingDate` is set. That
+  second branch is not a shortcut — Paddle's preview there describes the period *restarted* by
+  the first call, which the second call is about to move, so quoting it would tell a reader their
+  next bill is up to a year later than it is. Confidently sourced and wrong is worse than absent.
+- **The dialog does not re-price, and the guard is at the other end.** A second preview would put
+  a spinner between the press and the question and could answer differently for reasons nobody
+  can see. Instead `changePaddlePlan` decides again server-side at the moment of the press, and
+  the sentence the reader is left with is built from **its** answer — so a change that lands
+  differently from the quotation (a preview gone stale while they read, a renewal that fell due
+  in between, the thirty-minute window Paddle refuses changes inside) reports what happened
+  rather than what was promised.
+
+Two smaller rules that are easy to undo by accident. `planWithCycle` names both sides of the
+move in full — the opposite of `changeNames`, and right here: a row is read beside its neighbour
+and must stand alone, where a sentence may say only what moves. And **the buy path gets no
+dialog**: Paddle's own overlay shows the price before it takes anything and is itself the second
+look, so a dialog in front of it would be a dialog in front of a dialog.
+
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
 Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,

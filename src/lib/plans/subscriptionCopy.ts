@@ -27,6 +27,23 @@ export function formatPlanDate(value: Date): string {
 }
 
 /**
+ * A plan with its billing, complete — «Premium, billed yearly».
+ *
+ * **The opposite rule to `changeNames` below, and both are right in their own place.** A
+ * sentence names only what moves, because repeating the unchanged half is clumsy to read. A row
+ * in a table is read on its own and beside its neighbour, so it has to stand up alone: «Today
+ * you are on Premium» over «You move to Standard» hides that the billing is changing too.
+ *
+ * One copy, called from the checkout page and from `changeSummary`, so the plan the reader is
+ * leaving and the plan they are moving to cannot be described in two different styles on two
+ * rows of the same table.
+ */
+export function planWithCycle(plan: Plan, cycle: BillingPeriod | null): string {
+  if (cycle === null) return PLAN_LABEL[plan]
+  return `${PLAN_LABEL[plan]}, billed ${cycle === 'year' ? 'yearly' : 'monthly'}`
+}
+
+/**
  * What to call each side of a change, given that only one of the two things about it may have
  * moved.
  *
