@@ -93,7 +93,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      * reader making a first purchase — they pay one indexed read on a page that already makes
      * three. The branch sits here rather than inside the loader because the *action* must be
      * able to move a plan whether or not a client token exists: that token is for the browser
-     * overlay, and a plan change never opens one.
+     * payment form, and a plan change never draws one.
      */
     paddleCheckoutEnabled() ? livePaddleSubscription() : nothingLive(),
   ])

@@ -1,8 +1,22 @@
 'use client'
 
 /**
- * The real checkout: a cycle to pick, and a button that opens Paddle's overlay on a
- * transaction the server made.
+ * The real checkout: a cycle to pick, and a button that draws Paddle's own payment form
+ * **inside this page** on a transaction the server made.
+ *
+ * **Inline rather than the overlay, chosen rather than inherited.** `Checkout.open()` with no
+ * settings gets Paddle's default, which is a modal — that is what shipped first, and nothing
+ * anywhere argued for it. What the frame buys is that paying stops being something that happens
+ * *over* the app and becomes a step of it: the plan, the price and the payment form are one
+ * column the reader scrolls, on the surface and in the theme they were already reading. It also
+ * takes away the page underneath, which is where the double-press this component grew a `paid`
+ * state for came from.
+ *
+ * What it costs is stated where it is paid: the frame has to be in the DOM before
+ * `Checkout.open` runs — hence `openTransaction` and its effect rather than opening straight
+ * from the click — it has a minimum width, and its footer carries Paddle's «merchant of record»
+ * line, which must stay visible for compliance and is why no height of ours is ever imposed on
+ * it.
  *
  * **It never names a price.** The browser picks a *cycle*; `startPaddleCheckout` decides which
  * price that cycle is sold at, stamps the account on the transaction and hands back only its
@@ -19,12 +33,12 @@
  * `initializePaddle` is called once and guarded on `Initialized`: the SDK warns and refuses a
  * second call, and React in development mounts every effect twice.
  *
- * Nothing here provisions anything. The overlay closing is not a payment, and a reader who
- * closes the tab mid-redirect has still paid — `api/paddle/webhook` is what grants the plan,
+ * Nothing here provisions anything. Closing the frame is not a payment, and a reader who
+ * closes the tab mid-payment has still paid — `api/paddle/webhook` is what grants the plan,
  * which is why this says «we are finishing up» rather than «you now have Premium».
  */
 
-import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle-js'
+import { initializePaddle, type CheckoutSettings, type Environments, type Paddle, type Theme } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
 
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
@@ -118,6 +132,54 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
   failed: 'Something went wrong changing your plan. Please try again.',
 }
 
+/**
+ * The class Paddle renders its frame into. One string shared by the setting and the `div`,
+ * because they are two halves of one contract: rename one and the checkout opens into nothing,
+ * with no error anywhere.
+ */
+const FRAME_TARGET = 'paddle-checkout-frame'
+
+/**
+ * How the payment form should look, read at the moment it is opened rather than once at mount.
+ *
+ * **The theme is why this is a function.** Paddle defaults to `light` whatever the page is
+ * doing, which as a modal was merely unfortunate and inside our own column would be a white card
+ * sitting in a dark one. The app's choice lives on `documentElement`, and `auto` sets no
+ * attribute at all — `theme.ts`'s own arrangement, so that the media query in `globals.css`
+ * decides — which is why the fallback asks the system rather than assuming light.
+ *
+ * `one-page` because the default, `multi-page`, collects the details and then the card on two
+ * screens, and an embedded frame changing height between them moves the page under the reader's
+ * thumb. `locale` is deliberately **not** passed: Paddle follows the browser, so a reader whose
+ * phone is in Italian gets the payment form in Italian, which is better than pinning it to the
+ * language this app happens to be written in.
+ *
+ * `frameStyle` carries no height: Paddle grows the frame as the form does, and a height of ours
+ * is exactly what would clip the «merchant of record» footer it is required to show.
+ */
+function checkoutSettings(): CheckoutSettings {
+  const chosen = typeof document === 'undefined' ? undefined : document.documentElement.dataset.theme
+  const theme: Theme =
+    chosen === 'dark' || chosen === 'light'
+      ? chosen
+      : typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+
+  return {
+    displayMode: 'inline',
+    variant: 'one-page',
+    theme,
+    frameTarget: FRAME_TARGET,
+    frameInitialHeight: 450,
+    /* 286px is Paddle's floor with checkout padding off, 312px with it on. The page's own gutter
+       leaves 343px at 375px of viewport, so the narrowest phone anybody reads this on clears
+       both — but the number lives here rather than in a stylesheet because it is Paddle's
+       requirement and not our layout's. */
+    frameStyle: 'width: 100%; min-width: 286px; background-color: transparent; border: none;',
+  }
+}
+
 type Props =
   | {
       plan: PaidPlan
@@ -163,21 +225,29 @@ export function PaddleCheckout(props: Props) {
   /**
    * Whether Paddle has taken the money on this screen already.
    *
-   * **It is what stops the most ordinary way to buy twice.** `busy` goes false the moment the
-   * overlay opens, so once it closes the reader is looking at a live «Pay for Premium» button
-   * with nothing but a line of text saying the payment arrived — and pressing it again creates a
-   * second transaction and a second subscription billing beside the first.
+   * **It was the whole defence against buying twice while this was an overlay**, where `busy`
+   * went false the moment the modal opened and a reader who had just paid was left looking at a
+   * live «Pay for Premium» underneath it. Inline removes that by construction — the button and
+   * the payment form are never both on the page — so what is left for this to do is take away
+   * «Not now», which under a completed payment would read as a way to undo it.
    *
-   * The server-side guard does not catch this one and cannot: `wouldBeSecondSubscription` asks
-   * `livePaddleSubscription`, which reads `paddle_subscription_id`, and the webhook that writes
-   * that column is the very thing this screen is waiting for. So the window it leaves open —
-   * stated in `startPaddleCheckout` — is closed here, at the only place that knows a payment has
-   * just gone through.
-   *
-   * Per render rather than per account, which is the right scope: a reload after the webhook has
-   * landed is offered a plan change instead, and a reload before it is exactly as it was.
+   * Kept as a state of its own rather than folded into `openTransaction`, because the two
+   * answer different questions: one is «is there a form open», the other «has money moved», and
+   * the second is the one no press of ours may contradict. The window the server-side guard
+   * cannot close — `wouldBeSecondSubscription` reads a column the webhook has not written yet —
+   * is closed on this screen either way.
    */
   const [paid, setPaid] = useState(false)
+  /**
+   * The transaction whose payment form is on the page, or `null` when none is.
+   *
+   * **It exists because an inline checkout cannot be opened from the click.** Paddle renders
+   * into an element found by class name, so that element has to be in the DOM *before*
+   * `Checkout.open` runs — and the click is what decides to draw it. So the press stores the id,
+   * React paints the frame, and the effect below opens into it. Opening straight from the
+   * handler works with the overlay and silently does nothing here.
+   */
+  const [openTransaction, setOpenTransaction] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   /**
    * What this change will cost and when it lands, straight from Paddle — `null` while it is
@@ -237,6 +307,10 @@ export function PaddleCheckout(props: Props) {
     initializePaddle({
       token,
       environment: (process.env.NEXT_PUBLIC_PADDLE_ENV ?? 'sandbox') as Environments,
+      /* Passed here *and* at `open()`: the frame settings are documented as belonging to
+         initialisation, and the theme is re-read at the press so a reader who changed it while
+         the page was open does not get the other one. */
+      checkout: { settings: checkoutSettings() },
       eventCallback: (event) => {
         /* `checkout.completed` means Paddle took the money, not that the plan is granted —
            the webhook does that, and it may land a second or two later. */
@@ -320,8 +394,42 @@ export function PaddleCheckout(props: Props) {
       return
     }
 
-    paddle.current?.Checkout.open({ transactionId: result.transactionId })
+    /* Not opened here — see `openTransaction`. The frame has to exist first. */
+    setOpenTransaction(result.transactionId)
     setBusy(false)
+  }
+
+  /**
+   * Draw the payment form, once the element it renders into is on the page.
+   *
+   * Guarded on `ready` as well as on the id, because a reader can press before Paddle.js has
+   * finished loading — the button waits for `ready`, but the two states are independent and an
+   * `open()` against an uninitialised SDK is a silent no-op rather than an error.
+   */
+  const opened = useRef<string | null>(null)
+  useEffect(() => {
+    if (openTransaction === null || !ready) return
+    /* Once per transaction: React mounts every effect twice in development, and a second
+       `open()` into a frame already carrying this checkout redraws it under the reader. */
+    if (opened.current === openTransaction) return
+    opened.current = openTransaction
+    paddle.current?.Checkout.open({ transactionId: openTransaction, settings: checkoutSettings() })
+  }, [openTransaction, ready])
+
+  /**
+   * Back out of a payment form that is open.
+   *
+   * **The overlay had a cross and the frame has nothing**, so without this a reader who opened
+   * the checkout to look at it is stuck with it until they reload — on the one screen where
+   * being stuck reads as «this is going to charge me». The transaction stays where it is,
+   * unpaid and harmless: Paddle bills nothing for a transaction nobody completes, and the next
+   * press simply makes another.
+   */
+  function backOut() {
+    paddle.current?.Checkout.close()
+    opened.current = null
+    setOpenTransaction(null)
+    setMessage(null)
   }
 
   /**
@@ -438,6 +546,10 @@ export function PaddleCheckout(props: Props) {
               type="button"
               onClick={() => setCycle(option)}
               aria-pressed={cycle === option}
+              /* The transaction on the open form was made for one price, server-side. Letting
+                 the toggle move under it would leave the reader looking at a form charging the
+                 other cycle, with the page above it saying this one. «Not now» first. */
+              disabled={openTransaction !== null}
               className={option === cycle ? 'segment-button is-on px-4' : 'segment-button px-4'}
             >
               {option === 'year' ? 'Yearly' : 'Monthly'}
@@ -503,36 +615,61 @@ export function PaddleCheckout(props: Props) {
         </div>
       )}
 
-      {/* `ready` gates the overlay and nothing else: a plan change never opens one, so waiting
-          for Paddle.js to load before allowing it would disable a working button for the sake
-          of a script it does not use. */}
-      <button
-        type="button"
-        className="btn btn-primary mt-4 w-full"
-        onClick={() => (live ? setConfirming(true) : void buy())}
-        /*
-         * **A change is not offered until its price is known**, and that is a safety rule rather
-         * than a nicety: «we could not work out what this costs» is not a state to let somebody
-         * press through, and it is also the state in which there would be no summary for the
-         * dialog to show. A first purchase is different — Paddle's own overlay shows the price
-         * before anything is taken, and is itself the second look — which is why only the change
-         * path waits, and why only the change path opens a dialog of ours.
-         */
-        disabled={busy || paid || (live ? pricing || preview === null : !ready)}
-      >
-        {busy
-          ? 'One moment…'
-          : paid
-            ? 'Payment received'
+      {/*
+        * **The button and the payment form are never both on the page.** Once the form is
+        * drawn it carries the action — a «Pay for Premium» above a live payment form is a
+        * second way to start a second transaction, and the reader cannot tell which of the two
+        * is the real one.
+        *
+        * `ready` gates the frame and nothing else: a plan change never opens one, so waiting
+        * for Paddle.js to load before allowing it would disable a working button for the sake
+        * of a script it does not use.
+        */}
+      {openTransaction === null && (
+        <button
+          type="button"
+          className="btn btn-primary mt-4 w-full"
+          onClick={() => (live ? setConfirming(true) : void buy())}
+          /*
+           * **A change is not offered until its price is known**, and that is a safety rule rather
+           * than a nicety: «we could not work out what this costs» is not a state to let somebody
+           * press through, and it is also the state in which there would be no summary for the
+           * dialog to show. A first purchase is different — Paddle's own form shows the price
+           * before anything is taken, and is itself the second look — which is why only the change
+           * path waits, and why only the change path opens a dialog of ours.
+           */
+          disabled={busy || (live ? pricing || preview === null : !ready)}
+        >
+          {busy
+            ? 'One moment…'
             : live
-            ? /* «Switch to Premium» is the wrong name for the one press that changes nothing
-                 about what the reader has: they already pay for it, and what the button does is
-                 call off the move away from it. */
-              preview?.direction === 'revert'
-                ? `Stay on ${PLAN_LABEL[props.plan]}`
-                : `Switch to ${PLAN_LABEL[props.plan]}`
-              : `Pay for ${PLAN_LABEL[props.plan]}`}
+              ? /* «Switch to Premium» is the wrong name for the one press that changes nothing
+                   about what the reader has: they already pay for it, and what the button does is
+                   call off the move away from it. */
+                preview?.direction === 'revert'
+                  ? `Stay on ${PLAN_LABEL[props.plan]}`
+                  : `Switch to ${PLAN_LABEL[props.plan]}`
+                : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
+      )}
+
+      {/*
+        * Paddle renders into this by class name, so it must be exactly `FRAME_TARGET` and must
+        * already be painted when `open()` runs. Given no height of our own: the frame sizes
+        * itself, and its footer — Paddle's «merchant of record» line — has to stay visible.
+        */}
+      {openTransaction !== null && (
+        <div className="mt-4">
+          <div className={FRAME_TARGET} />
+          {/* Absent once the money has moved: there is nothing left to back out of, and a way
+              out offered under a completed payment reads as a way to undo it. */}
+          {!paid && (
+            <button type="button" className="btn btn-quiet btn-sm mt-2" onClick={backOut}>
+              Not now
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Only ever reachable with a summary in hand: the button that opens it is disabled in
           every state where `summary` is null. */}

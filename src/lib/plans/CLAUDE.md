@@ -85,8 +85,43 @@ renders **the same object** in a dialog. Three things are worth knowing rather t
 Two smaller rules that are easy to undo by accident. `planWithCycle` names both sides of the
 move in full — the opposite of `changeNames`, and right here: a row is read beside its neighbour
 and must stand alone, where a sentence may say only what moves. And **the buy path gets no
-dialog**: Paddle's own overlay shows the price before it takes anything and is itself the second
-look, so a dialog in front of it would be a dialog in front of a dialog.
+dialog**: Paddle's own payment form shows the price before it takes anything and is itself the
+second look, so a dialog in front of it would be a dialog in front of a form.
+
+## The payment form is inline, and that is a decision now (2026-09-14)
+
+`Checkout.open({ transactionId })` with no `settings` gets Paddle's default, which is an overlay
+— so the modal that shipped first was **inherited rather than chosen**, and nothing in this
+repository argued for it. It is inline now, on request, and these are the parts that are easy to
+break from a distance:
+
+- **The frame has to be painted before `Checkout.open` runs.** Paddle finds its target by class
+  name, so opening straight from the click — which works with the overlay — draws nothing at all
+  and reports nothing. `openTransaction` holds the id, React paints the `div`, and an effect
+  opens into it. `FRAME_TARGET` is one constant shared by the setting and the element for the
+  same reason: renaming one silently breaks the other.
+- **The button and the form are never both on the page.** A "Pay for Premium" above a live
+  payment form is a second way to start a second transaction, and it is also what made the
+  overlay's double-press possible.
+- **«Not now» exists because the overlay had a cross and a frame has nothing.** Without it a
+  reader who opened the checkout to look at it is stuck with it until they reload, on the one
+  screen where being stuck reads as «this is about to charge me». It calls `Checkout.close()` and
+  drops the id; the unpaid transaction is harmless and the next press makes another.
+- **The cycle toggle is frozen while a form is open**: the transaction behind it was made
+  server-side for one price, and letting the toggle move under it would leave the reader looking
+  at a form charging the other cycle under a page saying this one.
+- **Three settings are passed and one is deliberately not.** `theme` is read from
+  `documentElement` at the moment of opening — Paddle defaults to `light` whatever the page is
+  doing, which inside our own column would be a white card in a dark one, and `auto` sets no
+  attribute at all, so the fallback asks the system. `variant: 'one-page'` because the default
+  collects details and card on two screens, and a frame changing height between them moves the
+  page under the reader's thumb. `frameStyle` carries a minimum width and **no height**: Paddle
+  grows the frame itself, and a height of ours is what would clip the «merchant of record»
+  footer it is required to show. `locale` is **not** passed: Paddle follows the browser, so an
+  Italian phone gets an Italian payment form.
+- **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
+  nobody has watched is the frame itself — its width on a phone, the theme matching, and that
+  footer being visible.
 
 ## Money going back: `adjustment.*`, and why it only ever touches the Lifetime (2026-09-14)
 
@@ -141,7 +176,7 @@ offer in its place — a waiting change bills nothing, so there is no invoice an
 mail to ride along with. Found on the third review pass of this branch.
 
 - **Sent from the action, not from the webhook**, which is the opposite of `announcePayment`
-  beside it and deliberate. A payment has no action of ours behind it — Paddle's overlay is what
+  beside it and deliberate. A payment has no action of ours behind it — Paddle's own form is what
   the customer pressed — so the webhook is the only place that knows one happened. A plan change
   *is* an action: it knows what was asked for and which day was promised, and it fires exactly
   once per press, where `subscription.updated` arrives twice for one change of cycle and again on
@@ -535,15 +570,16 @@ watched working by anybody.
   no column for the live *cycle* and never has, so the direction of a move cannot be decided
   without asking — and asking Paddle compares against what is actually being billed.
 - **The press that buys twice is the second press on the same screen**, not the exotic one.
-  `busy` goes false the moment Paddle's overlay opens, so when it closes the reader is looking at
+  `busy` went false the moment Paddle's modal opened, so when it closed the reader was looking at
   a live «Pay for Premium» with nothing but a line of text saying the payment arrived — and the
   server-side guard cannot help, because it asks `paddle_subscription_id`, the column the webhook
-  this screen is waiting for has not written yet. `PaddleCheckout`'s `paid` state closes it on
-  `checkout.completed`, which is the only place that knows. Found on the fourth review pass;
-  before it, buying twice needed one press and no bad luck at all.
+  this screen is waiting for has not written yet. Found on the fourth review pass; before it,
+  buying twice needed one press and no bad luck at all. **The inline checkout closed it by
+  construction** a day later — the button and the payment form are never both on the page — and
+  `paid` stayed for the smaller question of whether «Not now» should still be offered.
 - **`/thanks` is no longer where a purchase lands**, and that is a consequence rather than a
-  decision: the overlay closes before the grant exists, so a redirect there would show the plan
-  the reader had before paying. The Free choice still lands there; the paid branch of
+  decision: the payment completes before the grant exists, so a redirect there would show the
+  plan the reader had before paying. The Free choice still lands there; the paid branch of
   `ThanksScreen` is now reachable for a customer only by returning to the URL. What would repair
   it is a screen that waits for the grant, which is a thing to design.
 - **Without the branch on `/checkout/[plan]`, an existing subscriber pressing «Pay» opened a
