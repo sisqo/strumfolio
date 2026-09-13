@@ -157,7 +157,11 @@ watched working by anybody.
   the items are moved **now** with `proration_billing_mode: do_not_bill` — no charge, no credit,
   `current_billing_period` untouched, and the next renewal billing the new lower price by
   itself. Measured with `previewUpdate` on 2026-09-13: `update_summary: null`, no immediate
-  transaction, period unchanged, items after = the new plan. **No cron, no renewal webhook, no
+  transaction, period unchanged, items after = the new plan — and the nested `downgrade` object
+  came back **verbatim**, every key as it was sent. That last one is the mechanism's one real
+  assumption and it is now measured rather than trusted: the SDK converts a request body to
+  snake_case but leaves `customData` alone, and the stamp's keys are written snake_case anyway,
+  so it survives either behaviour. **No cron, no renewal webhook, no
   scheduler** — which is what killed the alternative of holding the change app-side, since until
   such a scheduler ran Paddle would renew at the old, higher price.
   - What Paddle then has wrong is the *entitlement*: its items say Standard while the customer
