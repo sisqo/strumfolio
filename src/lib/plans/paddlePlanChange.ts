@@ -98,8 +98,6 @@ export async function changePaddlePlan(
     const live = await livePaddleSubscription()
     if (!live.ok) return { ok: false, reason: live.reason }
 
-    const subscription = await paddle.subscriptions.get(live.id)
-
     const effect = planChangeEffect(live, { plan, cycle: plan === 'lifetime' ? null : cycle })
     if (!effect.ok) return { ok: false, reason: effect.reason }
 
@@ -128,7 +126,7 @@ export async function changePaddlePlan(
      * Cancelling sets `next_billed_at` to null and clearing restores it, so the subscription
      * comes back to exactly the row it was — verified rather than assumed.
      */
-    if (subscription.scheduledChange) {
+    if (live.scheduled) {
       await paddle.subscriptions.update(live.id, { scheduledChange: null })
     }
 

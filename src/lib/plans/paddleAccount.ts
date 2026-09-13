@@ -69,7 +69,21 @@ export async function paddleAccountRef(): Promise<PaddleAccountRef | null> {
 export type NoLiveSubscription = 'no-subscription' | 'gone' | 'not-live' | 'unexpected-items' | 'unreadable'
 
 export type LivePaddleSubscription =
-  | { ok: true; id: string; plan: Plan; cycle: BillingPeriod | null }
+  | {
+      ok: true
+      id: string
+      plan: Plan
+      cycle: BillingPeriod | null
+      /**
+       * Whether a cancellation (or pause) is already scheduled on this subscription — carried
+       * here **from the same fetch that read the status**, rather than left for the caller to
+       * ask again. Two fetches are two snapshots, and a cancellation landing between them is
+       * invisible to exactly the clear-first step that exists to handle it: the plan change
+       * would then go out against a subscription Paddle still believes is cancelling, and be
+       * refused for carrying a scheduled change. One read, one answer.
+       */
+      scheduled: boolean
+    }
   | { ok: false; reason: NoLiveSubscription }
 
 /**
@@ -114,7 +128,13 @@ export async function livePaddleSubscription(): Promise<LivePaddleSubscription> 
     })
     if (read === null) return { ok: false, reason: 'unreadable' }
 
-    return { ok: true, id: subscription.id, plan: read.plan, cycle: read.cycle }
+    return {
+      ok: true,
+      id: subscription.id,
+      plan: read.plan,
+      cycle: read.cycle,
+      scheduled: subscription.scheduledChange != null,
+    }
   } catch (error) {
     console.error('livePaddleSubscription failed', error)
     return { ok: false, reason: 'unreadable' }

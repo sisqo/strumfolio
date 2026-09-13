@@ -15,7 +15,7 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
-import { livePaddleSubscription } from '@/lib/plans/paddleAccount'
+import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
 import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
@@ -27,7 +27,7 @@ import { loadLifetimeOnSale } from '@/lib/settings/read'
 export const metadata: Metadata = { title: 'Checkout' }
 
 /** The answer when nobody asked — see the `Promise.all` below. */
-const NOTHING_LIVE = Promise.resolve({ ok: false, reason: 'no-subscription' } as const)
+const nothingLive = async (): Promise<LivePaddleSubscription> => ({ ok: false, reason: 'no-subscription' })
 
 interface Props {
   params: Promise<{ plan: string }>
@@ -99,7 +99,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      * able to move a plan whether or not a client token exists: that token is for the browser
      * overlay, and a plan change never opens one.
      */
-    paddleCheckoutEnabled() ? livePaddleSubscription() : NOTHING_LIVE,
+    paddleCheckoutEnabled() ? livePaddleSubscription() : nothingLive(),
   ])
 
   /* Buy, switch, or say nothing doing — `checkoutMode` holds the rule and the argument for it,

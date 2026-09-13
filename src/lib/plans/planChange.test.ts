@@ -108,7 +108,10 @@ describe('checkoutMode', () => {
   })
 
   it('changes the plan of a live subscription', () => {
-    assert.equal(checkoutMode({ ok: true, id: 'sub_1', plan: 'plus', cycle: 'year' }), 'change')
+    assert.equal(
+      checkoutMode({ ok: true, id: 'sub_1', plan: 'plus', cycle: 'year', scheduled: false }),
+      'change',
+    )
   })
 
   /*

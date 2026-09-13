@@ -135,6 +135,10 @@ watched working by anybody.
 - **Direction is plan rank first, cycle only as the tiebreak.** Comparing amounts instead reads
   premium/month → standard/year as a *rise* — €9.99 becomes €34.99 — and would charge on the
   spot for a move made to spend less. With the plan unchanged, yearly is the upgrade.
+- **The subscription is read once, not twice.** `livePaddleSubscription` carries back whether a
+  cancellation is already scheduled, from the same fetch that read the status — a second
+  `subscriptions.get` in the action would be a second snapshot, and a cancellation landing
+  between the two is invisible to precisely the clear-first step below that exists to handle it.
 - **`scheduled_change: null` cannot travel with anything else**: «you cannot combine updating
   schedule_change with other fields». So clearing a pending cancellation is a call of its own,
   and it must come **first** — a subscription carrying a scheduled change refuses the deferred
