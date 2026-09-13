@@ -151,6 +151,7 @@ function paidRow(over: Partial<PaymentHistoryLine> = {}): PaymentHistoryLine {
     couponCode: null,
     couponPercent: null,
     fullAmount: null,
+    moneyBack: false,
     ...over,
   }
 }

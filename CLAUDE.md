@@ -97,8 +97,10 @@ npm run seed      # tsx scripts/seed.ts
 Without `DATABASE_URL` the app reads songs straight from `content/` — the normal way to work
 locally, no database needed. `npm test` is plain `node:test` over pure functions only; there
 is no React component test runner here, so logic worth testing belongs in a plain module (see
-`src/lib/plans/testCard.ts` beside `checkout.ts`: a `'use server'` module may only export
-async functions, so a synchronous check or constant that needs testing lives in a sibling).
+`src/lib/plans/planChange.ts` beside `paddlePlanChange.ts`: a `'use server'` module may only
+export async functions, so a synchronous rule that needs testing lives in a sibling — and
+exporting it from the server module would turn an internal decision into an endpoint the
+browser can call, which `redeemable.ts` was moved out of `checkout.ts` to prevent).
 
 ## Before pushing: verify against the committed snapshot, not the working tree
 

@@ -115,6 +115,17 @@ look, so a dialog in front of it would be a dialog in front of a dialog.
   acted on only once `approved`: refunds are created `pending_approval` and may be rejected, so
   acting on `adjustment.created` alone would take a plan away over a request Paddle turns down.
   Chargebacks carry no such gate — Paddle creates them already applied.
+- **The payment history had to learn the vocabulary too**, and did not until a third review
+  pass (2026-09-14). Every delivered event is a `paddle_events` row and the customer's own
+  `/billing` renders them, so subscribing to `adjustment.*` put a bare «Event» with no amount
+  into somebody's history on the very day their refunded Lifetime stopped working — the exact
+  failure `history.ts` already documents having fixed once for a different event family.
+  `adjustmentAction` reads `action` and `status` together, the same pair `adjustmentEffect`
+  gates on: a refund shows as *requested* until Paddle approves it and *refunded* after, which
+  is two rows for one refund because that is two things that happened. Only an approved refund,
+  a chargeback or a credit is marked `moneyBack` and drawn with a minus. **`collected` on the
+  operator's strip is untouched and still means «everything ever charged»** — netting refunds
+  into it would change what an operator metric means, which is a decision and not a defect.
 - **The destination has to carry the events or none of this fires.** `adjustment.created` and
   `adjustment.updated` were added to the sandbox preview destination on 2026-09-14 (it had nine
   event types and neither of them); **the live destination does not exist yet and must be created

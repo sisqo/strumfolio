@@ -55,6 +55,13 @@ export type PaddleEventAction =
   | 'past_due'
   | 'paused'
   | 'resumed'
+  /* Money going back, which is the other direction and needs its own words — see below. */
+  | 'refund_pending'
+  | 'refunded'
+  | 'refund_rejected'
+  | 'credited'
+  | 'chargeback'
+  | 'reversed'
 
 const PADDLE_ACTIONS: Record<string, PaddleEventAction> = {
   'transaction.completed': 'payment',
@@ -66,6 +73,47 @@ const PADDLE_ACTIONS: Record<string, PaddleEventAction> = {
   'subscription.paused': 'paused',
   'subscription.resumed': 'resumed',
 }
+
+/**
+ * An adjustment as a ledger line — money going the other way, which arrived in this table the
+ * day the destination was subscribed to `adjustment.created`/`adjustment.updated` and had
+ * nothing here to read it.
+ *
+ * **The row was the bare «Event» this file already documents having fixed once**, and on the
+ * worst possible day: a refunded Lifetime loses its plan (`adjustmentEffect`) and the customer's
+ * own payment history said only that something had happened, with no amount. The ledger had the
+ * event; the screen could not say it.
+ *
+ * **Read from `action` and `status` together, never from the event name.** Both event types
+ * carry both fields, a refund is created `pending_approval` and *becomes* `approved` — so the
+ * pair of rows a real refund writes reads «requested» then «refunded», which is what happened,
+ * rather than the same sentence twice. The same gate `adjustmentEffect` applies to deciding
+ * whether to revoke, pointed at deciding what to *say*.
+ *
+ * **Only an `approved` refund, a chargeback or a credit is money that has actually gone back**,
+ * which is what `moneyBack` marks and what earns the minus sign on the screen. A request still
+ * pending must never be drawn as a repayment: Paddle rejects some of them.
+ *
+ * `credit` is not a repayment to a card at all but a balance against future invoices — the
+ * distinction `plans/CLAUDE.md` spends a paragraph on for B7 — so it is its own word here too.
+ *
+ * Documented, not measured: the payload shape is Paddle's published example for these two
+ * events, since nobody has yet driven a real refund through the sandbox. Everything is read
+ * defensively, so an unexpected shape falls back to a dated row rather than throwing.
+ */
+export function adjustmentAction(action: string | null, status: string | null): PaddleEventAction | 'unknown' {
+  if (action === 'chargeback_reverse' || action === 'chargeback_warning_reverse' || status === 'reversed') {
+    return 'reversed'
+  }
+  if (status === 'rejected') return 'refund_rejected'
+  if (action === 'chargeback' || action === 'chargeback_warning') return 'chargeback'
+  if (action === 'credit') return 'credited'
+  if (action === 'refund') return status === 'approved' ? 'refunded' : 'refund_pending'
+  return 'unknown'
+}
+
+/** The three that mean the customer has their money, or its value, back. */
+const MONEY_BACK: ReadonlySet<PaddleEventAction | 'unknown'> = new Set(['refunded', 'chargeback', 'credited'])
 
 /**
  * Cents as Paddle sends them, as euro as `PRICES` prints it: `'9999'` → `'99.99'`.
@@ -108,6 +156,14 @@ export interface PaymentHistoryLine {
   couponCode: string | null
   couponPercent: string | null
   fullAmount: string | null
+  /**
+   * Whether this line's `amount` went **back** to the customer rather than being taken from
+   * them — an approved refund, a chargeback, a credit. A separate flag rather than a negative
+   * `amount`, because every reader of that field treats it as a magnitude (`paymentSummary`
+   * sums it, `euro()` prefixes a symbol) and a minus sign smuggled into the string would be
+   * arithmetic hiding in a label.
+   */
+  moneyBack: boolean
 }
 
 /**
@@ -152,6 +208,7 @@ const NOTHING: LineFields = {
   couponCode: null,
   couponPercent: null,
   fullAmount: null,
+  moneyBack: false,
 }
 
 /** The mock's own payload: flat fields this file wrote itself. */
@@ -166,6 +223,8 @@ function fromMockPayload(eventType: string, payload: Record<string, unknown>): L
     couponCode: typeof couponCode === 'string' ? couponCode : null,
     couponPercent: typeof couponPercent === 'string' ? couponPercent : null,
     fullAmount: typeof fullAmount === 'string' ? fullAmount : null,
+    /* The mock never gave anything back — it had no way to. */
+    moneyBack: false,
   }
 }
 
@@ -191,6 +250,15 @@ function fromPaddleEvent(eventType: string, payload: Record<string, unknown>): L
   const data = payload.data
   if (data === null || typeof data !== 'object') return NOTHING
 
+  /*
+   * **An adjustment is read before anything else, because it is shaped differently.** Its
+   * totals sit at the top of `data` rather than under `details`, and its `items` carry a
+   * transaction item rather than a price — so there is no `custom_data` stamp on it and the
+   * plan stays null, which is why none of the labels this maps to name one. Saying «Refunded
+   * an unknown plan» would be worse than saying «Refunded».
+   */
+  if (eventType.startsWith('adjustment.')) return fromAdjustment(data as Record<string, unknown>)
+
   const { items, details } = data as Record<string, unknown>
 
   const stamp = Array.isArray(items)
@@ -211,6 +279,20 @@ function fromPaddleEvent(eventType: string, payload: Record<string, unknown>): L
     cycle: stamp?.cycle === 'year' || stamp?.cycle === 'month' ? stamp.cycle : null,
     amount: chargeable && typeof totals?.total === 'string' ? centsToEuro(totals.total) : null,
   }
+}
+
+/** An adjustment's `data`, which `adjustmentAction` turns into a word and a direction. */
+function fromAdjustment(data: Record<string, unknown>): LineFields {
+  const read = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+  const action = adjustmentAction(read(data.action), read(data.status))
+
+  const totals = data.totals as { total?: unknown; currency_code?: unknown } | undefined
+  /* Euro only, the same guard a transaction gets and for the same reason: `euro()` would stamp
+     a € on a figure in another currency. The listino is euro-only, so this is a guard against
+     a future that has not happened. */
+  const total = totals?.currency_code === 'EUR' && typeof totals.total === 'string' ? centsToEuro(totals.total) : null
+
+  return { ...NOTHING, action, amount: total, moneyBack: MONEY_BACK.has(action) }
 }
 
 /**

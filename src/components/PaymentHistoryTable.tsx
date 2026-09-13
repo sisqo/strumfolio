@@ -42,6 +42,30 @@ function describeEvent(line: PaymentHistoryLine): string {
     case 'resumed':
       return `Subscription resumed — ${plan}`
 
+    /*
+     * Money going back. **None of these names a plan**, and that is the payload rather than a
+     * style: an adjustment carries transaction items, not prices, so there is no `custom_data`
+     * stamp to read and `plan` is always null here — «Refunded an unknown plan» is what naming
+     * one would produce.
+     *
+     * «Requested» and «Refunded» are deliberately two different rows for one refund: Paddle
+     * creates them `pending_approval` and approves them separately, and a request drawn as a
+     * repayment would tell somebody they had their money back before they did.
+     */
+    case 'refund_pending':
+      return 'Refund requested — waiting for approval'
+    case 'refunded':
+      return 'Refunded'
+    case 'refund_rejected':
+      return 'Refund request declined'
+    /* Not a repayment to a card: a balance held against what is billed next. */
+    case 'credited':
+      return 'Credited to your account'
+    case 'chargeback':
+      return 'Charged back through the bank'
+    case 'reversed':
+      return 'Reversed'
+
     default:
       return 'Event'
   }
@@ -135,7 +159,9 @@ export function PaymentHistoryTable({
                     <span className="sr-only">, now </span>
                   </>
                 )}
-                {line.amount !== null ? euro(line.amount) : '—'}
+                {/* A minus on what went back, so a refund is not read as a second charge sitting
+                    under the first — the two figures are otherwise identical and adjacent. */}
+                {line.amount !== null ? `${line.moneyBack ? '−' : ''}${euro(line.amount)}` : '—'}
                 {line.couponCode !== null && (
                   <span className={ledger ? 'acct-ledger-coupon' : 'block text-[0.75rem] text-muted'}>
                     {line.couponCode}

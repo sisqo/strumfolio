@@ -7,8 +7,8 @@ Percentage-off campaigns, native to Strumfolio: no Paddle client exists, so this
 source of truth until one does. The load-bearing parts:
 
 - `types.ts` — the vocabulary and every parser, with **no `@/lib/db` import** so client
-  components can value-import it. `CAMPAIGN_FAILURE_MESSAGE` lives here for the `testCard.ts`
-  reason: a `'use server'` module may only export async functions.
+  components can value-import it. `CAMPAIGN_FAILURE_MESSAGE` lives here for the sibling-module
+  reason the root `CLAUDE.md` gives: a `'use server'` module may only export async functions.
 - `discount.ts` — pure, `node:test`-covered. `discountedAmount` works in **integer cents,
   never floats**, and its test holds the commercial deck's own 30% promo table as a fixture:
   all seven figures agree, so a rounding change names the row of the deck that stopped being
@@ -31,10 +31,18 @@ source of truth until one does. The load-bearing parts:
   `accounts.coupon_code`/`coupon_percent`/`discount_ends_at`.** That date passes with no
   request there to observe it, exactly like `planExpiresAt`, so `subscriptionColumnsOf` never
   lets the raw columns out — it returns `{ subscription, discount }` already resolved.
-- **`mockPurchase` reads the cookie itself and re-validates.** The coupon is never an
-  argument: `CheckoutScreen` is `'use client'`, and a code travelling as a parameter is a
-  self-service discount of any size while the mock checkout is live. The screen's `coupon`
-  prop decides what is *printed*; `redeemableCouponFor` decides what is charged.
+- **The write path reads the cookie itself and re-validates.** The coupon is never an
+  argument: `PaddleCheckout` is `'use client'`, and a code travelling as a parameter is a
+  self-service discount of any size. The screen's `coupon` prop decides what is *printed*;
+  `redeemableCouponFor` (a plain sibling of `checkout.ts`, for the reason above) decides what
+  is charged — and today what it decides is that a redeemable coupon **refuses the sale**,
+  since no campaign has a Paddle Discount behind it yet.
+- **`coupon_redemptions` has readers and no writer** (since 2026-09-13). `mockPurchase` wrote
+  the row; nothing replaced it, so `timesUsed` counts zero for ever, `redeemability`'s
+  once-per-account gate can never refuse, and `views.ts`' views→redemptions join is empty.
+  Unreachable rather than exploitable — a redeemable coupon refuses the sale — but the insert
+  has to come back in the same commit that lets a coupon be sold, or every campaign ceiling is
+  silently uncapped. The three `accounts.coupon*` columns lost their writer the same day.
 - **The cookie carries a code and nothing else.** Every read re-derives state, window, both
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the

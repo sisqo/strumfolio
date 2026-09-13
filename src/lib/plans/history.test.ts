@@ -20,6 +20,7 @@ function paidRow(over: Partial<PaymentHistoryLine> = {}): PaymentHistoryLine {
     couponCode: null,
     couponPercent: null,
     fullAmount: null,
+    moneyBack: false,
     ...over,
   }
 }
@@ -136,5 +137,84 @@ describe('readLine — reading a stored payload as a ledger line', () => {
     assert.equal(line.action, 'purchase')
     assert.equal(line.plan, 'plus')
     assert.equal(line.amount, '6.99')
+  })
+
+  /*
+   * **Adjustments, which arrived in this table before anything here could read them.** The
+   * destination gained `adjustment.created`/`adjustment.updated` on 2026-09-14, so a refunded
+   * Lifetime — the case `adjustmentEffect` exists for — wrote a bare «Event» with no amount
+   * into the customer's own history on the day their plan went away. Shape from Paddle's
+   * published example, trimmed to what this reads.
+   */
+  const adjustment = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      event_id: 'evt_3',
+      event_type: 'adjustment.created',
+      data: {
+        id: 'adj_1',
+        action: 'refund',
+        status: 'pending_approval',
+        customer_id: 'ctm_1',
+        transaction_id: 'txn_1',
+        items: [{ id: 'adjitm_1', item_id: 'txnitm_1', type: 'full', totals: { total: '9999' } }],
+        totals: { subtotal: '8196', tax: '1803', total: '9999', currency_code: 'EUR' },
+        ...over,
+      },
+    })
+
+  it('says a refund is only requested until Paddle has approved it', () => {
+    const line = readLine('adjustment.created', adjustment())
+
+    assert.equal(line.action, 'refund_pending')
+    assert.equal(line.amount, '99.99')
+    /* The figure is real; the repayment is not, yet. Drawn with a minus it would tell somebody
+       they had their money back over a request Paddle may still refuse. */
+    assert.equal(line.moneyBack, false)
+  })
+
+  it('reads the approval, the refusal and a chargeback as three different things', () => {
+    const approved = readLine('adjustment.updated', adjustment({ status: 'approved' }))
+    assert.equal(approved.action, 'refunded')
+    assert.equal(approved.moneyBack, true)
+
+    const rejected = readLine('adjustment.updated', adjustment({ status: 'rejected' }))
+    assert.equal(rejected.action, 'refund_rejected')
+    assert.equal(rejected.moneyBack, false)
+
+    /* Paddle creates a chargeback already applied — there is no approval to wait for. */
+    const chargeback = readLine('adjustment.created', adjustment({ action: 'chargeback', status: 'approved' }))
+    assert.equal(chargeback.action, 'chargeback')
+    assert.equal(chargeback.moneyBack, true)
+  })
+
+  /* A credit is a balance against future invoices, not money leaving the business — the
+     distinction B7 turns on, kept in the words the reader sees. */
+  it('calls a credit a credit', () => {
+    const line = readLine('adjustment.created', adjustment({ action: 'credit', status: 'approved' }))
+
+    assert.equal(line.action, 'credited')
+    assert.equal(line.moneyBack, true)
+  })
+
+  it('names no plan on an adjustment, because the payload carries none', () => {
+    const line = readLine('adjustment.created', adjustment())
+
+    assert.equal(line.plan, null)
+    assert.equal(line.cycle, null)
+  })
+
+  it('refuses an adjustment total in another currency, like every other total here', () => {
+    const line = readLine('adjustment.created', adjustment({ totals: { total: '9999', currency_code: 'USD' } }))
+
+    assert.equal(line.action, 'refund_pending')
+    assert.equal(line.amount, null)
+  })
+
+  /* An action nobody has thought about is a dated row, never a guess about money. */
+  it('falls back to a bare event on an adjustment it cannot classify', () => {
+    const line = readLine('adjustment.created', adjustment({ action: 'something_new', status: 'approved' }))
+
+    assert.equal(line.action, 'unknown')
+    assert.equal(line.moneyBack, false)
   })
 })

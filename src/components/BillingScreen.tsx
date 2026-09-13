@@ -104,12 +104,14 @@ function canCancel(current: SubscriptionState, live: Plan | null): boolean {
  * table and `/checkout/[plan]`'s buy flow, and reproducing that table here would be the exact
  * duplication v3.6 decided against.
  *
- * **There is no "expire my plan now" here**, and there is no longer one anywhere: the server
- * action still exists for scripts and tests. It used to sit here behind nothing but the words
- * "test only" — and with `SONGBOOK_MOCK_CHECKOUT` on in production, that put "expire my plan
- * right now" in front of every paying customer, on the one screen they visit to manage what
- * they paid for. A label is not a permission: an owner who needs to exercise the freeze path
- * calls the action directly instead.
+ * **There is no "expire my plan now" here, and there is no longer one anywhere.** It used to
+ * sit on this screen behind nothing but the words "test only" — and with the mock checkout on
+ * in production, that put "expire my plan right now" in front of every paying customer, on the
+ * one screen they visit to manage what they paid for. A label is not a permission. It was
+ * moved to `/accounts/[email]`, and then `forceExpireNow` was deleted outright with the mock
+ * on 2026-09-13, because nothing can make Paddle believe a period ended early: the freeze path
+ * is now exercisable only by waiting out a real date or writing the column by hand
+ * (`plans/CLAUDE.md` records that as a real loss of an operator capability).
  *
  * Reachable from `UserMenu`'s Settings screen, as a plain link — the same way "Change
  * password" already leaves that panel for its own dedicated page instead of trying to fit

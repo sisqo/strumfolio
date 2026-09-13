@@ -91,8 +91,8 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - **`PLAN_COLUMNS`, `PlanRow` and `storedPlanFrom` live in `planColumns.ts`, not in `read.ts`.**
   `read.ts` is `'use server'` and may export only async functions, so a synchronous mapper
   exported from it compiles clean under `tsc --noEmit` and then fails at `next build` with
-  "Server Actions must be async functions" — the `testCard.ts` arrangement the root `CLAUDE.md`
-  describes. `/leads`' rollup is the third caller of that one definition.
+  "Server Actions must be async functions" — the sibling-module arrangement the root
+  `CLAUDE.md` describes. `/leads`' rollup is the third caller of that one definition.
 - **Giving a gift offers to tell the reader, and that is a second action, never part of
   `setGrant`.** The gift is written first; `GiftNoticeModal` then opens over the saved state,
   so dismissing it, going offline or a refused send all leave the account exactly as set. Four
@@ -115,8 +115,6 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
     second press is answered by the unique index, through `already-sent`.
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
-- **`forceExpireNow(ownerEmail)` takes the address explicitly**, checking `isOwner` inside; it
-  deliberately does not reuse the cookie-scoped self-service path.
 - **`ViewingAsPill` (`TopBar.tsx`) is the real exit control** for impersonation, not a label;
   `SwitchAccountButton` performs the same three steps with a different `targetEmail`. A guest's
   own copy of a control must never be able to broadcast into the owner's session.

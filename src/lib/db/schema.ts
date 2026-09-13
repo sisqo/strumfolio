@@ -267,9 +267,16 @@ export const accounts = pgTable(
     /*
      * The coupon this account is living under right now — the *live* answer to "what will this
      * account pay next", as opposed to `coupon_redemptions`, which is the ledger of what it
-     * already paid. Written together, in one transaction, by the webhook alone, and always
-     * written: a purchase with no coupon has to clear what the last one left rather than
-     * inherit it.
+     * already paid. Written together, in one transaction, and always written: a purchase with
+     * no coupon has to clear what the last one left rather than inherit it.
+     *
+     * **Nothing writes them today, and that is the honest state rather than a gap to patch.**
+     * `mockPurchase` wrote all three and was deleted with the mock on 2026-09-13; the Paddle
+     * webhook does not, because no sale can carry a coupon at all — `startPaddleCheckout` and
+     * `changePaddlePlan` both refuse outright (`coupon-unsupported`) while a campaign is
+     * redeemable, since no campaign has a Paddle Discount behind it. Restoring the write
+     * belongs to that work, and until then these columns only ever hold what a hand-written
+     * row or the mock left. Same for `coupon_redemptions` below.
      *
      * Read only through `liveDiscount` (`lib/coupons/discount.ts`), never in the clear, for the
      * reason `planExpiresAt` above is read through `resolveSubscription`: `discountEndsAt` is a
@@ -1231,6 +1238,13 @@ export const couponCampaigns = pgTable(
  * back when `SONGBOOK_MOCK_CHECKOUT` existed and no redemption was a real payment. That flag was
  * deleted on 2026-09-13; the index is load-bearing regardless, since the ceiling is a promise
  * made to whoever runs the campaign.
+ *
+ * **The table has readers and no writer since that deletion.** `timesUsed` therefore counts
+ * zero for ever, and `redeemability`'s once-per-account gate can never refuse anybody — both
+ * unenforceable and both unreachable, because a redeemable coupon refuses the sale itself
+ * (`accounts.coupon_code` above). The insert goes back in with the Paddle Discounts, in the
+ * same transaction as whatever records the payment; anything that starts selling at a discount
+ * without it silently uncaps every campaign ceiling.
  *
  * `campaignId` has a foreign key because a campaign is never deleted, only archived.
  *
