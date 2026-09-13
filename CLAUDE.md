@@ -498,7 +498,9 @@ happens now** — so a drop in tier waits, and so does any move onto monthly bil
 is paid for, even one that raises the tier (B7). Two proration modes in the whole app, and no
 third. `plans/CLAUDE.md` carries the rest, including the five measurements that
 settle it: `scheduled_change: null` may not travel with any other field; a subscription carrying
-a scheduled change refuses the deferred proration modes; a nested object inside `custom_data`
+a scheduled change keeps it through an items change and quietly moves its date (the reason the
+app clears first, restated on 2026-09-14 after the refusal this file used to claim turned out not
+to happen); a nested object inside `custom_data`
 comes back verbatim; **`do_not_bill` preserves the period only while the frequency is
 unchanged**, restarting it on any change of cycle; and `next_billed_at` — the repair for that —
 is ignored beside an items change and refused alone, so it is always a second call.

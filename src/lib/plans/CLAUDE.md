@@ -203,6 +203,14 @@ break from a distance:
   somebody bought is a fact about the past, the other columns describe a subscription an
   adjustment says nothing about, and `plan` surviving is exactly what lets `chargeback_reverse`
   give it back by writing `active` over the top. The same reversibility argument as B9.
+- **Two of its assumptions were driven live on 2026-09-14 and held.** A `type: 'full'` refund
+  created through the API comes back with `items: [{ type: 'full', … }]` — the per-item shape
+  `adjustmentEffect` reads, which until then was inferred from the reference rather than seen —
+  and it is created `pending_approval`, which is the gate that stops a request Paddle may yet
+  refuse from taking a plan away. The event reached the preview deployment and was accepted on
+  the first attempt, so the handler subscribed the day before is wired end to end. What is still
+  **documented and never observed** is the half that matters most: a refunded *Lifetime*, and
+  Paddle cancelling a subscription of its own accord on a chargeback.
 - **Two decisions, stated because they are not derivable.** Only a *wholly* full adjustment
   revokes — `type` is per item and there is no adjustment-level «full», so a partial refund that
   happens to add up to the whole price does not revoke, which is the safe side. And a refund is
@@ -557,10 +565,20 @@ watched working by anybody.
   between the two is invisible to precisely the clear-first step below that exists to handle it.
 - **`scheduled_change: null` cannot travel with anything else**: «you cannot combine updating
   schedule_change with other fields». So clearing a pending cancellation is a call of its own,
-  and it must come **first** — a subscription carrying a scheduled change refuses the deferred
-  proration modes outright, so a downgrade attempted before the clear fails for every reader
-  who cancelled and changed their mind. Cancelling also nulls `next_billed_at`; clearing
-  restores it.
+  and it must come **first**. Cancelling also nulls `next_billed_at`; clearing restores it —
+  measured again on 2026-09-14, both halves.
+  - **The reason it must come first changed on 2026-09-14, and the old one was wrong.** This
+    file said a subscription carrying a scheduled change «refuses the deferred proration modes
+    outright». It does not: driven live against the sandbox, a `do_not_bill` items change on a
+    subscription scheduled to cancel was **accepted** — twice, once with the frequency moving and
+    once without. What happens instead is worse than a refusal, which is why the rule survives
+    its own justification: the cancellation **stays**, and on a change of frequency its
+    `effective_at` silently follows the restarted period. Measured: a cancel set for
+    2026-10-13T08:35 came back reading 2026-10-13T22:20 after a year→month move. A reader who
+    cancelled and then changed plan would keep a cancellation nobody told them about, on a day
+    neither they nor this app chose.
+  - Nothing in the code changes: `changePaddlePlan` has always cleared first, and it clears only
+    when `livePaddleSubscription` says a scheduled change is standing.
 - **Two calls are two `subscription.updated` events, and nothing here enforces their order** —
   stated as an accepted limitation rather than left to be found. `webhookApply.ts` writes
   whichever arrives last: no `occurred_at` comparison, no version column. The first of the pair
