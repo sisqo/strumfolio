@@ -4,7 +4,7 @@
  * The one write `/emails` needs: a real copy of a template, sent to whoever is signed in,
  * so it can be checked in an actual inbox instead of only rendered in the browser. Re-checks
  * `isOwner` itself rather than trusting the page's own gate — same discipline every write in
- * `plans/checkout.ts` already follows toward `mockCheckoutEnabled()`.
+ * `plans/checkout.ts` already follows toward its own gates.
  *
  * Always the signed-in identity (`session.user.email`), never whichever account the
  * switcher currently points at: none of the three templates belong to an account, so that

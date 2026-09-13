@@ -71,26 +71,6 @@ export function plansEnforced(): boolean {
 }
 
 /**
- * Whether the mock checkout (`lib/plans/checkout.ts`, `/checkout`) is live — a stand-in for
- * Paddle that writes real `plan`/`planStatus`/`planExpiresAt` rows so the entitlement gates,
- * the account menu's plan badge and the freeze path can all be exercised for real before
- * there is an actual payment processor behind any of it. Same shape as `plansEnforced` and
- * for the same reason: a function here, reading the one env var, keeps every caller —
- * `/pricing`'s buy buttons and `/checkout` itself — agreeing about what "on" means, rather
- * than two `process.env` reads that could drift apart over a typo in one of them.
- *
- * **This is not a security boundary.** While it answers true, any signed-in reader can give
- * their own account any plan for nothing, because there is nothing behind this to actually
- * charge — see `mockPurchase`'s own comment. It exists to be switched on for a short test
- * window and back off, the same way `SONGBOOK_FORCE_PLAN` is a deliberately risky local-only
- * escape hatch rather than a feature meant to run indefinitely, and it is deleted outright,
- * flag and route both, the day a real checkout replaces it.
- */
-export function mockCheckoutEnabled(): boolean {
-  return process.env.SONGBOOK_MOCK_CHECKOUT === 'on'
-}
-
-/**
  * Whether a real Paddle checkout can be opened from this deployment.
  *
  * Both halves are required and neither is a flag somebody flips: the server needs

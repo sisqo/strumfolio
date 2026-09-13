@@ -9,7 +9,7 @@ import {
   loadCheckoutStatus,
   loadFreezeState,
   loadMyPaymentHistory,
-  type MockSubscriptionState,
+  type SubscriptionState,
 } from '@/lib/plans/checkout'
 import {
   cancelPaddleSubscription,
@@ -53,7 +53,7 @@ type Status =
   | { state: 'unavailable'; reason: string }
   | {
       state: 'ready'
-      current: MockSubscriptionState
+      current: SubscriptionState
       live: Plan | null
       history: PaymentHistoryLine[]
       /*
@@ -93,7 +93,7 @@ type Status =
  * out of a plan dressed up as a missing button. `mockCancel` overwrites the pending downgrade
  * with `'free'`, which is exactly what pressing Cancel means.
  */
-function canCancel(current: MockSubscriptionState, live: Plan | null): boolean {
+function canCancel(current: SubscriptionState, live: Plan | null): boolean {
   return live !== null && live !== 'free' && live !== 'lifetime' && current.pendingPlan !== 'free'
 }
 

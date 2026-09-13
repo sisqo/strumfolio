@@ -12,7 +12,7 @@
 import { PLAN_LABEL } from './types'
 import type { Plan, PlanStatus } from './types'
 import { euro } from './prices'
-import type { MockSubscriptionState } from './checkout'
+import type { SubscriptionState } from './checkout'
 import type { PaymentHistoryLine } from './history'
 
 /**
@@ -53,7 +53,7 @@ export function formatPlanDate(value: Date): string {
  * a refund or a chargeback has marked `expired` is still a plan that ended, and saying "bought
  * once, nothing to renew or cancel" over it would describe the purchase rather than the state.
  */
-export function subscriptionStatusLine(current: MockSubscriptionState, live: Plan | null): string {
+export function subscriptionStatusLine(current: SubscriptionState, live: Plan | null): string {
   if (current.plan === 'free') return 'Free — nothing bought yet.'
   if (current.status === 'expired') return `${PLAN_LABEL[current.plan]}, expired.`
   if (current.status === 'grace') return `${PLAN_LABEL[current.plan]}, payment retrying.`
@@ -108,7 +108,7 @@ export function subscriptionStatusLine(current: MockSubscriptionState, live: Pla
  * a charge that never comes — the mistake the purchase email was making until v3.13.
  */
 export function lastPaymentLine(
-  current: MockSubscriptionState,
+  current: SubscriptionState,
   history: PaymentHistoryLine[],
 ): string | null {
   if (current.plan === 'free') return null
@@ -142,7 +142,7 @@ export function lastPaymentLine(
  * The bare form is also what an `expiresAt` of `null` gets: there is no period to name, and
  * `mockCancel` drops that row on the spot rather than scheduling anything.
  */
-export function cancelQuestion(current: MockSubscriptionState): string {
+export function cancelQuestion(current: SubscriptionState): string {
   const day = scheduledChangeDay(current.status, current.expiresAt)
   const label = PLAN_LABEL[current.plan]
 
@@ -171,7 +171,7 @@ export function cancelQuestion(current: MockSubscriptionState): string {
  * `cancelQuestion` means there is no period to name. A caller that has to tell the two apart —
  * `mockCancel` does — asks `expiresAt` itself, which is the question it is actually about.
  *
- * `status`/`expiresAt` as two arguments rather than a `MockSubscriptionState`, so the resolved
+ * `status`/`expiresAt` as two arguments rather than a `SubscriptionState`, so the resolved
  * `SubscriptionColumns` that `checkout.ts` holds can be passed without being reshaped into a
  * type it does not have.
  */
@@ -191,7 +191,7 @@ export function scheduledChangeDay(status: PlanStatus, expiresAt: Date | null): 
  * attrition, and what makes it acceptable rather than disputed is that it is written where the
  * customer can find it afterwards.
  *
- * Takes `MockSubscriptionState.discount`, which has already been resolved through
+ * Takes `SubscriptionState.discount`, which has already been resolved through
  * `liveDiscount` — so this function never has to know that `discountEndsAt` is a date nobody
  * writes on the day it passes. `null` in, `null` out, and `/billing` renders nothing.
  *

@@ -3,8 +3,6 @@ import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
-import { CheckoutScreen } from '@/components/CheckoutScreen'
-import type { CheckoutCoupon } from '@/components/CheckoutScreen'
 import { CouponBar } from '@/components/CouponBar'
 import { PaddleCheckout } from '@/components/PaddleCheckout'
 import { CouponMemory } from '@/components/CouponMemory'
@@ -19,7 +17,7 @@ import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans
 import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
-import { mockCheckoutEnabled, paddleCheckoutEnabled } from '@/lib/plans/resolve'
+import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
@@ -53,14 +51,12 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
 
   const { cycle, coupon: couponParam, promo: promoParam } = await searchParams
   /*
-   * Two readings of the same parameter, and the Paddle branch needs the sharper one. `?cycle=`
-   * absent and `?cycle=month` are the same thing to a first-time buyer and opposite things to
-   * somebody already on a yearly plan — see `PaddleCheckout`'s own note. `CheckoutScreen`
-   * keeps the flattened form it has always had, since the mock has `loadMostRecentCycleFor` to
-   * correct it once the ledger loads.
+   * **Nullable on purpose.** `?cycle=` absent and `?cycle=month` are the same thing to a
+   * first-time buyer and opposite things to somebody already on a yearly plan: the first asked
+   * for nothing, the second asked for monthly. Flattening the two is what made «Switch to
+   * Premium» open on Monthly for a yearly subscriber — see `PaddleCheckout`'s own note.
    */
   const requestedCycle: BillingPeriod | null = cycle === 'year' ? 'year' : cycle === 'month' ? 'month' : null
-  const initialCycle: BillingPeriod = requestedCycle ?? 'month'
 
   /*
    * Resolved here rather than inside `CheckoutScreen`, for `Viewer`'s reason on /pricing: a
@@ -145,16 +141,6 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   /* Signed in, with a live campaign applied — the only case there is a row to write. */
   const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
 
-  const coupon: CheckoutCoupon | null =
-    campaign === null
-      ? null
-      : {
-          code: campaign.code,
-          percent: campaign.discountPercent,
-          months: campaign.discountMonths,
-          appliesToLifetime: campaign.appliesToLifetime,
-        }
-
   return (
     <PrefsProvider songSlug={null}>
       <TopBar current="checkout" />
@@ -190,13 +176,17 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
         </div>
 
         {/*
-          * Two ways to sell, and the environment decides which — see `paddleCheckoutEnabled`.
-          * They are deliberately exclusive rather than stacked: a disabled "not on sale yet"
-          * button beside a working one is a screen nobody can read correctly, and the mock is
-          * on its way out. `CheckoutScreen` keeps the cycle toggle and the coupon copy, so the
-          * Paddle branch names its own amount rather than inheriting one.
+          * **One way to sell.** There were two until the mock came out, and the reason there is
+          * no fallback now is not tidiness: a checkout that cannot take money is not a lesser
+          * checkout, it is a screen that asks somebody for a decision and then cannot honour it.
+          * An environment without Paddle configured says so in a sentence instead.
           */}
-        {paddleCheckoutEnabled() ? (
+        {!paddleCheckoutEnabled() ? (
+          <p className="mt-6 text-lg">
+            Plans are not on sale in this environment. Nothing here can take a payment, so there
+            is nothing to fill in.
+          </p>
+        ) : (
           plan === 'lifetime' ? (
             /*
              * Lifetime is a one-time price, and `subscriptions.update` takes recurring items
@@ -225,8 +215,6 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
               live={liveProps}
             />
           )
-        ) : (
-          <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} open={mockCheckoutEnabled()} />
         )}
         <Footer />
 

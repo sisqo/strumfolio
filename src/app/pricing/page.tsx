@@ -22,7 +22,7 @@ import type { Campaign } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
-import { mockCheckoutEnabled } from '@/lib/plans/resolve'
+import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 import { PLAN_VALUES, PLANS } from '@/lib/plans/types'
@@ -223,10 +223,15 @@ const TRUST_NOTE_REST = 'If a subscription ends, your songs stay readable and ex
 /**
  * Read once and reused by every column and by the Lifetime block below, rather than called
  * separately in each: it is a build-time env read (see its own comment in `resolve.ts`), so
- * every call in one build agrees regardless, but one name for "is the mock live" is one fewer
- * thing to keep saying the same way.
+ * every call in one build agrees regardless, but one name for "can anybody actually buy" is one
+ * fewer thing to keep saying the same way.
+ *
+ * `paddleCheckoutEnabled()` since the mock came out, and the meaning sharpened with it: this
+ * used to ask whether a *pretend* purchase was switched on, and now asks whether the deployment
+ * is configured to take money. There is no flag behind it — configuration is the switch — so
+ * there is no longer a state where this page offers buttons nothing can honour.
  */
-const CHECKOUT_LIVE = mockCheckoutEnabled()
+const CHECKOUT_LIVE = paddleCheckoutEnabled()
 
 /**
  * One price slot — the number a card shows, and everything a coupon adds beside it.

@@ -9,7 +9,6 @@ import { ClearRateLimitRow } from '@/components/ClearRateLimitRow'
 import { CouponsSeenCard } from '@/components/CouponsSeenCard'
 import { DeleteAccountRow } from '@/components/DeleteAccountRow'
 import { Footer } from '@/components/Footer'
-import { ForceExpireRow } from '@/components/ForceExpireRow'
 import { GiftForm } from '@/components/GiftForm'
 import { IconCheck, IconGift, IconReceipt, IconSend, IconShield, IconUser } from '@/components/icons'
 import { InternalNoteForm } from '@/components/InternalNoteForm'
@@ -457,7 +456,6 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
                     `/pricing`. */}
                 {noPlanYet(plan) && <p className="mb-3 text-sm text-muted">{NO_PLAN_LINE}</p>}
                 <GiftForm ownerEmail={detail.ownerEmail} plan={plan} />
-                <ForceExpireRow ownerEmail={detail.ownerEmail} plan={plan} />
               </>
             )}
           </div>

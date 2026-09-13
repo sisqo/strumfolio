@@ -10,7 +10,6 @@
  * arriving in the same table.
  */
 
-import { randomUUID } from 'crypto'
 import { desc, eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db/client'
@@ -23,11 +22,17 @@ import { readPlan } from './types'
 import type { Plan } from './types'
 
 /**
- * What one mock write actually did — the vocabulary a history line can describe.
+ * What the mock used to write — the vocabulary the rows it left behind still speak.
+ *
+ * **Nothing writes these any more**, and they are kept for the reason `paddle_events`' own
+ * schema comment gives: the ledger's job is to have the event. Rows the mock wrote are still in
+ * the development database, and a reader that stopped understanding them would show them as
+ * bare «Event» lines with no amount — a worse screen for nothing gained. `PADDLE_ACTIONS` below
+ * is the live vocabulary.
  *
  * `cancelled_now` is not a duplicate of `scheduled_change` with `plan: 'free'`: that one says
- * "at the end of the period", and `mockCancel` has a branch where there is no period left to
- * end (a row with no `planExpiresAt` — see its own comment), which drops the plan on the spot.
+ * "at the end of the period", and the mock had a branch where there was no period left to end
+ * (a row with no `planExpiresAt`), which dropped the plan on the spot.
  * Logging both the same way put "Scheduled: cancel at period end" in the history directly under
  * a confirmation saying the account was already back on Free.
  */
@@ -134,65 +139,6 @@ export function amountFor(plan: Plan, cycle: BillingPeriod | null): string | nul
 export function mostRecentCycleFor(plan: Plan, history: PaymentHistoryLine[]): BillingPeriod | null {
   const paid = history.find((line) => line.action === 'purchase' && line.plan === plan)
   return paid?.cycle ?? null
-}
-
-/**
- * Writes one mock event for an account — the only write this file makes. `paddleSubscriptionId`
- * is always null, deliberately: nothing here has ever minted one, and that column stays
- * reserved for the real webhook to key on (`checkout.ts`'s own header).
- */
-export async function logMockEvent(input: {
-  accountOwnerEmail: string
-  action: MockEventAction
-  plan: Plan
-  cycle: BillingPeriod | null
-  /**
-   * What was actually charged, as opposed to what the catalogue says today.
-   *
-   * **Passed in rather than recomputed, since coupons landed**, and the change is worth the
-   * paragraph. This used to write `amountFor(input.plan, input.cycle)` — a fresh read of
-   * `PRICES` — which was correct only for as long as nobody was ever charged anything but the
-   * listino. With a discount it reported the full price for a purchase that took less; and
-   * because `paymentHistoryFor` reads this payload back rather than recomputing, a re-price
-   * would have rewritten history that had already happened.
-   *
-   * Omitted for the actions where nothing is charged (`cancelled_now`, `force_expired`,
-   * `kept_current`), which fall back to the catalogue exactly as before — those are records of
-   * a plan changing, not of money moving.
-   */
-  amount?: string | null
-  /** The campaign redeemed, when one was — so a history line can say why it cost less. */
-  coupon?: { code: string; percent: string; fullAmount: string } | null
-}): Promise<void> {
-  const now = new Date()
-  await db().insert(paddleEvents).values({
-    eventId: `mock_${randomUUID()}`,
-    eventType: `mock.${input.action}`,
-    occurredAt: now,
-    /* Both columns, and they are not redundant (v4.7): the address is the historical fact —
-       who this arrived for, never rewritten afterwards — and the id is the pointer every read
-       uses, so a later change of address does not detach a payment from its account. See
-       `paddleEvents` in `db/schema.ts`. */
-    accountOwnerEmail: input.accountOwnerEmail,
-    accountId: accountIdOf(input.accountOwnerEmail),
-    paddleSubscriptionId: null,
-    payload: JSON.stringify({
-      mock: true,
-      action: input.action,
-      plan: input.plan,
-      cycle: input.cycle,
-      /* `undefined` means "nothing was charged here, ask the catalogue"; an explicit `null`
-         from the caller means the same and is preserved as such. See the field's comment. */
-      amount: input.amount === undefined ? amountFor(input.plan, input.cycle) : input.amount,
-      ...(input.coupon == null
-        ? {}
-        : {
-            couponCode: input.coupon.code,
-            couponPercent: input.coupon.percent,
-            fullAmount: input.coupon.fullAmount,
-          }),
-    }),
-  })
 }
 
 /** Everything a ledger line says beyond its id and its date. */

@@ -536,12 +536,12 @@ export function PricingPlans({
                       <Link
                         href={`/checkout/${column.checkoutPlan}${checkoutQuery(period)}`}
                         className="plan-cycle-link"
-                        /* A re-buy of the plan already held also clears a scheduled downgrade,
-                         * by design (`mockPurchase` reads it as changing your mind). The
-                         * checkout screen's own status line spells the pending change out
-                         * before anything is confirmed, so this only has to stop the link
-                         * itself from looking like it touches nothing but the cycle. */
-                        title="Switches this plan to the other billing cycle. If a downgrade or cancellation is scheduled, this cancels it."
+                        /* A change of cycle also calls off a scheduled cancellation, by design
+                         * — `changePaddlePlan` reads it as changing your mind about leaving, and
+                         * clears the `scheduled_change` before moving the plan. A scheduled
+                         * *downgrade* is no longer one of the things this undoes, because Paddle
+                         * cannot schedule one: see `planChange.ts`. */
+                        title="Switches this plan to the other billing cycle. If a cancellation is scheduled, this calls it off."
                       >
                         Change billing cycle
                       </Link>

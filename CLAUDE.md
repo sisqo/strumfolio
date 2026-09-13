@@ -69,8 +69,10 @@ four facts whose absence is expensive are repeated here rather than left behind 
 - **Four tables are still keyed by an email on purpose** — `credentials`,
   `password_reset_tokens`, `sign_ins`, `pending_registrations`. A foreign key on any of them
   breaks sign-in rather than hardening it.
-- **While the mock checkout is on, any signed-in reader can give their account any plan for
-  free.** Neither `SONGBOOK_PLANS` nor `SONGBOOK_MOCK_CHECKOUT` is a security boundary.
+- **The mock checkout was demolished on 2026-09-13** — `SONGBOOK_MOCK_CHECKOUT` no longer
+  exists, and `/checkout/[plan]` sells through Paddle or says it cannot sell. `SONGBOOK_PLANS`
+  gates enforcement and is not a security boundary; whether money can be taken is not a flag at
+  all but whether `PADDLE_API_KEY` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are both configured.
 - **`songbook-attribution` is the first cookie here that is not strictly necessary**, and the
   Cookie Policy had to be rewritten for it: §2 gained a paragraph, «No advertising or third-party
   tracking» and §3's «everything above is strictly necessary… we will ask for your consent» were
@@ -136,7 +138,7 @@ alias included (`strumfolio.com`) — confirmed 2026-08-31. There is no need for
 deploy`/`vercel --prod` for an ordinary code change.
 
 The one case that genuinely needs a manual redeploy: an env var change with **no**
-accompanying code change (e.g. flipping `SONGBOOK_MOCK_CHECKOUT` off). Env vars are baked
+accompanying code change (e.g. adding `PADDLE_API_KEY` to Production). Env vars are baked
 into a deployment at build time, so `vercel env rm <name> production` alone changes nothing
 already deployed. With no commit to push, that means `vercel redeploy <deployment-url>
 --target production --scope sisqoz` — the `--scope` is required, or the CLI reports
@@ -144,8 +146,8 @@ already deployed. With no commit to push, that means `vercel redeploy <deploymen
 command is blocked by Claude Code's auto-mode classifier and needs the user's explicit
 permission. Confirm the flip took effect on copy that differs between the two states, not on
 a signed-out page that looks identical either way — the landing page's plan-limits FAQ at
-`/` (`plansEnforced() && !mockCheckoutEnabled()`, in `app/(home)/Landing.tsx`) is one that
-does. It was on `/login` until the public home was split out.
+`/` (`plansEnforced()` crossed with `paddleCheckoutEnabled()`, in `app/(home)/Landing.tsx`) is
+one that does. It was on `/login` until the public home was split out.
 
 ## Migrating the production database
 
@@ -490,11 +492,11 @@ settle it: `scheduled_change: null` may not travel with any other field, a subsc
 a scheduled change refuses the deferred proration modes, and a change of *cycle* restarts
 `current_billing_period` while a change of plan within one cycle does not.
 
-**Still to do before any of this takes money**: no notification destination exists yet, because
-its URL is a decision — a tunnel to a dev server would expose the dev database, which holds
-real accounts and password hashes copied from production on 2026-08-29. The checkout, the
-Paddle Discounts behind `lib/coupons/`, and turning `SONGBOOK_MOCK_CHECKOUT` off are the rest
-of the sequence.
+**Still to do before any of this takes money in production**: the live catalogue does not exist
+(create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,
+maximum: 1}` — see the traps above), Production has no `PADDLE_*` variables at all, and the
+campaigns in `lib/coupons/` have no Paddle Discount behind them, which is why both write paths
+refuse a sale outright while a coupon is redeemable rather than charging the listino.
 
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 

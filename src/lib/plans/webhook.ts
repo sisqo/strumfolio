@@ -61,6 +61,8 @@ export interface PaddleTransactionData {
   status?: string | null
   custom_data?: { account_id?: unknown } | null
   items?: PaddleItemRef[] | null
+  /** The period this particular payment bought. Absent on a one-time purchase. */
+  billing_period?: { ends_at?: string | null } | null
 }
 
 /** How the webhook proposes to find the account this event belongs to. */
@@ -206,4 +208,22 @@ export function transactionEffect(data: PaddleTransactionData): PaddleEventEffec
     account,
     columns: { plan: 'lifetime', status: 'active', expiresAt: null, pendingPlan: null, pendingCycle: null },
   }
+}
+
+/**
+ * The day the period *this payment* bought runs out — what a confirmation email names.
+ *
+ * Read from the transaction rather than from `subscriptionEffect`'s columns, because for a
+ * subscription purchase those columns are deliberately `null`: `transactionEffect` declines to
+ * write anything for a transaction carrying a `subscription_id`, so the event that knows the
+ * money moved is precisely the one holding no period. The field is here instead, on the
+ * transaction, which is the more truthful place for it anyway — `current_billing_period` is
+ * where the subscription is *now*, `billing_period` is what this charge was *for*, and on a
+ * renewal that lands late the two are not the same day.
+ *
+ * `null` for the Lifetime, which buys no period at all, and for anything unparseable — the
+ * email has a dateless sentence for both.
+ */
+export function transactionPeriodEnd(data: PaddleTransactionData): Date | null {
+  return endsAt(data.billing_period?.ends_at)
 }

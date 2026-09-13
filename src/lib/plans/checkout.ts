@@ -31,52 +31,34 @@
  * cron and no further write — see that function's own comment for the whole design.
  */
 
-import { randomUUID } from 'crypto'
-
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 import { auth } from '@/auth'
-import { isOwner, normalizeEmail } from '@/lib/allowlist'
+import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
-import { discountEnd, discountedAmount, durationCopy, liveDiscount } from '@/lib/coupons/discount'
+import { liveDiscount } from '@/lib/coupons/discount'
 import type { LiveDiscount } from '@/lib/coupons/discount'
-import { redeemableCouponFor } from './redeemable'
 import { db, hasDatabase } from '@/lib/db/client'
-import { accountIdOf } from '@/lib/db/ids'
-import { accounts, couponRedemptions } from '@/lib/db/schema'
-import { notifyTelegram } from '@/lib/telegram/notify'
+import { accounts } from '@/lib/db/schema'
 
 import { liveSubscription, resolveSubscription } from './entitlements'
 import type { SubscriptionColumns } from './entitlements'
-import { amountFor, logMockEvent, mostRecentCycleFor, paymentHistoryFor } from './history'
+import { paymentHistoryFor } from './history'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
-import { entitlementsOf, mockCheckoutEnabled } from './resolve'
-import { euro, isCheckoutPlan, periodEnd, readPendingCycle } from './prices'
-import type { BillingPeriod } from './prices'
-import { PLAN_LABEL, PLAN_RANK, readPendingPlan, readPlan, readPlanStatus } from './types'
+import { entitlementsOf } from './resolve'
+import { readPendingCycle } from './prices'
+import { readPendingPlan, readPlan, readPlanStatus } from './types'
 import type { Plan, PlanStatus } from './types'
-import { sendEmail } from '@/lib/email/send'
-import { planChangeEmail, purchaseEmail } from '@/lib/email/templates'
 
-/* The one spelling of a date for a reader, already shared by `/billing`, `/checkout` and
-   `/thanks` — imported here rather than kept as this file's own fourth copy of the same
-   `toLocaleDateString('en-GB', …)` call. No cycle: `subscriptionCopy.ts` reaches back into
-   this module for a *type* only, which erases. */
-import { formatPlanDate, scheduledChangeDay } from './subscriptionCopy'
-
-export type MockCheckoutFailure =
-  | 'disabled'
-  | 'no-session'
-  | 'no-database'
-  | 'invalid-plan'
-  /** Nothing live to cancel/expire/downgrade, or the live plan is `lifetime`, which never is. */
-  | 'not-applicable'
-  /** `forceExpireNow` only: the caller is not a global owner. */
-  | 'not-allowed'
-  | 'failed'
-
-export interface MockSubscriptionState {
+/**
+ * What a reader's subscription looks like to every screen that shows one.
+ *
+ * Called `MockSubscriptionState` until the mock came out, which by then named the wrong thing:
+ * these are the columns a real Paddle webhook writes, and the screens reading them are showing
+ * a real plan somebody is really paying for.
+ */
+export interface SubscriptionState {
   plan: Plan
   status: PlanStatus
   expiresAt: Date | null
@@ -110,7 +92,7 @@ export interface MockSubscriptionState {
  * production's `DATABASE_URL` is unreachable from this CLI (see `CLAUDE.md`), so `0037` is
  * applied by hand from the Neon console, and code and schema cannot be made to land together.
  *
- * Never the raw columns out of this — see `liveDiscount`, and `MockSubscriptionState.discount`.
+ * Never the raw columns out of this — see `liveDiscount`, and `SubscriptionState.discount`.
  */
 async function liveDiscountOf(accountOwnerEmail: string): Promise<LiveDiscount | null> {
   try {
@@ -181,7 +163,7 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
  */
 export async function loadCheckoutStatus(): Promise<
   | { ok: false; reason: 'no-session' | 'no-database' }
-  | { ok: true; current: MockSubscriptionState; live: Plan | null }
+  | { ok: true; current: SubscriptionState; live: Plan | null }
 > {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
@@ -210,35 +192,6 @@ export async function loadCheckoutStatus(): Promise<
 }
 
 /**
- * The cycle this account most recently actually bought `plan` on — what "Change billing
- * cycle" on /pricing needs so it can land on the *other* one, the one there is anything to buy.
- * `CheckoutScreen` cannot answer that from the URL's own `?cycle=`, which merely carries
- * whatever /pricing's Monthly/Yearly toggle happened to be showing — a price-comparison control
- * with no idea what this account is actually paying for — so half the time that link pointed
- * the reader right back at the cycle they were already on.
- *
- * Its own action, deliberately not folded into `loadCheckoutStatus` above even though
- * `CheckoutScreen` calls both on the same mount: `BillingScreen` calls `loadCheckoutStatus` too,
- * already alongside its own `loadMyPaymentHistory` for the payment table on the same screen — a
- * `currentCycle` field bolted onto `loadCheckoutStatus` would have made every /billing load read
- * this same ledger twice. This function is the one place that pays for it, and only the one
- * caller with a use for it does.
- *
- * `null` when this account never bought `plan` through this ledger at all — a plan reached by
- * upgrading, downgrading, buying for the first time, or a manual grant, none of which have an
- * honest "other cycle" to name. `CheckoutScreen` falls back to the URL's own guess then, rather
- * than showing nothing.
- */
-export async function loadMostRecentCycleFor(plan: Plan): Promise<BillingPeriod | null> {
-  if (!hasDatabase) return null
-
-  const user = await currentUser()
-  if (user === null) return null
-
-  return mostRecentCycleFor(plan, await paymentHistoryFor(user.accountOwnerEmail))
-}
-
-/**
  * What the thank-you page needs: the plan this account holds right now, resolved.
  *
  * Its own read rather than `loadCheckoutStatus` above, for one reason that matters — it is
@@ -250,7 +203,7 @@ export async function loadMostRecentCycleFor(plan: Plan): Promise<BillingPeriod 
  * purchase to be thanked for either.
  */
 export async function loadPurchaseSummary(): Promise<
-  { ok: true; current: MockSubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'no-database' }
+  { ok: true; current: SubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'no-database' }
 > {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
@@ -300,7 +253,7 @@ export async function loadPurchaseSummary(): Promise<
 export async function loadThanksPreview(
   planParam: unknown,
 ): Promise<
-  { ok: true; current: MockSubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'not-owner' }
+  { ok: true; current: SubscriptionState; live: Plan | null } | { ok: false; reason: 'no-session' | 'not-owner' }
 > {
   const session = await auth()
   const email = session?.user?.email
@@ -404,558 +357,6 @@ export async function activatePlanChoice(): Promise<{ ok: true } | { ok: false; 
     if (updated.length === 0) return { ok: false, reason: 'failed' }
   } catch (error) {
     console.error('activatePlanChoice failed', error)
-    return { ok: false, reason: 'failed' }
-  }
-
-  return { ok: true }
-}
-
-/**
- * "Buys" a plan for the account this session is on. An upgrade (or a first purchase, or
- * re-buying the plan already live) applies at once: `plan`, `planStatus: 'active'`, an expiry
- * one billing period out, and any previously scheduled downgrade/cancellation is dropped —
- * changing your mind about leaving is expressed by buying back in, not by a separate control.
- * A genuine downgrade — a lower-ranked plan than what is currently live — leaves
- * `plan`/`planStatus`/`planExpiresAt` untouched and only schedules `pendingPlan`/
- * `pendingCycle`, so the account keeps what it already paid for until that date arrives.
- *
- * `lifetime`'s `planExpiresAt` is null — never, the same value `free` carries — rather than a
- * special-cased date far in the future. And once `lifetime` is the live plan, no further
- * purchase through this function is offered: there is no date on that row for a downgrade to
- * fire on, and nothing higher-ranked exists to upgrade to, so this refuses with
- * `not-applicable` rather than silently doing nothing useful with either branch.
- *
- * The rank comparison is against `liveSubscription` — the subscription side alone — never
- * against a blended `effectivePlan` that could include a manual grant: an account gifted
- * `lifetime` while paying for `standard` must still read a `plus` purchase as an upgrade of
- * the subscription, not as a downgrade against the gift sitting beside it.
- *
- * `plan` arrives as a bare `string`, not `CheckoutPlan`: it comes from a route param and a
- * form value, neither of which the type system can vouch for, and `isCheckoutPlan` is the
- * actual check — a value this cannot recognise is refused rather than normalised, unlike
- * `readPlan`, which would fall back to `'free'` and write that to a paying account's row
- * with no error for a typo to be seen in.
- */
-export async function mockPurchase(
-  plan: string,
-  cycle: BillingPeriod,
-): Promise<{ ok: true; effect: 'immediate' | 'scheduled' } | { ok: false; reason: MockCheckoutFailure }> {
-  if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
-  if (!hasDatabase) return { ok: false, reason: 'no-database' }
-  if (!isCheckoutPlan(plan)) return { ok: false, reason: 'invalid-plan' }
-
-  const user = await currentUser()
-  if (user === null) return { ok: false, reason: 'no-session' }
-
-  try {
-    const now = new Date()
-    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (raw === null) return { ok: false, reason: 'failed' }
-
-    const currentLive = liveSubscription(raw, now)
-    if (currentLive === 'lifetime') return { ok: false, reason: 'not-applicable' }
-
-    /*
-     * A downgrade is scheduled for the date the account has already paid through — so a
-     * subscription with **no such date** has nothing to schedule against, and writing
-     * `pendingPlan` on it would be a change that never fires: `resolveSubscription` returns a
-     * null-`expiresAt` row untouched, for ever. That row is reachable, not hypothetical — it is
-     * exactly what a scheduled change leaves behind once it has fired (the new plan is stored
-     * with `expiresAt: null`, since nothing here models renewals), so the *second* downgrade
-     * anybody makes used to be silently inert: the screen said "scheduled", the ledger logged
-     * it, and the date it was waiting for did not exist. With no paid period left to protect,
-     * applying it at once is both the honest answer and the generous one.
-     *
-     * **Asked of the resolved row, never of the raw column**, and the difference is the whole
-     * correctness of the sentence `/checkout/[plan]` prints before the button. That screen
-     * mirrors this branch from `loadCheckoutStatus`'s `current`, which is resolved; a raw read
-     * here disagrees with it on precisely the row above — where the raw column still holds the
-     * old, already-past date while the resolved view has collapsed to `null`. The screen would
-     * promise a purchase and get a scheduled change back, and the change would then apply on
-     * the next page load anyway, leaving a `scheduled_change` row and no receipt for what was
-     * in fact an immediate purchase.
-     *
-     * `grace` keeps its date through `resolveSubscription`'s own early return, so this stays
-     * false there and a failing card's downgrade is still scheduled rather than applied — the
-     * rule that status exists for, preserved without a second mention of it here.
-     */
-    /* Resolved once and kept, rather than resolved inline for `nothingPaidThrough` alone: the
-       scheduled branch at the foot of this function needs the same row's own `expiresAt` to
-       tell the customer which day their change lands on, and two calls are two chances for
-       the sentence and the decision to be read off different answers. */
-    const resolved = resolveSubscription(raw, now)
-    const nothingPaidThrough = resolved.expiresAt === null
-
-    /*
-     * The coupon, read **here** rather than passed in as an argument, and that is the security
-     * boundary of this whole feature rather than a style preference. `CheckoutScreen` is a
-     * client component: a code travelling as an argument is a code any caller can post, and
-     * with the mock checkout live that is a self-service discount of any percentage anybody
-     * likes. So the cookie is read server-side, the campaign is re-read from the table, and
-     * `redeemability` re-checks its state, its window, both ceilings, whether it covers this
-     * plan, and whether this account has had it already.
-     *
-     * The screen's own `coupon` prop decides only what is *printed*. If the two ever disagree —
-     * a stale link, a campaign archived between the two page loads, a tampered prop — the
-     * reader sees one price and is charged the one this line computed, which is the right way
-     * round for that disagreement to fall.
-     *
-     * A refused coupon is not an error: the purchase proceeds at the listino. Refusing to sell
-     * because a discount lapsed would be the more surprising behaviour, and the screen has
-     * already re-rendered without a banner by the time anybody reloads.
-     */
-    const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)
-    const isUpgradeOrSame =
-      plan === 'lifetime' || currentLive === null || nothingPaidThrough || PLAN_RANK[plan] >= PLAN_RANK[currentLive]
-
-    if (isUpgradeOrSame) {
-      /*
-       * The three facts this whole branch reports, derived once at the top.
-       *
-       * `lifetime` is the one plan with no cycle to bill and no date to renew on, and that
-       * single narrowing used to be rewritten as `plan === 'lifetime' ? … : …` at four separate
-       * points here — the column write, the ledger row, the Telegram line and the receipt — as
-       * if the four could legitimately disagree. `billedCycle` is that decision, made once;
-       * `expiresAt` and `amount` follow from it, so the row, the notification and the email
-       * cannot name different dates or different prices. `amount` in particular is `amountFor`,
-       * the same function `logMockEvent` uses for the `paddle_events` row it writes below.
-       */
-      const billedCycle = plan === 'lifetime' ? null : cycle
-      const expiresAt = billedCycle === null ? null : periodEnd(billedCycle, now)
-      /*
-       * The listino, and then what is actually taken. Two names because both are recorded: the
-       * ledger keeps `fullAmount` so a history line can show the strike, and re-deriving it
-       * later from `PRICES` is how a re-price rewrites what somebody already paid.
-       *
-       * `discountEnd` is computed from the **billed cycle**, so one campaign of three months
-       * lands twelve months out on a yearly purchase and three on a monthly one — see
-       * `discountedMonths`, and the pair of adjacent functions it warns about.
-       */
-      const fullAmount = amountFor(plan, billedCycle)
-      const amount =
-        coupon === null || fullAmount === null ? fullAmount : discountedAmount(fullAmount, coupon.discountPercent)
-      const discountEndsAt =
-        coupon === null || billedCycle === null ? null : discountEnd(coupon.discountMonths, billedCycle, now)
-
-      const updated = await db()
-        .update(accounts)
-        .set({
-          plan,
-          planStatus: 'active',
-          planExpiresAt: expiresAt,
-          pendingPlan: null,
-          pendingCycle: null,
-          /*
-           * See `activatePlanChoice`'s own comment on the `coalesce`: a plan bought directly,
-           * with no Free step first, still has to satisfy the mandatory-choice gate
-           * (v3.7) on its own — but never by overwriting a real first-activation
-           * date already sitting on a later upgrade or re-purchase.
-           *
-           * `now.toISOString()`, never the `Date` itself. Interpolating a JS `Date` into a raw
-           * `sql` template makes it a bind parameter, and postgres.js refuses one: «The "string"
-           * argument must be of type string or an instance of Buffer or ArrayBuffer. Received an
-           * instance of Date». The whole UPDATE then throws, the `catch` below turns it into
-           * `failed`, and the checkout screen says «That didn't go through. Try again.» on every
-           * single purchase — which is exactly what shipped, and what this line is fixing.
-           * Verified against the real database, all three forms: the `Date` throws, `now()` and
-           * this one both work. (Drizzle converts a `Date` fine in a plain `.set({ col: date })`
-           * — as `planExpiresAt` two lines up does — because that path knows the column's type.
-           * Inside `sql` there is no column to infer from, so the driver sees a bare object.)
-           *
-           * A string rather than SQL's own `now()`: this way the stamp is the same instant as
-           * `planExpiresAt` above and as the logged event below, instead of the database's clock
-           * a few milliseconds later. `activatePlanChoice` uses `now()` because it has no JS
-           * clock of its own to share — don't "unify" the two into one form without that in mind.
-           */
-          planChosenAt: sql`coalesce(${accounts.planChosenAt}, ${now.toISOString()})`,
-          /*
-           * The live answer to "what will this account pay next" — always written, `null`
-           * included, because a purchase without a coupon has to *clear* whatever the last one
-           * left behind rather than inherit it.
-           *
-           * Never cleared when `discountEndsAt` passes: that date arrives with no request there
-           * to observe it, so the columns are read through `liveDiscount` instead, exactly as
-           * `planExpiresAt` is read through `resolveSubscription`.
-           */
-          couponCode: coupon?.code ?? null,
-          couponPercent: coupon?.discountPercent ?? null,
-          discountEndsAt,
-        })
-        .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
-        .returning({ ownerEmail: accounts.ownerEmail })
-      if (updated.length === 0) return { ok: false, reason: 'failed' }
-
-      /*
-       * The redemption row, which is what makes `usage_limit` a ceiling that can be verified
-       * rather than estimated — `coupon_redemptions_once` is unique per account per campaign,
-       * so the count is Paddle's `times_used` computed rather than mirrored.
-       *
-       * Both account columns are written (v4.7) and neither is spare: `accountId` is what
-       * every read asks by, so a change of address cannot detach the row; the address is
-       * frozen history, and it is what still refuses a second redemption after the account
-       * has been deleted and made again. `db/schema.ts` has the two indexes.
-       *
-       * Written after the plan, not before: an insert that fails must not leave an account
-       * marked as discounted with no record of the redemption, whereas the reverse order at
-       * worst loses one row of bookkeeping on a purchase that really happened. The whole
-       * statement is wrapped because a unique-index collision here — two tabs, the same
-       * instant — is a race, not a fault, and the plan has already been sold.
-       */
-      if (coupon !== null && fullAmount !== null && amount !== null) {
-        try {
-          await db().insert(couponRedemptions).values({
-            id: randomUUID(),
-            campaignId: coupon.id,
-            accountOwnerEmail: user.accountOwnerEmail,
-            accountId: accountIdOf(user.accountOwnerEmail),
-            code: coupon.code,
-            discountPercent: coupon.discountPercent,
-            plan,
-            cycle: billedCycle,
-            fullAmount,
-            paidAmount: amount,
-            discountEndsAt,
-          })
-        } catch (error) {
-          console.error('coupon redemption not recorded', error)
-        }
-      }
-
-      await logMockEvent({
-        accountOwnerEmail: user.accountOwnerEmail,
-        action: 'purchase',
-        plan,
-        cycle: billedCycle,
-        amount,
-        coupon:
-          coupon === null || fullAmount === null
-            ? null
-            : { code: coupon.code, percent: coupon.discountPercent, fullAmount },
-      })
-
-      const label = `${plan}${billedCycle === null ? '' : `/${billedCycle}`}`
-      console.warn(`mock checkout: ${user.accountOwnerEmail} => ${label}`)
-      /* The amount is what makes this line worth reading on a phone: «premium/year» says what
-       * was bought, «€99» says what came in. `una tantum` for lifetime, which has no cycle to
-       * bill again. A plan with no price to name (none today — `free` is not sold here) simply
-       * omits the clause rather than printing an empty one. No email address, here or in any
-       * other Telegram line of this file, since 2026-09-03 — see `registrationNotice`'s header
-       * for why the ledger row above keeps the address and the ping does not. */
-      const paidClause = amount === null ? '' : ` · ${euro(amount)}${billedCycle === null ? ' una tantum' : ''}`
-      await notifyTelegram('purchase', `💰 Acquisto: ${label}${paidClause}`)
-
-      /*
-       * The thank-you, sent only on this branch: a scheduled downgrade below is not a purchase
-       * to thank anybody for, and `mockCancel` certainly is not. Last of the three side effects
-       * and after the write, like the other two — `sendEmail` never throws (see its own comment),
-       * so a mail that fails cannot undo a plan the account has already been given.
-       *
-       * To `accountOwnerEmail`, not `user.email`: the receipt belongs to the account whose plan
-       * just changed, which is the same address the ledger row and the Telegram line already
-       * name. Worth knowing while the mock is open, since the two come apart — a global owner
-       * switched into a customer's account to test a purchase sends that *customer* this email,
-       * not themselves.
-       */
-      /* `endsOn`, not `renewsOn` — this is `planExpiresAt`, and nothing in this file or any
-         other renews it. See `purchaseEmail`'s own comment on the rename. */
-      const endsOn = expiresAt === null ? null : formatPlanDate(expiresAt)
-      await sendEmail({
-        to: user.accountOwnerEmail,
-        ...purchaseEmail({
-          planLabel: PLAN_LABEL[plan],
-          amount,
-          cycle: billedCycle,
-          endsOn,
-          /*
-           * `durationCopy` and not a sentence written here: the checkout screen showed exactly
-           * this line before the button, and two wordings of one promise is how the two come to
-           * differ.
-           *
-           * `billedCycle === null` — the Lifetime — gates the **duration only**, never the
-           * whole clause. A Lifetime has no renewal to revert, so there is nothing to describe;
-           * it still has a code and a full price, and dropping those left the one purchase that
-           * is permanent as the single confirmation that never said what its €139.99 came off.
-           */
-          coupon:
-            coupon === null || fullAmount === null || amount === null
-              ? null
-              : {
-                  code: coupon.code,
-                  fullAmount,
-                  duration:
-                    billedCycle === null
-                      ? null
-                      : durationCopy(fullAmount, amount, coupon.discountMonths, billedCycle),
-                },
-        }),
-      })
-
-      return { ok: true, effect: 'immediate' }
-    }
-
-    // A genuine downgrade: scheduled for `raw.expiresAt`, which is left untouched here.
-    const updated = await db()
-      .update(accounts)
-      .set({ pendingPlan: plan, pendingCycle: cycle })
-      .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
-      .returning({ ownerEmail: accounts.ownerEmail })
-    if (updated.length === 0) return { ok: false, reason: 'failed' }
-
-    await logMockEvent({ accountOwnerEmail: user.accountOwnerEmail, action: 'scheduled_change', plan, cycle })
-    console.warn(`mock checkout: ${user.accountOwnerEmail} => ${plan}/${cycle} scheduled`)
-    await notifyTelegram('downgrade', `📉 Downgrade programmato → ${plan}/${cycle}`)
-
-    /*
-     * The customer's own copy of what was just arranged — the counterpart of the receipt the
-     * immediate branch sends, for the branch where *nothing* arrives in an inbox until now.
-     * The Telegram line above goes to the operator, and `/checkout`'s own inline sentence is
-     * gone the moment the tab is closed.
-     *
-     * `currentLive` is non-null here by the `isUpgradeOrSame` test above — a null one is an
-     * immediate purchase and never reaches this branch.
-     *
-     * `scheduledChangeDay`, never `formatPlanDate` on the column: this row's `expiresAt` is
-     * non-null by `nothingPaidThrough`, but non-null is not the same as *nameable*. A `grace`
-     * row keeps its own date through `resolveSubscription`'s early return and that date is
-     * virtually always already in the past, so naming it here would tell a customer whose card
-     * is retrying that their downgrade lands on a day that has gone. Answering `null` puts the
-     * email on its dateless scheduled sentence instead, which is true in both cases.
-     */
-    await sendEmail({
-      to: user.accountOwnerEmail,
-      ...planChangeEmail({
-        fromLabel: PLAN_LABEL[currentLive ?? 'free'],
-        toLabel: PLAN_LABEL[plan],
-        effect: { day: scheduledChangeDay(resolved.status, resolved.expiresAt) },
-      }),
-    })
-
-    return { ok: true, effect: 'scheduled' }
-  } catch (error) {
-    console.error('mockPurchase failed', error)
-    return { ok: false, reason: 'failed' }
-  }
-}
-
-/**
- * "Cancels" — schedules the account to lapse to free once its already-paid-for period ends,
- * by writing `pendingPlan: 'free'` and leaving `plan`/`planStatus`/`planExpiresAt` exactly as
- * they are. Nothing further has to happen on that date: `resolveSubscription` reads a
- * `pendingPlan` of `'free'` past `expiresAt` exactly the way it would read no pending change
- * at all having ever been written — a lapsed subscription is a lapsed subscription either
- * way. Refuses `not-applicable` when there is nothing live to cancel (already free, already
- * expired) or when the live plan is `lifetime`, which has no period to cancel at the end of —
- * see `mockPurchase`'s own comment on why lifetime refuses both directions.
- *
- * The one exception is a live plan carrying **no** `planExpiresAt`, which cancels immediately
- * rather than at a date that does not exist — `effect` says which of the two happened, so the
- * screen can word it correctly instead of promising a period end either way.
- *
- * For a way to end a plan's entitlements *right now* rather than at the paid-until date, see
- * `forceExpireNow` — kept as a distinct, explicitly test-only action, because the freeze path
- * has to stay exercisable without waiting out a real calendar date.
- */
-export async function mockCancel(): Promise<
-  { ok: true; effect: 'immediate' | 'scheduled' } | { ok: false; reason: MockCheckoutFailure }
-> {
-  if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
-  if (!hasDatabase) return { ok: false, reason: 'no-database' }
-
-  const user = await currentUser()
-  if (user === null) return { ok: false, reason: 'no-session' }
-
-  try {
-    const now = new Date()
-    const raw = await subscriptionColumnsOf(user.accountOwnerEmail)
-    if (raw === null) return { ok: false, reason: 'failed' }
-
-    const currentLive = liveSubscription(raw, now)
-    if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {
-      return { ok: false, reason: 'not-applicable' }
-    }
-
-    /*
-     * The same hole `mockPurchase`'s own `nothingPaidThrough` closes, on the other exit from a
-     * plan: with no `planExpiresAt` there is no period end for a cancellation to wait for, so
-     * `pendingPlan: 'free'` would sit on the row unread for ever while the screen reported it as
-     * scheduled. Nothing is being taken away early here — a row with no expiry is one nobody has
-     * paid through to any date — so the cancellation simply happens.
-     *
-     * Resolved rather than raw, for the reason spelled out beside `nothingPaidThrough`: the two
-     * exits from a plan must not disagree about what "already paid through" means, and the
-     * resolved view is the one every screen is looking at. `grace` keeps its date and so stays
-     * on the scheduled side.
-     */
-    const resolved = resolveSubscription(raw, now)
-    const immediate = resolved.expiresAt === null
-
-    const updated = await db()
-      .update(accounts)
-      .set(
-        immediate
-          ? {
-              plan: 'free',
-              planStatus: 'active',
-              planExpiresAt: null,
-              pendingPlan: null,
-              pendingCycle: null,
-              /*
-               * Cleared with the plan, because there is no longer a price for a discount to
-               * apply to — leaving them would make `/billing` promise a reduction off €0.
-               *
-               * The *scheduled* branch below deliberately leaves them alone: that account is
-               * still paying, still on its plan, and still owed the discount until the period
-               * it has already been billed for runs out.
-               */
-              couponCode: null,
-              couponPercent: null,
-              discountEndsAt: null,
-            }
-          : { pendingPlan: 'free', pendingCycle: null },
-      )
-      .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
-      .returning({ ownerEmail: accounts.ownerEmail })
-    if (updated.length === 0) return { ok: false, reason: 'failed' }
-
-    await logMockEvent({
-      accountOwnerEmail: user.accountOwnerEmail,
-      action: immediate ? 'cancelled_now' : 'scheduled_change',
-      plan: 'free',
-      cycle: null,
-    })
-    console.warn(`mock checkout: ${user.accountOwnerEmail} => cancel ${immediate ? 'now' : 'scheduled'}`)
-    await notifyTelegram(
-      'cancellation',
-      `🚫 Cancellazione ${immediate ? 'immediata' : 'programmata'} (era ${currentLive})`,
-    )
-
-    /*
-     * The written trace a cancellation never had. Same template as the scheduled downgrade
-     * above, with `toLabel` of «Free» being the whole of what makes it read as a cancellation.
-     *
-     * `effect` is read off the same `immediate` this function already decided its *write* with,
-     * so the email and the row can never describe two different things — and the scheduled side
-     * asks `scheduledChangeDay` rather than formatting the column, for the `grace` reason given
-     * at the foot of `mockPurchase`.
-     */
-    await sendEmail({
-      to: user.accountOwnerEmail,
-      ...planChangeEmail({
-        fromLabel: PLAN_LABEL[currentLive],
-        toLabel: PLAN_LABEL.free,
-        effect: immediate ? 'now' : { day: scheduledChangeDay(resolved.status, resolved.expiresAt) },
-      }),
-    })
-
-    return { ok: true, effect: immediate ? 'immediate' : 'scheduled' }
-  } catch (error) {
-    console.error('mockCancel failed', error)
-    return { ok: false, reason: 'failed' }
-  }
-}
-
-/**
- * "I changed my mind" — drops a scheduled downgrade/cancellation without touching anything
- * else, the free/instant counterpart to re-buying the current plan through `mockPurchase`
- * (which also clears it, but re-asserts fresh dates and logs a purchase). Refuses
- * `not-applicable` when nothing is actually scheduled, checked with the same `UPDATE …
- * WHERE … RETURNING` idiom `setGrant` uses for its own "does this address even have a row"
- * question — a plain `set()` against nothing pending would report success for a no-op.
- */
-export async function clearPendingChange(): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
-  if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
-  if (!hasDatabase) return { ok: false, reason: 'no-database' }
-
-  const user = await currentUser()
-  if (user === null) return { ok: false, reason: 'no-session' }
-
-  try {
-    const updated = await db()
-      .update(accounts)
-      .set({ pendingPlan: null, pendingCycle: null })
-      .where(and(eq(accounts.ownerEmail, user.accountOwnerEmail), isNotNull(accounts.pendingPlan)))
-      .returning({ ownerEmail: accounts.ownerEmail, plan: accounts.plan })
-    if (updated.length === 0) return { ok: false, reason: 'not-applicable' }
-
-    await logMockEvent({
-      accountOwnerEmail: user.accountOwnerEmail,
-      action: 'kept_current',
-      plan: readPlan(updated[0].plan),
-      cycle: null,
-    })
-    console.warn(`mock checkout: ${user.accountOwnerEmail} => kept ${readPlan(updated[0].plan)}`)
-    // The one write in this file that used to notify nobody: an operator would see a
-    // scheduled downgrade or cancellation come in and never learn if the customer reversed
-    // it — the same event name as the `paddle_events` row just logged above.
-    await notifyTelegram('kept_current', `↩️ Piano confermato: resta su ${readPlan(updated[0].plan)}`)
-  } catch (error) {
-    console.error('clearPendingChange failed', error)
-    return { ok: false, reason: 'failed' }
-  }
-
-  return { ok: true }
-}
-
-/**
- * Ends the live plan's entitlements **right now** instead of at its paid-until date, by
- * writing `planStatus: 'expired'` directly — the one way left, after `mockCancel` started
- * deferring to period end, to exercise the freeze/grace path without waiting out a real
- * calendar date. Clears any scheduled change too: there is nothing left for it to fire into.
- * Refuses `not-applicable` under the same two conditions `mockCancel` does.
- *
- * Takes an explicit `ownerEmail` rather than reading `currentUser().accountOwnerEmail`, and
- * checks `isOwner` inside itself before any read or write — restored to the admin's
- * `/accounts/[email]`, where the page is already
- * `isOwner`-gated, but this function does not lean on that alone: it used to sit on
- * `/billing` behind nothing but the words "test only", which — with `SONGBOOK_MOCK_CHECKOUT`
- * on in production — put "expire my plan right now" in front of every paying customer, on
- * the screen they open to manage what they paid for (v3.11). A label is not a permission,
- * which is why this checks its own caller the way every other write in this file does,
- * rather than trusting whichever screen happens to render the button. The explicit target
- * also avoids the self-scoped alternative — an operator having to "Enter as this account"
- * first just to expire it — which is both an extra step and a real chance of expiring the
- * wrong one. Zero callers before this change (confirmed by grep across the repo), so the
- * signature change breaks nothing existing.
- *
- * `mockCheckoutEnabled()` still gates it, deliberately not bypassed for the admin path: it
- * is the leva of a still-fake checkout system, not a second access control alongside
- * `isOwner`. Once `SONGBOOK_MOCK_CHECKOUT` is off for good (real Paddle live), this stops
- * working along with the rest of the mock checkout — correctly, since forcing
- * `planStatus: 'expired'` locally with no real Paddle event behind it would desynchronize
- * the account from its actual subscription state.
- */
-export async function forceExpireNow(ownerEmail: string): Promise<{ ok: true } | { ok: false; reason: MockCheckoutFailure }> {
-  if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
-  if (!hasDatabase) return { ok: false, reason: 'no-database' }
-
-  const session = await auth()
-  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
-    return { ok: false, reason: 'not-allowed' }
-  }
-
-  const target = normalizeEmail(ownerEmail)
-
-  try {
-    const now = new Date()
-    const raw = await subscriptionColumnsOf(target)
-    if (raw === null) return { ok: false, reason: 'failed' }
-
-    const currentLive = liveSubscription(raw, now)
-    if (currentLive === null || currentLive === 'free' || currentLive === 'lifetime') {
-      return { ok: false, reason: 'not-applicable' }
-    }
-
-    const updated = await db()
-      .update(accounts)
-      .set({ planStatus: 'expired', pendingPlan: null, pendingCycle: null })
-      .where(eq(accounts.ownerEmail, target))
-      .returning({ ownerEmail: accounts.ownerEmail })
-    if (updated.length === 0) return { ok: false, reason: 'failed' }
-
-    await logMockEvent({ accountOwnerEmail: target, action: 'force_expired', plan: currentLive, cycle: null })
-    console.warn(`mock checkout: ${target} => forced expiry (admin)`)
-  } catch (error) {
-    console.error('forceExpireNow failed', error)
     return { ok: false, reason: 'failed' }
   }
 

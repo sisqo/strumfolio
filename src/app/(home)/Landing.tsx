@@ -33,7 +33,7 @@ import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
-import { mockCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
+import { paddleCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 
 /**
@@ -265,15 +265,15 @@ interface FaqGroup {
  * `/pricing` must never disagree about whether the limits are real.
  *
  * The enforced branch used to say "they are not on sale yet" unconditionally — true the day
- * this was written, false since `mockCheckoutEnabled()` went live and `/pricing` started
- * showing working "Choose Standard/Plus/Premium" buttons. `/pricing`'s own comment on why it
- * dropped this exact sentence (`NO_CHECKOUT`, no longer in that file) is the bug reappearing
- * here, on the one page it warns must "flip together" — so this now reads `mockCheckoutEnabled()`
- * too, inside the enforced branch, rather than assuming checkout is always off the way the rest
- * of this sentence still can while limits are not even enforced.
+ * this was written, false once the plans went on sale and `/pricing` started showing working
+ * "Choose Standard/Plus/Premium" buttons. `/pricing`'s own comment on why it dropped this exact
+ * sentence (`NO_CHECKOUT`, no longer in that file) is the bug reappearing here, on the one page
+ * it warns must "flip together" — so this reads `paddleCheckoutEnabled()` too, inside the
+ * enforced branch, rather than assuming checkout is always off the way the rest of this sentence
+ * still can while limits are not even enforced.
  */
 const PLAN_HOLD = plansEnforced()
-  ? mockCheckoutEnabled()
+  ? paddleCheckoutEnabled()
     ? "The paid plans are live — pick one on the pricing page whenever you're ready. Already over a " +
       'limit? Nothing of yours is deleted — you can only delete until you are back under it, the ' +
       'same as if a paid plan lapses.'

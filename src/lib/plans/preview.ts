@@ -6,13 +6,13 @@
  * of the same plan are always the same bytes.
  */
 
-import type { MockSubscriptionState } from './checkout'
+import type { SubscriptionState } from './checkout'
 import type { Plan } from './types'
 
 /** The same renewal date `email/preview.ts`'s `SAMPLE_PURCHASE` uses, so the two previews agree. */
 const SAMPLE_RENEWAL = new Date('2027-09-22T00:00:00.000Z')
 
-export function buildThanksPreview(plan: Plan): MockSubscriptionState {
+export function buildThanksPreview(plan: Plan): SubscriptionState {
   /* No discount in any preview, deliberately: `/thanks` says nothing about a coupon, so
      inventing one here would be sample data for a sentence that does not exist. */
   if (plan === 'free') return { plan, status: 'active', expiresAt: null, pendingPlan: null, discount: null }

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { IconBooks, IconBroadcast, IconCheck, IconPrint, IconReceipt } from '@/components/icons'
-import { loadPurchaseSummary, loadThanksPreview, type MockSubscriptionState } from '@/lib/plans/checkout'
+import { loadPurchaseSummary, loadThanksPreview, type SubscriptionState } from '@/lib/plans/checkout'
 import { formatPlanDate, subscriptionStatusLine } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, PLANS, PLAN_VALUES, readPlan, thanksCapacitySentence, thanksDevicesCaption, thanksSongsCaption } from '@/lib/plans/types'
 import type { Plan } from '@/lib/plans/types'
@@ -13,7 +13,7 @@ type Status =
   | { state: 'loading' }
   | { state: 'unavailable'; reason: string }
   /** `live` is `liveSubscription`'s own answer, read server-side — see `loadPurchaseSummary`. */
-  | { state: 'ready'; current: MockSubscriptionState; live: Plan | null }
+  | { state: 'ready'; current: SubscriptionState; live: Plan | null }
 
 /**
  * Where a purchase lands: what is now active, and the one thing worth doing next.

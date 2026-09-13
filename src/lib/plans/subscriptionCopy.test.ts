@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import type { MockSubscriptionState } from './checkout'
+import type { SubscriptionState } from './checkout'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
 import type { PaymentHistoryLine } from './history'
@@ -12,7 +12,7 @@ const NOW = new Date('2026-08-23T12:00:00Z')
 const PAST = new Date('2026-05-03T00:00:00Z')
 const FUTURE = new Date('2027-05-03T00:00:00Z')
 
-function state(over: Partial<MockSubscriptionState> = {}): MockSubscriptionState {
+function state(over: Partial<SubscriptionState> = {}): SubscriptionState {
   return { plan: 'standard', status: 'active', expiresAt: FUTURE, pendingPlan: null, discount: null, ...over }
 }
 
@@ -22,11 +22,11 @@ function state(over: Partial<MockSubscriptionState> = {}): MockSubscriptionState
  * the gate have to be reading one rule, so the fixture derives the parameter instead of
  * asserting a wording against a value nothing in the app would ever pass.
  */
-function liveFor(current: MockSubscriptionState): Plan | null {
+function liveFor(current: SubscriptionState): Plan | null {
   return liveSubscription({ ...current, pendingCycle: null }, NOW)
 }
 
-function line(current: MockSubscriptionState): string {
+function line(current: SubscriptionState): string {
   return subscriptionStatusLine(current, liveFor(current))
 }
 

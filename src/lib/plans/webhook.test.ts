@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import {
-  planOfPrice,
-  statusOf,
-  subscriptionEffect,
-  transactionEffect,
-  type PaddleSubscriptionData,
-  type PaddleTransactionData,
-} from './webhook'
+import { planOfPrice, statusOf, subscriptionEffect, transactionEffect, transactionPeriodEnd, type PaddleSubscriptionData, type PaddleTransactionData } from './webhook'
 
 const priced = (plan: string, cycle?: string) => ({
   price: { id: 'pri_x', custom_data: cycle ? { plan, cycle } : { plan } },
@@ -146,5 +139,27 @@ describe('transactionEffect', () => {
 
   it('ignores a one-off that is not the Lifetime', () => {
     assert.equal(transactionEffect(transaction({ items: [priced('premium', 'year')] })).columns, null)
+  })
+})
+
+describe('transactionPeriodEnd', () => {
+  it('reads the period this payment bought', () => {
+    const end = transactionPeriodEnd({
+      id: 'txn_1',
+      billing_period: { ends_at: '2027-09-12T19:15:54.036229Z' },
+    })
+    assert.equal(end?.toISOString(), '2027-09-12T19:15:54.036Z')
+  })
+
+  /*
+   * A one-time purchase buys no period, and an unreadable one is not a date. Both answer null,
+   * which the confirmation email has a dateless sentence for — «until Invalid Date» being the
+   * outcome this guards against.
+   */
+  it('answers null for a purchase with no period, and for anything unreadable', () => {
+    assert.equal(transactionPeriodEnd({ id: 'txn_1' }), null)
+    assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: null }), null)
+    assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: null } }), null)
+    assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: 'soon' } }), null)
   })
 })

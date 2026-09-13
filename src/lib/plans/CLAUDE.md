@@ -1,4 +1,4 @@
-# Plans, entitlements and the mock checkout (`src/lib/plans/`)
+# Plans, entitlements and the Paddle checkout (`src/lib/plans/`)
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
@@ -9,25 +9,46 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - `entitlements.ts` — `resolveSubscription`/`liveSubscription`: pure functions collapsing a
   scheduled downgrade or cancellation the instant `now` passes its date. Called at every read
   site instead of a cron job — there is no background job anywhere in this repo.
-- `checkout.ts` (`'use server'`) — the mock checkout: `mockPurchase`, `mockCancel`,
-  `clearPendingChange`, `forceExpireNow` (test-only). Writes the same
-  `plan`/`planStatus`/`planExpiresAt`/`pendingPlan`/`pendingCycle` columns a real Paddle
-  webhook will write, and logs every mutation to `paddle_events` (`history.ts`) under an
-  `eventType` prefixed `mock.` — the table and reading code a real integration will reuse.
-- `resolve.ts` — two env flags read fresh at call time: `plansEnforced()` (`SONGBOOK_PLANS=on`)
-  gates enforcement, `mockCheckoutEnabled()` (`SONGBOOK_MOCK_CHECKOUT=on`) gates `/checkout`
-  and the "Choose <plan>" buttons on `/pricing`. **Neither is a security boundary** — while the mock
-  checkout is on, any signed-in reader can give their account any plan for free. **`SONGBOOK_PLANS` is `on` in production and
-  `SONGBOOK_MOCK_CHECKOUT` is not set there at all** — measured 2026-09-12 against the full
-  list of sixteen production variables, not inferred. Both flags are a strict `=== 'on'`, so an
-  absent variable is `false`: the mock checkout is **off** in production, which is worth saying
-  plainly because this file claimed the opposite for weeks. The consequence is that production
-  today has no way to buy anything — `/checkout` and `/pricing`'s "Choose" buttons are both
-  behind that flag — so the real Paddle checkout will be the first purchase path there rather
-  than the second, and there is no window in which both exist.
-- `testCard.ts` — the mock's "processor": `isAcceptedTestCard` accepts only
-  `4111 1111 1111 1111` (digits compared, formatting ignored); everything else declines
-  client-side in `CheckoutScreen.tsx`, before `mockPurchase` is called.
+- `checkout.ts` (`'use server'`) — **six loaders and nothing else.** It writes no plan columns
+  at all any more: `loadCheckoutStatus`, `loadPurchaseSummary`, `loadThanksPreview`,
+  `loadMyPaymentHistory`, `loadFreezeState`, `activatePlanChoice`. The writers live beside it,
+  one file per act — `paddleCheckout.ts` (buy), `paddlePlanChange.ts` (move),
+  `paddleSubscription.ts` (cancel, keep) — and every one of them leaves the *columns* to
+  `webhookApply.ts`, which is the single writer.
+- `resolve.ts` — `plansEnforced()` (`SONGBOOK_PLANS=on`) gates enforcement, and
+  `paddleCheckoutEnabled()` answers whether this deployment can take money. The second is not a
+  flag: it is true when `PADDLE_API_KEY` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are both present,
+  so **configuration is the switch** and there is no state where the environment says yes and the
+  integration says no. `SONGBOOK_PLANS` is not a security boundary and never was.
+
+## The mock is gone (2026-09-13)
+
+`mockPurchase`, `mockCancel`, `clearPendingChange`, `forceExpireNow`, `loadMostRecentCycleFor`,
+`CheckoutScreen.tsx`, `ForceExpireRow.tsx`, `forceExpireMessage.ts`, `testCard.ts`,
+`mockCheckoutEnabled()` and `SONGBOOK_MOCK_CHECKOUT` — all deleted. It was a placeholder that was
+never designed, so nothing about it was treated as a specification to preserve; what survives
+survives because it is right for a real integration, not because the mock did it.
+
+Three things about the demolition are worth knowing rather than rediscovering:
+
+- **`/checkout/[plan]` has no fallback branch now, deliberately.** A checkout that cannot take
+  money is not a lesser checkout, it is a screen that asks for a decision it cannot honour. An
+  environment without Paddle configured says so in a sentence.
+- **What the mock did that Paddle does not, and that now lives in the webhook**: the operator's
+  Telegram line and the customer's confirmation email, both in `announcePayment`
+  (`webhookApply.ts`), on `transaction.completed` only and only on a first delivery. Kept on
+  their own merits, not for parity — Paddle is Merchant of Record and sends its own invoice,
+  which names a price and a product; which *plan* you now have and until when is this app's
+  sentence to write, and nobody else holds both facts.
+- **What is simply gone**: `forceExpireNow`, the operator's «expire this plan now» row on
+  `/accounts/[email]`. It had no Paddle counterpart — nothing can make Paddle believe a period
+  ended early — so the freeze path is no longer exercisable without waiting out a real date, or
+  writing the column by hand. That is a real loss of an operator capability, stated here rather
+  than discovered.
+- **`logMockEvent` is deleted but `fromMockPayload` (`history.ts`) is kept.** Nothing writes the
+  mock's flat payload any more; rows in that shape are still in the development database, and a
+  reader that stopped understanding them would render them as bare «Event» lines with no amount.
+  The ledger's job is to have the event.
 - `SONGBOOK_FORCE_PLAN` — a deliberately risky local-only escape hatch (forces every read to
   one plan); never meant to run in production.
 
@@ -61,9 +82,11 @@ consequences land in *this* directory:
   backed by a Paddle Discount object. That is the same shown-price-versus-charged-price
   invariant the listino itself now satisfies — measured, in the root section — left unsatisfied
   one level down: a live campaign changes what `/pricing` says and nothing whatsoever about
-  what a real checkout would take. Harmless only while the mock checkout is the only checkout,
-  and the first thing to settle after the catalogue, before any Paddle checkout goes in front
-  of a reader.
+  what a real checkout would take. **No longer harmless**: the mock is gone and the Paddle
+  checkout is the only one, so `startPaddleCheckout` and `changePaddlePlan` both refuse the sale
+  outright (`coupon-unsupported`) while a campaign is redeemable, rather than charging the
+  listino to somebody who has just been promised 30% off. That refusal is the gate that
+  disappears when campaigns carry a `paddle_discount_id`.
 
 ## The webhook: what an event is allowed to conclude
 
@@ -101,7 +124,7 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   "already applied, answer 200". The insert and the account update share one transaction,
   because an event recorded by a delivery whose write then failed would be skipped by the retry
   and the account would never change at all.
-- **`granted*` is never touched**, the same standing decision `mockPurchase` records: a gift
+- **`granted*` is never touched**, a standing decision older than this file: a gift
   lives in those columns and a renewal re-asserting `plan`/`planStatus` would erase it.
 - **Paddle cannot schedule a downgrade**, and the next section says what was done about it.
   `scheduled_change` is only `cancel`, `pause` or `resume`, so a cancellation maps cleanly onto
@@ -124,7 +147,7 @@ the screen: reaching `/checkout/[plan]` on preview needs a signed-in session, so
 watched working by anybody.
 
 - **A downgrade now applies at once and is repaid in money, not in time — a real change from
-  what the mock promised.** `mockPurchase` kept the reader on the plan they had paid for until
+  what the mock promised.** The mock kept the reader on the plan they had paid for until
   its last day and scheduled the smaller one behind it. Paddle has no way to express that:
   `subscriptions.update` replaces the items immediately and only the *billing* can be deferred,
   through `proration_billing_mode`. So this follows Paddle's own customer portal — upgrade
@@ -189,8 +212,6 @@ watched working by anybody.
   only for `CheckoutScreen`, which has `loadMostRecentCycleFor` to correct itself. The screen
   also names what they are on, since «you are changing a plan you already pay for» does not say
   *which*.
-- **What is still the mock's story: `/pricing`'s «Change billing cycle» tooltip**, which says a
-  scheduled *downgrade* gets cancelled. A scheduled cancellation is real on both paths and is
-  cleared; a scheduled downgrade exists only on the mock's. Left as it is deliberately while
-  both paths are live — it is true of one of them — and it belongs with the demolition, where
-  the mock's copy comes out everywhere at once.
+- **`/pricing`'s «Change billing cycle» tooltip** said a scheduled *downgrade* gets cancelled.
+  Corrected with the demolition: a scheduled *cancellation* is real and `changePaddlePlan` does
+  call it off; a scheduled downgrade is a thing Paddle cannot express.
