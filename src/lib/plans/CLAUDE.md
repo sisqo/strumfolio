@@ -131,7 +131,16 @@ break from a distance:
   rather than per press, so refreshing `/checkout/premium?cycle=year` five times leaves five
   unpaid transactions in Paddle. They bill nothing and expire on their own; what they do is make
   the dashboard's transaction list a poor measure of intent.
-- **Changing the cycle rebuilds the form instead of freezing it.** The transaction behind an open
+- **The switch is gone from the checkout screens** (2026-09-14, on request): the cycle is chosen
+  on /pricing, every CTA there carries `?cycle=`, and repeating a settled question as a control
+  in front of a payment form is a step that collects nothing. The price line states what is being
+  charged. **The test is what the *link* asked for**, not what the page ended up using — a bare
+  URL carries no cycle, and that is the one case where nothing has been chosen, so the switch and
+  the yearly-versus-monthly comparison both appear there and nowhere else. It also matters for a
+  subscriber, who on a bare link falls back to the cycle they are already billed on and would
+  otherwise have no way to ask for the other.
+- **Changing the cycle rebuilds the form instead of freezing it** (in the bare-link case, the
+  only one that still shows the switch).** The transaction behind an open
   form was made server-side for one price, so the toggle cannot move under it — but disabling it
   strands the reader on a decision the page now opens with. It closes, asks the server again and
   reopens. **Not `Checkout.updateItems`**, which would have the browser naming a price: the whole
@@ -141,6 +150,13 @@ break from a distance:
   hairlines washed out — reported as «in light mode it looks bad», with dark fine because
   dark-on-dark forgives it. `--surface` is `#ffffff` in light and a lifted panel in dark, so one
   card serves both while `frameStyle` stays transparent.
+- **A frame already drawn keeps the theme it was drawn with**, so switching theme mid-payment
+  left a light form inside a dark card — reported from the preview. `updateCheckout` carries
+  items, a discount and customer data and **no settings**, so the only lever is opening again:
+  the open effect watches `useResolvedTheme` and keys its guard on transaction *and* theme.
+  What that costs is a restarted form, so anything half-typed is lost — taken because the
+  mismatch is what a reader actually sees, and changing theme at that moment is deliberate and
+  rare.
 - **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
   nobody has watched is the frame itself — its width on a phone, the theme matching, and that
   footer being visible.

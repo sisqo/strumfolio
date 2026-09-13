@@ -38,10 +38,11 @@
  * which is why this says «we are finishing up» rather than «you now have Premium».
  */
 
-import { initializePaddle, type CheckoutSettings, type Environments, type Paddle, type Theme } from '@paddle/paddle-js'
+import { initializePaddle, type CheckoutSettings, type Environments, type Paddle } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
 
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
+import { resolvedTheme, useResolvedTheme } from '@/lib/useResolvedTheme'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
 import { changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
 import { callOffLine, changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
@@ -144,9 +145,10 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  *
  * **The theme is why this is a function.** Paddle defaults to `light` whatever the page is
  * doing, which as a modal was merely unfortunate and inside our own column would be a white card
- * sitting in a dark one. The app's choice lives on `documentElement`, and `auto` sets no
- * attribute at all — `theme.ts`'s own arrangement, so that the media query in `globals.css`
- * decides — which is why the fallback asks the system rather than assuming light.
+ * sitting in a dark one. `resolvedTheme` answers it from the two places the answer lives — the
+ * attribute, and the system scheme when `auto` has set none — and it is asked here, at the
+ * moment of opening, so that a theme changed while the page was sitting open is the one the
+ * form is drawn in.
  *
  * `one-page` because the default, `multi-page`, collects the details and then the card on two
  * screens, and an embedded frame changing height between them moves the page under the reader's
@@ -158,18 +160,10 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  * is exactly what would clip the «merchant of record» footer it is required to show.
  */
 function checkoutSettings(): CheckoutSettings {
-  const chosen = typeof document === 'undefined' ? undefined : document.documentElement.dataset.theme
-  const theme: Theme =
-    chosen === 'dark' || chosen === 'light'
-      ? chosen
-      : typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'
-
   return {
+    theme: resolvedTheme(),
     displayMode: 'inline',
     variant: 'one-page',
-    theme,
     frameTarget: FRAME_TARGET,
     frameInitialHeight: 450,
     /* 286px is Paddle's floor with checkout padding off, 312px with it on. The page's own gutter
@@ -412,15 +406,30 @@ export function PaddleCheckout(props: Props) {
    * finished loading — the button waits for `ready`, but the two states are independent and an
    * `open()` against an uninitialised SDK is a silent no-op rather than an error.
    */
+  /**
+   * **A frame already drawn keeps the theme it was drawn with**, and that is a real defect
+   * rather than a nicety: `updateCheckout` takes items, a discount and customer data — there is
+   * no setting on it — so a reader who switches theme mid-payment is left with a light form
+   * inside a dark card, or the reverse. The only lever Paddle offers is opening again.
+   *
+   * The cost is stated because it is not free: re-opening restarts the form, so a half-typed
+   * card number is lost. Taken anyway — changing theme is a deliberate act, rare at this exact
+   * moment, and what it produces otherwise is precisely the mismatch that was reported.
+   *
+   * The guard is keyed on the transaction **and** the theme, which is what lets the same id be
+   * re-opened for the second reason while still refusing the double mount React does in
+   * development. `checkoutSettings` re-reads the DOM rather than trusting the state that woke
+   * this: the hook is the signal, the attribute is the truth.
+   */
+  const theme = useResolvedTheme()
   const opened = useRef<string | null>(null)
   useEffect(() => {
     if (openTransaction === null || !ready) return
-    /* Once per transaction: React mounts every effect twice in development, and a second
-       `open()` into a frame already carrying this checkout redraws it under the reader. */
-    if (opened.current === openTransaction) return
-    opened.current = openTransaction
+    const drawn = `${openTransaction}:${theme}`
+    if (opened.current === drawn) return
+    opened.current = drawn
     paddle.current?.Checkout.open({ transactionId: openTransaction, settings: checkoutSettings() })
-  }, [openTransaction, ready])
+  }, [openTransaction, ready, theme])
 
   /**
    * **The cycle was chosen on /pricing, so this screen does not ask again.**
@@ -563,13 +572,31 @@ export function PaddleCheckout(props: Props) {
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
 
+  /**
+   * Whether this screen still has a billing cycle to ask about — which it usually does not.
+   *
+   * **The choice belongs to /pricing, and it is made there.** Every CTA on that page carries
+   * `?cycle=`, and «Change billing cycle» is a link whose whole purpose is to name the other
+   * one; so by the time somebody is here the decision exists, and repeating it as a control is
+   * asking a settled question in front of a payment form. The price line below states what is
+   * being charged, which is what a reader at this point needs — a statement, not a switch.
+   *
+   * **What the link asked for is the test, not what the page ended up using.** A bare URL —
+   * typed, bookmarked, sent in a message — carries no cycle, and *that* is the one case where
+   * nothing has been chosen and the question is real. It is also the case `/checkout/[plan]`
+   * already treats apart, and for a sharper reason than tidiness: a subscriber reaching a bare
+   * link falls back to the cycle they are already billed on, and with no control on the screen
+   * they would have no way to ask for the other.
+   */
+  const asksForCycle = props.plan !== 'lifetime' && props.initialCycle === null
+
   return (
     <div className="mt-6">
       {/* `segment` / `segment-button is-on`, the control /pricing's own toggle uses for this
           exact choice — the classes already exist and carry the theme, so this is not the
           place to invent a second look for one switch. Yearly first, the side /pricing opens
           on. */}
-      {props.plan !== 'lifetime' && (
+      {asksForCycle && (
         <div className="segment w-fit" role="group" aria-label="Billing period">
           {(['year', 'month'] as const).map((option) => (
             <button
@@ -609,10 +636,17 @@ export function PaddleCheckout(props: Props) {
         {props.plan === 'lifetime' ? ' once' : cycle === 'year' ? ' a year' : ' a month'}
       </p>
 
-      {/* The comparison /pricing makes rather than a claim about savings: the reader puts the
-          two numbers side by side themselves, which they do correctly and faster than they
-          read a sentence about it. */}
-      {props.plan !== 'lifetime' && cycle === 'month' && (
+      {/*
+        * The comparison /pricing makes rather than a claim about savings: the reader puts the
+        * two numbers side by side themselves, which they do correctly and faster than they read
+        * a sentence about it.
+        *
+        * **Only where the switch is**, and for the same reason. With the cycle already settled
+        * this is an argument for a change the screen no longer offers a way to make — and
+        * re-opening a decision at the moment of payment, with no control to act on it, is
+        * second-guessing a reader who saw both figures on /pricing and picked one.
+        */}
+      {asksForCycle && cycle === 'month' && (
         <p className="mt-1 text-sm opacity-80">
           {yearlyTotalOfMonthly(props.amounts.month)} a year, against {euro(props.amounts.year)}{' '}
           paid yearly.
