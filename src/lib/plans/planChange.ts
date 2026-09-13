@@ -9,7 +9,7 @@
  * `subscriptions.preview`, which is how the two facts below are known rather than assumed.
  *
  * So this app follows what Paddle's own customer portal does, and it is a real change from
- * what `mockPurchase` promised:
+ * what the mock promised:
  *
  * - **An upgrade applies now and is billed now** (`prorated_immediately`): the unused part of
  *   the old plan is credited against the charge, and the reader has the bigger plan before the

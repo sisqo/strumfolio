@@ -16,7 +16,7 @@
  *
  * Pure and dependency-free on purpose: `npm test` in this repo is `node:test` over plain
  * modules, with no React renderer anywhere, so a rule that lives here is testable and the
- * same rule written inside a page component is not. `plans/testCard.ts` next to `checkout.ts`
+ * same rule written inside a page component is not. `plans/paddleClient.ts` next to `paddleCheckout.ts`
  * exists for the same reason.
  */
 

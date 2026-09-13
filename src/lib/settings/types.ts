@@ -4,7 +4,7 @@
  * A module with **no `@/lib/db` import anywhere in it**, deliberately, and no `'use server'`
  * either. Two reasons, and the second is the one that would be missed: a `'use server'` module
  * may only export async functions, so the parser and the defaults below could not live beside
- * the keys they belong to (the same split `plans/testCard.ts` exists for); and this file is
+ * the keys they belong to (the same split `plans/paddleClient.ts` exists for); and this file is
  * value-imported by the toggle component, which is a client component — `PricingPlans.tsx`'s
  * own header explains what importing a database-touching module into one of those costs, which
  * is the whole module shipped to the browser.

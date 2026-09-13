@@ -7,7 +7,7 @@ type ActionResult<Reason extends string> = { ok: true } | { ok: false; reason: R
 
 /**
  * The busy/error/done state machine every admin action row on the account detail page
- * hand-rolled on its own — `ClearRateLimitRow`, `DeleteAccountRow`, `ForceExpireRow`,
+ * hand-rolled on its own — `ClearRateLimitRow`, `DeleteAccountRow`,
  * `SendResetEmailRow` and `SuspendAccountRow` each wrote the same three `useState` calls and
  * the same try/catch/finally around a server action, one message table apart. Extracted here
  * rather than left to keep growing with the next admin row.

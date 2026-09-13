@@ -13,7 +13,7 @@
  * the captcha, the rate limit and the account-existence check its own callers apply — so as an
  * action it was an unauthenticated "send a reset email to any address" endpoint, i.e. an email
  * bomb and a token generator for strangers. Its two callers are both server-side, so a plain
- * module reaches them and nobody else. Same arrangement `testCard.ts` uses beside `checkout.ts`.
+ * module reaches them and nobody else. Same arrangement `paddleClient.ts` uses beside `paddleCheckout.ts`.
  */
 
 import { db } from '@/lib/db/client'

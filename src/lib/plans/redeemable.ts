@@ -19,7 +19,7 @@
  * two must not be able to disagree. `checkout.ts` carries `'use server'`, where every export
  * becomes an endpoint the browser can call — so exporting it from there would have turned an
  * internal decision into a public one, the defect this repo already found and fixed once.
- * A sibling plain module is the pattern `testCard.ts` set beside the same file.
+ * A sibling plain module is the pattern `paddleClient.ts` set beside the same file.
  */
 
 import { cookies } from 'next/headers'

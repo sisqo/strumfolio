@@ -12,7 +12,7 @@
  * it (`chord.ts` for a chord, `convert.ts` for what a chord *line* is). Two functions, one
  * for each tool that needs one, both pure and both here rather than in a component because
  * `npm test` in this repo reaches a module and not a React tree — the same split
- * `blog/shelves.ts` and `plans/testCard.ts` make.
+ * `blog/shelves.ts` and `plans/paddleClient.ts` make.
  *
  * **What it deliberately does not do:** re-layout, re-format, or tidy. A sheet comes back as
  * close to how it arrived as the new chord names allow, because a person who pasted their own

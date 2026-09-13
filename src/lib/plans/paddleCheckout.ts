@@ -4,7 +4,7 @@
  * Opening a real Paddle checkout, from the server.
  *
  * **The transaction is created here and the browser is handed only its id**, which is the
- * whole shape of this file and not an implementation detail. `mockPurchase` refuses to take a
+ * whole shape of this file and not an implementation detail. This file refuses to take a
  * coupon as an argument because «a code travelling as a parameter is a self-service discount
  * of any size»; the same reasoning applied to Paddle rules out the documented client-side form
  * — `Paddle.Checkout.open({ items: [{ priceId }] })` — where the page decides what is bought

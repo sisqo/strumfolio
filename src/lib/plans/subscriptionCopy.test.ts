@@ -88,7 +88,7 @@ describe('the subscription sentence', () => {
 /**
  * The row both sides of the checkout have to read the same way. `/checkout/[plan]` decides
  * whether to promise a purchase or a scheduled change from the **resolved** row it is handed;
- * `mockPurchase` and `mockCancel` decide the same thing server-side, and used to ask the raw
+ * the write paths decide the same thing server-side, and used to ask the raw
  * column, which on this row still holds the old date the resolved view has already collapsed
  * away. The screen promised "Complete purchase" and got a scheduled change back.
  */
@@ -242,7 +242,7 @@ describe('the cancellation question', () => {
     assert.equal(cancelQuestion(state({ status: 'grace', expiresAt: FUTURE })), 'Cancel Standard?')
   })
 
-  /* No date to name, and nothing to wait for: `mockCancel` drops such a row immediately. */
+  /* No date to name, and nothing to wait for: such a row has no period to schedule against. */
   it('asks plainly when there is no period to name', () => {
     assert.equal(cancelQuestion(state({ expiresAt: null })), 'Cancel Standard?')
   })

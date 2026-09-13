@@ -164,7 +164,7 @@ export interface AccountPlanLine {
    * plain, uncancelled lapse does not hit this: `resolveSubscription` only rewrites `plan`
    * when `status` is still `'active'`, so an actually-`'expired'` row keeps its paid name on
    * `plan` above and needs no separate flag. This is the one field on this type that is
-   * **not** resolved — see `ForceExpireRow`, the one screen that needs "did this account
+   * **not** resolved — the operator's panel needs "did this account
    * ever hold a subscription" answered independently of whether one is live right now.
    */
   everSubscribed: boolean

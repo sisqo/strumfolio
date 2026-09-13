@@ -5,7 +5,7 @@
  * carries `'use server'`, so it may export only async functions. A synchronous mapper and a
  * column-set constant exported from there compile fine and then fail at *build* time with
  * «Server Actions must be async functions» — invisible to `tsc --noEmit`, which is exactly the
- * arrangement `CLAUDE.md` describes for `plans/testCard.ts` beside `checkout.ts` and
+ * arrangement `CLAUDE.md` describes for `plans/paddleClient.ts` beside `paddleCheckout.ts` and
  * `newsletter/stamps.ts` beside its own actions.
  *
  * What lives here is the one definition of «so what plan are they actually on» that three

@@ -8,7 +8,7 @@
  * which are exactly what lets the *next* event find this account without a `custom_data` stamp.
  *
  * **It never touches the `granted*` columns**, and that is the same standing decision
- * `mockPurchase` records: a gift lives in those columns, and a renewal re-asserting
+ * `setGrant` (`accounts/actions.ts`) exists for: a gift lives in those columns, and a renewal re-asserting
  * `plan`/`planStatus` over them would silently erase it. `setGrant` is the only writer there.
  *
  * **Idempotency is the primary key and not a second ledger.** `paddle_events.event_id` is the
@@ -179,7 +179,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
         eventType: event.eventType,
         occurredAt: event.occurredAt,
         /* Both columns, and not redundant: the address is the historical fact of who this
-           arrived for, the id is the pointer every read uses. `logMockEvent` says the same. */
+           arrived for, the id is the pointer every read uses. */
         accountOwnerEmail: account?.ownerEmail ?? null,
         accountId: account?.id ?? null,
         paddleSubscriptionId: effect?.account.paddleSubscriptionId ?? null,

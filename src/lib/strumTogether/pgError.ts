@@ -2,7 +2,7 @@
  * Reading a Postgres error code off whatever the driver actually threw.
  *
  * A plain sibling of `./session`, which carries `'use server'` and may therefore only export
- * async functions — the same reason `plans/testCard.ts` sits beside `plans/checkout.ts` rather
+ * async functions — the same reason `plans/paddleClient.ts` sits beside `plans/checkout.ts` rather
  * than inside it, and the reason this is testable at all. `session.ts` had this inline and
  * untested while it was a one-line property read; it stopped being one, so it moved.
  *

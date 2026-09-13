@@ -38,7 +38,7 @@ import type { CampaignStatus, ViewStanding } from './types'
 /**
  * Record that one account has been shown one campaign.
  *
- * **The code is an argument here, unlike at `mockPurchase`, and the difference is what the
+ * **The code is an argument here, unlike at the checkout, and the difference is what the
  * argument can buy.** A code travelling as a parameter into a checkout is a self-service
  * discount of any size; a code travelling into this is a reader asking to be recorded as
  * having seen a campaign that really exists and is really live — which grants nothing, and is
@@ -53,7 +53,7 @@ import type { CampaignStatus, ViewStanding } from './types'
  * either.
  *
  * The account written is the reader's **current** account, never their sign-in identity, so a
- * view agrees with what `mockPurchase` would charge.
+ * view agrees with what a checkout would charge.
  *
  * **The account id is selected and looked at, not rendered as a subquery**, which is the one
  * thing `accountIdOf` says of itself must never be done with it: it yields NULL for an address

@@ -1,6 +1,6 @@
 /**
  * When to stamp `subscribedAt`/`unsubscribedAt` on a newsletter preference write.
- * Pulled out of `actions.ts` for the same reason `testCard.ts` sits beside
+ * Pulled out of `actions.ts` for the same reason `paddleClient.ts` sits beside
  * `checkout.ts` (`CLAUDE.md`): a `'use server'` module can only export async
  * functions, so the synchronous decision worth a unit test lives in a plain sibling
  * instead.

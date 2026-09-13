@@ -3,7 +3,7 @@
  *
  * A plain module rather than part of either `'use server'` file that needs it: those may only
  * export async functions, and this is a synchronous factory two of them share — the same
- * constraint `testCard.ts` and `redeemable.ts` already live under.
+ * constraint `redeemable.ts` and `planChange.ts` already live under.
  *
  * Built per call rather than once at module scope so `PADDLE_API_KEY` is read fresh, the way
  * `resolve.ts` reads its flags. A missing key answers `null` instead of throwing at import

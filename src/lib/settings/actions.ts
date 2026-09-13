@@ -10,7 +10,7 @@
  *
  * `event` arrives as a bare `string` because it comes from a form value, which the type system
  * cannot vouch for; `isNotifyEvent` is the actual check, and an unrecognised one is refused
- * rather than normalised — the same choice `mockPurchase` makes with `isCheckoutPlan` over
+ * rather than normalised — the same choice `startPaddleCheckout` makes with `isCheckoutPlan` over
  * `readPlan`, so a typo cannot quietly write a row nobody asked for.
  *
  * There is no history kept: the row carries who wrote it last and when, and nothing more. A

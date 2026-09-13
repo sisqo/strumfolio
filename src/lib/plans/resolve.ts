@@ -352,7 +352,7 @@ export async function deviceCapOf(accountOwnerEmail: string): Promise<{ max: num
  * **Why both, rather than only `effective`:** these two answer different questions and
  * `/pricing` needs them apart. "Which badge do I show" is `effective` — the limits actually
  * in force, gift included. "Which card is *your plan*, and is this column an upgrade or a
- * downgrade from it" is `subscription`, for the reason `mockPurchase` states about its own
+ * downgrade from it" is `subscription`, for the reason `planChange.ts` states about its own
  * rank comparison: a manual grant must never be mistaken for the subscription it sits beside.
  * Reading `effective` for that second question let a gifted Premium sit on the Premium card as
  * "Your plan", so completing that card's checkout turned a free gift into a real purchase the

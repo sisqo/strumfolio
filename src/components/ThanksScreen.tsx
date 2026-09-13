@@ -18,7 +18,7 @@ type Status =
 /**
  * Where a purchase lands: what is now active, and the one thing worth doing next.
  *
- * Asked from the client on mount, like `BillingScreen` and `CheckoutScreen` beside it — the page
+ * Asked from the client on mount, like `BillingScreen` beside it — the page
  * around this is a static shell that cannot know who is looking. Through
  * `loadPurchaseSummary`, deliberately, and not `loadCheckoutStatus`: see that function's own
  * comment on why a thank-you must not depend on the mock checkout still being switched on.
@@ -234,7 +234,7 @@ export function ThanksScreen() {
    * of it being shared — three screens describing a failing card three ways is what it replaced.
    *
    * `|| live === null` is the half that was missing, and it is the half that actually happens.
-   * A status of `expired` is only ever written by `forceExpireNow`, which no screen calls any
+   * A status of `expired` is written only by the webhook, on a `canceled` subscription, which no screen causes any
    * more — so this branch, as first written, guarded a door nobody could reach, while the door
    * every customer walks through eventually (a `planExpiresAt` gone by, status still `active`,
    * because nothing in this repository renews anything) led straight to "You're in. Welcome to

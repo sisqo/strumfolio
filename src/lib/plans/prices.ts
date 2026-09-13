@@ -156,7 +156,7 @@ export function euro(amount: string): string {
  * has to be able to say, *before* the button is pressed, which day this purchase would move the
  * renewal to — and that sentence is only worth printing if it names the same day the write will
  * actually store. That file carries `'use server'`, so a synchronous helper cannot live beside
- * `mockPurchase`; this module is where the rest of the billing-period vocabulary already is.
+ * a checkout; this module is where the rest of the billing-period vocabulary already is.
  */
 export function periodEnd(cycle: BillingPeriod, from: Date): Date {
   const until = new Date(from)

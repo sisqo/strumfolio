@@ -21,8 +21,8 @@
  * the gate), `listAccountPlans` (`accounts/read.ts`, one instant for the whole `/accounts`
  * list, so no two rows can disagree across an expiry boundary), `setGrant`
  * (`accounts/actions.ts`, one instant shared by the validation and `grantedAt`), and now
- * `checkout.ts`'s own reads and writes (`loadCheckoutStatus`, `mockPurchase`, `mockCancel`,
- * `forceExpireNow`), each resolving a scheduled change through `resolveSubscription` at its
+ * `checkout.ts`'s own reads (`loadCheckoutStatus`, `loadPurchaseSummary`) and
+ * `webhookApply.ts`'s write, each resolving a scheduled change through `resolveSubscription` at its
  * own single instant. A reader auditing "where does this feature read the clock" should grep
  * `new Date()` and trust the rule, not this list.
  *
@@ -156,7 +156,7 @@ function atCap(cap: number | null, held: number): boolean {
  *
  * No `expiresAt`. `free` and `lifetime` both carry a null expiry, which means never — there
  * is no date for a pending change to fire on, so one is never written for either (see
- * `mockPurchase`/`mockCancel`, `checkout.ts`).
+ * `webhookApply.ts`).
  *
  * `now` has not reached `expiresAt` yet. The row still reads exactly as it did before any
  * change was scheduled — `plan`/`status`/`expiresAt` pass through untouched — with
@@ -168,7 +168,7 @@ function atCap(cap: number | null, held: number): boolean {
  * `pendingPlan: null`, so a second call sees nothing left to resolve. And `expiresAt: null`
  * on the resolved side is deliberate, not a gap — the "new" plan does not get an invented
  * next renewal date, because nothing in this mock models renewals for any plan; it simply
- * stays in force until something else changes the row, the same as every plan `mockPurchase`
+ * stays in force until something else changes the row, the same as every plan a purchase
  * has ever written.
  */
 export function resolveSubscription(stored: SubscriptionColumns, now: Date): SubscriptionColumns {
@@ -183,9 +183,11 @@ export function resolveSubscription(stored: SubscriptionColumns, now: Date): Sub
    * whose card is failing — the one moment they are most likely to be reconsidering. The raw
    * column still held the change the whole time; only the resolved view of it disappeared.
    *
-   * Unreachable today: nothing in this repo writes `grace` (`mockCancel` schedules, it does
-   * not fail a payment), so this is groundwork for the real webhook rather than a fix for
-   * anything a reader can currently reach.
+   * **Reachable since the Paddle webhook arrived**, and it was not before: `statusOf`
+   * (`webhook.ts`) answers `grace` for `past_due` and for `paused`, so a real failing card now
+   * lands here. Nothing wrote this status while the mock was the only checkout — it scheduled
+   * changes, it never failed a payment — which is why this branch was groundwork for years and
+   * is live code now.
    */
   if (stored.status === 'grace') return stored
 
@@ -220,7 +222,7 @@ export function resolveSubscription(stored: SubscriptionColumns, now: Date): Sub
  *
  * Reads through `resolveSubscription` first, so a downgrade or cancellation scheduled ahead
  * of time applies itself the moment its date passes, with no separate write and no cron —
- * see that function's own comment. Exported for `checkout.ts`'s `mockPurchase`/`mockCancel`,
+ * see that function's own comment. Exported for `checkout.ts`'s loaders,
  * which need this exact "what is actually live right now" answer to decide whether a
  * purchase is an upgrade (immediate) or a downgrade (scheduled), never `planStateFor`'s
  * blended `effectivePlan` — a manual grant must never be mistaken for the subscription it

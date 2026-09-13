@@ -2,7 +2,7 @@
  * Reading campaigns, and resolving the one a reader is arriving with.
  *
  * A plain module, not `'use server'`: every caller is already server-side (`/pricing`,
- * `/checkout`, `/coupons`, and `mockPurchase`), and the pure half it leans on lives next door
+ * `/checkout`, `/coupons`, and the write paths), and the pure half it leans on lives next door
  * in `discount.ts`/`types.ts` where a `node:test` file can reach it. Same split as
  * `plans/resolve.ts` and `settings/read.ts`.
  *
@@ -235,7 +235,7 @@ async function defaultCampaign(now: Date): Promise<Campaign | null> {
  *
  * The per-plan half of the ceiling check that `campaignStatus` deliberately leaves out: a
  * Lifetime ceiling reached does not close a campaign, it only stops the Lifetime. Called by
- * `mockPurchase` immediately before it writes, so what is checked is what is charged.
+ * the write path immediately before it acts, so what is checked is what is charged.
  */
 export async function redeemability(
   campaign: Campaign,
@@ -340,7 +340,7 @@ export async function resolveTypedCode(
     /*
      * Told at the point of typing rather than at the checkout, when it can be told at all: a
      * visitor has no account to have redeemed anything with, so this is skipped for them and
-     * `mockPurchase` is the backstop either way.
+     * the write path is the backstop either way.
      */
     if (accountOwnerEmail !== null) {
       const already = await db()

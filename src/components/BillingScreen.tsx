@@ -80,7 +80,7 @@ type Status =
     }
 
 /**
- * Whether "Cancel my plan" is worth offering — `mockCancel`'s own three refusals, asked here
+ * Whether "Cancel my plan" is worth offering — the same three refusals the cancel path makes, asked here
  * one step earlier so the button is absent rather than present and futile.
  *
  * Reads `live`, never `status`, for the reason `loadCheckoutStatus` returns it at all: a plan
@@ -90,7 +90,7 @@ type Status =
  * `pendingPlan !== 'free'` where this used to demand `pendingPlan === null`: a cancellation
  * already scheduled has nothing left to cancel, but a *downgrade* already scheduled does — and
  * making that customer press "Keep Premium" first, with no word saying so, was a two-step path
- * out of a plan dressed up as a missing button. `mockCancel` overwrites the pending downgrade
+ * out of a plan dressed up as a missing button. Cancelling overwrites the pending downgrade
  * with `'free'`, which is exactly what pressing Cancel means.
  */
 function canCancel(current: SubscriptionState, live: Plan | null): boolean {
@@ -104,7 +104,7 @@ function canCancel(current: SubscriptionState, live: Plan | null): boolean {
  * table and `/checkout/[plan]`'s buy flow, and reproducing that table here would be the exact
  * duplication v3.6 decided against.
  *
- * **`forceExpireNow` is deliberately not reachable from this screen**, though the server
+ * **There is no "expire my plan now" here**, and there is no longer one anywhere: the server
  * action still exists for scripts and tests. It used to sit here behind nothing but the words
  * "test only" — and with `SONGBOOK_MOCK_CHECKOUT` on in production, that put "expire my plan
  * right now" in front of every paying customer, on the one screen they visit to manage what
@@ -161,7 +161,7 @@ export function BillingScreen() {
     refresh()
 
     /*
-     * `?cancel=1` — the hand-off from /pricing's own Free card, which used to call `mockCancel`
+     * `?cancel=1` — the hand-off from /pricing's own Free card, which used to cancel
      * itself behind a second, dateless question of its own (see that card's comment). It links
      * here instead, and this is what makes the hand-off a single tap rather than a hunt: the
      * question `cancelQuestion` words, with the day the plan actually stops in it, is already
@@ -215,7 +215,7 @@ export function BillingScreen() {
   }
 
   /* Narrowed once so the two things read out of a ready status can be computed above the JSX,
-     the same shape `CheckoutScreen` uses. */
+     the same shape every screen here uses. */
   const ready = status.state === 'ready' ? status : null
   const payment = ready === null ? null : lastPaymentLine(ready.current, ready.history)
   /*

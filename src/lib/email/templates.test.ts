@@ -47,7 +47,7 @@ test('planChangeEmail', async (t) => {
    * The rule this file exists for, and the same one `cancelQuestion` is tested for on the
    * screen side: **there was no period left to wait for, so no date may be named.** A sentence
    * pointing at a day, for a plan that is already gone, is the v3.12 bug in a new place — and
-   * this branch is the one `mockCancel` takes for a row with no `planExpiresAt`.
+   * this branch is the one a cancellation takes for a row with no `planExpiresAt`.
    */
   await t.test('an immediate cancellation names no date at all', () => {
     const mail = planChangeEmail(IMMEDIATE_CANCEL)

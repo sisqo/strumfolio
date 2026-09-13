@@ -8,7 +8,7 @@
  * price that cycle is sold at, stamps the account on the transaction and hands back only its
  * id — so everything this component can ask Paddle to open is something the server already
  * agreed to sell, and a tampered value can at worst name the other plan we publish anyway.
- * That is the rule `mockPurchase` states about coupons, kept rather than traded away for the
+ * That is the rule `startPaddleCheckout` states about coupons, kept rather than traded away for the
  * shorter client-side form where the page passes `items: [{ priceId }]`.
  *
  * **The props are a union rather than one shape with optional fields**, because Lifetime has
@@ -124,7 +124,7 @@ export function PaddleCheckout(props: Props) {
    * Monthly, and pressing it is a year→month move, which restarts the billing period and
    * trades the rest of their year for a credit. Legitimate when chosen, not when defaulted
    * into. An *explicit* `?cycle=` still wins, because /pricing carries one on every CTA and
-   * one of those links exists to change the cycle. `loadMostRecentCycleFor` is what the mock
+   * one of those links exists to change the cycle. A ledger lookup is what the mock
    * had for this; the answer here is better, being what Paddle bills rather than what was last
    * bought.
    */
@@ -214,7 +214,7 @@ export function PaddleCheckout(props: Props) {
 
   return (
     <div className="mt-6">
-      {/* `segment` / `segment-button is-on`, the same control `CheckoutScreen` uses for this
+      {/* `segment` / `segment-button is-on`, the control /pricing's own toggle uses for this
           exact choice — the classes already exist and carry the theme, so this is not the
           place to invent a second look for one switch. Yearly first, the side /pricing opens
           on. */}

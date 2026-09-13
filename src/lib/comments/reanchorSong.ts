@@ -15,7 +15,7 @@
  * rewrites *every account's* anchors for that slug. As an action it was an unauthenticated
  * cross-account write; as a plain function imported only by `import/actions.ts`'s own save path
  * (which has already resolved and checked the account) it is reachable by nobody else. Same
- * arrangement `testCard.ts` uses beside `checkout.ts`.
+ * arrangement `paddleClient.ts` uses beside `paddleCheckout.ts`.
  */
 
 import { eq } from 'drizzle-orm'

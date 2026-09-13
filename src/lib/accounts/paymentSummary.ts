@@ -35,7 +35,7 @@ function decimal(total: number): string {
  * Summarises one account's ledger.
  *
  * **Only `purchase` rows count toward the total, and that is not a tidiness choice.**
- * `logMockEvent` falls back to the catalogue price for the actions where nothing was charged
+ * the ledger falls back to the catalogue price for the actions where nothing was charged
  * (`cancelled_now`, `force_expired`, `kept_current` — see its own comment on `amount`), so
  * those rows carry a perfectly plausible figure for money that never moved. Summing every
  * amount would report a refunded, cancelled account as one of the best-paying in the

@@ -60,7 +60,7 @@ export interface ColumnPrice {
    * It used to be a small tag trailing the price, and `Pricing.dc.html` moved it: the two
    * halves of one fact — the price that was, and by how much it fell — now sit together on
    * their own line, and the price actually charged is left alone underneath them as the
-   * largest thing on the card. `CheckoutScreen` still draws the trailing tag, which is why
+   * largest thing on the card. `PaddleCheckout` still draws the trailing tag, which is why
    * `.plan-price-off` survives as its own class there; see `.plan-price-cut` in `globals.css`.
    */
   off?: string
@@ -138,7 +138,7 @@ export interface PlanColumn {
    * here: this file's own header explains why it must never import `@/lib/plans/types`, and
    * `checkout.ts` sits downstream of that module, so pulling in its type would reopen the
    * exact bundle-size door this file exists to keep shut. The page decides whether this is
-   * set at all — see `mockCheckoutEnabled()` in `pricing/page.tsx` — so its mere presence is
+   * set at all — see `CHECKOUT_LIVE` in `pricing/page.tsx` — so its mere presence is
    * the only thing this component has to check.
    *
    * When it is absent on a paid column the reader is not already on, the card shows an
@@ -287,7 +287,7 @@ export function PricingPlans({
   const pending = mustChooseNow(viewer)
   /*
    * Every rank question on this page is asked of the **subscription**, never of `plan`'s
-   * blend of subscription-and-gift — the invariant `mockPurchase` states for its own
+   * blend of subscription-and-gift — the invariant `planChange.ts` states for its own
    * comparison, which this file used to break. A gifted Premium sitting on top of a paid
    * Standard made the Premium card say "Your plan", and completing that card's checkout
    * turned the gift into a real purchase nobody asked for.
@@ -304,8 +304,8 @@ export function PricingPlans({
      already true) rather than needing its own guard at each call site. */
   const currentRank = currentPlan === null ? null : RANK[currentPlan]
   /*
-   * Lifetime is a terminal state, and every CTA on this page is a no-op for it: `mockPurchase`
-   * refuses each paid column with `not-applicable` (nothing left to buy) and `mockCancel`
+   * Lifetime is a terminal state, and every CTA on this page is a no-op for it: `planChangeEffect`
+   * refuses each paid column with `lifetime-live` (nothing left to buy) and cancelling
    * refuses the Free one for the same reason. `BillingScreen`'s own `canCancel` has always
    * excluded `lifetime`; this is that same exclusion, finally applied on the page that offers
    * the actions rather than only on the one that manages them.
@@ -510,7 +510,7 @@ export function PricingPlans({
                     </p>
                     {/*
                       * The one action this card still needs: re-buying the plan already held
-                      * is how a billing-cycle change has always worked (`mockPurchase`'s own
+                      * is how a billing-cycle change has always worked (`planChange.ts`'s own
                       * comment — equal rank applies immediately, like a small upgrade) and
                       * there is nowhere else in the app to do it, since the active cycle
                       * itself is not even a stored column. Worded apart from "Upgrade"/
@@ -523,11 +523,11 @@ export function PricingPlans({
                       * actually paying for, and passing it straight through used to land back
                       * on the *same* cycle half the time — "change" doing nothing. The screen
                       * it lands on now overrides this with the ledger's own opposite cycle for
-                      * this exact plan the moment it loads (`CheckoutScreen`'s own comment),
+                      * this exact plan the moment it loads (`PaddleCheckout`'s own comment),
                       * and only falls back to this guess when the ledger has nothing to say.
                       *
-                      * Absent when `checkoutPlan` is: re-buying is a `mockPurchase` call same
-                      * as everything else this file offers, and `mockPurchase` itself refuses
+                      * Absent when `checkoutPlan` is: changing cycle is a `changePaddlePlan` call same
+                      * as everything else this file offers, and that action itself refuses
                       * with the checkout switched off — a link that only leads to "Coming
                       * soon" would be the same theatre v3.12 already ruled out for a
                       * downgrade that asked for a card without charging it.
@@ -620,7 +620,7 @@ export function PricingPlans({
               )}
 
               {/*
-                * A Lifetime holder gets no downgrade offer here either: `mockCancel` refuses
+                * A Lifetime holder gets no downgrade offer here either: cancelling refuses
                 * it (`not-applicable`, the same answer it gives for "nothing live" and
                 * "already Free"), so the button could only ever report a failure — and it used
                 * to report the *wrong* one, telling someone who had paid €189 that their
@@ -631,7 +631,7 @@ export function PricingPlans({
               )}
 
               {/*
-                * **This card no longer cancels anything.** It used to call `mockCancel`
+                * **This card no longer cancels anything.** It used to cancel
                 * itself, behind a two-press confirmation added because one stray tap on a
                 * price card ended a paid plan — and that confirmation then had to word, here,
                 * a question `/billing` already words better: `cancelQuestion` names the plan
@@ -765,7 +765,7 @@ export function PricingPlans({
  *
  * Already on Lifetime gets the same "Your plan" indicator the four cards show for their
  * own current plan, rather than a live "Choose Lifetime" that would only reach checkout to
- * be refused — `mockPurchase` already answers `not-applicable` there ("This account is
+ * be refused — `planChangeEffect` already answers `lifetime-live` there ("This account is
  * already on Lifetime — there is nothing left to buy."), so this is the one-step-earlier
  * version of the same fact, not a new rule.
  *

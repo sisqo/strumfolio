@@ -3,7 +3,7 @@
  * here so it can be tested.
  *
  * A plain module rather than living beside the components that use it, for the reason
- * this repo's `CLAUDE.md` gives about `testCard.ts`: `document.tsx` renders real PDFs to
+ * this repo's `CLAUDE.md` gives about `paddleClient.ts`: `document.tsx` renders real PDFs to
  * measure itself, so nothing in it can be checked by `node:test`, while these are
  * synchronous functions over plain arrays and every interesting case is a three-element
  * list. The bug they were extracted to fix (see `balancedCut`) had been shipping

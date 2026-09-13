@@ -125,7 +125,7 @@ export function PaymentHistoryTable({
                   * payment history exists to answer.
                   *
                   * Every figure comes from the event's own payload, never re-derived from
-                  * `PRICES` — see `logMockEvent`'s `amount`. A later re-price cannot rewrite a
+                  * `PRICES` — see `readLine`'s `amount`. A later re-price cannot rewrite a
                   * line that has already happened.
                   */}
                 {line.fullAmount !== null && line.fullAmount !== line.amount && (

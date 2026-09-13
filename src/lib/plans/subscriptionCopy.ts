@@ -6,7 +6,7 @@
  * the past>"), and `/checkout/[plan]` had its own third phrasing that named neither `grace`
  * nor `lifetime` specially. A plain module, not `'use server'`: `lib/plans/checkout.ts` (the
  * type this reads) is one, and a `'use server'` module may only export async functions —
- * the same reason `plans/testCard.ts` exists beside `checkout.ts` rather than inside it.
+ * the same reason `plans/paddleClient.ts` exists beside `checkout.ts` rather than inside it.
  */
 
 import { PLAN_LABEL } from './types'
@@ -87,7 +87,7 @@ export function subscriptionStatusLine(current: SubscriptionState, live: Plan | 
  * **Read out of the ledger, not out of a column, and that is not a shortcut.** No column
  * anywhere stores the cycle a live subscription is on: `accounts.pendingCycle` is the only one
  * in the schema and, by its own comment, is null unless a change is already scheduled. The
- * ledger `logMockEvent` writes does carry it, on the row that recorded the purchase itself —
+ * ledger does carry it, on the row that recorded the purchase itself —
  * which is the row this reads, and the same row `PaymentHistoryTable` prints two cards further
  * down the same screen. The two therefore cannot disagree, which a new column would have made
  * possible on the day one write updated it and the other did not.
@@ -140,7 +140,7 @@ export function lastPaymentLine(
  * date has gone by — every one except `grace`, which it keeps alive on purpose.
  *
  * The bare form is also what an `expiresAt` of `null` gets: there is no period to name, and
- * `mockCancel` drops that row on the spot rather than scheduling anything.
+ * such a row has no period to schedule against.
  */
 export function cancelQuestion(current: SubscriptionState): string {
   const day = scheduledChangeDay(current.status, current.expiresAt)
@@ -167,9 +167,9 @@ export function cancelQuestion(current: SubscriptionState): string {
  * answers `null` for both and lets the caller decide, rather than pretending to. `grace` has a
  * `planExpiresAt` virtually always already in the past, because that status is defined to
  * ignore dates precisely so a retrying card is not read as a lapse; a null `expiresAt` has no
- * date at all, which for `mockCancel` means the cancellation applies at once and for
+ * date at all, which for a cancellation means it applies at once and for
  * `cancelQuestion` means there is no period to name. A caller that has to tell the two apart —
- * `mockCancel` does — asks `expiresAt` itself, which is the question it is actually about.
+ * the cancel path does — asks `expiresAt` itself, which is the question it is actually about.
  *
  * `status`/`expiresAt` as two arguments rather than a `SubscriptionState`, so the resolved
  * `SubscriptionColumns` that `checkout.ts` holds can be passed without being reshaped into a

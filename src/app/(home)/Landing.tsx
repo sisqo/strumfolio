@@ -303,7 +303,7 @@ const PLAN_HOLD = plansEnforced()
  * failure to avoid, and it warns these two pages must flip together. `PLAN_HOLD` above was
  * already reading the flags for the FAQ answer; those sentences were the half that was not.
  *
- * Keyed on `plansEnforced()` and deliberately **not** on `mockCheckoutEnabled()`: what makes
+ * Keyed on `plansEnforced()` and deliberately **not** on `paddleCheckoutEnabled()`: what makes
  * «part of the paid plans» true is that a free account is actually held out of the feature, which
  * is enforcement and not whether anything is on sale. With the flag off, `UNGATED` grants the
  * booklet (`refused.booklet` is null there), so a free account really does print, and the hedge

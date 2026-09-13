@@ -1,7 +1,7 @@
 /**
  * Whether the hamburger menu offers to put this app on the home screen, and how.
  *
- * A pure module for the reason `testCard.ts` is one: every branch here is a claim about
+ * A pure module for the reason `paddleClient.ts` is one: every branch here is a claim about
  * a browser that cannot be checked from this machine — no iPhone, no Android, and a
  * `beforeinstallprompt` that will not fire against `next dev` — so the truth table is
  * the only place the behaviour can actually be verified. `useInstallOffer` does nothing

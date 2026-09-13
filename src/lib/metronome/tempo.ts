@@ -3,7 +3,7 @@
  *
  * `useMetronome` holds an `AudioContext`, and an `AudioContext` cannot be created in
  * `node:test` — which is the whole test runner this repo has (see `CLAUDE.md`, and
- * `plans/testCard.ts` for the same split made for the same reason). So every decision that
+ * `plans/paddleClient.ts` for the same split made for the same reason). So every decision that
  * can be made with numbers alone is made here: what a legal tempo is, how long a beat
  * lasts, which beats fall inside the next slice of time, and which of those carry the
  * accent. What is left in the hook is scheduling and oscillators, and nothing to reason

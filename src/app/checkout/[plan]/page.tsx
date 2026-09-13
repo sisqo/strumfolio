@@ -59,11 +59,11 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const requestedCycle: BillingPeriod | null = cycle === 'year' ? 'year' : cycle === 'month' ? 'month' : null
 
   /*
-   * Resolved here rather than inside `CheckoutScreen`, for `Viewer`'s reason on /pricing: a
+   * Resolved here rather than inside the client component, for `Viewer`'s reason on /pricing: a
    * client component cannot answer before hydration, and the wrong answer it would give until
    * then is a full price on the one screen where the number is about to be charged.
    *
-   * **This decides what the screen says and nothing about what it charges.** `mockPurchase`
+   * **This decides what the screen says and nothing about what it charges.** The write path
    * re-reads the cookie and re-validates the campaign server-side — see its own comment — so a
    * reader who reaches this page with a stale or tampered `?coupon=` sees one price and is
    * charged the right one.
@@ -75,7 +75,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
     loadLifetimeOnSale(),
     /*
      * Read for one thing only: whether there is an account for `CouponBar` to record a sighting
-     * against. This screen needs no identity of its own — `mockPurchase` reads its own session
+     * against. This screen needs no identity of its own — every write path reads its own session
      * when it is pressed — and the question is asked here rather than inside the action so a
      * signed-out reader on a checkout costs no round trip, `/pricing`'s own reasoning.
      */

@@ -1,34 +1,31 @@
 'use server'
 
 /**
- * A stand-in checkout that writes the same columns a real Paddle webhook will one day write —
- * `plan`, `planStatus`, `planExpiresAt`, and now `pendingPlan`/`pendingCycle` for a change
- * scheduled ahead of time — so the entitlement gates, the account menu's plan badge, the
- * freeze path and now a payment history can all be exercised for real before there is an
- * actual payment processor behind any of it. Never touches `paddleCustomerId` or
- * `paddleSubscriptionId`: those two columns are for the real webhook to key on, and seeding
- * them with invented ids would leave rows that look real to a future lookup and resolve to
- * nothing at Paddle. Never touches the `granted*` columns either, for the reason `setGrant`
- * (`accounts/actions.ts`) exists at all: a renewal re-asserting `plan`/`planStatus` would
- * silently erase a gift living in those same columns, which is why the two are kept apart.
+ * What the plan screens read — and, since 2026-09-13, nothing they write.
  *
- * Deliberately open to any signed-in reader, on whichever account their session currently
- * resolves to — `currentUser().accountOwnerEmail`, which already respects the account
- * switcher, so a global owner testing the free plan's flow buys as whichever account they
- * have switched into. There is no `isOwner` check anywhere in this file, and that is a real,
- * standing decision: while `mockCheckoutEnabled()` answers true, anybody who reaches
- * `/checkout` or `/billing` can give their own account any plan for nothing, because nothing
- * here actually charges a card. `mockCheckoutEnabled` is the only fence, meant to stand for a
- * short test window and come down again — see its own comment in `resolve.ts`.
+ * This was the mock checkout: a stand-in that wrote `plan`/`planStatus`/`planExpiresAt`
+ * directly so the entitlement gates, the plan badge and the freeze path could be exercised
+ * before a payment processor existed. It was a placeholder and was never designed; it is gone,
+ * and what is left here are the six loaders those same screens still need.
  *
- * Upgrade timing versus downgrade/cancellation timing, decided once here rather than at every
- * call site: buying a plan that outranks what is currently live applies immediately, the same
- * way Paddle, Stripe and every other subscription seller does it — nobody who just paid more
- * waits for a renewal to see the benefit. Buying a plan that ranks *below* what is currently
- * live, or cancelling outright, is scheduled for the date the account has already paid
- * through instead: `pendingPlan`/`pendingCycle` record what it becomes, and
- * `resolveSubscription` (`entitlements.ts`) is what makes that date self-enforcing with no
- * cron and no further write — see that function's own comment for the whole design.
+ * **One write remains, and it is not a purchase**: `activatePlanChoice`, which stamps
+ * `planChosenAt` when somebody picks Free. Nothing in this file touches `plan`, `planStatus`,
+ * `planExpiresAt`, `pendingPlan` or `pendingCycle` any more. Those columns have exactly one
+ * writer — `webhookApply.ts`, acting on an event Paddle signed — and the actions that *ask*
+ * Paddle to change something (`paddleCheckout.ts`, `paddlePlanChange.ts`,
+ * `paddleSubscription.ts`) deliberately write none of them either. Two writers for one fact is
+ * how the two come to disagree.
+ *
+ * **Reads follow the account switcher, not the sign-in identity** —
+ * `currentUser().accountOwnerEmail` — so a global owner standing inside a customer's account
+ * reads that customer's plan. The writers do the same, which is what keeps the screen and the
+ * action talking about one account.
+ *
+ * The timing rules these loaders' callers depend on are no longer decided here: an upgrade
+ * applies at once and a downgrade is credited rather than deferred, because Paddle cannot
+ * schedule a change of plan at all. `planChange.ts` holds that argument.
+ * `resolveSubscription` (`entitlements.ts`) still collapses a scheduled *cancellation* the
+ * instant `now` passes its date, with no cron and no further write.
  */
 
 import { eq, sql } from 'drizzle-orm'
@@ -151,15 +148,14 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
  * What plan this account holds, resolved — the read both `/billing` and `/checkout/[plan]` open
  * with.
  *
- * **Deliberately not gated on `mockCheckoutEnabled()`**, and it used to be, which broke
- * `/billing` outright wherever the mock was off. `SONGBOOK_MOCK_CHECKOUT` exists in neither
- * Production nor Preview — checked 2026-09-13 — so every reader who opened Billing from the
- * user menu, a link nothing gates, was told «Billing is not switched on right now». Which plan
- * an account holds is a fact about the account, exactly as `loadFreezeState` and
- * `loadMyPaymentHistory` beside it already argue about theirs; the flag was only ever about
- * whether a *fake purchase* could be made, and a screen that reports a real subscription must
- * not go dark when the fake one is switched off. Gating a read on a write's flag is the shape
- * of the mistake, not the flag itself.
+ * **It answers for any deployment, gated on nothing**, and it used to sit behind the mock
+ * checkout's flag — which broke `/billing` outright wherever that flag was unset, which was
+ * Production and Preview both. Every reader who opened Billing from the user menu, a link
+ * nothing gates, was told «Billing is not switched on right now»: no plan, no history, nothing.
+ * Which plan an account holds is a fact about the account, exactly as `loadFreezeState` and
+ * `loadMyPaymentHistory` beside it already argue about theirs. **Gating a read on a write's
+ * flag is the shape of that mistake**, and it is worth keeping in mind for the next flag, since
+ * the one that caused it no longer exists.
  */
 export async function loadCheckoutStatus(): Promise<
   | { ok: false; reason: 'no-session' | 'no-database' }
@@ -195,10 +191,9 @@ export async function loadCheckoutStatus(): Promise<
  * What the thank-you page needs: the plan this account holds right now, resolved.
  *
  * Its own read rather than `loadCheckoutStatus` above, for one reason that matters — it is
- * deliberately **not** gated on `mockCheckoutEnabled()`. A thank-you is read *after* a purchase,
- * so switching the mock off (or replacing it with a real processor, which is that flag's whole
- * purpose) must not turn the page confirming a genuinely active plan into «the test checkout is
- * not switched on right now». Everything else about it is `loadCheckoutStatus`'s own shape,
+ * deliberately gated on nothing. A thank-you is read *after* a purchase, so no question about
+ * whether this deployment can currently *sell* has any bearing on it: the plan being confirmed
+ * is already bought and paid for. Everything else about it is `loadCheckoutStatus`'s own shape,
  * including the `no-session` a missing row answers with — a reader with no account has no
  * purchase to be thanked for either.
  */
@@ -303,10 +298,9 @@ export async function loadMyPaymentHistory(): Promise<
  * its own action rather than a field bolted onto `loadCheckoutStatus` — `/checkout` asks
  * nothing about the freeze and must not pay for it.
  *
- * Deliberately **not** gated on `mockCheckoutEnabled()`, unlike every other function here: a
- * repertoire over its caps is a fact about the account, not about whether a mock checkout is
- * open for business. (It is in `checkout.ts` all the same because this is where the reads the
- * plan screens make already live — the same reason `loadMyPaymentHistory` is here.)
+ * A repertoire over its caps is a fact about the account, not about whether anything is on
+ * sale. (It is in `checkout.ts` all the same because this is where the reads the plan screens
+ * make already live — the same reason `loadMyPaymentHistory` is here.)
  *
  * Its callers all fail *open* on `ok: false`, and that direction is the point: a banner
  * claiming a freeze that is not there is worse than a freeze discovered a moment later by the
@@ -325,21 +319,20 @@ export async function loadFreezeState(): Promise<
 
 /**
  * Marks the mandatory plan-choice step (v3.7) complete when a reader picks
- * Free — the one plan `mockPurchase` does not sell at all (`CHECKOUT_PLANS` is
+ * Free — the one plan no checkout sells at all (`CHECKOUT_PLANS` is
  * `PAID_PLANS + lifetime`; `isCheckoutPlan('free')` is false). Choosing Free is not a
  * purchase: `plan`/`planStatus` are already `'free'`/`'active'` from the column defaults, so
  * this writes nothing there, and it logs nothing to `paddle_events` either — that table is a
  * list of real transactions, and a zero-euro row nobody actually bought does not belong in it.
  *
- * Deliberately does **not** check `mockCheckoutEnabled()`, unlike every other write in this
- * file. That flag governs the *paid* checkout only; the Free exit from the mandatory-choice
- * gate in `(home)/page.tsx` has to keep working even while the paid flow is switched off — the
- * alternative is a deployment with `SONGBOOK_PLANS=on` and `SONGBOOK_MOCK_CHECKOUT=off` where a
- * brand-new account has no way through the gate at all.
+ * **Gated on nothing, and that is the point.** Whether the paid checkout can take money is a
+ * question about Paddle; the Free exit from the mandatory-choice gate in `(home)/page.tsx` has
+ * to keep working regardless, or a deployment with `SONGBOOK_PLANS=on` and no Paddle
+ * configured leaves a brand-new account with no way through the gate at all.
  *
  * `sql\`coalesce(...)\`` rather than a bare `now()`: calling this twice — a reader who taps
  * "Start free" again, or lands back on `/pricing` after already choosing — must never overwrite
- * a genuine first-activation date with a later one. `mockPurchase` writes the identical
+ * a genuine first-activation date with a later one. The mock's purchase wrote the identical
  * expression for the same reason, on the other exit from the same gate.
  */
 export async function activatePlanChoice(): Promise<{ ok: true } | { ok: false; reason: 'no-session' | 'no-database' | 'failed' }> {

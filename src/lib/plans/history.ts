@@ -4,7 +4,7 @@
  * The point of sharing the table is that the day the real webhook lands,
  * the user's and the operator's history screens need no new read path at all.
  *
- * `logMockEvent` is the only writer today, called from `checkout.ts`'s mutation functions.
+ * `webhookApply.ts` is the only writer: one row per verified Paddle event, payload and all.
  * `eventType` carries a `mock.` prefix so these rows stay visually and query-ably distinct
  * from Paddle's own dotted names (`subscription.created`, ...) the moment those start
  * arriving in the same table.
@@ -100,7 +100,7 @@ export interface PaymentHistoryLine {
   /**
    * The coupon redeemed on this line, and what the listino said at the time.
    *
-   * Read back out of the payload, never re-derived: that is the whole reason `logMockEvent`
+   * Read back out of the payload, never re-derived: that is the whole reason the writer
    * takes an explicit `amount` now rather than calling `amountFor` itself — a later re-price
    * must not rewrite what somebody already paid, nor what they were shown it was reduced from.
    * `null` on every line that had no coupon, which is most of them.
@@ -115,7 +115,7 @@ export interface PaymentHistoryLine {
  * charge.
  *
  * Exported because the thank-you email names the same figure (`purchaseEmail`, sent from
- * `mockPurchase`): two copies of "what does this plan cost for this cycle" are two copies that
+ * the checkout): two copies of "what does this plan cost for this cycle" are two copies that
  * drift, and a receipt disagreeing with the ledger row written in the same breath is the exact
  * kind of contradiction this feature keeps avoiding elsewhere.
  */

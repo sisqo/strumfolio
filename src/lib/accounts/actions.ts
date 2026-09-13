@@ -296,10 +296,10 @@ export async function setGrant(accountOwnerEmail: string, grant: GrantInput | nu
          * one column and nothing else, deliberately, because it runs on every home render.
          *
          * `coalesce`, so a later gift never rewrites the real first-activation date — the same
-         * expression `activatePlanChoice` and `mockPurchase` already write, for the same reason.
+         * expression `activatePlanChoice` already writes, for the same reason.
          * `now.toISOString()` and never the `Date` itself: inside a raw `sql` template a `Date`
          * becomes a bind parameter postgres.js refuses outright, throwing the whole UPDATE — see
-         * `mockPurchase`, where exactly that broke every purchase until it was fixed. The string
+         * the mock's purchase, where exactly that broke every purchase until it was fixed. The string
          * also keeps this stamp on the same instant as `grantedAt` beside it.
          *
          * Only on this path, never on the clear: taking a gift away does not un-happen the fact

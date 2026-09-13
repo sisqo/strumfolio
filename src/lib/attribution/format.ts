@@ -1,7 +1,7 @@
 /**
  * How a channel is worded, in the one place both screens read it from.
  *
- * A plain module beside `touch.ts` for the `testCard.ts` reason (`CLAUDE.md`): these are
+ * A plain module beside `touch.ts` for the `paddleClient.ts` reason (`CLAUDE.md`): these are
  * synchronous decisions worth a test, and the two surfaces that print them — the Identity tab
  * card and `/leads` — must agree. Two spellings of "where did this person come from" is exactly
  * the drift `durationCopy`/`termCopy` and `planText.ts` exist to prevent elsewhere in this repo.

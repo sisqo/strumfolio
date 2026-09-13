@@ -6,7 +6,7 @@ import type { PostSummary } from './posts'
  * Both are rules rather than layout, and both are the kind that go quietly wrong — an index
  * that hides an article, a «Read next» that offers the piece you just read. `npm test` in this
  * repo reaches plain modules and not React, so a rule written inside `blog/page.tsx` could not
- * be tested at all; here it can, which is the same split `plans/testCard.ts` makes next to
+ * be tested at all; here it can, which is the same split `plans/paddleClient.ts` makes next to
  * `checkout.ts`.
  */
 

@@ -338,7 +338,7 @@ export function withoutCouponParams(pathname: string, search: string): string {
 /**
  * Why a `/coupons` write was refused.
  *
- * Here rather than beside the actions that produce it, for the constraint `plans/testCard.ts`
+ * Here rather than beside the actions that produce it, for the constraint `plans/paddleClient.ts`
  * exists to document: `actions.ts` carries `'use server'`, and such a module may only export
  * async functions — a `Record` of messages sitting beside them fails the build, not merely a
  * lint rule. It is also where it belongs regardless, since the form that renders these is a

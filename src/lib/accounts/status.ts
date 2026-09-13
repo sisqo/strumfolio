@@ -4,12 +4,12 @@
  * **A plain module, not a `'use server'` export, and the move is a fix rather than tidying.**
  * They lived in `accounts/read.ts`, whose every export Next.js turns into a callable server
  * action with an id shipped in the client bundle — and `read.ts` is imported by client
- * components (`HomeScreen`, `GiftForm`, `ForceExpireRow`), so those ids ship. Both functions
+ * components (`HomeScreen`, `GiftForm`), so those ids ship. Both functions
  * take a caller-supplied address and no `isOwner` gate (correctly — see each one's own note), so
  * as actions they were an unauthenticated account-existence / suspension oracle: POST an id, a
  * boolean per address, one query each, unthrottled. Their only callers are server-side
  * (`auth/session.ts` and `auth.ts`), so a plain module reaches them and nobody else. Same
- * arrangement `testCard.ts` uses beside `checkout.ts`.
+ * arrangement `paddleClient.ts` uses beside `paddleCheckout.ts`.
  */
 
 import { cache } from 'react'

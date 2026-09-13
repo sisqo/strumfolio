@@ -267,7 +267,7 @@ export const accounts = pgTable(
     /*
      * The coupon this account is living under right now — the *live* answer to "what will this
      * account pay next", as opposed to `coupon_redemptions`, which is the ledger of what it
-     * already paid. Written together, in one transaction, by `mockPurchase` alone, and always
+     * already paid. Written together, in one transaction, by the webhook alone, and always
      * written: a purchase with no coupon has to clear what the last one left rather than
      * inherit it.
      *
@@ -1328,7 +1328,7 @@ export const couponRedemptions = pgTable(
  * recorded as having seen one campaign twice, which is what happened.
  *
  * The account written is the reader's **current** account (`accountOwnerEmail` from
- * `currentUser`), never their sign-in identity, so it agrees with what `mockPurchase` would
+ * `currentUser`), never their sign-in identity, so it agrees with what a checkout would
  * charge. One consequence worth knowing before believing a row: a global owner browsing
  * `/pricing` while switched into somebody else's account records the view against *that*
  * account.

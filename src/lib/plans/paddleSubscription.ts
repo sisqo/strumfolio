@@ -7,12 +7,12 @@
  * documented shape for this passes a `subscriptionId` from the browser and then checks the
  * signed-in reader owns it — a check that has to be right every time it is written. Reading
  * the id from the session's own account instead removes the question: there is no id to
- * tamper with, because none is sent. The same reasoning `mockPurchase` gives for refusing to
+ * tamper with, because none is sent. The same reasoning `startPaddleCheckout` gives for refusing to
  * take a coupon as a parameter.
  *
  * **`next_billing_period`, never `immediately`.** The reader pressed «cancel», not «cancel and
  * refund the rest»: they have paid through the end of the period and keep it, which is exactly
- * what `mockCancel` did and what `resolveSubscription` already models as
+ * what `resolveSubscription` already models as
  * `pendingPlan: 'free'`. Immediate cancellation is a different product decision with a
  * proration attached, and it is deliberately not reachable from here.
  *
@@ -77,7 +77,7 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
  * Calling off a cancellation that has not happened yet — «Keep Premium».
  *
  * **This is the one mock capability that maps onto Paddle exactly**, and it is worth saying why,
- * because its neighbour does not. `clearPendingChange` undid whatever sat in
+ * because its neighbour does not. The mock's equivalent undid whatever sat in
  * `pendingPlan`/`pendingCycle`, which for the mock could be either a cancellation *or* a
  * scheduled downgrade. On the Paddle path `pendingPlan` is only ever `'free'`, written from a
  * `scheduled_change` of `cancel` — there are no scheduled downgrades, for the reason

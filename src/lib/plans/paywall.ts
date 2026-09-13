@@ -4,7 +4,7 @@
  * inlined at a call site, so a fifth gated feature gets the same three sentences the first
  * four already say instead of a hand-worded fifth version of them.
  *
- * A plain module rather than `'use client'` or `'use server'`, for `testCard.ts`'s own
+ * A plain module rather than `'use client'` or `'use server'`, for `paddleClient.ts`'s own
  * reason (see this repo's `CLAUDE.md`): the copy rules below are worth a synchronous test,
  * and neither of those module kinds may export one.
  *

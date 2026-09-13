@@ -1,7 +1,7 @@
 /**
  * Every email Resend sends, each returning `{ subject, html, text }` — plain data, no
  * `sendEmail` call inside — so the flows that own the actual send (registration,
- * verification, password recovery, `mockPurchase`, `mockCancel`, `/accounts`' own icons)
+ * verification, password recovery, a purchase, a plan change, `/accounts`' own icons)
  * decide the recipient themselves.
  *
  * **They come in two shapes, and the split is the point.** The six transactional ones —
@@ -217,7 +217,7 @@ ${APP_NAME} — ${APP_PAYOFF}`
 }
 
 /**
- * The purchase confirmation (`mockPurchase`), and the one email in this file that is about
+ * The purchase confirmation (`announcePayment`, `webhookApply.ts`), and the one email in this file that is about
  * something the reader just *did* rather than a link they have to follow.
  *
  * **Worded as a real payment confirmation, deliberately, while the processor behind it is
@@ -334,7 +334,7 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * customer most wants a written trace of left none: the cancellation existed on `/billing`'s
  * own screen and in the Telegram line the *operator* gets, and nowhere the customer could go
  * back and read it. Deliberately **not** sent when a scheduled change is undone («Keep
- * <plan>», `clearPendingChange`): that press takes nothing away, and an inbox does not need a
+ * <plan>», `keepPaddleSubscription`): that press takes nothing away, and an inbox does not need a
  * message per press.
  *
  * One template for the three shapes rather than three templates, because they differ in one
@@ -347,7 +347,7 @@ ${APP_NAME} — ${APP_PAYOFF}`
  *
  * **Three shapes and not two, which is the whole reason `effect` is a union.** This took
  * `endsOn: string | null` at first, and that could not tell apart the two things a missing day
- * means: a change that has *already happened* (`mockCancel`'s immediate branch, a row with no
+ * means: a change that has *already happened* (a cancellation on a row with no
  * `planExpiresAt` to wait for) and one that is scheduled for a period end nobody may name — a
  * `grace` row, whose `planExpiresAt` is virtually always already in the past, because that
  * status is defined to ignore dates so a retrying card is not read as a lapse. Collapsed into
@@ -388,7 +388,7 @@ export function planChangeEmail(input: {
           ? `Your ${fromLabel} plan ends on ${day}`
           : `Your plan moves to ${toLabel} on ${day}`
 
-  /* The dateless scheduled sentence is `CheckoutScreen`'s own, word for word — that screen
+  /* The dateless scheduled sentence was the mock checkout screen's, word for word — that screen
      already had to word this exact state before its button, and two wordings of "the period you
      have been billed for, whenever that ends" is two wordings too many. */
   const what =

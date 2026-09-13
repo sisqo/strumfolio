@@ -93,7 +93,7 @@ export async function changePaddlePlan(
      * draw. That read is a page render and this one is a press, and between the two a card can
      * fail, a cancellation can land or somebody can change the plan in another tab — so the
      * screen's answer decides what is *offered* and this one decides what is *done*. The same
-     * split `mockPurchase` states about the coupon it re-reads rather than accepting.
+     * split `startPaddleCheckout` states about the coupon it re-reads rather than accepting.
      */
     const live = await livePaddleSubscription()
     if (!live.ok) return { ok: false, reason: live.reason }
@@ -109,7 +109,7 @@ export async function changePaddlePlan(
      * sandbox on 2026-09-13, which is the only reason this is two calls.
      *
      * A reader who changes plan has plainly changed their mind about leaving, which is the
-     * reading `mockPurchase` already gives to re-buying; left in place the cancellation would
+     * reading a re-buy has always been given; left in place the cancellation would
      * take the *new* plan away on the old date, which is nothing anybody pressed a button for.
      *
      * **Cleared first, and that order is required rather than merely tidier.** A subscription

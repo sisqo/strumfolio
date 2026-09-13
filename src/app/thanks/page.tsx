@@ -9,7 +9,7 @@ import { TopBar } from '@/components/TopBar'
 export const metadata: Metadata = { title: 'Thanks' }
 
 /**
- * Where `CheckoutScreen` sends a reader whose purchase went through.
+ * Where a reader lands once their purchase has gone through.
  *
  * A static shell, like `/billing` and `/checkout/[plan]`: nothing here can know who is signed
  * in at build time, so what plan this account now holds is asked from the client, by
