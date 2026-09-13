@@ -22,10 +22,12 @@
  * **`resolveSubscription` states two requirements on this file and they are unguessable from
  * the outside**, so they are repeated here. A renewal that lands *after* period end downgrades
  * a paying customer for that window, because a past `expiresAt` ends a subscription even while
- * the status still says `active` — so the expiry written here is always Paddle's
- * `current_billing_period.ends_at`, which is the end of the period *now being paid for*. And
- * `grace` ignores dates entirely, which is what makes it the right home for a failing card:
- * by the time a payment has failed the paid period is virtually always already over.
+ * the status still says `active` — so the expiry written here is the end of the period *now
+ * being paid for*: Paddle's `current_billing_period.ends_at`, or, while a downgrade of this
+ * app's own is scheduled, the date stamped with it, which is that same field copied at the
+ * moment of the change. And `grace` ignores dates entirely, which is what makes it the right
+ * home for a failing card: by the time a payment has failed the paid period is virtually always
+ * already over.
  */
 
 import type { SubscriptionColumns } from './entitlements'
@@ -47,8 +49,14 @@ export interface PaddleSubscriptionData {
   id: string
   customer_id?: string | null
   status: string
-  custom_data?: { account_id?: unknown } | null
-  current_billing_period?: { ends_at?: string | null } | null
+  custom_data?: { account_id?: unknown; downgrade?: unknown } | null
+  /**
+   * `starts_at` is read for one thing only, and it is the thing that makes `readDowngradeStamp`
+   * need no clock: at a renewal Paddle opens a period beginning exactly where the old one
+   * ended, so a period that starts at or after a stamp's date is a period the scheduled
+   * downgrade has already landed in.
+   */
+  current_billing_period?: { starts_at?: string | null; ends_at?: string | null } | null
   scheduled_change?: { action?: string | null; effective_at?: string | null } | null
   items?: PaddleItemRef[] | null
 }
@@ -141,10 +149,85 @@ function readAccountId(custom: { account_id?: unknown } | null | undefined): num
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
-function endsAt(value: string | null | undefined): Date | null {
+function asDate(value: string | null | undefined): Date | null {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+/**
+ * A downgrade this app has scheduled, as it travels on the subscription's own `custom_data`.
+ *
+ * **Paddle has nowhere else to put it.** `scheduled_change` models `cancel`, `pause` and
+ * `resume` and nothing else, so «move this subscription to Standard on the day the period ends»
+ * cannot be expressed. What *can* be done is to swap the items now with
+ * `proration_billing_mode: do_not_bill` — no charge, no credit, the billing period untouched,
+ * and the next renewal billing the new, lower price by itself. Paddle is then correct about the
+ * money and wrong about the entitlement: its items say Standard from today, while the customer
+ * has paid for Premium until the period ends. This stamp is the missing half, and it is what
+ * lets `subscriptionEffect` write the plan they **paid for** with the cheaper one behind it as
+ * `pendingPlan` — which `resolveSubscription` then collapses on the date, by pure reading, with
+ * no cron and no renewal-time write.
+ *
+ * It rides in `custom_data` rather than in a column of this database because the webhook has to
+ * be able to reach the same conclusion from the payload alone: an event replayed, or one
+ * arriving for an account this app has not matched yet, carries its own explanation.
+ *
+ * **`custom_data` is replaced wholesale on every update, so a writer must merge rather than
+ * assign** — `account_id` lives in the same object and losing it breaks the first of the three
+ * ways an event finds its account. `downgradeStamp` below is only the value; `paddlePlanChange`
+ * owns the merge.
+ */
+export interface DowngradeStamp {
+  /** The plan paid for through `at` — what the customer keeps until then. */
+  fromPlan: Plan
+  fromCycle: BillingPeriod | null
+  /** The end of the period paid at the old price: the day the cheaper items take over. */
+  at: Date
+}
+
+/** The stamp as it is written. Snake_case, like everything else Paddle stores for us. */
+export function downgradeStamp(from: { plan: Plan; cycle: BillingPeriod | null }, at: Date): Record<string, unknown> {
+  return { from_plan: from.plan, from_cycle: from.cycle, at: at.toISOString() }
+}
+
+/**
+ * The stamp, if one is still standing — and `null` the moment it is spent.
+ *
+ * **Nothing ever clears a stamp out of `custom_data`**: Paddle keeps it until something
+ * overwrites it, so the one left behind by a downgrade that has already happened would, read
+ * naively, go on granting the old plan for ever. The period's own `starts_at` is what retires
+ * it, and it needs no clock to do so: a renewal opens a period beginning exactly where the paid
+ * one ended, so `starts_at >= at` says the downgrade has landed and the items are now simply
+ * the truth. Every renewal after that says the same thing, so the stamp is inert rather than
+ * dangerous, and the next change of plan overwrites it anyway.
+ *
+ * A stamp this cannot read answers `null`, which means the items are believed and the tier
+ * drops at once — the generous direction everywhere else in this file, reversed here on
+ * purpose. This app writes these itself, so an unreadable one is its own bug; and the
+ * alternative, holding somebody on a plan with no date attached, is a plan that never ends.
+ */
+export function readDowngradeStamp(
+  custom: { downgrade?: unknown } | null | undefined,
+  periodStartsAt: string | null | undefined,
+): DowngradeStamp | null {
+  const stamp = custom?.downgrade
+  if (stamp === null || typeof stamp !== 'object') return null
+
+  const { from_plan: fromPlan, from_cycle: fromCycle, at } = stamp as Record<string, unknown>
+
+  if (typeof fromPlan !== 'string' || !PLAN_VALUES.includes(fromPlan as Plan)) return null
+  /* Neither is a plan anybody can downgrade *from* on a subscription: `free` is what having no
+     subscription is, and Lifetime has none to update. A stamp naming either is not a stamp. */
+  if (fromPlan === 'free' || fromPlan === 'lifetime') return null
+
+  const on = asDate(typeof at === 'string' ? at : null)
+  if (on === null) return null
+
+  const started = asDate(periodStartsAt)
+  if (started !== null && started.getTime() >= on.getTime()) return null
+
+  return { fromPlan: fromPlan as Plan, fromCycle: readPendingCycle(fromCycle), at: on }
 }
 
 /**
@@ -154,6 +237,18 @@ function endsAt(value: string | null | undefined): Date | null {
  * `pendingPlan: 'free'` is exactly what `resolveSubscription` reads as "cancel at period end".
  * `pause` and `resume` are deliberately ignored — neither is a change of *plan*, and the
  * status arriving as `paused` already answers them through `grace`.
+ *
+ * **A downgrade this app scheduled is the other way to fill `pendingPlan`**, and the two can be
+ * true at once: somebody who moved down to Standard and then cancelled. **The cancellation
+ * wins**, because it is the later decision and because `'free'` is where that subscription is
+ * actually going — leaving Standard there would schedule a plan the account will never reach.
+ * What the stamp still decides in that case is the *current* plan: the period is paid at the
+ * old price either way.
+ *
+ * The expiry under a live stamp is the stamp's own date rather than
+ * `current_billing_period.ends_at`. The two are the same day by construction — the stamp is
+ * written from that very field — and where they ever differ the stamp is the promise that was
+ * made to the customer, which is the one this app has to keep.
  */
 export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEffect {
   const account: AccountRef = {
@@ -166,13 +261,27 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
   if (!read) return { account, columns: null }
 
   const cancelling = data.scheduled_change?.action === 'cancel'
+  const scheduled = readDowngradeStamp(data.custom_data, data.current_billing_period?.starts_at)
+
+  if (scheduled !== null) {
+    return {
+      account,
+      columns: {
+        plan: scheduled.fromPlan,
+        status: statusOf(data.status),
+        expiresAt: scheduled.at,
+        pendingPlan: cancelling ? 'free' : read.plan,
+        pendingCycle: cancelling ? null : read.cycle,
+      },
+    }
+  }
 
   return {
     account,
     columns: {
       plan: read.plan,
       status: statusOf(data.status),
-      expiresAt: endsAt(data.current_billing_period?.ends_at),
+      expiresAt: asDate(data.current_billing_period?.ends_at),
       pendingPlan: cancelling ? 'free' : null,
       pendingCycle: null,
     },
@@ -225,5 +334,5 @@ export function transactionEffect(data: PaddleTransactionData): PaddleEventEffec
  * email has a dateless sentence for both.
  */
 export function transactionPeriodEnd(data: PaddleTransactionData): Date | null {
-  return endsAt(data.billing_period?.ends_at)
+  return asDate(data.billing_period?.ends_at)
 }

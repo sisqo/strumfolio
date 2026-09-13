@@ -106,8 +106,16 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      not how a cycle reads in a sentence. */
   const liveProps = live.ok
     ? {
+        plan: live.plan,
         cycle: live.cycle,
         label: `${PLAN_LABEL[live.plan]}${live.cycle === null ? '' : live.cycle === 'year' ? ', billed yearly' : ', billed monthly'}`,
+        /* What is already arranged, said on the screen where a further move is being
+           considered — case C6. `live.plan` above is the plan *paid for*, which while this is
+           non-null is deliberately not the plan Paddle's items carry. */
+        scheduled:
+          live.pendingDowngrade === null
+            ? null
+            : `You are already moving to ${PLAN_LABEL[live.pendingDowngrade.plan]} on ${formatPlanDate(live.pendingDowngrade.at)}.`,
       }
     : null
 

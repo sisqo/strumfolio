@@ -22,10 +22,11 @@
  * action talking about one account.
  *
  * The timing rules these loaders' callers depend on are no longer decided here: an upgrade
- * applies at once and a downgrade is credited rather than deferred, because Paddle cannot
- * schedule a change of plan at all. `planChange.ts` holds that argument.
- * `resolveSubscription` (`entitlements.ts`) still collapses a scheduled *cancellation* the
- * instant `now` passes its date, with no cron and no further write.
+ * applies at once, and a downgrade of tier leaves the reader on the plan they paid for until
+ * the period ends — which Paddle cannot schedule, so it is done with `do_not_bill` and a
+ * `custom_data` stamp the webhook reads. `planChange.ts` holds that argument.
+ * `resolveSubscription` (`entitlements.ts`) collapses both that and a scheduled *cancellation*
+ * the instant `now` passes the date, with no cron and no further write.
  */
 
 import { eq, sql } from 'drizzle-orm'

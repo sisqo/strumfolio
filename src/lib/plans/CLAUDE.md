@@ -131,8 +131,10 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   lives in those columns and a renewal re-asserting `plan`/`planStatus` would erase it.
 - **Paddle cannot schedule a downgrade**, and the next section says what was done about it.
   `scheduled_change` is only `cancel`, `pause` or `resume`, so a cancellation maps cleanly onto
-  `pendingPlan: 'free'` and a move to a *cheaper paid plan* has nothing to map from. On the
-  Paddle path `pendingPlan` therefore carries `'free'` and nothing else.
+  `pendingPlan: 'free'` and a move to a *cheaper paid plan* has nothing to map from — it is
+  carried in a `custom_data` stamp instead. So `pendingPlan` has two sources on the Paddle path:
+  `'free'` from a scheduled cancellation, and a plan from the stamp. When both are present the
+  cancellation wins.
 
 ## Changing the plan on a subscription that exists (2026-09-13)
 
@@ -149,15 +151,51 @@ the screen: reaching `/checkout/[plan]` on preview needs a signed-in session, so
 `subscribed` branch and the «Switch to …» button have been type-checked and built but not yet
 watched working by anybody.
 
-- **A downgrade now applies at once and is repaid in money, not in time — a real change from
-  what the mock promised.** The mock kept the reader on the plan they had paid for until
-  its last day and scheduled the smaller one behind it. Paddle has no way to express that:
-  `subscriptions.update` replaces the items immediately and only the *billing* can be deferred,
-  through `proration_billing_mode`. So this follows Paddle's own customer portal — upgrade
-  `prorated_immediately`, downgrade `prorated_next_billing_period`. Holding the change
-  app-side instead was rejected rather than postponed: with no scheduler, Paddle would renew at
-  the **old, higher** price, which is the shown-price/charged-price gap in the direction that
-  takes more money than was agreed.
+- **CASO B2 — a downgrade of tier keeps the plan that was paid for until the period ends**, and
+  the mechanism is worth knowing exactly, because nothing about it is what the API suggests.
+  Paddle cannot schedule a change of plan (`scheduled_change` is `cancel`/`pause`/`resume`), so
+  the items are moved **now** with `proration_billing_mode: do_not_bill` — no charge, no credit,
+  `current_billing_period` untouched, and the next renewal billing the new lower price by
+  itself. Measured with `previewUpdate` on 2026-09-13: `update_summary: null`, no immediate
+  transaction, period unchanged, items after = the new plan. **No cron, no renewal webhook, no
+  scheduler** — which is what killed the alternative of holding the change app-side, since until
+  such a scheduler ran Paddle would renew at the old, higher price.
+  - What Paddle then has wrong is the *entitlement*: its items say Standard while the customer
+    holds Premium. The missing half is a `downgrade` stamp merged into the subscription's
+    `custom_data` — `{from_plan, from_cycle, at}`, written by `downgradeStamp` and read by
+    `readDowngradeStamp` (`webhook.ts`, tested both ways round). `subscriptionEffect` turns it
+    into `plan` = the paid plan, `expiresAt` = the stamp's date, `pendingPlan` = the items' plan,
+    and `resolveSubscription` collapses that on the day by pure reading.
+  - **Nothing ever clears a stamp**, so it is retired by the period's own `starts_at`: a renewal
+    opens a period beginning where the paid one ended, and `starts_at >= at` means the downgrade
+    has landed. No clock is read on either side, which is what keeps the webhook and the screen
+    from disagreeing about the day. The renewal is the case nobody exercises by hand for a
+    month, so it is the test that matters most in `webhook.test.ts`.
+  - **`custom_data` is replaced wholesale by an update, never merged**, so every write goes
+    through `customDataFor` (`paddleAccount.ts`): `account_id` rides in the same object and is
+    the only way a *first* event finds its account. Dropping it produces `unmatched` events, not
+    an error. `downgrade: null` is written on every other kind of change, so a stale stamp
+    cannot outlive the move that ended it.
+  - **A downgrade that also changes cycle is still `prorated_next_billing_period`** and is
+    therefore still refused by Paddle, which allows only the immediate modes and `do_not_bill`
+    when the billing frequency changes. B4, B6 and B8 are unbuilt, and the preview refuses them
+    before the press rather than the write failing after it.
+- **While a downgrade is arranged, `livePaddleSubscription` reports the plan that was *paid
+  for*, not the items** — with `pendingDowngrade` carrying the other one. Comparing a further
+  move against the items would read «back to Premium» as an upgrade and charge for a period
+  already paid in full (case C1). Off that one rule hang: a return to the paid plan is a
+  `revert` (`do_not_bill`, nothing owed either way, stamp cleared); a different, also-lower plan
+  restamps from the paid plan, so the last one asked for wins and nothing compounds (C2);
+  pressing the same downgrade twice is `same`; and **everything else is refused**
+  (`pending-downgrade`) until the reader calls it off. That refusal is a decision, not a gap:
+  Paddle would price such a move against the cheaper items while the sequence that would
+  actually run credits the dearer plan that was paid for, so quoting it would reopen the
+  shown-price/charged-price gap this directory exists to close. Calling it off is one press —
+  «Keep Premium» on /billing, which `keepPaddleSubscription` now understands as two different
+  undos.
+- **A cancellation beats an arranged downgrade** (C4): `pendingPlan` becomes `'free'`, because
+  that is where the subscription is actually going, while the stamp still decides which plan is
+  held until the date.
 - **Direction is plan rank first, cycle only as the tiebreak.** Comparing amounts instead reads
   premium/month → standard/year as a *rise* — €9.99 becomes €34.99 — and would charge on the
   spot for a move made to spend less. With the plan unchanged, yearly is the upgrade.
@@ -177,7 +215,8 @@ watched working by anybody.
   `grand_total` is what leaves the *card*, which is smaller when the account already holds Paddle
   credit. Saying only one of them is how somebody concludes they were billed twice.
 - **The subscription is read once, not twice.** `livePaddleSubscription` carries back whether a
-  cancellation is already scheduled, from the same fetch that read the status — a second
+  cancellation is already scheduled — plus the stamp, the period end and the `custom_data` —
+  from the same fetch that read the status. A second
   `subscriptions.get` in the action would be a second snapshot, and a cancellation landing
   between the two is invisible to precisely the clear-first step below that exists to handle it.
 - **`scheduled_change: null` cannot travel with anything else**: «you cannot combine updating
@@ -230,6 +269,6 @@ watched working by anybody.
   only for `CheckoutScreen`, which has `loadMostRecentCycleFor` to correct itself. The screen
   also names what they are on, since «you are changing a plan you already pay for» does not say
   *which*.
-- **`/pricing`'s «Change billing cycle» tooltip** said a scheduled *downgrade* gets cancelled.
-  Corrected with the demolition: a scheduled *cancellation* is real and `changePaddlePlan` does
-  call it off; a scheduled downgrade is a thing Paddle cannot express.
+- **`/pricing`'s «Change billing cycle» tooltip** says a scheduled *cancellation* gets called
+  off, which is true and is all it claims. A scheduled *downgrade* is not undone by it: a cycle
+  change is one of the moves refused while one stands, so that reader is sent to /billing first.

@@ -8,22 +8,32 @@
  * *billing*, through `proration_billing_mode`. Measured against the sandbox on 2026-09-13 with
  * `subscriptions.preview`, which is how the two facts below are known rather than assumed.
  *
- * So this app follows what Paddle's own customer portal does, and it is a real change from
- * what the mock promised:
+ * What this app does with that:
  *
  * - **An upgrade applies now and is billed now** (`prorated_immediately`): the unused part of
  *   the old plan is credited against the charge, and the reader has the bigger plan before the
  *   page has finished reloading.
- * - **A downgrade also applies now, and is credited on the next invoice**
- *   (`prorated_next_billing_period`). The mock kept the reader on the plan they had paid for
- *   until its last day and scheduled the smaller one behind it; Paddle repays the difference in
- *   *money* instead of in *time*. The alternative — holding the change in `pendingPlan` and
- *   applying it at the renewal — cannot be built without a scheduler, and until that scheduler
- *   ran Paddle would renew at the **old, higher** price. That is the shown-price/charged-price
- *   gap `paddleCheckout.ts` refuses in the direction that takes more money than was agreed.
+ * - **A downgrade of tier keeps the plan that was paid for until the period ends** — case B2,
+ *   and the rule the whole product is written around: nobody pays for Premium to the 13th and
+ *   loses it on the 2nd. Paddle cannot schedule that, but it can be *made* to behave as if it
+ *   had: the items move now under `do_not_bill`, so no money changes hands in either direction,
+ *   the billing period is untouched, and the next renewal bills the new lower price with
+ *   nothing having to run in between. What Paddle then gets wrong is only the entitlement — its
+ *   items say Standard while the customer holds Premium — and a `custom_data` stamp carries
+ *   the missing half to the webhook, which writes the paid plan with the cheaper one behind it
+ *   as `pendingPlan`. `resolveSubscription` collapses that on the date by pure reading. **No
+ *   cron, no scheduler, no renewal-time write**, which is what made the rejected alternative —
+ *   hold the change app-side and apply it at the renewal — impossible here: until that
+ *   scheduler ran Paddle would renew at the old, higher price.
+ * - **A downgrade that also changes cycle is still billed on the next invoice**
+ *   (`prorated_next_billing_period`), and that is unfinished business rather than a decision:
+ *   Paddle refuses the deferred modes on any change of billing frequency, so those cases
+ *   (B4, B6, B8) are refused by the API today and are the next ones to build.
  *
- * `pendingPlan` therefore survives on the Paddle path for one thing only: `'free'`, written
- * from a `scheduled_change` of `cancel`, which is the one action Paddle does model.
+ * `pendingPlan` therefore has two sources on the Paddle path: `'free'`, written from a
+ * `scheduled_change` of `cancel`, which is the one action Paddle does model; and a plan, written
+ * from the stamp above. A cancellation arriving on top of a stamped downgrade wins — see
+ * `subscriptionEffect`.
  *
  * **Two more measured facts, both easy to get backwards.** A change of plan *within* the same
  * cycle leaves `current_billing_period` exactly where it was, so `expiresAt` does not move. A
@@ -37,16 +47,38 @@ import type { LivePaddleSubscription } from './paddleAccount'
 import type { BillingPeriod } from './prices'
 import { PLAN_RANK, type Plan } from './types'
 
-/** What Paddle is billing for right now, read from the subscription's own item. */
+/** A plan and a cycle, whether held, asked for, or already arranged. */
 export interface SubscribedTo {
   plan: Plan
   cycle: BillingPeriod | null
 }
 
-export type ChangeDirection = 'upgrade' | 'downgrade'
+/**
+ * What the subscription is, for the purpose of deciding what a move from it means: the plan
+ * **paid for**, plus whatever is already arranged to happen to it.
+ *
+ * `pendingDowngrade` is optional because most of the time there is none, and because the
+ * comparison of two plans is the same comparison with or without one.
+ */
+export interface LiveSubscribedTo extends SubscribedTo {
+  pendingDowngrade?: SubscribedTo | null
+}
 
-/** The two of Paddle's five modes this app uses, named as Paddle names them. */
-export type ProrationMode = 'prorated_immediately' | 'prorated_next_billing_period'
+/**
+ * `revert` is neither of the other two: the items go back to the plan the reader is already
+ * paying for, which is a change to Paddle and no change at all to them.
+ */
+export type ChangeDirection = 'upgrade' | 'downgrade' | 'revert'
+
+/** Three of Paddle's five modes, named as Paddle names them. */
+export type ProrationMode = 'prorated_immediately' | 'prorated_next_billing_period' | 'do_not_bill'
+
+/**
+ * When the reader actually stops having the plan they have now. `now` for everything Paddle
+ * bills on the spot; `period-end` for a downgrade held back to the last day of what they paid
+ * for, which is the whole of case B2.
+ */
+export type ChangeWhen = 'now' | 'period-end'
 
 /**
  * Why a change of plan is not a change of plan.
@@ -54,11 +86,19 @@ export type ProrationMode = 'prorated_immediately' | 'prorated_next_billing_peri
  * `same` is not an error anywhere else in this file's callers, but it has to be refused here:
  * `subscriptions.update` with the items it already has still bills a proration of zero and
  * still fires an event, so a double-tap would leave a second receipt describing nothing.
+ *
+ * `pending-downgrade` is the one that describes an ordinary state rather than a fault, and it
+ * exists because the arithmetic cannot be shown honestly: with the items already moved down,
+ * Paddle's preview credits the *cheaper* plan's unused time, while the two-call sequence that
+ * would actually be run credits the dearer one that was paid for. Quoting the first and
+ * charging the second is precisely the shown-price/charged-price gap this directory is written
+ * to close, so the reader is asked to call the scheduled change off first — one press, on
+ * /billing — and is then priced against what they hold.
  */
-export type ChangeRefusal = 'same' | 'lifetime-target' | 'lifetime-live' | 'unreadable'
+export type ChangeRefusal = 'same' | 'lifetime-target' | 'lifetime-live' | 'pending-downgrade' | 'unreadable'
 
 export type PlanChangeEffect =
-  | { ok: true; direction: ChangeDirection; proration: ProrationMode }
+  | { ok: true; direction: ChangeDirection; proration: ProrationMode; when: ChangeWhen }
   | { ok: false; reason: ChangeRefusal }
 
 /**
@@ -79,7 +119,7 @@ export type PlanChangeEffect =
  * subscription left to update. Both answer here rather than at the API, so the screen can say
  * which of the two it is.
  */
-export function planChangeEffect(from: SubscribedTo, to: SubscribedTo): PlanChangeEffect {
+export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): PlanChangeEffect {
   if (from.plan === 'lifetime') return { ok: false, reason: 'lifetime-live' }
   if (to.plan === 'lifetime') return { ok: false, reason: 'lifetime-target' }
 
@@ -88,18 +128,59 @@ export function planChangeEffect(from: SubscribedTo, to: SubscribedTo): PlanChan
   if (from.plan === 'free' || to.plan === 'free') return { ok: false, reason: 'unreadable' }
   if (from.cycle === null || to.cycle === null) return { ok: false, reason: 'unreadable' }
 
-  if (PLAN_RANK[to.plan] > PLAN_RANK[from.plan]) {
-    return { ok: true, direction: 'upgrade', proration: 'prorated_immediately' }
+  const pending = from.pendingDowngrade ?? null
+
+  /*
+   * Asking for the plan you are paying for. With nothing scheduled that is the no-op B11, and
+   * refusing it is what stops a receipt describing nothing. With a downgrade scheduled it is
+   * the opposite of a no-op — it is «leave me where I am», the C1/C3 change of mind — and the
+   * items have to go back. Nothing is billed either way: the period was paid at this price, so
+   * `do_not_bill` puts the subscription back exactly as it stood.
+   */
+  if (to.plan === from.plan && to.cycle === from.cycle) {
+    return pending === null
+      ? { ok: false, reason: 'same' }
+      : { ok: true, direction: 'revert', proration: 'do_not_bill', when: 'now' }
   }
+
+  /* Already arranged, to the day. Pressing it again would restamp the same date and fire a
+     second event for one decision — `same` for the same reason B11 is. */
+  if (pending !== null && to.plan === pending.plan && to.cycle === pending.cycle) {
+    return { ok: false, reason: 'same' }
+  }
+
+  if (PLAN_RANK[to.plan] > PLAN_RANK[from.plan]) {
+    return pending === null
+      ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now' }
+      : { ok: false, reason: 'pending-downgrade' }
+  }
+
   if (PLAN_RANK[to.plan] < PLAN_RANK[from.plan]) {
-    return { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period' }
+    /*
+     * **B2, and the reason this file grew a `when`.** The reader keeps the tier they paid for
+     * until the period ends, so nothing is charged, nothing is credited and the items move now
+     * only because that is the single way to make Paddle renew at the new price by itself. The
+     * date is carried in a `custom_data` stamp — see `webhook.ts` — which is what keeps this
+     * app's account of the plan honest while Paddle's items are ahead of it.
+     *
+     * **C2 falls out of the same line**: a second, different downgrade while one is pending is
+     * decided against the *paid* plan like the first, so the last one asked for wins and
+     * nothing accumulates.
+     */
+    if (to.cycle === from.cycle) {
+      return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end' }
+    }
+    return pending === null
+      ? { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period', when: 'now' }
+      : { ok: false, reason: 'pending-downgrade' }
   }
 
   if (from.cycle === to.cycle) return { ok: false, reason: 'same' }
+  if (pending !== null) return { ok: false, reason: 'pending-downgrade' }
 
   return to.cycle === 'year'
-    ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately' }
-    : { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period' }
+    ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now' }
+    : { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period', when: 'now' }
 }
 
 /**

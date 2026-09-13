@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { changeCostLine, paddleAmountToEuro, readChangeCost } from './changePreview'
+import { changeCostLine, paddleAmountToEuro, readChangeCost, scheduledChangeLine } from './changePreview'
 
 /* The real shape, copied from a sandbox preview of Standard monthly -> Plus monthly taken on
    2026-09-13. Kept verbatim rather than minimised: the fields this reads are the fields Paddle
@@ -124,5 +124,27 @@ describe('changeCostLine', () => {
     const line = changeCostLine({ action: 'credit', amount: '6.50', payNow: '0.00' })
     assert.match(line, /pay nothing now/)
     assert.match(line, /€6\.50/)
+  })
+})
+
+/**
+ * `do_not_bill` produces no `update_summary` and no immediate transaction at all, so the cost
+ * reader answers `nothing` — true, and on its own the wrong thing to show somebody who has just
+ * arranged to lose a plan on a particular day.
+ */
+describe('scheduledChangeLine', () => {
+  it('says what is kept, until when, and what comes after', () => {
+    const line = scheduledChangeLine('Premium', 'Standard', '13 October 2026')
+
+    assert.match(line, /Nothing to pay now/)
+    assert.match(line, /keep Premium until 13 October 2026/)
+    assert.match(line, /move to Standard/)
+  })
+
+  it('is not what a change with no date says', () => {
+    assert.equal(
+      changeCostLine({ action: 'nothing', amount: '0.00', payNow: '0.00' }),
+      'There is nothing to pay for this change.',
+    )
   })
 })

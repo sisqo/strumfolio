@@ -91,6 +91,23 @@ export function readChangeCost(preview: unknown): ChangeCost | null {
 }
 
 /**
+ * The sentence for a change that is *arranged* rather than made — case B2, and the only one
+ * where the cost line alone would be true and useless.
+ *
+ * Paddle bills nothing for it, so `readChangeCost` answers `nothing` and `changeCostLine` would
+ * say «there is nothing to pay for this change» and stop. That leaves out both halves of what
+ * the reader has just decided: that they keep what they have until a named day, and that the
+ * cheaper plan starts then. It is the sentence that answers «why am I still on Premium» before
+ * it is asked.
+ *
+ * Takes the labels already formatted, the way `subscriptionStatusLine` takes its date: this
+ * file knows about money and not about what a plan or a day is called.
+ */
+export function scheduledChangeLine(keep: string, to: string, on: string): string {
+  return `Nothing to pay now. You keep ${keep} until ${on}, and move to ${to} that day.`
+}
+
+/**
  * The sentence under the button.
  *
  * **It always names what leaves the card**, because that is the number a reader will look for

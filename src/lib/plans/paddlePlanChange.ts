@@ -4,8 +4,14 @@
  * Moving an existing Paddle subscription onto a different plan or cycle.
  *
  * `planChange.ts` holds the decision and the argument for it — chiefly that Paddle has no way
- * to *schedule* a change of plan, so a downgrade applies now and is repaid in money rather than
- * in time. This file is the I/O around it.
+ * to *schedule* a change of plan, and what is done about it: a downgrade of tier moves the
+ * items now under `do_not_bill`, which charges and credits nothing, and carries the date the
+ * reader keeps their old plan until in a `custom_data` stamp. This file is the I/O around it.
+ *
+ * **`custom_data` is replaced wholesale by an update, never merged into**, so every write here
+ * goes through `customDataFor`: `account_id` travels in the same object and is the only way a
+ * first event finds its account. Losing it does not fail — it produces an event recorded as
+ * `unmatched`, which is the kind of defect nobody sees until a plan does not appear.
  *
  * **It takes no subscription id, for `cancelPaddleSubscription`'s reason**: the id is read from
  * the session's own account, so there is nothing for a caller to tamper with. And it takes a
@@ -37,13 +43,14 @@ import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 
-import { livePaddleSubscription } from './paddleAccount'
+import { customDataFor, livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
 import { readChangeCost, type ChangeCost } from './changePreview'
-import { planChangeEffect, type ChangeDirection, type ChangeRefusal } from './planChange'
+import { planChangeEffect, type ChangeDirection, type ChangeRefusal, type ChangeWhen } from './planChange'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
+import { downgradeStamp } from './webhook'
 
 export type PaddlePlanChangeFailure =
   | 'not-configured'
@@ -64,18 +71,30 @@ export type PaddlePlanChangeFailure =
   | ChangeRefusal
 
 export type PaddlePlanChangeResult =
-  | { ok: true; direction: ChangeDirection }
+  | {
+      ok: true
+      direction: ChangeDirection
+      when: ChangeWhen
+      /**
+       * The day a `period-end` change actually lands, ISO, for a screen to name — `null` for
+       * everything that takes effect at once. Said back from the write rather than recomputed,
+       * so the sentence a reader is left with quotes the date that was stamped.
+       */
+      effectiveAt: string | null
+    }
   | { ok: false; reason: PaddlePlanChangeFailure }
 
 export type PaddleChangeCostResult =
-  | { ok: true; direction: ChangeDirection; cost: ChangeCost }
+  | { ok: true; direction: ChangeDirection; when: ChangeWhen; effectiveAt: string | null; cost: ChangeCost }
   | { ok: false; reason: PaddlePlanChangeFailure }
 
 /**
  * What a change would cost, without making it.
  *
- * **The same decision, the same call, the same proration mode as `changePaddlePlan` below** —
- * `subscriptions.preview` takes the identical body and computes what `update` would do. That is
+ * **The same decision, the same items, the same proration mode as `changePaddlePlan` below** —
+ * `subscriptions.preview` takes the identical body and computes what `update` would do. (The
+ * write carries a `custom_data` the preview does not: it decides nothing about money, and
+ * sending it here would ask Paddle to price a field it does not price.) That is
  * what makes the number on the screen the number on the card, rather than an estimate this file
  * computes a second way. `changePreview.ts` reads the answer; the two must never drift, which is
  * why the mode comes from `planChangeEffect` in both and not from a literal in either.
@@ -104,6 +123,7 @@ export async function previewPaddlePlanChange(
 
     const effect = planChangeEffect(live, { plan, cycle: plan === 'lifetime' ? null : cycle })
     if (!effect.ok) return { ok: false, reason: effect.reason }
+    if (effect.when === 'period-end' && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
 
     const previewed = await paddle.subscriptions.previewUpdate(live.id, {
       items: [{ priceId, quantity: 1 }],
@@ -128,7 +148,13 @@ export async function previewPaddlePlanChange(
     })
     if (cost === null) return { ok: false, reason: 'unreadable' }
 
-    return { ok: true, direction: effect.direction, cost }
+    return {
+      ok: true,
+      direction: effect.direction,
+      when: effect.when,
+      effectiveAt: effect.when === 'period-end' ? (live.periodEndsAt?.toISOString() ?? null) : null,
+      cost,
+    }
   } catch (error) {
     console.error('previewPaddlePlanChange failed', error)
     return { ok: false, reason: 'failed' }
@@ -171,6 +197,16 @@ export async function changePaddlePlan(
     if (!effect.ok) return { ok: false, reason: effect.reason }
 
     /*
+     * **A downgrade held to the end of the period is nothing without its date**, so a
+     * subscription whose period this cannot read refuses the change rather than making it. The
+     * failure it avoids is the expensive one: `do_not_bill` with no stamp behind it moves the
+     * reader onto the cheaper plan *now*, having charged them for the dearer one, and there is
+     * nothing on any screen that would explain it. Paddle sends this field on every active
+     * subscription, so this is a guard against the impossible, not a case.
+     */
+    if (effect.when === 'period-end' && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
+
+    /*
      * **A scheduled cancellation is cleared in a call of its own, and it has to be.** Paddle
      * refuses `scheduled_change` alongside anything else — «you cannot combine updating
      * schedule_change with other fields» — so folding it into the update below fails *every*
@@ -195,19 +231,36 @@ export async function changePaddlePlan(
      * Cancelling sets `next_billed_at` to null and clearing restores it, so the subscription
      * comes back to exactly the row it was — verified rather than assumed.
      */
-    if (live.scheduled) {
+    if (live.scheduledChange) {
       await paddle.subscriptions.update(live.id, { scheduledChange: null })
     }
+
+    /*
+     * The stamp that makes a `do_not_bill` downgrade mean something — written on the same call
+     * as the items, so there is no window in which Paddle is on the cheaper plan and this app
+     * has no record of why. A change taking effect now clears any stamp instead: that is what
+     * calling off a scheduled downgrade *is*, and what stops a stale one outliving it.
+     */
+    const stamp =
+      effect.when === 'period-end' && live.periodEndsAt !== null
+        ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, live.periodEndsAt)
+        : null
 
     await paddle.subscriptions.update(live.id, {
       items: [{ priceId, quantity: 1 }],
       prorationBillingMode: effect.proration,
+      customData: customDataFor(live, stamp),
     })
 
     revalidatePath('/billing')
     revalidatePath('/pricing')
 
-    return { ok: true, direction: effect.direction }
+    return {
+      ok: true,
+      direction: effect.direction,
+      when: effect.when,
+      effectiveAt: stamp === null ? null : (live.periodEndsAt?.toISOString() ?? null),
+    }
   } catch (error) {
     console.error('changePaddlePlan failed', error)
     return { ok: false, reason: 'failed' }

@@ -28,14 +28,16 @@ import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle
 import { useEffect, useRef, useState } from 'react'
 
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
-import { changeCostLine, type ChangeCost } from '@/lib/plans/changePreview'
+import { changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
+import type { ChangeWhen } from '@/lib/plans/planChange'
 import {
   changePaddlePlan,
   previewPaddlePlanChange,
   type PaddlePlanChangeFailure,
 } from '@/lib/plans/paddlePlanChange'
 import { euro, yearlyTotalOfMonthly, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
-import { PLAN_LABEL } from '@/lib/plans/types'
+import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 /**
  * What each refusal is called to a reader. `coupon-unsupported` is the only one that describes
@@ -74,6 +76,15 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
     'Your subscription carries more than one item, which this page will not rewrite. ' +
     'Please write to us and we will move it for you.',
   same: 'That is the plan you are already on, so there is nothing to change.',
+  /*
+   * Not a fault, and not a dead end either: the line above this one names what is scheduled and
+   * when, so this only has to say what to do about it. The two-step exists because the price
+   * cannot be quoted honestly while the items are already on the cheaper plan — see
+   * `planChange.ts` — and a reader is owed the real figure more than they are owed one press.
+   */
+  'pending-downgrade':
+    'Your plan is already set to change at the end of the period you have paid for. Call that ' +
+    'off in Billing first and this move can be priced against the plan you actually hold.',
   'lifetime-target':
     'Lifetime is bought once and cannot replace a running subscription. Cancel your plan ' +
     'first, and buy Lifetime when it has ended.',
@@ -110,9 +121,12 @@ type Props =
        * customer on a button that refuses.
        *
        * `label` is what to call the plan they are on, already formatted: this component knows
-       * `PLAN_LABEL` but not what a cycle is called in a sentence.
+       * `PLAN_LABEL` but not what a cycle is called in a sentence. `scheduled` is the same for a
+       * change already arranged — case C6, the transparency one: a reader whose Paddle items
+       * have already moved down must be told so wherever a plan is discussed, or the button
+       * refusing to price a further move reads as a fault instead of as a consequence.
        */
-      live: { cycle: BillingPeriod | null; label: string } | null
+      live: { plan: Plan; cycle: BillingPeriod | null; label: string; scheduled: string | null } | null
     }
   | { plan: 'lifetime'; amount: string }
 
@@ -123,11 +137,19 @@ export function PaddleCheckout(props: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   /**
-   * What this change will cost, straight from Paddle — `null` while it is being asked for or
-   * when it could not be read. **Never defaulted to a number**: the one thing worse than no
-   * price under the button is a wrong one.
+   * What this change will cost and when it lands, straight from Paddle — `null` while it is
+   * being asked for or when it could not be read. **Never defaulted to a number**: the one
+   * thing worse than no price under the button is a wrong one.
+   *
+   * One piece of state and not three, because the amount, the day and whether there is a day
+   * are one answer to one question: split up, a stale date could sit under a fresh figure for
+   * the width of a round trip.
    */
-  const [cost, setCost] = useState<ChangeCost | null>(null)
+  const [preview, setPreview] = useState<{
+    cost: ChangeCost
+    when: ChangeWhen
+    effectiveAt: string | null
+  } | null>(null)
   /**
    * Why there is no price, when there is none. The preview refuses in exactly the places the
    * write refuses, so this turns every one of those refusals into something said **before** the
@@ -198,19 +220,19 @@ export function PaddleCheckout(props: Props) {
    */
   useEffect(() => {
     if (live === null) {
-      setCost(null)
+      setPreview(null)
       setNoPrice(null)
       return
     }
 
     let stale = false
     setPricing(true)
-    setCost(null)
+    setPreview(null)
     setNoPrice(null)
 
     void previewPaddlePlanChange(props.plan, cycle).then((result) => {
       if (stale) return
-      setCost(result.ok ? result.cost : null)
+      setPreview(result.ok ? { cost: result.cost, when: result.when, effectiveAt: result.effectiveAt } : null)
       setNoPrice(result.ok ? null : result.reason)
       setPricing(false)
     })
@@ -240,8 +262,8 @@ export function PaddleCheckout(props: Props) {
   /**
    * The other half of the button, for an account that already pays. No overlay opens: Paddle
    * has the card on file, so a change of plan is a server call and a sentence — see
-   * `planChange.ts` for why a downgrade applies at once and is repaid on the next invoice
-   * rather than waiting for the period to run out, which is what the mock did.
+   * `planChange.ts` for which changes take effect at once and which wait for the period the
+   * reader has already paid for to run out.
    *
    * The plan itself appears once `subscription.updated` reaches the webhook, the same second or
    * two `checkout.completed` already warns about above, so this says what was arranged rather
@@ -255,16 +277,36 @@ export function PaddleCheckout(props: Props) {
 
     const result = await changePaddlePlan(props.plan, cycle)
 
-    setMessage(
-      result.ok
-        ? result.direction === 'upgrade'
-          ? `Moving you to ${PLAN_LABEL[props.plan]}. What you have not used of your old plan ` +
-            'comes off the charge, and the new plan appears in a moment.'
-          : `Moving you to ${PLAN_LABEL[props.plan]}. The difference is credited against your ` +
-            'next invoice, and the new plan appears in a moment.'
-        : CHANGE_REFUSALS[result.reason],
-    )
+    setMessage(result.ok ? arranged(result) : CHANGE_REFUSALS[result.reason])
     setBusy(false)
+  }
+
+  /**
+   * What just happened, in the reader's terms — four outcomes, and only two of them move money.
+   *
+   * The `period-end` one is the sentence this whole case exists for: nothing was charged, the
+   * plan they have is theirs until a named day, and the cheaper one starts then. Saying
+   * «moving you to Standard» over that would be false on the day it is read.
+   */
+  function arranged(result: Extract<Awaited<ReturnType<typeof changePaddlePlan>>, { ok: true }>): string {
+    const target = props.plan === 'lifetime' ? '' : PLAN_LABEL[props.plan]
+
+    if (result.direction === 'revert') {
+      return `Kept — you stay on ${target}, and the change that was arranged has been called off.`
+    }
+
+    if (result.when === 'period-end' && result.effectiveAt !== null && live !== null) {
+      return (
+        `Arranged. Nothing has been charged: you keep ${PLAN_LABEL[live.plan]} until ` +
+        `${formatPlanDate(new Date(result.effectiveAt))}, and move to ${target} that day.`
+      )
+    }
+
+    return result.direction === 'upgrade'
+      ? `Moving you to ${target}. What you have not used of your old plan comes off the charge, ` +
+        'and the new plan appears in a moment.'
+      : `Moving you to ${target}. The difference is credited against your next invoice, and the ` +
+        'new plan appears in a moment.'
   }
 
 
@@ -321,7 +363,7 @@ export function PaddleCheckout(props: Props) {
          * to let somebody press through. A first purchase is different — the overlay shows the
          * price itself before anything is taken — which is why only the change path waits.
          */
-        disabled={busy || (live ? pricing || cost === null : !ready)}
+        disabled={busy || (live ? pricing || preview === null : !ready)}
       >
         {busy
           ? 'One moment…'
@@ -343,10 +385,20 @@ export function PaddleCheckout(props: Props) {
       {live !== null && (
         <p className="mt-2 text-sm opacity-80">
           You are on {live.label} today.{' '}
+          {live.scheduled !== null && `${live.scheduled} `}
           {pricing
             ? 'Working out what this change costs…'
-            : cost !== null
-              ? changeCostLine(cost)
+            : preview !== null
+              ? /* A change that waits for the period to end costs nothing today, which is true
+                   and half the story: the reader is deciding about a date as much as about a
+                   figure, so the date is said in the same breath. */
+                preview.when === 'period-end' && preview.effectiveAt !== null
+                ? scheduledChangeLine(
+                    PLAN_LABEL[live.plan],
+                    PLAN_LABEL[props.plan],
+                    formatPlanDate(new Date(preview.effectiveAt)),
+                  )
+                : changeCostLine(preview.cost)
               : noPrice !== null
                 ? CHANGE_REFUSALS[noPrice]
                 : 'We could not work out what this change costs just now, so we are not going to ' +

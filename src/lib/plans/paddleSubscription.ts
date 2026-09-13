@@ -29,7 +29,9 @@ import { revalidatePath } from 'next/cache'
 
 import { hasDatabase } from '@/lib/db/client'
 
-import { livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
+import { customDataFor, livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
+import { paddlePriceId } from './paddlePrices'
+import { isCheckoutPlan } from './prices'
 import { paddleClient } from './paddleClient'
 
 export type PaddleCancelFailure = 'not-configured' | 'no-database' | 'failed' | NoLiveSubscription
@@ -74,19 +76,25 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
 }
 
 /**
- * Calling off a cancellation that has not happened yet — «Keep Premium».
+ * Calling off whatever is about to happen to this plan — «Keep Premium».
  *
- * **This is the one mock capability that maps onto Paddle exactly**, and it is worth saying why,
- * because its neighbour does not. The mock's equivalent undid whatever sat in
- * `pendingPlan`/`pendingCycle`, which for the mock could be either a cancellation *or* a
- * scheduled downgrade. On the Paddle path `pendingPlan` is only ever `'free'`, written from a
- * `scheduled_change` of `cancel` — there are no scheduled downgrades, for the reason
- * `planChange.ts` sets out at length — so «undo the pending change» and «clear the scheduled
- * cancellation» are the same act here, where on the mock they were two.
+ * **Two different things can be scheduled, and this undoes either or both.** A cancellation is
+ * Paddle's own `scheduled_change`, cleared by writing `null` over it. A *downgrade* is not
+ * Paddle's at all: the items already carry the cheaper plan and a `custom_data` stamp holds the
+ * date the reader keeps the dearer one until — `planChange.ts` explains why that is the only
+ * shape available — so calling it off means putting the items back and clearing the stamp. No
+ * money moves in either direction: the period was paid at the old price, which is exactly what
+ * `do_not_bill` leaves alone, and it is why the undo is as free as the downgrade was.
  *
- * `scheduled_change: null` travels alone: Paddle refuses it beside any other field. It also
- * restores `next_billed_at`, which cancelling had nulled, so the subscription comes back to the
- * row it was on. Both measured 2026-09-13.
+ * It used to be able to say «nothing is scheduled» simply by asking Paddle, and that answer was
+ * right only while a scheduled downgrade was impossible. `/billing` draws this button from
+ * `pendingPlan`, which now carries downgrades too — so without this second branch the one
+ * reader who most wants the button would press it and be told there was nothing to call off.
+ *
+ * `scheduled_change: null` travels alone: Paddle refuses it beside any other field, which is
+ * why the two undos are two calls when both apply. It also restores `next_billed_at`, which
+ * cancelling had nulled, so the subscription comes back to the row it was on. Both measured
+ * 2026-09-13.
  *
  * Writes no plan columns, like everything else on this path: the `subscription.updated` that
  * follows is what clears `pendingPlan`.
@@ -103,9 +111,28 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
 
     /* Asked of the same read that established the subscription is live, never of a second
        fetch — see `livePaddleSubscription`'s own note on why one snapshot. */
-    if (!live.scheduled) return { ok: false, reason: 'nothing-scheduled' }
+    if (!live.scheduledChange && live.pendingDowngrade === null) {
+      return { ok: false, reason: 'nothing-scheduled' }
+    }
 
-    await paddle.subscriptions.update(live.id, { scheduledChange: null })
+    if (live.scheduledChange) {
+      await paddle.subscriptions.update(live.id, { scheduledChange: null })
+    }
+
+    if (live.pendingDowngrade !== null) {
+      /* The plan they are paying for, which is what `livePaddleSubscription` reports while a
+         downgrade is stamped — never the items, which are already the cheaper one. Neither of
+         the two plans that have no subscription to put back can be standing here, and saying so
+         is what lets the price be looked up at all. */
+      const priceId = isCheckoutPlan(live.plan) ? paddlePriceId(live.plan, live.cycle) : null
+      if (priceId === null) return { ok: false, reason: 'unreadable' }
+
+      await paddle.subscriptions.update(live.id, {
+        items: [{ priceId, quantity: 1 }],
+        prorationBillingMode: 'do_not_bill',
+        customData: customDataFor(live, null),
+      })
+    }
 
     revalidatePath('/billing')
 
