@@ -42,6 +42,8 @@ import { revalidatePath } from 'next/cache'
 
 import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
+import { sendEmail } from '@/lib/email/send'
+import { planChangeEmail } from '@/lib/email/templates'
 
 import { livePaddleSubscription, readDate } from './paddleAccount'
 import { applyItemChange } from './paddleApply'
@@ -50,6 +52,7 @@ import { paddlePriceId } from './paddlePrices'
 import { readChangeCost, type ChangeCost } from './changePreview'
 import { nextChargeOf, type NextCharge } from './changeSummary'
 import { planChangeEffect, type ChangeDirection, type ChangeRefusal, type ChangeWhen } from './planChange'
+import { planChangeNotice } from './subscriptionCopy'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
 import { downgradeStamp } from './webhook'
@@ -325,6 +328,26 @@ export async function changePaddlePlan(
     /* `/billing` only. `/pricing` reads the cookie jar and is therefore already dynamic in this
        router, so revalidating it was a call that did nothing and read as though it mattered. */
     revalidatePath('/billing')
+
+    /*
+     * **The written trace of what was just arranged**, which nothing sent between the mock's
+     * demolition and 2026-09-14. `planChangeNotice` owns the rule — including that an immediate
+     * change sends nothing from here, since an upgrade's own transaction brings `announcePayment`
+     * behind it and calling a change off takes nothing away.
+     *
+     * After the write and after `revalidatePath`, and awaited: `sendEmail` swallows its own
+     * errors by construction, so a mail server having a bad minute cannot turn a change Paddle
+     * has already made into a failure on the reader's screen.
+     */
+    const notice = planChangeNotice({
+      from: { plan: live.plan, cycle: live.cycle },
+      to: { plan, cycle: plan === 'lifetime' ? null : cycle },
+      when: effect.when,
+      on: periodEndsAt,
+    })
+    if (notice !== null) {
+      await sendEmail({ to: user.accountOwnerEmail, ...planChangeEmail(notice) })
+    }
 
     return {
       ok: true,

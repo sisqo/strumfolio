@@ -132,6 +132,34 @@ look, so a dialog in front of it would be a dialog in front of a dialog.
   with them**. This is the silent failure the root `CLAUDE.md` already warns about in general —
   a handler nothing ever calls, with no error anywhere to find.
 
+## The email a change sends, and the two silences (2026-09-14)
+
+`planChangeEmail` had **no sender at all** for a day: both of its send sites lived inside the
+mock (`mockPurchase`'s scheduled branch and `mockCancel`), and demolishing it took the
+customer's only written trace of a downgrade or a cancellation with it. Paddle has none to
+offer in its place — a waiting change bills nothing, so there is no invoice and no processor
+mail to ride along with. Found on the third review pass of this branch.
+
+- **Sent from the action, not from the webhook**, which is the opposite of `announcePayment`
+  beside it and deliberate. A payment has no action of ours behind it — Paddle's overlay is what
+  the customer pressed — so the webhook is the only place that knows one happened. A plan change
+  *is* an action: it knows what was asked for and which day was promised, and it fires exactly
+  once per press, where `subscription.updated` arrives twice for one change of cycle and again on
+  every renewal. Decided by the user on 2026-09-14, the two alternatives weighed.
+- **`planChangeNotice` (`subscriptionCopy.ts`) owns the rule and is pure**, so «what does this
+  press write to somebody» is tested rather than buried in two `'use server'` modules.
+- **The two silences.** A change taking effect *now* sends nothing: an upgrade takes money, so a
+  transaction completes and `announcePayment` covers it, and both would be two messages about one
+  press. And calling a change off (`keepPaddleSubscription`) sends nothing either — that press
+  takes nothing away, the decision the template's own header already carried.
+- **`fromLabel` is always the bare plan and `toLabel` the shortest true name of what it
+  becomes.** The first is quoted in the «Keep Premium» sentence, which names a button that reads
+  exactly `PLAN_LABEL`; the second is `changeNames`' rule with one substitution, since the email
+  prints the day right behind that label and «moves to Premium on monthly billing on 13
+  September» is what the comma in `planWithCycle` prevents.
+- `customer-journey.md` is the document that describes all six emails, and §4 and §5 both moved
+  with this.
+
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
 Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,

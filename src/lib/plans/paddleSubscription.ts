@@ -27,13 +27,17 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
+import { sendEmail } from '@/lib/email/send'
+import { planChangeEmail } from '@/lib/email/templates'
 
 import { livePaddleSubscription, readDate, type NoLiveSubscription } from './paddleAccount'
 import { applyItemChange } from './paddleApply'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan } from './prices'
 import { paddleClient } from './paddleClient'
+import { planChangeNotice } from './subscriptionCopy'
 
 export type PaddleCancelFailure = 'not-configured' | 'no-database' | 'failed' | NoLiveSubscription
 
@@ -68,6 +72,26 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
 
     /* The page reads the account row, which the webhook is about to change. */
     revalidatePath('/billing')
+
+    /*
+     * **The one change a customer most wants a written trace of**, and the one this app has to
+     * write itself: Paddle stops the billing and sends nothing about a period that still has to
+     * run. `planChangeNotice` takes the day from Paddle's own answer rather than from the
+     * snapshot read before the call — the same rule `keepPaddleSubscription` follows below —
+     * and words the dateless sentence when there is no day to name, which is true either way.
+     */
+    const notice = planChangeNotice({
+      from: { plan: live.plan, cycle: live.cycle },
+      to: 'free',
+      when: 'period-end',
+      on: readDate(canceled.scheduledChange?.effectiveAt),
+    })
+    /* Read here rather than carried from above: nothing earlier in this function needs an
+       address, and `livePaddleSubscription` has already refused everybody without a session. */
+    const user = notice === null ? null : await currentUser()
+    if (notice !== null && user !== null) {
+      await sendEmail({ to: user.accountOwnerEmail, ...planChangeEmail(notice) })
+    }
 
     return { ok: true, effectiveAt: canceled.scheduledChange?.effectiveAt ?? null }
   } catch (error) {

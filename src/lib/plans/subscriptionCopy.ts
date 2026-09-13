@@ -44,6 +44,65 @@ export function planWithCycle(plan: Plan, cycle: BillingPeriod | null): string {
 }
 
 /**
+ * What `planChangeEmail` should say about a change just made — or `null` for a change it must
+ * not be sent about at all.
+ *
+ * **The email had no sender for a day**, and this is where the rule for having one lives. Both
+ * of its send sites were inside the mock (`mockPurchase`'s scheduled branch and `mockCancel`),
+ * so demolishing the mock took the customer's only written trace of a downgrade or a
+ * cancellation with it — and Paddle has none to offer in its place: a waiting change bills
+ * nothing, so no invoice and no processor mail follows it. Sent from the action rather than the
+ * webhook, because the action is the one that knows what was *asked for* and which day was
+ * promised, and it fires exactly once per press where `subscription.updated` arrives twice for
+ * one cycle change and again on every renewal.
+ *
+ * **`'now'` never writes.** An immediate change is either an upgrade — which takes money, so
+ * Paddle completes a transaction and `announcePayment` sends the purchase email for it — or a
+ * revert, and the template's own header says why that one stays silent: calling a change off
+ * takes nothing away, and an inbox does not need a message per press.
+ *
+ * **`fromLabel` is always the bare plan**, never a cycle: it is what is in force, and it is
+ * quoted in the «Keep Premium» sentence that names a button reading exactly `PLAN_LABEL`.
+ * `toLabel` is the shortest true name of what it becomes, which is `changeNames`' rule with one
+ * substitution — where both the plan and the billing move, `planWithCycle`'s comma keeps the
+ * label from running into the date behind it («moves to Premium on monthly billing on 13
+ * September» against «moves to Premium, billed monthly on 13 September»).
+ *
+ * `when` is typed as its two literals rather than importing `ChangeWhen`, so this file keeps
+ * depending on nothing but the plan vocabulary.
+ */
+export function planChangeNotice(input: {
+  from: { plan: Plan; cycle: BillingPeriod | null }
+  /** Where it goes: a plan, or `'free'` for a cancellation. */
+  to: { plan: Plan; cycle: BillingPeriod | null } | 'free'
+  when: 'now' | 'period-end'
+  /** The day it lands, as Paddle reported it — `null` when there is none to name. */
+  on: Date | null
+}): { fromLabel: string; toLabel: string; effect: { day: string | null } } | null {
+  const { from, to, when, on } = input
+  if (when !== 'period-end') return null
+
+  const fromLabel = PLAN_LABEL[from.plan]
+  const effect = { day: on === null ? null : formatPlanDate(on) }
+
+  if (to === 'free') return { fromLabel, toLabel: PLAN_LABEL.free, effect }
+
+  const movesPlan = to.plan !== from.plan
+  const movesCycle = to.cycle !== from.cycle
+  /* Nothing moved: not a change worth a message, and not a state the actions reach — they
+     answer `same` long before here. */
+  if (!movesPlan && !movesCycle) return null
+
+  const toLabel = movesPlan
+    ? movesCycle
+      ? planWithCycle(to.plan, to.cycle)
+      : PLAN_LABEL[to.plan]
+    : changeNames(from, to).to
+
+  return { fromLabel, toLabel, effect }
+}
+
+/**
  * What to call each side of a change, given that only one of the two things about it may have
  * moved.
  *

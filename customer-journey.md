@@ -2,7 +2,8 @@
 
 Every message Strumfolio puts in a reader's inbox, in the order a reader meets them, with the
 copy as it goes out. Written against commit `d7fc86d` (2026-09-12) by reading the templates
-and every call site; the copy below is quoted from `src/lib/email/templates.ts`, which is the
+and every call site, and revisited on 2026-09-14 when the Paddle integration moved two of the
+six senders — the copy of every template is unchanged since; the copy below is quoted from `src/lib/email/templates.ts`, which is the
 only place it is decided. **When this file and that file disagree, the template is right** —
 the live, rendered version of each email is at `/emails` (global owners only), which can also
 send a real copy, prefixed `[Preview]`, to the owner's own inbox.
@@ -17,8 +18,8 @@ earlier — the reader, or an operator on `/accounts/[email]`.
 | 1 | Signing up with email + password | Verify your email | `verificationEmail` | `register/actions.ts` (`register`, `resendVerification`) |
 | 2 | The account exists | Welcome | `welcomeEmail` | `verify/actions.ts`, `auth.ts` (first Google sign-in), `accounts/actions.ts` (`confirmPendingRegistration`, `createAccount`) |
 | 3 | Forgotten password | Reset your password | `passwordResetEmail` | `forgotPassword/actions.ts` (self-service), `auth/actions.ts` (`sendPasswordResetFor`, operator) |
-| 4 | Buying or upgrading a plan | Purchase confirmation | `purchaseEmail` | `plans/checkout.ts` (`mockPurchase`, immediate branch) |
-| 5 | Downgrading or cancelling | Plan change notice | `planChangeEmail` | `plans/checkout.ts` (`mockPurchase` scheduled branch, `mockCancel`) |
+| 4 | Buying or upgrading a plan | Purchase confirmation | `purchaseEmail` | `plans/webhookApply.ts` (`announcePayment`, on `transaction.completed`) |
+| 5 | Downgrading or cancelling | Plan change notice | `planChangeEmail` | `plans/paddlePlanChange.ts` (`changePaddlePlan`), `plans/paddleSubscription.ts` (`cancelPaddleSubscription`) |
 | 6 | Being given a plan | Gift notice | `giftEmail` | `accounts/actions.ts` (`sendGiftNotice`, operator) |
 
 ## What every email shares
@@ -222,10 +223,14 @@ The HTML has a `Start your songbook` button on `/` and links «Billing» to `/bi
   until*, never *renews*: nothing in this repository renews anything, and when the day comes
   the entitlement simply stops.
 
-**Two facts to hold onto.** The copy is worded as a real payment confirmation while the
-processor behind it is still the mock (`SONGBOOK_MOCK_CHECKOUT`) — a decision, so that the day
-a real processor lands nothing in this template needs rewriting. And the operator's Telegram
-line for the same event («💰 Acquisto: premium/year · €99») carries no address, on purpose.
+**Two facts to hold onto.** The copy was worded as a real payment confirmation while the
+processor behind it was still a mock — a decision that paid off: the mock was demolished on
+2026-09-13 and this template needed no rewriting, only a new sender. It is sent from the
+webhook now, because a real payment has no action of ours behind it — Paddle's own overlay is
+what the customer pressed — and Paddle, as merchant of record, sends its invoice beside it;
+which *plan* you now have and until when is this app's sentence to write. And the operator's
+Telegram line for the same event («💰 Acquisto: premium/year · €99») carries no address, on
+purpose.
 
 ## 5. Downgrading or cancelling — «Your Premium plan ends on 22 September 2027»
 
@@ -282,8 +287,18 @@ app, and this message arrives on the very day that stops being true. And nothing
 charge — see §4 on *renews*.
 
 **Not sent** when the reader presses `Keep <Plan>` and calls a scheduled change off
-(`clearPendingChange`): that press takes nothing away, and an inbox does not need a message
-per press. Not sent by the operator's test-only `forceExpireNow` either.
+(`keepPaddleSubscription`): that press takes nothing away, and an inbox does not need a message
+per press. Not sent for a change that takes effect **at once** either — an upgrade takes money,
+so a transaction completes and §4 covers it, and sending both would be two messages about one
+press. `planChangeNotice` (`plans/subscriptionCopy.ts`) is where that rule lives, tested.
+
+**It is sent from the action rather than from the webhook**, which is the opposite of §4 and
+deliberate: the action is the one that knows what was asked for and which day was promised, and
+it fires exactly once per press, where Paddle's `subscription.updated` arrives twice for one
+change of billing cycle and again on every renewal. Between 2026-09-13 and 2026-09-14 it was
+sent by nobody at all — both of its senders lived inside the mock — so a scheduled downgrade
+left no written trace anywhere, Paddle included, since a waiting change bills nothing and
+produces no invoice to ride along with.
 
 ## 6. Being given a plan — «Your Premium plan is on us»
 
@@ -349,7 +364,6 @@ not a follow-up.
 
 - Calling off a scheduled downgrade or cancellation («Keep <Plan>») — §5.
 - A gift removed, shortened, or lowered; a gift's note corrected — §6.
-- The operator's test-only forced expiry of a plan (`forceExpireNow`).
 - Registering with an address that already has an account: the form says so on screen, and no
   email goes to the inbox — the address is not confirmed to anybody but the person typing it.
 

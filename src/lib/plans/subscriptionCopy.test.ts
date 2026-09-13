@@ -11,6 +11,7 @@ import {
   changeNames,
   formatPlanDate,
   lastPaymentLine,
+  planChangeNotice,
   subscriptionStatusLine,
 } from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
@@ -342,5 +343,73 @@ describe('subscriptionStatusLine with a change of billing arranged', () => {
     const line = subscriptionStatusLine(state({ pendingPlan: 'free', pendingCycle: null }), 'standard')
 
     assert.match(line, /then Free\.$/)
+  })
+})
+
+/**
+ * Whether a change just made is worth writing to somebody about, and in what words.
+ *
+ * The email it feeds had **no sender at all** between the mock's demolition and 2026-09-14, so
+ * a reader who arranged a downgrade or cancelled got nothing from anybody — Paddle included,
+ * since a waiting change bills nothing and produces no invoice to accompany.
+ */
+describe('planChangeNotice', () => {
+  const PREMIUM_YEAR = { plan: 'premium' as Plan, cycle: 'year' as const }
+  const DAY = new Date('2027-09-13T00:00:00Z')
+
+  it('names the plan in force and the plan it becomes', () => {
+    const notice = planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'standard', cycle: 'year' }, when: 'period-end', on: DAY })
+
+    assert.deepEqual(notice, { fromLabel: 'Premium', toLabel: 'Standard', effect: { day: '13 September 2027' } })
+  })
+
+  /*
+   * **A change of billing has to be named by its billing**, the rule `changeNames` exists for:
+   * «Premium stays in force until 13 September 2027. On that day this account moves to Premium»
+   * is false rather than merely clumsy.
+   */
+  it('names the billing when that is the only thing moving', () => {
+    const notice = planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'premium', cycle: 'month' }, when: 'period-end', on: DAY })
+
+    assert.equal(notice?.toLabel, 'monthly billing')
+  })
+
+  /*
+   * Both moving is B7, and the label is `planWithCycle`'s rather than `changeNames`' because the
+   * email prints the day immediately behind it: «moves to Premium on monthly billing on 13
+   * September 2027» is the sentence the comma prevents.
+   */
+  it('keeps the label from running into the date when both move', () => {
+    const notice = planChangeNotice({ from: { plan: 'standard', cycle: 'year' }, to: { plan: 'premium', cycle: 'month' }, when: 'period-end', on: DAY })
+
+    assert.equal(notice?.toLabel, 'Premium, billed monthly')
+  })
+
+  /* «Free» is what makes the template word a cancellation rather than a move, so it is passed
+     as the label and not as a flag that could get out of step with it. */
+  it('words a cancellation as a move to Free', () => {
+    const notice = planChangeNotice({ from: PREMIUM_YEAR, to: 'free', when: 'period-end', on: DAY })
+
+    assert.equal(notice?.fromLabel, 'Premium')
+    assert.equal(notice?.toLabel, 'Free')
+  })
+
+  /*
+   * **The two silences, and both are decisions.** An immediate upgrade takes money, so Paddle
+   * completes a transaction and the webhook sends the purchase email for it — this one would be
+   * a second message about the same press. A revert is `when: 'now'` too, and calling a change
+   * off takes nothing away.
+   */
+  it('sends nothing about a change that takes effect at once', () => {
+    assert.equal(planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'premium', cycle: 'year' }, when: 'now', on: null }), null)
+    assert.equal(planChangeNotice({ from: { plan: 'standard', cycle: 'month' }, to: { plan: 'plus', cycle: 'month' }, when: 'now', on: DAY }), null)
+  })
+
+  /* A day that cannot be read is the dateless sentence, never «Invalid Date» and never a
+     silence: the change is still happening, and the template has true words for it. */
+  it('still writes when there is no day to name', () => {
+    const notice = planChangeNotice({ from: PREMIUM_YEAR, to: 'free', when: 'period-end', on: null })
+
+    assert.deepEqual(notice?.effect, { day: null })
   })
 })
