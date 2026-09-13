@@ -121,7 +121,21 @@ export function subscriptionStatusLine(current: SubscriptionState, live: Plan | 
       : `${PLAN_LABEL[current.plan]} until ${until}, then billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`
   }
 
-  return `${PLAN_LABEL[current.plan]} until ${until}, then ${PLAN_LABEL[current.pendingPlan]}.`
+  /*
+   * The cycle is named whenever there is one, because a scheduled change can move it as well as
+   * the tier (B6, B8) and «then Standard» would leave half of that unsaid. Redundant where only
+   * the tier moves — «then Standard, billed yearly» for somebody already billed yearly — and
+   * redundant is the right side to be on here: this is the screen a reader opens to check what
+   * they arranged, and no column holds the *current* cycle to compare against (`lastPaymentLine`
+   * below goes to the ledger for exactly that reason).
+   *
+   * A cancellation has no cycle and does not get one: `pendingPlan` is `'free'` there, with
+   * `pendingCycle` null beside it.
+   */
+  const then = PLAN_LABEL[current.pendingPlan]
+  return current.pendingCycle === null
+    ? `${PLAN_LABEL[current.plan]} until ${until}, then ${then}.`
+    : `${PLAN_LABEL[current.plan]} until ${until}, then ${then}, billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`
 }
 
 /**

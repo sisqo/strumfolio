@@ -46,19 +46,61 @@ describe('planChangeEffect', () => {
   })
 
   /*
-   * The trap this function exists to avoid. Comparing what each row *costs per period* would
-   * read this as a rise — €9.99 becomes €34.99 — and take the money on the spot for a move
-   * the reader made to spend less.
+   * **B8, and the trap this function exists to avoid.** Comparing what each row *costs per
+   * period* would read this as a rise — €9.99 becomes €34.99 — and take the money on the spot
+   * for a move the reader made to spend less. It waits like every other drop in tier: decided
+   * on 2026-09-13 against the analysis document's own proposal, which was to bill the year at
+   * once because the cash arrives sooner.
    */
-  it('reads premium/month to standard/year as a downgrade, though it bills more per period', () => {
+  it('makes premium/month to standard/year wait, though it bills more per period', () => {
     const effect = planChangeEffect({ plan: 'premium', cycle: 'month' }, { plan: 'standard', cycle: 'year' })
     assert.deepEqual(effect, {
       ok: true,
       direction: 'downgrade',
-      proration: 'prorated_next_billing_period',
-      when: 'now',
-      pinBillingDate: false,
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate: true,
     })
+  })
+
+  /* B6 — both dimensions down at once, which is the same rule twice and no new branch. */
+  it('makes a drop in tier and cycle together wait, and pins the date', () => {
+    assert.deepEqual(planChangeEffect({ plan: 'premium', cycle: 'year' }, { plan: 'standard', cycle: 'month' }), {
+      ok: true,
+      direction: 'downgrade',
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate: true,
+    })
+  })
+
+  /*
+   * The rule stated as a rule rather than case by case: **nothing that lowers the tier is ever
+   * billed immediately, whatever the cycle does.** Written as a sweep so a later branch cannot
+   * quietly reintroduce an immediate downgrade for one combination out of six.
+   */
+  it('never bills a drop in tier now, in any combination of cycles', () => {
+    for (const from of PAID_PLANS) {
+      for (const to of PAID_PLANS) {
+        if (PLAN_RANK[to] >= PLAN_RANK[from]) continue
+        for (const fromCycle of ['year', 'month'] as const) {
+          for (const toCycle of ['year', 'month'] as const) {
+            const effect = planChangeEffect({ plan: from, cycle: fromCycle }, { plan: to, cycle: toCycle })
+            assert.deepEqual(
+              effect,
+              {
+                ok: true,
+                direction: 'downgrade',
+                proration: 'do_not_bill',
+                when: 'period-end',
+                pinBillingDate: fromCycle !== toCycle,
+              },
+              `${from}/${fromCycle} -> ${to}/${toCycle}`,
+            )
+          }
+        }
+      }
+    }
   })
 
   it('treats yearly as the upgrade when only the cycle moves', () => {
@@ -208,22 +250,36 @@ describe('planChangeEffect', () => {
     })
 
     /*
-     * The one that is a refusal rather than a rule. Paddle would price an upgrade against the
-     * items — the cheaper plan — while the two calls that would actually run credit the dearer
-     * one that was paid for, so the figure shown and the figure charged would differ. Calling
-     * the arranged change off first is one press, and prices honestly.
+     * **The refusal is about the figure, not about the change.** Paddle would price a move
+     * against the items — the cheaper plan — while the two calls that would actually run credit
+     * the dearer one that was paid for, so the amount shown and the amount charged would
+     * differ. That applies to exactly the two priced moves: going up a tier, and going yearly.
+     * Calling the arranged change off first is one press, and prices honestly.
      */
-    it('refuses a move to anything else until the arranged change is called off', () => {
-      for (const to of [
-        { plan: 'premium', cycle: 'year' },
-        { plan: 'standard', cycle: 'year' },
-      ] as const) {
-        assert.deepEqual(planChangeEffect(pending, to), { ok: false, reason: 'pending-downgrade' })
-      }
+    it('refuses the two priced moves until the arranged change is called off', () => {
+      /* B3 from a paid monthly plan: yearly is billed now, so it has a figure to get wrong. */
+      assert.deepEqual(planChangeEffect(pending, { plan: 'premium', cycle: 'year' }), {
+        ok: false,
+        reason: 'pending-downgrade',
+      })
+      /* C1: an upgrade of tier. */
       assert.deepEqual(planChangeEffect({ ...pending, plan: 'plus' }, { plan: 'premium', cycle: 'month' }), {
         ok: false,
         reason: 'pending-downgrade',
       })
+    })
+
+    /* And the mirror of it: a move that bills nothing has no figure to get wrong, so it simply
+       replaces what stands — whichever dimension it moves. */
+    it('lets any free change replace what is arranged', () => {
+      for (const to of [
+        { plan: 'standard', cycle: 'month' },
+        { plan: 'standard', cycle: 'year' },
+        { plan: 'premium', cycle: 'month' },
+      ] as const) {
+        const effect = planChangeEffect({ ...pending, pendingDowngrade: { plan: 'plus', cycle: 'month' } }, to)
+        assert.equal(effect.ok && effect.proration, 'do_not_bill', `${to.plan}/${to.cycle}`)
+      }
     })
   })
 

@@ -325,12 +325,21 @@ describe('subscriptionStatusLine with a change of billing arranged', () => {
     assert.doesNotMatch(line, /then Premium/)
   })
 
-  it('still names the plan when the plan is what changes', () => {
+  /* B6 and B8 move the tier *and* the cycle, so both have to be in the sentence — «then
+     Standard» alone would leave half of what was arranged unsaid. */
+  it('names the plan and the cycle a scheduled change lands on', () => {
     const line = subscriptionStatusLine(
       state({ plan: 'premium', pendingPlan: 'standard', pendingCycle: 'month' }),
       'premium',
     )
 
-    assert.match(line, /then Standard\.$/)
+    assert.match(line, /then Standard, billed monthly\.$/)
+  })
+
+  /* A cancellation has no cycle to name, and must not grow one. */
+  it('says nothing about billing when the plan is ending', () => {
+    const line = subscriptionStatusLine(state({ pendingPlan: 'free', pendingCycle: null }), 'standard')
+
+    assert.match(line, /then Free\.$/)
   })
 })

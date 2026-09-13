@@ -180,10 +180,21 @@ watched working by anybody.
     the only way a *first* event finds its account. Dropping it produces `unmatched` events, not
     an error. `downgrade: null` is written on every other kind of change, so a stale stamp
     cannot outlive the move that ended it.
-  - **A downgrade that also changes tier *and* cycle is still `prorated_next_billing_period`**
-    and is therefore still refused by Paddle, which allows only the immediate modes and
-    `do_not_bill` when the billing frequency changes. B6 and B8 are unbuilt, and the preview
-    refuses them before the press rather than the write failing after it.
+  - **B6 and B8 are the same rule with the cycle moving too**, and cost only the extra call B4
+    already pays for. There is no branch for them: every drop in tier is `do_not_bill` and
+    `period-end`, and `pinBillingDate` follows from whether the frequency moves.
+- **Two proration modes are used and there is deliberately no third.**
+  `prorated_next_billing_period` was used for downgrades and is gone: it repays in *money* on the
+  next invoice where this product repays in *time*, and Paddle refuses every deferred mode on a
+  change of billing frequency anyway, so the cases that most needed it could never have used it.
+  What is left is one rule with two halves — **what the reader pays more for happens now and is
+  billed now; what they pay less for happens at the end of the period already paid for, and
+  bills nothing at all.**
+- **CASO B8 was decided, not derived** (2026-09-13). Premium monthly → Standard yearly could be
+  billed today, a whole year up front, and the analysis document proposed exactly that because
+  the cash arrives sooner. Decided the other way: «a downgrade is never immediate» was already
+  written down as a rule, and the single exception where the exception collects more money is
+  the kind a customer notices. So B2, B4, B6 and B8 are now one sentence rather than four cases.
 - **CASO B4 — yearly to monthly keeps the whole paid year, and costs one extra call.** Same
   shape as B2 with one measured difference that decides everything: **`do_not_bill` preserves
   the billing period only while the frequency is unchanged.** Moving a subscription between the
