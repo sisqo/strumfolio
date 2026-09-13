@@ -28,8 +28,8 @@ import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle
 import { useEffect, useRef, useState } from 'react'
 
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
-import { changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
-import type { ChangeWhen } from '@/lib/plans/planChange'
+import { callOffLine, changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
+import type { ChangeDirection, ChangeWhen } from '@/lib/plans/planChange'
 import {
   changePaddlePlan,
   previewPaddlePlanChange,
@@ -76,6 +76,13 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
     'Your subscription carries more than one item, which this page will not rewrite. ' +
     'Please write to us and we will move it for you.',
   same: 'That is the plan you are already on, so there is nothing to change.',
+  /*
+   * **Not `same`, and the difference is the reader's own position.** They are still on the plan
+   * they paid for; this is where they are going. Said as «you are already on this» — which is
+   * what folding it into `same` does — it reads as a plan already taken away, on the checkout of
+   * the very plan they are leaving for. The line above names the day.
+   */
+  'already-scheduled': 'You are already set to move to this plan, on the day shown above.',
   /*
    * Not a fault, and not a dead end either: the line above this one names what is scheduled and
    * when, so this only has to say what to do about it. The two-step exists because the price
@@ -147,6 +154,7 @@ export function PaddleCheckout(props: Props) {
    */
   const [preview, setPreview] = useState<{
     cost: ChangeCost
+    direction: ChangeDirection
     when: ChangeWhen
     effectiveAt: string | null
   } | null>(null)
@@ -232,7 +240,11 @@ export function PaddleCheckout(props: Props) {
 
     void previewPaddlePlanChange(props.plan, cycle).then((result) => {
       if (stale) return
-      setPreview(result.ok ? { cost: result.cost, when: result.when, effectiveAt: result.effectiveAt } : null)
+      setPreview(
+        result.ok
+          ? { cost: result.cost, direction: result.direction, when: result.when, effectiveAt: result.effectiveAt }
+          : null,
+      )
       setNoPrice(result.ok ? null : result.reason)
       setPricing(false)
     })
@@ -368,7 +380,12 @@ export function PaddleCheckout(props: Props) {
         {busy
           ? 'One moment…'
           : live
-            ? `Switch to ${PLAN_LABEL[props.plan]}`
+            ? /* «Switch to Premium» is the wrong name for the one press that changes nothing
+                 about what the reader has: they already pay for it, and what the button does is
+                 call off the move away from it. */
+              preview?.direction === 'revert'
+              ? `Stay on ${PLAN_LABEL[props.plan]}`
+              : `Switch to ${PLAN_LABEL[props.plan]}`
             : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
 
@@ -389,16 +406,19 @@ export function PaddleCheckout(props: Props) {
           {pricing
             ? 'Working out what this change costs…'
             : preview !== null
-              ? /* A change that waits for the period to end costs nothing today, which is true
-                   and half the story: the reader is deciding about a date as much as about a
-                   figure, so the date is said in the same breath. */
-                preview.when === 'period-end' && preview.effectiveAt !== null
-                ? scheduledChangeLine(
-                    PLAN_LABEL[live.plan],
-                    PLAN_LABEL[props.plan],
-                    formatPlanDate(new Date(preview.effectiveAt)),
-                  )
-                : changeCostLine(preview.cost)
+              ? /* Three sentences for three shapes of «nothing to pay», which the cost line
+                   alone cannot tell apart: a change that waits for a date, a press that calls
+                   one off, and an ordinary free change. The reader is deciding about the date
+                   and the effect as much as about the figure. */
+                preview.direction === 'revert'
+                ? callOffLine(PLAN_LABEL[live.plan])
+                : preview.when === 'period-end' && preview.effectiveAt !== null
+                  ? scheduledChangeLine(
+                      PLAN_LABEL[live.plan],
+                      PLAN_LABEL[props.plan],
+                      formatPlanDate(new Date(preview.effectiveAt)),
+                    )
+                  : changeCostLine(preview.cost)
               : noPrice !== null
                 ? CHANGE_REFUSALS[noPrice]
                 : 'We could not work out what this change costs just now, so we are not going to ' +

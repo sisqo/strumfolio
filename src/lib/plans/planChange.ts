@@ -87,6 +87,12 @@ export type ChangeWhen = 'now' | 'period-end'
  * `subscriptions.update` with the items it already has still bills a proration of zero and
  * still fires an event, so a double-tap would leave a second receipt describing nothing.
  *
+ * **`already-scheduled` is not `same`**, though both end in nothing happening. `same` says «you
+ * are on this plan»; this says «you are moving to it, on a day already fixed». Folding the two
+ * together is how a reader who had just arranged to move to Standard was told, on Standard's own
+ * checkout, that Standard was the plan they were already on — which is false while the period
+ * they paid for is still running, and on the one screen where it matters most.
+ *
  * `pending-downgrade` is the one that describes an ordinary state rather than a fault, and it
  * exists because the arithmetic cannot be shown honestly: with the items already moved down,
  * Paddle's preview credits the *cheaper* plan's unused time, while the two-call sequence that
@@ -95,7 +101,13 @@ export type ChangeWhen = 'now' | 'period-end'
  * to close, so the reader is asked to call the scheduled change off first — one press, on
  * /billing — and is then priced against what they hold.
  */
-export type ChangeRefusal = 'same' | 'lifetime-target' | 'lifetime-live' | 'pending-downgrade' | 'unreadable'
+export type ChangeRefusal =
+  | 'same'
+  | 'already-scheduled'
+  | 'lifetime-target'
+  | 'lifetime-live'
+  | 'pending-downgrade'
+  | 'unreadable'
 
 export type PlanChangeEffect =
   | { ok: true; direction: ChangeDirection; proration: ProrationMode; when: ChangeWhen }
@@ -144,9 +156,11 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
   }
 
   /* Already arranged, to the day. Pressing it again would restamp the same date and fire a
-     second event for one decision — `same` for the same reason B11 is. */
+     second event for one decision — and it is emphatically not `same`: this reader is still on
+     the plan they paid for, and being told otherwise on the way out of it is the kind of wrong
+     sentence that gets read as a charge already taken. */
   if (pending !== null && to.plan === pending.plan && to.cycle === pending.cycle) {
-    return { ok: false, reason: 'same' }
+    return { ok: false, reason: 'already-scheduled' }
   }
 
   if (PLAN_RANK[to.plan] > PLAN_RANK[from.plan]) {

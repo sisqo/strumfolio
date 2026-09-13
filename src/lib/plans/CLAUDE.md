@@ -186,7 +186,10 @@ watched working by anybody.
   already paid in full (case C1). Off that one rule hang: a return to the paid plan is a
   `revert` (`do_not_bill`, nothing owed either way, stamp cleared); a different, also-lower plan
   restamps from the paid plan, so the last one asked for wins and nothing compounds (C2);
-  pressing the same downgrade twice is `same`; and **everything else is refused**
+  pressing the same downgrade twice is `already-scheduled` and **deliberately not `same`** —
+  «that is the plan you are already on» is false while the paid period is still running, and it
+  would be said on the checkout of the plan they are leaving *for*; and **everything else is
+  refused**
   (`pending-downgrade`) until the reader calls it off. That refusal is a decision, not a gap:
   Paddle would price such a move against the cheaper items while the sequence that would
   actually run credits the dearer plan that was paid for, so quoting it would reopen the
@@ -225,6 +228,14 @@ watched working by anybody.
   proration modes outright, so a downgrade attempted before the clear fails for every reader
   who cancelled and changed their mind. Cancelling also nulls `next_billed_at`; clearing
   restores it.
+- **Two calls are two `subscription.updated` events, and nothing here enforces their order** —
+  stated as an accepted limitation rather than left to be found. `webhookApply.ts` writes
+  whichever arrives last: no `occurred_at` comparison, no version column. The first of the pair
+  carries the *old* items and the old stamp, so a reversed delivery leaves the account on the
+  state before the change. It was true of the items alone before B2 and is worth more now,
+  because the stale state includes an entitlement claim with a date on it. Paddle delivers in
+  order in practice and both events are seconds apart; the fix, if it is ever wanted, is a
+  comparison against the last applied `occurred_at` for the same subscription.
 - **A change of plan within one cycle leaves `current_billing_period` alone; a change of
   *cycle* restarts it.** premium/year → premium/month moved the period end from 2027 to one
   month out, with the credit funding the renewals from there. The webhook writes whatever

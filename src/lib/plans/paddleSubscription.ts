@@ -123,7 +123,10 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
       /* The plan they are paying for, which is what `livePaddleSubscription` reports while a
          downgrade is stamped — never the items, which are already the cheaper one. Neither of
          the two plans that have no subscription to put back can be standing here, and saying so
-         is what lets the price be looked up at all. */
+         is what lets the price be looked up at all. A cycle-less paid plan cannot occur either
+         — every subscription this app creates is sold on one of the two — but if it somehow
+         did, `paddlePriceId` answers null and the reader is told we could not read their
+         subscription rather than being moved onto a price nobody chose. */
       const priceId = isCheckoutPlan(live.plan) ? paddlePriceId(live.plan, live.cycle) : null
       if (priceId === null) return { ok: false, reason: 'unreadable' }
 

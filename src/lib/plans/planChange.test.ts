@@ -135,10 +135,15 @@ describe('planChangeEffect', () => {
       })
     })
 
-    it('refuses to arrange the same downgrade twice', () => {
+    /*
+     * **Not `same`**, which would be a different sentence about a different fact. This reader is
+     * on Premium until the date; telling them on Standard's own checkout that Standard is «the
+     * plan you are already on» describes a downgrade that has not happened yet as one that has.
+     */
+    it('refuses to arrange the same downgrade twice, and does not call it «same»', () => {
       assert.deepEqual(planChangeEffect(pending, { plan: 'standard', cycle: 'month' }), {
         ok: false,
-        reason: 'same',
+        reason: 'already-scheduled',
       })
     })
 

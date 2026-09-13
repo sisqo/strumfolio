@@ -91,6 +91,19 @@ export function readChangeCost(preview: unknown): ChangeCost | null {
 }
 
 /**
+ * The sentence for the press that *undoes* an arranged change — the other half of B2, and the
+ * one that reads wrong if it is left to the generic cost line.
+ *
+ * Calling a downgrade off costs nothing, exactly as arranging it did, so `readChangeCost`
+ * answers `nothing` here too and «there is nothing to pay for this change» would be all a
+ * reader was told before pressing a button that cancels a decision they have already made. What
+ * they need to know is what it *does*, not what it costs.
+ */
+export function callOffLine(keep: string): string {
+  return `Nothing to pay. This calls off the change you arranged, and you stay on ${keep}.`
+}
+
+/**
  * The sentence for a change that is *arranged* rather than made — case B2, and the only one
  * where the cost line alone would be true and useless.
  *
