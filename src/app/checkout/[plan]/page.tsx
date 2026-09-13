@@ -49,7 +49,15 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   if (!isCheckoutPlan(plan)) notFound()
 
   const { cycle, coupon: couponParam, promo: promoParam } = await searchParams
-  const initialCycle: BillingPeriod = cycle === 'year' ? 'year' : 'month'
+  /*
+   * Two readings of the same parameter, and the Paddle branch needs the sharper one. `?cycle=`
+   * absent and `?cycle=month` are the same thing to a first-time buyer and opposite things to
+   * somebody already on a yearly plan — see `PaddleCheckout`'s own note. `CheckoutScreen`
+   * keeps the flattened form it has always had, since the mock has `loadMostRecentCycleFor` to
+   * correct it once the ledger loads.
+   */
+  const requestedCycle: BillingPeriod | null = cycle === 'year' ? 'year' : cycle === 'month' ? 'month' : null
+  const initialCycle: BillingPeriod = requestedCycle ?? 'month'
 
   /*
    * Resolved here rather than inside `CheckoutScreen`, for `Viewer`'s reason on /pricing: a
@@ -205,7 +213,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           ) : (
             <PaddleCheckout
               plan={plan}
-              initialCycle={initialCycle}
+              initialCycle={requestedCycle}
               amounts={{ year: PRICES[plan].year.amount, month: PRICES[plan].month.amount }}
               live={liveProps}
             />

@@ -173,9 +173,20 @@ watched working by anybody.
   one; and **stalled** — say something, offer nothing — for a failing card, a hold, an unreadable
   shape or Paddle not answering, because each of those may still be billing. It is pure and
   tested, including that a reason invented later falls to `stalled` rather than to `sell`.
-- **The cycle toggle opens on the live cycle, not on `?cycle=`.** `initialCycle` falls back to
-  `month` for any link without the parameter, so a premium/year subscriber arriving from an
-  ordinary link met «Switch to Premium» sitting on Monthly — and pressing it is a year→month
-  move, which restarts the billing period and trades the rest of their year for a credit.
-  Legitimate when chosen, not when defaulted into. The screen also names what they are on, since
-  «you are changing a plan you already pay for» does not say *which*.
+- **The cycle toggle opens on what the link asked for, then on the live cycle, then monthly** —
+  and the middle step is what was missing. A bare link carries no `?cycle=`, which collapsed to
+  `month` for everybody, so a premium/year subscriber arriving from a typed or bookmarked link
+  met «Switch to Premium» sitting on Monthly — and pressing it is a year→month move, which
+  restarts the billing period and trades the rest of their year for a credit. Legitimate when
+  chosen, not when defaulted into. **An explicit `?cycle=` still wins**, and must: every CTA on
+  /pricing carries one and «Change billing cycle» is a link whose whole purpose is to set it, so
+  letting the live cycle override it would leave that link opening on the cycle it was pressed
+  to leave. Hence `initialCycle` is `BillingPeriod | null` on the Paddle branch and flattened
+  only for `CheckoutScreen`, which has `loadMostRecentCycleFor` to correct itself. The screen
+  also names what they are on, since «you are changing a plan you already pay for» does not say
+  *which*.
+- **What is still the mock's story: `/pricing`'s «Change billing cycle» tooltip**, which says a
+  scheduled *downgrade* gets cancelled. A scheduled cancellation is real on both paths and is
+  cleared; a scheduled downgrade exists only on the mock's. Left as it is deliberately while
+  both paths are live — it is true of one of them — and it belongs with the demolition, where
+  the mock's copy comes out everywhere at once.

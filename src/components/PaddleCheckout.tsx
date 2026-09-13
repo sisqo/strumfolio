@@ -80,7 +80,15 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
 type Props =
   | {
       plan: PaidPlan
-      initialCycle: BillingPeriod
+      /**
+       * The cycle the *link* asked for, or `null` when it asked for none. Nullable rather than
+       * defaulted, because the two cases have opposite right answers for a subscriber: every
+       * CTA on /pricing carries `?cycle=`, and one of them exists precisely to switch cycle, so
+       * an explicit value is an instruction and must win. A bare link — typed, bookmarked, sent
+       * in a message — asked for nothing, and collapsing that to `month` is what turned «Switch
+       * to Premium» into a silent year→month downgrade.
+       */
+      initialCycle: BillingPeriod | null
       /**
        * Both cycles, so the toggle needs no second round trip — and **unformatted**, exactly as
        * `PRICES` stores them. `euro()` is applied here rather than by the page, because this
@@ -110,19 +118,20 @@ export function PaddleCheckout(props: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   /*
-   * **The live cycle wins over the one in the URL**, and for a subscriber that is the
-   * difference between a button that does what it says and one that quietly downgrades.
-   * `initialCycle` falls back to `month` for any link without `?cycle=`, so a premium/year
-   * subscriber arriving from an ordinary link would have found «Switch to Premium» sitting on
-   * Monthly — and pressing it is a year→month move, which restarts the billing period and
+   * **What the link asked for, then what Paddle is billing, then monthly** — and the middle
+   * step is the one that was missing. A bare link carries no cycle, so this used to open on
+   * Monthly for everybody; for a premium/year subscriber that put «Switch to Premium» on
+   * Monthly, and pressing it is a year→month move, which restarts the billing period and
    * trades the rest of their year for a credit. Legitimate when chosen, not when defaulted
-   * into. `loadMostRecentCycleFor` is what the mock had for this; here the answer is better,
-   * because it is what Paddle is billing rather than what was last bought.
+   * into. An *explicit* `?cycle=` still wins, because /pricing carries one on every CTA and
+   * one of those links exists to change the cycle. `loadMostRecentCycleFor` is what the mock
+   * had for this; the answer here is better, being what Paddle bills rather than what was last
+   * bought.
    */
   const [cycle, setCycle] = useState<BillingPeriod>(
     props.plan === 'lifetime'
       ? 'year'
-      : (props.live?.cycle ?? props.initialCycle),
+      : (props.initialCycle ?? props.live?.cycle ?? 'month'),
   )
 
   useEffect(() => {
