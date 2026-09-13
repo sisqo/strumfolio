@@ -157,6 +157,19 @@ break from a distance:
   What that costs is a restarted form, so anything half-typed is lost — taken because the
   mismatch is what a reader actually sees, and changing theme at that moment is deliberate and
   rare.
+- **The checkout wears the public chrome, at `/pricing`'s width** (2026-09-14, on request).
+  `TopBar` carried the hamburger, the account menu, sign-out and the songbook navigation onto a
+  page where somebody is about to pay — every one of them a way out of the only thing the page
+  is for. It has its own `layout.tsx` now, the shape `/pricing` already uses, with **no links and
+  no call to action**: there is one reader here, signed in and mid-purchase, and nothing to offer
+  them that is not a distraction. What is left is the brand mark, which is the way out, and the
+  theme switch. The feedback bubble is excluded too, named in `FeedbackProvider`'s own list
+  beside the song pages rather than through `isOutsideAppPath`, which answers a different
+  question — this page is gated.
+- **70rem page, 34rem column.** The shell matches `/pricing` so the step between them does not
+  move the page under the reader; the checkout itself is the width that page gives its lede,
+  because a payment form stretched to the width of a four-column price table is one nobody can
+  read a line of.
 - **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
   nobody has watched is the frame itself — its width on a phone, the theme matching, and that
   footer being visible.

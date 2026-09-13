@@ -40,7 +40,12 @@ const FeedbackContext = createContext<FeedbackContextValue | null>(null)
  * `isOutsideAppPath`'s own comment for why that would have looked correct to whoever did it.
  */
 function isExcludedRoute(pathname: string): boolean {
-  return /^\/songs\/[^/]+(\/edit)?$/.test(pathname) || isOutsideAppPath(pathname)
+  /* `/checkout/<plan>` is the third screen of this kind and the newest: a floating «Feedback»
+     button over a payment form is a control competing with the only one that matters, on the
+     one page where a misplaced tap costs the reader something. It is not `isOutsideAppPath` —
+     that answers a question about session-free paths and this page is gated — so it is named
+     here, beside the song pages, which are excluded for the same reason in different words. */
+  return /^\/(songs\/[^/]+(\/edit)?|checkout\/[^/]+)$/.test(pathname) || isOutsideAppPath(pathname)
 }
 
 /**

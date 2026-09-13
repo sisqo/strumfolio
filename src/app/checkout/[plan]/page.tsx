@@ -7,8 +7,6 @@ import { CouponBar } from '@/components/CouponBar'
 import { PaddleCheckout } from '@/components/PaddleCheckout'
 import { CouponMemory } from '@/components/CouponMemory'
 import { Footer } from '@/components/Footer'
-import { PrefsProvider } from '@/components/PrefsProvider'
-import { TopBar } from '@/components/TopBar'
 import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
@@ -150,10 +148,19 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
 
   return (
-    <PrefsProvider songSlug={null}>
-      <TopBar current="checkout" />
-
-      <main className="mx-auto max-w-4xl px-4 pb-12 pt-3">
+    /*
+     * The shell `/pricing` uses, rather than the app's — see this route's own `layout.tsx` for
+     * why the bar above changed with it. Same 70rem and the same gutters, so the step from the
+     * price list to the checkout does not move the page under the reader.
+     */
+    <main className="mx-auto w-full max-w-[70rem] px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
+      {/*
+        * **The page is 70rem and the checkout is not.** A payment form stretched to the width
+        * of a four-column price table is a form nobody can read a line of; the column is the
+        * width `/pricing` gives its own lede, and it is what the frame's `min-width` is measured
+        * against on a phone.
+        */}
+      <div className="mx-auto w-full max-w-[34rem]">
         {/*
           * The same bar as on /pricing, and the same component — `PaidCheckoutFields` prints
           * its price independently, so a coupon that stopped at /pricing would vanish exactly
@@ -245,12 +252,9 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             />
           )
         )}
-        <Footer />
+      </div>
 
-        {/* Last in the document, fixed to the foot of the viewport — see `/pricing`. The CTA
-            points back at this same plan rather than at the price list: somebody who is already
-            on a checkout has chosen, and sending them to compare again would undo that. */}
-      </main>
-    </PrefsProvider>
+      <Footer />
+    </main>
   )
 }
