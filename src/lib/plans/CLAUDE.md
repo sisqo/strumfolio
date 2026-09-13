@@ -119,6 +119,28 @@ break from a distance:
   grows the frame itself, and a height of ours is what would clip the «merchant of record»
   footer it is required to show. `locale` is **not** passed: Paddle follows the browser, so an
   Italian phone gets an Italian payment form.
+- **The form opens on arrival, because the cycle was chosen on /pricing** (2026-09-14). Every
+  CTA there carries `?cycle=`, and Lifetime has none to carry — so the reader arriving has
+  already decided everything this page could ask, and a «Pay» button in front of the form is a
+  press that collects nothing. **The bare link is the exception that must still ask**:
+  `initialCycle` is `null` when a typed or bookmarked URL requested nothing, and guessing there
+  is the defect this directory already documents — it offered silent year→month moves to people
+  who never asked. Once per mount, and never again after «Not now», or backing out would reopen
+  what was backed out of.
+- **What that costs, stated because it is invisible**: a `transactions.create` per page view
+  rather than per press, so refreshing `/checkout/premium?cycle=year` five times leaves five
+  unpaid transactions in Paddle. They bill nothing and expire on their own; what they do is make
+  the dashboard's transaction list a poor measure of intent.
+- **Changing the cycle rebuilds the form instead of freezing it.** The transaction behind an open
+  form was made server-side for one price, so the toggle cannot move under it — but disabling it
+  strands the reader on a decision the page now opens with. It closes, asks the server again and
+  reopens. **Not `Checkout.updateItems`**, which would have the browser naming a price: the whole
+  reason `startPaddleCheckout` hands back an id instead of taking one.
+- **The frame sits on a card of ours, not on the page background.** `--bg` in the light theme is
+  a warm off-white and Paddle's light form is drawn for white, so on the page its fields and
+  hairlines washed out — reported as «in light mode it looks bad», with dark fine because
+  dark-on-dark forgives it. `--surface` is `#ffffff` in light and a lifted panel in dark, so one
+  card serves both while `frameStyle` stays transparent.
 - **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
   nobody has watched is the frame itself — its width on a phone, the theme matching, and that
   footer being visible.

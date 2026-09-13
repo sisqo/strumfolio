@@ -381,12 +381,18 @@ export function PaddleCheckout(props: Props) {
     }
   }, [live, props.plan, cycle])
 
-  async function buy() {
+  /**
+   * Make a transaction and put its payment form on the page.
+   *
+   * Takes the cycle rather than reading it from state, because the toggle calls this in the
+   * same tick as `setCycle` — where the state still holds the old value.
+   */
+  async function buy(forCycle: BillingPeriod = cycle) {
     setBusy(true)
     setMessage(null)
 
     /* Null for Lifetime, which is bought once — the action refuses the mismatch either way. */
-    const result = await startPaddleCheckout(props.plan, props.plan === 'lifetime' ? null : cycle)
+    const result = await startPaddleCheckout(props.plan, props.plan === 'lifetime' ? null : forCycle)
 
     if (!result.ok) {
       setMessage(REFUSALS[result.reason])
@@ -415,6 +421,31 @@ export function PaddleCheckout(props: Props) {
     opened.current = openTransaction
     paddle.current?.Checkout.open({ transactionId: openTransaction, settings: checkoutSettings() })
   }, [openTransaction, ready])
+
+  /**
+   * **The cycle was chosen on /pricing, so this screen does not ask again.**
+   *
+   * Every CTA there carries `?cycle=`, and Lifetime has no cycle to carry — so in both cases the
+   * reader arriving here has already decided everything this page could ask, and a «Pay» button
+   * in front of the payment form is a step that collects no information. The form is the page.
+   *
+   * **A bare link is the case that must still ask.** `initialCycle` is `null` when nothing was
+   * requested — a typed URL, a bookmark, a link in a message — and guessing a cycle there is the
+   * defect `/checkout/[plan]` already documents at length: it silently offered year→month moves
+   * to people who never asked for one. No cycle asked for, no form opened.
+   *
+   * Once per mount, and never again after «Not now» — otherwise backing out would reopen the
+   * thing being backed out of. A refusal (`already-subscribed`, a coupon in play) leaves
+   * `openTransaction` null, so the button and the message appear exactly as they would have.
+   */
+  const chosenAlready = live === null && (props.plan === 'lifetime' || props.initialCycle !== null)
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (!ready || !chosenAlready || autoOpened.current) return
+    autoOpened.current = true
+    void buy()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, chosenAlready])
 
   /**
    * Back out of a payment form that is open.
@@ -544,12 +575,27 @@ export function PaddleCheckout(props: Props) {
             <button
               key={option}
               type="button"
-              onClick={() => setCycle(option)}
+              /*
+               * **Changing the cycle rebuilds the form rather than freezing it.** The
+               * transaction behind an open form was made server-side for one price, so the
+               * toggle cannot simply move under it — but disabling it would strand the reader
+               * on a decision this page opens with, now that the form is drawn on arrival.
+               *
+               * Rebuilt through the server and not through `Checkout.updateItems`, which would
+               * mean the browser naming a price: the whole reason `startPaddleCheckout` hands
+               * back an id instead of taking one.
+               */
+              onClick={() => {
+                if (option === cycle) return
+                setCycle(option)
+                if (openTransaction === null) return
+                paddle.current?.Checkout.close()
+                opened.current = null
+                setOpenTransaction(null)
+                void buy(option)
+              }}
               aria-pressed={cycle === option}
-              /* The transaction on the open form was made for one price, server-side. Letting
-                 the toggle move under it would leave the reader looking at a form charging the
-                 other cycle, with the page above it saying this one. «Not now» first. */
-              disabled={openTransaction !== null}
+              disabled={busy || paid}
               className={option === cycle ? 'segment-button is-on px-4' : 'segment-button px-4'}
             >
               {option === 'year' ? 'Yearly' : 'Monthly'}
@@ -660,7 +706,17 @@ export function PaddleCheckout(props: Props) {
         */}
       {openTransaction !== null && (
         <div className="mt-4">
-          <div className={FRAME_TARGET} />
+          {/*
+            * **The frame sits on a card of ours, not on the page.** `--bg` in the light theme is
+            * a warm off-white (#f6f5f2) and Paddle's light form is drawn for white: on the page
+            * background its fields and hairlines wash out, which is exactly what it looked like
+            * — dark mode was fine because dark-on-dark forgives it. `--surface` is #ffffff here
+            * and a lifted panel in the dark theme, so one card serves both, and `frameStyle`
+            * stays transparent so the colour comes from this element.
+            */}
+          <div className="rounded-card border border-line-soft bg-surface p-2 shadow-card sm:p-3">
+            <div className={FRAME_TARGET} />
+          </div>
           {/* Absent once the money has moved: there is nothing left to back out of, and a way
               out offered under a completed payment reads as a way to undo it. */}
           {!paid && (
