@@ -19,7 +19,10 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   `paddleCheckoutEnabled()` answers whether this deployment can take money. The second is not a
   flag: it is true when `PADDLE_API_KEY` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are both present,
   so **configuration is the switch** and there is no state where the environment says yes and the
-  integration says no. `SONGBOOK_PLANS` is not a security boundary and never was.
+  integration says no. One consequence worth knowing before it bites: `/pricing` reads it **once
+  at module scope**, so it is baked into the build. Adding `PADDLE_API_KEY` to an environment
+  with no code push leaves the buy buttons absent until a `vercel redeploy` — the env-var trap
+  the root `CLAUDE.md` already describes, now applying to whether anything is on sale. `SONGBOOK_PLANS` is not a security boundary and never was.
 
 ## The mock is gone (2026-09-13)
 

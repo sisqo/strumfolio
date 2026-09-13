@@ -203,7 +203,7 @@ export const accounts = pgTable(
      * paid plan, or a cancellation, stored as `'free'` rather than as a second boolean next
      * to it (see `resolveSubscription` in `plans/entitlements.ts`). Null means nothing is
      * scheduled, which is every row's state until a reader chooses to change or cancel a
-     * live paid plan through the mock checkout.
+     * live paid plan through the checkout.
      *
      * Read with `readPendingPlan` (`plans/types.ts`), never with `readPlan`: `readPlan`
      * degrades an unrecognised value to `'free'`, and in this column `'free'` means "cancel

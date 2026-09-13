@@ -21,7 +21,7 @@ type Status =
  * Asked from the client on mount, like `BillingScreen` beside it — the page
  * around this is a static shell that cannot know who is looking. Through
  * `loadPurchaseSummary`, deliberately, and not `loadCheckoutStatus`: see that function's own
- * comment on why a thank-you must not depend on the mock checkout still being switched on.
+ * comment on why a thank-you must not depend on anything still being on sale.
  *
  * **It reads the account's live plan rather than trusting a query parameter**, which is what
  * keeps it honest. There is nothing in the URL to forge, so the page cannot be made to

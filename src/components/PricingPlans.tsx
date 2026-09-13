@@ -133,7 +133,7 @@ export interface PlanColumn {
    */
   cta?: true
   /**
-   * The route slug for the mock checkout (`lib/plans/checkout.ts`'s `CheckoutPlan`), or
+   * The route slug for the checkout (`lib/plans/prices.ts`'s `CheckoutPlan`), or
    * absent when there is nothing to buy yet. A bare string rather than that type imported
    * here: this file's own header explains why it must never import `@/lib/plans/types`, and
    * `checkout.ts` sits downstream of that module, so pulling in its type would reopen the

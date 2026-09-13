@@ -167,9 +167,9 @@ function atCap(cap: number | null, held: number): boolean {
  * Once due, this resolves in **one step**, never a recursion: the returned row already has
  * `pendingPlan: null`, so a second call sees nothing left to resolve. And `expiresAt: null`
  * on the resolved side is deliberate, not a gap — the "new" plan does not get an invented
- * next renewal date, because nothing in this mock models renewals for any plan; it simply
- * stays in force until something else changes the row, the same as every plan a purchase
- * has ever written.
+ * next renewal date. Renewals are Paddle's to report and this function's to believe: a
+ * `subscription.updated` carrying the new `current_billing_period.ends_at` is what puts a date
+ * back on the row. Until one arrives the resolved plan simply stays in force.
  */
 export function resolveSubscription(stored: SubscriptionColumns, now: Date): SubscriptionColumns {
   /*
@@ -188,6 +188,13 @@ export function resolveSubscription(stored: SubscriptionColumns, now: Date): Sub
    * lands here. Nothing wrote this status while the mock was the only checkout — it scheduled
    * changes, it never failed a payment — which is why this branch was groundwork for years and
    * is live code now.
+   *
+   * **Nothing in this app ever moves an account off `grace`, and nothing should.** The row
+   * stays exactly as it is — entitlements intact — until Paddle says otherwise: a recovered
+   * payment arrives as `active`, and a dunning cycle that runs out arrives as `canceled`, which
+   * `statusOf` reads as `expired`. So a card that never recovers does not leave somebody on a
+   * paid plan for ever; it leaves them there for as long as Paddle keeps trying, which is the
+   * definition of the grace this status is named for.
    */
   if (stored.status === 'grace') return stored
 
