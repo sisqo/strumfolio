@@ -19,7 +19,7 @@ import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans
 import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
-import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
+import { mockCheckoutEnabled, paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
@@ -226,7 +226,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             />
           )
         ) : (
-          <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} />
+          <CheckoutScreen plan={plan} initialCycle={initialCycle} coupon={coupon} open={mockCheckoutEnabled()} />
         )}
         <Footer />
 

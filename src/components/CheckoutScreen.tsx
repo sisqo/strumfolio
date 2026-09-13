@@ -123,6 +123,7 @@ export function CheckoutScreen({
   plan,
   initialCycle = 'month',
   coupon = null,
+  open,
 }: {
   plan: CheckoutPlan
   /** Carried over from /pricing's own toggle by the page, so arriving from Monthly there
@@ -134,6 +135,13 @@ export function CheckoutScreen({
   initialCycle?: BillingPeriod
   /** The campaign this arrival carries, or `null`. See `CheckoutCoupon`. */
   coupon?: CheckoutCoupon | null
+  /**
+   * Whether the mock checkout is open for business — `mockCheckoutEnabled()`, read by the page
+   * server-side and handed down, because `SONGBOOK_MOCK_CHECKOUT` is not a `NEXT_PUBLIC_` name
+   * and a client component cannot ask. It used to arrive as `loadCheckoutStatus`'s `disabled`
+   * refusal, which put a flag about a *write* in front of a read that `/billing` also makes.
+   */
+  open: boolean
 }) {
   const router = useRouter()
   const [status, setStatus] = useState<Status>({ state: 'loading' })
@@ -158,17 +166,27 @@ export function CheckoutScreen({
      * silently flipping to the ledger's answer underneath whoever is reading it.
      */
     void Promise.all([loadCheckoutStatus(), loadMostRecentCycleFor(plan)]).then(([result, mostRecentCycle]) => {
+      /*
+       * Whether the mock is open for business arrives as a prop now, rather than as a refusal
+       * from `loadCheckoutStatus`. That read answers «what plan does this account hold», which
+       * is a fact about the account and is asked by `/billing` too — gating it on this flag
+       * took the whole Billing screen dark wherever the flag was unset, which is Production and
+       * Preview both. The flag belongs to the *write*, so the screen that offers the write is
+       * where it is read.
+       */
+      if (!open) {
+        setStatus({ state: 'unavailable', reason: COMING_SOON_REASON, kind: 'coming-soon' })
+        return
+      }
       if (!result.ok) {
         setStatus(
-          result.reason === 'disabled'
-            ? { state: 'unavailable', reason: COMING_SOON_REASON, kind: 'coming-soon' }
-            : result.reason === 'no-session'
-              ? { state: 'unavailable', reason: SIGN_IN_REASON, kind: 'sign-in' }
-              : {
-                  state: 'unavailable',
-                  reason: 'No database is configured, so there is nothing to write to.',
-                  kind: 'error',
-                },
+          result.reason === 'no-session'
+            ? { state: 'unavailable', reason: SIGN_IN_REASON, kind: 'sign-in' }
+            : {
+                state: 'unavailable',
+                reason: 'No database is configured, so there is nothing to write to.',
+                kind: 'error',
+              },
         )
         return
       }
@@ -190,7 +208,7 @@ export function CheckoutScreen({
         setCycle(OTHER_CYCLE[mostRecentCycle])
       }
     })
-  }, [plan])
+  }, [plan, open])
 
   useEffect(() => {
     refresh()

@@ -108,11 +108,9 @@ export function BillingScreen() {
           setStatus({
             state: 'unavailable',
             reason:
-              checkoutResult.reason === 'disabled'
-                ? 'Billing is not switched on right now.'
-                : checkoutResult.reason === 'no-session'
-                  ? 'Sign in to see your plan.'
-                  : 'No database is configured, so there is nothing to read.',
+              checkoutResult.reason === 'no-session'
+                ? 'Sign in to see your plan.'
+                : 'No database is configured, so there is nothing to read.',
           })
           return
         }

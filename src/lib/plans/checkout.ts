@@ -165,11 +165,24 @@ async function subscriptionColumnsOf(accountOwnerEmail: string): Promise<Subscri
   }
 }
 
+/**
+ * What plan this account holds, resolved — the read both `/billing` and `/checkout/[plan]` open
+ * with.
+ *
+ * **Deliberately not gated on `mockCheckoutEnabled()`**, and it used to be, which broke
+ * `/billing` outright wherever the mock was off. `SONGBOOK_MOCK_CHECKOUT` exists in neither
+ * Production nor Preview — checked 2026-09-13 — so every reader who opened Billing from the
+ * user menu, a link nothing gates, was told «Billing is not switched on right now». Which plan
+ * an account holds is a fact about the account, exactly as `loadFreezeState` and
+ * `loadMyPaymentHistory` beside it already argue about theirs; the flag was only ever about
+ * whether a *fake purchase* could be made, and a screen that reports a real subscription must
+ * not go dark when the fake one is switched off. Gating a read on a write's flag is the shape
+ * of the mistake, not the flag itself.
+ */
 export async function loadCheckoutStatus(): Promise<
-  | { ok: false; reason: 'disabled' | 'no-session' | 'no-database' }
+  | { ok: false; reason: 'no-session' | 'no-database' }
   | { ok: true; current: MockSubscriptionState; live: Plan | null }
 > {
-  if (!mockCheckoutEnabled()) return { ok: false, reason: 'disabled' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
   const user = await currentUser()
