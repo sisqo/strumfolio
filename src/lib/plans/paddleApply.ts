@@ -101,16 +101,23 @@ export async function applyItemChange(
    * frequency, so it restarts the period again, and the date is pinned once more after it: if
    * even that fails the reader keeps the plan they had with a period running longer than they
    * paid for, which is the one direction this is allowed to be wrong in.
-   *
-   * The stamp goes back to whatever was on the subscription before this call, which is what
-   * `live.customData` still holds — read before any of this ran.
    */
   console.error('applyItemChange could not pin the billing date; rolling the items back', live.id)
+
+  /*
+   * **The stamp goes back to whatever was on the subscription before this call**, which is what
+   * `live.customData` still holds — read before any of this ran. Usually that is nothing, and
+   * writing `null` would look equivalent; it is not. A change made *on top of* one already
+   * arranged carries a real stamp here, and flattening this to `null` would roll the items back
+   * while forgetting the promise that was already made to the reader — leaving Paddle on the
+   * old plan and this app unable to say why.
+   */
+  const stampBefore = (live.customData?.downgrade as Record<string, unknown> | null | undefined) ?? null
 
   await paddle.subscriptions.update(live.id, {
     items: [{ priceId: change.restoreTo, quantity: 1 }],
     prorationBillingMode: 'do_not_bill',
-    customData: customDataFor(live, (live.customData?.downgrade as Record<string, unknown> | undefined) ?? null),
+    customData: customDataFor(live, stampBefore),
   })
   await putBillingDate(paddle, live.id, change.pinTo)
 

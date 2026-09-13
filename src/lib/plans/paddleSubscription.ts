@@ -141,10 +141,9 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
        * year from today for nothing: `do_not_bill` bills nothing in either direction, so the
        * period would simply restart at a year and no invoice would ever mention it.
        */
-      const pinTo = live.pendingDowngrade.cycle !== live.cycle ? live.periodEndsAt : null
-      if (pinTo === null && live.pendingDowngrade.cycle !== live.cycle) {
-        return { ok: false, reason: 'unreadable' }
-      }
+      const movesFrequency = live.pendingDowngrade.cycle !== live.cycle
+      if (movesFrequency && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
+      const pinTo = movesFrequency ? live.periodEndsAt : null
 
       const applied = await applyItemChange(paddle, live, {
         priceId,

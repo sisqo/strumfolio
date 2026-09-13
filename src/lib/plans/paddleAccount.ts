@@ -20,7 +20,7 @@ import type { Plan } from './types'
 import { planOfPrice, readDowngradeStamp } from './webhook'
 
 /** A date Paddle sends as a string, or null — the SDK types it as `string` and sends none. */
-function readDate(value: string | null | undefined): Date | null {
+export function readDate(value: string | null | undefined): Date | null {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date

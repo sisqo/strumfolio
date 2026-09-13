@@ -205,6 +205,12 @@ watched working by anybody.
     the items back and pins again. The rollback goes back to what Paddle *had*, never forward —
     a reader left on the plan they already bought is a failure nobody is charged for, and an
     early charge is not.
+  - **The period is re-read from the call that clears a scheduled cancellation**, never from the
+    snapshot taken before it. Everything downstream pins a date — the stamp promises the reader a
+    day and `pinBillingDate` writes that day into Paddle — so believing a snapshot over Paddle's
+    own answer would end the paid year on the wrong day for anybody who cancelled and then
+    changed cycle. Paddle answers every update with the updated subscription, which removes the
+    question instead of settling it by measurement.
   - **`pinBillingDate` is measured against the cycle Paddle's items carry, not the paid cycle.**
     A tier change made on top of an already-arranged change of cycle moves the frequency back,
     and reading `from.cycle` there would lose the paid period at the second press, silently.

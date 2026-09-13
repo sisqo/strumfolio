@@ -43,7 +43,7 @@ import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 
-import { livePaddleSubscription } from './paddleAccount'
+import { livePaddleSubscription, readDate } from './paddleAccount'
 import { applyItemChange } from './paddleApply'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
@@ -236,8 +236,20 @@ export async function changePaddlePlan(
      * Cancelling sets `next_billed_at` to null and clearing restores it, so the subscription
      * comes back to exactly the row it was — verified rather than assumed.
      */
+    /*
+     * **The period is re-read from the call that cleared the cancellation, not from the snapshot
+     * taken before it.** Cancelling nulls `next_billed_at` and clearing restores it, so the row
+     * is touched twice before the items move — and everything below pins a date: the stamp
+     * promises the reader a day, and `pinBillingDate` writes that day into Paddle. A snapshot
+     * taken before those two calls would be believed over Paddle's own answer, and a period end
+     * that shifted by so much as an hour would end the paid year on the wrong day. Paddle
+     * answers every update with the updated subscription, so this costs nothing and removes the
+     * question rather than settling it by measurement.
+     */
+    let periodEndsAt = live.periodEndsAt
     if (live.scheduledChange) {
-      await paddle.subscriptions.update(live.id, { scheduledChange: null })
+      const cleared = await paddle.subscriptions.update(live.id, { scheduledChange: null })
+      periodEndsAt = readDate(cleared.currentBillingPeriod?.endsAt) ?? periodEndsAt
     }
 
     /*
@@ -247,8 +259,8 @@ export async function changePaddlePlan(
      * calling off a scheduled downgrade *is*, and what stops a stale one outliving it.
      */
     const stamp =
-      effect.when === 'period-end' && live.periodEndsAt !== null
-        ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, live.periodEndsAt)
+      effect.when === 'period-end' && periodEndsAt !== null
+        ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, periodEndsAt)
         : null
 
     /*
@@ -264,7 +276,7 @@ export async function changePaddlePlan(
       priceId,
       proration: effect.proration,
       stamp,
-      pinTo: effect.pinBillingDate ? live.periodEndsAt : null,
+      pinTo: effect.pinBillingDate ? periodEndsAt : null,
       restoreTo,
     })
     if (!applied.ok) return { ok: false, reason: applied.reason }
@@ -276,7 +288,7 @@ export async function changePaddlePlan(
       ok: true,
       direction: effect.direction,
       when: effect.when,
-      effectiveAt: stamp === null ? null : (live.periodEndsAt?.toISOString() ?? null),
+      effectiveAt: stamp === null ? null : (periodEndsAt?.toISOString() ?? null),
     }
   } catch (error) {
     console.error('changePaddlePlan failed', error)
