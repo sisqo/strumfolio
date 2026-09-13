@@ -207,8 +207,11 @@ break from a distance:
   created through the API comes back with `items: [{ type: 'full', … }]` — the per-item shape
   `adjustmentEffect` reads, which until then was inferred from the reference rather than seen —
   and it is created `pending_approval`, which is the gate that stops a request Paddle may yet
-  refuse from taking a plan away. The event reached the preview deployment and was accepted on
-  the first attempt, so the handler subscribed the day before is wired end to end. What is still
+  refuse from taking a plan away. The sandbox then approved it by itself ten minutes later and
+  sent `adjustment.updated`; both events reached the preview deployment, were accepted on the
+  first attempt and recorded as `applied`, and the subscription came out of it **untouched** —
+  active, same items, same billing date. Which is the whole of what this app is supposed to do
+  with a refund that belongs to a subscription: nothing. What is still
   **documented and never observed** is the half that matters most: a refunded *Lifetime*, and
   Paddle cancelling a subscription of its own accord on a chargeback.
 - **Two decisions, stated because they are not derivable.** Only a *wholly* full adjustment
