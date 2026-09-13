@@ -146,6 +146,12 @@ mail to ride along with. Found on the third review pass of this branch.
   *is* an action: it knows what was asked for and which day was promised, and it fires exactly
   once per press, where `subscription.updated` arrives twice for one change of cycle and again on
   every renewal. Decided by the user on 2026-09-14, the two alternatives weighed.
+- **The reassurance about songs is sent only where something is actually lost.** «Nothing you
+  have put in is touched» is written for somebody wondering whether their words are about to
+  disappear; offered to a reader who has just asked for *more* — B7, or a move of billing alone
+  — it answers a worry they did not have and plants it. `takesAway` is decided on rank, and it
+  is a parameter rather than something the template derives because the labels cannot say it:
+  «monthly billing» carries no tier at all.
 - **`planChangeNotice` (`subscriptionCopy.ts`) owns the rule and is pure**, so «what does this
   press write to somebody» is tested rather than buried in two `'use server'` modules.
 - **The two silences.** A change taking effect *now* sends nothing: an upgrade takes money, so a
@@ -528,6 +534,18 @@ watched working by anybody.
 - **The live plan and cycle are read from Paddle, never from this database.** `accounts` has
   no column for the live *cycle* and never has, so the direction of a move cannot be decided
   without asking — and asking Paddle compares against what is actually being billed.
+- **The press that buys twice is the second press on the same screen**, not the exotic one.
+  `busy` goes false the moment Paddle's overlay opens, so when it closes the reader is looking at
+  a live «Pay for Premium» with nothing but a line of text saying the payment arrived — and the
+  server-side guard cannot help, because it asks `paddle_subscription_id`, the column the webhook
+  this screen is waiting for has not written yet. `PaddleCheckout`'s `paid` state closes it on
+  `checkout.completed`, which is the only place that knows. Found on the fourth review pass;
+  before it, buying twice needed one press and no bad luck at all.
+- **`/thanks` is no longer where a purchase lands**, and that is a consequence rather than a
+  decision: the overlay closes before the grant exists, so a redirect there would show the plan
+  the reader had before paying. The Free choice still lands there; the paid branch of
+  `ThanksScreen` is now reachable for a customer only by returning to the URL. What would repair
+  it is a screen that waits for the grant, which is a thing to design.
 - **Without the branch on `/checkout/[plan]`, an existing subscriber pressing «Pay» opened a
   second checkout** — and a second completed checkout is a second subscription, both billing,
   with the webhook overwriting `paddle_subscription_id` so only the newer one stays cancellable.

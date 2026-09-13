@@ -360,7 +360,7 @@ describe('planChangeNotice', () => {
   it('names the plan in force and the plan it becomes', () => {
     const notice = planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'standard', cycle: 'year' }, when: 'period-end', on: DAY })
 
-    assert.deepEqual(notice, { fromLabel: 'Premium', toLabel: 'Standard', effect: { day: '13 September 2027' } })
+    assert.deepEqual(notice, { fromLabel: 'Premium', toLabel: 'Standard', effect: { day: '13 September 2027' }, takesAway: true })
   })
 
   /*
@@ -403,6 +403,24 @@ describe('planChangeNotice', () => {
   it('sends nothing about a change that takes effect at once', () => {
     assert.equal(planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'premium', cycle: 'year' }, when: 'now', on: null }), null)
     assert.equal(planChangeNotice({ from: { plan: 'standard', cycle: 'month' }, to: { plan: 'plus', cycle: 'month' }, when: 'now', on: DAY }), null)
+  })
+
+  /*
+   * **Only a drop in rank takes something away**, and the email's reassurance about songs hangs
+   * off this: B4 moves a paid year onto monthly billing and loses nothing, B7 raises the tier
+   * while making the reader wait, and offering either of them «nothing you have put in is
+   * touched» answers a worry they did not have.
+   */
+  it('marks a loss only where the account ends up able to do less', () => {
+    const drop = planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'standard', cycle: 'year' }, when: 'period-end', on: DAY })
+    const cycleOnly = planChangeNotice({ from: PREMIUM_YEAR, to: { plan: 'premium', cycle: 'month' }, when: 'period-end', on: DAY })
+    const rise = planChangeNotice({ from: { plan: 'standard', cycle: 'year' }, to: { plan: 'premium', cycle: 'month' }, when: 'period-end', on: DAY })
+    const cancel = planChangeNotice({ from: PREMIUM_YEAR, to: 'free', when: 'period-end', on: DAY })
+
+    assert.equal(drop?.takesAway, true)
+    assert.equal(cancel?.takesAway, true)
+    assert.equal(cycleOnly?.takesAway, false)
+    assert.equal(rise?.takesAway, false)
   })
 
   /* A day that cannot be read is the dateless sentence, never «Invalid Date» and never a

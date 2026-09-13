@@ -19,17 +19,26 @@ import { test } from 'node:test'
 
 import { courtesyCheckinEmail, courtesyThanksEmail, giftEmail, planChangeEmail } from './templates'
 
-const SCHEDULED_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: '22 September 2027' } } as const
-const IMMEDIATE_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: 'now' } as const
+const SCHEDULED_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: '22 September 2027' }, takesAway: true } as const
+const IMMEDIATE_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: 'now', takesAway: true } as const
 const SCHEDULED_DOWNGRADE = {
   fromLabel: 'Premium',
   toLabel: 'Standard',
   effect: { day: '22 September 2027' },
+  takesAway: true,
 } as const
 /* A `grace` row: scheduled, but with no day anybody may name — see `scheduledChangeDay`. */
-const DATELESS_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: null } } as const
+const DATELESS_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: null }, takesAway: true } as const
+/* The shape that sends the same email about somebody gaining something: case B7, a rise in
+   tier that waits for the paid year, and a move of billing alone. */
+const SCHEDULED_RISE = {
+  fromLabel: 'Standard',
+  toLabel: 'Premium, billed monthly',
+  effect: { day: '22 September 2027' },
+  takesAway: false,
+} as const
 
-const EVERY_SHAPE = [SCHEDULED_CANCEL, IMMEDIATE_CANCEL, SCHEDULED_DOWNGRADE, DATELESS_CANCEL]
+const EVERY_SHAPE = [SCHEDULED_CANCEL, IMMEDIATE_CANCEL, SCHEDULED_DOWNGRADE, DATELESS_CANCEL, SCHEDULED_RISE]
 
 test('planChangeEmail', async (t) => {
   await t.test('a scheduled cancellation names the day and the way to call it off', () => {
@@ -108,16 +117,36 @@ test('planChangeEmail', async (t) => {
     }
   })
 
-  /* The reassurance /pricing's trust note makes, in the one message that reports a plan going
+  /* The reassurance /pricing's trust note makes, in the messages that report a plan going
      away — the moment a musician is most likely to wonder about it. "Touched" and not
      "deleted": nothing here is ever deleted by a plan ending, only ever locked behind one. */
-  await t.test('every shape says nothing is touched', () => {
-    for (const input of EVERY_SHAPE) {
+  await t.test('every shape that takes something away says nothing is touched', () => {
+    for (const input of EVERY_SHAPE.filter((shape) => shape.takesAway)) {
       const mail = planChangeEmail(input)
       for (const body of [mail.html, mail.text]) {
         assert.match(body, /Nothing you have put in is touched/)
       }
     }
+  })
+
+  /*
+   * **And the shape that gives something withholds it**, which is the half that had to be
+   * added when this email started being sent about changes that are not losses. Offering
+   * «nothing you have put in is touched» to somebody who has just moved *up* a tier answers a
+   * worry they did not have, and plants it.
+   */
+  await t.test('says nothing about songs to somebody who has just asked for more', () => {
+    const mail = planChangeEmail(SCHEDULED_RISE)
+
+    for (const body of [mail.html, mail.text]) {
+      assert.doesNotMatch(body, /Nothing you have put in is touched/)
+      /* Everything else is still said: this drops one paragraph, not the message. */
+      assert.match(body, /moves to Premium, billed monthly/)
+      assert.match(body, /«Keep Standard»/)
+    }
+    /* And no hole where the paragraph was — two blank lines running together in the plain-text
+       half is how a dropped clause shows up to the one reader who refuses HTML. */
+    assert.doesNotMatch(mail.text, /\n\n\n/)
   })
 })
 

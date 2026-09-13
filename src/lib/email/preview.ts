@@ -115,6 +115,8 @@ const SAMPLE_PLAN_CHANGE = {
   fromLabel: 'Premium',
   toLabel: 'Free',
   effect: { day: '22 September 2027' },
+  /* A cancellation, so the reassurance about songs is part of what this previews. */
+  takesAway: true,
 }
 
 /**

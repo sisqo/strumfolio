@@ -9,7 +9,7 @@
  * the same reason `plans/paddleClient.ts` exists beside `checkout.ts` rather than inside it.
  */
 
-import { PLAN_LABEL } from './types'
+import { PLAN_LABEL, PLAN_RANK } from './types'
 import type { Plan, PlanStatus } from './types'
 import { euro } from './prices'
 import type { BillingPeriod } from './prices'
@@ -68,6 +68,11 @@ export function planWithCycle(plan: Plan, cycle: BillingPeriod | null): string {
  * label from running into the date behind it («moves to Premium on monthly billing on 13
  * September» against «moves to Premium, billed monthly on 13 September»).
  *
+ * **`takesAway` is decided on rank**, because the template's reassurance about songs is written
+ * for somebody about to lose something: offered to a reader who has just asked for *more* it
+ * answers a worry they did not have, and plants it. A change of billing alone takes nothing
+ * away either.
+ *
  * `when` is typed as its two literals rather than importing `ChangeWhen`, so this file keeps
  * depending on nothing but the plan vocabulary.
  */
@@ -78,14 +83,14 @@ export function planChangeNotice(input: {
   when: 'now' | 'period-end'
   /** The day it lands, as Paddle reported it — `null` when there is none to name. */
   on: Date | null
-}): { fromLabel: string; toLabel: string; effect: { day: string | null } } | null {
+}): { fromLabel: string; toLabel: string; effect: { day: string | null }; takesAway: boolean } | null {
   const { from, to, when, on } = input
   if (when !== 'period-end') return null
 
   const fromLabel = PLAN_LABEL[from.plan]
   const effect = { day: on === null ? null : formatPlanDate(on) }
 
-  if (to === 'free') return { fromLabel, toLabel: PLAN_LABEL.free, effect }
+  if (to === 'free') return { fromLabel, toLabel: PLAN_LABEL.free, effect, takesAway: true }
 
   const movesPlan = to.plan !== from.plan
   const movesCycle = to.cycle !== from.cycle
@@ -99,7 +104,13 @@ export function planChangeNotice(input: {
       : PLAN_LABEL[to.plan]
     : changeNames(from, to).to
 
-  return { fromLabel, toLabel, effect }
+  /*
+   * **Whether the account ends up able to do less**, which the template needs and cannot work
+   * out from the labels. Rank, not price and not cycle: B4 moves a year onto months and takes
+   * nothing away, and B7 raises the tier while making the reader wait — neither is a loss, and
+   * the reassurance about songs belongs in neither.
+   */
+  return { fromLabel, toLabel, effect, takesAway: PLAN_RANK[to.plan] < PLAN_RANK[from.plan] }
 }
 
 /**

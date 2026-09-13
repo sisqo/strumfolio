@@ -160,6 +160,24 @@ export function PaddleCheckout(props: Props) {
   const paddle = useRef<Paddle | null>(null)
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
+  /**
+   * Whether Paddle has taken the money on this screen already.
+   *
+   * **It is what stops the most ordinary way to buy twice.** `busy` goes false the moment the
+   * overlay opens, so once it closes the reader is looking at a live «Pay for Premium» button
+   * with nothing but a line of text saying the payment arrived — and pressing it again creates a
+   * second transaction and a second subscription billing beside the first.
+   *
+   * The server-side guard does not catch this one and cannot: `wouldBeSecondSubscription` asks
+   * `livePaddleSubscription`, which reads `paddle_subscription_id`, and the webhook that writes
+   * that column is the very thing this screen is waiting for. So the window it leaves open —
+   * stated in `startPaddleCheckout` — is closed here, at the only place that knows a payment has
+   * just gone through.
+   *
+   * Per render rather than per account, which is the right scope: a reload after the webhook has
+   * landed is offered a plan change instead, and a reload before it is exactly as it was.
+   */
+  const [paid, setPaid] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   /**
    * What this change will cost and when it lands, straight from Paddle — `null` while it is
@@ -223,6 +241,7 @@ export function PaddleCheckout(props: Props) {
         /* `checkout.completed` means Paddle took the money, not that the plan is granted —
            the webhook does that, and it may land a second or two later. */
         if (event.name === 'checkout.completed') {
+          setPaid(true)
           setMessage('Payment received — we are finishing up. Your plan will appear in a moment.')
         }
       },
@@ -499,18 +518,20 @@ export function PaddleCheckout(props: Props) {
          * before anything is taken, and is itself the second look — which is why only the change
          * path waits, and why only the change path opens a dialog of ours.
          */
-        disabled={busy || (live ? pricing || preview === null : !ready)}
+        disabled={busy || paid || (live ? pricing || preview === null : !ready)}
       >
         {busy
           ? 'One moment…'
-          : live
+          : paid
+            ? 'Payment received'
+            : live
             ? /* «Switch to Premium» is the wrong name for the one press that changes nothing
                  about what the reader has: they already pay for it, and what the button does is
                  call off the move away from it. */
               preview?.direction === 'revert'
-              ? `Stay on ${PLAN_LABEL[props.plan]}`
-              : `Switch to ${PLAN_LABEL[props.plan]}`
-            : `Pay for ${PLAN_LABEL[props.plan]}`}
+                ? `Stay on ${PLAN_LABEL[props.plan]}`
+                : `Switch to ${PLAN_LABEL[props.plan]}`
+              : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
 
       {/* Only ever reachable with a summary in hand: the button that opens it is disabled in

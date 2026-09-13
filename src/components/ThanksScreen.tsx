@@ -234,8 +234,9 @@ export function ThanksScreen() {
    * of it being shared — three screens describing a failing card three ways is what it replaced.
    *
    * `|| live === null` is the half that was missing, and it is the half that actually happens.
-   * A status of `expired` is written only by the webhook, on a `canceled` subscription, which no screen causes any
-   * more — so this branch, as first written, guarded a door nobody could reach, while the door
+   * A status of `expired` is written only by the webhook — on a `canceled` subscription, or on a
+   * Lifetime whose payment was refunded or charged back (`adjustmentEffect`) — so this branch,
+   * as first written, guarded a door nobody could reach, while the door
    * every customer walks through eventually (a `planExpiresAt` gone by, status still `active`,
    * because nothing in this repository renews anything) led straight to "You're in. Welcome to
    * Premium." over a renewal date months in the past. `status !== 'active'` is kept beside it so

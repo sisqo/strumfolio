@@ -331,6 +331,9 @@ export function PricingPlans({
        * with `?preview=free` was the only reader who ever saw it. Choosing Free out of the
        * mandatory gate was the one act in this app that confirmed itself by silently landing
        * somewhere else, while every paid choice got a thank-you page.
+       *
+       * **Since the Paddle checkout it is the only choice that lands here**, the paid ones
+       * having lost the redirect they cannot honestly make — see `/thanks`' own header.
        */
       router.push('/thanks')
       return

@@ -371,8 +371,20 @@ export function planChangeEmail(input: {
    * case that has no day worth naming — see the header.
    */
   effect: 'now' | { day: string | null }
+  /**
+   * Whether the account ends up able to do **less** than it can today — a cancellation, or a
+   * drop in tier. False for a move that only changes the billing, and for the one rise in tier
+   * that waits (case B7).
+   *
+   * It cannot be derived from the labels, which is why it is a parameter where `cancelling`
+   * is not: «monthly billing» and «Premium, billed monthly» say nothing about rank. And it
+   * has to be known, because the reassurance below is written for somebody wondering whether
+   * they are about to lose their songs — offered to somebody who has just asked for *more*, it
+   * invents a worry rather than settling one.
+   */
+  takesAway: boolean
 }): EmailTemplate {
-  const { fromLabel, toLabel, effect } = input
+  const { fromLabel, toLabel, effect, takesAway } = input
   const cancelling = toLabel === 'Free'
   /* `'now'` first, so `day` is only ever read on a change that has not happened yet. */
   const day = effect === 'now' ? null : effect.day
@@ -409,7 +421,7 @@ export function planChangeEmail(input: {
      `PLANS.free.booklet === 'no'`, so `loadBooklet` refuses, and the booklet PDF is the only
      way to print anything in this app. This message is sent precisely when the plan ends, so
      it is the one place the reader could act on the claim the same day it stopped being true. */
-  const kept = 'Nothing you have put in is touched: your songs stay readable and exportable.'
+  const kept = takesAway ? 'Nothing you have put in is touched: your songs stay readable and exportable.' : null
 
   /* «before then» rather than «before that day», so the one sentence serves the named-day shape
      and the dateless one alike — after «ends on 22 September 2027» it reads the same. */
@@ -423,7 +435,7 @@ export function planChangeEmail(input: {
   const html = layout(`
     ${heading(subject)}
     ${paragraph(what)}
-    ${paragraph(kept)}
+    ${kept === null ? '' : paragraph(kept)}
     ${paragraph(undo)}
     ${button('Open Billing', billingUrl)}
   `)
@@ -431,9 +443,7 @@ export function planChangeEmail(input: {
   const text = `${subject}
 
 ${what}
-
-${kept}
-
+${kept === null ? '' : `\n${kept}\n`}
 ${undo}
 
 ${billingUrl}
