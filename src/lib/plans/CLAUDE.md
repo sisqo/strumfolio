@@ -448,7 +448,11 @@ watched working by anybody.
     failing to take the payment leaves somebody with neither. It cannot fail the delivery and
     cannot retry, so a failure tells the operator on Telegram with both ids in the message —
     the remedy is one click in Paddle, and the cost of nobody knowing is a subscription
-    renewing for ever beside a Lifetime.
+    renewing for ever beside a Lifetime. **The account is named by its number and never by its
+    address**: outside the registration line the Privacy Policy states in two places that these
+    notifications carry no personal data, and the root `CLAUDE.md` settles which half gives way
+    — stop sending the field, do not soften the sentence. It shipped carrying the email on
+    2026-09-14 and was corrected the same day.
   - **`next_billing_period`, not `immediately`, and only one thing decides it: reversibility.**
     Paddle refunds nothing either way — a cancellation stops billing and returns no money,
     whichever date it lands on, which is the documented behaviour and not the «prorated refund»
@@ -490,6 +494,21 @@ watched working by anybody.
   with the webhook overwriting `paddle_subscription_id` so only the newer one stays cancellable.
   That shipped on 2026-09-12 and was live until this change. The mock could not do it: it wrote
   columns and had nothing left running.
+  - **The screen decides what is offered and the action decides what is done**, so
+    `startPaddleCheckout` reads the subscription again (2026-09-14). The branch above is a page
+    *render*; the press is a different event, and a reader can hold a stale «Pay» in one tab
+    while completing a purchase in another. `changePaddlePlan` has always re-read for the mirror
+    image of this and says why.
+  - **The rule is `wouldBeSecondSubscription`, and it is deliberately not `checkoutMode`.** Only
+    `ok: true` refuses: `stalled` gathers an unreadable shape and Paddle not answering, which is
+    the cautious answer a *screen* gets for free and the wrong one for an action, where it would
+    turn a blip at Paddle into a refused first purchase from somebody who has never subscribed —
+    caution paid for in the one direction where money arrives. **Lifetime is exempt**, the same
+    exemption the screen already makes, and it does not even pay the Paddle call.
+  - **What it does not close**, stated because nothing shows it: `livePaddleSubscription` reads
+    `paddle_subscription_id`, which the *webhook* writes, so two presses seconds apart both find
+    an empty column. The stale tab is the reachable case; the race inside the webhook's own
+    delivery window is not closed here.
 - **`paddle_subscription_id` means «has had a subscription», not «has one».** The webhook writes
   it on *every* subscription event, `subscription.canceled` included, and nothing ever nulls it —
   so a reader who cancelled and lapsed back to free still carries the id of what they left.

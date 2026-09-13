@@ -25,6 +25,13 @@
  * than was advertised, which is the one version of it nobody can be asked to accept. So while
  * a redeemable campaign is in play this answers `coupon-unsupported` and sells nothing. The
  * gate disappears when the campaigns have `paddle_discount_id` to pass as `discount_id`.
+ *
+ * **The screen decides what is offered; this decides what is done.** `/checkout/[plan]` reads
+ * `checkoutMode` to draw «Pay» or «Switch», and that read is a page render where this is a
+ * press — two tabs open on the same checkout, a purchase completed in one, and the other still
+ * draws a button whose action would open a second subscription beside the first. So the
+ * subscription is read again here, exactly as `changePaddlePlan` already re-reads it for the
+ * mirror image of the same reason.
  */
 
 import { eq } from 'drizzle-orm'
@@ -33,7 +40,9 @@ import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
 
+import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
+import { wouldBeSecondSubscription } from './planChange'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
@@ -45,6 +54,8 @@ export type PaddleCheckoutFailure =
   | 'invalid-plan'
   | 'no-price'
   | 'coupon-unsupported'
+  /** A subscription is already running on this account, so this press would open a second. */
+  | 'already-subscribed'
   | 'failed'
 
 export type PaddleCheckoutResult =
@@ -73,6 +84,28 @@ export async function startPaddleCheckout(
      here, from the table, so a tampered value can only ever name a plan we do sell. */
   const priceId = paddlePriceId(plan, plan === 'lifetime' ? null : cycle)
   if (priceId === null) return { ok: false, reason: 'no-price' }
+
+  /*
+   * **The rule is `wouldBeSecondSubscription`, which owns the argument for why it is not
+   * `checkoutMode`** — only a subscription Paddle confirms is running refuses this, Lifetime
+   * refuses nothing, and an unreadable answer sells rather than blocking a first purchase.
+   *
+   * **What it closes and what it does not**, since the difference is invisible from here.
+   * `livePaddleSubscription` reads `accounts.paddle_subscription_id`, which the *webhook*
+   * writes — so a press made once the first purchase has been recorded is refused, and one made
+   * in the seconds before that delivery lands still finds an empty column. The stale tab is the
+   * reachable case and is closed; the race inside the webhook's own window is not, and is not
+   * claimed to be.
+   *
+   * One Paddle call on the buy path, and only where the answer can change what happens: not for
+   * a reader with no id on their row, which is everybody making a first purchase, and **not for
+   * Lifetime**, which the rule exempts — reading Paddle there only to discard the answer would
+   * put a round trip and a failure surface in front of the one sale that must never wait on it.
+   */
+  const live = plan === 'lifetime' ? null : await livePaddleSubscription()
+  if (live !== null && wouldBeSecondSubscription(plan, live)) {
+    return { ok: false, reason: 'already-subscribed' }
+  }
 
   try {
     const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)

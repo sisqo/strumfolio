@@ -47,7 +47,7 @@
  */
 
 import type { LivePaddleSubscription } from './paddleAccount'
-import type { BillingPeriod } from './prices'
+import type { BillingPeriod, CheckoutPlan } from './prices'
 import { PLAN_RANK, type Plan } from './types'
 
 /** A plan and a cycle, whether held, asked for, or already arranged. */
@@ -329,4 +329,30 @@ export type CheckoutMode = 'sell' | 'change' | 'stalled'
 export function checkoutMode(live: LivePaddleSubscription): CheckoutMode {
   if (live.ok) return 'change'
   return live.reason === 'no-subscription' || live.reason === 'gone' ? 'sell' : 'stalled'
+}
+
+/**
+ * Whether opening a checkout for this plan would start a **second** subscription beside one
+ * that is already running — the same question `checkoutMode` answers for the screen, asked
+ * again at the moment of the press.
+ *
+ * It has to be asked twice because the two are different events: `/checkout/[plan]` reads the
+ * subscription to decide which button to draw, and a reader can hold that render open in one
+ * tab while completing a purchase in another. The rule `changePaddlePlan` already follows,
+ * pointed the other way.
+ *
+ * **It is deliberately not `checkoutMode(live) !== 'sell'`**, and the difference is the whole
+ * reason this is a function rather than a comparison. `stalled` gathers a shape this app cannot
+ * read and Paddle not answering, which is the right answer for a *screen* — a sentence costs
+ * nothing there — and the wrong one for the action, where it would turn a blip at Paddle into a
+ * refused first purchase from somebody who has never subscribed. So only `ok: true` refuses:
+ * every other answer passes, and the worst those readers meet is the behaviour that shipped
+ * before this rule existed rather than a new one.
+ *
+ * **Lifetime is exempt**, for the reason `/checkout/[plan]` gives at length about `stalled`:
+ * what is being prevented is a second *subscription*, and a one-time transaction is not one.
+ * The webhook ends whatever subscription was running once that payment has arrived (B9).
+ */
+export function wouldBeSecondSubscription(plan: CheckoutPlan, live: LivePaddleSubscription): boolean {
+  return plan !== 'lifetime' && live.ok
 }

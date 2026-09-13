@@ -210,8 +210,16 @@ async function announcePayment(event: IncomingPaddleEvent, rawBody: string, owne
  * committed like `announcePayment` beside it. So a failure is told to the operator with both
  * ids in the message: the remedy is one click in Paddle's own dashboard, and the cost of nobody
  * knowing is a subscription that renews for ever beside a Lifetime.
+ *
+ * **Both messages name the account by its number and never by its address**, and that is a
+ * published promise rather than a preference: outside the one line sent when an account is
+ * created, the Privacy Policy states in two places that these notifications carry no personal
+ * data, which is what lets it describe Telegram — established outside the EEA, under no
+ * adequacy decision — as receiving none. The root `CLAUDE.md` settles which half gives way if
+ * the two ever disagree: stop sending the field, do not soften the sentence. Nothing is lost
+ * operationally, since the actionable handle is the subscription id beside it.
  */
-async function endSubscriptionBoughtOut(account: { paddleSubscriptionId: string | null; plan: string; ownerEmail: string }) {
+async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptionId: string | null; plan: string }) {
   const subscriptionId = account.paddleSubscriptionId
 
   /*
@@ -226,7 +234,7 @@ async function endSubscriptionBoughtOut(account: { paddleSubscriptionId: string 
     if (was !== 'free' && was !== 'lifetime') {
       await notifyTelegram(
         'purchase',
-        `⚠️ Lifetime comprato da ${account.ownerEmail}, che risultava su ${PLAN_LABEL[was]} ma senza ` +
+        `⚠️ Lifetime comprato dall'account ${account.id}, che risultava su ${PLAN_LABEL[was]} ma senza ` +
           'subscription id: controlla su Paddle se ne ha una viva da disdire.',
       )
     }
@@ -255,7 +263,7 @@ async function endSubscriptionBoughtOut(account: { paddleSubscriptionId: string 
     console.error('endSubscriptionBoughtOut failed', subscriptionId, error)
     await notifyTelegram(
       'purchase',
-      `⚠️ Lifetime comprato da ${account.ownerEmail} ma la subscription ${subscriptionId} non si è riusciti a ` +
+      `⚠️ Lifetime comprato dall'account ${account.id} ma la subscription ${subscriptionId} non si è riusciti a ` +
         'disdirla: va disdetta a mano su Paddle, altrimenti rinnova accanto al Lifetime.',
     )
   }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import type { LivePaddleSubscription, NoLiveSubscription } from './paddleAccount'
-import { checkoutMode, planChangeEffect } from './planChange'
+import { checkoutMode, planChangeEffect, wouldBeSecondSubscription } from './planChange'
 import { PAID_PLANS } from './prices'
 import { PLAN_RANK } from './types'
 
@@ -444,5 +444,34 @@ describe('checkoutMode', () => {
     const invented = 'something-new' as NoLiveSubscription
     const live: LivePaddleSubscription = { ok: false, reason: invented }
     assert.equal(checkoutMode(live), 'stalled')
+  })
+})
+
+/**
+ * The same question at the moment of the press, where the answers are deliberately **not** the
+ * same — see `wouldBeSecondSubscription`. The screen may be cautious for free; the action pays
+ * for caution in refused first purchases.
+ */
+describe('wouldBeSecondSubscription', () => {
+  it('refuses a subscription plan while Paddle says one is running', () => {
+    assert.equal(wouldBeSecondSubscription('premium', liveSubscription()), true)
+  })
+
+  /*
+   * **The half that separates this from `checkoutMode`.** Three of these read as `stalled` on
+   * the screen, and letting that stand here would mean a bad minute at Paddle refusing to sell
+   * to somebody who has never subscribed at all — a cost paid in the one direction where money
+   * arrives, to prevent something that by definition is not running.
+   */
+  it('sells on every answer but a confirmed live subscription, unreadable ones included', () => {
+    for (const reason of ['no-subscription', 'gone', 'not-live', 'unexpected-items', 'unreadable'] as const) {
+      assert.equal(wouldBeSecondSubscription('premium', { ok: false, reason }), false, reason)
+    }
+  })
+
+  /* Lifetime is not a subscription, so it can never be a second one — B9, and the same
+     exemption `/checkout/[plan]` already makes against `stalled`. */
+  it('never stands between a subscriber and the Lifetime', () => {
+    assert.equal(wouldBeSecondSubscription('lifetime', liveSubscription()), false)
   })
 })

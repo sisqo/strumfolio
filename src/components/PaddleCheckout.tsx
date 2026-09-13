@@ -56,6 +56,14 @@ const REFUSALS: Record<PaddleCheckoutFailure, string> = {
   'coupon-unsupported':
     'Your discount cannot be applied at checkout yet, and we will not charge you full price ' +
     'while it stands. Please come back shortly.',
+  /*
+   * Not a fault and not a dead end, so it says what to do rather than apologising: the reader
+   * has a plan already and the thing they want is a change, which is a different screen and one
+   * press away. Named without a direction, the same discipline `already-scheduled` follows.
+   */
+  'already-subscribed':
+    'You already have a subscription running, so this would start a second one beside it. ' +
+    'Change the plan you have from Billing instead.',
   failed: 'Something went wrong starting your checkout. Please try again.',
 }
 
