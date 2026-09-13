@@ -110,7 +110,30 @@ export type ChangeRefusal =
   | 'unreadable'
 
 export type PlanChangeEffect =
-  | { ok: true; direction: ChangeDirection; proration: ProrationMode; when: ChangeWhen }
+  | {
+      ok: true
+      direction: ChangeDirection
+      proration: ProrationMode
+      when: ChangeWhen
+      /**
+       * Whether the billing date has to be put back by a second call, because this change moves
+       * the items onto a different **frequency**.
+       *
+       * **Measured 2026-09-13, and it is the fact B4 turns on.** `do_not_bill` leaves the period
+       * alone when the frequency is unchanged — that is what makes B2 work — but a change of
+       * frequency *restarts* it even under `do_not_bill`: a monthly subscription moved to the
+       * yearly price came back with `next_billed_at` a year out instead of the three weeks it
+       * had left. Applied to year→month that would bill the reader again next month and throw
+       * away the rest of the year they had paid for, which is the exact harm this case exists
+       * to prevent.
+       *
+       * `next_billed_at` is the repair, and it has two rules of its own, both measured: it is
+       * **ignored** when it travels with an items change, and it is **refused** when it travels
+       * alone («Invalid request») — it needs a `proration_billing_mode` beside it. So it is a
+       * second call, after the items, carrying `do_not_bill` and nothing else.
+       */
+      pinBillingDate: boolean
+    }
   | { ok: false; reason: ChangeRefusal }
 
 /**
@@ -141,6 +164,15 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
   if (from.cycle === null || to.cycle === null) return { ok: false, reason: 'unreadable' }
 
   const pending = from.pendingDowngrade ?? null
+  /*
+   * The cycle **Paddle's items carry right now**, which is the pending one whenever something is
+   * arranged and the paid one otherwise. The distinction is the whole of `pinBillingDate`: what
+   * restarts the period is the frequency changing against what is *there*, not against what was
+   * paid for. Reading `from.cycle` here instead would miss a tier change made on top of an
+   * already-arranged change of cycle, and lose the paid period at the second press.
+   */
+  const itemsCycle = pending?.cycle ?? from.cycle
+  const pinBillingDate = itemsCycle !== to.cycle
 
   /*
    * Asking for the plan you are paying for. With nothing scheduled that is the no-op B11, and
@@ -152,7 +184,7 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
   if (to.plan === from.plan && to.cycle === from.cycle) {
     return pending === null
       ? { ok: false, reason: 'same' }
-      : { ok: true, direction: 'revert', proration: 'do_not_bill', when: 'now' }
+      : { ok: true, direction: 'revert', proration: 'do_not_bill', when: 'now', pinBillingDate }
   }
 
   /* Already arranged, to the day. Pressing it again would restamp the same date and fire a
@@ -165,7 +197,7 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
 
   if (PLAN_RANK[to.plan] > PLAN_RANK[from.plan]) {
     return pending === null
-      ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now' }
+      ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now', pinBillingDate: false }
       : { ok: false, reason: 'pending-downgrade' }
   }
 
@@ -182,19 +214,35 @@ export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): Plan
      * nothing accumulates.
      */
     if (to.cycle === from.cycle) {
-      return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end' }
+      return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end', pinBillingDate }
     }
     return pending === null
-      ? { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period', when: 'now' }
+      ? { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period', when: 'now', pinBillingDate: false }
       : { ok: false, reason: 'pending-downgrade' }
   }
 
   if (from.cycle === to.cycle) return { ok: false, reason: 'same' }
-  if (pending !== null) return { ok: false, reason: 'pending-downgrade' }
 
-  return to.cycle === 'year'
-    ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now' }
-    : { ok: true, direction: 'downgrade', proration: 'prorated_next_billing_period', when: 'now' }
+  /*
+   * **B4 — the same tier, yearly to monthly.** A year has been paid for and the reader is not
+   * asking to be refunded any of it: they keep the yearly plan to its last day, and the billing
+   * turns monthly from there. Same shape as B2, one call longer, because the frequency moves.
+   *
+   * Allowed even with something already arranged, where B3 below is not, and the line between
+   * them is exactly whether money is quoted: `do_not_bill` bills nothing, so there is no figure
+   * to get wrong against items that have already moved, and the last thing asked for simply
+   * wins (C2). A priced change has a figure, and that figure would be computed against the
+   * wrong plan.
+   */
+  if (to.cycle === 'month') {
+    return { ok: true, direction: 'downgrade', proration: 'do_not_bill', when: 'period-end', pinBillingDate }
+  }
+
+  /* B3 — monthly to yearly, which is a bigger commitment paid for now. The period restarting is
+     the point of it rather than a side effect, so nothing is pinned. */
+  return pending === null
+    ? { ok: true, direction: 'upgrade', proration: 'prorated_immediately', when: 'now', pinBillingDate: false }
+    : { ok: false, reason: 'pending-downgrade' }
 }
 
 /**

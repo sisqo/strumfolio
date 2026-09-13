@@ -180,10 +180,41 @@ watched working by anybody.
     the only way a *first* event finds its account. Dropping it produces `unmatched` events, not
     an error. `downgrade: null` is written on every other kind of change, so a stale stamp
     cannot outlive the move that ended it.
-  - **A downgrade that also changes cycle is still `prorated_next_billing_period`** and is
-    therefore still refused by Paddle, which allows only the immediate modes and `do_not_bill`
-    when the billing frequency changes. B4, B6 and B8 are unbuilt, and the preview refuses them
-    before the press rather than the write failing after it.
+  - **A downgrade that also changes tier *and* cycle is still `prorated_next_billing_period`**
+    and is therefore still refused by Paddle, which allows only the immediate modes and
+    `do_not_bill` when the billing frequency changes. B6 and B8 are unbuilt, and the preview
+    refuses them before the press rather than the write failing after it.
+- **CASO B4 — yearly to monthly keeps the whole paid year, and costs one extra call.** Same
+  shape as B2 with one measured difference that decides everything: **`do_not_bill` preserves
+  the billing period only while the frequency is unchanged.** Moving a subscription between the
+  monthly and the yearly price *restarts* it even under `do_not_bill` — measured 2026-09-13, a
+  monthly subscription with three weeks left came back with `next_billed_at` a year out. Applied
+  to year→month that would bill the reader again next month and throw away the rest of a year
+  they had paid for, which is the whole of the harm this case exists to prevent.
+  - **`next_billed_at` is the repair, under two rules that are measured and not documented**: it
+    is silently **ignored** when it travels with an items change, and **refused outright** when
+    it travels alone («Invalid request») — it needs a `proration_billing_mode` beside it. So B4
+    is two calls: items with `do_not_bill` and the stamp, then `next_billed_at` with
+    `do_not_bill` and nothing else. Both bill nothing.
+  - **Measured end state**, which is exactly the promise: `billing_cycle` monthly,
+    `current_billing_period` still ending on the paid year's last day, and `next_transaction` a
+    **one-month** period starting that day. Paddle renews monthly from there with nothing having
+    to run in between.
+  - **The middle state is the dangerous one**, so `applyItemChange` (`paddleApply.ts`) owns the
+    sequence for both writers: it retries the date once, and if it still cannot be set it puts
+    the items back and pins again. The rollback goes back to what Paddle *had*, never forward —
+    a reader left on the plan they already bought is a failure nobody is charged for, and an
+    early charge is not.
+  - **`pinBillingDate` is measured against the cycle Paddle's items carry, not the paid cycle.**
+    A tier change made on top of an already-arranged change of cycle moves the frequency back,
+    and reading `from.cycle` there would lose the paid period at the second press, silently.
+  - **A change that bills nothing may replace what is already arranged; a priced one may not.**
+    That is the line between B4 (allowed over a pending change, last one wins — C2) and B3
+    (refused, because its figure would be computed against items that have already moved).
+  - **A cycle change has to be named by its cycle.** `changeNames` (`subscriptionCopy.ts`) is
+    that rule: with the tier unchanged, «you keep Premium until 13 September 2027 and move to
+    Premium that day» is a false sentence, not merely a clumsy one. `SubscriptionState` gained
+    `pendingCycle` so /billing can say «then billed monthly» for the same reason.
 - **While a downgrade is arranged, `livePaddleSubscription` reports the plan that was *paid
   for*, not the items** — with `pendingDowngrade` carrying the other one. Comparing a further
   move against the items would read «back to Premium» as an upgrade and charge for a period

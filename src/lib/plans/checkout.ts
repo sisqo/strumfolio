@@ -42,6 +42,7 @@ import { accounts } from '@/lib/db/schema'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import type { SubscriptionColumns } from './entitlements'
 import { paymentHistoryFor } from './history'
+import type { BillingPeriod } from './prices'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
 import { entitlementsOf } from './resolve'
@@ -62,6 +63,14 @@ export interface SubscriptionState {
   expiresAt: Date | null
   /** A downgrade or cancellation (`'free'`) already scheduled, ahead of `expiresAt`. */
   pendingPlan: Plan | null
+  /**
+   * The cycle that scheduled change lands on — carried since B4, where it is the *only* thing
+   * that changes: a yearly plan turning monthly at the end of the year already paid for has
+   * `pendingPlan` equal to `plan`, and without this the screen can only say «Premium until 13
+   * September 2027, then Premium». Null whenever nothing is scheduled, and for a cancellation,
+   * which lands on `free` and has no cycle.
+   */
+  pendingCycle: BillingPeriod | null
   /**
    * The coupon still in force on this account, or `null`.
    *
@@ -182,6 +191,7 @@ export async function loadCheckoutStatus(): Promise<
       status: resolved.status,
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
+      pendingCycle: resolved.pendingCycle,
       discount,
     },
     live: liveSubscription(raw, now),
@@ -221,6 +231,7 @@ export async function loadPurchaseSummary(): Promise<
       status: resolved.status,
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
+      pendingCycle: resolved.pendingCycle,
       discount,
     },
     /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the

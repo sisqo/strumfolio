@@ -29,7 +29,8 @@ import { revalidatePath } from 'next/cache'
 
 import { hasDatabase } from '@/lib/db/client'
 
-import { customDataFor, livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
+import { livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
+import { applyItemChange } from './paddleApply'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan } from './prices'
 import { paddleClient } from './paddleClient'
@@ -128,13 +129,31 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
          did, `paddlePriceId` answers null and the reader is told we could not read their
          subscription rather than being moved onto a price nobody chose. */
       const priceId = isCheckoutPlan(live.plan) ? paddlePriceId(live.plan, live.cycle) : null
-      if (priceId === null) return { ok: false, reason: 'unreadable' }
+      const restoreTo = isCheckoutPlan(live.pendingDowngrade.plan)
+        ? paddlePriceId(live.pendingDowngrade.plan, live.pendingDowngrade.cycle)
+        : null
+      if (priceId === null || restoreTo === null) return { ok: false, reason: 'unreadable' }
 
-      await paddle.subscriptions.update(live.id, {
-        items: [{ priceId, quantity: 1 }],
-        prorationBillingMode: 'do_not_bill',
-        customData: customDataFor(live, null),
+      /*
+       * **Undoing a change of *cycle* is itself a change of cycle**, so it restarts the period
+       * and the date has to be put back after it — the same two calls the change made, run
+       * backwards. Without this, calling off a year→month change would hand the reader a fresh
+       * year from today for nothing: `do_not_bill` bills nothing in either direction, so the
+       * period would simply restart at a year and no invoice would ever mention it.
+       */
+      const pinTo = live.pendingDowngrade.cycle !== live.cycle ? live.periodEndsAt : null
+      if (pinTo === null && live.pendingDowngrade.cycle !== live.cycle) {
+        return { ok: false, reason: 'unreadable' }
+      }
+
+      const applied = await applyItemChange(paddle, live, {
+        priceId,
+        proration: 'do_not_bill',
+        stamp: null,
+        pinTo,
+        restoreTo,
       })
+      if (!applied.ok) return { ok: false, reason: applied.reason }
     }
 
     revalidatePath('/billing')

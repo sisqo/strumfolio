@@ -13,6 +13,7 @@ describe('planChangeEffect', () => {
       direction: 'upgrade',
       proration: 'prorated_immediately',
       when: 'now',
+      pinBillingDate: false,
     })
     /* B2. `do_not_bill` charges and credits nothing, which is the point: the period is already
        paid at the old price and the reader keeps the plan it bought until it runs out. */
@@ -21,6 +22,7 @@ describe('planChangeEffect', () => {
       direction: 'downgrade',
       proration: 'do_not_bill',
       when: 'period-end',
+      pinBillingDate: false,
     })
   })
 
@@ -55,6 +57,7 @@ describe('planChangeEffect', () => {
       direction: 'downgrade',
       proration: 'prorated_next_billing_period',
       when: 'now',
+      pinBillingDate: false,
     })
   })
 
@@ -64,13 +67,24 @@ describe('planChangeEffect', () => {
       direction: 'upgrade',
       proration: 'prorated_immediately',
       when: 'now',
+      pinBillingDate: false,
     })
-    const back = planChangeEffect({ plan: 'plus', cycle: 'year' }, { plan: 'plus', cycle: 'month' })
-    assert.deepEqual(back, {
+  })
+
+  /*
+   * **B4.** A year has been paid for; going monthly must not take any of it away. Nothing is
+   * billed, the change waits for the last day of the year, and `pinBillingDate` is the half
+   * that is invisible from the outside: a change of *frequency* restarts the billing period
+   * even under `do_not_bill`, so without a second call putting the date back the reader would
+   * be charged again next month and lose the rest of the year they had bought.
+   */
+  it('holds a year-to-month move to the end of the year, and pins the billing date', () => {
+    assert.deepEqual(planChangeEffect({ plan: 'plus', cycle: 'year' }, { plan: 'plus', cycle: 'month' }), {
       ok: true,
       direction: 'downgrade',
-      proration: 'prorated_next_billing_period',
-      when: 'now',
+      proration: 'do_not_bill',
+      when: 'period-end',
+      pinBillingDate: true,
     })
   })
 
@@ -120,6 +134,7 @@ describe('planChangeEffect', () => {
         direction: 'revert',
         proration: 'do_not_bill',
         when: 'now',
+        pinBillingDate: false,
       })
       assert.deepEqual(planChangeEffect(premium, premium), { ok: false, reason: 'same' })
     })
@@ -132,6 +147,51 @@ describe('planChangeEffect', () => {
         direction: 'downgrade',
         proration: 'do_not_bill',
         when: 'period-end',
+        pinBillingDate: false,
+      })
+    })
+
+    /*
+     * **The pin is measured against what Paddle *carries*, not against what was paid.** This
+     * reader paid yearly and has already arranged to go monthly, so Paddle's items are monthly;
+     * asking now for a cheaper tier on the *yearly* price moves the frequency back, which
+     * restarts the period — and the date has to be pinned even though the paid cycle and the
+     * target cycle are the same. Reading `from.cycle` here would lose the paid year at the
+     * second press, silently.
+     */
+    it('pins the date when the items, not the paid plan, change frequency', () => {
+      const goingMonthly = { plan: 'premium', cycle: 'year', pendingDowngrade: { plan: 'premium', cycle: 'month' } } as const
+
+      assert.deepEqual(planChangeEffect(goingMonthly, { plan: 'standard', cycle: 'year' }), {
+        ok: true,
+        direction: 'downgrade',
+        proration: 'do_not_bill',
+        when: 'period-end',
+        pinBillingDate: true,
+      })
+      /* And undoing that arranged change is itself a change of frequency. */
+      assert.deepEqual(planChangeEffect(goingMonthly, { plan: 'premium', cycle: 'year' }), {
+        ok: true,
+        direction: 'revert',
+        proration: 'do_not_bill',
+        when: 'now',
+        pinBillingDate: true,
+      })
+    })
+
+    /* A change that bills nothing has no figure to get wrong, so it is allowed to replace what
+       is arranged — where a priced one is refused. B4 over a pending tier downgrade. */
+    it('allows a free change of cycle over something already arranged', () => {
+      const effect = planChangeEffect(
+        { plan: 'premium', cycle: 'year', pendingDowngrade: { plan: 'standard', cycle: 'year' } },
+        { plan: 'premium', cycle: 'month' },
+      )
+      assert.deepEqual(effect, {
+        ok: true,
+        direction: 'downgrade',
+        proration: 'do_not_bill',
+        when: 'period-end',
+        pinBillingDate: true,
       })
     })
 

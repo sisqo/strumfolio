@@ -5,7 +5,14 @@ import type { SubscriptionState } from './checkout'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import { periodEnd } from './prices'
 import type { PaymentHistoryLine } from './history'
-import { cancelledOnLine, cancelQuestion, formatPlanDate, lastPaymentLine, subscriptionStatusLine } from './subscriptionCopy'
+import {
+  cancelledOnLine,
+  cancelQuestion,
+  changeNames,
+  formatPlanDate,
+  lastPaymentLine,
+  subscriptionStatusLine,
+} from './subscriptionCopy'
 import type { Plan, PlanStatus } from './types'
 
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -13,7 +20,7 @@ const PAST = new Date('2026-05-03T00:00:00Z')
 const FUTURE = new Date('2027-05-03T00:00:00Z')
 
 function state(over: Partial<SubscriptionState> = {}): SubscriptionState {
-  return { plan: 'standard', status: 'active', expiresAt: FUTURE, pendingPlan: null, discount: null, ...over }
+  return { plan: 'standard', status: 'active', expiresAt: FUTURE, pendingPlan: null, pendingCycle: null, discount: null, ...over }
 }
 
 /**
@@ -274,5 +281,56 @@ describe('cancelledOnLine', () => {
     for (const value of [null, '', 'next tuesday', 'nonsense', '2027-13-45T99:99:99Z']) {
       assert.equal(cancelledOnLine(value), dateless, JSON.stringify(value))
     }
+  })
+})
+
+/**
+ * Naming a change by the half of it that actually moved — the rule B4 forced into existence.
+ */
+describe('changeNames', () => {
+  it('names the plan when only the plan moves', () => {
+    assert.deepEqual(changeNames({ plan: 'premium', cycle: 'year' }, { plan: 'standard', cycle: 'year' }), {
+      from: 'Premium',
+      to: 'Standard',
+    })
+  })
+
+  /* B4. «You keep Premium until 13 September 2027, and move to Premium that day» is not an
+     awkward sentence, it is a false one: nothing about the plan changes. */
+  it('names the billing when only the billing moves', () => {
+    assert.deepEqual(changeNames({ plan: 'premium', cycle: 'year' }, { plan: 'premium', cycle: 'month' }), {
+      from: 'yearly billing',
+      to: 'monthly billing',
+    })
+  })
+
+  it('names both when both move', () => {
+    assert.deepEqual(changeNames({ plan: 'premium', cycle: 'year' }, { plan: 'standard', cycle: 'month' }), {
+      from: 'Premium on yearly billing',
+      to: 'Standard on monthly billing',
+    })
+  })
+})
+
+describe('subscriptionStatusLine with a change of billing arranged', () => {
+  /* The pending plan equal to the plan is B4 and nothing else: the tier stays, the billing
+     turns monthly at the end of the year already paid for. */
+  it('says what changes, rather than naming the same plan twice', () => {
+    const line = subscriptionStatusLine(
+      state({ plan: 'premium', pendingPlan: 'premium', pendingCycle: 'month' }),
+      'premium',
+    )
+
+    assert.match(line, /then billed monthly\.$/)
+    assert.doesNotMatch(line, /then Premium/)
+  })
+
+  it('still names the plan when the plan is what changes', () => {
+    const line = subscriptionStatusLine(
+      state({ plan: 'premium', pendingPlan: 'standard', pendingCycle: 'month' }),
+      'premium',
+    )
+
+    assert.match(line, /then Standard\.$/)
   })
 })

@@ -18,7 +18,7 @@ import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
-import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { changeNames, formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 
@@ -115,7 +115,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
         scheduled:
           live.pendingDowngrade === null
             ? null
-            : `You are already moving to ${PLAN_LABEL[live.pendingDowngrade.plan]} on ${formatPlanDate(live.pendingDowngrade.at)}.`,
+            : `You are already moving to ${changeNames(live, live.pendingDowngrade).to} on ${formatPlanDate(live.pendingDowngrade.at)}.`,
       }
     : null
 

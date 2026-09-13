@@ -12,6 +12,7 @@
 import { PLAN_LABEL } from './types'
 import type { Plan, PlanStatus } from './types'
 import { euro } from './prices'
+import type { BillingPeriod } from './prices'
 import type { SubscriptionState } from './checkout'
 import type { PaymentHistoryLine } from './history'
 
@@ -23,6 +24,38 @@ import type { PaymentHistoryLine } from './history'
  */
 export function formatPlanDate(value: Date): string {
   return value.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/**
+ * What to call each side of a change, given that only one of the two things about it may have
+ * moved.
+ *
+ * **A change of cycle has to be named by its cycle, or the sentence says nothing.** Premium
+ * yearly to Premium monthly is case B4, and the naive version of every sentence about it reads
+ * «you keep Premium until 13 September 2027, and move to Premium that day» — which is not a
+ * clumsy sentence so much as a false one, since nothing about the plan changes at all. The
+ * reader is moving their *billing*, and that is what has to be on the screen.
+ *
+ * Three shapes, and each is the shortest true one: the plan alone when only the plan moves,
+ * the billing alone when only the billing does, and both when both do. Pure, so the checkout
+ * and `/billing` cannot end up describing one change two ways.
+ */
+export function changeNames(
+  from: { plan: Plan; cycle: BillingPeriod | null },
+  to: { plan: Plan; cycle: BillingPeriod | null },
+): { from: string; to: string } {
+  const billing = (cycle: BillingPeriod | null) => (cycle === 'year' ? 'yearly billing' : 'monthly billing')
+
+  if (from.plan === to.plan && from.cycle !== to.cycle) {
+    return { from: billing(from.cycle), to: billing(to.cycle) }
+  }
+
+  if (from.cycle === to.cycle) return { from: PLAN_LABEL[from.plan], to: PLAN_LABEL[to.plan] }
+
+  return {
+    from: `${PLAN_LABEL[from.plan]} on ${billing(from.cycle)}`,
+    to: `${PLAN_LABEL[to.plan]} on ${billing(to.cycle)}`,
+  }
 }
 
 /**
@@ -70,9 +103,25 @@ export function subscriptionStatusLine(current: SubscriptionState, live: Plan | 
   if (current.expiresAt === null) return `${PLAN_LABEL[current.plan]}, no end.`
 
   const until = formatPlanDate(current.expiresAt)
-  return current.pendingPlan !== null
-    ? `${PLAN_LABEL[current.plan]} until ${until}, then ${PLAN_LABEL[current.pendingPlan]}.`
-    : `${PLAN_LABEL[current.plan]}, active until ${until}.`
+  if (current.pendingPlan === null) return `${PLAN_LABEL[current.plan]}, active until ${until}.`
+
+  /*
+   * **The pending plan can now be the plan itself**, which is case B4: the tier stays and only
+   * the billing turns monthly, at the end of the year already paid for. Printing `PLAN_LABEL`
+   * twice said «Premium until 13 September 2027, then Premium» — a sentence describing no
+   * change at all, on the one screen a reader opens to find out what is about to happen.
+   *
+   * The *current* cycle is not named because no column holds it (see `lastPaymentLine` below,
+   * which goes to the ledger for exactly this reason). It does not need to be: «then billed
+   * monthly» says what changes, and the line above this one already says what was paid.
+   */
+  if (current.pendingPlan === current.plan) {
+    return current.pendingCycle === null
+      ? `${PLAN_LABEL[current.plan]}, active until ${until}.`
+      : `${PLAN_LABEL[current.plan]} until ${until}, then billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`
+  }
+
+  return `${PLAN_LABEL[current.plan]} until ${until}, then ${PLAN_LABEL[current.pendingPlan]}.`
 }
 
 /**

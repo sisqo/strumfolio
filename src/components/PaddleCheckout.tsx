@@ -36,7 +36,7 @@ import {
   type PaddlePlanChangeFailure,
 } from '@/lib/plans/paddlePlanChange'
 import { euro, yearlyTotalOfMonthly, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
-import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
+import { changeNames, formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
 /**
@@ -304,13 +304,14 @@ export function PaddleCheckout(props: Props) {
     const target = props.plan === 'lifetime' ? '' : PLAN_LABEL[props.plan]
 
     if (result.direction === 'revert') {
-      return `Kept — you stay on ${target}, and the change that was arranged has been called off.`
+      return `Kept — you stay on ${live?.label ?? target}, and the change that was arranged has been called off.`
     }
 
     if (result.when === 'period-end' && result.effectiveAt !== null && live !== null) {
+      const names = changeNames(live, { plan: props.plan, cycle })
       return (
-        `Arranged. Nothing has been charged: you keep ${PLAN_LABEL[live.plan]} until ` +
-        `${formatPlanDate(new Date(result.effectiveAt))}, and move to ${target} that day.`
+        `Arranged. Nothing has been charged: you keep ${names.from} until ` +
+        `${formatPlanDate(new Date(result.effectiveAt))}, and move to ${names.to} that day.`
       )
     }
 
@@ -411,13 +412,15 @@ export function PaddleCheckout(props: Props) {
                    one off, and an ordinary free change. The reader is deciding about the date
                    and the effect as much as about the figure. */
                 preview.direction === 'revert'
-                ? callOffLine(PLAN_LABEL[live.plan])
+                ? callOffLine(live.label)
                 : preview.when === 'period-end' && preview.effectiveAt !== null
-                  ? scheduledChangeLine(
-                      PLAN_LABEL[live.plan],
-                      PLAN_LABEL[props.plan],
-                      formatPlanDate(new Date(preview.effectiveAt)),
-                    )
+                  ? /* `changeNames`, not two `PLAN_LABEL` lookups: B4 moves the billing and not
+                       the plan, and «you keep Premium until 13 September 2027, and move to
+                       Premium that day» is a false sentence rather than an awkward one. */
+                    (() => {
+                      const names = changeNames(live, { plan: props.plan, cycle })
+                      return scheduledChangeLine(names.from, names.to, formatPlanDate(new Date(preview.effectiveAt)))
+                    })()
                   : changeCostLine(preview.cost)
               : noPrice !== null
                 ? CHANGE_REFUSALS[noPrice]

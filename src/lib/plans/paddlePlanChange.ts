@@ -43,7 +43,8 @@ import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
 
-import { customDataFor, livePaddleSubscription } from './paddleAccount'
+import { livePaddleSubscription } from './paddleAccount'
+import { applyItemChange } from './paddleApply'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
 import { readChangeCost, type ChangeCost } from './changePreview'
@@ -123,7 +124,9 @@ export async function previewPaddlePlanChange(
 
     const effect = planChangeEffect(live, { plan, cycle: plan === 'lifetime' ? null : cycle })
     if (!effect.ok) return { ok: false, reason: effect.reason }
-    if (effect.when === 'period-end' && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
+    if ((effect.when === 'period-end' || effect.pinBillingDate) && live.periodEndsAt === null) {
+      return { ok: false, reason: 'unreadable' }
+    }
 
     const previewed = await paddle.subscriptions.previewUpdate(live.id, {
       items: [{ priceId, quantity: 1 }],
@@ -204,7 +207,9 @@ export async function changePaddlePlan(
      * nothing on any screen that would explain it. Paddle sends this field on every active
      * subscription, so this is a guard against the impossible, not a case.
      */
-    if (effect.when === 'period-end' && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
+    if ((effect.when === 'period-end' || effect.pinBillingDate) && live.periodEndsAt === null) {
+      return { ok: false, reason: 'unreadable' }
+    }
 
     /*
      * **A scheduled cancellation is cleared in a call of its own, and it has to be.** Paddle
@@ -246,11 +251,23 @@ export async function changePaddlePlan(
         ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, live.periodEndsAt)
         : null
 
-    await paddle.subscriptions.update(live.id, {
-      items: [{ priceId, quantity: 1 }],
-      prorationBillingMode: effect.proration,
-      customData: customDataFor(live, stamp),
+    /*
+     * The price Paddle is carrying right now — the pending plan's when one is arranged, the paid
+     * one otherwise. It is only ever used to undo this call if the billing date cannot be put
+     * back; `applyItemChange` says why that matters.
+     */
+    const carried = live.pendingDowngrade ?? { plan: live.plan, cycle: live.cycle }
+    const restoreTo = isCheckoutPlan(carried.plan) ? paddlePriceId(carried.plan, carried.cycle) : null
+    if (restoreTo === null) return { ok: false, reason: 'unreadable' }
+
+    const applied = await applyItemChange(paddle, live, {
+      priceId,
+      proration: effect.proration,
+      stamp,
+      pinTo: effect.pinBillingDate ? live.periodEndsAt : null,
+      restoreTo,
     })
+    if (!applied.ok) return { ok: false, reason: applied.reason }
 
     revalidatePath('/billing')
     revalidatePath('/pricing')

@@ -15,7 +15,8 @@ const SAMPLE_RENEWAL = new Date('2027-09-22T00:00:00.000Z')
 export function buildThanksPreview(plan: Plan): SubscriptionState {
   /* No discount in any preview, deliberately: `/thanks` says nothing about a coupon, so
      inventing one here would be sample data for a sentence that does not exist. */
-  if (plan === 'free') return { plan, status: 'active', expiresAt: null, pendingPlan: null, discount: null }
+  if (plan === 'free')
+    return { plan, status: 'active', expiresAt: null, pendingPlan: null, pendingCycle: null, discount: null }
 
   return {
     plan,
@@ -23,6 +24,7 @@ export function buildThanksPreview(plan: Plan): SubscriptionState {
     // `lifetime` is the one plan `ThanksScreen` renders with no renewal date at all.
     expiresAt: plan === 'lifetime' ? null : SAMPLE_RENEWAL,
     pendingPlan: null,
+    pendingCycle: null,
     discount: null,
   }
 }
