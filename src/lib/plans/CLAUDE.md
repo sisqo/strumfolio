@@ -115,6 +115,14 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
 measured against the sandbox with `subscriptions.preview` and one reversible `cancel`/clear
 round trip, not read off the documentation.
 
+**Run end to end on 2026-09-13**: the sandbox subscription was moved premium/year →
+standard/year by the same sequence this code performs, `current_billing_period` stayed on
+2027-09-12, one item came back where one went in, and the `subscription.updated` that followed
+was delivered to the preview webhook on the first attempt. What that run does **not** prove is
+the screen: reaching `/checkout/[plan]` on preview needs a signed-in session, so the
+`subscribed` branch and the «Switch to …» button have been type-checked and built but not yet
+watched working by anybody.
+
 - **A downgrade now applies at once and is repaid in money, not in time — a real change from
   what the mock promised.** `mockPurchase` kept the reader on the plan they had paid for until
   its last day and scheduled the smaller one behind it. Paddle has no way to express that:
