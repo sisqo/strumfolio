@@ -316,6 +316,29 @@ describe('planChangeEffect', () => {
     })
 
     /*
+     * **A rise in tier that also shortens the cycle, on top of a change already arranged** —
+     * the combination neither sweep reaches, and the one where the two cycles in play are
+     * genuinely different: the items carry the *paid* year (the arranged drop kept it), while
+     * the move asks for monthly. So it waits, restamps from the paid plan, and pins.
+     *
+     * Worth its own assertion rather than trusted to the sweeps because this is exactly the
+     * `from.cycle`-versus-`itemsCycle` interaction that would silently lose a paid year: read
+     * the pin off `from.cycle` here and it is `true` by luck, read it off a monthly-items
+     * fixture and it is `false` by luck, and only this shape tells the two apart.
+     */
+    it('waits and pins for a rise in tier that shortens the cycle over an arranged drop', () => {
+      const arranged = { plan: 'plus', cycle: 'year', pendingDowngrade: { plan: 'standard', cycle: 'year' } } as const
+
+      assert.deepEqual(planChangeEffect(arranged, { plan: 'premium', cycle: 'month' }), {
+        ok: true,
+        direction: 'upgrade',
+        proration: 'do_not_bill',
+        when: 'period-end',
+        pinBillingDate: true,
+      })
+    })
+
+    /*
      * **Not `same`**, which would be a different sentence about a different fact. This reader is
      * on Premium until the date; telling them on Standard's own checkout that Standard is «the
      * plan you are already on» describes a downgrade that has not happened yet as one that has.

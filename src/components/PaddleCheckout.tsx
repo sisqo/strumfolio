@@ -86,8 +86,12 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
   /*
    * Not a fault, and not a dead end either: the line above this one names what is scheduled and
    * when, so this only has to say what to do about it. The two-step exists because the price
-   * cannot be quoted honestly while the items are already on the cheaper plan — see
-   * `planChange.ts` — and a reader is owed the real figure more than they are owed one press.
+   * cannot be quoted honestly while the items have already moved — see `planChange.ts` — and a
+   * reader is owed the real figure more than they are owed one press.
+   *
+   * **The sentence names no direction, and must not start to.** Since B7 an arranged change can
+   * be a rise in tier as easily as a drop, so «call off your downgrade» would be false for the
+   * reader who arranged an upgrade — the `already-scheduled` mistake again, one screen along.
    */
   'pending-downgrade':
     'Your plan is already set to change at the end of the period you have paid for. Call that ' +
@@ -301,8 +305,12 @@ export function PaddleCheckout(props: Props) {
    * What just happened, in the reader's terms — four outcomes, and only two of them move money.
    *
    * The `period-end` one is the sentence this whole case exists for: nothing was charged, the
-   * plan they have is theirs until a named day, and the cheaper one starts then. Saying
-   * «moving you to Standard» over that would be false on the day it is read.
+   * plan they have is theirs until a named day, and the other one starts then. Saying «moving
+   * you to Standard» over that would be false on the day it is read.
+   *
+   * It branches on `when`, never on `direction`, and that ordering is load-bearing since B7: a
+   * change that waits can be a rise in tier, so reading the direction first would send it to
+   * the «what you have not used comes off the charge» line, describing a charge nobody made.
    */
   function arranged(result: Extract<Awaited<ReturnType<typeof changePaddlePlan>>, { ok: true }>): string {
     const target = props.plan === 'lifetime' ? '' : PLAN_LABEL[props.plan]

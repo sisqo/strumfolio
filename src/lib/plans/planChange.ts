@@ -113,12 +113,17 @@ export type ChangeWhen = 'now' | 'period-end'
  * they paid for is still running, and on the one screen where it matters most.
  *
  * `pending-downgrade` is the one that describes an ordinary state rather than a fault, and it
- * exists because the arithmetic cannot be shown honestly: with the items already moved down,
- * Paddle's preview credits the *cheaper* plan's unused time, while the two-call sequence that
- * would actually be run credits the dearer one that was paid for. Quoting the first and
- * charging the second is precisely the shown-price/charged-price gap this directory is written
- * to close, so the reader is asked to call the scheduled change off first — one press, on
- * /billing — and is then priced against what they hold.
+ * exists because the arithmetic cannot be shown honestly: Paddle's preview prices the move
+ * against the items, which have already moved, while the sequence that would actually be run
+ * credits the plan that was *paid for*. Quoting the first and charging the second is precisely
+ * the shown-price/charged-price gap this directory is written to close, so the reader is asked
+ * to call the scheduled change off first — one press, on /billing — and is then priced against
+ * what they hold.
+ *
+ * **Its name is now narrower than what it covers**, and the copy it drives already knows this:
+ * since B7 the arranged change can rank *above* the live plan, so neither this refusal nor
+ * `already-scheduled` may say which way it goes. Renaming the member would touch five files to
+ * say what this paragraph says once.
  */
 export type ChangeRefusal =
   | 'same'
