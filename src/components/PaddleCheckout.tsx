@@ -28,7 +28,12 @@ import { initializePaddle, type Environments, type Paddle } from '@paddle/paddle
 import { useEffect, useRef, useState } from 'react'
 
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
-import { changePaddlePlan, type PaddlePlanChangeFailure } from '@/lib/plans/paddlePlanChange'
+import { changeCostLine, type ChangeCost } from '@/lib/plans/changePreview'
+import {
+  changePaddlePlan,
+  previewPaddlePlanChange,
+  type PaddlePlanChangeFailure,
+} from '@/lib/plans/paddlePlanChange'
 import { euro, yearlyTotalOfMonthly, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
 import { PLAN_LABEL } from '@/lib/plans/types'
 
@@ -117,6 +122,17 @@ export function PaddleCheckout(props: Props) {
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  /**
+   * What this change will cost, straight from Paddle — `null` while it is being asked for or
+   * when it could not be read. **Never defaulted to a number**: the one thing worse than no
+   * price under the button is a wrong one.
+   */
+  const [cost, setCost] = useState<ChangeCost | null>(null)
+  const [pricing, setPricing] = useState(false)
+
+  /* Lifetime never reaches the change path, so it never carries a live subscription here —
+     narrowed once, above the effects that depend on it. */
+  const live = props.plan === 'lifetime' ? null : props.live
   /*
    * **What the link asked for, then what Paddle is billing, then monthly** — and the middle
    * step is the one that was missing. A bare link carries no cycle, so this used to open on
@@ -160,6 +176,39 @@ export function PaddleCheckout(props: Props) {
         setMessage(REFUSALS.failed)
       })
   }, [])
+
+  /*
+   * Ask Paddle what the selected change costs, every time the selection changes.
+   *
+   * **One round trip per toggle, and it is worth it**: the alternative is computing the
+   * proration here from `PRICES` and a period end, which is a second implementation of
+   * arithmetic Paddle is going to redo its own way at the moment of the press — the classic
+   * two-copies-of-one-rule this repository argues against everywhere else. `previewUpdate`
+   * takes the identical body as the write, so the number shown is the number charged.
+   *
+   * `stale` guards the race: toggling Yearly then Monthly quickly can land the two answers out
+   * of order, and the older one would sit under the button describing the other cycle.
+   */
+  useEffect(() => {
+    if (live === null) {
+      setCost(null)
+      return
+    }
+
+    let stale = false
+    setPricing(true)
+    setCost(null)
+
+    void previewPaddlePlanChange(props.plan, cycle).then((result) => {
+      if (stale) return
+      setCost(result.ok ? result.cost : null)
+      setPricing(false)
+    })
+
+    return () => {
+      stale = true
+    }
+  }, [live, props.plan, cycle])
 
   async function buy() {
     setBusy(true)
@@ -208,7 +257,6 @@ export function PaddleCheckout(props: Props) {
     setBusy(false)
   }
 
-  const live = props.plan === 'lifetime' ? null : props.live
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
 
@@ -256,7 +304,14 @@ export function PaddleCheckout(props: Props) {
         type="button"
         className="btn btn-primary mt-4 w-full"
         onClick={() => void (live ? change() : buy())}
-        disabled={busy || (!live && !ready)}
+        /*
+         * **A change is not offered until its price is known**, and that is a safety rule rather
+         * than a nicety: pressing this takes a real amount off a real card, there is no
+         * confirmation step behind it, and «we could not work out what this costs» is not a state
+         * to let somebody press through. A first purchase is different — the overlay shows the
+         * price itself before anything is taken — which is why only the change path waits.
+         */
+        disabled={busy || (live ? pricing || cost === null : !ready)}
       >
         {busy
           ? 'One moment…'
@@ -265,13 +320,25 @@ export function PaddleCheckout(props: Props) {
             : `Pay for ${PLAN_LABEL[props.plan]}`}
       </button>
 
-      {/* Said before the press, not after it. The difference between «you keep what you paid
-          for until it runs out» and «the difference comes back on your next invoice» is the
-          kind of thing a reader is entitled to know while deciding. */}
+      {/*
+        * Said before the press, not after it — and said as a **number**, because that is what a
+        * reader will look for on their statement. The sentence this replaced described the kind
+        * of thing that would happen («a bigger plan is charged now, less whatever you have not
+        * used») and named no amount, which left the one press on this screen that moves money as
+        * the only one nobody could check beforehand.
+        *
+        * `cost` is null while Paddle is being asked, and also when the answer could not be read.
+        * Those are deliberately the same case here: neither is a licence to print a figure.
+        */}
       {live !== null && (
         <p className="mt-2 text-sm opacity-80">
-          You are on {live.label} today. A bigger plan is charged now, less whatever you have
-          not used; a smaller one is credited against your next invoice.
+          You are on {live.label} today.{' '}
+          {pricing
+            ? 'Working out what this change costs…'
+            : cost !== null
+              ? changeCostLine(cost)
+              : 'We could not work out what this change costs just now, so we are not going to ' +
+                'move it. Try again in a moment.'}
         </p>
       )}
 

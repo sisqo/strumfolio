@@ -161,6 +161,21 @@ watched working by anybody.
 - **Direction is plan rank first, cycle only as the tiebreak.** Comparing amounts instead reads
   premium/month → standard/year as a *rise* — €9.99 becomes €34.99 — and would charge on the
   spot for a move made to spend less. With the plan unchanged, yearly is the upgrade.
+- **CASO A — an upgrade inside one cycle costs the prorated difference, and Paddle does the
+  netting itself.** Measured clean on 2026-09-13, Standard monthly €3.49 → Plus monthly €6.99
+  mid-period: `credit −3.49`, `charge +6.99`, `result: charge 3.50`, with both lines on the
+  immediate transaction. `prorated_immediately` is the right mode and the arithmetic matches the
+  analysis document exactly. **An earlier reading of this was wrong** and is recorded because it
+  cost a wrong answer to the user: a same-cycle upgrade observed *two minutes after a cycle
+  change*, with a €99.85 credit already queued, charged the new plan gross and deferred the old
+  plan's credit. That is the polluted case, not the rule.
+- **The amount is shown before the press, and the button is refused until it is known.**
+  `previewPaddlePlanChange` sends the identical body to `subscriptions.previewUpdate` that the
+  write sends to `update`, so the figure on the screen is the figure on the card rather than a
+  second implementation of Paddle's arithmetic. Two numbers are read and they answer different
+  questions: `update_summary.result` is what the change *costs*, and the immediate transaction's
+  `grand_total` is what leaves the *card*, which is smaller when the account already holds Paddle
+  credit. Saying only one of them is how somebody concludes they were billed twice.
 - **The subscription is read once, not twice.** `livePaddleSubscription` carries back whether a
   cancellation is already scheduled, from the same fetch that read the status — a second
   `subscriptions.get` in the action would be a second snapshot, and a cancellation landing

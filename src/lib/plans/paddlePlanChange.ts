@@ -40,6 +40,7 @@ import { hasDatabase } from '@/lib/db/client'
 import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
 import { paddlePriceId } from './paddlePrices'
+import { readChangeCost, type ChangeCost } from './changePreview'
 import { planChangeEffect, type ChangeDirection, type ChangeRefusal } from './planChange'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
@@ -65,6 +66,74 @@ export type PaddlePlanChangeFailure =
 export type PaddlePlanChangeResult =
   | { ok: true; direction: ChangeDirection }
   | { ok: false; reason: PaddlePlanChangeFailure }
+
+export type PaddleChangeCostResult =
+  | { ok: true; direction: ChangeDirection; cost: ChangeCost }
+  | { ok: false; reason: PaddlePlanChangeFailure }
+
+/**
+ * What a change would cost, without making it.
+ *
+ * **The same decision, the same call, the same proration mode as `changePaddlePlan` below** —
+ * `subscriptions.preview` takes the identical body and computes what `update` would do. That is
+ * what makes the number on the screen the number on the card, rather than an estimate this file
+ * computes a second way. `changePreview.ts` reads the answer; the two must never drift, which is
+ * why the mode comes from `planChangeEffect` in both and not from a literal in either.
+ *
+ * Refuses exactly where the write refuses, and with the same words, so a reader is never offered
+ * a price for something that would then be turned down. The one thing it deliberately does *not*
+ * share is the coupon gate: a preview takes no money, and a reader carrying a redeemable coupon
+ * should still be told what the change costs before being told we cannot honour the discount yet.
+ */
+export async function previewPaddlePlanChange(
+  plan: string,
+  cycle: BillingPeriod | null,
+): Promise<PaddleChangeCostResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+  if (!isCheckoutPlan(plan)) return { ok: false, reason: 'invalid-plan' }
+
+  const paddle = paddleClient()
+  if (paddle === null) return { ok: false, reason: 'not-configured' }
+
+  const priceId = paddlePriceId(plan, plan === 'lifetime' ? null : cycle)
+  if (priceId === null) return { ok: false, reason: 'no-price' }
+
+  try {
+    const live = await livePaddleSubscription()
+    if (!live.ok) return { ok: false, reason: live.reason }
+
+    const effect = planChangeEffect(live, { plan, cycle: plan === 'lifetime' ? null : cycle })
+    if (!effect.ok) return { ok: false, reason: effect.reason }
+
+    const previewed = await paddle.subscriptions.previewUpdate(live.id, {
+      items: [{ priceId, quantity: 1 }],
+      prorationBillingMode: effect.proration,
+    })
+
+    /*
+     * The SDK hands back an entity with camelCase fields; `readChangeCost` reads Paddle's own
+     * snake_case wire shape, which is what the sandbox and the tests both speak. Rather than
+     * teach the reader two spellings, the two fields it needs are handed over under the names it
+     * expects — the same one-rename cast `livePaddleSubscription` makes for `custom_data`.
+     */
+    const cost = readChangeCost({
+      update_summary: previewed.updateSummary
+        ? { result: { action: previewed.updateSummary.result.action, amount: previewed.updateSummary.result.amount } }
+        : null,
+      immediate_transaction: previewed.immediateTransaction
+        ? {
+            details: { totals: { grand_total: previewed.immediateTransaction.details?.totals?.grandTotal } },
+          }
+        : null,
+    })
+    if (cost === null) return { ok: false, reason: 'unreadable' }
+
+    return { ok: true, direction: effect.direction, cost }
+  } catch (error) {
+    console.error('previewPaddlePlanChange failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
 
 export async function changePaddlePlan(
   plan: string,
