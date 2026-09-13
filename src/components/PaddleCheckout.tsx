@@ -92,9 +92,13 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
   'pending-downgrade':
     'Your plan is already set to change at the end of the period you have paid for. Call that ' +
     'off in Billing first and this move can be priced against the plan you actually hold.',
+  /* Not reachable from this screen any more — Lifetime is bought, never switched to, so the
+     lifetime checkout draws the buy button instead of the change one. Kept because the action
+     is callable on its own, and reworded because the old sentence told the reader to cancel
+     first, which is now both unnecessary and worse than what the page does for them. */
   'lifetime-target':
-    'Lifetime is bought once and cannot replace a running subscription. Cancel your plan ' +
-    'first, and buy Lifetime when it has ended.',
+    'Lifetime is bought rather than switched to. Open the Lifetime page and buy it there — ' +
+    'your current plan is ended for you once it goes through.',
   'lifetime-live': 'You already have Lifetime, so there is nothing left to change.',
   unreadable: 'We could not read what your subscription is on. Please try again in a moment.',
   failed: 'Something went wrong changing your plan. Please try again.',

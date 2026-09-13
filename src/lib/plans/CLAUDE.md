@@ -305,12 +305,39 @@ watched working by anybody.
 - **Items are replaced, not appended** — one item in, one item out, so `planOfItems` reading
   the first is safe here. The action still refuses a subscription carrying more than one active
   item rather than rewriting it down to one.
-- **Lifetime is refused on both sides.** It is a one-time price and `subscriptions.update`
-  takes recurring items only, so there is no way to move a subscription onto it; selling it
-  through a fresh transaction would leave the subscription billing beside a plan bought for
-  ever. `/checkout/lifetime` says so to a subscriber instead of offering the button. **This is
-  the one plan change a paying reader cannot make in one step**, and it is an open question
-  rather than a finished answer.
+- **CASO B9 — a subscriber can buy Lifetime, and the subscription is ended for them**
+  (decided 2026-09-13, having been a dead end until then). It is not a plan *change*:
+  `subscriptions.update` takes recurring items only, so Lifetime is sold as its own transaction
+  and `planChangeEffect` still answers `lifetime-target` — which now means «not through this
+  path» rather than «not at all».
+  - **The subscription is ended from the webhook, after the money has arrived**
+    (`endSubscriptionBoughtOut`). That order is the only safe one: cancelling first and then
+    failing to take the payment leaves somebody with neither. It cannot fail the delivery and
+    cannot retry, so a failure tells the operator on Telegram with both ids in the message —
+    the remedy is one click in Paddle, and the cost of nobody knowing is a subscription
+    renewing for ever beside a Lifetime.
+  - **`next_billing_period`, not `immediately`, and only one thing decides it: reversibility.**
+    Paddle refunds nothing either way — a cancellation stops billing and returns no money,
+    whichever date it lands on, which is the documented behaviour and not the «prorated refund»
+    the Paddle skill claims. So the customer loses nothing by keeping the period they paid for,
+    and Lifetime outranks it meanwhile. What differs is the fourteen-day withdrawal right this
+    app publishes on `/` and in the Terms: «You can't reinstate a canceled subscription», so an
+    immediate cancel would leave a reader who withdraws from the Lifetime with no plan at all.
+  - **Nothing is refunded or credited for the overlap**, and that is the same rule as every
+    other case here: the remaining days are not lost, they are simply outranked.
+  - **`mayWritePlan` is what keeps the Lifetime once it is granted.** The cancellation lands
+    *after* it — `subscription.updated` carrying the schedule, then `subscription.canceled` at
+    the period end — each naming the subscription's own plan, and the second reading as
+    `expired`. Without the guard the largest single payment this app takes would be wiped by an
+    event that arrives a month later. It matches the whole `subscription.` family rather than
+    the two names known to arrive today.
+  - **The Lifetime checkout sells in every mode, `stalled` included.** That branch exists to
+    stop a *second subscription*; Lifetime is not one. A reader whose card is failing is, if
+    anything, the one most helped by buying their way out.
+  - **A Lifetime transaction used to null `paddle_subscription_id`** — writing `null` over the
+    pointer to the subscription still running beside it, in the same statement that granted the
+    Lifetime. Neither id column is ever nulled once it has a value now; that was a pre-existing
+    defect, and it also cost every later event the second of the three ways to find an account.
 - **The live plan and cycle are read from Paddle, never from this database.** `accounts` has
   no column for the live *cycle* and never has, so the direction of a move cannot be decided
   without asking — and asking Paddle compares against what is actually being billed.

@@ -161,11 +161,13 @@ export type PlanChangeEffect =
  * With the plan unchanged, yearly is the upgrade: it is the longer commitment and the larger
  * charge, so it is billed now, while month-by-month is the step back and waits for the invoice.
  *
- * **Lifetime is refused in both directions.** As a *target* it is not a recurring price at all
- * and `subscriptions.update` takes only recurring items — it is bought through a transaction of
- * its own, which would leave the subscription running beside it. As the *live* plan there is no
- * subscription left to update. Both answer here rather than at the API, so the screen can say
- * which of the two it is.
+ * **Lifetime is refused in both directions, and the two refusals mean different things now.**
+ * As a *target* it is not a recurring price at all and `subscriptions.update` takes only
+ * recurring items, so a subscription cannot be moved onto it — but it *can* be bought beside
+ * one, and since 2026-09-13 it is: `/checkout/lifetime` sells to a subscriber and the webhook
+ * ends the subscription once the payment has arrived (`endSubscriptionBoughtOut`). So this
+ * refusal now means «not through this path», not «not at all». As the *live* plan it means what
+ * it always did: there is no subscription left to update, and nothing above Lifetime to sell.
  */
 export function planChangeEffect(from: LiveSubscribedTo, to: SubscribedTo): PlanChangeEffect {
   if (from.plan === 'lifetime') return { ok: false, reason: 'lifetime-live' }

@@ -197,22 +197,31 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
         ) : (
           plan === 'lifetime' ? (
             /*
-             * Lifetime is a one-time price, and `subscriptions.update` takes recurring items
-             * only — so there is no way to *move* a subscription onto it. Selling it anyway
-             * would leave the subscription billing beside a plan bought for ever, which is the
-             * one outcome worth a dead end on the screen rather than a refusal after the card.
-             * The remedy is stated rather than implied; the order matters, and getting it
-             * wrong costs a month.
+             * **Lifetime sells in every mode, `stalled` included**, and that is deliberate
+             * rather than an oversight in the branch below. `stalled` exists to stop a *second
+             * subscription* being opened beside one that may still be billing; Lifetime is not
+             * a subscription at all but a one-time transaction, so the objection does not apply
+             * to it. A reader whose card is failing on a monthly plan is, if anything, the one
+             * most helped by buying their way out of it.
+             *
+             * It used to be a dead end for anybody with a subscription, because a Lifetime
+             * billing beside a running subscription is the one outcome nobody wants. What
+             * changed is not that judgement but where it is enforced: the webhook ends the
+             * subscription once the Lifetime payment has actually arrived
+             * (`endSubscriptionBoughtOut`), which is the only order in which a failed payment
+             * cannot leave somebody with neither.
              */
-            mode === 'sell' ? (
+            <>
+              {live.ok && (
+                <p className="mt-6 text-lg">
+                  Lifetime replaces what you pay for now.{' '}
+                  {live.periodEndsAt === null
+                    ? `Your ${PLAN_LABEL[live.plan]} plan stops at the end of the period you have already paid for, and is never charged again.`
+                    : `Your ${PLAN_LABEL[live.plan]} plan runs to ${formatPlanDate(live.periodEndsAt)} as paid for, then stops — it is never charged again.`}
+                </p>
+              )}
               <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
-            ) : (
-              <p className="mt-6 text-lg">
-                Lifetime is bought once, and cannot take the place of a subscription while it is
-                running. Cancel your current plan first — it stays with you until the period you
-                have paid for ends — and Lifetime is here when it does.
-              </p>
-            )
+            </>
           ) : stalled !== null ? (
             <p className="mt-6 text-lg">{stalled}</p>
           ) : (

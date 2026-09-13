@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   downgradeStamp,
+  mayWritePlan,
   planOfPrice,
   readDowngradeStamp,
   statusOf,
@@ -253,5 +254,40 @@ describe('transactionPeriodEnd', () => {
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: null }), null)
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: null } }), null)
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: 'soon' } }), null)
+  })
+})
+
+/**
+ * The guard that stands between a Lifetime customer and the events that would take it away.
+ */
+describe('mayWritePlan', () => {
+  /*
+   * Buying Lifetime while still paying for a subscription leaves that subscription to run to
+   * the end of the period, so its cancellation lands *after* the Lifetime — carrying the
+   * subscription's own plan and, at the end, `expired`. `.canceled` is the dangerous one: it
+   * would leave somebody who has just made the largest payment this app takes on nothing at
+   * all, with no later event to put it back.
+   */
+  it('lets no subscription event write over a Lifetime', () => {
+    for (const eventType of [
+      'subscription.updated',
+      'subscription.canceled',
+      'subscription.created',
+      'subscription.past_due',
+    ]) {
+      assert.equal(mayWritePlan('lifetime', eventType), false, eventType)
+    }
+  })
+
+  /* The Lifetime's own transaction has to be able to write it in the first place. */
+  it('lets a transaction write one', () => {
+    assert.equal(mayWritePlan('lifetime', 'transaction.completed'), true)
+  })
+
+  /* Every other plan is ordinary: a subscription event is exactly what maintains it. */
+  it('leaves every other plan alone', () => {
+    for (const plan of ['free', 'standard', 'plus', 'premium'] as const) {
+      assert.equal(mayWritePlan(plan, 'subscription.updated'), true, plan)
+    }
   })
 })

@@ -289,6 +289,29 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
 }
 
 /**
+ * Whether an event may write plan columns over what the account already holds.
+ *
+ * **Lifetime is terminal, and a subscription event must never demote it.** A reader who buys
+ * Lifetime while still paying for a subscription keeps both for a while: the subscription is
+ * cancelled at the end of the period they have paid for, so `subscription.updated` (carrying the
+ * scheduled cancellation) and then `subscription.canceled` both arrive *after* the Lifetime has
+ * been granted. Each of them reads the subscription's own items — Premium, say — and
+ * `statusOf('canceled')` answers `expired`. Left alone they would write that over the Lifetime,
+ * and the customer who has just made the largest single payment this app takes would be left on
+ * nothing, with no event still to come that would put it back.
+ *
+ * Both event names matter and `.canceled` is the dangerous one, so this matches the whole
+ * `subscription.` family rather than naming the two that are known to arrive today.
+ *
+ * It reads the plan **stored before this event**, so the order the two purchases land in is not
+ * a problem: a subscription event arriving *before* the Lifetime writes normally and is then
+ * overwritten by the Lifetime, which is the right way round.
+ */
+export function mayWritePlan(storedPlan: Plan, eventType: string): boolean {
+  return !(storedPlan === 'lifetime' && eventType.startsWith('subscription.'))
+}
+
+/**
  * A completed transaction as columns — which for all but one case means *no* columns.
  *
  * `transaction.completed` fires for every renewal too, and those carry a `subscription_id`

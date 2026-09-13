@@ -35,8 +35,10 @@ import { notifyTelegram } from '@/lib/telegram/notify'
 import { readLine } from './history'
 import { euro } from './prices'
 import { formatPlanDate } from './subscriptionCopy'
-import { PLAN_LABEL } from './types'
+import { paddleClient } from './paddleClient'
+import { PLAN_LABEL, readPlan } from './types'
 import {
+  mayWritePlan,
   subscriptionEffect,
   transactionEffect,
   transactionPeriodEnd,
@@ -75,7 +77,16 @@ function effectOf(event: IncomingPaddleEvent): PaddleEventEffect | null {
  * previous event will have written.
  */
 async function findAccount(ref: AccountRef) {
-  const columns = { id: accounts.id, ownerEmail: accounts.ownerEmail }
+  /* `plan` and the subscription id are read here rather than in a second query because both
+     decide what this event is allowed to do: a Lifetime account refuses a subscription event's
+     columns (`mayWritePlan`), and a Lifetime *purchase* has to know which subscription is still
+     running so it can end it. Both are read as they stood **before** this event. */
+  const columns = {
+    id: accounts.id,
+    ownerEmail: accounts.ownerEmail,
+    plan: accounts.plan,
+    paddleSubscriptionId: accounts.paddleSubscriptionId,
+  }
 
   if (ref.accountId !== null) {
     const [row] = await db().select(columns).from(accounts).where(eq(accounts.id, ref.accountId)).limit(1)
@@ -167,6 +178,54 @@ async function announcePayment(event: IncomingPaddleEvent, rawBody: string, owne
   })
 }
 
+/**
+ * Ending the subscription somebody was still paying for when they bought Lifetime.
+ *
+ * **A Lifetime beside a running subscription is the one shape this must never leave behind**:
+ * two payments for one account, the smaller one recurring for ever against a plan that has
+ * already been bought outright. It is the reason `/checkout/lifetime` refused a subscriber at
+ * all until now, and doing it here — after the money has arrived — is the only order that is
+ * safe. Cancelling first and then failing to take the payment would leave somebody with
+ * neither.
+ *
+ * **`next_billing_period`, not `immediately`, and the reason is that one of them cannot be
+ * undone.** Paddle refunds nothing either way — a cancellation stops billing and returns no
+ * money, whichever date it takes effect on — so the customer loses nothing by keeping the
+ * period they paid for, and Lifetime outranks it in the meantime anyway. What differs is what
+ * happens if the Lifetime purchase is withdrawn inside the fourteen days this app publishes on
+ * `/` and in the Terms: «You can't reinstate a canceled subscription», so an immediate cancel
+ * would leave that reader with no plan at all and no way back to the one they had. A scheduled
+ * cancellation is undone by clearing it, which is a single call.
+ *
+ * Read before cancelling, because `paddle_subscription_id` means «has had a subscription», not
+ * "has one" — cancelling a subscription that has already ended answers an error, which would
+ * reach the operator as a false alarm.
+ *
+ * **It cannot fail the delivery and it cannot retry**, running after the transaction has
+ * committed like `announcePayment` beside it. So a failure is told to the operator with both
+ * ids in the message: the remedy is one click in Paddle's own dashboard, and the cost of nobody
+ * knowing is a subscription that renews for ever beside a Lifetime.
+ */
+async function endSubscriptionBoughtOut(subscriptionId: string, ownerEmail: string) {
+  const paddle = paddleClient()
+  if (paddle === null) return
+
+  try {
+    const subscription = await paddle.subscriptions.get(subscriptionId)
+    if (subscription.status !== 'active') return
+    if (subscription.scheduledChange?.action === 'cancel') return
+
+    await paddle.subscriptions.cancel(subscriptionId, { effectiveFrom: 'next_billing_period' })
+  } catch (error) {
+    console.error('endSubscriptionBoughtOut failed', subscriptionId, error)
+    await notifyTelegram(
+      'purchase',
+      `⚠️ Lifetime comprato da ${ownerEmail} ma la subscription ${subscriptionId} non si è riusciti a disdirla: ` +
+        'va disdetta a mano su Paddle, altrimenti rinnova accanto al Lifetime.',
+    )
+  }
+}
+
 export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: string): Promise<ApplyOutcome> {
   const effect = effectOf(event)
   const account = effect ? await findAccount(effect.account) : null
@@ -193,17 +252,39 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     if (recorded.length === 0) return 'duplicate'
     if (!effect || !account) return effect && !account ? 'unmatched' : 'applied'
 
-    if (effect.columns) {
+    /*
+     * **A subscription event may not write over a Lifetime.** See `mayWritePlan`: the
+     * cancellation of the subscription a Lifetime buyer was still paying for arrives *after*
+     * the Lifetime is granted, and carries that subscription's own plan and an `expired`
+     * status. Writing it would take away the plan they just bought for ever.
+     */
+    const columns = mayWritePlan(readPlan(account.plan), event.eventType) ? effect.columns : null
+
+    /*
+     * **Neither id column is ever nulled once it has a value**, and that is a fix rather than a
+     * precaution. A Lifetime is a transaction with no `subscription_id` at all, so this used to
+     * write `null` over the pointer to the subscription still running beside it — erasing, in
+     * the same statement that granted the Lifetime, the one thing needed to end that
+     * subscription. It also cost every later event the second of `findAccount`'s three ways to
+     * recognise the account.
+     */
+    if (columns || effect.account.paddleCustomerId || effect.account.paddleSubscriptionId) {
       await tx
         .update(accounts)
         .set({
-          plan: effect.columns.plan,
-          planStatus: effect.columns.status,
-          planExpiresAt: effect.columns.expiresAt,
-          pendingPlan: effect.columns.pendingPlan,
-          pendingCycle: effect.columns.pendingCycle,
-          paddleCustomerId: effect.account.paddleCustomerId,
-          paddleSubscriptionId: effect.account.paddleSubscriptionId,
+          ...(columns
+            ? {
+                plan: columns.plan,
+                planStatus: columns.status,
+                planExpiresAt: columns.expiresAt,
+                pendingPlan: columns.pendingPlan,
+                pendingCycle: columns.pendingCycle,
+              }
+            : {}),
+          ...(effect.account.paddleCustomerId ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
+          ...(effect.account.paddleSubscriptionId
+            ? { paddleSubscriptionId: effect.account.paddleSubscriptionId }
+            : {}),
         })
         .where(eq(accounts.id, account.id))
     }
@@ -217,7 +298,16 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
    * budget runs out of one. Only on `applied`, which is also only on the *first* delivery — a
    * retry answers `duplicate` above and says nothing to anybody.
    */
-  if (outcome === 'applied' && account) await announcePayment(event, rawBody, account.ownerEmail)
+  if (outcome === 'applied' && account) {
+    await announcePayment(event, rawBody, account.ownerEmail)
+
+    /* The Lifetime is the one purchase that ends something else — see `endSubscriptionBoughtOut`.
+       The subscription id is the one read *before* this event, which is why the write above
+       stopped nulling it. */
+    if (effect?.columns?.plan === 'lifetime' && account.paddleSubscriptionId) {
+      await endSubscriptionBoughtOut(account.paddleSubscriptionId, account.ownerEmail)
+    }
+  }
 
   return outcome
 }
