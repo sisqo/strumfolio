@@ -496,13 +496,18 @@ const FAQ: FaqGroup[] = [
    * Plans and money, in three answers — the group this page went without while /pricing carried
    * the whole subject and the Terms carried the detail.
    *
-   * **Nothing here names a mechanism**, and that is the decision rather than an omission: no
-   * payment processor, no card, no receipt. While `SONGBOOK_MOCK_CHECKOUT` is on, nobody is
-   * charged and no receipt exists (see `lib/plans/CLAUDE.md`), so "Paddle is the seller on your
-   * receipt" — true in the Terms, which describe the contract rather than today's build — would
-   * be the one false sentence on this page. Every claim below instead describes what happens to
-   * the *reader*, which the real checkout will not change when it replaces the mock: what
-   * renews, what cancelling does to a period already paid for, what fourteen days buy.
+   * **Nothing here names a mechanism**, and that is still the decision — but the *reason*
+   * changed on 2026-09-13 and this paragraph outlived it. It used to be that nobody was charged
+   * at all: while `SONGBOOK_MOCK_CHECKOUT` was on, "Paddle is the seller on your receipt" — true
+   * in the Terms, which describe the contract — would have been the one false sentence on the
+   * page. The mock is gone, Paddle takes real money wherever it is configured, and that sentence
+   * would now be true.
+   *
+   * It is left out anyway, on its own merits: every claim below describes what happens to the
+   * *reader* — what renews, what cancelling does to a period already paid for, what fourteen
+   * days buy — and which company processes the card is not one of those. Naming Paddle here is
+   * therefore a choice that is now *available* rather than one that is refused; the Terms name
+   * it, and that is where somebody looking for it goes.
    *
    * Sourced from Terms §7 and §8 and deliberately shorter than they are. If those change, these
    * two answers are the second place to look, and a disagreement between them is a bug in this

@@ -26,7 +26,9 @@ export function readDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export interface PaddleAccountRef {
+/* Not exported: the one caller is `livePaddleSubscription` below, and a plain module's exports
+   are the surface somebody else builds on. */
+interface PaddleAccountRef {
   /** The numeric `accounts.id`, which is what a checkout stamps into `custom_data`. */
   id: number
   /**
@@ -44,7 +46,7 @@ export interface PaddleAccountRef {
  * no row — three different absences that every caller here treats the same way, since none of
  * them is a subscription to act on.
  */
-export async function paddleAccountRef(): Promise<PaddleAccountRef | null> {
+async function paddleAccountRef(): Promise<PaddleAccountRef | null> {
   if (!hasDatabase) return null
 
   const user = await currentUser()

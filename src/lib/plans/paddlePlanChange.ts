@@ -322,8 +322,9 @@ export async function changePaddlePlan(
     })
     if (!applied.ok) return { ok: false, reason: applied.reason }
 
+    /* `/billing` only. `/pricing` reads the cookie jar and is therefore already dynamic in this
+       router, so revalidating it was a call that did nothing and read as though it mattered. */
     revalidatePath('/billing')
-    revalidatePath('/pricing')
 
     return {
       ok: true,

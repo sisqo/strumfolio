@@ -173,6 +173,13 @@ consequences land in *this* directory:
   outright (`coupon-unsupported`) while a campaign is redeemable, rather than charging the
   listino to somebody who has just been promised 30% off. That refusal is the gate that
   disappears when campaigns carry a `paddle_discount_id`.
+  **It reads the cookie and nothing else, on purpose — so every screen that shows a coupon has to
+  write the cookie.** `redeemableCouponFor` takes the code from the request's own jar because
+  nothing client-side may reach a decision about money; the consequence is that a screen showing
+  a coupon applied from a *URL* must also persist it, or the two halves read different sources.
+  `/checkout/[plan]` did not until a review on 2026-09-14, so a reader arriving straight on
+  `/checkout/plus?coupon=X` — never having passed through /pricing — was shown the discount and
+  then sold at the listino. Both pages pass `persist` now.
 
 ## The webhook: what an event is allowed to conclude
 
@@ -336,7 +343,21 @@ watched working by anybody.
     sequence for both writers: it retries the date once, and if it still cannot be set it puts
     the items back and pins again. The rollback goes back to what Paddle *had*, never forward —
     a reader left on the plan they already bought is a failure nobody is charged for, and an
-    early charge is not.
+    early charge is not. **It also sends the operator a Telegram**, which it did not until a
+    review on 2026-09-14 noticed that the cheapest failure on the Paddle path alerted and the
+    only one that costs a customer money did not.
+  - **Whether the date landed is `pinLanded`, with a minute of tolerance, and not equality.**
+    That value makes a round trip through Paddle, and exact equality fails in the expensive
+    direction: a pin that *worked* would read as failed, and the rollback would undo a change
+    that had gone through while telling the reader it had not. What the check detects is a date
+    that never moved, and an unpinned date is a whole cycle away — a month or a year — so the
+    tolerance is enormous against the noise and still leaves the real failure no room. Pure and
+    tested for that reason; everything else in that file is I/O.
+  - **Both writers re-read the period from the call that clears a scheduled cancellation.**
+    `changePaddlePlan` has done so since `22aac13`; `keepPaddleSubscription` did not until the
+    same review, and it is reachable — a reader who arranged a change of cycle *and* cancelled
+    has both undos run on one press, and the second was pinning to a day read before Paddle had
+    touched the row twice.
   - **The period is re-read from the call that clears a scheduled cancellation**, never from the
     snapshot taken before it. Everything downstream pins a date — the stamp promises the reader a
     day and `pinBillingDate` writes that day into Paddle — so believing a snapshot over Paddle's

@@ -159,15 +159,27 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           * its price independently, so a coupon that stopped at /pricing would vanish exactly
           * here, at the point in the funnel where the basket is already full.
           *
-          * `persist` is deliberately not passed: /pricing is where a URL coupon is written to
-          * the cookie, and doing it here as well would mean two components racing to write the
-          * same value on the one journey that passes through both.
+          * **`persist` is passed here too, and withholding it was a real gap rather than a
+          * tidiness.** The reasoning used to be that /pricing is where a URL coupon becomes a
+          * cookie, and writing it here as well would be two components racing over one value on
+          * the journey through both. But the journey that matters is the one that *skips*
+          * /pricing: a reader arriving straight on `/checkout/plus?coupon=X` — a typed link, a
+          * bookmark, a link in a message — never got the cookie at all, so the bar above said a
+          * discount applied while `redeemableCouponFor` (which reads the cookie and nothing else,
+          * on purpose) saw nothing and let the sale through at the listino. That is the
+          * shown-price/charged-price gap this directory exists to close, opened by the two halves
+          * reading different sources.
+          *
+          * The race the old reasoning feared is benign — the same code, written idempotently —
+          * and the button cannot be pressed before the write lands anyway: a first purchase waits
+          * for Paddle.js and a change waits for its preview, each a round trip of its own.
           */}
         {/* The only coupon control here now: it used to be hidden while the overlay advertised
             an unclaimed offer, and nothing is advertised on this screen any more. */}
         <div className="mb-4">
           <CouponBar
             applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
+            persist={campaign !== null && campaign.code !== cookieCode ? campaign.code : undefined}
             note={note}
           />
           {/*

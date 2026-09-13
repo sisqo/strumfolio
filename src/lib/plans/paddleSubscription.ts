@@ -29,7 +29,7 @@ import { revalidatePath } from 'next/cache'
 
 import { hasDatabase } from '@/lib/db/client'
 
-import { livePaddleSubscription, type NoLiveSubscription } from './paddleAccount'
+import { livePaddleSubscription, readDate, type NoLiveSubscription } from './paddleAccount'
 import { applyItemChange } from './paddleApply'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan } from './prices'
@@ -116,8 +116,19 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
       return { ok: false, reason: 'nothing-scheduled' }
     }
 
+    /*
+     * **The period is re-read from the call that clears the cancellation, never from the
+     * snapshot taken before it** — the same rule `changePaddlePlan` follows, and it belongs here
+     * for the same reason. Cancelling nulls `next_billed_at` and clearing restores it, so the
+     * row is touched before anything below pins a date; a reader who had both a cancellation and
+     * an arranged change of cycle would otherwise have their paid period put back to a day read
+     * before Paddle last moved it. Paddle answers every update with the updated subscription, so
+     * this costs nothing.
+     */
+    let periodEndsAt = live.periodEndsAt
     if (live.scheduledChange) {
-      await paddle.subscriptions.update(live.id, { scheduledChange: null })
+      const cleared = await paddle.subscriptions.update(live.id, { scheduledChange: null })
+      periodEndsAt = readDate(cleared.currentBillingPeriod?.endsAt) ?? periodEndsAt
     }
 
     if (live.pendingDowngrade !== null) {
@@ -142,8 +153,8 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
        * period would simply restart at a year and no invoice would ever mention it.
        */
       const movesFrequency = live.pendingDowngrade.cycle !== live.cycle
-      if (movesFrequency && live.periodEndsAt === null) return { ok: false, reason: 'unreadable' }
-      const pinTo = movesFrequency ? live.periodEndsAt : null
+      if (movesFrequency && periodEndsAt === null) return { ok: false, reason: 'unreadable' }
+      const pinTo = movesFrequency ? periodEndsAt : null
 
       const applied = await applyItemChange(paddle, live, {
         priceId,

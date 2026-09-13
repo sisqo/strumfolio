@@ -30,6 +30,8 @@
 
 import type { Paddle } from '@paddle/paddle-node-sdk'
 
+import { notifyTelegram } from '@/lib/telegram/notify'
+
 import { customDataFor, type LivePaddleSubscription } from './paddleAccount'
 import type { ProrationMode } from './planChange'
 
@@ -62,6 +64,35 @@ export type ItemChangeFailure = 'failed'
  * than the absence of a throw: this is the one call whose silent failure would be read as
  * success by everything downstream.
  */
+/**
+ * How far the date Paddle reports back may sit from the one asked for and still count as landed.
+ *
+ * **Exact equality was the wrong test, and it fails in the expensive direction.** The value makes
+ * a round trip through a third party — sent as an ISO string, stored, parsed back — and the one
+ * measurement behind it (2026-09-13) is not a promise that Paddle will never normalise a
+ * timestamp to its own billing time-of-day or precision. If it ever does, a pin that *worked*
+ * reads as failed, the retry below reads as failed too, and the rollback undoes a change that
+ * had gone through, telling the reader it did not.
+ *
+ * A minute is enormous margin against what this is actually detecting: an unset date is a whole
+ * cycle away — a month or a year — not a second.
+ */
+const PIN_TOLERANCE_MS = 60_000
+
+/**
+ * Whether the date Paddle reported back is the date that was asked for. Pure and exported so the
+ * comparison that was wrong is the one thing here a test can hold in place — everything else in
+ * this file is I/O.
+ */
+export function pinLanded(reported: string | null | undefined, wanted: Date): boolean {
+  if (reported == null) return false
+
+  const landed = new Date(reported)
+  if (Number.isNaN(landed.getTime())) return false
+
+  return Math.abs(landed.getTime() - wanted.getTime()) <= PIN_TOLERANCE_MS
+}
+
 async function putBillingDate(paddle: Paddle, id: string, at: Date): Promise<boolean> {
   try {
     const pinned = await paddle.subscriptions.update(id, {
@@ -69,7 +100,7 @@ async function putBillingDate(paddle: Paddle, id: string, at: Date): Promise<boo
       prorationBillingMode: 'do_not_bill',
     })
 
-    return pinned.nextBilledAt != null && new Date(pinned.nextBilledAt).getTime() === at.getTime()
+    return pinLanded(pinned.nextBilledAt, at)
   } catch (error) {
     console.error('putBillingDate failed', error)
     return false
@@ -103,6 +134,21 @@ export async function applyItemChange(
    * paid for, which is the one direction this is allowed to be wrong in.
    */
   console.error('applyItemChange could not pin the billing date; rolling the items back', live.id)
+
+  /*
+   * **The one failure on this path that costs a customer money, and it used to tell nobody.** A
+   * `console.error` on Vercel is a line in a log nobody tails; meanwhile the *cheaper* failure —
+   * a subscription left running beside a Lifetime — has sent the operator a Telegram since B9.
+   * That was the wrong way round. `notifyTelegram` swallows its own errors and is switched off
+   * per event by the operator's own settings, so this cannot fail the change or throw into the
+   * rollback below.
+   */
+  await notifyTelegram(
+    'purchase',
+    `⚠️ Cambio piano a metà sulla subscription ${live.id}: la data di fatturazione non si è ` +
+      'riuscita a rimettere, sto rimettendo indietro gli item. Controlla su Paddle che il ' +
+      'periodo finisca il giorno pagato, altrimenti il cliente viene addebitato in anticipo.',
+  )
 
   /*
    * **The stamp goes back to whatever was on the subscription before this call**, which is what

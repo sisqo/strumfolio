@@ -1227,8 +1227,10 @@ export const couponCampaigns = pgTable(
  * The unique index is the load-bearing part. A campaign is redeemable once per account, which
  * is what makes `usageLimitSubscription` a ceiling that can be *verified* — `timesUsed` is a
  * `count(*)` over this table, not an estimate — and it is the only thing standing between a
- * ceiling of 500 and a single account burning all of it, which with `SONGBOOK_MOCK_CHECKOUT`
- * switched on costs nothing at all.
+ * ceiling of 500 and a single account burning all of it — which cost an attacker nothing at all
+ * back when `SONGBOOK_MOCK_CHECKOUT` existed and no redemption was a real payment. That flag was
+ * deleted on 2026-09-13; the index is load-bearing regardless, since the ceiling is a promise
+ * made to whoever runs the campaign.
  *
  * `campaignId` has a foreign key because a campaign is never deleted, only archived.
  *
