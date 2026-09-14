@@ -194,6 +194,14 @@ break from a distance:
     write, Paddle answers what was just asked for, and the summary turned into «that is the plan
     you are already on» *above* the sentence saying it was done. A settled screen now shows the
     outcome and a way to /billing, and nothing else.
+  - **The copy promised a discount that a change of cycle does not give.** «You pay €99.99 now
+    — the difference for the rest of the period you have already paid for» is true of a
+    same-cycle upgrade, where €3.00 really was the difference, and false of monthly → yearly:
+    Paddle quoted `credit: 0` and `charge: 9999` one day into a paid month, because a change of
+    frequency opens a fresh period rather than prorating the old one. The totals look identical
+    either way, which is why `changeCostLine` takes a flag from the caller instead of trying to
+    read it off the numbers — and why nobody would have caught this from the figures. The
+    after-the-press sentence carried the same claim and is corrected with it.
   - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
     line still promising the downgrade, right until a manual reload. It re-reads once more three
     seconds later; deliberately not a poll, because a screen that is briefly behind is better

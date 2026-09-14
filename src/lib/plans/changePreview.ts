@@ -128,7 +128,7 @@ export function scheduledChangeLine(keep: string, to: string, on: string): strin
  * are said, in that order, since «€3.50, and nothing to pay» is only confusing if the €3.50 is
  * left out and the next invoice mentions it.
  */
-export function changeCostLine(cost: ChangeCost): string {
+export function changeCostLine(cost: ChangeCost, restartsThePeriod = false): string {
   if (cost.action === 'credit') {
     return (
       `You pay nothing now. €${cost.amount} of what you have already paid comes back as credit ` +
@@ -138,12 +138,27 @@ export function changeCostLine(cost: ChangeCost): string {
 
   if (cost.action === 'nothing') return 'There is nothing to pay for this change.'
 
+  /*
+   * **«The difference» is a claim about proration, and a change of billing cycle is not a
+   * prorated one.** Measured on 2026-09-14: Premium monthly → Premium yearly, one day into the
+   * month, quoted `credit: 0` and `charge: 9999` — Paddle starts a fresh year and gives nothing
+   * back for the days already paid. The screen said «you pay €99.99 now — the difference for
+   * the rest of the period you have already paid for», which is the largest figure this app
+   * shows and the one sentence about it that was false.
+   *
+   * So the caller says whether the period restarts, and it is a parameter rather than something
+   * read off `cost`: the totals look identical either way, and that is exactly why nobody would
+   * have caught it from the numbers.
+   */
   if (cost.payNow === cost.amount) {
-    return `You pay €${cost.amount} now — the difference for the rest of the period you have already paid for.`
+    return restartsThePeriod
+      ? `You pay €${cost.amount} now, and a fresh period starts today.`
+      : `You pay €${cost.amount} now — the difference for the rest of the period you have already paid for.`
   }
 
-  return (
-    `This works out at €${cost.amount} for the rest of the period you have already paid for, ` +
-    `covered by the credit on your account. €${cost.payNow} leaves your card now.`
-  )
+  return restartsThePeriod
+    ? `A fresh period starts today at €${cost.amount}, part of it covered by the credit on your ` +
+      `account. €${cost.payNow} leaves your card now.`
+    : `This works out at €${cost.amount} for the rest of the period you have already paid for, ` +
+      `covered by the credit on your account. €${cost.payNow} leaves your card now.`
 }

@@ -125,6 +125,28 @@ describe('changeCostLine', () => {
     assert.match(line, /pay nothing now/)
     assert.match(line, /€6\.50/)
   })
+
+  /*
+   * **A change of billing cycle is not a prorated one, and the sentence must not say it is.**
+   * Measured against the sandbox on 2026-09-14: Premium monthly → Premium yearly, one day into
+   * the month, came back `credit: 0` / `charge: 9999` — a fresh year, nothing back for the days
+   * already paid. The totals look exactly like a prorated upgrade's, which is why the caller has
+   * to say which one this is rather than the numbers being read for it.
+   */
+  it('promises no difference where the period starts again', () => {
+    const restarted = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99' }, true)
+
+    assert.equal(restarted, 'You pay €99.99 now, and a fresh period starts today.')
+    assert.doesNotMatch(restarted, /difference/)
+    assert.doesNotMatch(restarted, /already paid for/)
+  })
+
+  it('still says both numbers on a restarted period that credit partly covers', () => {
+    const line = changeCostLine({ action: 'charge', amount: '99.99', payNow: '90.33' }, true)
+
+    assert.match(line, /fresh period starts today/)
+    assert.match(line, /€90\.33 leaves your card/)
+  })
 })
 
 /**

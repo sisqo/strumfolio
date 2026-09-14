@@ -549,6 +549,13 @@ export function PaddleCheckout(props: Props) {
       )
     }
 
+    /* The same correction as `changeCostLine`'s: a change of cycle opens a fresh period and
+       credits nothing, so promising that the unused part «comes off the charge» is a discount
+       that will not appear on the invoice. */
+    if (live !== null && live.cycle !== cycle) {
+      return `Moving you to ${target}, and a fresh period starts today. The new plan appears in a moment.`
+    }
+
     return result.direction === 'upgrade'
       ? `Moving you to ${target}. What you have not used of your old plan comes off the charge, ` +
         'and the new plan appears in a moment.'
@@ -589,7 +596,7 @@ export function PaddleCheckout(props: Props) {
                     changeNames(live, { plan: props.plan, cycle }).to,
                     formatPlanDate(new Date(preview.effectiveAt)),
                   )
-                : changeCostLine(preview.cost),
+                : changeCostLine(preview.cost, live !== null && live.cycle !== cycle),
         })
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]
