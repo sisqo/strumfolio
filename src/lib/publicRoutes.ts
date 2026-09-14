@@ -80,6 +80,21 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
    * nothing about it needs a reader without a session — it needs not to *care*.
    */
   { path: '/home', indexable: false },
+  /*
+   * `/qa`, the testing entry point: it makes a verified account and signs in as it, so by
+   * definition whoever needs it has no session — the same reason every row below is here.
+   *
+   * **Session-free unconditionally, and the page itself is what 404s in production.** A row
+   * added conditionally would break the one property this module exists for: one list, two
+   * readers, always the same answer. There is nothing to protect by hiding the path from the
+   * guard either — `lib/qa/entry.ts` refuses the environment and `lib/qa/actions.ts` refuses
+   * any address outside `@strumfolio.test`, and neither of those is a route table.
+   *
+   * Never indexable, for the reason `/verify` is not: it is a tool, and in the one environment
+   * a crawler could reach it from it does not exist. The page carries a `noindex` of its own.
+   */
+  { path: '/qa', indexable: false },
+
   { path: '/pricing', indexable: true },
   { path: '/changelog', indexable: true },
   { path: '/register', indexable: true },
