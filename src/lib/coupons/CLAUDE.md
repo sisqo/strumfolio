@@ -3,8 +3,10 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-Percentage-off campaigns, native to Strumfolio: no Paddle client exists, so this repo is the
-source of truth until one does. The load-bearing parts:
+Percentage-off campaigns, native to Strumfolio. **This repo decides *whether* a discount is
+owed and Paddle applies it** — a campaign row here is translated into two or three Paddle
+Discount entities (`paddleDiscount.ts`), and it is those that take the money off. The
+load-bearing parts:
 
 - `types.ts` — the vocabulary and every parser, with **no `@/lib/db` import** so client
   components can value-import it. `CAMPAIGN_FAILURE_MESSAGE` lives here for the sibling-module
@@ -35,14 +37,41 @@ source of truth until one does. The load-bearing parts:
   argument: `PaddleCheckout` is `'use client'`, and a code travelling as a parameter is a
   self-service discount of any size. The screen's `coupon` prop decides what is *printed*;
   `redeemableCouponFor` (a plain sibling of `checkout.ts`, for the reason above) decides what
-  is charged — and today what it decides is that a redeemable coupon **refuses the sale**,
-  since no campaign has a Paddle Discount behind it yet.
-- **`coupon_redemptions` has readers and no writer** (since 2026-09-13). `mockPurchase` wrote
-  the row; nothing replaced it, so `timesUsed` counts zero for ever, `redeemability`'s
-  once-per-account gate can never refuse, and `views.ts`' views→redemptions join is empty.
-  Unreachable rather than exploitable — a redeemable coupon refuses the sale — but the insert
-  has to come back in the same commit that lets a coupon be sold, or every campaign ceiling is
-  silently uncapped. The three `accounts.coupon*` columns lost their writer the same day.
+  is charged — and what it hands Paddle is a `dsc_…` id, never a code. `enabled_for_checkout:
+  false` means Paddle generates none, so there is nothing to type and nothing a parameter could
+  carry.
+- **The refusal is narrowed, not lifted** (2026-09-14). It used to be «a redeemable coupon
+  exists → refuse the sale»; it is now «this plan and cycle have no `dsc_…` → refuse the sale»,
+  and every failure mode in the feature lands on it: a sync that never ran, one that failed, a
+  campaign that covers no Lifetime, a cycle whose three prices could not all be named. **A
+  coupon never causes a sale at the listino**, which is the single invariant the whole design is
+  arranged around — the shown-price/charged-price gap inverted into the direction that takes
+  *more* money than was advertised is the one version of it nobody can be asked to accept.
+  `changePaddlePlan` still refuses outright, and for a stated reason: a recurring discount
+  survives a plan change on its own, so what is left is a code never redeemed, and the two
+  sentences that say what a change costs (`changeCostLine`, `scheduledChangeLine`) know nothing
+  about discounts.
+- **Two entities per campaign, three when it covers the Lifetime — all from one row.**
+  `maximum_recurring_intervals` counts billing periods and `discount_months` is months, so one
+  entity cannot hold both numbers — `discountCycles` derives each. That is the reference document's `ABC`/`ABC-Y`/`ABC-LT` terna,
+  reappearing as three columns on one row rather than three rows to keep in step. **Measured
+  2026-09-14**: a 30% discount restricted to Standard monthly turned €3.49 into €2.44, the
+  cent-for-cent figure `discountedAmount` computes; and three intervals on a monthly
+  subscription came back `starts_at 2026-10-13` / `ends_at 2027-01-13`, which is `discountEnd`'s
+  own arithmetic. That second measurement is why `accounts.discount_ends_at` is **computed at
+  redemption and never read back from Paddle**.
+- **`restrict_to` is all-or-nothing per kind.** A monthly discount restricted to two of the
+  three monthly prices attaches to the third's transaction happily, matches no item, and charges
+  the listino — with no error anywhere, because from Paddle's side nothing went wrong. So a kind
+  whose every price cannot be named is not created at all.
+- **`coupon_redemptions` has its writer back** (2026-09-14, `recordCouponRedemption` in
+  `plans/webhookApply.ts`) — the condition this file used to state, that the insert «has to come
+  back in the same commit that lets a coupon be sold, or every campaign ceiling is silently
+  uncapped». **The insert is also the clock**: Paddle carries a transaction's `custom_data` onto
+  the subscription it opens, so the campaign stamp arrives on every renewal, and what separates
+  the first payment from the ninetieth is `coupon_redemptions_once` taking a row once. The three
+  `accounts.coupon*` columns are written only when it did — and *cleared* by a purchase carrying
+  no coupon, never by a renewal (`isNewPurchase`, which reads Paddle's `origin`).
 - **The cookie carries a code and nothing else.** Every read re-derives state, window, both
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the

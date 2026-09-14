@@ -5,7 +5,9 @@ import { useState } from 'react'
 import { CampaignForm } from '@/components/CampaignForm'
 import type { EditableCampaign } from '@/components/CampaignForm'
 import { IconInfo } from '@/components/icons'
-import { setDefaultCampaign } from '@/lib/coupons/actions'
+import { resyncCampaign, setDefaultCampaign } from '@/lib/coupons/actions'
+import { DISCOUNT_KIND_LABEL } from '@/lib/coupons/paddleDiscount'
+import type { DiscountKind } from '@/lib/coupons/paddleDiscount'
 import { CAMPAIGN_FAILURE_MESSAGE, STATUS_LABEL } from '@/lib/coupons/types'
 import type { CampaignStatus } from '@/lib/coupons/types'
 import { useOnline } from '@/lib/useOnline'
@@ -26,6 +28,16 @@ export interface CampaignRow extends EditableCampaign {
   /** True for an active campaign with no end date: the one thing this screen has to make loud. */
   endless: boolean
   limitLabel: string
+  /**
+   * Which of this campaign's three Paddle Discounts do not exist — empty for a campaign that can
+   * sell every plan it covers at the discounted price.
+   *
+   * **The screen has to carry this because the failure is otherwise silent and safe.** A campaign
+   * with no discount behind it does not overcharge anybody: the checkout refuses the sale. So
+   * nothing errors, nothing is logged where an operator looks, and the only symptom is an
+   * advertising campaign that quietly converts nobody.
+   */
+  missing: DiscountKind[]
 }
 
 const STATUS_CLASS: Record<CampaignStatus, string> = {
@@ -48,6 +60,19 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
   const [creating, setCreating] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const sync = async (row: CampaignRow) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await resyncCampaign(row.id)
+      if (!result.ok) setError(CAMPAIGN_FAILURE_MESSAGE[result.reason])
+    } catch {
+      setError(CAMPAIGN_FAILURE_MESSAGE.failed)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const toggleDefault = async (row: CampaignRow) => {
     setBusy(true)
@@ -116,6 +141,11 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
                 </span>
 
                 <span className="flex flex-none gap-2">
+                  {row.missing.length > 0 && (
+                    <button type="button" className="btn btn-sm" disabled={!online || busy} onClick={() => void sync(row)}>
+                      Sync
+                    </button>
+                  )}
                   {row.status !== 'archived' && (
                     <button
                       type="button"
@@ -148,6 +178,25 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
                   <span>
                     No end date. This campaign keeps discounting until somebody archives it — and while it runs, the
                     full price is not what that audience ever sees.
+                  </span>
+                </p>
+              )}
+
+              {/*
+                * The same argument as the row above, pointed the other way: that one makes a
+                * campaign that discounts too much impossible not to notice, this one a campaign
+                * that discounts nothing at all. Nobody is overcharged — `startPaddleCheckout`
+                * answers `coupon-unsupported` and sells nothing — so the whole cost of this
+                * lands on a reader who clicked an advertisement and was told the offer could
+                * not be applied, which leaves no trace anywhere an operator would look.
+                */}
+              {row.missing.length > 0 && (
+                <p className="notice notice-error mt-2.5" role="status">
+                  <IconInfo />
+                  <span>
+                    No discount on Paddle for {row.missing.map((kind) => DISCOUNT_KIND_LABEL[kind]).join(' and ')}.
+                    Until there is, a reader carrying this code is refused at the checkout rather than charged the
+                    full price. Press “Sync”.
                   </span>
                 </p>
               )}

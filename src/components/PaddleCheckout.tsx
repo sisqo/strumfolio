@@ -184,11 +184,21 @@ function checkoutSettings(): CheckoutSettings {
      * So the setting goes in now and stays after Paddle Discounts exist, not only while they do
      * not.
      *
-     * Today it also removes a field that can only fail: no campaign has a `dsc_…` behind it, so
-     * every code entered there is answered «invalid», two inches under one that says it is
-     * applied.
+     * It also removes a field that would mostly fail: the only discounts this account has are
+     * created with `enabled_for_checkout: false`, so Paddle generates no code for them and there
+     * is nothing anybody could type there that would work.
      */
     showAddDiscounts: false,
+    /*
+     * **And the discount already applied cannot be taken off.** `allowDiscountRemoval` defaults
+     * to `true`, which would let a reader remove the `dsc_…` the server attached to the
+     * transaction — leaving the bar directly above the frame still saying the code is on these
+     * prices while the frame charged the listino. The same shown-price/charged-price gap
+     * `startPaddleCheckout` refuses a sale over, arriving by the one route the server cannot
+     * see: the discount is decided here, on the server, from a cookie the page never gets to
+     * argue with, and it stays decided.
+     */
+    allowDiscountRemoval: false,
   }
 }
 

@@ -24,21 +24,26 @@
  * comment says so: «the ledger's job is to have the event, not to have understood it».
  */
 
+import { randomUUID } from 'crypto'
+
 import { eq } from 'drizzle-orm'
 
+import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
-import { accounts, paddleEvents } from '@/lib/db/schema'
+import { accounts, couponCampaigns, couponRedemptions, paddleEvents } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { purchaseEmail } from '@/lib/email/templates'
 import { notifyTelegram } from '@/lib/telegram/notify'
 
 import { readLine } from './history'
-import { euro } from './prices'
+import { euro, isCheckoutPlan, LIFETIME, PRICES, type BillingPeriod } from './prices'
 import { formatPlanDate } from './subscriptionCopy'
 import { paddleClient } from './paddleClient'
 import { PLAN_LABEL, readPlan } from './types'
 import {
   adjustmentEffect,
+  couponCampaignOf,
+  isNewPurchase,
   mayWritePlan,
   subscriptionEffect,
   transactionEffect,
@@ -119,6 +124,159 @@ async function findAccount(ref: AccountRef) {
   return null
 }
 
+/** A redemption this delivery actually recorded — never one an earlier delivery already had. */
+interface Redemption {
+  code: string
+  percent: string
+  /** The listino on the day, from `PRICES`: what the discount came off. */
+  fullAmount: string
+  /** What Paddle actually took, read from the same totals the payment history reads. */
+  paidAmount: string
+  months: number | null
+  cycle: BillingPeriod | null
+  discountEndsAt: Date | null
+}
+
+/**
+ * What one event asks of the account's three `coupon*` columns — three answers and not two.
+ *
+ * `cleared` is the one that is easy to leave out and expensive to: those columns say «what will
+ * this account pay next», so a purchase made at full price has to *erase* the code the last one
+ * left, or somebody who bought the Lifetime at the listino goes on being described as living
+ * under a campaign from July. `untouched` is everything else — a renewal, a subscription event,
+ * a redemption already counted — and it is the answer for anything unreadable, because no
+ * payload this app cannot parse should take a discount away.
+ */
+type CouponWrite =
+  | { kind: 'redeemed'; redemption: Redemption }
+  | { kind: 'cleared' }
+  | { kind: 'untouched' }
+
+const UNTOUCHED: CouponWrite = { kind: 'untouched' }
+
+type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
+
+/**
+ * The `coupon_redemptions` row — the writer that table had been missing since 2026-09-13.
+ *
+ * Between the mock checkout's demolition and this commit the table had readers and no writer, so
+ * `timesUsed` counted zero for ever and `redeemability`'s once-per-account gate could never
+ * refuse anybody. Both were unreachable rather than exploitable, because a redeemable coupon
+ * refused the sale outright — and this function is exactly the half that had to come back **in
+ * the same commit** that lets a coupon be sold, or every campaign ceiling would be silently
+ * uncapped.
+ *
+ * **The insert is the clock, and everything else hangs off that.** `transaction.completed` fires
+ * on every renewal, and Paddle carries a transaction's `custom_data` onto the subscription it
+ * opens — so the campaign stamp arrives again every month, for as long as the subscription
+ * lives. Reading the stamp as «a coupon was redeemed» would push `accounts.discount_ends_at`
+ * forward at each renewal and the discount would never end. What separates the first payment
+ * from the ninetieth is `coupon_redemptions_once`: the insert takes a row once and never again,
+ * and the account's three discount columns are written only when it did. Renewals are therefore
+ * harmless by construction rather than by a test on some field of the payload.
+ *
+ * **`onConflictDoNothing()` with no target, deliberately.** This table carries *two* unique
+ * indexes — by `account_id` and by `account_owner_email`, and `db/schema.ts` argues at length
+ * that neither subsumes the other. A targeted clause covers one of them; the other would then
+ * raise inside the webhook's transaction, which is a 500, which Paddle retries for three days —
+ * and the payment would never be recorded at all. The bare form absorbs both.
+ *
+ * **`discount_ends_at` is computed here and read back from nowhere.** Measured against the
+ * sandbox on 2026-09-14: a discount of three intervals attached to a monthly subscription came
+ * back `starts_at 2026-10-13` / `ends_at 2027-01-13`, three whole months from the start — which
+ * is `discountEnd`'s own arithmetic, because `maximum_recurring_intervals` is a number this app
+ * set from the same `discount_months`. The two agree by construction, so reading Paddle's copy
+ * back would buy nothing and cost the thing this repository keeps warning about: two writers for
+ * one fact is how the two come to disagree.
+ *
+ * Both amounts are stored and neither is derived later, `couponRedemptions`' own rule: the
+ * listino is what it said **on the day**, and re-deriving it from `PRICES` after a re-price is
+ * how history that already happened gets quietly rewritten.
+ */
+async function recordCouponRedemption(
+  tx: Tx,
+  event: IncomingPaddleEvent,
+  rawBody: string,
+  account: { id: number; ownerEmail: string },
+): Promise<CouponWrite> {
+  if (event.eventType !== 'transaction.completed') return UNTOUCHED
+
+  const purchase = isNewPurchase(event.data as never)
+  const campaignId = couponCampaignOf(event.data as never)
+
+  /* A purchase carrying no campaign at all is what has to *clear* the columns — see
+     `isNewPurchase`. A renewal carrying none leaves them exactly as they are. */
+  if (campaignId === null) return purchase ? { kind: 'cleared' } : UNTOUCHED
+
+  const [campaign] = await tx
+    .select({
+      code: couponCampaigns.code,
+      discountPercent: couponCampaigns.discountPercent,
+      discountMonths: couponCampaigns.discountMonths,
+    })
+    .from(couponCampaigns)
+    .where(eq(couponCampaigns.id, campaignId))
+    .limit(1)
+
+  /* A stamp naming no campaign is a campaign deleted — which cannot happen, since archiving is
+     the only retirement — or an id from another installation. Either way there is nothing to
+     record and nothing to promise. */
+  if (campaign === undefined) return purchase ? { kind: 'cleared' } : UNTOUCHED
+
+  /* The same reader the payment history and the confirmation email use, so a redemption row and
+     the line beside it in `/billing` can never name different amounts for one event. */
+  const line = readLine(event.eventType, rawBody)
+  if (line.plan === null || !isCheckoutPlan(line.plan)) return UNTOUCHED
+
+  const cycle = line.plan === 'lifetime' ? null : line.cycle
+  if ((line.plan === 'lifetime') !== (cycle === null)) return UNTOUCHED
+
+  const fullAmount = line.plan === 'lifetime' ? LIFETIME.amount : PRICES[line.plan][cycle as BillingPeriod].amount
+  const paidAmount = line.amount ?? discountedAmount(fullAmount, campaign.discountPercent)
+
+  /* Null for the Lifetime, which is bought once and has no period for a duration to run over,
+     and null for a campaign whose discount never lapses. */
+  const discountEndsAt = cycle === null ? null : discountEnd(campaign.discountMonths, cycle, new Date())
+
+  const recorded = await tx
+    .insert(couponRedemptions)
+    .values({
+      id: randomUUID(),
+      campaignId,
+      accountOwnerEmail: account.ownerEmail,
+      accountId: account.id,
+      code: campaign.code,
+      discountPercent: campaign.discountPercent,
+      plan: line.plan,
+      cycle,
+      fullAmount,
+      paidAmount,
+      discountEndsAt,
+    })
+    .onConflictDoNothing()
+    .returning({ id: couponRedemptions.id })
+
+  /*
+   * The insert took nothing, so this campaign is already on this account's ledger: a renewal, a
+   * retry Paddle sent again, or the second half of a race. Nothing is written and nothing is
+   * cleared — whatever the first delivery decided stands.
+   */
+  if (recorded.length === 0) return UNTOUCHED
+
+  return {
+    kind: 'redeemed',
+    redemption: {
+      code: campaign.code,
+      percent: campaign.discountPercent,
+      fullAmount,
+      paidAmount,
+      months: campaign.discountMonths,
+      cycle,
+      discountEndsAt,
+    },
+  }
+}
+
 /**
  * The two messages a payment is worth sending, decided on their own merits rather than
  * inherited: Paddle is the Merchant of Record and sends its own invoice, so neither of these is
@@ -148,7 +306,12 @@ async function findAccount(ref: AccountRef) {
  * they got the first time. Paddle sends its own invoice beside it; this is the one that says
  * which plan, and until when.
  */
-async function announcePayment(event: IncomingPaddleEvent, rawBody: string, ownerEmail: string) {
+async function announcePayment(
+  event: IncomingPaddleEvent,
+  rawBody: string,
+  ownerEmail: string,
+  redemption: Redemption | null,
+) {
   if (event.eventType !== 'transaction.completed') return
 
   /* The same reader the payment history uses, so the ledger line and the email cannot name
@@ -175,10 +338,24 @@ async function announcePayment(event: IncomingPaddleEvent, rawBody: string, owne
       /* The period this payment bought — read from the transaction, not from the columns, which
          for a subscription purchase are deliberately empty. `transactionPeriodEnd` says why. */
       endsOn: periodEnd === null ? null : formatPlanDate(periodEnd),
-      /* No coupon: `lib/coupons/` has no Paddle Discount behind any campaign, and
-         `startPaddleCheckout` refuses the sale outright while one is redeemable. When that
-         changes, the discount rides on the transaction and is read here. */
-      coupon: null,
+      /*
+       * **Only on the delivery that actually recorded the redemption**, which is what makes this
+       * a purchase confirmation and not a monthly reminder: the stamp rides on every renewal, and
+       * `recordCouponRedemption` answers null for all of them. The duration is
+       * `durationCopy` — the very sentence /checkout showed above the button — rather than one
+       * composed here, because two wordings of one promise is how the two come to differ.
+       */
+      coupon:
+        redemption === null
+          ? null
+          : {
+              code: redemption.code,
+              fullAmount: redemption.fullAmount,
+              duration:
+                redemption.cycle === null
+                  ? null
+                  : durationCopy(redemption.fullAmount, redemption.paidAmount, redemption.months, redemption.cycle),
+            },
     }),
   })
 }
@@ -273,6 +450,11 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
   const effect = effectOf(event)
   const account = effect ? await findAccount(effect.account) : null
 
+  /* Carried out of the transaction so the confirmation email can name the coupon. Assigned
+     inside it, and only when the insert took a row — a rollback throws before anything reads
+     this, and a retry finds `duplicate` and never reaches the insert at all. */
+  let coupon: CouponWrite = UNTOUCHED
+
   const outcome: ApplyOutcome = await db().transaction(async (tx) => {
     const recorded = await tx
       .insert(paddleEvents)
@@ -321,7 +503,22 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      */
     const statusOnly = effect.statusOnly ?? null
 
-    if (columns || statusOnly || effect.account.paddleCustomerId || effect.account.paddleSubscriptionId) {
+    /*
+     * **The three `accounts.coupon*` columns get their writer back here, and only here.** They
+     * lost theirs with the mock checkout on 2026-09-13, so `liveDiscount` has been resolving
+     * nothing ever since. They are written in the same statement as the plan columns and inside
+     * the same transaction as the ledger row, so an account can never be told it holds a
+     * discount that `coupon_redemptions` has no record of granting.
+     */
+    coupon = await recordCouponRedemption(tx, event, rawBody, account)
+
+    if (
+      columns ||
+      statusOnly ||
+      coupon.kind !== 'untouched' ||
+      effect.account.paddleCustomerId ||
+      effect.account.paddleSubscriptionId
+    ) {
       await tx
         .update(accounts)
         .set({
@@ -339,6 +536,16 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
           ...(effect.account.paddleSubscriptionId
             ? { paddleSubscriptionId: effect.account.paddleSubscriptionId }
             : {}),
+          ...(coupon.kind === 'redeemed'
+            ? {
+                couponCode: coupon.redemption.code,
+                couponPercent: coupon.redemption.percent,
+                discountEndsAt: coupon.redemption.discountEndsAt,
+              }
+            : {}),
+          ...(coupon.kind === 'cleared'
+            ? { couponCode: null, couponPercent: null, discountEndsAt: null }
+            : {}),
         })
         .where(eq(accounts.id, account.id))
     }
@@ -353,7 +560,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
    * retry answers `duplicate` above and says nothing to anybody.
    */
   if (outcome === 'applied' && account) {
-    await announcePayment(event, rawBody, account.ownerEmail)
+    await announcePayment(event, rawBody, account.ownerEmail, coupon.kind === 'redeemed' ? coupon.redemption : null)
 
     /*
      * The Lifetime is the one purchase that ends something else — see `endSubscriptionBoughtOut`.

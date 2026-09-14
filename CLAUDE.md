@@ -516,9 +516,45 @@ and infers nothing. `plans/CLAUDE.md` has all six measurements.
 maximum: 1}` — see the traps above), the live notification destination does not exist either and
 must subscribe to **`adjustment.created` and `adjustment.updated`** alongside the subscription and
 transaction events — without them a refunded Lifetime is never revoked and nothing anywhere
-errors (`plans/CLAUDE.md`) — Production has no `PADDLE_*` variables at all, and the
-campaigns in `lib/coupons/` have no Paddle Discount behind them, which is why both write paths
-refuse a sale outright while a coupon is redeemable rather than charging the listino.
+errors (`plans/CLAUDE.md`) — and Production has no `PADDLE_*` variables at all.
+
+### Coupons are Paddle Discounts, and a coupon never causes a sale at full price
+
+Since 2026-09-14 a campaign in `lib/coupons/` has real Paddle Discount entities behind it
+(`paddleDiscount.ts` translates, `paddleDiscountSync.ts` writes them on every create and edit),
+and the checkout attaches one by its `dsc_…` id. Four things about it are expensive to
+rediscover; `coupons/CLAUDE.md` has the rest.
+
+- **The refusal was narrowed, not lifted, and the narrow form is the invariant.** The question
+  is not «is a coupon in play» but «has this exact plan and cycle a `dsc_…`». Every way the
+  feature can fail — a sync that never ran, one Paddle refused, a campaign covering no Lifetime,
+  a cycle whose three prices could not all be named — ends at `coupon-unsupported`, which sells
+  nothing. It never ends at a charge of the listino to somebody just shown 30% off: that is the
+  shown-price/charged-price gap inverted into the direction that takes *more* money than was
+  advertised. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
+  a recurring discount survives a plan change on its own, so what is left is a code never
+  redeemed, and the two sentences that say what a change costs know nothing about discounts.
+- **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
+  billing periods**, while `coupon_campaigns.discount_months` is one figure in months — three
+  months is `3` monthly and `1` yearly, and one entity cannot hold both. Two entities, three when
+  the campaign covers the Lifetime, each `restrict_to` its own cycle's three prices, all derived
+  from the single row. **`restrict_to` is all-or-nothing per kind**: a discount restricted to two
+  of three prices attaches to the third's transaction, matches no item and charges full price,
+  with no error anywhere — so a kind whose every price cannot be named is not created at all.
+- **Measured against the sandbox on 2026-09-14**, both halves, because a field accepted is not a
+  field applied — `tax_mode`'s own lesson. 30% restricted to Standard monthly turned €3.49 into
+  €2.44, the cent-for-cent figure `discountedAmount` computes from the commercial deck's table;
+  and three intervals attached to a monthly subscription came back `starts_at 2026-10-13` /
+  `ends_at 2027-01-13`, three whole months, which is `discountEnd`'s arithmetic. That is why
+  `accounts.discount_ends_at` is computed once at redemption rather than read back from Paddle.
+- **`coupon_redemptions` got its writer back in the same commit**, which was the standing
+  condition: anything that starts selling at a discount without that insert silently uncaps every
+  campaign ceiling. **The insert is also the clock.** Paddle carries a transaction's `custom_data`
+  onto the subscription it opens, so the campaign stamp arrives again on every renewal; the
+  unique index taking a row exactly once is what separates the first payment from the ninetieth,
+  and the three `accounts.coupon*` columns are written only when it did. They are *cleared* by a
+  purchase carrying no coupon — `isNewPurchase` reads Paddle's `origin` to tell a purchase from a
+  renewal, and clearing on a renewal would take a live discount away at the first period.
 
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 

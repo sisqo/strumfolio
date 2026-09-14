@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 
 import { CampaignList } from '@/components/CampaignList'
 import type { CampaignRow } from '@/components/CampaignList'
+import { missingDiscounts } from '@/lib/coupons/paddleDiscount'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
@@ -70,6 +71,9 @@ function toRow(campaign: Campaign, now: Date): CampaignRow {
        end date is a historical fact, not an exposure. */
     endless: campaign.expiresAt === null && campaign.status === 'active',
     limitLabel: limitLabel(campaign),
+    /* Which halves of this campaign have no Paddle Discount behind them. An archived campaign is
+       not missing anything — its entities are retired on purpose. */
+    missing: campaign.status === 'archived' ? [] : missingDiscounts(campaign),
   }
 }
 

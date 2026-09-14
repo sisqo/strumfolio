@@ -18,13 +18,28 @@
  * rather than the address, per `db/CLAUDE.md`: an email in Paddle's records goes stale the day
  * somebody changes theirs.
  *
- * **A coupon refuses the sale rather than being ignored, and that is deliberate.**
- * `lib/coupons/` decides discounts natively and Paddle has no Discount objects behind any of
- * them yet. Proceeding would charge the listino to somebody the page has just promised 30%
- * off — the shown-price/charged-price gap inverted into the direction that takes *more* money
- * than was advertised, which is the one version of it nobody can be asked to accept. So while
- * a redeemable campaign is in play this answers `coupon-unsupported` and sells nothing. The
- * gate disappears when the campaigns have `paddle_discount_id` to pass as `discount_id`.
+ * **A coupon with no Paddle Discount behind it refuses the sale, and that is deliberate.** Until
+ * 2026-09-14 the refusal was wider — *any* redeemable campaign stopped the sale, because no
+ * campaign had a Discount entity at all. It is narrowed rather than lifted, and the narrow form
+ * is the invariant the whole coupon feature rests on: the question is not «is a coupon in
+ * play», it is «can this exact plan and cycle be charged at the discounted price». A campaign
+ * whose sync never ran, one that covers no Lifetime, a cycle whose prices could not all be
+ * named — each arrives here with no `dsc_…` and each answers `coupon-unsupported`. Proceeding
+ * would charge the listino to somebody the page has just promised 30% off: the
+ * shown-price/charged-price gap inverted into the direction that takes *more* money than was
+ * advertised, which is the one version of it nobody can be asked to accept.
+ *
+ * **The discount travels as an id and never as a code.** `enabled_for_checkout: false` means
+ * Paddle generates none, so there is nothing for a reader to type and nothing for a tampered
+ * parameter to carry — the same argument that keeps the coupon out of this file's arguments
+ * and out of Paddle's own «Add discount code» field (`showAddDiscounts: false`).
+ *
+ * **`custom_data.coupon_campaign_id` is the second half of the webhook contract.** It is how
+ * `webhookApply.ts` knows which campaign to write a `coupon_redemptions` row against, and the
+ * insert is what makes every campaign ceiling verifiable. The stamp is *not* proof of a first
+ * purchase: Paddle carries a transaction's `custom_data` onto the subscription it opens, so a
+ * renewal can arrive carrying it too. The unique index is what tells the two apart, and the
+ * webhook writes the account's discount columns only when the insert actually took a row.
  *
  * **The screen decides what is offered; this decides what is done.** `/checkout/[plan]` reads
  * `checkoutMode` to draw «Pay» or «Switch», and that read is a page render where this is a
@@ -39,6 +54,8 @@ import { eq } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
+
+import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 
 import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
@@ -108,8 +125,16 @@ export async function startPaddleCheckout(
   }
 
   try {
+    /*
+     * Re-read here rather than accepted from the screen, the same split this file's header
+     * states about the subscription: `/checkout/[plan]` decides what is *offered* and this
+     * decides what is *done*, so a campaign that ran out of its ceiling between the render and
+     * the press sells at the listino the reader is about to be shown, not at a discount that no
+     * longer exists.
+     */
     const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)
-    if (coupon !== null) return { ok: false, reason: 'coupon-unsupported' }
+    const discountId = coupon === null ? null : discountIdFor(coupon, plan, plan === 'lifetime' ? null : cycle)
+    if (coupon !== null && discountId === null) return { ok: false, reason: 'coupon-unsupported' }
 
     const [account] = await db()
       .select({ id: accounts.id })
@@ -121,7 +146,11 @@ export async function startPaddleCheckout(
 
     const transaction = await paddle.transactions.create({
       items: [{ priceId, quantity: 1 }],
-      customData: { account_id: account.id },
+      ...(discountId === null ? {} : { discountId }),
+      customData: {
+        account_id: account.id,
+        ...(coupon === null ? {} : { coupon_campaign_id: coupon.id }),
+      },
     })
 
     return { ok: true, transactionId: transaction.id }

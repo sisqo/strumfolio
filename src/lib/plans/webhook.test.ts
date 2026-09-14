@@ -3,7 +3,9 @@ import { describe, it } from 'node:test'
 
 import {
   adjustmentEffect,
+  couponCampaignOf,
   downgradeStamp,
+  isNewPurchase,
   mayWritePlan,
   planOfPrice,
   readDowngradeStamp,
@@ -256,6 +258,69 @@ describe('transactionPeriodEnd', () => {
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: null }), null)
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: null } }), null)
     assert.equal(transactionPeriodEnd({ id: 'txn_1', billing_period: { ends_at: 'soon' } }), null)
+  })
+})
+
+/**
+ * The two readers that decide what a purchase does to the account's three `coupon*` columns.
+ *
+ * They answer different questions on purpose. `couponCampaignOf` says which campaign the
+ * transaction was stamped with; `isNewPurchase` says whether this is somebody buying or a
+ * subscription billing itself. Neither on its own is "a coupon was redeemed" — that is the
+ * `coupon_redemptions_once` insert, in `webhookApply.ts`, and these two only choose between
+ * writing the columns, clearing them, and leaving them alone.
+ */
+describe('couponCampaignOf', () => {
+  it('reads the campaign the checkout stamped on the transaction', () => {
+    assert.equal(
+      couponCampaignOf({ id: 'txn_1', custom_data: { account_id: 7, coupon_campaign_id: 'cmp-abc' } }),
+      'cmp-abc',
+    )
+  })
+
+  it('answers null for a transaction that carries none', () => {
+    assert.equal(couponCampaignOf({ id: 'txn_1' }), null)
+    assert.equal(couponCampaignOf({ id: 'txn_1', custom_data: null }), null)
+    assert.equal(couponCampaignOf({ id: 'txn_1', custom_data: { account_id: 7 } }), null)
+  })
+
+  /* Every campaign id this app mints is a UUID string. Anything else is not one, and a value
+     that is not a campaign must not be looked up as though it might be. */
+  it('reads anything that is not a non-empty string as absent', () => {
+    for (const raw of ['', 0, 42, true, null, {}, ['cmp-abc']]) {
+      assert.equal(couponCampaignOf({ id: 'txn_1', custom_data: { coupon_campaign_id: raw } }), null, String(raw))
+    }
+  })
+})
+
+describe('isNewPurchase', () => {
+  it('reads a checkout as a purchase', () => {
+    assert.equal(isNewPurchase({ id: 'txn_1', origin: 'web' }), true)
+    assert.equal(isNewPurchase({ id: 'txn_1', origin: 'api' }), true)
+  })
+
+  /*
+   * **A renewal is not a purchase, and this is the whole reason the reader exists.** The columns
+   * are cleared on a purchase that carries no coupon; clearing on a renewal would take a live
+   * discount away at the first period, while Paddle went on applying it for two more.
+   */
+  it('reads everything a subscription generates by itself as not a purchase', () => {
+    for (const origin of [
+      'subscription_recurring',
+      'subscription_update',
+      'subscription_charge',
+      'subscription_payment_method_change',
+    ]) {
+      assert.equal(isNewPurchase({ id: 'txn_1', origin }), false, origin)
+    }
+  })
+
+  /* The asymmetry this whole file follows: an unreadable payload must never take something
+     away, so «no origin» leaves the columns exactly as they are. */
+  it('answers false for an origin it cannot read, so nothing is cleared on a guess', () => {
+    assert.equal(isNewPurchase({ id: 'txn_1' }), false)
+    assert.equal(isNewPurchase({ id: 'txn_1', origin: null }), false)
+    assert.equal(isNewPurchase({ id: 'txn_1', origin: '' }), false)
   })
 })
 

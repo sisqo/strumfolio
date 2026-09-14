@@ -213,8 +213,21 @@ export async function changePaddlePlan(
   if (priceId === null) return { ok: false, reason: 'no-price' }
 
   try {
-    /* The same gate `startPaddleCheckout` states: no campaign has a Paddle Discount behind it
-       yet, and a change made at the listino would charge more than the page just promised. */
+    /*
+     * **A coupon still refuses a change of plan, and here that is a decision rather than a gap.**
+     * `startPaddleCheckout` now attaches the campaign's `dsc_…` to the transaction it creates;
+     * this path deliberately does not, and the reason is the copy rather than the API. Paddle
+     * applies a recurring discount «to any subscription changes within those periods», so
+     * somebody who *bought* with a code keeps it through an upgrade with nothing required here.
+     * What is left is only somebody carrying a cookie for a code they have never redeemed, and
+     * for them `changeCostLine` and `scheduledChangeLine` — the two sentences on the screen that
+     * say what this press costs — know nothing about discounts at all. Attaching one would
+     * discount a renewal those sentences do not mention, or a `do_not_bill` downgrade whose
+     * whole promise is that nothing is billed today.
+     *
+     * So the refusal stays until that copy is decided, and it is honest about what it is: a
+     * feature not built, not a sale at the wrong price.
+     */
     const coupon = await redeemableCouponFor(plan, user.accountOwnerEmail)
     if (coupon !== null) return { ok: false, reason: 'coupon-unsupported' }
 

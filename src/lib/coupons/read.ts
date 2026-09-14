@@ -26,6 +26,7 @@ import type { CheckoutPlan } from '@/lib/plans/prices'
 
 import { campaignStatus } from './discount'
 import type { CampaignFacts } from './discount'
+import type { DiscountIds } from './paddleDiscount'
 import { entryAllowsCode, entryAllowsUrl, isRedeemable, normalizeCode, readChannel, readEntry, readPercent } from './types'
 import type { CampaignStatus, CouponChannel, CouponEntry, CouponFailure } from './types'
 
@@ -33,7 +34,7 @@ import type { CampaignStatus, CouponChannel, CouponEntry, CouponFailure } from '
  * A campaign as the rest of the app sees it: the facts that decide prices, plus the
  * bookkeeping `/coupons` renders. `status` and `redeemed` are computed, never columns.
  */
-export interface Campaign extends CampaignFacts {
+export interface Campaign extends CampaignFacts, DiscountIds {
   id: string
   name: string
   channel: CouponChannel | null
@@ -44,6 +45,12 @@ export interface Campaign extends CampaignFacts {
   createdBy: string | null
   status: CampaignStatus
   redeemed: number
+  /**
+   * When this campaign's Paddle Discounts were last written. `null` means they never were —
+   * which `discountIdFor` turns into a refusal at the checkout rather than a sale at the
+   * listino, and which `/coupons` marks so the gap is visible rather than silent.
+   */
+  lastSyncedAt: Date | null
 }
 
 const COLUMNS = {
@@ -64,6 +71,12 @@ const COLUMNS = {
   archivedAt: couponCampaigns.archivedAt,
   createdAt: couponCampaigns.createdAt,
   createdBy: couponCampaigns.createdBy,
+  /* The three `dsc_…` and the moment they were written. Read on every path that sells, because
+     `redeemableCouponFor` hands this row straight to `discountIdFor`. */
+  paddleDiscountIdMonthly: couponCampaigns.paddleDiscountIdMonthly,
+  paddleDiscountIdAnnual: couponCampaigns.paddleDiscountIdAnnual,
+  paddleDiscountIdLifetime: couponCampaigns.paddleDiscountIdLifetime,
+  lastSyncedAt: couponCampaigns.lastSyncedAt,
 } as const
 
 /**
@@ -92,6 +105,10 @@ interface CampaignRow {
   archivedAt: Date | null
   createdAt: Date
   createdBy: string | null
+  paddleDiscountIdMonthly: string | null
+  paddleDiscountIdAnnual: string | null
+  paddleDiscountIdLifetime: string | null
+  lastSyncedAt: Date | null
 }
 
 /**
@@ -126,6 +143,10 @@ function toCampaign(row: CampaignRow, redeemed: number, now: Date): Campaign {
     createdBy: row.createdBy,
     status: campaignStatus(facts, now, redeemed),
     redeemed,
+    paddleDiscountIdMonthly: row.paddleDiscountIdMonthly,
+    paddleDiscountIdAnnual: row.paddleDiscountIdAnnual,
+    paddleDiscountIdLifetime: row.paddleDiscountIdLifetime,
+    lastSyncedAt: row.lastSyncedAt,
   }
 }
 

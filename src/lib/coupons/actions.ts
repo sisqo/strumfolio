@@ -27,6 +27,7 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { couponCampaigns } from '@/lib/db/schema'
 
 import { campaignStatus, cookieMaxAge } from './discount'
+import { archiveCampaignDiscounts, syncCampaignDiscounts } from './paddleDiscountSync'
 import { activeCoupon, allCampaigns, campaignById, redeemedCount, resolveTypedCode } from './read'
 import {
   COUPON_COOKIE,
@@ -388,6 +389,16 @@ export async function createCampaign(
   }
 
   console.warn(`coupon campaign created: ${checked.value.code} (${checked.value.discountPercent}%) by ${owner.email}`)
+
+  /*
+   * **Saved first, synced second, and a failed sync never fails the save.** What an unsynced
+   * campaign can do is refuse to sell at a discount — `discountIdFor` finds no `dsc_` and
+   * `startPaddleCheckout` answers `coupon-unsupported` — which is recoverable by pressing
+   * «Sync» on the list. What a sync that could fail the save would do is lock an operator out
+   * of their own screen whenever Paddle is slow. The list marks a campaign that has no
+   * discounts behind it, so the failure is visible rather than silent.
+   */
+  await syncCampaignDiscounts(id)
   return { ok: true, id }
 }
 
@@ -449,6 +460,15 @@ export async function updateCampaign(
   }
 
   console.warn(`coupon campaign updated: ${checked.value.code} by ${owner.email}`)
+
+  /*
+   * Every edit re-syncs, and three fields make that necessary rather than tidy: a deadline moved
+   * later leaves Paddle refusing a campaign this app still calls live, a `discount_months`
+   * changed leaves the entity ending on the old date, and the Lifetime switched off leaves an
+   * entity that would still discount one. `syncCampaignDiscounts` is idempotent, so the edits
+   * that change none of them cost one call and write the same values back.
+   */
+  await syncCampaignDiscounts(id)
   return { ok: true }
 }
 
@@ -481,7 +501,39 @@ export async function archiveCampaign(id: string): Promise<{ ok: true } | { ok: 
     return { ok: false, reason: 'failed' }
   }
 
+  /*
+   * Retired at Paddle's end too, so «archived» means the same thing on both sides. Without this
+   * the entities stay `active` and a `dsc_` still held in the columns would go on discounting —
+   * not through any path this app offers, since every one of them re-reads the campaign, but
+   * the discount would be live in somebody else's hands. The ids are kept: a redemption already
+   * made has to stay findable from a transaction in Paddle's dashboard.
+   */
+  await archiveCampaignDiscounts(id)
   return { ok: true }
+}
+
+/**
+ * Build this campaign's Paddle Discounts again, by hand.
+ *
+ * The recovery for the one failure the write path deliberately swallows: Paddle unreachable, or
+ * a deployment whose `PADDLE_PRICE_IDS` did not yet name every price, leaves a campaign saved
+ * with empty columns. Nothing is charged wrongly in the meantime — the checkout refuses the
+ * sale rather than taking full price — so the remedy is a button and not an alert.
+ *
+ * It is also the only way to build the discounts for the campaigns that existed *before* this
+ * commit, which were written when there was no Paddle side at all.
+ */
+export async function resyncCampaign(id: string): Promise<{ ok: true } | { ok: false; reason: CampaignFailure }> {
+  const owner = await requireOwner()
+  if (!owner.ok) return owner
+
+  const result = await syncCampaignDiscounts(id)
+  if (result.ok) {
+    console.warn(`coupon campaign synced to Paddle: ${id} (${result.synced.join(', ') || 'nothing'}) by ${owner.email}`)
+    return { ok: true }
+  }
+
+  return { ok: false, reason: result.reason === 'not-found' ? 'not-found' : 'paddle-unreachable' }
 }
 
 /** Make one campaign the `?promo=1` target, taking the flag off whichever held it. */

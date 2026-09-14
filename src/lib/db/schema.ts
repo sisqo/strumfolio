@@ -270,13 +270,20 @@ export const accounts = pgTable(
      * already paid. Written together, in one transaction, and always written: a purchase with
      * no coupon has to clear what the last one left rather than inherit it.
      *
-     * **Nothing writes them today, and that is the honest state rather than a gap to patch.**
-     * `mockPurchase` wrote all three and was deleted with the mock on 2026-09-13; the Paddle
-     * webhook does not, because no sale can carry a coupon at all — `startPaddleCheckout` and
-     * `changePaddlePlan` both refuse outright (`coupon-unsupported`) while a campaign is
-     * redeemable, since no campaign has a Paddle Discount behind it. Restoring the write
-     * belongs to that work, and until then these columns only ever hold what a hand-written
-     * row or the mock left. Same for `coupon_redemptions` below.
+     * **`webhookApply.ts` is the writer, since 2026-09-14** — the only one, and it writes them
+     * in the same statement as the plan columns and the same transaction as the
+     * `coupon_redemptions` row, so an account can never be told it holds a discount the ledger
+     * has no record of granting. They had no writer at all between the mock's demolition on
+     * 2026-09-13 and that date.
+     *
+     * **Three answers, not two, and the third is the one that is easy to miss.** A purchase
+     * carrying a coupon writes them; a purchase carrying none *clears* them, or somebody who
+     * bought the Lifetime at the listino goes on being described as living under a code from
+     * July; and everything else leaves them alone. A renewal is in that last group and must
+     * stay there — clearing on one would take a live discount away at the first period while
+     * Paddle went on applying it. `isNewPurchase` (`plans/webhook.ts`) is what separates a
+     * purchase from a renewal, and `coupon_redemptions_once` is what separates a first payment
+     * from every later one.
      *
      * Read only through `liveDiscount` (`lib/coupons/discount.ts`), never in the clear, for the
      * reason `planExpiresAt` above is read through `resolveSubscription`: `discountEndsAt` is a
@@ -1136,12 +1143,18 @@ export const appSettings = pgTable('app_settings', {
  * converted from a module constant to a function so it could not freeze. A stored status needs
  * the reconciliation job this repository has nowhere to put.
  *
- * The three `paddleDiscountId*` columns and `lastSyncedAt` are empty and will stay empty until
- * a Paddle client exists. Present now rather than added later for `PlanPrice.paddleId`'s own
- * stated reason: an empty field is a visible gap in a table, and a missing field is not. The
- * translation, when it is written, is mechanical — a monthly entity with
+ * **The three `paddleDiscountId*` columns and `lastSyncedAt` are written since 2026-09-14**, by
+ * `syncCampaignDiscounts` (`lib/coupons/paddleDiscountSync.ts`), which runs on every create and
+ * every edit. They were declared empty here for `PlanPrice.paddleId`'s own stated reason — an
+ * empty field is a visible gap in a table and a missing field is not — and the translation this
+ * comment predicted is what `paddleDiscount.ts` now holds: a monthly entity with
  * `maximum_recurring_intervals = discountMonths`, an annual one with `ceil(discountMonths / 12)`,
  * and a Lifetime one only if `appliesToLifetime`.
+ *
+ * **A column that is still empty is a campaign that refuses to sell at a discount**, never one
+ * that sells at the listino: `discountIdFor` finds no `dsc_…`, `startPaddleCheckout` answers
+ * `coupon-unsupported`, and `/coupons` marks the row. That is the whole safety property, and it
+ * is why a failed sync is allowed not to fail the save.
  *
  * `createdBy` has **no foreign key**, for the reason `appSettings.updatedBy` and
  * `paddleEvents.accountOwnerEmail` have none: the record of who ran a campaign should survive
@@ -1239,12 +1252,22 @@ export const couponCampaigns = pgTable(
  * deleted on 2026-09-13; the index is load-bearing regardless, since the ceiling is a promise
  * made to whoever runs the campaign.
  *
- * **The table has readers and no writer since that deletion.** `timesUsed` therefore counts
- * zero for ever, and `redeemability`'s once-per-account gate can never refuse anybody — both
- * unenforceable and both unreachable, because a redeemable coupon refuses the sale itself
- * (`accounts.coupon_code` above). The insert goes back in with the Paddle Discounts, in the
- * same transaction as whatever records the payment; anything that starts selling at a discount
- * without it silently uncaps every campaign ceiling.
+ * **The writer came back on 2026-09-14, in the same commit that let a coupon be sold** — which
+ * was the condition stated here while the table had none: anything that starts selling at a
+ * discount without this insert silently uncaps every campaign ceiling. It is
+ * `recordCouponRedemption` (`plans/webhookApply.ts`), inside the webhook's own transaction,
+ * beside the row that records the payment.
+ *
+ * **The insert is also the clock.** Paddle carries a transaction's `custom_data` onto the
+ * subscription it opens, so the campaign stamp arrives again on every renewal; what tells the
+ * first payment from the ninetieth is `coupon_redemptions_once` taking a row exactly once. The
+ * three `accounts.coupon*` columns are written only when it did, which is what stops
+ * `discount_ends_at` being pushed forward every month into a discount that never ends.
+ *
+ * The insert is `onConflictDoNothing()` with **no target**, and that is required rather than
+ * terse: both unique indexes below can refuse a row, a targeted clause covers one of them, and
+ * the other would then raise inside a webhook transaction — a 500, retried for three days, with
+ * the payment never recorded at all.
  *
  * `campaignId` has a foreign key because a campaign is never deleted, only archived.
  *

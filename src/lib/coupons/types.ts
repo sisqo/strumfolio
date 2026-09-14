@@ -362,6 +362,13 @@ export type CampaignFailure =
   | 'percent-locked'
   | 'limit-below-redeemed'
   | 'not-found'
+  /**
+   * The campaign is saved here and has no Paddle Discount behind it — the only refusal in this
+   * list that describes the *other* system. It is deliberately not fatal to a save: what it
+   * leaves behind is a campaign that refuses to sell at a discount rather than one that sells
+   * at the listino, so «try again» is the whole remedy.
+   */
+  | 'paddle-unreachable'
   | 'failed'
 
 export const CAMPAIGN_FAILURE_MESSAGE: Record<CampaignFailure, string> = {
@@ -383,5 +390,8 @@ export const CAMPAIGN_FAILURE_MESSAGE: Record<CampaignFailure, string> = {
     'This campaign has redemptions, so its discount cannot change — archive it and make a new one.',
   'limit-below-redeemed': 'That limit is below the number of redemptions this campaign already has.',
   'not-found': 'That campaign no longer exists.',
+  'paddle-unreachable':
+    'Saved here, but Paddle would not take the discount — until it does, this code refuses a sale rather than ' +
+    'charging full price. Press “Sync” to try again.',
   failed: 'Could not save. If migration 0037 has not been applied yet, this is why.',
 }

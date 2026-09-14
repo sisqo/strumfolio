@@ -84,7 +84,9 @@ export interface PaddleTransactionData {
   customer_id?: string | null
   subscription_id?: string | null
   status?: string | null
-  custom_data?: { account_id?: unknown } | null
+  /** `web`, `api`, `subscription_recurring`, `subscription_update`… — see `isNewPurchase`. */
+  origin?: string | null
+  custom_data?: { account_id?: unknown; coupon_campaign_id?: unknown } | null
   items?: PaddleItemRef[] | null
   /** The period this particular payment bought. Absent on a one-time purchase. */
   billing_period?: { ends_at?: string | null } | null
@@ -443,6 +445,52 @@ export function transactionEffect(data: PaddleTransactionData): PaddleEventEffec
     account,
     columns: { plan: 'lifetime', status: 'active', expiresAt: null, pendingPlan: null, pendingCycle: null },
   }
+}
+
+/**
+ * The campaign a purchase was made under, from the stamp `startPaddleCheckout` put on the
+ * transaction — and `null` for the overwhelming majority of transactions, which carry none.
+ *
+ * **It is not evidence of a first purchase.** Paddle carries a transaction's `custom_data` onto
+ * the subscription it opens, and a renewal's transaction carries the subscription's — so this
+ * answers the same campaign id every month for as long as that subscription lives. Reading it
+ * as «a coupon was just redeemed» would move `accounts.discount_ends_at` forward at every
+ * renewal and the discount would never end. What tells a redemption from a renewal is
+ * `coupon_redemptions_once`: the insert either takes a row or it does not, and `webhookApply`
+ * writes the account's discount columns only in the first case. The unique index is the clock,
+ * not this field.
+ *
+ * A campaign id is a UUID this app minted, so anything that is not a non-empty string is
+ * absent — and an id naming no campaign simply finds no row, which is the same outcome.
+ */
+export function couponCampaignOf(data: PaddleTransactionData): string | null {
+  return readString(data.custom_data?.coupon_campaign_id)
+}
+
+/**
+ * Whether this transaction is somebody buying something, as opposed to a subscription billing
+ * itself.
+ *
+ * **It decides one thing only: whether the account's three `coupon*` columns are cleared.** Those
+ * columns are «what will this account pay next», and `db/schema.ts` requires that they are
+ * always written on a purchase — «a purchase with no coupon has to clear what the last one left
+ * rather than inherit it». Somebody who bought Standard with a code in July and buys the
+ * Lifetime in October at full price must not still be described as living under that code. But a
+ * *renewal* is not a purchase, and clearing on one would wipe a live discount at the first
+ * period — the discount would be shown for one month and then vanish while Paddle went on
+ * applying it.
+ *
+ * Paddle's `origin` is what separates them: everything a subscription generates by itself is
+ * `subscription_…` (`subscription_recurring`, `subscription_update`,
+ * `subscription_payment_method_change`, `subscription_charge`), and a purchase is not.
+ *
+ * **An origin this cannot read answers `false`**, which leaves the columns alone. The asymmetry
+ * every reader in this file follows, pointed at the column that matters here: an unreadable
+ * payload must never take something away.
+ */
+export function isNewPurchase(data: PaddleTransactionData): boolean {
+  const origin = readString(data.origin)
+  return origin !== null && !origin.startsWith('subscription_')
 }
 
 /**
