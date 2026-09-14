@@ -55,12 +55,13 @@ describe('readChangeCost', () => {
    * twice — or that the change was free.
    */
   /*
-   * **A credit of zero is not a credit**, and Paddle sends one: measured 2026-09-14, a change of
-   * billing cycle and a same-cycle upgrade **made after one** both came back
-   * `credit: { amount: '0' }` with the full price charged — the cycle change having restarted a
-   * billing period that no invoice sits behind (`credited`'s own comment has the mechanism). The
-   * sentence on the screen hangs off this, so a zero read as «there was a credit» is a discount
-   * promised and not given.
+   * **A credit of zero is not a credit**, and Paddle sends one: measured 2026-09-14, a same-cycle
+   * upgrade on a subscription that had already been moved between cycles twice came back
+   * `credit: { amount: '0' }` with the full price charged — the earlier cycle change having
+   * restarted a billing period that no invoice sits behind (`credited`'s own comment has the
+   * mechanism, and the measurements that show a change of cycle crediting normally when nothing
+   * has restarted the period). The sentence on the screen hangs off this, so a zero read as
+   * «there was a credit» is a discount promised and not given.
    */
   it('reads a credit of zero as no credit at all', () => {
     const noCredit = {
@@ -198,14 +199,16 @@ describe('changeCostLine', () => {
 
   /*
    * **An uncredited change is not a prorated one, and the sentence must not say it is.**
-   * Measured against the sandbox on 2026-09-14: Premium monthly → Premium yearly one day into
-   * the month, and Standard yearly → Premium yearly on a subscription whose cycle had been moved
-   * twice, both came back `credit: 0` / `charge: 9999`. The totals look exactly like a prorated
-   * upgrade's, which is why this hangs off Paddle's own `credit` and not off the two cycles.
+   * Measured against the sandbox on 2026-09-14: Standard yearly → Premium yearly on a
+   * subscription whose cycle had been moved twice came back `credit: 0` / `charge: 9999`, while
+   * the same change on a subscription bought minutes earlier came back €65.00. The totals look
+   * exactly like each other, which is why this hangs off Paddle's own `credit` and not off the
+   * two cycles — a change of cycle credits normally (€96.50 of €99.99, same day) whenever the
+   * period behind it was really billed.
    *
    * **What it must not say either is «a fresh period starts today»**, which is what it said
-   * first: the second of those two kept its renewal date to the second, so that sentence was a
-   * guess about the calendar in place of a guess about the money. The date has a row of its own.
+   * first: the uncredited case kept its renewal date to the second, so that sentence was a guess
+   * about the calendar in place of a guess about the money. The date has a row of its own.
    */
   it('promises no difference where Paddle credited nothing', () => {
     const uncredited = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99', credited: false })

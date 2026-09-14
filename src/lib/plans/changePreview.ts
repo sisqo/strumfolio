@@ -55,13 +55,18 @@ export interface ChangeCost {
    * `planChange.ts` is the measurement. The second call puts the end date back; nothing puts the
    * invoice back. So a subscription whose cycle has ever been moved carries a period that was
    * never billed, and every later change is priced at the **full** new price with nothing
-   * credited for what was paid. Measured 2026-09-14 on one sandbox subscription within fifteen
-   * minutes: Plus monthly → Premium monthly on an untouched period billed `−699` credit against
-   * `+999`, i.e. €3.00; the same subscription after two cycle changes billed the whole `9999`.
+   * credited for what was paid.
+   *
+   * **It is the restarted period that kills the credit, not the change of cycle itself**, and
+   * that distinction cost two wrong explanations before it was measured properly. On untouched
+   * periods, 2026-09-14: Standard monthly → Premium monthly billed €6.50 of €9.99, Standard
+   * yearly → Premium yearly €65.00 of €99.99, and Standard monthly → Premium **yearly** €96.50
+   * of €99.99 — a change of frequency, credited all the same. The same Standard yearly → Premium
+   * yearly on a subscription already moved between cycles twice billed the whole €99.99.
    *
    * The totals look identical either way, which is exactly why this is read from Paddle rather
-   * than guessed here — and why the guess that preceded it (does the cycle move?) got the
-   * commonest case backwards.
+   * than guessed here — and why both guesses that preceded it (does the cycle move? is this an
+   * upgrade?) got real cases backwards.
    */
   credited: boolean
 }
@@ -209,7 +214,8 @@ export function changeCostLine(cost: ChangeCost): string {
    * first version of this fix said «and a fresh period starts today» on the other branch, which
    * was a second guess wearing the first one's clothes: the case that produced it kept its
    * renewal date to the second (`next_billed_at` pinned a year out) and started no period at
-   * all. What is actually true of every uncredited change is the money, so that is all this
+   * all, and a change of cycle on an untouched subscription turned out to credit normally
+   * anyway. What is actually true of every uncredited change is the money, so that is all this
    * says — and the day the period really does restart, the «Next charge» row beside this states
    * it with a date rather than by implication.
    */

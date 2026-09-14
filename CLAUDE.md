@@ -504,10 +504,11 @@ to happen); a nested object inside `custom_data`
 comes back verbatim; **`do_not_bill` preserves the period only while the frequency is
 unchanged**, restarting it on any change of cycle; `next_billed_at` — the repair for that —
 is ignored beside an items change and refused alone, so it is always a second call; and **the pin
-puts the date back but not the invoice**, so after any change of cycle Paddle credits nothing for
-what was paid and every later change is priced at the full new price (measured 2026-09-14, and the
-reason the screen reads `update_summary.credit` rather than inferring a proration from the two
-cycles).
+puts the date back but not the invoice**, so after a change of cycle Paddle credits nothing for
+what was paid and every later change is priced at the full new price — while a change of cycle on
+an untouched subscription prorates normally (€96.50 of €99.99, measured 2026-09-14). It is the
+restarted period that kills the credit, not the change of cycle, which is why the screen reads
+`update_summary.credit` instead of inferring a proration from the two cycles.
 
 **Still to do before any of this takes money in production**: the live catalogue does not exist
 (create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,

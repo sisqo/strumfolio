@@ -204,16 +204,18 @@ break from a distance:
     write, Paddle answers what was just asked for, and the summary turned into «that is the plan
     you are already on» *above* the sentence saying it was done. A settled screen now shows the
     outcome and a way to /billing, and nothing else.
-  - **The copy promised a discount that a change of cycle does not give.** «You pay €99.99 now
-    — the difference for the rest of the period you have already paid for» is true of a
-    same-cycle upgrade, where €3.00 really was the difference, and false of monthly → yearly:
-    Paddle quoted `credit: 0` and `charge: 9999` one day into a paid month, because a change of
-    frequency opens a fresh period rather than prorating the old one. The totals look identical
-    either way — which is why nobody would have caught this from the figures, and why
-    `changeCostLine` reads **Paddle's own `credit`** rather than anything computed here. (It
-    first read the two cycles instead, which was a guess that got the commonest case backwards;
-    the bullet on «la differenza» further down has the whole story.) The after-the-press sentence
-    carried the same claim and is corrected off the same field.
+  - **The copy promised a discount that Paddle does not always give.** «You pay €99.99 now — the
+    difference for the rest of the period you have already paid for» was said over a charge that
+    came back `credit: 0` and `charge: 9999`. **The first two explanations for that were both
+    wrong**, and they are written out here because each looked obvious: it is not that a change
+    of *cycle* never prorates (measured 2026-09-14 on a subscription bought minutes earlier,
+    Standard monthly → Premium yearly quoted **€96.50** — the unused month credited, across a
+    change of frequency), and it is not that a same-cycle change always does. What decides it is
+    whether the **current billing period has an invoice behind it**, and a period restarted by an
+    earlier change of frequency has none. The totals look identical either way — which is why
+    nobody would have caught this from the figures, and why `changeCostLine` reads **Paddle's own
+    `credit`** rather than anything computed here. The after-the-press sentence carried the same
+    claim and is corrected off the same field.
   - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
     line still promising the downgrade, right until a manual reload. It re-reads once more three
     seconds later; deliberately not a poll, because a screen that is briefly behind is better
@@ -555,13 +557,15 @@ watched working by anybody.
     Paddle prorates against the invoice sitting behind the current billing period, and the
     restarted period has none — the money was collected against the period it replaced. So after
     any change of cycle, every later change is priced at the **full** new price with nothing
-    credited for what was paid. Measured 2026-09-14 on one sandbox subscription: Plus monthly →
-    Premium monthly on an untouched period billed `−6.99` against `+9.99`, i.e. €3.00; the same
-    subscription, after two changes of cycle, was billed the whole €99.99 for Standard yearly →
-    Premium yearly, with no adjustment anywhere. Not repaired — it is Paddle's arithmetic, and
-    the app has no honest way to hand back money it never took — but it is why `credited` is read
-    from Paddle instead of inferred, and it is the whole explanation of the screenshot that
-    looked like a bug in the pricing.
+    credited for what was paid. Measured 2026-09-14, four purchases on one sandbox account:
+    on untouched periods the credit is always there — Standard monthly → Premium monthly billed
+    **€6.50**, Standard yearly → Premium yearly **€65.00**, and Standard monthly → Premium
+    **yearly** **€96.50**, so a change of frequency prorates too. On a subscription that had
+    already been through two changes of cycle, the same Standard yearly → Premium yearly was
+    billed the whole **€99.99**, with no adjustment anywhere. Not repaired — it is Paddle's
+    arithmetic, and the app has no honest way to hand back money it never took — but it is why
+    `credited` is read from Paddle instead of inferred, and it is the whole explanation of the
+    screenshot that looked like a bug in the pricing.
   - **The pin works in both directions, and B8 needs the backward one.** B4 moves the date
     *forward* (a monthly subscription pinned a year out); B8 moves it *back* — after its first
     call the items are yearly and the period has restarted a year out, and the date has to come

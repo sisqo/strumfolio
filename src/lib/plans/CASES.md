@@ -38,7 +38,7 @@ Vocabolario chiuso per le due colonne di verifica, così non si può scrivere un
 | A1 | Free → piano mensile | Subito, prezzo pieno. Nuova subscription, non un update — `paddleCheckout.ts` | `paddlePrices.test.ts › names a price for every row of the listino` | `browser 2026-09-14` |
 | A2 | Free → piano annuale | Come A1, sull'altro prezzo | `catalogue.test.ts › covers every paid plan in both cycles, plus Lifetime, and nothing else` | `browser 2026-09-14` |
 | A3 | Free → Lifetime | Subito, una tantum, `expiresAt` nullo. Transazione senza `subscription_id` | `webhook.test.ts › grants the Lifetime, with no expiry at all` | `mai` |
-| A4 | Free → Free | Non esiste un percorso che lo chieda: `/checkout/[plan]` accetta solo `PaidPlan` e la card Free di /pricing porta a `/billing?cancel=1` | `—` | `n/d` |
+| A4 | Free → Free | Un percorso c'è, ed è il passo obbligato di scelta: «Continue with Free» timbra `planChosenAt` e porta a `/thanks?chose=free`, che dal 14/9/2026 distingue «ho appena scelto» da «sono capitato qui» — senza quel parametro un conto con un piano scaduto leggeva «This plan has ended» | `—` | `browser 2026-09-14` |
 
 ## B. Partenza da piano pagato attivo
 
@@ -51,7 +51,7 @@ sono quella frase applicata, non cinque decisioni separate.
 | B1 | Tier ↑, stesso ciclo | Subito, `prorated_immediately`, prorata netta | `planChange.test.ts › agrees with PLAN_RANK on every pair of paid plans` | `browser 2026-09-14` |
 | B2 | Tier ↓, stesso ciclo | Pending. `do_not_bill` + stamp in `custom_data`, periodo intatto | `webhook.test.ts › writes the plan that was paid for, with the cheaper one behind it` | `browser 2026-09-14` |
 | B3 | Stesso tier, mensile → annuale | Subito. Il periodo riparte, ed è il punto | `planChange.test.ts › treats yearly as the upgrade when only the cycle moves` | `browser 2026-09-14` |
-| B4 | Stesso tier, annuale → mensile | Pending, e una seconda chiamata rimette `next_billed_at` sulla data pagata | `planChange.test.ts › holds a year-to-month move to the end of the year, and pins the billing date` | `sandbox 2026-09-13` |
+| B4 | Stesso tier, annuale → mensile | Pending, e una seconda chiamata rimette `next_billed_at` sulla data pagata | `planChange.test.ts › holds a year-to-month move to the end of the year, and pins the billing date` | `browser 2026-09-14` |
 | B5 | Tier ↑ + mensile → annuale | Subito. Salgono entrambe le dimensioni, non c'è niente da restituire | `planChange.test.ts › waits for exactly the moves that would give money back, whatever the tier does` | `browser 2026-09-14` |
 | B6 | Tier ↓ + annuale → mensile | Pending + pin, come B4 | `planChange.test.ts › makes a drop in tier and cycle together wait, and pins the date` | `browser 2026-09-14` |
 | B7 | Tier ↑ + annuale → mensile | Pending + pin. **Deciso 2026-09-14 contro la proposta** del documento, che era Pending per la ragione giusta ma senza nominarla: il credito dell'anno non goduto | `planChange.test.ts › makes a rise in tier wait when it shortens a paid year` | `browser 2026-09-14` |
