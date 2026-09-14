@@ -787,7 +787,9 @@ export function PaddleCheckout(props: Props) {
 
           {live === null ? (
             <>
-              <div className="mt-2.5 flex items-baseline justify-between gap-4">
+              {/* Wraps for `.change-stop-head`'s reason: a struck listino, a price and a cycle
+                  word beside a 30px plan name is wider than a phone's gutter leaves. */}
+              <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <span className="screen-title">{PLAN_LABEL[props.plan]}</span>
                 <span className="flex items-baseline gap-1.5 tabular-nums">
                   {/* The listino, struck — drawn only where the discount is one this screen

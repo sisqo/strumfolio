@@ -10556,11 +10556,15 @@
     padding-bottom: 0.25rem;
   }
 
+  /* Wraps, where the mock does not: «Standard starts, then every year» beside a figure is wider
+     than a 375px phone's gutter leaves, and this repo's rule is that the body never scrolls
+     sideways. Invisible at every width where it fits. */
   .change-stop-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.25rem 1rem;
     margin-top: 0.25rem;
   }
 
