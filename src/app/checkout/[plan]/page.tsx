@@ -198,10 +198,16 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
 
   /* The bar, built here and *placed* by `PaddleCheckout` — `Checkout.dc.html` puts it under the
      price card, where it reads as an input to the figure above it rather than as a third
-     unrelated white box stacked over the payment frame. */
+     unrelated white box stacked over the payment frame.
+
+     Which is exactly why it is told what plan it stands beside: under one card the ticket is
+     read as a claim about that price, and the duration sentences are about a subscription. See
+     `appliedCopy`'s own comment. */
   const couponBar = (
     <CouponBar
-      applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
+      applied={
+        campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate, plan === 'lifetime' ? 'lifetime' : null)
+      }
       persist={campaign !== null && campaign.code !== cookieCode ? campaign.code : undefined}
       note={note}
     />

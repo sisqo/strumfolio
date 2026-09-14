@@ -14,7 +14,7 @@ import { desc, eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
-import { paddleEvents } from '@/lib/db/schema'
+import { couponRedemptions, paddleEvents } from '@/lib/db/schema'
 
 import { LIFETIME, PRICES } from './prices'
 import type { BillingPeriod } from './prices'
@@ -149,10 +149,21 @@ export interface PaymentHistoryLine {
   /**
    * The coupon redeemed on this line, and what the listino said at the time.
    *
-   * Read back out of the payload, never re-derived: that is the whole reason the writer
-   * takes an explicit `amount` now rather than calling `amountFor` itself — a later re-price
+   * **Stored at the moment of payment, never re-derived** — that is the whole reason the mock's
+   * writer took an explicit `amount` rather than calling `amountFor` itself: a later re-price
    * must not rewrite what somebody already paid, nor what they were shown it was reduced from.
-   * `null` on every line that had no coupon, which is most of them.
+   *
+   * Two sources, because the two payload shapes carry different things. The mock wrote all
+   * three flat into its own payload. A real Paddle `transaction.completed` carries **neither**
+   * the code nor the listino, and neither can be recomputed from its totals — the discount is
+   * taken off the ex-VAT subtotal and the tax recomputed after it, so `total + discount` comes
+   * to €3.30 where the price was €3.49. So for a Paddle line they come from the
+   * `coupon_redemptions` row the same delivery wrote, matched by `event_id` (0047), which is
+   * `paymentHistoryFor`'s job rather than `readLine`'s: the payload alone cannot answer it.
+   *
+   * `null` on every line that had no coupon, which is most of them — and on a renewal, which is
+   * charged under a live discount but is not the redemption. The sentence above the table says
+   * how long that discount runs; this column is about the line it annotates.
    */
   couponCode: string | null
   couponPercent: string | null
@@ -313,6 +324,37 @@ export function readLine(eventType: string, payload: string): LineFields {
     : fromPaddleEvent(eventType, parsed as Record<string, unknown>)
 }
 
+/** What a `coupon_redemptions` row lends to the line its own delivery wrote. */
+export interface RedemptionFacts {
+  code: string
+  discountPercent: string
+  fullAmount: string
+}
+
+/**
+ * The stored redemption folded into a ledger line — the only step that is not `readLine`'s,
+ * because no payload holds these three for a real Paddle event.
+ *
+ * **Filling, never overriding.** The mock wrote all three flat into its own payload and its
+ * lines still carry them; a Paddle line has all three null and takes them from the row. `??`
+ * is what keeps those two apart: a redemption row that somehow answered for a mock line must
+ * not be able to rewrite what that line already said it charged, which is the property the
+ * whole of `PaymentHistoryLine`'s comment on these fields rests on.
+ *
+ * `undefined` — no redemption for this event, which is every line but one per campaign — leaves
+ * the line exactly as `readLine` returned it.
+ */
+export function withCoupon(line: LineFields, redemption: RedemptionFacts | undefined): LineFields {
+  if (redemption === undefined) return line
+
+  return {
+    ...line,
+    couponCode: line.couponCode ?? redemption.code,
+    couponPercent: line.couponPercent ?? redemption.discountPercent,
+    fullAmount: line.fullAmount ?? redemption.fullAmount,
+  }
+}
+
 /**
  * One account's payment history, newest first — every row in `paddle_events` for that
  * address, not only the ones this file wrote. A row whose `eventType` carries no `mock.`
@@ -324,26 +366,62 @@ export function readLine(eventType: string, payload: string): LineFields {
  * Callers decide who may ask for whose history: this function itself checks nothing, the
  * same split `checkout.ts`'s self-scoped read and `accounts/actions.ts`'s owner-gated read
  * already draw for every other query in this feature.
+ *
+ * **Two reads, and the second is the only place a coupon can be attached to a line.** `readLine`
+ * is pure and sees one payload; a Paddle payload names no coupon code and no listino (see
+ * `PaymentHistoryLine`'s own comment on why neither can be recomputed from the totals). The
+ * `coupon_redemptions` row written by that same delivery holds both, so it is matched here, by
+ * the `event_id` it carries. A separate query rather than a join, because the redemptions for
+ * one account are at most a handful — one per campaign, which is what the two ceilings enforce
+ * — and a left join would repeat the whole ledger's payloads across them for nothing.
+ *
+ * Both in one `Promise.all` despite `max: 1` on the connection (`db/client.ts`): postgres.js
+ * pipelines queries down the single socket rather than refusing them, so this is one round trip
+ * to `us-east-1` instead of two — which is where nearly all the time in a query here goes. The
+ * single-connection trap that `verifyEmail` records is a different shape: a *transaction*
+ * holding the socket while something else waits for it. Two plain selects cannot deadlock.
  */
 export async function paymentHistoryFor(accountOwnerEmail: string): Promise<PaymentHistoryLine[]> {
-  const rows = await db()
-    .select({
-      eventId: paddleEvents.eventId,
-      eventType: paddleEvents.eventType,
-      occurredAt: paddleEvents.occurredAt,
-      receivedAt: paddleEvents.receivedAt,
-      payload: paddleEvents.payload,
-    })
-    .from(paddleEvents)
-    /* By the id and not the address (v4.7): an account that changed address keeps its
-       payment history, without anything having had to move the old rows to the new
-       address — which is what `changeAccountEmail` used to do, and must not. */
-    .where(eq(paddleEvents.accountId, accountIdOf(accountOwnerEmail)))
-    .orderBy(desc(paddleEvents.receivedAt))
+  const accountId = accountIdOf(accountOwnerEmail)
+
+  const [rows, redeemed] = await Promise.all([
+    db()
+      .select({
+        eventId: paddleEvents.eventId,
+        eventType: paddleEvents.eventType,
+        occurredAt: paddleEvents.occurredAt,
+        receivedAt: paddleEvents.receivedAt,
+        payload: paddleEvents.payload,
+      })
+      .from(paddleEvents)
+      /* By the id and not the address (v4.7): an account that changed address keeps its
+         payment history, without anything having had to move the old rows to the new
+         address — which is what `changeAccountEmail` used to do, and must not. */
+      .where(eq(paddleEvents.accountId, accountId))
+      .orderBy(desc(paddleEvents.receivedAt)),
+    db()
+      .select({
+        eventId: couponRedemptions.eventId,
+        code: couponRedemptions.code,
+        discountPercent: couponRedemptions.discountPercent,
+        fullAmount: couponRedemptions.fullAmount,
+      })
+      .from(couponRedemptions)
+      /* By the account id like the ledger above, so a change of address keeps both halves
+         pointing at the same person. Rows from before 0047 carry no pointer and annotate
+         nothing, which is why the map below is keyed on a non-null one. */
+      .where(eq(couponRedemptions.accountId, accountId)),
+  ])
+
+  const coupons = new Map<string, RedemptionFacts>(
+    redeemed
+      .filter((row): row is typeof row & { eventId: string } => row.eventId !== null)
+      .map((row) => [row.eventId, { code: row.code, discountPercent: row.discountPercent, fullAmount: row.fullAmount }]),
+  )
 
   return rows.map((row) => ({
     id: row.eventId,
     occurredAt: row.occurredAt ?? row.receivedAt,
-    ...readLine(row.eventType, row.payload),
+    ...withCoupon(readLine(row.eventType, row.payload), coupons.get(row.eventId)),
   }))
 }

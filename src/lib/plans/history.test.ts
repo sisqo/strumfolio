@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { mostRecentCycleFor, readLine } from './history'
-import type { PaymentHistoryLine } from './history'
+import { mostRecentCycleFor, readLine, withCoupon } from './history'
+import type { LineFields, PaymentHistoryLine } from './history'
 
 const PAST = new Date('2026-05-03T00:00:00Z')
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -216,5 +216,60 @@ describe('readLine — reading a stored payload as a ledger line', () => {
 
     assert.equal(line.action, 'unknown')
     assert.equal(line.moneyBack, false)
+  })
+})
+
+/*
+ * The half of a ledger line that no payload can answer.
+ *
+ * `PaymentHistoryTable` has always known how to draw a discounted line — the listino struck
+ * through, the code under the figure — and for a real purchase it drew none of it: those three
+ * fields were only ever written by the mock, flat into its own payload, and a Paddle
+ * `transaction.completed` carries neither a code nor a listino. So somebody who bought Standard
+ * at 30% off read «Paid for Standard €2.44» with nothing to say why.
+ */
+describe('withCoupon — folding a stored redemption into a line', () => {
+  const redemption = { code: 'COUPON30', discountPercent: '30', fullAmount: '3.49' }
+
+  const bare: LineFields = {
+    action: 'payment',
+    plan: 'standard',
+    cycle: 'month',
+    amount: '2.44',
+    couponCode: null,
+    couponPercent: null,
+    fullAmount: null,
+    moneyBack: false,
+  }
+
+  it('fills what a Paddle payload could not say', () => {
+    const line = withCoupon(bare, redemption)
+    assert.equal(line.couponCode, 'COUPON30')
+    assert.equal(line.couponPercent, '30')
+    assert.equal(line.fullAmount, '3.49')
+    /* Everything else is the payload's and stays untouched. */
+    assert.equal(line.amount, '2.44')
+    assert.equal(line.plan, 'standard')
+  })
+
+  it('leaves a line with no redemption exactly as it was', () => {
+    assert.deepEqual(withCoupon(bare, undefined), bare)
+  })
+
+  /*
+   * Filling, never overriding. A mock line already carries all three, written when the charge
+   * happened; a redemption row must not be able to rewrite what one of them said was charged —
+   * the property every «read back out of what was stored, never re-derived» comment rests on.
+   */
+  it('never rewrites what a line already said', () => {
+    const mock: LineFields = { ...bare, couponCode: 'OLDCODE', couponPercent: '50', fullAmount: '9.99' }
+    assert.deepEqual(withCoupon(mock, redemption), mock)
+  })
+
+  it('fills only the fields that are missing', () => {
+    const partial: LineFields = { ...bare, couponCode: 'OLDCODE' }
+    const line = withCoupon(partial, redemption)
+    assert.equal(line.couponCode, 'OLDCODE')
+    assert.equal(line.fullAmount, '3.49')
   })
 })

@@ -252,6 +252,9 @@ async function recordCouponRedemption(
       fullAmount,
       paidAmount,
       discountEndsAt,
+      /* The pointer back to the delivery that caused this, so `/billing`'s ledger can strike
+         the listino through on the one line it belongs to — see the column's own comment. */
+      eventId: event.eventId,
     })
     .onConflictDoNothing()
     .returning({ id: couponRedemptions.id })

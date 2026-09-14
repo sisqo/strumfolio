@@ -527,6 +527,49 @@ describe('appliedCopy', () => {
   it('has an empty detail only when there is genuinely nothing to add', () => {
     assert.equal(appliedCopy({ ...base, discountMonths: null }, true, day).detail, '')
   })
+
+  /*
+   * Beside one price card rather than above four. The duration sentences are all about a
+   * subscription, and on /checkout/lifetime they were read as a claim about the price directly
+   * above them: «for 12 months. After that, the usual price.» over a plan that is bought once
+   * and never renews. Seen on the preview on 2026-09-14.
+   */
+  describe('beside the Lifetime', () => {
+    it('states the reduction and promises no countdown', () => {
+      const copy = appliedCopy(base, true, day, 'lifetime')
+      assert.equal(copy.headline, 'HAPPYSONG is on this price.')
+      assert.match(copy.detail, /Bought once, so the discount has nothing to run out on\./)
+    })
+
+    it('never says the two things that are only true of a subscription', () => {
+      const copy = appliedCopy({ ...base, discountMonths: 3 }, true, day, 'lifetime')
+      assert.doesNotMatch(copy.detail, /After that, the usual price/)
+      assert.doesNotMatch(copy.detail, /if you pay yearly/)
+      assert.doesNotMatch(copy.headline, /months/)
+    })
+
+    /* «is on this price» beside a Lifetime the campaign does not cover would be false, and it is
+       the one case where the reader most needs the ticket to explain the figure it is not
+       reducing. That branch keeps the campaign's own wording. */
+    it('keeps the campaign wording when the campaign does not cover the Lifetime', () => {
+      const copy = appliedCopy({ ...base, appliesToLifetime: false }, true, day, 'lifetime')
+      assert.equal(copy.headline, 'HAPPYSONG is on these prices, for 12 months.')
+      assert.match(copy.detail, /The Lifetime is not included\./)
+      assert.doesNotMatch(copy.detail, /Bought once/)
+    })
+
+    /* The deadline is a fact about the campaign, not about a cycle, so it survives. */
+    it('still says when the offer has to be claimed by', () => {
+      const dated = appliedCopy({ ...base, expiresAt: new Date('2026-12-03T00:00:00Z') }, true, day, 'lifetime')
+      assert.match(dated.detail, /Claim it by 2026-12-03\./)
+    })
+
+    /* /pricing calls it with no plan at all and must be untouched: the same campaign above four
+       cards is describing a campaign, and every sentence it had is still right there. */
+    it('leaves the page-wide wording exactly as it was', () => {
+      assert.deepEqual(appliedCopy(base, true, day, null), appliedCopy(base, true, day))
+    })
+  })
 })
 
 describe('the vocabulary parsers', () => {

@@ -1319,6 +1319,21 @@ export const couponRedemptions = pgTable(
     /** `null` for the Lifetime, and for a campaign whose discount never ends. */
     discountEndsAt: timestamp('discount_ends_at', { withTimezone: true }),
     redeemedAt: timestamp('redeemed_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * The `paddle_events.event_id` whose delivery recorded this row, so the payment history can
+     * put the struck listino and the code on the one line they belong to (0047).
+     *
+     * **It is the only honest way to get those figures onto that line.** A Paddle payload
+     * carries no code and no listino, and it cannot be recomputed from the totals: the discount
+     * is applied to the ex-VAT subtotal and the tax recomputed after it, so `total + discount`
+     * is €3.30 where the price was €3.49. `full_amount` and `paid_amount` beside this pointer
+     * were both stored at the moment of payment, which is what makes a line that has already
+     * happened immune to a later re-price.
+     *
+     * Null for every row written before the column existed, and for any row a future writer
+     * creates outside a webhook. A line with no pointer is simply not annotated.
+     */
+    eventId: text('event_id'),
   },
   (table) => [
     /**
@@ -1332,6 +1347,14 @@ export const couponRedemptions = pgTable(
     /** And one per address ever, which is what survives the account being deleted. */
     uniqueIndex('coupon_redemptions_once_email').on(table.campaignId, table.accountOwnerEmail),
     index('coupon_redemptions_campaign').on(table.campaignId),
+    /**
+     * One redemption per delivered event — a third defence beside the two ceilings above, and
+     * the one that holds on a replay: Paddle re-sends the same `event_id` until it gets a 2xx.
+     * Partial like the first, because the rows that predate the column all carry null.
+     */
+    uniqueIndex('coupon_redemptions_event')
+      .on(table.eventId)
+      .where(sql`${table.eventId} is not null`),
   ],
 )
 

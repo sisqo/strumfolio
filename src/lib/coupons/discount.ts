@@ -392,21 +392,41 @@ export function appliedCopy(
   facts: Pick<CampaignFacts, 'code' | 'discountPercent' | 'discountMonths' | 'appliesToLifetime' | 'expiresAt'>,
   lifetimeOnSale: boolean,
   formatDay: (value: Date) => string,
+  about: 'lifetime' | null = null,
 ): AppliedCopy {
   const { code, discountPercent: percent, discountMonths: months } = facts
   const monthly = discountCycles(months, 'month')
   const yearly = discountedMonths(months, 'year')
 
-  const headline =
-    monthly === null
+  /*
+   * **Every duration sentence below is about a subscription, and the Lifetime is not one.**
+   * Sitting above four cards on /pricing this describes the campaign and is right; `/checkout`
+   * puts the same ticket directly under one price card, where «for 12 months. After that, the
+   * usual price.» stops describing a campaign and becomes a claim about *that* price — and on a
+   * plan bought once there is no «after that» for the price to go back to. It read as a
+   * countdown on something with nothing to count.
+   *
+   * So the reduction is stated and the duration is not: it is taken off once, from one payment,
+   * for good. Only when the campaign actually covers the Lifetime — a ticket beside a full-price
+   * Lifetime is the `lifetimeOnSale` case further down, and «is on this price» would be false
+   * there.
+   */
+  const aboutLifetime = about === 'lifetime' && facts.appliesToLifetime
+
+  const headline = aboutLifetime
+    ? `${code} is on this price.`
+    : monthly === null
       ? `${code} is on these prices, for as long as you stay subscribed.`
       : `${code} is on these prices, for ${monthly} ${monthly === 1 ? 'month' : 'months'}.`
 
   const sentences: string[] = []
 
+  if (aboutLifetime) sentences.push('Bought once, so the discount has nothing to run out on.')
+
   /* Only when the two cycles genuinely differ. With `discountMonths` at 12 or more they agree,
-     and saying it twice would read as a second, better offer. */
-  if (monthly !== null && yearly !== null && yearly !== monthly) {
+     and saying it twice would read as a second, better offer. Never beside the Lifetime, which
+     has no cycle for either figure to be about. */
+  if (!aboutLifetime && monthly !== null && yearly !== null && yearly !== monthly) {
     sentences.push(yearly === 12 ? 'A full year if you pay yearly.' : `${yearly} months if you pay yearly.`)
   }
 
@@ -419,7 +439,7 @@ export function appliedCopy(
     sentences.push('The Lifetime is not included.')
   }
 
-  if (monthly !== null) sentences.push('After that, the usual price.')
+  if (!aboutLifetime && monthly !== null) sentences.push('After that, the usual price.')
   if (facts.expiresAt !== null) sentences.push(`Claim it by ${formatDay(facts.expiresAt)}.`)
 
   return { percent, headline, detail: sentences.join(' ') }
