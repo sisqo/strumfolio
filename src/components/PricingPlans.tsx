@@ -261,6 +261,22 @@ export function PricingPlans({
   const checkoutQuery = (cycle: BillingPeriod) =>
     couponCode === undefined ? `?cycle=${cycle}` : `?cycle=${cycle}&coupon=${encodeURIComponent(couponCode)}`
 
+  /**
+   * The same query with **no cycle in it**, for the one link that must not name one.
+   *
+   * «Change billing cycle» has to lead to the cycle the reader is *not* billed on, and this page
+   * cannot know which that is: `Viewer` carries the plan and no cycle, because `accounts` has no
+   * column for one — the live cycle is a question only Paddle can answer, and /pricing does not
+   * ask it. Carrying the toggle's cycle instead is what made the link a dead end: the toggle
+   * opens on Monthly, so a monthly subscriber pressing it landed on «that is the plan you are
+   * already on, so there is nothing to change». Watched happening on the preview, 2026-09-14.
+   *
+   * A bare link is the honest answer, and it works because `/checkout/[plan]` already treats one
+   * apart: nothing asked for means the screen opens on the cycle Paddle reports and **shows the
+   * switch**, which is the one place that both knows the answer and can offer the other side.
+   */
+  const checkoutQueryNoCycle = couponCode === undefined ? '' : `?coupon=${encodeURIComponent(couponCode)}`
+
   /*
    * The reader's own state is what makes this the one page that also serves an existing
    * customer changing plans, not only a visitor choosing one for the first time — every card
@@ -539,7 +555,7 @@ export function PricingPlans({
                       */}
                     {column.checkoutPlan !== undefined && (
                       <Link
-                        href={`/checkout/${column.checkoutPlan}${checkoutQuery(period)}`}
+                        href={`/checkout/${column.checkoutPlan}${checkoutQueryNoCycle}`}
                         className="plan-cycle-link"
                         /* A change of cycle also calls off a scheduled cancellation, by design
                          * — `changePaddlePlan` reads it as changing your mind about leaving, and
@@ -550,7 +566,7 @@ export function PricingPlans({
                          * the reader calls that change off on /billing — a price cannot be
                          * quoted honestly against items already on the cheaper plan. See
                          * `planChange.ts`. */
-                        title="Switches this plan to the other billing cycle. If a cancellation is scheduled, this calls it off."
+                        title="Opens this plan's checkout with both billing cycles to choose from. If a cancellation is scheduled, changing cycle calls it off."
                       >
                         Change billing cycle
                       </Link>

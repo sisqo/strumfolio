@@ -41,6 +41,8 @@
 import { initializePaddle, type CheckoutSettings, type Environments, type Paddle } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
 
+import Link from 'next/link'
+
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
 import { resolvedTheme, useResolvedTheme } from '@/lib/useResolvedTheme'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
@@ -264,6 +266,21 @@ export function PaddleCheckout(props: Props) {
    * showing a figure the page had already replaced.
    */
   const [confirming, setConfirming] = useState(false)
+  /**
+   * Whether a change has already gone through on this screen.
+   *
+   * **Without it the screen contradicts itself the moment it succeeds.** The preview re-reads
+   * after the write, Paddle now answers what the reader just asked for, and the summary turns
+   * into «that is the plan you are already on» — or, after a downgrade, «you are already set to
+   * move to this plan» — sitting *above* the sentence that says the change was made, with a
+   * button underneath that can no longer do anything. Watched on the preview, 2026-09-14: it
+   * reads as a refusal of the thing that just worked.
+   *
+   * So a settled screen shows the outcome and the way on, and nothing else. The sentence is the
+   * action's own answer, which is the rule this file already follows about never letting the
+   * quotation speak for what happened.
+   */
+  const [settled, setSettled] = useState(false)
   /**
    * Why there is no price, when there is none. The preview refuses in exactly the places the
    * write refuses, so this turns every one of those refusals into something said **before** the
@@ -501,6 +518,7 @@ export function PaddleCheckout(props: Props) {
      * fell due in between — reports what actually happened rather than what was promised.
      */
     setMessage(result.ok ? arranged(result) : CHANGE_REFUSALS[result.reason])
+    setSettled(result.ok)
     setConfirming(false)
     setBusy(false)
   }
@@ -593,6 +611,24 @@ export function PaddleCheckout(props: Props) {
    * they would have no way to ask for the other.
    */
   const asksForCycle = props.plan !== 'lifetime' && props.initialCycle === null
+
+  /*
+   * **A screen that has done its job shows the outcome and nothing else.** Everything below is
+   * about deciding; once the change is made there is nothing left to decide here, and leaving
+   * the summary up turns it into a refusal of what just happened — see `settled`.
+   */
+  if (settled && message !== null) {
+    return (
+      <div className="mt-6">
+        <p className="text-lg" role="status">
+          {message}
+        </p>
+        <Link href="/billing" className="btn btn-primary btn-sm mt-4">
+          See your plan
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="mt-6">

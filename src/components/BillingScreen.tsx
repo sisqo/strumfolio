@@ -202,7 +202,20 @@ export function BillingScreen() {
         return
       }
       setDone(said(result as Extract<R, { ok: true }>))
+      /*
+       * **Twice, because the first read is usually too early.** What these actions change at
+       * Paddle reaches this account through the webhook, a second or two behind — so a single
+       * refresh here re-reads columns that have not moved yet and leaves «Kept — staying on
+       * Premium» sitting above a sentence still promising the downgrade it just called off.
+       * Watched on the preview, 2026-09-14, and it corrected itself on a manual reload.
+       *
+       * A second read a few seconds later settles the ordinary case without the reader having
+       * to do anything. It is deliberately not a poll: if the webhook is slower than this, the
+       * screen is merely behind rather than wrong, and the next visit is right — where a
+       * spinner waiting on somebody else's delivery would hold the whole screen hostage to it.
+       */
       refresh()
+      window.setTimeout(refresh, 3000)
     } catch {
       setError("That didn't go through. Try again.")
     } finally {

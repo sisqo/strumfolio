@@ -35,7 +35,7 @@ Vocabolario chiuso per le due colonne di verifica, così non si può scrivere un
 
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
-| A1 | Free → piano mensile | Subito, prezzo pieno. Nuova subscription, non un update — `paddleCheckout.ts` | `paddlePrices.test.ts › names a price for every row of the listino` | `sandbox 2026-09-12` |
+| A1 | Free → piano mensile | Subito, prezzo pieno. Nuova subscription, non un update — `paddleCheckout.ts` | `paddlePrices.test.ts › names a price for every row of the listino` | `browser 2026-09-14` |
 | A2 | Free → piano annuale | Come A1, sull'altro prezzo | `catalogue.test.ts › covers every paid plan in both cycles, plus Lifetime, and nothing else` | `sandbox 2026-09-12` |
 | A3 | Free → Lifetime | Subito, una tantum, `expiresAt` nullo. Transazione senza `subscription_id` | `webhook.test.ts › grants the Lifetime, with no expiry at all` | `mai` |
 | A4 | Free → Free | Non esiste un percorso che lo chieda: `/checkout/[plan]` accetta solo `PaidPlan` e la card Free di /pricing porta a `/billing?cancel=1` | `—` | `n/d` |
@@ -49,7 +49,7 @@ sono quella frase applicata, non cinque decisioni separate.
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
 | B1 | Tier ↑, stesso ciclo | Subito, `prorated_immediately`, prorata netta | `planChange.test.ts › agrees with PLAN_RANK on every pair of paid plans` | `sandbox 2026-09-13` |
-| B2 | Tier ↓, stesso ciclo | Pending. `do_not_bill` + stamp in `custom_data`, periodo intatto | `webhook.test.ts › writes the plan that was paid for, with the cheaper one behind it` | `sandbox 2026-09-14` |
+| B2 | Tier ↓, stesso ciclo | Pending. `do_not_bill` + stamp in `custom_data`, periodo intatto | `webhook.test.ts › writes the plan that was paid for, with the cheaper one behind it` | `browser 2026-09-14` |
 | B3 | Stesso tier, mensile → annuale | Subito. Il periodo riparte, ed è il punto | `planChange.test.ts › treats yearly as the upgrade when only the cycle moves` | `mai` |
 | B4 | Stesso tier, annuale → mensile | Pending, e una seconda chiamata rimette `next_billed_at` sulla data pagata | `planChange.test.ts › holds a year-to-month move to the end of the year, and pins the billing date` | `sandbox 2026-09-13` |
 | B5 | Tier ↑ + mensile → annuale | Subito. Salgono entrambe le dimensioni, non c'è niente da restituire | `planChange.test.ts › waits for exactly the moves that would give money back, whatever the tier does` | `mai` |
@@ -64,11 +64,11 @@ sono quella frase applicata, non cinque decisioni separate.
 
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
-| C1 | Pending + arriva un upgrade | **Divergenza voluta.** Il documento dice «azzera il pending e applica subito»; noi rifiutiamo con `pending-downgrade` e chiediamo di annullare prima su /billing, perché Paddle quoterebbe la cifra sugli item già spostati e ne addebiterebbe un'altra | `planChange.test.ts › refuses the two priced moves until the arranged change is called off` | `sandbox 2026-09-14` |
+| C1 | Pending + arriva un upgrade | **Divergenza voluta.** Il documento dice «azzera il pending e applica subito»; noi rifiutiamo con `pending-downgrade` e chiediamo di annullare prima su /billing, perché Paddle quoterebbe la cifra sugli item già spostati e ne addebiterebbe un'altra | `planChange.test.ts › refuses the two priced moves until the arranged change is called off` | `browser 2026-09-14` |
 | C2 | Pending + un secondo cambio gratuito | Sostituisce, ristampato sempre dal piano **pagato**, così niente si accumula | `planChange.test.ts › replaces one arranged downgrade with another` | `n/d` |
 | C3 | Pending cancellazione + ripensamento | `keepPaddleSubscription` annulla sia lo `scheduled_change` di Paddle sia uno stamp nostro | `planChange.test.ts › reads a return to the paid plan as a revert, not as an upgrade` | `sandbox 2026-09-13` |
 | C4 | Pending downgrade + cancellazione | La cancellazione vince e `pendingPlan` diventa `free`; il piano tenuto fino alla data non cambia | `webhook.test.ts › lets a cancellation take the place of the downgrade it sits on` | `mai` |
-| C5 | Arriva la scadenza con un pending | `resolveSubscription` lo collassa **leggendo**, a ogni lettura. Nessun cron, nessuna scrittura al rinnovo | `entitlements.test.ts › becomes the pending plan the instant its date passes, with nothing left pending` | `mai` |
+| C5 | Arriva la scadenza con un pending | `resolveSubscription` lo collassa **leggendo**, a ogni lettura. Nessun cron, nessuna scrittura al rinnovo | `entitlements.test.ts › becomes the pending plan the instant its date passes, with nothing left pending` | `browser 2026-09-14` |
 | C6 | Pending attivo, l'utente guarda il piano | Una frase con la data e la destinazione su /billing, e sul checkout una riga del riepilogo prima della pressione e di nuovo nel modale di conferma | `subscriptionCopy.test.ts › names the plan and the cycle a scheduled change lands on` · `changeSummary.test.ts › carries a change already arranged into the summary — case C6` | `mai` |
 
 ## D. Lifetime

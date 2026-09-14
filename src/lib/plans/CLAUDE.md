@@ -178,7 +178,26 @@ break from a distance:
   decide whether the page scrolls sideways. The card around the frame drops its own side padding
   below `sm` for the same reason and carries `overflow-x-auto` so that if the floor is ever
   higher than the room, the card scrolls and the body does not.
-- **Not yet seen working against the sandbox.** The mechanism is type-checked and built; what
+- **Watched working end to end on the preview, 2026-09-14**, on a throwaway account: the form
+  drawn on arrival, the sandbox test card, `checkout.completed`, the webhook granting the plan
+  and `/billing` reading «Plus, active until 14 October 2026» with the three ledger rows under
+  it. Then Plus → Premium at once (€3.00, the prorated difference, with the summary and the
+  dialog), Premium → Standard waiting for the period end, «Keep Premium» calling it off, a
+  cancellation, and «Keep Premium» again. Three things were wrong and are fixed in the same
+  commit:
+  - **`/pricing`'s «Change billing cycle» was a dead end.** It carried the page toggle's cycle,
+    which opens on Monthly, so a monthly subscriber pressing it reached «that is the plan you
+    are already on». The page cannot know the live cycle — `Viewer` has no field for one because
+    `accounts` has no column for one — so the link now carries **no cycle at all**, and the
+    checkout's bare-link branch does the asking on the one screen that knows the answer.
+  - **A successful change left the screen reading as a refusal.** The preview re-reads after the
+    write, Paddle answers what was just asked for, and the summary turned into «that is the plan
+    you are already on» *above* the sentence saying it was done. A settled screen now shows the
+    outcome and a way to /billing, and nothing else.
+  - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
+    line still promising the downgrade, right until a manual reload. It re-reads once more three
+    seconds later; deliberately not a poll, because a screen that is briefly behind is better
+    than one held hostage to somebody else's delivery. The mechanism is type-checked and built; what
   nobody has watched is the frame itself — its width on a phone, the theme matching, and that
   footer being visible.
 
