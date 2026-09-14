@@ -11,9 +11,11 @@ import {
   changeNames,
   formatPlanDate,
   lastPaymentLine,
+  planBadge,
   planChangeNotice,
   subscriptionStatusLine,
 } from './subscriptionCopy'
+import { PLAN_LABEL } from './types'
 import type { Plan, PlanStatus } from './types'
 
 const NOW = new Date('2026-08-23T12:00:00Z')
@@ -429,5 +431,134 @@ describe('planChangeNotice', () => {
     const notice = planChangeNotice({ from: PREMIUM_YEAR, to: 'free', when: 'period-end', on: null })
 
     assert.deepEqual(notice?.effect, { day: null })
+  })
+})
+
+/**
+ * The badge beside the plan name, and the one rule that governs it: it may say less than the
+ * sentence under it, never something else.
+ */
+describe('planBadge', () => {
+  const badge = (current: SubscriptionState, frozen = false) => planBadge(current, liveFor(current), frozen)
+
+  it('says nothing at all for an account that has bought nothing', () => {
+    assert.equal(badge(state({ plan: 'free', expiresAt: null })), null)
+  })
+
+  it('reads a live plan as active', () => {
+    assert.deepEqual(badge(state()), { label: 'Active', tone: 'ok' })
+    assert.deepEqual(badge(state({ plan: 'lifetime', expiresAt: null })), { label: 'Active', tone: 'ok' })
+  })
+
+  /*
+   * **Both ways a plan stops are one badge**, which is the collapse this function is allowed to
+   * make: `expired` is a webhook's deliberate act and a past `expiresAt` is the clock doing it
+   * on its own, and to a reader they are the same fact. The sentence beside it keeps them
+   * apart — «expired.» against «ended 3 May 2026.» — which is where the difference belongs.
+   */
+  it('reads both ways a plan stops as ended, and neither as an alarm', () => {
+    assert.deepEqual(badge(state({ status: 'expired' })), { label: 'Ended', tone: 'quiet' })
+    assert.deepEqual(badge(state({ expiresAt: PAST })), { label: 'Ended', tone: 'quiet' })
+  })
+
+  /* `grace` ignores dates by definition, so a retrying card whose period is long over must not
+     fall through to «Ended» — the plan is still in force while Paddle retries. */
+  it('keeps a retrying card out of the ended branch, however old its period', () => {
+    assert.deepEqual(badge(state({ status: 'grace', expiresAt: PAST })), { label: 'On hold', tone: 'alert' })
+  })
+
+  it('marks a change already arranged', () => {
+    assert.deepEqual(badge(state({ pendingPlan: 'free' })), { label: 'Scheduled', tone: 'alert' })
+    assert.deepEqual(badge(state({ plan: 'premium', pendingPlan: 'standard' })), {
+      label: 'Scheduled',
+      tone: 'alert',
+    })
+  })
+
+  it('marks a repertoire over the limits, on a plan with nothing else happening to it', () => {
+    assert.deepEqual(badge(state(), true), { label: 'Over limit', tone: 'accent' })
+  })
+
+  /*
+   * The order, stated as three assertions because it is the part that is easy to reverse by
+   * accident. A frozen repertoire under a scheduled downgrade is the *ordinary* way both become
+   * true at once — the freeze is usually what the downgrade is about to cause — and the money
+   * is the thing being decided, so it wins. `Billing.dc.html` draws the same order.
+   */
+  it('puts money before songs, and a plan that is over before either', () => {
+    assert.equal(badge(state({ pendingPlan: 'standard' }), true)?.label, 'Scheduled')
+    assert.equal(badge(state({ status: 'grace', pendingPlan: 'standard' }), true)?.label, 'On hold')
+    assert.equal(badge(state({ status: 'expired', pendingPlan: 'standard' }), true)?.label, 'Ended')
+  })
+
+  /* The badge is read first and the sentence second, so the pair has to agree. Nothing here
+     asserts a wording — only that neither is ever missing while the other says something. */
+  it('is present for exactly the accounts whose sentence names a plan', () => {
+    for (const current of [
+      state(),
+      state({ status: 'grace' }),
+      state({ status: 'expired' }),
+      state({ expiresAt: PAST }),
+      state({ pendingPlan: 'free' }),
+      state({ plan: 'lifetime', expiresAt: null }),
+    ]) {
+      assert.notEqual(badge(current), null, JSON.stringify(current))
+      assert.match(line(current), /\w/)
+    }
+
+    const free = state({ plan: 'free', expiresAt: null })
+    assert.equal(badge(free), null)
+    assert.match(line(free), /nothing bought yet/)
+  })
+})
+
+/**
+ * The bare form, which `/billing` uses because the plan's name is already 30px above the line.
+ *
+ * What is asserted is the **relationship** rather than eight wordings: every state says
+ * something either way, and the bare form never repeats the name the heading already carries.
+ * A ninth branch added to one form and not the other fails here without anybody having to
+ * remember to add a case.
+ */
+describe('the subscription sentence without the plan name', () => {
+  const states: SubscriptionState[] = [
+    state({ plan: 'free', expiresAt: null }),
+    state(),
+    state({ status: 'grace' }),
+    state({ status: 'expired' }),
+    state({ expiresAt: PAST }),
+    state({ expiresAt: null }),
+    state({ plan: 'lifetime', expiresAt: null }),
+    state({ pendingPlan: 'free' }),
+    state({ plan: 'premium', pendingPlan: 'standard', pendingCycle: 'month' }),
+    state({ plan: 'premium', pendingPlan: 'premium', pendingCycle: 'month' }),
+  ]
+
+  it('never names the plan that is printed above it', () => {
+    for (const current of states) {
+      const bare = subscriptionStatusLine(current, liveFor(current), 'bare')
+      assert.doesNotMatch(bare, new RegExp(`^${PLAN_LABEL[current.plan]}\\b`), JSON.stringify(current))
+    }
+  })
+
+  it('still says something in every state, and always as a sentence', () => {
+    for (const current of states) {
+      const bare = subscriptionStatusLine(current, liveFor(current), 'bare')
+      assert.match(bare, /^[A-Z].*\.$/, JSON.stringify(current))
+    }
+  })
+
+  /* The naming form is the default, so `/thanks` and every existing caller are untouched by
+     this parameter existing. */
+  it('names the plan when nothing else on the screen does', () => {
+    assert.equal(subscriptionStatusLine(state(), liveFor(state())), `Standard, active until ${formatPlanDate(FUTURE)}.`)
+  })
+
+  /* The one branch where the two forms differ by more than a prefix: the plan it names is a
+     word the heading above would print anyway, and the em dash goes with it. */
+  it('keeps the Lifetime sentence whole in both forms', () => {
+    const lifetime = state({ plan: 'lifetime', expiresAt: null })
+    assert.match(subscriptionStatusLine(lifetime, liveFor(lifetime)), /^Lifetime — bought once/)
+    assert.equal(subscriptionStatusLine(lifetime, liveFor(lifetime), 'bare'), 'Bought once, nothing to renew or cancel.')
   })
 })

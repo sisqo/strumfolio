@@ -173,24 +173,53 @@ export function changeNames(
  * a refund or a chargeback has marked `expired` is still a plan that ended, and saying "bought
  * once, nothing to renew or cancel" over it would describe the purchase rather than the state.
  */
-export function subscriptionStatusLine(current: SubscriptionState, live: Plan | null): string {
-  if (current.plan === 'free') return 'Free — nothing bought yet.'
-  if (current.status === 'expired') return `${PLAN_LABEL[current.plan]}, expired.`
-  if (current.status === 'grace') return `${PLAN_LABEL[current.plan]}, payment retrying.`
-  if (current.plan === 'lifetime') return 'Lifetime — bought once, nothing to renew or cancel.'
+export function subscriptionStatusLine(
+  current: SubscriptionState,
+  live: Plan | null,
+  /**
+   * Whether the sentence opens with the plan's name.
+   *
+   * **`'bare'` exists because `Billing.dc.html` puts that name in 30px directly above this
+   * line**, where «Premium, active until 14 September 2027.» says Premium twice a centimetre
+   * apart. `/thanks` has no such heading and keeps the naming form, which is why this is a
+   * parameter with a default rather than a second exported function: two near-identical
+   * sentence builders is the `durationCopy`/`termCopy` hazard, and there the two genuinely
+   * differ in what they say. These two differ only in whether a word already on the screen is
+   * repeated, so one rule decides the state and this picks the wording.
+   */
+  lead: 'plan' | 'bare' = 'plan',
+): string {
+  /* Both forms are written out side by side in every branch rather than one being derived from
+     the other by trimming a prefix. A branch that adds a case can only add it to both. */
+  const say = (withPlan: string, bare: string) => (lead === 'plan' ? withPlan : bare)
+
+  if (current.plan === 'free') return say('Free — nothing bought yet.', 'Nothing bought yet.')
+  if (current.status === 'expired') return say(`${PLAN_LABEL[current.plan]}, expired.`, 'Expired.')
+  if (current.status === 'grace') return say(`${PLAN_LABEL[current.plan]}, payment retrying.`, 'Payment retrying.')
+  if (current.plan === 'lifetime') {
+    return say(
+      'Lifetime — bought once, nothing to renew or cancel.',
+      'Bought once, nothing to renew or cancel.',
+    )
+  }
 
   /* Lapsed by date alone. The date is named because it is the one fact that explains it — and
      "ended" rather than "expired", which is the word this app reserves for the stored status. */
   if (live === null) {
     return current.expiresAt === null
-      ? `${PLAN_LABEL[current.plan]}, ended.`
-      : `${PLAN_LABEL[current.plan]}, ended ${formatPlanDate(current.expiresAt)}.`
+      ? say(`${PLAN_LABEL[current.plan]}, ended.`, 'Ended.')
+      : say(
+          `${PLAN_LABEL[current.plan]}, ended ${formatPlanDate(current.expiresAt)}.`,
+          `Ended ${formatPlanDate(current.expiresAt)}.`,
+        )
   }
 
-  if (current.expiresAt === null) return `${PLAN_LABEL[current.plan]}, no end.`
+  if (current.expiresAt === null) return say(`${PLAN_LABEL[current.plan]}, no end.`, 'No end.')
 
   const until = formatPlanDate(current.expiresAt)
-  if (current.pendingPlan === null) return `${PLAN_LABEL[current.plan]}, active until ${until}.`
+  if (current.pendingPlan === null) {
+    return say(`${PLAN_LABEL[current.plan]}, active until ${until}.`, `Active until ${until}.`)
+  }
 
   /*
    * **The pending plan can now be the plan itself**, which is case B4: the tier stays and only
@@ -204,8 +233,11 @@ export function subscriptionStatusLine(current: SubscriptionState, live: Plan | 
    */
   if (current.pendingPlan === current.plan) {
     return current.pendingCycle === null
-      ? `${PLAN_LABEL[current.plan]}, active until ${until}.`
-      : `${PLAN_LABEL[current.plan]} until ${until}, then billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`
+      ? say(`${PLAN_LABEL[current.plan]}, active until ${until}.`, `Active until ${until}.`)
+      : say(
+          `${PLAN_LABEL[current.plan]} until ${until}, then billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`,
+          `Until ${until}, then billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`,
+        )
   }
 
   /*
@@ -221,8 +253,11 @@ export function subscriptionStatusLine(current: SubscriptionState, live: Plan | 
    */
   const then = PLAN_LABEL[current.pendingPlan]
   return current.pendingCycle === null
-    ? `${PLAN_LABEL[current.plan]} until ${until}, then ${then}.`
-    : `${PLAN_LABEL[current.plan]} until ${until}, then ${then}, billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`
+    ? say(`${PLAN_LABEL[current.plan]} until ${until}, then ${then}.`, `Until ${until}, then ${then}.`)
+    : say(
+        `${PLAN_LABEL[current.plan]} until ${until}, then ${then}, billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`,
+        `Until ${until}, then ${then}, billed ${current.pendingCycle === 'year' ? 'yearly' : 'monthly'}.`,
+      )
 }
 
 /**
@@ -384,4 +419,61 @@ export function cancelledOnLine(effectiveAt: string | null): string {
   return day === null || Number.isNaN(day.getTime())
     ? 'Scheduled — this plan cancels once the period already paid for ends.'
     : `Scheduled — this plan cancels on ${formatPlanDate(day)}.`
+}
+
+/**
+ * The one word beside the plan name on `/billing` — the state at a glance, over the sentence
+ * that spells it out.
+ *
+ * **It never replaces `subscriptionStatusLine`, and the division of labour is the whole
+ * design.** The badge is read in a fifth of a second and carries no dates, no plan names and no
+ * nuance; the sentence directly under it carries all three. So this may collapse states the
+ * sentence keeps apart — `expired` and «lapsed by date» are one badge and two sentences — and
+ * must never say anything the sentence contradicts.
+ *
+ * `null` for Free, which is not a state anybody is in *between* others: it is what an account is
+ * when nothing has been bought, and a badge reading «None» next to the word Free would say it
+ * twice. `Billing.dc.html` draws no badge there either.
+ *
+ * **The order of the tests is the meaning**, the rule `campaignStatus` already states:
+ *
+ * - A plan that is over outranks everything, because nothing else on the card is true of it.
+ * - A payment retrying outranks a scheduled change: both are things to look at, and one of them
+ *   is happening to the reader now. It is called «On hold» rather than «Retrying» because that
+ *   is what `/checkout/[plan]` calls the same state to the same person, one screen away.
+ * - A scheduled change outranks a freeze, which is `Billing.dc.html`'s own order — the freeze is
+ *   about songs and the schedule is about money.
+ *
+ * **`frozen` is a third argument and not read off the two others**, because it cannot be: it
+ * comes from `loadFreezeState`, a separate read over the repertoire, and no column in
+ * `SubscriptionState` implies it.
+ */
+export type BadgeTone =
+  /** In force, nothing pending. */
+  | 'ok'
+  /** Something is happening to this account: a card retrying, a change already arranged. */
+  | 'alert'
+  /** Something needs the reader, but not about money — the freeze. */
+  | 'accent'
+  /** A statement of fact with nothing to act on: the plan is over. */
+  | 'quiet'
+
+export interface PlanBadge {
+  label: string
+  tone: BadgeTone
+}
+
+export function planBadge(current: SubscriptionState, live: Plan | null, frozen: boolean): PlanBadge | null {
+  if (current.plan === 'free') return null
+
+  /* Both ways a plan stops — the deliberate one and the one the clock does on its own. One
+     badge, because «over» is the same fact to a reader either way; the sentence beside it is
+     where the two are told apart, and where the date lives. */
+  if (current.status === 'expired' || live === null) return { label: 'Ended', tone: 'quiet' }
+
+  if (current.status === 'grace') return { label: 'On hold', tone: 'alert' }
+  if (current.pendingPlan !== null) return { label: 'Scheduled', tone: 'alert' }
+  if (frozen) return { label: 'Over limit', tone: 'accent' }
+
+  return { label: 'Active', tone: 'ok' }
 }

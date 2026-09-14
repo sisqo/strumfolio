@@ -22,6 +22,7 @@ import {
   cancelQuestion,
   discountLine,
   lastPaymentLine,
+  planBadge,
   subscriptionStatusLine,
 } from '@/lib/plans/subscriptionCopy'
 import { LIMIT_MESSAGE, PLAN_LABEL, type Plan } from '@/lib/plans/types'
@@ -232,6 +233,9 @@ export function BillingScreen() {
   /* Narrowed once so the two things read out of a ready status can be computed above the JSX,
      the same shape every screen here uses. */
   const ready = status.state === 'ready' ? status : null
+  /* The word beside the plan name. `frozen` is a third argument because it comes from a read
+     of its own — see `planBadge`. */
+  const badge = ready === null ? null : planBadge(ready.current, ready.live, ready.frozen)
   const payment = ready === null ? null : lastPaymentLine(ready.current, ready.history)
   /*
    * The coupon still in force, and what the price goes back to when it ends.
@@ -282,16 +286,42 @@ export function BillingScreen() {
             </p>
           )}
 
-          <div className="card p-4 sm:p-5 mt-4">
-            <h2 className="section-title">This account&apos;s plan</h2>
-            <p className="mt-1.5 text-sm text-muted">{subscriptionStatusLine(status.current, status.live)}</p>
+          {/*
+            * **The card carries no padding of its own since `Billing.dc.html`**, and each part
+            * pads itself: the rule above the controls has to run the full width, and a row
+            * inset to the card's own padding stops short of both edges. `.card-foot` is that
+            * rule plus the padding it replaced.
+            */}
+          <div className="card mt-4">
+           <div className="p-[1.375rem]">
+            {/*
+              * The eyebrow *is* the heading — it names the section, and the plan below it is
+              * the answer. Keeping it an `h2` is what stops the document outline losing a level
+              * to a redesign that only changed how the words are set.
+              */}
+            <h2 className="card-eyebrow">This account&apos;s plan</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2.5">
+              {/*
+                * The plan, at the size the screen's own title is set in — the mock gives the
+                * two the same weight on purpose: what this page is about is which plan this is,
+                * and «Billing» is only where you are.
+                */}
+              <p className="screen-title">{PLAN_LABEL[status.current.plan]}</p>
+              {badge !== null && (
+                <span className={`state-badge state-badge-${badge.tone}`}>{badge.label}</span>
+              )}
+            </div>
+            {/* `'bare'`: the plan's name is the line directly above this one. */}
+            <p className="mt-2 text-sm leading-[1.45] text-muted">
+              {subscriptionStatusLine(status.current, status.live, 'bare')}
+            </p>
             {/* What was paid and for which period — see `lastPaymentLine`, and its own comment
                 on why this comes out of the ledger rather than a column. Absent, rather than
                 hedged, whenever there is no purchase row to quote. */}
-            {payment !== null && <p className="mt-1 text-sm text-muted">{payment}</p>}
+            {payment !== null && <p className="mt-1 text-sm leading-[1.45] text-muted">{payment}</p>}
             {/* Under what was paid, because it explains that figure — a reader who sees €24.49
                 beside a €34.99 listino has one question, and this is its answer. */}
-            {discount !== null && <p className="mt-1 text-sm text-muted">{discount}</p>}
+            {discount !== null && <p className="mt-1 text-sm leading-[1.45] text-muted">{discount}</p>}
 
             {/*
               * The freeze, said before it bites. Inside the plan card rather than at the top of
@@ -309,79 +339,12 @@ export function BillingScreen() {
               * a price list would be both the wrong remedy and an expensive one.
               */}
             {status.frozen && (
-              <p className="notice notice-accent mt-3" role="status">
+              <p className="notice notice-accent mt-3.5" role="status">
                 <IconInfo />
                 <span>{LIMIT_MESSAGE.frozen}</span>
               </p>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {status.current.pendingPlan !== null && (
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(keepPaddleSubscription, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)
-                  }
-                >
-                  Keep {PLAN_LABEL[status.current.plan]}
-                </button>
-              )}
-
-              <Link href="/pricing" className="btn btn-sm">
-                Change plan
-              </Link>
-
-              {/*
-                * Two presses since v3.13, and the same shape the Free card on `/pricing` now
-                * uses — `SongForm`'s own delete pattern, which is this codebase's answer to a
-                * destructive act. `btn-quiet` was the whole of the protection before: one press
-                * ended a paid plan, and the only account of what had happened arrived
-                * afterwards, in the `done` line above. The question names the plan and says
-                * *when* it stops, because those are the two things the reader is deciding
-                * between, and the button below could only be pressed before knowing either.
-                */}
-              {canCancel(status.current, status.live) &&
-                (confirmingCancel ? (
-                  <>
-                    {/* `cancelQuestion`, not written inline: the sentence has a rule in it — a
-                        `grace` row never gets a date — and a rule belongs somewhere a test can
-                        hold it. See its own comment. */}
-                    <span className="self-center text-sm text-muted">{cancelQuestion(status.current)}</span>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      disabled={busy}
-                      onClick={() =>
-                        /* `cancelQuestion` above asked with a date in it; answering with the
-                           date Paddle has just written is what makes the pair one exchange.
-                           `cancelledOnLine` holds the rule about an unreadable one. */
-                        void run(cancelPaddleSubscription, (result) => cancelledOnLine(result.effectiveAt))
-                      }
-                    >
-                      Cancel it
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-quiet btn-sm"
-                      disabled={busy}
-                      onClick={() => setConfirmingCancel(false)}
-                    >
-                      Keep it
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-quiet btn-sm"
-                    disabled={busy}
-                    onClick={() => setConfirmingCancel(true)}
-                  >
-                    Cancel my plan
-                  </button>
-                ))}
-            </div>
 
             {/*
               * The answer to a tap that would otherwise land on nothing. /pricing's Free card
@@ -401,16 +364,94 @@ export function BillingScreen() {
             {cancelAsked && !canCancel(status.current, status.live) && (
               <p className="notice mt-3" role="status">
                 {status.current.pendingPlan === 'free'
-                  ? `This plan is already set to end, so there is nothing left to cancel — «Keep ${PLAN_LABEL[status.current.plan]}» above calls it off.`
+                  ? `This plan is already set to end, so there is nothing left to cancel — «Keep ${PLAN_LABEL[status.current.plan]}» below calls it off.`
                   : 'There is nothing to cancel on this account — the line above says where this plan stands.'}
               </p>
             )}
+           </div>
 
+            {/*
+              * Two presses since v3.13, and the same shape the Free card on `/pricing` now
+              * uses — `SongForm`'s own delete pattern, which is this codebase's answer to a
+              * destructive act. `btn-quiet` was the whole of the protection before: one press
+              * ended a paid plan, and the only account of what had happened arrived
+              * afterwards, in the `done` line above. The question names the plan and says
+              * *when* it stops, because those are the two things the reader is deciding
+              * between, and the button below could only be pressed before knowing either.
+              *
+              * **The question now replaces the row rather than joining it**, which is
+              * `Billing.dc.html`'s own arrangement and a real improvement on the old one: the
+              * three controls stayed on screen beside the question, so «Change plan» sat
+              * between «Cancel it» and «Keep it» while a destructive question was open.
+              */}
+            {canCancel(status.current, status.live) && confirmingCancel ? (
+              <div className="card-foot is-asking">
+                {/* `cancelQuestion`, not written inline: the sentence has a rule in it — a
+                    `grace` row never gets a date — and a rule belongs somewhere a test can
+                    hold it. See its own comment. */}
+                <span className="min-w-[12rem] flex-1 text-sm leading-[1.45] text-muted">
+                  {cancelQuestion(status.current)}
+                </span>
+                <span className="flex flex-none gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    disabled={busy}
+                    onClick={() =>
+                      /* `cancelQuestion` above asked with a date in it; answering with the
+                         date Paddle has just written is what makes the pair one exchange.
+                         `cancelledOnLine` holds the rule about an unreadable one. */
+                      void run(cancelPaddleSubscription, (result) => cancelledOnLine(result.effectiveAt))
+                    }
+                  >
+                    Cancel it
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-quiet btn-sm"
+                    disabled={busy}
+                    onClick={() => setConfirmingCancel(false)}
+                  >
+                    Keep it
+                  </button>
+                </span>
+              </div>
+            ) : (
+              <div className="card-foot justify-end">
+                {status.current.pendingPlan !== null && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(keepPaddleSubscription, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)
+                    }
+                  >
+                    Keep {PLAN_LABEL[status.current.plan]}
+                  </button>
+                )}
+
+                <Link href="/pricing" className="btn btn-sm">
+                  Change plan
+                </Link>
+
+                {canCancel(status.current, status.live) && (
+                  <button
+                    type="button"
+                    className="btn btn-quiet btn-sm"
+                    disabled={busy}
+                    onClick={() => setConfirmingCancel(true)}
+                  >
+                    Cancel my plan
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="card p-4 sm:p-5 mt-4">
-            <h2 className="section-title">Payment history</h2>
-            <div className="mt-2">
+          <div className="card mt-4 p-[1.375rem]">
+            <h2 className="card-eyebrow">Payment history</h2>
+            <div className="mt-3 border-t border-line-soft pt-0">
               {/* A read that failed says so. `PaymentHistoryTable`'s own empty state («Nothing
                   yet.») is a statement about the account, and making a failure borrow it told
                   a paying customer their payments had never happened. */}

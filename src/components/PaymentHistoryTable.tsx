@@ -89,6 +89,13 @@ function describeEvent(line: PaymentHistoryLine): string {
  * hairline per row — inside a card that is already a size smaller than `/billing`'s. A prop
  * rather than restyling in place, because this component is shared verbatim and «make the
  * operator's table match its mock» must not silently redraw the customer's own billing page.
+ *
+ * **The two looks have since converged and are still two**, which is worth saying so nobody
+ * merges them: `Billing.dc.html` gives the customer's table the same tracked headers and the
+ * same right-hung amount, so the remaining differences are the card they sit in and the date
+ * format. That is not enough to share a class with `/accounts`, whose own mock sets the whole
+ * table a size down inside a smaller card — and the two mocks are separate drawings that can
+ * move apart again.
  */
 export function PaymentHistoryTable({
   lines,
@@ -107,30 +114,40 @@ export function PaymentHistoryTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className={ledger ? 'acct-ledger' : 'w-full text-left text-sm'}>
+      <table className={ledger ? 'acct-ledger' : 'w-full border-collapse text-left text-sm'}>
         <thead>
-          <tr className={ledger ? undefined : 'text-muted'}>
-            <th className={ledger ? undefined : 'py-1.5 pr-3 font-normal'}>Date</th>
-            <th className={ledger ? undefined : 'py-1.5 pr-3 font-normal'}>Event</th>
-            <th className={ledger ? undefined : 'py-1.5 font-normal'}>Amount</th>
+          {/* `Billing.dc.html`'s own header: a size down, tracked and upper-cased, in the
+              quieter of the two inks — so the three words read as column names rather than as
+              the first row of the table. */}
+          <tr className={ledger ? undefined : 'text-[0.75rem] uppercase tracking-[0.03em] text-faint'}>
+            <th className={ledger ? undefined : 'pb-2 pr-3 pt-3 font-medium'}>Date</th>
+            <th className={ledger ? undefined : 'pb-2 pr-3 pt-3 font-medium'}>Event</th>
+            <th className={ledger ? undefined : 'pb-2 pt-3 text-right font-medium'}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => (
-            <tr
-              key={line.id}
-              className={ledger ? undefined : 'border-t'}
-              style={ledger ? undefined : { borderColor: 'var(--surface-2)' }}
-            >
-              <td className={ledger ? undefined : 'whitespace-nowrap py-1.5 pr-3'}>
-                {/* The operator's column carries the minute as well as the day: a first purchase
-                    fires three events inside the same second, and a ledger that prints only the
-                    date makes them look like three unrelated things that happened «that day». */}
+            <tr key={line.id} className={ledger ? undefined : 'border-t border-line-soft'}>
+              <td className={ledger ? undefined : 'whitespace-nowrap py-2.5 pr-3 text-muted'}>
+                {/*
+                  * **Both columns carry the minute, and the customer's one earns it too.** The
+                  * operator's always has: a first purchase fires three events inside the same
+                  * second, and a ledger printing only the date makes them look like three
+                  * unrelated things that happened «that day». `Billing.dc.html` writes the
+                  * customer's the same way — «14 September 2026, 09:14» — and on a screen that
+                  * now lists every subscription event beside the payments, a column of identical
+                  * dates is exactly that same illegibility one screen over.
+                  *
+                  * The day is still `formatPlanDate`, so the format agreement with the sentence
+                  * at the top of the page survives: the time is appended to it, not instead of
+                  * it. Client-rendered either way — `BillingScreen` fetches on mount — so the
+                  * local time here is nobody's hydration mismatch.
+                  */}
                 {dates === 'plain'
-                  ? formatPlanDate(line.occurredAt)
+                  ? `${formatPlanDate(line.occurredAt)}, ${line.occurredAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
                   : line.occurredAt.toISOString().slice(0, 16).replace('T', ' ')}
               </td>
-              <td className={ledger ? undefined : 'py-1.5 pr-3'}>{describeEvent(line)}</td>
+              <td className={ledger ? undefined : 'py-2.5 pr-3 font-medium'}>{describeEvent(line)}</td>
               {/* A row with no amount is a plan change, not money: the mock greys the whole
                   cell, which is the one thing that tells the two kinds of row apart at a glance. */}
               <td
@@ -139,7 +156,7 @@ export function PaymentHistoryTable({
                     ? line.amount === null
                       ? 'is-faint'
                       : undefined
-                    : 'whitespace-nowrap py-1.5'
+                    : 'whitespace-nowrap py-2.5 text-right font-medium tabular-nums'
                 }
               >
                 {/*
