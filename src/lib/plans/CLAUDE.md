@@ -209,9 +209,11 @@ break from a distance:
     same-cycle upgrade, where €3.00 really was the difference, and false of monthly → yearly:
     Paddle quoted `credit: 0` and `charge: 9999` one day into a paid month, because a change of
     frequency opens a fresh period rather than prorating the old one. The totals look identical
-    either way, which is why `changeCostLine` takes a flag from the caller instead of trying to
-    read it off the numbers — and why nobody would have caught this from the figures. The
-    after-the-press sentence carried the same claim and is corrected with it.
+    either way — which is why nobody would have caught this from the figures, and why
+    `changeCostLine` reads **Paddle's own `credit`** rather than anything computed here. (It
+    first read the two cycles instead, which was a guess that got the commonest case backwards;
+    the bullet on «la differenza» further down has the whole story.) The after-the-press sentence
+    carried the same claim and is corrected off the same field.
   - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
     line still promising the downgrade, right until a manual reload. It re-reads once more three
     seconds later; deliberately not a poll, because a screen that is briefly behind is better
