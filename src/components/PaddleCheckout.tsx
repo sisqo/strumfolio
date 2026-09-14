@@ -173,6 +173,22 @@ function checkoutSettings(): CheckoutSettings {
        both — but the number lives here rather than in a stylesheet because it is Paddle's
        requirement and not our layout's. */
     frameStyle: 'width: 100%; min-width: 286px; background-color: transparent; border: none;',
+    /*
+     * **Paddle's own discount field is off, and that is a correctness fix rather than tidiness.**
+     * The coupon on this page is `CouponBar`, above the frame, and it is the only door wired to
+     * `coupon_views`, `coupon_redemptions` and every campaign ceiling. A code typed into Paddle's
+     * «Add discount» instead would produce a discounted charge with **no redemption row**, so
+     * `times_used` would stay zero and `usage_limit` would quietly stop being a limit —
+     * `coupons/CLAUDE.md` says the insert has to come back «in the same commit that lets a coupon
+     * be sold», and this is the second path that could hand one out without passing through it.
+     * So the setting goes in now and stays after Paddle Discounts exist, not only while they do
+     * not.
+     *
+     * Today it also removes a field that can only fail: no campaign has a `dsc_…` behind it, so
+     * every code entered there is answered «invalid», two inches under one that says it is
+     * applied.
+     */
+    showAddDiscounts: false,
   }
 }
 
