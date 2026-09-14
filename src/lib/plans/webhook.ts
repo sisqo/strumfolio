@@ -484,6 +484,15 @@ export function couponCampaignOf(data: PaddleTransactionData): string | null {
  * `subscription_…` (`subscription_recurring`, `subscription_update`,
  * `subscription_payment_method_change`, `subscription_charge`), and a purchase is not.
  *
+ * **Read from delivered payloads rather than from the API reference**, because the two are not
+ * automatically the same document: fifteen real `transaction.completed` notifications in the
+ * sandbox on 2026-09-14 all carried `origin`, `api` for a purchase this app's checkout opened
+ * and `subscription_update` for a change of plan. The same run settled the assumption the
+ * redemption ledger rests on: the `subscription_update` transaction's `custom_data` carried
+ * `downgrade` beside `account_id` — which is the *subscription's* object, not the one the
+ * original transaction was created with. So a transaction's `custom_data` really does travel
+ * onto later ones, and the campaign stamp really will arrive again and again.
+ *
  * **An origin this cannot read answers `false`**, which leaves the columns alone. The asymmetry
  * every reader in this file follows, pointed at the column that matters here: an unreadable
  * payload must never take something away.

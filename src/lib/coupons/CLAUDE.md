@@ -71,7 +71,17 @@ load-bearing parts:
   the subscription it opens, so the campaign stamp arrives on every renewal, and what separates
   the first payment from the ninetieth is `coupon_redemptions_once` taking a row once. The three
   `accounts.coupon*` columns are written only when it did — and *cleared* by a purchase carrying
-  no coupon, never by a renewal (`isNewPurchase`, which reads Paddle's `origin`).
+  no coupon, never by a renewal (`isNewPurchase`, which reads Paddle's `origin`). Measured on
+  fifteen delivered sandbox notifications, 2026-09-14: `origin` is on every one, a purchase
+  through this checkout is `api`, a change of plan is `subscription_update` — and that one's
+  `custom_data` carried `downgrade` beside `account_id`, i.e. the *subscription's* object, which
+  is the travel this whole arrangement is built against.
+- **Every campaign that existed before 2026-09-14 has no discounts and refuses every sale until
+  somebody presses «Sync».** That is by design and looks exactly like a bug: nothing errors,
+  nothing overcharges, the code simply never applies. `/coupons` marks each such row, and
+  `resyncCampaign` is the only path that builds them — the write path only syncs a campaign it
+  is saving. Worth doing deliberately after a deploy rather than discovering from a conversion
+  rate.
 - **The cookie carries a code and nothing else.** Every read re-derives state, window, both
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the
