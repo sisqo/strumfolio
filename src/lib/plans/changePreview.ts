@@ -47,10 +47,21 @@ export interface ChangeCost {
    *
    * **It decides one sentence, and that sentence was wrong without it.** «You pay €x now — the
    * difference for the rest of the period you have already paid for» is a claim about proration,
-   * and proration is not something this app can infer: measured on 2026-09-14, Standard yearly →
-   * Premium yearly bought minutes earlier came back `credit: 0` and a full `charge: 9999`, and a
-   * change of billing cycle does the same. The totals look identical whether or not a credit was
-   * given, which is exactly why this has to be read from Paddle rather than guessed here.
+   * and proration is not something this app can infer, because whether there *is* any depends on
+   * a history no screen here can see.
+   *
+   * Paddle prorates against the **invoice behind the current billing period**, and a change of
+   * billing *frequency* restarts that period even under `do_not_bill` — `pinBillingDate` in
+   * `planChange.ts` is the measurement. The second call puts the end date back; nothing puts the
+   * invoice back. So a subscription whose cycle has ever been moved carries a period that was
+   * never billed, and every later change is priced at the **full** new price with nothing
+   * credited for what was paid. Measured 2026-09-14 on one sandbox subscription within fifteen
+   * minutes: Plus monthly → Premium monthly on an untouched period billed `−699` credit against
+   * `+999`, i.e. €3.00; the same subscription after two cycle changes billed the whole `9999`.
+   *
+   * The totals look identical either way, which is exactly why this is read from Paddle rather
+   * than guessed here — and why the guess that preceded it (does the cycle move?) got the
+   * commonest case backwards.
    */
   credited: boolean
 }
@@ -108,6 +119,43 @@ export function readChangeCost(preview: unknown): ChangeCost | null {
 }
 
 /**
+ * The SDK's preview, narrowed to the fields that decide the sentence — a structural type rather
+ * than the SDK's own classes, so this file imports nothing from Paddle and a test can build one
+ * by hand.
+ */
+export interface SdkChangePreview {
+  updateSummary: { credit: { amount: string }; result: { action: string; amount: string } } | null
+  immediateTransaction: { details?: { totals?: { grandTotal?: string } | null } | null } | null
+}
+
+/**
+ * The same reading, from the shape the Node SDK actually hands back.
+ *
+ * **The rename is the dangerous part, which is why it is here and tested rather than inline at
+ * the call site.** `readChangeCost` reads Paddle's wire format — snake_case, the shape the
+ * sandbox and every test in this file speak — and `subscriptions.preview` returns an entity
+ * whose fields are camelCase. Written out at the call site, this cast quietly dropped `credit`
+ * the day `credited` was added, so the screen could never say «the difference» again no matter
+ * what Paddle answered: a field missing from an object literal is not a type error, and nothing
+ * else in the app reads that field. One assertion below is the whole defence.
+ */
+export function readSdkChangeCost(previewed: SdkChangePreview): ChangeCost | null {
+  return readChangeCost({
+    update_summary:
+      previewed.updateSummary === null
+        ? null
+        : {
+            credit: { amount: previewed.updateSummary.credit.amount },
+            result: { action: previewed.updateSummary.result.action, amount: previewed.updateSummary.result.amount },
+          },
+    immediate_transaction:
+      previewed.immediateTransaction === null
+        ? null
+        : { details: { totals: { grand_total: previewed.immediateTransaction.details?.totals?.grandTotal } } },
+  })
+}
+
+/**
  * The sentence for the press that *undoes* an arranged change — the other half of B2, and the
  * one that reads wrong if it is left to the generic cost line.
  *
@@ -157,21 +205,24 @@ export function changeCostLine(cost: ChangeCost): string {
 
   /*
    * **«The difference» is a claim about proration, so it waits for Paddle to say there was
-   * one.** Measured twice on 2026-09-14: Premium monthly → Premium yearly quoted `credit: 0`
-   * with a full `charge: 9999`, and so did Standard yearly → Premium yearly on a subscription
-   * bought minutes earlier — a change that does not touch the billing cycle at all. The first
-   * version of this fix keyed on the cycle moving, which covered one of those two and was a
-   * proxy for the real question. `credited` is the real question, and it is Paddle's own answer.
+   * one** — `credited`, which is Paddle's own answer and not a guess from the two cycles. The
+   * first version of this fix said «and a fresh period starts today» on the other branch, which
+   * was a second guess wearing the first one's clothes: the case that produced it kept its
+   * renewal date to the second (`next_billed_at` pinned a year out) and started no period at
+   * all. What is actually true of every uncredited change is the money, so that is all this
+   * says — and the day the period really does restart, the «Next charge» row beside this states
+   * it with a date rather than by implication.
    */
   if (cost.payNow === cost.amount) {
     return cost.credited
       ? `You pay €${cost.amount} now — the difference for the rest of the period you have already paid for.`
-      : `You pay €${cost.amount} now, and a fresh period starts today.`
+      : `You pay €${cost.amount} now — the full price of the new plan, with nothing credited for what is ` +
+        'left of the old one.'
   }
 
   return cost.credited
     ? `This works out at €${cost.amount} for the rest of the period you have already paid for, ` +
       `covered by the credit on your account. €${cost.payNow} leaves your card now.`
-    : `A fresh period starts today at €${cost.amount}, part of it covered by the credit on your ` +
-      `account. €${cost.payNow} leaves your card now.`
+    : `€${cost.amount} is the full price of the new plan, with nothing credited for what is left of ` +
+      `the old one. The credit on your account covers part of it, so €${cost.payNow} leaves your card now.`
 }

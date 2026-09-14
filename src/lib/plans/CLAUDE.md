@@ -317,23 +317,28 @@ per caso, con un `LEGGIMI.md` che dice anche quali casi non sono riproducibili d
 chargeback non si innescano a comando). Le celle «Dal vivo» di `CASES.md` che sono passate a
 `browser 2026-09-14` vengono da lì.
 
-- **«La differenza» non era una differenza, e il primo tentativo di correggerla mancava il
-  bersaglio.** La frase sotto il riepilogo prometteva «the difference for the rest of the period
-  you have already paid for» anche dove Paddle non accredita niente. La prima correzione la
-  legava al *cambio di ciclo*, che copriva un caso su due: misurato lo stesso giorno, anche
-  Standard annuale → Premium annuale — che il ciclo non lo tocca — risponde `credit: 0` con
-  addebito pieno. La domanda vera è «Paddle ha accreditato qualcosa», e adesso `ChangeCost` la
-  porta (`credited`), letta dal suo `update_summary`. Un `credit` di **zero non è un credito**:
-  è la forma che Paddle manda davvero, ed è pinnata in un test.
-- **Chi sceglie Free dopo un abbonamento finito legge «This plan has ended».** Premendo
-  «Continue with Free» si arriva su `/thanks`, che ha un ramo scritto apposta per questo momento
-  — «Still on Free. Here's what's next.» — e mostra invece il ramo del piano scaduto, perché
-  `activatePlanChoice` timbra solo `planChosenAt` e le colonne del piano restano quelle del
-  Premium finito. **Non corretto, perché la scelta non è mia**: o l'azione azzera a free/active
-  un piano ormai scaduto — e allora scrive colonne che questo repo riserva al webhook — oppure
-  `/thanks` distingue «ho appena scelto Free» da «sono capitato qui», che vuole un parametro.
-  Il ramo Free di quella pagina resta irraggiungibile per il lettore che più naturalmente ci
-  arriva.
+- **«La differenza» non era una differenza, e ci sono voluti tre tentativi.** La frase sotto il
+  riepilogo prometteva «the difference for the rest of the period you have already paid for»
+  anche dove Paddle non accredita niente. Primo tentativo: legarla al *cambio di ciclo* — un
+  proxy, e sbagliato. Secondo: leggere `update_summary.credit`, che è la domanda giusta ma
+  **arrivava sempre a zero**, perché la conversione camelCase→snake_case scritta a mano dentro
+  `previewPaddlePlanChange` non passava affatto quel campo; un campo assente da un object
+  literal non è un errore di tipo e nessun altro lo leggeva. Adesso la conversione è
+  `readSdkChangeCost`, pura e con un test che asserisce proprio che il credito sopravvive.
+  Un `credit` di **zero non è un credito**, ed è la forma che Paddle manda davvero.
+  - **E il ramo «nessun credito» non deve promettere nemmeno un periodo nuovo.** Diceva «and a
+    fresh period starts today»: nel caso che l'aveva prodotto la data di rinnovo non si era
+    mossa di un secondo (`next_billed_at` restava pinnata a un anno). Dice solo il fatto
+    monetario — prezzo pieno, niente accreditato — e la data ce l'ha la riga «Next charge».
+- **Chi sceglie Free dopo un abbonamento finito leggeva «This plan has ended»**, ed è corretto
+  dal 14/9/2026 con `/thanks?chose=free`. Il problema: `activatePlanChoice` timbra solo
+  `planChosenAt` e le colonne del piano restano quelle del Premium finito, quindi la pagina —
+  che legge il conto e non l'URL — rispondeva alla domanda «cosa ho» invece che a «cosa ho
+  appena fatto». Scelta la strada del parametro e **non** quella di azzerare le colonne
+  dall'azione, che avrebbe messo un secondo scrittore accanto al webhook. Il parametro è onorato
+  **solo con `live === null`**, cioè dove nessun piano è davvero in corso: non esiste valore che
+  faccia congratulare la pagina per un piano che non si ha, che è la proprietà difesa dal
+  commento di `ThanksScreen`.
 
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
@@ -544,6 +549,17 @@ watched working by anybody.
     `current_billing_period` still ending on the paid year's last day, and `next_transaction` a
     **one-month** period starting that day. Paddle renews monthly from there with nothing having
     to run in between.
+  - **What the pin does *not* put back is the invoice, and that costs the reader a proration.**
+    Paddle prorates against the invoice sitting behind the current billing period, and the
+    restarted period has none — the money was collected against the period it replaced. So after
+    any change of cycle, every later change is priced at the **full** new price with nothing
+    credited for what was paid. Measured 2026-09-14 on one sandbox subscription: Plus monthly →
+    Premium monthly on an untouched period billed `−6.99` against `+9.99`, i.e. €3.00; the same
+    subscription, after two changes of cycle, was billed the whole €99.99 for Standard yearly →
+    Premium yearly, with no adjustment anywhere. Not repaired — it is Paddle's arithmetic, and
+    the app has no honest way to hand back money it never took — but it is why `credited` is read
+    from Paddle instead of inferred, and it is the whole explanation of the screenshot that
+    looked like a bug in the pricing.
   - **The pin works in both directions, and B8 needs the backward one.** B4 moves the date
     *forward* (a monthly subscription pinned a year out); B8 moves it *back* — after its first
     call the items are yearly and the period has restarted a year out, and the date has to come

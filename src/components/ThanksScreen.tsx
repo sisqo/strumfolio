@@ -43,6 +43,25 @@ type Status =
 export function ThanksScreen() {
   const [status, setStatus] = useState<Status>({ state: 'loading' })
   const [previewPlan, setPreviewPlan] = useState<Plan | null>(null)
+  /**
+   * Whether the reader arrived by *choosing* Free, rather than by landing here.
+   *
+   * **The one query parameter this page trusts, and it can only ever make the page say less.**
+   * The docblock above spends a paragraph on reading the account instead of the URL, and that
+   * still holds: this flag is honoured only where `live` is `null` — no plan granted right now —
+   * so the most it can do is show the Free welcome to somebody who is, in fact, on Free. There
+   * is no value of it that congratulates anybody for a plan they do not hold, which is the
+   * property that paragraph is protecting.
+   *
+   * It exists because «what do I hold» and «what did I just do» are different questions and the
+   * account can only answer the first. A reader whose Premium had ended and who then chose Free
+   * was shown «This plan has ended» — true about the account, and the wrong answer to the press
+   * they had just made, on the one screen whose whole job is to answer it. The alternative was
+   * to have the Free choice write the plan columns back to `free`/`active`, which would put a
+   * second writer beside the webhook on the fact this repo is most careful to have one writer
+   * for.
+   */
+  const [choseFree, setChoseFree] = useState(false)
 
   const runPreview = (plan: Plan) => {
     setPreviewPlan(plan)
@@ -60,11 +79,17 @@ export function ThanksScreen() {
   }
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('preview')
+    const params = new URLSearchParams(window.location.search)
+
+    const requested = params.get('preview')
     if (requested !== null) {
       runPreview(readPlan(requested))
       return
     }
+
+    /* After the `?preview=` return, so the owner's preview of «this plan has ended» is not
+       quietly turned into the Free welcome by a parameter left in the URL. */
+    setChoseFree(params.get('chose') === 'free')
 
     void loadPurchaseSummary().then((result) => {
       if (!result.ok) {
@@ -131,8 +156,14 @@ export function ThanksScreen() {
    * run: a reader on Free gets the same shape of page as one who just paid, only in the
    * neutral tint `.thanks-hero:not(.is-paid)` and `.thanks-step.is-upsell` draw, and worded as
    * what the paid plans would add rather than what just happened.
+   *
+   * **`choseFree` widens it by exactly one account**: the reader whose paid plan has ended and
+   * who has just pressed «Continue with Free». The `plan` column still names the plan they used
+   * to hold — nothing ever writes it back — so `current.plan` alone sent them to «This plan has
+   * ended» below, which answers a question they did not ask. `live === null` is what keeps the
+   * widening honest: a plan that is actually running never reaches here, parameter or not.
    */
-  if (current.plan === 'free') {
+  if (current.plan === 'free' || (choseFree && live === null)) {
     return (
       <>
         {previewBar}

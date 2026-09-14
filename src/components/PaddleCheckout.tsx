@@ -549,11 +549,16 @@ export function PaddleCheckout(props: Props) {
       )
     }
 
-    /* The same correction as `changeCostLine`'s: a change of cycle opens a fresh period and
-       credits nothing, so promising that the unused part «comes off the charge» is a discount
-       that will not appear on the invoice. */
-    if (live !== null && live.cycle !== cycle) {
-      return `Moving you to ${target}, and a fresh period starts today. The new plan appears in a moment.`
+    /* The same correction as `changeCostLine`'s, and off the same field rather than off a
+       second guess: promising that the unused part «comes off the charge» is a discount that
+       will not appear on the invoice whenever Paddle credited nothing. Read from the preview
+       this screen has just quoted, so the promise under the button and the message after the
+       press cannot describe the same press differently. */
+    if (preview !== null && !preview.cost.credited) {
+      return (
+        `Moving you to ${target} at the full price of the new plan, with nothing credited for what is ` +
+        'left of the old one. It appears in a moment.'
+      )
     }
 
     return result.direction === 'upgrade'

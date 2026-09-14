@@ -350,8 +350,14 @@ export function PricingPlans({
        *
        * **Since the Paddle checkout it is the only choice that lands here**, the paid ones
        * having lost the redirect they cannot honestly make — see `/thanks`' own header.
+       *
+       * `?chose=free` is what tells that page this was a *choice*. Without it a reader whose
+       * paid plan had ended was shown «This plan has ended», because the account's `plan`
+       * column still says `premium` and the page reads the account rather than the URL — the
+       * right answer to «what do I hold», and the wrong answer to «what did I just do».
+       * `ThanksScreen` has the argument for why a parameter is safe here.
        */
-      router.push('/thanks')
+      router.push('/thanks?chose=free')
       return
     }
 

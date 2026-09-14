@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { changeCostLine, paddleAmountToEuro, readChangeCost, scheduledChangeLine } from './changePreview'
+import { changeCostLine, paddleAmountToEuro, readChangeCost, readSdkChangeCost, scheduledChangeLine } from './changePreview'
 
 /* The real shape, copied from a sandbox preview of Standard monthly -> Plus monthly taken on
    2026-09-13. Kept verbatim rather than minimised: the fields this reads are the fields Paddle
@@ -55,10 +55,12 @@ describe('readChangeCost', () => {
    * twice — or that the change was free.
    */
   /*
-   * **A credit of zero is not a credit**, and Paddle sends one: measured 2026-09-14, both a
-   * change of billing cycle and a same-cycle upgrade on a subscription bought minutes earlier
-   * came back `credit: { amount: '0' }` with the full price charged. The sentence on the screen
-   * hangs off this, so a zero read as «there was a credit» is a discount promised and not given.
+   * **A credit of zero is not a credit**, and Paddle sends one: measured 2026-09-14, a change of
+   * billing cycle and a same-cycle upgrade **made after one** both came back
+   * `credit: { amount: '0' }` with the full price charged — the cycle change having restarted a
+   * billing period that no invoice sits behind (`credited`'s own comment has the mechanism). The
+   * sentence on the screen hangs off this, so a zero read as «there was a credit» is a discount
+   * promised and not given.
    */
   it('reads a credit of zero as no credit at all', () => {
     const noCredit = {
@@ -125,6 +127,55 @@ describe('readChangeCost', () => {
   })
 })
 
+/**
+ * The rename between the SDK's entity and Paddle's wire format, which is where a field went
+ * missing for real: `credit` was left out of the object literal that used to sit inline in
+ * `paddlePlanChange.ts`, so `credited` was false for every change the app ever previewed and the
+ * screen could not say «the difference» whatever Paddle answered. Nothing failed — an absent
+ * property is not a type error, and no other reader of that object exists.
+ */
+describe('readSdkChangeCost', () => {
+  it('carries the credit across the rename', () => {
+    const previewed = {
+      updateSummary: {
+        credit: { amount: '-349', currencyCode: 'EUR' },
+        result: { action: 'charge', amount: '350', currencyCode: 'EUR' },
+      },
+      immediateTransaction: { details: { totals: { grandTotal: '350' } } },
+    }
+
+    assert.deepEqual(readSdkChangeCost(previewed), { action: 'charge', amount: '3.50', payNow: '3.50', credited: true })
+  })
+
+  it('reads a zero credit as no credit, exactly as the wire shape does', () => {
+    const previewed = {
+      updateSummary: {
+        credit: { amount: '0', currencyCode: 'EUR' },
+        result: { action: 'charge', amount: '9999', currencyCode: 'EUR' },
+      },
+      immediateTransaction: { details: { totals: { grandTotal: '9999' } } },
+    }
+
+    assert.deepEqual(readSdkChangeCost(previewed), {
+      action: 'charge',
+      amount: '99.99',
+      payNow: '99.99',
+      credited: false,
+    })
+  })
+
+  /* `do_not_bill` previews carry neither, and «nothing to pay» is the right reading of that —
+     not `null`, which the caller would turn into a refusal. */
+  it('reads a change that bills nothing at all', () => {
+    assert.deepEqual(readSdkChangeCost({ updateSummary: null, immediateTransaction: null }), {
+      action: 'nothing',
+      amount: '0.00',
+      payNow: '0.00',
+      credited: false,
+    })
+  })
+})
+
 describe('changeCostLine', () => {
   it('names the amount that leaves the card', () => {
     assert.equal(
@@ -146,24 +197,33 @@ describe('changeCostLine', () => {
   })
 
   /*
-   * **A change of billing cycle is not a prorated one, and the sentence must not say it is.**
-   * Measured against the sandbox on 2026-09-14: Premium monthly → Premium yearly, one day into
-   * the month, came back `credit: 0` / `charge: 9999` — a fresh year, nothing back for the days
-   * already paid. The totals look exactly like a prorated upgrade's, which is why the caller has
-   * to say which one this is rather than the numbers being read for it.
+   * **An uncredited change is not a prorated one, and the sentence must not say it is.**
+   * Measured against the sandbox on 2026-09-14: Premium monthly → Premium yearly one day into
+   * the month, and Standard yearly → Premium yearly on a subscription whose cycle had been moved
+   * twice, both came back `credit: 0` / `charge: 9999`. The totals look exactly like a prorated
+   * upgrade's, which is why this hangs off Paddle's own `credit` and not off the two cycles.
+   *
+   * **What it must not say either is «a fresh period starts today»**, which is what it said
+   * first: the second of those two kept its renewal date to the second, so that sentence was a
+   * guess about the calendar in place of a guess about the money. The date has a row of its own.
    */
   it('promises no difference where Paddle credited nothing', () => {
-    const restarted = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99', credited: false })
+    const uncredited = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99', credited: false })
 
-    assert.equal(restarted, 'You pay €99.99 now, and a fresh period starts today.')
-    assert.doesNotMatch(restarted, /difference/)
-    assert.doesNotMatch(restarted, /already paid for/)
+    assert.equal(
+      uncredited,
+      'You pay €99.99 now — the full price of the new plan, with nothing credited for what is left of the old one.',
+    )
+    assert.doesNotMatch(uncredited, /difference/)
+    assert.doesNotMatch(uncredited, /already paid for/)
+    assert.doesNotMatch(uncredited, /fresh period/)
   })
 
   it('still says both numbers when account credit partly covers an uncredited change', () => {
     const line = changeCostLine({ action: 'charge', amount: '99.99', payNow: '90.33', credited: false })
 
-    assert.match(line, /fresh period starts today/)
+    assert.match(line, /full price of the new plan/)
+    assert.doesNotMatch(line, /fresh period/)
     assert.match(line, /€90\.33 leaves your card/)
   })
 })
