@@ -45,7 +45,7 @@ describe('readChangeCost', () => {
   /* CASO A of the analysis document: the upgrade costs the prorated difference and nothing
      else. €6.99 for the rest of the period, less €3.49 of Standard not consumed, is €3.50. */
   it('reads a same-cycle upgrade as the prorated difference', () => {
-    assert.deepEqual(readChangeCost(CASE_A), { action: 'charge', amount: '3.50', payNow: '3.50' })
+    assert.deepEqual(readChangeCost(CASE_A), { action: 'charge', amount: '3.50', payNow: '3.50', credited: true })
   })
 
   /*
@@ -54,12 +54,30 @@ describe('readChangeCost', () => {
    * Printing only one of the two numbers is how somebody comes to believe they were billed
    * twice — or that the change was free.
    */
+  /*
+   * **A credit of zero is not a credit**, and Paddle sends one: measured 2026-09-14, both a
+   * change of billing cycle and a same-cycle upgrade on a subscription bought minutes earlier
+   * came back `credit: { amount: '0' }` with the full price charged. The sentence on the screen
+   * hangs off this, so a zero read as «there was a credit» is a discount promised and not given.
+   */
+  it('reads a credit of zero as no credit at all', () => {
+    const noCredit = {
+      update_summary: {
+        credit: { amount: '0', currency_code: 'EUR' },
+        result: { action: 'charge', amount: '9999', currency_code: 'EUR' },
+      },
+      immediate_transaction: { details: { totals: { grand_total: '9999' } } },
+    }
+
+    assert.deepEqual(readChangeCost(noCredit), { action: 'charge', amount: '99.99', payNow: '99.99', credited: false })
+  })
+
   it('keeps the price and the charge apart when credit covers the change', () => {
     const withCredit = {
       ...CASE_A,
       immediate_transaction: { details: { totals: { total: '350', credit: '350', grand_total: '0' } } },
     }
-    assert.deepEqual(readChangeCost(withCredit), { action: 'charge', amount: '3.50', payNow: '0.00' })
+    assert.deepEqual(readChangeCost(withCredit), { action: 'charge', amount: '3.50', payNow: '0.00', credited: true })
   })
 
   it('reads a downgrade as money coming back, never as a charge', () => {
@@ -67,7 +85,7 @@ describe('readChangeCost', () => {
       update_summary: { result: { action: 'credit', amount: '650', currency_code: 'EUR' } },
       immediate_transaction: { details: { totals: { grand_total: '0' } } },
     }
-    assert.deepEqual(readChangeCost(down), { action: 'credit', amount: '6.50', payNow: '0.00' })
+    assert.deepEqual(readChangeCost(down), { action: 'credit', amount: '6.50', payNow: '0.00', credited: false })
   })
 
   /* Paddle reports the size in `amount` and the direction in `action`. A negative `amount`
@@ -78,7 +96,7 @@ describe('readChangeCost', () => {
       update_summary: { result: { action: 'credit', amount: '-650' } },
       immediate_transaction: { details: { totals: { grand_total: '0' } } },
     }
-    assert.deepEqual(readChangeCost(signed), { action: 'credit', amount: '6.50', payNow: '0.00' })
+    assert.deepEqual(readChangeCost(signed), { action: 'credit', amount: '6.50', payNow: '0.00', credited: false })
   })
 
   it('answers `nothing` rather than a zero charge', () => {
@@ -86,8 +104,9 @@ describe('readChangeCost', () => {
       update_summary: { result: { action: 'charge', amount: '0' } },
       immediate_transaction: { details: { totals: { grand_total: '0' } } },
     }
-    assert.deepEqual(readChangeCost(free), { action: 'nothing', amount: '0.00', payNow: '0.00' })
+    assert.deepEqual(readChangeCost(free), { action: 'nothing', amount: '0.00', payNow: '0.00', credited: false })
     assert.deepEqual(readChangeCost({ immediate_transaction: null }), {
+      credited: false,
       action: 'nothing',
       amount: '0.00',
       payNow: '0.00',
@@ -109,19 +128,19 @@ describe('readChangeCost', () => {
 describe('changeCostLine', () => {
   it('names the amount that leaves the card', () => {
     assert.equal(
-      changeCostLine({ action: 'charge', amount: '3.50', payNow: '3.50' }),
+      changeCostLine({ action: 'charge', amount: '3.50', payNow: '3.50', credited: true }),
       'You pay €3.50 now — the difference for the rest of the period you have already paid for.',
     )
   })
 
   it('says both numbers when credit covers the change', () => {
-    const line = changeCostLine({ action: 'charge', amount: '3.50', payNow: '0.00' })
+    const line = changeCostLine({ action: 'charge', amount: '3.50', payNow: '0.00', credited: true })
     assert.match(line, /€3\.50/)
     assert.match(line, /€0\.00 leaves your card/)
   })
 
   it('never says «you pay» for a change that gives money back', () => {
-    const line = changeCostLine({ action: 'credit', amount: '6.50', payNow: '0.00' })
+    const line = changeCostLine({ action: 'credit', amount: '6.50', payNow: '0.00', credited: true })
     assert.match(line, /pay nothing now/)
     assert.match(line, /€6\.50/)
   })
@@ -133,16 +152,16 @@ describe('changeCostLine', () => {
    * already paid. The totals look exactly like a prorated upgrade's, which is why the caller has
    * to say which one this is rather than the numbers being read for it.
    */
-  it('promises no difference where the period starts again', () => {
-    const restarted = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99' }, true)
+  it('promises no difference where Paddle credited nothing', () => {
+    const restarted = changeCostLine({ action: 'charge', amount: '99.99', payNow: '99.99', credited: false })
 
     assert.equal(restarted, 'You pay €99.99 now, and a fresh period starts today.')
     assert.doesNotMatch(restarted, /difference/)
     assert.doesNotMatch(restarted, /already paid for/)
   })
 
-  it('still says both numbers on a restarted period that credit partly covers', () => {
-    const line = changeCostLine({ action: 'charge', amount: '99.99', payNow: '90.33' }, true)
+  it('still says both numbers when account credit partly covers an uncredited change', () => {
+    const line = changeCostLine({ action: 'charge', amount: '99.99', payNow: '90.33', credited: false })
 
     assert.match(line, /fresh period starts today/)
     assert.match(line, /€90\.33 leaves your card/)
@@ -165,7 +184,7 @@ describe('scheduledChangeLine', () => {
 
   it('is not what a change with no date says', () => {
     assert.equal(
-      changeCostLine({ action: 'nothing', amount: '0.00', payNow: '0.00' }),
+      changeCostLine({ action: 'nothing', amount: '0.00', payNow: '0.00', credited: false }),
       'There is nothing to pay for this change.',
     )
   })

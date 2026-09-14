@@ -308,6 +308,33 @@ mail to ride along with. Found on the third review pass of this branch.
 - `customer-journey.md` is the document that describes all six emails, and §4 and §5 both moved
   with this.
 
+## Il giro per immagini del 2026-09-14, e le due cose che ha trovato
+
+Diciassette casi fotografati passo per passo contro la preview, con Paddle in sandbox e la
+carta di test; il materiale sta in `/media/psf/Download/strumfolio-qa-2026-09-14/`, una cartella
+per caso, con un `LEGGIMI.md` che dice anche quali casi non sono riproducibili da lì e perché
+(il Lifetime non è in vendita sulla preview, i rinnovi vorrebbero un mese, il dunning e i
+chargeback non si innescano a comando). Le celle «Dal vivo» di `CASES.md` che sono passate a
+`browser 2026-09-14` vengono da lì.
+
+- **«La differenza» non era una differenza, e il primo tentativo di correggerla mancava il
+  bersaglio.** La frase sotto il riepilogo prometteva «the difference for the rest of the period
+  you have already paid for» anche dove Paddle non accredita niente. La prima correzione la
+  legava al *cambio di ciclo*, che copriva un caso su due: misurato lo stesso giorno, anche
+  Standard annuale → Premium annuale — che il ciclo non lo tocca — risponde `credit: 0` con
+  addebito pieno. La domanda vera è «Paddle ha accreditato qualcosa», e adesso `ChangeCost` la
+  porta (`credited`), letta dal suo `update_summary`. Un `credit` di **zero non è un credito**:
+  è la forma che Paddle manda davvero, ed è pinnata in un test.
+- **Chi sceglie Free dopo un abbonamento finito legge «This plan has ended».** Premendo
+  «Continue with Free» si arriva su `/thanks`, che ha un ramo scritto apposta per questo momento
+  — «Still on Free. Here's what's next.» — e mostra invece il ramo del piano scaduto, perché
+  `activatePlanChoice` timbra solo `planChosenAt` e le colonne del piano restano quelle del
+  Premium finito. **Non corretto, perché la scelta non è mia**: o l'azione azzera a free/active
+  un piano ormai scaduto — e allora scrive colonne che questo repo riserva al webhook — oppure
+  `/thanks` distingue «ho appena scelto Free» da «sono capitato qui», che vuole un parametro.
+  Il ramo Free di quella pagina resta irraggiungibile per il lettore che più naturalmente ci
+  arriva.
+
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
 Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,

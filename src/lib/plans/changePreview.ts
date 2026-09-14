@@ -42,6 +42,17 @@ export interface ChangeCost {
   amount: string
   /** What leaves the card right now, once any credit already on the account is applied. */
   payNow: string
+  /**
+   * Whether Paddle credited anything for what is left of the period being replaced.
+   *
+   * **It decides one sentence, and that sentence was wrong without it.** «You pay €x now — the
+   * difference for the rest of the period you have already paid for» is a claim about proration,
+   * and proration is not something this app can infer: measured on 2026-09-14, Standard yearly →
+   * Premium yearly bought minutes earlier came back `credit: 0` and a full `charge: 9999`, and a
+   * change of billing cycle does the same. The totals look identical whether or not a credit was
+   * given, which is exactly why this has to be read from Paddle rather than guessed here.
+   */
+  credited: boolean
 }
 
 interface Totals {
@@ -50,6 +61,8 @@ interface Totals {
 
 interface PreviewShape {
   update_summary?: {
+    /** What Paddle gives back for what is unused — `'0'` when it gives nothing back at all. */
+    credit?: { amount?: unknown } | null
     result?: { action?: unknown; amount?: unknown } | null
   } | null
   immediate_transaction?: { details?: { totals?: Totals | null } | null } | null
@@ -73,8 +86,12 @@ export function readChangeCost(preview: unknown): ChangeCost | null {
   const payNow = typeof rawPayNow === 'string' ? paddleAmountToEuro(rawPayNow) : '0.00'
   if (payNow === null) return null
 
+  /* `'0'`, `'000'` and an absent field all mean the same thing: nothing came back. */
+  const rawCredit = summary?.credit?.amount
+  const credited = typeof rawCredit === 'string' && /[1-9]/.test(rawCredit)
+
   const result = summary?.result
-  if (!result) return { action: 'nothing', amount: '0.00', payNow }
+  if (!result) return { action: 'nothing', amount: '0.00', payNow, credited }
 
   const amount = typeof result.amount === 'string' ? paddleAmountToEuro(result.amount) : null
   if (amount === null) return null
@@ -82,10 +99,10 @@ export function readChangeCost(preview: unknown): ChangeCost | null {
   /* Paddle reports the size in `amount` and the direction in `action`; a sign on top of that
      would be a second statement of the same fact, and the two could disagree. */
   const size = amount.startsWith('-') ? amount.slice(1) : amount
-  if (size === '0.00') return { action: 'nothing', amount: '0.00', payNow }
+  if (size === '0.00') return { action: 'nothing', amount: '0.00', payNow, credited }
 
-  if (result.action === 'charge') return { action: 'charge', amount: size, payNow }
-  if (result.action === 'credit') return { action: 'credit', amount: size, payNow }
+  if (result.action === 'charge') return { action: 'charge', amount: size, payNow, credited }
+  if (result.action === 'credit') return { action: 'credit', amount: size, payNow, credited }
 
   return null
 }
@@ -128,7 +145,7 @@ export function scheduledChangeLine(keep: string, to: string, on: string): strin
  * are said, in that order, since «€3.50, and nothing to pay» is only confusing if the €3.50 is
  * left out and the next invoice mentions it.
  */
-export function changeCostLine(cost: ChangeCost, restartsThePeriod = false): string {
+export function changeCostLine(cost: ChangeCost): string {
   if (cost.action === 'credit') {
     return (
       `You pay nothing now. €${cost.amount} of what you have already paid comes back as credit ` +
@@ -139,26 +156,22 @@ export function changeCostLine(cost: ChangeCost, restartsThePeriod = false): str
   if (cost.action === 'nothing') return 'There is nothing to pay for this change.'
 
   /*
-   * **«The difference» is a claim about proration, and a change of billing cycle is not a
-   * prorated one.** Measured on 2026-09-14: Premium monthly → Premium yearly, one day into the
-   * month, quoted `credit: 0` and `charge: 9999` — Paddle starts a fresh year and gives nothing
-   * back for the days already paid. The screen said «you pay €99.99 now — the difference for
-   * the rest of the period you have already paid for», which is the largest figure this app
-   * shows and the one sentence about it that was false.
-   *
-   * So the caller says whether the period restarts, and it is a parameter rather than something
-   * read off `cost`: the totals look identical either way, and that is exactly why nobody would
-   * have caught it from the numbers.
+   * **«The difference» is a claim about proration, so it waits for Paddle to say there was
+   * one.** Measured twice on 2026-09-14: Premium monthly → Premium yearly quoted `credit: 0`
+   * with a full `charge: 9999`, and so did Standard yearly → Premium yearly on a subscription
+   * bought minutes earlier — a change that does not touch the billing cycle at all. The first
+   * version of this fix keyed on the cycle moving, which covered one of those two and was a
+   * proxy for the real question. `credited` is the real question, and it is Paddle's own answer.
    */
   if (cost.payNow === cost.amount) {
-    return restartsThePeriod
-      ? `You pay €${cost.amount} now, and a fresh period starts today.`
-      : `You pay €${cost.amount} now — the difference for the rest of the period you have already paid for.`
+    return cost.credited
+      ? `You pay €${cost.amount} now — the difference for the rest of the period you have already paid for.`
+      : `You pay €${cost.amount} now, and a fresh period starts today.`
   }
 
-  return restartsThePeriod
-    ? `A fresh period starts today at €${cost.amount}, part of it covered by the credit on your ` +
-      `account. €${cost.payNow} leaves your card now.`
-    : `This works out at €${cost.amount} for the rest of the period you have already paid for, ` +
+  return cost.credited
+    ? `This works out at €${cost.amount} for the rest of the period you have already paid for, ` +
       `covered by the credit on your account. €${cost.payNow} leaves your card now.`
+    : `A fresh period starts today at €${cost.amount}, part of it covered by the credit on your ` +
+      `account. €${cost.payNow} leaves your card now.`
 }

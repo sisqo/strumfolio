@@ -596,7 +596,7 @@ export function PaddleCheckout(props: Props) {
                     changeNames(live, { plan: props.plan, cycle }).to,
                     formatPlanDate(new Date(preview.effectiveAt)),
                   )
-                : changeCostLine(preview.cost, live !== null && live.cycle !== cycle),
+                : changeCostLine(preview.cost),
         })
 
   const amount = props.plan === 'lifetime' ? props.amount : props.amounts[cycle]

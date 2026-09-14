@@ -4,8 +4,8 @@ import { describe, it } from 'node:test'
 import type { ChangeCost } from './changePreview'
 import { changeSummary, nextChargeOf } from './changeSummary'
 
-const nothing: ChangeCost = { action: 'nothing', amount: '0.00', payNow: '0.00' }
-const charged: ChangeCost = { action: 'charge', amount: '3.50', payNow: '3.50' }
+const nothing: ChangeCost = { action: 'nothing', amount: '0.00', payNow: '0.00', credited: false }
+const charged: ChangeCost = { action: 'charge', amount: '3.50', payNow: '3.50', credited: true }
 
 const value = (summary: { rows: { label: string; value: string }[] }, label: string) =>
   summary.rows.find((row) => row.label === label)?.value ?? null
