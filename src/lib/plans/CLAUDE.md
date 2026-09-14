@@ -210,12 +210,14 @@ break from a distance:
     wrong**, and they are written out here because each looked obvious: it is not that a change
     of *cycle* never prorates (measured 2026-09-14 on a subscription bought minutes earlier,
     Standard monthly → Premium yearly quoted **€96.50** — the unused month credited, across a
-    change of frequency), and it is not that a same-cycle change always does. What decides it is
-    whether the **current billing period has an invoice behind it**, and a period restarted by an
-    earlier change of frequency has none. The totals look identical either way — which is why
-    nobody would have caught this from the figures, and why `changeCostLine` reads **Paddle's own
-    `credit`** rather than anything computed here. The after-the-press sentence carried the same
-    claim and is corrected off the same field.
+    change of frequency), and it is not that a same-cycle change always does. **The rule is only
+    half known**: a period restarted by an earlier change of frequency has no invoice behind it
+    and credits nothing, which covers two of the three uncredited measurements; the third —
+    Premium monthly → Premium yearly ten minutes after a same-cycle upgrade, period untouched —
+    is not covered by it and has no confirmed explanation. The totals look identical either way,
+    which is why nobody would have caught this from the figures, and why `changeCostLine` reads
+    **Paddle's own `credit`** rather than anything computed here. The after-the-press sentence
+    carried the same claim and is corrected off the same field.
   - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
     line still promising the downgrade, right until a manual reload. It re-reads once more three
     seconds later; deliberately not a poll, because a screen that is briefly behind is better
@@ -557,15 +559,22 @@ watched working by anybody.
     Paddle prorates against the invoice sitting behind the current billing period, and the
     restarted period has none — the money was collected against the period it replaced. So after
     any change of cycle, every later change is priced at the **full** new price with nothing
-    credited for what was paid. Measured 2026-09-14, four purchases on one sandbox account:
-    on untouched periods the credit is always there — Standard monthly → Premium monthly billed
-    **€6.50**, Standard yearly → Premium yearly **€65.00**, and Standard monthly → Premium
+    credited for what was paid. Measured 2026-09-14, four purchases on one sandbox account: on a
+    freshly bought subscription the credit is always there — Standard monthly → Premium monthly
+    billed **€6.50**, Standard yearly → Premium yearly **€65.00**, and Standard monthly → Premium
     **yearly** **€96.50**, so a change of frequency prorates too. On a subscription that had
     already been through two changes of cycle, the same Standard yearly → Premium yearly was
     billed the whole **€99.99**, with no adjustment anywhere. Not repaired — it is Paddle's
     arithmetic, and the app has no honest way to hand back money it never took — but it is why
     `credited` is read from Paddle instead of inferred, and it is the whole explanation of the
     screenshot that looked like a bug in the pricing.
+  - **One figure in `CASES.md` was watched on a chained subscription and is atypical: B3.**
+    Premium monthly → Premium yearly was driven through the app on 2026-09-13/14 and charged the
+    full €99.99 with `proration: null` — ten minutes after a same-cycle upgrade, on a period that
+    had *not* been restarted. Its `Dal vivo` cell says `browser 2026-09-14` because somebody did
+    watch it happen; what nobody has watched is that change on a subscription bought minutes
+    before, which by B5's measurement would have credited the unused month. It is the one
+    uncredited reading the restarted-period rule does not explain.
   - **The pin works in both directions, and B8 needs the backward one.** B4 moves the date
     *forward* (a monthly subscription pinned a year out); B8 moves it *back* — after its first
     call the items are yearly and the period has restarted a year out, and the date has to come

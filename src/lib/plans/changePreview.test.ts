@@ -203,8 +203,9 @@ describe('changeCostLine', () => {
    * subscription whose cycle had been moved twice came back `credit: 0` / `charge: 9999`, while
    * the same change on a subscription bought minutes earlier came back €65.00. The totals look
    * exactly like each other, which is why this hangs off Paddle's own `credit` and not off the
-   * two cycles — a change of cycle credits normally (€96.50 of €99.99, same day) whenever the
-   * period behind it was really billed.
+   * two cycles — a change of cycle credits perfectly well on a fresh subscription (€96.50 of
+   * €99.99, same day), and the rule behind the ones that credit nothing is only half known.
+   * `credited`'s own comment has both halves.
    *
    * **What it must not say either is «a fresh period starts today»**, which is what it said
    * first: the uncredited case kept its renewal date to the second, so that sentence was a guess

@@ -506,9 +506,10 @@ unchanged**, restarting it on any change of cycle; `next_billed_at` — the repa
 is ignored beside an items change and refused alone, so it is always a second call; and **the pin
 puts the date back but not the invoice**, so after a change of cycle Paddle credits nothing for
 what was paid and every later change is priced at the full new price — while a change of cycle on
-an untouched subscription prorates normally (€96.50 of €99.99, measured 2026-09-14). It is the
-restarted period that kills the credit, not the change of cycle, which is why the screen reads
-`update_summary.credit` instead of inferring a proration from the two cycles.
+a freshly bought subscription prorates normally (€96.50 of €99.99, measured 2026-09-14). Which
+means neither «same cycle» nor «change of cycle» predicts the credit, and one uncredited reading
+is unexplained even by the restarted period; the screen therefore reads `update_summary.credit`
+and infers nothing. `plans/CLAUDE.md` has all six measurements.
 
 **Still to do before any of this takes money in production**: the live catalogue does not exist
 (create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,

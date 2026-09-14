@@ -57,16 +57,22 @@ export interface ChangeCost {
    * never billed, and every later change is priced at the **full** new price with nothing
    * credited for what was paid.
    *
-   * **It is the restarted period that kills the credit, not the change of cycle itself**, and
-   * that distinction cost two wrong explanations before it was measured properly. On untouched
-   * periods, 2026-09-14: Standard monthly → Premium monthly billed €6.50 of €9.99, Standard
-   * yearly → Premium yearly €65.00 of €99.99, and Standard monthly → Premium **yearly** €96.50
-   * of €99.99 — a change of frequency, credited all the same. The same Standard yearly → Premium
-   * yearly on a subscription already moved between cycles twice billed the whole €99.99.
+   * **A change of cycle is not the discriminator either**, which was the second wrong guess.
+   * Measured 2026-09-14, every one of these on a subscription **bought minutes earlier**:
+   * Standard monthly → Premium monthly billed €6.50 of €9.99, Standard yearly → Premium yearly
+   * €65.00 of €99.99, and Standard monthly → Premium **yearly** €96.50 of €99.99 — a change of
+   * frequency, credited all the same.
    *
-   * The totals look identical either way, which is exactly why this is read from Paddle rather
-   * than guessed here — and why both guesses that preceded it (does the cycle move? is this an
-   * upgrade?) got real cases backwards.
+   * **And the rule behind the three uncredited ones is not fully known**, which is stated rather
+   * than smoothed over. Two are explained by the paragraph above — a period restarted by an
+   * earlier change of cycle. The third is not: Premium monthly → Premium yearly, ten minutes
+   * after a same-cycle upgrade that left `current_billing_period` untouched, came back with a
+   * single line, `proration: null` and no credit at all. What that one has in common with
+   * nothing else measured is that the item being replaced had itself arrived mid-period as a
+   * proration. Plausible, unproven, and not something to encode.
+   *
+   * So: the totals look identical either way, the rule is not one this app can state, and the
+   * answer is read from Paddle — which is the whole reason this field exists.
    */
   credited: boolean
 }
