@@ -63,7 +63,7 @@ import {
   previewPaddlePlanChange,
   type PaddlePlanChangeFailure,
 } from '@/lib/plans/paddlePlanChange'
-import { euro, yearlyTotalOfMonthly, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
+import { cycleComparison, euro, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
 import { changeNames, formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
@@ -718,6 +718,10 @@ export function PaddleCheckout(props: Props) {
   /* What is charged, and what the listino said — the second only where a discount would really
      be applied, which the page decided with `discountIdFor`. */
   const reduced = props.plan === 'lifetime' ? props.discounted : props.discounted[cycle]
+
+  /* Null for the Lifetime, which has no second cycle to be compared with, and null again
+     wherever the two cycles are not priced on the same list — see `cycleComparison`. */
+  const comparison = props.plan === 'lifetime' ? null : cycleComparison(props.amounts, props.discounted)
   const cycleWord = props.plan === 'lifetime' ? 'once' : cycle === 'year' ? 'a year' : 'a month'
 
   const footNote =
@@ -806,11 +810,15 @@ export function PaddleCheckout(props: Props) {
                 * faster than they read a sentence about it. **Only where the switch is** — with
                 * the cycle already settled this argues for a change the screen offers no way to
                 * make.
+                *
+                * Both figures come from `cycleComparison`, never from `props.amounts` directly:
+                * printing the listino under a headline the coupon has already reduced put
+                * «€2.44 a month» and «€41.88 a year» one line apart. It answers null where no
+                * true comparison is left, which is why this is three conditions and not two.
                 */}
-              {asksForCycle && cycle === 'month' && (
+              {asksForCycle && cycle === 'month' && comparison !== null && (
                 <p className="mt-1.5 text-[0.8125rem] leading-[1.45] text-muted">
-                  {yearlyTotalOfMonthly(props.amounts.month)} a year, against {euro(props.amounts.year)}{' '}
-                  paid yearly.
+                  {comparison.monthlyOverAYear} a year, against {comparison.yearly} paid yearly.
                 </p>
               )}
 

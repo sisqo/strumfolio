@@ -181,3 +181,47 @@ export function yearlyTotalOfMonthly(amount: string): string {
   const rest = cents % 100
   return euro(rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, '0')}`)
 }
+
+/** The two figures the checkout's cycle comparison puts side by side. */
+export interface CycleComparison {
+  /** Twelve months of the monthly plan, as euro. */
+  monthlyOverAYear: string
+  /** One year of the yearly plan, as euro. */
+  yearly: string
+}
+
+/**
+ * «€41.88 a year, against €34.99 paid yearly» — the argument for yearly billing, made by
+ * putting two numbers next to each other rather than by claiming a saving.
+ *
+ * **Both figures have to come from the same price list, and that is the whole of this
+ * function.** It was written before coupons were real, so it read the listino; under a headline
+ * the coupon had already reduced to €2.44 it went on printing €41.88, which is not what that
+ * reader will pay in a year and reads as a contradiction of the figure directly above it.
+ * Measured on the preview on 2026-09-14, monthly Standard under `COUPON30`.
+ *
+ * Three cases, because only two of them have a true sentence in them:
+ *
+ * - **Both cycles reduced** — compare the reduced figures. Apples to apples: a campaign's
+ *   months become twelve monthly periods or one yearly one, so each side is exactly the first
+ *   year, and the ticket under the card already says what happens after that.
+ * - **Neither reduced** — the listino, unchanged.
+ * - **One of the two** — null, and the caller prints nothing. There is no honest one-sentence
+ *   comparison left: a reduced monthly against a full-price yearly makes monthly look like the
+ *   cheaper of the two, which is the opposite of what this line exists to say. Rare — it needs
+ *   a campaign whose prices can be named for one cycle and not the other — and losing a line of
+ *   persuasion is the cheap side of that trade.
+ */
+export function cycleComparison(
+  amounts: Record<BillingPeriod, string>,
+  discounted: Record<BillingPeriod, string | null>,
+): CycleComparison | null {
+  const reduced = discounted.month !== null && discounted.year !== null
+  const plain = discounted.month === null && discounted.year === null
+  if (!reduced && !plain) return null
+
+  return {
+    monthlyOverAYear: yearlyTotalOfMonthly(discounted.month ?? amounts.month),
+    yearly: euro(discounted.year ?? amounts.year),
+  }
+}
