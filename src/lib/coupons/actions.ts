@@ -533,7 +533,11 @@ export async function resyncCampaign(id: string): Promise<{ ok: true } | { ok: f
     return { ok: true }
   }
 
-  return { ok: false, reason: result.reason === 'not-found' ? 'not-found' : 'paddle-unreachable' }
+  /* Each refusal keeps its own meaning rather than collapsing into «Paddle would not take it»:
+     a campaign that no longer exists and a deployment with no database are not that, and both
+     already have a sentence of their own. */
+  if (result.reason === 'not-found' || result.reason === 'no-database') return { ok: false, reason: result.reason }
+  return { ok: false, reason: 'paddle-unreachable' }
 }
 
 /** Make one campaign the `?promo=1` target, taking the flag off whichever held it. */

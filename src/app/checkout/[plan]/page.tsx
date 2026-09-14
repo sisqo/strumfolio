@@ -17,7 +17,7 @@ import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
 import { checkoutMode } from '@/lib/plans/planChange'
 import { isCheckoutPlan, LIFETIME, periodEnd, PRICES } from '@/lib/plans/prices'
-import type { BillingPeriod, CheckoutPlan } from '@/lib/plans/prices'
+import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { changeNames, formatPlanDate, planWithCycle } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
@@ -178,7 +178,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    * toggle can move it and a campaign can cover one cycle and not the other.
    */
   const chargeable = (forCycle: BillingPeriod | null): boolean =>
-    campaign !== null && discountIdFor(campaign, plan as CheckoutPlan, forCycle) !== null
+    campaign !== null && discountIdFor(campaign, plan, forCycle) !== null
 
   const reduced = (full: string, forCycle: BillingPeriod | null): string | null =>
     campaign !== null && chargeable(forCycle) ? discountedAmount(full, campaign.discountPercent) : null
