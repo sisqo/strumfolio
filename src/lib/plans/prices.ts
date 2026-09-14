@@ -202,9 +202,17 @@ export interface CycleComparison {
  *
  * Three cases, because only two of them have a true sentence in them:
  *
- * - **Both cycles reduced** — compare the reduced figures. Apples to apples: a campaign's
- *   months become twelve monthly periods or one yearly one, so each side is exactly the first
- *   year, and the ticket under the card already says what happens after that.
+ * - **Both cycles reduced** — compare the reduced figures. Apples to apples for a campaign of a
+ *   year or longer: twelve monthly periods against one yearly one is the same first year on both
+ *   sides, and the ticket under the card already says what happens after that.
+ *
+ *   **Below twelve months it is approximate, knowingly.** `discountCycles` rounds the yearly side
+ *   up (`Math.ceil(months / 12)`), so a six-month campaign discounts a whole year for whoever
+ *   pays yearly and six months for whoever pays monthly — and this line, which multiplies the
+ *   reduced monthly figure by twelve, understates what that first year really costs monthly. It
+ *   is left that way because this is a comparison and not a charge: the figure nobody is billed
+ *   from, sitting above a ticket that states the duration, and the alternative is threading a
+ *   campaign's length into a price card that otherwise knows nothing about campaigns.
  * - **Neither reduced** — the listino, unchanged.
  * - **One of the two** — null, and the caller prints nothing. There is no honest one-sentence
  *   comparison left: a reduced monthly against a full-price yearly makes monthly look like the
