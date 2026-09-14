@@ -3,14 +3,17 @@
  * (`Account Detail.dc.html`) — collected, events, last payment — derived from the ledger the
  * table below them already renders, never from a second read.
  *
- * A plain module beside the screens rather than a function in `lib/plans/history.ts`: that
- * file opens a database connection at import time, and `npm test` is `node:test` over pure
- * functions (CLAUDE.md). Only the row *type* comes from there, as a type-only import, so
- * nothing of it is pulled in at runtime.
+ * A plain module beside the screens rather than a function in `lib/plans/history.ts`: that file
+ * pulls in drizzle, the schema and the database client to do its reading, and `npm test` is
+ * `node:test` over pure functions (CLAUDE.md). Only the row *type* comes from there, as a
+ * type-only import, so nothing of it is pulled in at runtime. `paidLines.ts` is the same
+ * arrangement for the rule this file leans on — «which lines are money» reads the same type and
+ * belongs to nobody's database either.
  */
 
 import { toCents } from '@/lib/coupons/discount'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
+import { isPaidLine } from '@/lib/plans/paidLines'
 
 /** What the strip prints. Every field is already a string a cell can show, or null for «—». */
 export interface PaymentSummary {
@@ -54,7 +57,7 @@ export function paymentSummary(history: PaymentHistoryLine[]): PaymentSummary {
     total += toCents(line.amount) ?? 0
   }
 
-  const paid = history.find((line) => line.action === 'purchase' || line.action === 'payment')
+  const paid = history.find(isPaidLine)
 
   return {
     collected: decimal(total),

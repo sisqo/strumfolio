@@ -17,6 +17,7 @@ import {
   type PaddleKeepFailure,
 } from '@/lib/plans/paddleSubscription'
 import type { PaymentHistoryLine } from '@/lib/plans/history'
+import { lastPaidFor } from '@/lib/plans/paidLines'
 import {
   cancelledOnLine,
   cancelQuestion,
@@ -250,8 +251,7 @@ export function BillingScreen() {
       ? null
       : discountLine(
           ready.current.discount,
-          ready.history.find((line) => line.action === 'purchase' && line.plan === ready.current.plan)?.fullAmount ??
-            null,
+          lastPaidFor(ready.current.plan, ready.history)?.fullAmount ?? null,
         )
 
   return (

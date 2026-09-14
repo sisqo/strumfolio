@@ -18,6 +18,7 @@ import { paddleEvents } from '@/lib/db/schema'
 
 import { LIFETIME, PRICES } from './prices'
 import type { BillingPeriod } from './prices'
+import { lastPaidFor } from './paidLines'
 import { readPlan } from './types'
 import type { Plan } from './types'
 
@@ -187,14 +188,9 @@ export function amountFor(plan: Plan, cycle: BillingPeriod | null): string | nul
  * `lastPaymentLine`, which reads the same ledger for the same reason). `null` when this plan
  * was never bought through this ledger at all — a manually granted plan, most likely — and a
  * caller wanting to offer "the other cycle" has no honest opposite to offer then.
- *
- * `history` newest-first, matched on `plan` and not only on the action, for the same reason
- * `lastPaymentLine` matches on both: an upgrade's own row must win over the cheaper plan
- * underneath it, or this would answer with the cycle of a plan no longer held.
  */
 export function mostRecentCycleFor(plan: Plan, history: PaymentHistoryLine[]): BillingPeriod | null {
-  const paid = history.find((line) => line.action === 'purchase' && line.plan === plan)
-  return paid?.cycle ?? null
+  return lastPaidFor(plan, history)?.cycle ?? null
 }
 
 /** Everything a ledger line says beyond its id and its date. */

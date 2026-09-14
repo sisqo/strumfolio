@@ -15,6 +15,7 @@ import { euro } from './prices'
 import type { BillingPeriod } from './prices'
 import type { SubscriptionState } from './checkout'
 import type { PaymentHistoryLine } from './history'
+import { lastPaidFor } from './paidLines'
 
 /**
  * A renewal date as a reader would write it — «22 September 2026» — the same form the
@@ -298,8 +299,8 @@ export function lastPaymentLine(
 ): string | null {
   if (current.plan === 'free') return null
 
-  const paid = history.find((line) => line.action === 'purchase' && line.plan === current.plan)
-  if (paid === undefined || paid.amount === null) return null
+  const paid = lastPaidFor(current.plan, history)
+  if (paid === null || paid.amount === null) return null
 
   const when = formatPlanDate(paid.occurredAt)
 
