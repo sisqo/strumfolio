@@ -39,15 +39,24 @@
  */
 
 import { initializePaddle, type CheckoutSettings, type Environments, type Paddle } from '@paddle/paddle-js'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import Link from 'next/link'
 
+import { IconCheck } from '@/components/icons'
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
 import { resolvedTheme, useResolvedTheme } from '@/lib/useResolvedTheme'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
-import { changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
-import { callOffLine, changeCostLine, scheduledChangeLine, type ChangeCost } from '@/lib/plans/changePreview'
+import { changeStops, changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
+import {
+  arrangedLines,
+  callOffLine,
+  changeCostLine,
+  changeReason,
+  scheduledChangeLine,
+  type ArrangedLines,
+  type ChangeCost,
+} from '@/lib/plans/changePreview'
 import type { ChangeDirection, ChangeWhen } from '@/lib/plans/planChange'
 import {
   changePaddlePlan,
@@ -236,8 +245,29 @@ type Props =
        * refusing to price a further move reads as a fault instead of as a consequence.
        */
       live: { plan: Plan; cycle: BillingPeriod | null; label: string; scheduled: string | null } | null
+      /**
+       * The discounted figure per cycle, or `null` where this cycle would not actually be sold
+       * at one — which is a stricter test than «a coupon is applied».
+       *
+       * **The struck price is the one place this redesign could lie.** A redeemable campaign
+       * with no Paddle Discount behind it draws a ticket on the bar below and is *refused* by
+       * `startPaddleCheckout`, so a card promising €2.44 there would promise a sale this screen
+       * will not make — the shown-price/charged-price gap, arriving by the front door. The page
+       * asks `discountIdFor` per cycle and hands the answer in already decided.
+       */
+      discounted: Record<BillingPeriod, string | null>
+      /**
+       * The day a purchase made now first renews, per cycle, already formatted.
+       *
+       * Computed on the server because `periodEnd` reads the clock, and a clock read during
+       * render is a hydration mismatch waiting for the reader whose midnight falls between the
+       * two. Both cycles, so the toggle restates it without a round trip.
+       */
+      renewsOn: Record<BillingPeriod, string>
+      /** The coupon bar, built by the page and *placed* here — see this file's own note. */
+      coupon?: ReactNode
     }
-  | { plan: 'lifetime'; amount: string }
+  | { plan: 'lifetime'; amount: string; discounted: string | null; coupon?: ReactNode }
 
 export function PaddleCheckout(props: Props) {
   const paddle = useRef<Paddle | null>(null)
@@ -307,6 +337,12 @@ export function PaddleCheckout(props: Props) {
    * quotation speak for what happened.
    */
   const [settled, setSettled] = useState(false)
+  /**
+   * What the settled card says, in the two parts `Checkout.dc.html` sets it in. Held rather than
+   * derived, for `settled`'s own reason: the preview re-reads after the write and by the time
+   * this is on screen it answers about a change that has already happened.
+   */
+  const [arranged, setArranged] = useState<ArrangedLines | null>(null)
   /**
    * Why there is no price, when there is none. The preview refuses in exactly the places the
    * write refuses, so this turns every one of those refusals into something said **before** the
@@ -543,57 +579,41 @@ export function PaddleCheckout(props: Props) {
      * from the quotation — a preview gone stale while the reader was reading, a renewal that
      * fell due in between — reports what actually happened rather than what was promised.
      */
-    setMessage(result.ok ? arranged(result) : CHANGE_REFUSALS[result.reason])
+    if (result.ok) {
+      setArranged(arrangedFor(result))
+      setMessage(null)
+    } else {
+      setMessage(CHANGE_REFUSALS[result.reason])
+    }
     setSettled(result.ok)
     setConfirming(false)
     setBusy(false)
   }
 
   /**
-   * What just happened, in the reader's terms — four outcomes, and only two of them move money.
+   * What just happened, in the reader's terms — handed straight to `arrangedLines`, which owns
+   * the four outcomes and the argument for each.
    *
-   * The `period-end` one is the sentence this whole case exists for: nothing was charged, the
-   * plan they have is theirs until a named day, and the other one starts then. Saying «moving
-   * you to Standard» over that would be false on the day it is read.
-   *
-   * It branches on `when`, never on `direction`, and that ordering is load-bearing since B7: a
-   * change that waits can be a rise in tier, so reading the direction first would send it to
-   * the «what you have not used comes off the charge» line, describing a charge nobody made.
+   * **The labels are built here and the sentences are not**, which is this file's standing
+   * division: it knows `PLAN_LABEL` and `changeNames` and nothing about what a credit means.
+   * `credited` is read from the preview this screen has just quoted, so the promise under the
+   * button and the message after the press cannot describe the same press differently.
    */
-  function arranged(result: Extract<Awaited<ReturnType<typeof changePaddlePlan>>, { ok: true }>): string {
+  function arrangedFor(
+    result: Extract<Awaited<ReturnType<typeof changePaddlePlan>>, { ok: true }>,
+  ): ArrangedLines {
     const target = props.plan === 'lifetime' ? '' : PLAN_LABEL[props.plan]
 
-    if (result.direction === 'revert') {
-      return `Kept — you stay on ${live?.label ?? target}, and the change that was arranged has been called off.`
-    }
-
-    if (result.when === 'period-end' && result.effectiveAt !== null && live !== null) {
-      const names = changeNames(live, { plan: props.plan, cycle })
-      return (
-        `Arranged. Nothing has been charged: you keep ${names.from} until ` +
-        `${formatPlanDate(new Date(result.effectiveAt))}, and move to ${names.to} that day.`
-      )
-    }
-
-    /* The same correction as `changeCostLine`'s, and off the same field rather than off a
-       second guess: promising that the unused part «comes off the charge» is a discount that
-       will not appear on the invoice whenever Paddle credited nothing. Read from the preview
-       this screen has just quoted, so the promise under the button and the message after the
-       press cannot describe the same press differently. */
-    if (preview !== null && !preview.cost.credited) {
-      return (
-        `Moving you to ${target} at the full price of the new plan, with nothing credited for what is ` +
-        'left of the old one. It appears in a moment.'
-      )
-    }
-
-    return result.direction === 'upgrade'
-      ? `Moving you to ${target}. What you have not used of your old plan comes off the charge, ` +
-        'and the new plan appears in a moment.'
-      : `Moving you to ${target}. The difference is credited against your next invoice, and the ` +
-        'new plan appears in a moment.'
+    return arrangedLines({
+      direction: result.direction,
+      when: result.when,
+      on: result.effectiveAt === null ? null : formatPlanDate(new Date(result.effectiveAt)),
+      credited: preview?.cost.credited ?? false,
+      target,
+      keep: live?.label ?? target,
+      names: live === null ? { from: '', to: target } : changeNames(live, { plan: props.plan, cycle }),
+    })
   }
-
 
   /**
    * The change as a handful of labelled facts, built once and rendered in two places — under
@@ -655,27 +675,73 @@ export function PaddleCheckout(props: Props) {
    * about deciding; once the change is made there is nothing left to decide here, and leaving
    * the summary up turns it into a refusal of what just happened — see `settled`.
    */
-  if (settled && message !== null) {
+  if (settled && arranged !== null) {
     return (
       <div className="mt-6">
-        <p className="text-lg" role="status">
-          {message}
-        </p>
-        <Link href="/billing" className="btn btn-primary btn-sm mt-4">
+        {/* A card with a badge, per `Checkout.dc.html`, where this was a paragraph and a small
+            link. The plan leads and the money follows — the two parts `arrangedLines` builds. */}
+        <div className="card p-[1.375rem]" role="status">
+          <span className="state-badge state-badge-ok">
+            <IconCheck size={12} />
+            Arranged
+          </span>
+          <p className="section-title mt-3">{arranged.lead}</p>
+          <p className="mt-2 text-sm leading-[1.5] text-muted">{arranged.body}</p>
+        </div>
+        <Link href="/billing" className="btn btn-primary mt-4 w-full">
           See your plan
         </Link>
       </div>
     )
   }
 
+  /*
+   * The same preview as `summary`, read along the calendar instead of as a list — the shape
+   * `Checkout.dc.html` puts on the page, with the list kept for the dialog. Null in exactly the
+   * states `summary` is null in, so the card falls back to the same sentence.
+   */
+  const stops =
+    live === null || preview === null || props.plan === 'lifetime'
+      ? null
+      : changeStops({
+          from: { plan: PLAN_LABEL[live.plan], label: live.label },
+          to: PLAN_LABEL[props.plan],
+          direction: preview.direction,
+          when: preview.when,
+          effectiveAt: preview.effectiveAt,
+          cost: preview.cost,
+          nextCharge: preview.nextCharge,
+          /* The sentence without the figure: the stop hangs that number beside it already. */
+          reason: changeReason(preview.cost),
+        })
+
+  /* What is charged, and what the listino said — the second only where a discount would really
+     be applied, which the page decided with `discountIdFor`. */
+  const reduced = props.plan === 'lifetime' ? props.discounted : props.discounted[cycle]
+  const cycleWord = props.plan === 'lifetime' ? 'once' : cycle === 'year' ? 'a year' : 'a month'
+
+  const footNote =
+    props.plan === 'lifetime'
+      ? 'A single payment. Tax included, in euro.'
+      : `Billed ${cycle === 'year' ? 'yearly' : 'monthly'} · renews ${props.renewsOn[cycle]} · ` +
+        'cancel any time. Tax included, in euro.'
+
   return (
     <div className="mt-6">
       {/* `segment` / `segment-button is-on`, the control /pricing's own toggle uses for this
           exact choice — the classes already exist and carry the theme, so this is not the
           place to invent a second look for one switch. Yearly first, the side /pricing opens
-          on. */}
+          on.
+
+          **`Checkout.dc.html` does not draw this control and it stays**, which is the one place
+          this redesign departs from its mock. The mock's own script still carries the
+          segment's styles with nothing rendering them — a control drawn in an earlier revision
+          and left out of this composition rather than a decision to remove it — and
+          `asksForCycle` below has a reason the drawing cannot see: a bare link chose nothing,
+          and a subscriber who arrives by one would otherwise have no way to ask for the other
+          cycle at all. */}
       {asksForCycle && (
-        <div className="segment w-fit" role="group" aria-label="Billing period">
+        <div className="segment mb-3 w-fit" role="group" aria-label="Billing period">
           {(['year', 'month'] as const).map((option) => (
             <button
               key={option}
@@ -709,57 +775,98 @@ export function PaddleCheckout(props: Props) {
         </div>
       )}
 
-      <p className="mt-3 text-lg">
-        {PLAN_LABEL[props.plan]} — {euro(amount)}
-        {props.plan === 'lifetime' ? ' once' : cycle === 'year' ? ' a year' : ' a month'}
-      </p>
-
       {/*
-        * The comparison /pricing makes rather than a claim about savings: the reader puts the
-        * two numbers side by side themselves, which they do correctly and faster than they read
-        * a sentence about it.
-        *
-        * **Only where the switch is**, and for the same reason. With the cycle already settled
-        * this is an argument for a change the screen no longer offers a way to make — and
-        * re-opening a decision at the moment of payment, with no control to act on it, is
-        * second-guessing a reader who saw both figures on /pricing and picked one.
+        * **The price card**, which is what this screen used to say in one line of body text.
+        * `Checkout.dc.html` gives the figure the size of the screen's own title, because it is
+        * the fact being decided — and sets the plan beside it rather than above, so the two are
+        * read as one statement.
         */}
-      {asksForCycle && cycle === 'month' && (
-        <p className="mt-1 text-sm opacity-80">
-          {yearlyTotalOfMonthly(props.amounts.month)} a year, against {euro(props.amounts.year)}{' '}
-          paid yearly.
-        </p>
-      )}
+      <div className="card">
+        <div className="p-[1.375rem]">
+          <p className="card-eyebrow">{live === null ? 'Your plan' : 'Your change'}</p>
 
-      {/*
-        * **Everything the press does, before the press** — the change this screen exists to
-        * explain, as labelled facts rather than as one sentence at the end.
-        *
-        * It used to sit *below* the button and say only what the change cost today, which for
-        * every waiting change is «nothing»: true, and the least useful thing that can be said
-        * to somebody deciding what they will pay from now on. The rows carry what that left
-        * out — the day it lands, and the next charge with its date — and they sit above the
-        * button because a reader who has already pressed is not reading them.
-        *
-        * `summary` is `null` in exactly the states the button is disabled in, so what replaces
-        * it here is never a missing explanation for an offer that is still live.
-        */}
-      {live !== null && (
-        <div className="mt-4">
-          {summary !== null ? (
+          {live === null ? (
             <>
-              <dl className="grid grid-cols-1 gap-x-3 gap-y-1 border-t border-line-soft pt-3 text-sm sm:grid-cols-[10.5rem_1fr] sm:gap-y-2">
-                {summary.rows.map((row) => (
-                  <div key={row.label} className="contents">
-                    <dt className="text-muted">{row.label}</dt>
-                    <dd className="font-medium">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-3 text-sm opacity-80">{summary.headline}</p>
+              <div className="mt-2.5 flex items-baseline justify-between gap-4">
+                <span className="screen-title">{PLAN_LABEL[props.plan]}</span>
+                <span className="flex items-baseline gap-1.5 tabular-nums">
+                  {/* The listino, struck — drawn only where the discount is one this screen
+                      would really charge. See the `discounted` prop. */}
+                  {reduced !== null && <span className="price-was">{euro(amount)}</span>}
+                  <span className="screen-title">{euro(reduced ?? amount)}</span>
+                  <span className="text-[0.9375rem] font-normal leading-[1.1] text-muted">{cycleWord}</span>
+                </span>
+              </div>
+
+              {/*
+                * The comparison /pricing makes rather than a claim about savings: the reader
+                * puts the two numbers side by side themselves, which they do correctly and
+                * faster than they read a sentence about it. **Only where the switch is** — with
+                * the cycle already settled this argues for a change the screen offers no way to
+                * make.
+                */}
+              {asksForCycle && cycle === 'month' && (
+                <p className="mt-1.5 text-[0.8125rem] leading-[1.45] text-muted">
+                  {yearlyTotalOfMonthly(props.amounts.month)} a year, against {euro(props.amounts.year)}{' '}
+                  paid yearly.
+                </p>
+              )}
+
+              <p className="mt-3.5 border-t border-line-soft pt-3.5 text-[0.8125rem] leading-[1.45] text-muted">
+                {footNote}
+              </p>
+            </>
+          ) : stops !== null ? (
+            <>
+              {/*
+                * **Everything the press does, before the press** — read along the calendar. The
+                * rail is two dots because the order of the stops is the meaning: the filled one
+                * is now, the hollow one is later, and a plain list of two dated rows would not
+                * say which way round they run. `aria-hidden` because it is exactly that — a
+                * drawing of an order the two dates already state.
+                */}
+              <div className="change-stops mt-3.5">
+                <span className="change-rail" aria-hidden>
+                  {stops.map((stop, index) => (
+                    <Fragment key={`${stop.when}-${stop.title}`}>
+                      {index > 0 && <span className="change-rail-line" />}
+                      <span className={index === 0 ? 'change-rail-dot' : 'change-rail-dot is-later'} />
+                    </Fragment>
+                  ))}
+                </span>
+                <div>
+                  {stops.map((stop, index) => (
+                    <div
+                      key={`${stop.when}-${stop.title}`}
+                      className={index === 0 ? 'change-stop' : 'change-stop is-later'}
+                    >
+                      <p className="card-eyebrow">{stop.when}</p>
+                      <div className="change-stop-head">
+                        <span className="change-stop-title">{stop.title}</span>
+                        {stop.amount !== null && <span className="change-stop-amount">{stop.amount}</span>}
+                      </div>
+                      {stop.note !== undefined && <p className="change-stop-note">{stop.note}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/*
+                * Case C6, kept: a reader whose Paddle items have already moved must be told so
+                * wherever a plan is discussed, or this card's two stops read as the only thing
+                * arranged on the account. It is a row in the dialog's list; here it is the one
+                * line the calendar has no stop for.
+                */}
+              {live.scheduled !== null && (
+                <p className="mt-3.5 border-t border-line-soft pt-3.5 text-[0.8125rem] leading-[1.45] text-muted">
+                  {live.scheduled}
+                </p>
+              )}
             </>
           ) : (
-            <p className="text-sm opacity-80">
+            /* No price, so no calendar: the same sentence the summary block used to fall back
+               to, in the card that would have held the stops. */
+            <p className="mt-2.5 text-sm leading-[1.5] text-muted">
               You are on {live.label} today.{' '}
               {live.scheduled !== null && `${live.scheduled} `}
               {pricing
@@ -771,7 +878,15 @@ export function PaddleCheckout(props: Props) {
             </p>
           )}
         </div>
-      )}
+      </div>
+
+      {/*
+        * **The coupon sits under the number it changes, and only on a first purchase.** It
+        * opened this screen until `Checkout.dc.html` moved it here; and it is withheld from a
+        * plan change because `changePaddlePlan` refuses a discount outright, so a code field
+        * over one is a control whose press cannot be honoured.
+        */}
+      {live === null && props.coupon !== undefined && <div className="mt-3">{props.coupon}</div>}
 
       {/*
         * **The button and the payment form are never both on the page.** Once the form is

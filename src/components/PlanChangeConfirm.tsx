@@ -26,10 +26,16 @@ interface Props {
  * (`SongForm`'s delete, the cancellation on /billing, and the Free card on /pricing that leads
  * to it); this one, the only one that moves money, asked once.
  *
- * **It restates nothing in its own words.** `changeSummary` builds the rows and the headline,
- * the screen behind renders the same object, and this renders it again — so the dialog cannot
- * promise something the page did not, which is the failure mode of every confirmation written
- * as a second copy of the copy.
+ * **It restates nothing in its own words.** `changeSummary` builds the title, the figure, the
+ * rows and the headline; the screen behind renders the same object's other face — the calendar —
+ * and this renders the list. So the dialog cannot promise something the page did not, which is
+ * the failure mode of every confirmation written as a second copy of the copy.
+ *
+ * **It opens with the money, since `Checkout.dc.html`.** «Before we make this change» was the
+ * heading for eighteen months, and it is true of every press — it told the reader which change
+ * they were confirming only by what sat underneath it. What a person stops at is the figure
+ * leaving their card today, so that is the first thing set, at the size the screen's own title
+ * uses, with what the change *is* named directly under it.
  *
  * **What it deliberately does not do is re-price.** A second preview round trip on opening
  * would put a spinner between the press and the question, and could answer differently from
@@ -51,7 +57,7 @@ export function PlanChangeConfirm({ summary, confirmLabel, busy, onConfirm, onCl
 
       <div
         ref={cardRef}
-        className="upgrade-card is-wide"
+        className="upgrade-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -67,23 +73,29 @@ export function PlanChangeConfirm({ summary, confirmLabel, busy, onConfirm, onCl
           <IconClose size={18} />
         </button>
 
-        <h2 className="section-title" id={titleId}>
-          Before we make this change
+        {/* The figure first, at the screen title's size: it is what a reader stops at, and
+            every other line here is an explanation of it. */}
+        <p className="card-eyebrow">You pay today</p>
+        <p className="screen-title mt-1 tabular-nums">{summary.payToday}</p>
+
+        <h2 className="section-title mt-3.5" id={titleId}>
+          {summary.title}
         </h2>
 
-        {/* The same rows as the page, in the same order, from the same object. */}
-        <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-line-soft pt-3 text-sm sm:grid-cols-[10.5rem_1fr] sm:gap-y-2">
+        {/* The same facts as the calendar behind, listed — from the same object, so the two
+            faces of one preview cannot describe the press differently. */}
+        <dl className="mt-3.5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-line-soft pt-3 text-sm leading-5">
           {summary.rows.map((row) => (
             <div key={row.label} className="contents">
-              <dt className="text-muted">{row.label}</dt>
-              <dd className="font-medium">{row.value}</dd>
+              <dt className="whitespace-nowrap text-muted">{row.label}</dt>
+              <dd className="text-right font-medium">{row.value}</dd>
             </div>
           ))}
         </dl>
 
-        <p className="mt-3 text-sm text-muted">{summary.headline}</p>
+        <p className="mt-3 text-[0.8125rem] leading-[1.4] text-muted">{summary.headline}</p>
 
-        <div className="upgrade-actions">
+        <div className="upgrade-actions is-stacked">
           <button
             type="button"
             className="btn btn-primary btn-sm"

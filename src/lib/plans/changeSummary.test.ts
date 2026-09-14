@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import type { ChangeCost } from './changePreview'
-import { changeSummary, nextChargeOf } from './changeSummary'
+import { changeStops, changeSummary, nextChargeOf } from './changeSummary'
 
 const nothing: ChangeCost = { action: 'nothing', amount: '0.00', payNow: '0.00', credited: false }
 const charged: ChangeCost = { action: 'charge', amount: '3.50', payNow: '3.50', credited: true }
@@ -182,5 +182,147 @@ describe('changeSummary', () => {
   /* No next charge is no row, never a row saying nothing — the same rule as the amount. */
   it('draws no next-charge row when there is nothing to promise', () => {
     assert.equal(value(summaryOf({ nextCharge: null }), 'Next charge'), null)
+  })
+})
+
+/**
+ * The calendar the checkout draws, and the case the mock did not cover.
+ */
+describe('changeStops', () => {
+  const stopsOf = (over: Partial<Parameters<typeof changeStops>[0]> = {}) =>
+    changeStops({
+      from: { plan: 'Standard', label: 'Standard, billed monthly' },
+      to: 'Premium',
+      direction: 'upgrade',
+      when: 'now',
+      effectiveAt: null,
+      cost: { action: 'charge', amount: '96.51', payNow: '96.51', credited: true },
+      nextCharge: { amount: '99.99', on: '2027-09-14T00:00:00.000Z', cycle: 'year', source: 'paddle' },
+      reason: 'You pay the difference for the rest of the period you have already paid for.',
+      ...over,
+    })
+
+  it('draws an immediate change as today and the renewal', () => {
+    const stops = stopsOf()
+
+    assert.equal(stops.length, 2)
+    assert.equal(stops[0]?.when, 'Today')
+    assert.equal(stops[0]?.title, 'Premium starts')
+    assert.equal(stops[0]?.amount, '€96.51')
+    assert.match(stops[0]?.note ?? '', /^Standard, billed monthly ends now\./)
+    assert.equal(stops[1]?.title, 'Renews, then every year')
+    assert.equal(stops[1]?.amount, '€99.99')
+  })
+
+  /*
+   * **The case the mock does not draw, and the one this function exists for.** A `do_not_bill`
+   * downgrade starts nothing today and charges nothing, so the first stop must not say «Standard
+   * starts» — it says the plan they have is still theirs, and hangs «Nothing» beside it. Losing
+   * that stop altogether would leave the card describing only what happens in eleven months.
+   */
+  it('makes today a stop on a change that waits, and says nothing is taken', () => {
+    const stops = stopsOf({
+      direction: 'downgrade',
+      when: 'period-end',
+      from: { plan: 'Premium', label: 'Premium, billed yearly' },
+      to: 'Standard',
+      effectiveAt: '2027-09-14T00:00:00.000Z',
+      cost: { action: 'nothing', amount: '0.00', payNow: '0.00', credited: false },
+      nextCharge: { amount: '34.99', on: '2027-09-14T00:00:00.000Z', cycle: 'year', source: 'listino' },
+      reason: null,
+    })
+
+    assert.equal(stops.length, 2)
+    assert.equal(stops[0]?.title, 'Premium stays yours')
+    assert.equal(stops[0]?.amount, 'Nothing')
+    assert.match(stops[0]?.note ?? '', /Nothing is charged now/)
+    assert.doesNotMatch(stops[0]?.title ?? '', /starts/)
+
+    /* And the second stop carries both facts, because for a waiting change they are the same
+       day: the new plan starting and the first charge at its price. */
+    assert.equal(stops[1]?.when, '14 September 2027')
+    assert.equal(stops[1]?.title, 'Standard starts, then every year')
+    assert.equal(stops[1]?.amount, '€34.99')
+  })
+
+  /* A revert takes nothing away and starts nothing: the plan simply carries on, which is the
+     whole of what the press does, so neither stop may say a plan «starts». */
+  it('reads a call-off as the plan carrying on', () => {
+    const stops = stopsOf({
+      direction: 'revert',
+      from: { plan: 'Premium', label: 'Premium, billed yearly' },
+      to: 'Premium',
+      cost: { action: 'nothing', amount: '0.00', payNow: '0.00', credited: false },
+    })
+
+    assert.equal(stops[0]?.title, 'Premium stays yours')
+    assert.equal(stops[0]?.amount, 'Nothing')
+    assert.match(stops[0]?.note ?? '', /called off/)
+    assert.equal(stops[1]?.title, 'Renews, then every year')
+  })
+
+  /*
+   * A dated row with no figure would read as a charge of unknown size, which is worse than no
+   * row — the same rule `nextChargeOf` follows in deciding to answer null at all.
+   */
+  it('draws no second stop where there is no next charge to promise', () => {
+    assert.equal(stopsOf({ nextCharge: null }).length, 1)
+    assert.equal(
+      stopsOf({ nextCharge: { amount: '99.99', on: 'not a date', cycle: 'year', source: 'paddle' } }).length,
+      1,
+    )
+  })
+
+  /* The note is handed in rather than written here, so a cost with nothing to explain simply
+     leaves the sentence off instead of printing an empty one. */
+  it('leaves the note to the sentence it was given, and omits it when there is none', () => {
+    const stops = stopsOf({ reason: null })
+    assert.equal(stops[0]?.note, 'Standard, billed monthly ends now.')
+  })
+})
+
+/**
+ * The title and the leading figure, both new with `Checkout.dc.html` and both here rather than
+ * in the dialog — the rule this file opens with.
+ */
+describe('what the confirmation is called', () => {
+  it('names the change rather than the act of changing', () => {
+    assert.equal(
+      summaryOf({ from: { plan: 'premium', cycle: 'year', label: 'Premium, billed yearly' }, to: { plan: 'standard', cycle: 'year' } }).title,
+      'Switching Premium to Standard',
+    )
+  })
+
+  /*
+   * **B4 is why this uses `changeNames`.** Premium yearly to Premium monthly changes the
+   * billing and nothing else, and «Switching Premium to Premium» is a title about no change at
+   * all on the one screen whose job is to describe the change.
+   */
+  it('names the billing when the billing is what moves', () => {
+    const summary = summaryOf({
+      from: { plan: 'premium', cycle: 'year', label: 'Premium, billed yearly' },
+      to: { plan: 'premium', cycle: 'month' },
+    })
+
+    assert.equal(summary.title, 'Switching yearly billing to monthly billing')
+  })
+
+  it('says what a call-off is instead of naming a move', () => {
+    const summary = summaryOf({ direction: 'revert' })
+
+    assert.equal(summary.title, 'Calling off the change you arranged')
+    assert.doesNotMatch(summary.title, /Switching/)
+  })
+
+  /* The figure is set above the title and listed in the rows, so the two must come from one
+     value — a reader checking the list against the headline is checking the same number. */
+  it('sets the same figure above the list as inside it', () => {
+    const paid = summaryOf({ cost: charged })
+    assert.equal(paid.payToday, '€3.50')
+    assert.equal(value(paid, 'You pay today'), '€3.50')
+
+    const free = summaryOf({ cost: nothing })
+    assert.equal(free.payToday, 'Nothing')
+    assert.equal(value(free, 'You pay today'), 'Nothing')
   })
 })

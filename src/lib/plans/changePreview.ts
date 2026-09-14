@@ -22,6 +22,8 @@
  * on a same-cycle change, which is exactly the arithmetic in the analysis document.
  */
 
+import type { ChangeDirection, ChangeWhen } from './planChange'
+
 /** Cents as Paddle sends them — possibly negative — as euro as `PRICES` prints it. */
 export function paddleAmountToEuro(cents: string): string | null {
   if (!/^-?\d+$/.test(cents)) return null
@@ -237,4 +239,121 @@ export function changeCostLine(cost: ChangeCost): string {
       `covered by the credit on your account. €${cost.payNow} leaves your card now.`
     : `€${cost.amount} is the full price of the new plan, with nothing credited for what is left of ` +
       `the old one. The credit on your account covers part of it, so €${cost.payNow} leaves your card now.`
+}
+
+/**
+ * The same fact as `changeCostLine`, with the figure taken out.
+ *
+ * **The two are a pair and must never disagree**, which is the `durationCopy`/`termCopy` hazard
+ * this repository already keeps a list of — so the test below asserts them branch by branch
+ * rather than checking eight wordings. What separates them is where they are read.
+ * `changeCostLine` is a sentence standing on its own, in the dialog, and has to name the number
+ * because nothing beside it does. This sits in the note under a timeline stop that already hangs
+ * that number on the right-hand edge, a centimetre away and set four sizes larger — `€96.51 …
+ * you pay €96.51 now` is the amount said twice in one glance, which is what `Checkout.dc.html`
+ * writes this way instead.
+ *
+ * **`credited` decides the wording here for exactly the reason it does there**: «the difference»
+ * is a claim about proration, and Paddle is the only thing that knows whether there was one.
+ * Saying it where nothing was credited is a discount promised and not given — on the stop that
+ * carries the figure being charged.
+ */
+export function changeReason(cost: ChangeCost): string | null {
+  if (cost.action === 'credit') {
+    return `€${cost.amount} of what you have already paid comes back as credit against your next invoices.`
+  }
+
+  /* Nothing to explain: the stop's own amount already says «Nothing», and a sentence under it
+     restating that is a line that adds no fact. */
+  if (cost.action === 'nothing') return null
+
+  const deal = cost.credited
+    ? 'You pay the difference for the rest of the period you have already paid for.'
+    : 'You pay the full price of the new plan, with nothing credited for what is left of the old one.'
+
+  /* An account carrying credit pays less than the change costs, and that gap is the one thing
+     the figure beside this cannot show — the stop hangs `payNow`, which is what leaves the card
+     *after* the credit. So the deal's own size is named here and the credit is what closes the
+     difference; saying «€x is covered» would name the wrong one of the two numbers. */
+  return cost.payNow === cost.amount
+    ? deal
+    : `${deal} The change works out at €${cost.amount}, and the credit on your account covers the rest.`
+}
+
+/**
+ * What just happened, once the change has gone through — in two parts, because
+ * `Checkout.dc.html` sets them as two: the plan is the lead, and the money is the line under it.
+ *
+ * **Four outcomes, and only two of them move money.** The `period-end` one is the case the whole
+ * split exists for: nothing was charged, the plan they have is theirs until a named day, and the
+ * other one starts then. Saying «moving you to Standard» over that would be false on the day it
+ * is read.
+ *
+ * It branches on `when` before `direction`, and that ordering is load-bearing since B7: a change
+ * that waits can be a rise in tier, so reading the direction first would send it to the «what you
+ * have not used comes off the charge» line, describing a charge nobody made.
+ *
+ * **`credited` is Paddle's own answer and not a guess from the two cycles** — the same field
+ * `changeCostLine` and `changeReason` hang off, for the same reason. Promising that the unused
+ * part «comes off the charge» is a discount that will not appear on the invoice whenever Paddle
+ * credited nothing, and this sentence is read *after* the money has moved, where it can be
+ * checked against a statement.
+ *
+ * Every label arrives formatted: this file knows about money, never about what a plan or a day
+ * is called.
+ */
+export interface ArrangedLines {
+  /** The headline of the settled card — what the account is now. */
+  lead: string
+  /** The line under it — what it cost, and when it shows. */
+  body: string
+}
+
+export function arrangedLines(input: {
+  direction: ChangeDirection
+  when: ChangeWhen
+  /** The day a waiting change lands, already formatted — `null` when Paddle sent none. */
+  on: string | null
+  credited: boolean
+  /** «Premium» — the plan being moved to. */
+  target: string
+  /** «Premium, billed yearly» — the plan kept, on a change that is being called off. */
+  keep: string
+  /** What moves, as `changeNames` words it: only the half that is changing. */
+  names: { from: string; to: string }
+}): ArrangedLines {
+  const { direction, when, on, credited, target, keep, names } = input
+
+  if (direction === 'revert') {
+    return {
+      lead: `Kept — you stay on ${keep}.`,
+      body: 'The change you had arranged has been called off, and nothing about your plan moves.',
+    }
+  }
+
+  if (when === 'period-end' && on !== null) {
+    return {
+      lead: `You keep ${names.from} until ${on}.`,
+      body: `Nothing has been charged. ${names.to} starts that day.`,
+    }
+  }
+
+  const lead = `Moving you to ${target}.`
+
+  if (!credited) {
+    return {
+      lead,
+      body:
+        'You have paid the full price of the new plan, with nothing credited for what is left of ' +
+        'the old one. It appears in a moment.',
+    }
+  }
+
+  return {
+    lead,
+    body:
+      direction === 'upgrade'
+        ? 'What you have not used of your old plan comes off the charge, and the new plan appears in a moment.'
+        : 'The difference is credited against your next invoice, and the new plan appears in a moment.',
+  }
 }

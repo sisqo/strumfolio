@@ -1,20 +1,23 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { CouponBar } from '@/components/CouponBar'
+import { IconArrowRight } from '@/components/icons'
 import { PaddleCheckout } from '@/components/PaddleCheckout'
 import { CouponMemory } from '@/components/CouponMemory'
 import { Footer } from '@/components/Footer'
 import { currentUser, requireAccount } from '@/lib/auth/session'
-import { appliedCopy } from '@/lib/coupons/discount'
+import { appliedCopy, discountedAmount } from '@/lib/coupons/discount'
+import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
 import { checkoutMode } from '@/lib/plans/planChange'
-import { isCheckoutPlan, LIFETIME, PRICES } from '@/lib/plans/prices'
-import type { BillingPeriod } from '@/lib/plans/prices'
+import { isCheckoutPlan, LIFETIME, periodEnd, PRICES } from '@/lib/plans/prices'
+import type { BillingPeriod, CheckoutPlan } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { changeNames, formatPlanDate, planWithCycle } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
@@ -126,15 +129,31 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    * Written out per reason rather than as one apology, because the remedies differ: a held
    * subscription is the reader's own to sort out, and a shape we cannot read is ours.
    */
-  const stalled: string | null =
+  /*
+   * Split into a badge, a lead and a body since `Checkout.dc.html`, which draws this as a card
+   * rather than as a paragraph. The split is the mock's and the words are the ones that were
+   * already here: what the state *is* leads, and what to do about it follows.
+   */
+  const stalled: { badge: string; lead: string; body: string } | null =
     mode !== 'stalled' || live.ok
       ? null
       : live.reason === 'not-live'
-        ? 'Your subscription is on hold at the moment — usually a payment that needs a fresh card. ' +
-          'Sort that out first and this page will let you change plan again. We will not start a ' +
-          'second subscription beside one that is still running.'
-        : 'We cannot read the state of your subscription just now, so we are not going to sell you ' +
-          'anything on top of it. Try again in a moment, and write to us if it persists.'
+        ? {
+            badge: 'On hold',
+            lead: 'Your subscription is on hold at the moment — usually a payment that needs a fresh card.',
+            body:
+              'Sort that out first and this page will let you change plan again. We will not start a ' +
+              'second subscription beside one that is still running.',
+          }
+        : {
+            /* Not «On hold», which claims to know what is wrong. This branch is the one where we
+               do not. */
+            badge: 'Unavailable',
+            lead:
+              'We cannot read the state of your subscription just now, so we are not going to sell ' +
+              'you anything on top of it.',
+            body: 'Try again in a moment, and write to us if it persists.',
+          }
 
   /*
    * **Nothing is advertised here any more.** This screen used to read `advertisableCampaign()`
@@ -146,6 +165,47 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
 
   /* Signed in, with a live campaign applied — the only case there is a row to write. */
   const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
+
+  /*
+   * **The struck price is shown only where the discount would actually be charged**, and the
+   * test for that is `discountIdFor`, not «is a campaign applied».
+   *
+   * `Checkout.dc.html` draws the listino struck beside the reduced figure, which is right and is
+   * also the one place this redesign could reintroduce the gap the whole coupon feature is
+   * arranged to close. A campaign with no Paddle Discount behind it is redeemable, draws a
+   * ticket on the bar above, and is refused by `startPaddleCheckout` — so a price card promising
+   * €2.44 there would be promising a sale this page will not make. Asked per cycle because the
+   * toggle can move it and a campaign can cover one cycle and not the other.
+   */
+  const chargeable = (forCycle: BillingPeriod | null): boolean =>
+    campaign !== null && discountIdFor(campaign, plan as CheckoutPlan, forCycle) !== null
+
+  const reduced = (full: string, forCycle: BillingPeriod | null): string | null =>
+    campaign !== null && chargeable(forCycle) ? discountedAmount(full, campaign.discountPercent) : null
+
+  /*
+   * The day a purchase made now would first renew, one per cycle — computed here rather than in
+   * the browser. `periodEnd` reads the clock, and a clock read during render is a hydration
+   * mismatch waiting for the one reader whose midnight falls between the server's render and
+   * their own. Both cycles, because the toggle is client-side and must not need a round trip to
+   * restate a date.
+   */
+  const now = new Date()
+  const renewsOn: Record<BillingPeriod, string> = {
+    year: formatPlanDate(periodEnd('year', now)),
+    month: formatPlanDate(periodEnd('month', now)),
+  }
+
+  /* The bar, built here and *placed* by `PaddleCheckout` — `Checkout.dc.html` puts it under the
+     price card, where it reads as an input to the figure above it rather than as a third
+     unrelated white box stacked over the payment frame. */
+  const couponBar = (
+    <CouponBar
+      applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
+      persist={campaign !== null && campaign.code !== cookieCode ? campaign.code : undefined}
+      note={note}
+    />
+  )
 
   return (
     /*
@@ -167,16 +227,19 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
         */}
       <div className="mx-auto w-full max-w-[34rem]">
         {/*
-          * The same bar as on /pricing, and the same component — `PaidCheckoutFields` prints
-          * its price independently, so a coupon that stopped at /pricing would vanish exactly
-          * here, at the point in the funnel where the basket is already full.
+          * **The bar has moved below the price card, and `PaddleCheckout` is what places it.**
+          * It used to open the screen. `Checkout.dc.html` puts it under the figure it changes,
+          * where it reads as an input to that number rather than as the first of three white
+          * boxes stacked over a payment frame — and it is drawn only where a coupon can do
+          * anything, which is a first purchase: `changePaddlePlan` refuses a discount, so a code
+          * field over a plan change is a control whose press cannot be honoured.
           *
-          * **`persist` is passed here too, and withholding it was a real gap rather than a
+          * **`persist` is passed here, and withholding it was a real gap rather than a
           * tidiness.** The reasoning used to be that /pricing is where a URL coupon becomes a
           * cookie, and writing it here as well would be two components racing over one value on
           * the journey through both. But the journey that matters is the one that *skips*
           * /pricing: a reader arriving straight on `/checkout/plus?coupon=X` — a typed link, a
-          * bookmark, a link in a message — never got the cookie at all, so the bar above said a
+          * bookmark, a link in a message — never got the cookie at all, so the bar said a
           * discount applied while `redeemableCouponFor` (which reads the cookie and nothing else,
           * on purpose) saw nothing and let the sale through at the listino. That is the
           * shown-price/charged-price gap this directory exists to close, opened by the two halves
@@ -186,26 +249,15 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           * and the button cannot be pressed before the write lands anyway: a first purchase waits
           * for Paddle.js and a change waits for its preview, each a round trip of its own.
           */}
-        {/* The only coupon control here now: it used to be hidden while the overlay advertised
-            an unclaimed offer, and nothing is advertised on this screen any more. */}
-        <div className="mb-4">
-          <CouponBar
-            applied={campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate)}
-            persist={campaign !== null && campaign.code !== cookieCode ? campaign.code : undefined}
-            note={note}
-          />
-          {/*
-            * `persist` is withheld above and this is not the same objection. That one is about
-            * two components racing to write one cookie on the journey through /pricing; this
-            * writes `localStorage`, idempotently, with a value /pricing would have written
-            * identically — and a reader can arrive straight here from a bookmark, which is the
-            * one point in the funnel where a forgotten offer costs the discount at the moment
-            * of paying.
-            */}
-          <Suspense fallback={null}>
-            <CouponMemory restorable={restorableCode(campaign)} />
-          </Suspense>
-        </div>
+        {/*
+          * `CouponMemory` stays on the page rather than travelling with the bar: it draws
+          * nothing, writes `localStorage`, and must run on every one of this screen's states —
+          * including the two that render no checkout at all. A reader who lands on a held
+          * subscription still arrived with an offer worth remembering.
+          */}
+        <Suspense fallback={null}>
+          <CouponMemory restorable={restorableCode(campaign)} />
+        </Suspense>
 
         {/*
           * **One way to sell.** There were two until the mock came out, and the reason there is
@@ -244,16 +296,40 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
                     : `Your ${PLAN_LABEL[live.plan]} plan runs to ${formatPlanDate(live.periodEndsAt)} as paid for, then stops — it is never charged again.`}
                 </p>
               )}
-              <PaddleCheckout plan="lifetime" amount={LIFETIME.amount} />
+              <PaddleCheckout
+                plan="lifetime"
+                amount={LIFETIME.amount}
+                discounted={reduced(LIFETIME.amount, null)}
+                coupon={couponBar}
+              />
             </>
           ) : stalled !== null ? (
-            <p className="mt-6 text-lg">{stalled}</p>
+            /*
+             * A card with a badge rather than a paragraph, per `Checkout.dc.html` — and a way
+             * on underneath it. The old version said what was wrong and then left the reader on
+             * a page with nothing on it; Billing is where a held subscription is actually
+             * sorted out, so it is the one link worth offering.
+             */
+            <div className="mt-6">
+              <div className="card p-[1.375rem]" role="status">
+                <span className="state-badge state-badge-alert">{stalled.badge}</span>
+                <p className="section-title mt-3">{stalled.lead}</p>
+                <p className="mt-2 text-sm leading-[1.5] text-muted">{stalled.body}</p>
+              </div>
+              <Link href="/billing" className="btn btn-primary mt-4 w-full">
+                Go to Billing
+                <IconArrowRight size={17} />
+              </Link>
+            </div>
           ) : (
             <PaddleCheckout
               plan={plan}
               initialCycle={requestedCycle}
               amounts={{ year: PRICES[plan].year.amount, month: PRICES[plan].month.amount }}
+              discounted={{ year: reduced(PRICES[plan].year.amount, 'year'), month: reduced(PRICES[plan].month.amount, 'month') }}
+              renewsOn={renewsOn}
               live={liveProps}
+              coupon={couponBar}
             />
           )
         )}

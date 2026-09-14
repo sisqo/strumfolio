@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { changeCostLine, paddleAmountToEuro, readChangeCost, readSdkChangeCost, scheduledChangeLine } from './changePreview'
+import { arrangedLines, changeCostLine, changeReason, paddleAmountToEuro, readChangeCost, readSdkChangeCost, scheduledChangeLine } from './changePreview'
+import type { ChangeCost } from './changePreview'
 
 /* The real shape, copied from a sandbox preview of Standard monthly -> Plus monthly taken on
    2026-09-13. Kept verbatim rather than minimised: the fields this reads are the fields Paddle
@@ -251,5 +252,139 @@ describe('scheduledChangeLine', () => {
       changeCostLine({ action: 'nothing', amount: '0.00', payNow: '0.00', credited: false }),
       'There is nothing to pay for this change.',
     )
+  })
+})
+
+/**
+ * The pair, asserted as a pair. `changeReason` says what `changeCostLine` says without the
+ * figure, and the risk is not that either is badly worded — it is that one is edited and the
+ * other is not, which no assertion about a single wording would catch.
+ */
+describe('changeReason', () => {
+  it('drops the figure the stop already hangs beside it', () => {
+    const cost: ChangeCost = { action: 'charge', amount: '96.51', payNow: '96.51', credited: true }
+
+    assert.match(changeCostLine(cost), /€96\.51/)
+    assert.doesNotMatch(changeReason(cost) ?? '', /96\.51/)
+    assert.equal(changeReason(cost), 'You pay the difference for the rest of the period you have already paid for.')
+  })
+
+  /* The same asymmetry the sentence beside it lives under: «the difference» is Paddle's word,
+     not ours, and promising it where nothing was credited is a discount that never appears. */
+  it('promises no difference where Paddle credited nothing', () => {
+    const uncredited = changeReason({ action: 'charge', amount: '99.99', payNow: '99.99', credited: false })
+
+    assert.equal(
+      uncredited,
+      'You pay the full price of the new plan, with nothing credited for what is left of the old one.',
+    )
+    assert.doesNotMatch(uncredited ?? '', /difference/)
+  })
+
+  /* Both functions have to branch on `credited` the same way round — which is the one thing
+     that could be reversed in an edit and read perfectly well. */
+  it('agrees with the sentence about whether there was a difference', () => {
+    for (const credited of [true, false]) {
+      const cost: ChangeCost = { action: 'charge', amount: '10.00', payNow: '10.00', credited }
+      const saysDifference = /the difference/.test(changeCostLine(cost))
+      assert.equal(/the difference/.test(changeReason(cost) ?? ''), saysDifference, String(credited))
+    }
+  })
+
+  /*
+   * The stop hangs `payNow`; the deal is `amount`. Naming the wrong one of those two is the
+   * mistake this test exists for — an account with credit pays €10.33 on a change that costs
+   * €96.51, and «€96.51 is covered by the credit» would be false by the whole amount.
+   */
+  it('names the size of the deal, not the part the credit covered', () => {
+    const line = changeReason({ action: 'charge', amount: '96.51', payNow: '10.33', credited: true }) ?? ''
+
+    assert.match(line, /works out at €96\.51/)
+    assert.doesNotMatch(line, /€10\.33/)
+  })
+
+  /* Money coming back reads as money coming back in both, never as a charge. */
+  it('says what a credit does', () => {
+    const line = changeReason({ action: 'credit', amount: '6.50', payNow: '0.00', credited: true }) ?? ''
+    assert.match(line, /€6\.50 of what you have already paid comes back/)
+  })
+
+  /* Nothing to pay needs no sentence: the stop's own «Nothing» is the whole fact, and a line
+     under it restating that is one the reader has to read to learn nothing. */
+  it('says nothing at all when there is nothing to explain', () => {
+    assert.equal(changeReason({ action: 'nothing', amount: '0.00', payNow: '0.00', credited: false }), null)
+  })
+})
+
+/**
+ * The sentence after the press. It is read where the reader can check it against a statement,
+ * so what it promises has to be what happened.
+ */
+describe('arrangedLines', () => {
+  const linesOf = (over: Partial<Parameters<typeof arrangedLines>[0]> = {}) =>
+    arrangedLines({
+      direction: 'upgrade',
+      when: 'now',
+      on: null,
+      credited: true,
+      target: 'Premium',
+      keep: 'Premium, billed yearly',
+      names: { from: 'Premium', to: 'Standard' },
+      ...over,
+    })
+
+  it('leads with the plan and explains the money underneath', () => {
+    assert.deepEqual(linesOf(), {
+      lead: 'Moving you to Premium.',
+      body: 'What you have not used of your old plan comes off the charge, and the new plan appears in a moment.',
+    })
+  })
+
+  /*
+   * **`when` is read before `direction`, and B7 is why.** A change that waits can be a rise in
+   * tier — moving onto monthly billing while a year is paid for — so a direction-first branch
+   * would tell somebody who was charged nothing that their unused time came off a charge.
+   */
+  it('reads a change that waits as a date, whichever direction it is', () => {
+    for (const direction of ['upgrade', 'downgrade'] as const) {
+      const lines = linesOf({ direction, when: 'period-end', on: '13 October 2026' })
+
+      assert.equal(lines.lead, 'You keep Premium until 13 October 2026.')
+      assert.match(lines.body, /Nothing has been charged\./)
+      assert.match(lines.body, /Standard starts that day\./)
+      assert.doesNotMatch(lines.body, /comes off the charge/)
+    }
+  })
+
+  /* A waiting change with no date has nothing to promise a day against, so it falls back to
+     describing the money rather than printing a sentence with a hole in it. */
+  it('does not claim a day Paddle did not send', () => {
+    const lines = linesOf({ when: 'period-end', on: null })
+    assert.equal(lines.lead, 'Moving you to Premium.')
+  })
+
+  /* The same correction `changeCostLine` and `changeReason` carry, one press later: where
+     Paddle credited nothing, «comes off the charge» is a reduction the invoice will not show. */
+  it('promises no credit where Paddle gave none', () => {
+    const lines = linesOf({ credited: false })
+
+    assert.equal(lines.lead, 'Moving you to Premium.')
+    assert.match(lines.body, /full price of the new plan/)
+    assert.doesNotMatch(lines.body, /comes off the charge/)
+    assert.doesNotMatch(lines.body, /credited against your next invoice/)
+  })
+
+  it('reads a call-off as nothing moving at all', () => {
+    const lines = linesOf({ direction: 'revert' })
+
+    assert.match(lines.lead, /^Kept — you stay on Premium, billed yearly\./)
+    assert.match(lines.body, /called off/)
+    assert.doesNotMatch(lines.lead, /Moving you/)
+  })
+
+  /* An immediate drop in tier gives money back rather than taking it, and must not borrow the
+     upgrade's sentence about a charge. */
+  it('says money coming back on an immediate drop', () => {
+    assert.match(linesOf({ direction: 'downgrade' }).body, /credited against your next invoice/)
   })
 })

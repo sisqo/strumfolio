@@ -23,7 +23,7 @@ import type { ChangeCost } from './changePreview'
 import { paddleAmountToEuro } from './changePreview'
 import type { ChangeDirection, ChangeWhen } from './planChange'
 import { PRICES, type BillingPeriod, type PaidPlan } from './prices'
-import { formatPlanDate, planWithCycle } from './subscriptionCopy'
+import { changeNames, formatPlanDate, planWithCycle } from './subscriptionCopy'
 import type { Plan } from './types'
 
 /**
@@ -48,8 +48,23 @@ export interface SummaryRow {
 }
 
 export interface ChangeSummary {
+  /**
+   * What this press is, named — «Switching Standard to Premium».
+   *
+   * **Built here rather than in the dialog**, which is the whole rule of this file: the
+   * confirmation restates nothing in its own words. It replaces «Before we make this change», a
+   * heading that was true of every press and told the reader which one they were about to make
+   * only by what was underneath it.
+   *
+   * `changeNames` and not the two plan labels, because of B4: a move from yearly to monthly on
+   * the same tier would otherwise read «Switching Premium to Premium», a title describing no
+   * change at all on the screen that exists to describe one.
+   */
+  title: string
   /** The sentence the existing copy functions own. */
   headline: string
+  /** «Nothing», or «€96.51» — the figure the dialog leads with, and a row in the list below. */
+  payToday: string
   rows: SummaryRow[]
 }
 
@@ -135,6 +150,7 @@ export function changeSummary(input: {
 
   const rows: SummaryRow[] = []
   const lands = on(effectiveAt)
+  const payToday = cost.payNow === '0.00' ? 'Nothing' : `€${cost.payNow}`
 
   /*
    * **A revert has no «you move to» row**, and inventing one is how this reads as a change. The
@@ -159,10 +175,10 @@ export function changeSummary(input: {
     })
   }
 
-  rows.push({
-    label: 'You pay today',
-    value: cost.payNow === '0.00' ? 'Nothing' : `€${cost.payNow}`,
-  })
+  /* The same figure the dialog sets above the title, kept as a row as well: the list is read
+     top to bottom by somebody checking, and a row missing from it because it is drawn larger
+     somewhere else is a gap in the check. One value, so the two can never differ. */
+  rows.push({ label: 'You pay today', value: payToday })
 
   if (nextCharge !== null) {
     const from_ = on(nextCharge.on)
@@ -177,5 +193,123 @@ export function changeSummary(input: {
      most likely to be surprised by what this press does to it. */
   if (arranged !== null && direction !== 'revert') rows.push({ label: 'Already arranged', value: arranged })
 
-  return { headline, rows }
+  const names = changeNames(from, to)
+
+  return {
+    title:
+      direction === 'revert'
+        ? `Calling off the change you arranged`
+        : `Switching ${names.from} to ${names.to}`,
+    headline,
+    payToday,
+    rows,
+  }
+}
+
+/**
+ * The change read along the calendar — what happens today, and what happens on the next day
+ * that matters. `Checkout.dc.html`'s own shape, chosen over a table and over a from/to pair
+ * (`Change Card Options.dc.html` drew all three).
+ *
+ * **The same facts as `changeSummary`, not different ones.** The rows and the stops are two
+ * renderings of one preview, and they are both here so neither can acquire a fact the other
+ * lacks: the page shows the stops and the dialog shows the rows, so a reader who presses is
+ * confirming what they already read.
+ *
+ * **Two stops on a change that waits as well, and that is the decision this function exists
+ * for.** The mock draws only the case that starts today — «Today · Premium starts · €96.51» —
+ * and a `do_not_bill` downgrade starts nothing today and charges nothing. Dropping the first
+ * stop there would leave the card saying only what happens in eleven months, taking away the
+ * one fact somebody about to press wants: that nothing is being taken from them now. So today
+ * is still a stop, and what it says is that the plan they have stays theirs.
+ */
+export interface ChangeStop {
+  /** «Today», or the day itself, already formatted. */
+  when: string
+  title: string
+  /** «Nothing», or «€96.51». Null when this stop has no figure — nothing is billed and nothing is known. */
+  amount: string | null
+  /** Only the first stop carries one: the second is a date and a number, and needs no gloss. */
+  note?: string
+}
+
+export function changeStops(input: {
+  /** The plan paid for, both ways it is named: «Premium» for a title, «Premium, billed yearly» for a note. */
+  from: { plan: string; label: string }
+  /** The plan being moved to, as a bare name — the stop's title sets the cycle in `nextCharge`. */
+  to: string
+  direction: ChangeDirection
+  when: ChangeWhen
+  effectiveAt: string | null
+  cost: ChangeCost
+  nextCharge: NextCharge | null
+  /** `changeReason(cost)` — the note's own sentence, handed in so this file writes no copy. */
+  reason: string | null
+}): ChangeStop[] {
+  const { from, to, direction, when, effectiveAt, cost, nextCharge, reason } = input
+
+  const paid = cost.payNow === '0.00' ? 'Nothing' : `€${cost.payNow}`
+  const lands = on(effectiveAt)
+  const stops: ChangeStop[] = []
+
+  if (direction === 'revert') {
+    /*
+     * Calling a change off. Nothing moves and nothing is billed, so the first stop is the
+     * reassurance and there is no second event to name beyond the renewal — the plan simply
+     * carries on, which is the whole of what the press does.
+     */
+    stops.push({
+      when: 'Today',
+      title: `${from.plan} stays yours`,
+      amount: paid,
+      note: 'The change you had arranged is called off, and nothing else about your plan moves.',
+    })
+  } else if (when === 'now') {
+    stops.push({
+      when: 'Today',
+      title: `${to} starts`,
+      amount: paid,
+      /* The old plan ending *now* is the half the money sentence cannot carry, and it is the
+         half a reader checks: they are giving something up today as well as paying. */
+      note: [`${from.label} ends now.`, reason].filter((part) => part !== null).join(' '),
+    })
+  } else {
+    /*
+     * The change that waits. **«Nothing» is the most important thing on this card**, which is
+     * why it is a stop of its own rather than a footnote: what somebody arranging a downgrade
+     * is deciding is whether they lose anything today, and the answer is no.
+     */
+    stops.push({
+      when: 'Today',
+      title: `${from.plan} stays yours`,
+      amount: paid,
+      note:
+        lands === null
+          ? `Nothing is charged now. You keep ${from.label} until the end of the period you have already paid for.`
+          : `Nothing is charged now. You keep ${from.label} until that day.`,
+    })
+  }
+
+  /*
+   * The second stop is the next time money moves, whichever kind of change this is — for one
+   * that waits it is also the day the new plan starts, which is why the title says both. A
+   * change whose next charge could not be read gets no second stop at all rather than a dated
+   * row with no figure: `nextChargeOf` answers null only where there is genuinely nothing to
+   * promise, and a half-empty stop would read as a charge of unknown size.
+   */
+  if (nextCharge === null) return stops
+
+  const renews = on(nextCharge.on)
+  if (renews === null) return stops
+
+  stops.push({
+    when: renews,
+    title:
+      when === 'now' || direction === 'revert'
+        ? `Renews, then every ${CYCLE_WORD[nextCharge.cycle]}`
+        : `${to} starts, then every ${CYCLE_WORD[nextCharge.cycle]}`,
+    amount: `€${nextCharge.amount}`,
+  })
+
+  return stops
 }
