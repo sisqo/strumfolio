@@ -178,6 +178,16 @@ break from a distance:
   decide whether the page scrolls sideways. The card around the frame drops its own side padding
   below `sm` for the same reason and carries `overflow-x-auto` so that if the floor is ever
   higher than the room, the card scrolls and the body does not.
+- **A second, clean run the same day confirmed all four fixes on the deployed build**, and
+  covered two paths nobody had watched. The test subscription was ended *immediately* through
+  the API — a shape this app never asks for, used here as a fixture — and `/billing` read
+  «Premium, expired» with the cancel button gone: the `canceled` → `expired` half of E5. The same
+  account then bought again, and a reader carrying a **dead** `paddle_subscription_id` was
+  offered all three plans rather than «Manage» — `checkoutMode` answering `sell` on `gone`, the
+  case that rule was written for and had never been seen. The new purchase (Standard yearly, in
+  the **light** theme) drew the form on a white card with legible fields, which is the complaint
+  the whole inline change started from, and `/billing` settled on «Standard, active until 14
+  September 2027» without a reload.
 - **Watched working end to end on the preview, 2026-09-14**, on a throwaway account: the form
   drawn on arrival, the sandbox test card, `checkout.completed`, the webhook granting the plan
   and `/billing` reading «Plus, active until 14 October 2026» with the three ledger rows under
