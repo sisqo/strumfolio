@@ -316,16 +316,27 @@ It now carries its own `AUTH_SECRET`, `ALLOWED_EMAILS` and `SONGBOOK_PLANS=on`.
 **Schema changes ship three times, and nothing here can run the third.** The bullet above says
 migrations ship against dev and against production; preview is a third database with a third
 `__drizzle_migrations`, and no deploy step applies anything to it — `vercel.json` is four words
-and `build` is `precache-routes` plus `next build`. The connection string is written into the
-Preview environment by the Neon integration and never passes through a person, which is the
-property that makes it safe and also means **no command available here can reach it**: `vercel
-env pull --environment=preview` on it is refused by Claude Code's auto-mode classifier, the same
-refusal `vercel redeploy` gets, and routing around that is not the fix. So a migration that the
-preview needs is a step for whoever owns that environment, and the code that reads the new column
-must not be deployed there expecting to find it: the symptom is not a missing feature but
-`column "…" does not exist` thrown out of the page that reads it. Rehearse against dev first —
-`BEGIN; \i drizzle/00xx.sql; …; ROLLBACK;` — which is free and catches everything except the
-journal.
+and `build` is `precache-routes` plus `next build`.
+
+**The preview has the same `prod-url` arrangement now, and it is empty until somebody fills it.**
+`~/.config/strumfolio/preview-url` is the gemello of `prod-url` — it reads
+`STRUMFOLIO_PREVIEW_DATABASE_URL` out of `preview-db.env`, refuses anything that is not
+`ep-blue-mode-avih2w94`, refuses the pooled endpoint, and prints nothing otherwise; its
+missing-file error *is* the instruction for creating it. That indirection is the whole point:
+the string is pasted once, by hand, into a file outside the repo, and every migration after that
+is `DATABASE_URL_UNPOOLED="$(~/.config/strumfolio/preview-url)" npm run db:migrate` with the
+secret never passing through a shell history, a transcript or `.env.local`. What cannot happen
+is an agent *fetching* it: `vercel env pull --environment=preview` is refused by Claude Code's
+auto-mode classifier, the same refusal `vercel redeploy` gets, and routing around that is not
+the fix — being handed access and taking it are different things.
+
+Until that file exists, a migration the preview needs is a step for whoever owns that
+environment, and the code reading the new column must not be deployed there expecting to find
+it: the symptom is not a missing feature but `column "…" does not exist` thrown out of the page
+that reads it — measured on 2026-09-15, when `/billing` sat on «One moment…» for exactly that
+reason. Rehearse against dev first, and against production too — `BEGIN; \i drizzle/00xx.sql;
+…; ROLLBACK;` runs the real file against the real rows and leaves nothing, so there is no excuse
+for a migration whose first execution is the real one.
 
 - **The Turnstile keys are deliberately absent from Preview.** `captcha.ts` answers `true` when
   `TURNSTILE_SECRET_KEY` is missing — the documented local-development fallback — and leaving
