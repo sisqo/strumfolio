@@ -168,6 +168,15 @@ export function periodEnd(cycle: BillingPeriod, from: Date): Date {
 /**
  * What twelve months of a monthly plan add up to, as euro.
  *
+ * **Nothing renders it any more.** Its last caller was the line under /checkout's price card
+ * that argued for yearly billing, and that went with the Yearly/Monthly switch above it — with
+ * the cycle settled before the page is asked for, a screen cannot argue for a change it offers
+ * no way to make. It is kept because four other files (`history.ts`, `catalogue.ts`,
+ * `coupons/discount.ts` and its test) cite it by name as this codebase's worked example of
+ * doing the arithmetic in cents, and a comment pointing at a function that no longer exists is
+ * the drift this repo spends most of its prose avoiding. Delete it and rewrite those four, or
+ * leave it: what it must not be is quietly believed to be on a screen.
+ *
  * Rendered on the monthly side of the toggle instead of a sentence about savings: the reader
  * compares `€29.88` against `€19` unaided, which is a comparison they make correctly and
  * faster than they read a claim about it. `Math.round` over cents rather than
@@ -180,56 +189,4 @@ export function yearlyTotalOfMonthly(amount: string): string {
   const whole = Math.trunc(cents / 100)
   const rest = cents % 100
   return euro(rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, '0')}`)
-}
-
-/** The two figures the checkout's cycle comparison puts side by side. */
-export interface CycleComparison {
-  /** Twelve months of the monthly plan, as euro. */
-  monthlyOverAYear: string
-  /** One year of the yearly plan, as euro. */
-  yearly: string
-}
-
-/**
- * «€41.88 a year, against €34.99 paid yearly» — the argument for yearly billing, made by
- * putting two numbers next to each other rather than by claiming a saving.
- *
- * **Both figures have to come from the same price list, and that is the whole of this
- * function.** It was written before coupons were real, so it read the listino; under a headline
- * the coupon had already reduced to €2.44 it went on printing €41.88, which is not what that
- * reader will pay in a year and reads as a contradiction of the figure directly above it.
- * Measured on the preview on 2026-09-14, monthly Standard under `COUPON30`.
- *
- * Three cases, because only two of them have a true sentence in them:
- *
- * - **Both cycles reduced** — compare the reduced figures. Apples to apples for a campaign of a
- *   year or longer: twelve monthly periods against one yearly one is the same first year on both
- *   sides, and the ticket under the card already says what happens after that.
- *
- *   **Below twelve months it is approximate, knowingly.** `discountCycles` rounds the yearly side
- *   up (`Math.ceil(months / 12)`), so a six-month campaign discounts a whole year for whoever
- *   pays yearly and six months for whoever pays monthly — and this line, which multiplies the
- *   reduced monthly figure by twelve, understates what that first year really costs monthly. It
- *   is left that way because this is a comparison and not a charge: the figure nobody is billed
- *   from, sitting above a ticket that states the duration, and the alternative is threading a
- *   campaign's length into a price card that otherwise knows nothing about campaigns.
- * - **Neither reduced** — the listino, unchanged.
- * - **One of the two** — null, and the caller prints nothing. There is no honest one-sentence
- *   comparison left: a reduced monthly against a full-price yearly makes monthly look like the
- *   cheaper of the two, which is the opposite of what this line exists to say. Rare — it needs
- *   a campaign whose prices can be named for one cycle and not the other — and losing a line of
- *   persuasion is the cheap side of that trade.
- */
-export function cycleComparison(
-  amounts: Record<BillingPeriod, string>,
-  discounted: Record<BillingPeriod, string | null>,
-): CycleComparison | null {
-  const reduced = discounted.month !== null && discounted.year !== null
-  const plain = discounted.month === null && discounted.year === null
-  if (!reduced && !plain) return null
-
-  return {
-    monthlyOverAYear: yearlyTotalOfMonthly(discounted.month ?? amounts.month),
-    yearly: euro(discounted.year ?? amounts.year),
-  }
 }

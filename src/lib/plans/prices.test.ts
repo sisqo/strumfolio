@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { bookletBrandLine, entitlementsFor } from './entitlements'
-import { cycleComparison, euro, LIFETIME, PAID_PLANS, PRICES, yearlyTotalOfMonthly } from './prices'
+import { euro, LIFETIME, PAID_PLANS, PRICES, yearlyTotalOfMonthly } from './prices'
 import { PLAN_VALUES, PLANS } from './types'
 import type { Plan } from './types'
 
@@ -146,37 +146,5 @@ describe('the booklet the pricing page promises', () => {
       ['booklet', 'devices', 'featureRequests'],
       'premium and plus differ on the device ceiling, on a booklet tier, and on how a feature request is answered — each has a row on /pricing, and a fourth field would be one the page does not fill in',
     )
-  })
-})
-
-describe('cycleComparison', () => {
-  const STANDARD = { month: '3.49', year: '34.99' }
-
-  it('compares the listino when no coupon is in play', () => {
-    assert.deepEqual(cycleComparison(STANDARD, { month: null, year: null }), {
-      monthlyOverAYear: '€41.88',
-      yearly: '€34.99',
-    })
-  })
-
-  /* The bug this exists for: the headline said €2.44 a month and the line under it said
-     €41.88 a year, which is not what that reader pays and contradicts the figure above it. */
-  it('compares the reduced figures when both cycles are reduced', () => {
-    assert.deepEqual(cycleComparison(STANDARD, { month: '2.44', year: '24.49' }), {
-      monthlyOverAYear: '€29.28',
-      yearly: '€24.49',
-    })
-  })
-
-  it('never mixes the two lists', () => {
-    const mixed = cycleComparison(STANDARD, { month: '2.44', year: null })
-    assert.equal(mixed, null)
-    assert.equal(cycleComparison(STANDARD, { month: null, year: '24.49' }), null)
-  })
-
-  /* Why the mixed case is refused rather than half-answered: €29.28 against €34.99 says
-     monthly is the cheaper of the two, which is the opposite of what the line is for. */
-  it('would otherwise argue for the wrong cycle', () => {
-    assert.equal(Number('2.44') * 12 < Number('34.99'), true)
   })
 })

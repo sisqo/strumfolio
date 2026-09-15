@@ -63,7 +63,7 @@ import {
   previewPaddlePlanChange,
   type PaddlePlanChangeFailure,
 } from '@/lib/plans/paddlePlanChange'
-import { cycleComparison, euro, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
+import { euro, type BillingPeriod, type PaidPlan } from '@/lib/plans/prices'
 import { changeNames, formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
 
@@ -365,12 +365,17 @@ export function PaddleCheckout(props: Props) {
    * one of those links exists to change the cycle. A ledger lookup is what the mock
    * had for this; the answer here is better, being what Paddle bills rather than what was last
    * bought.
+   *
+   * **A constant and no longer state**, since the Yearly/Monthly switch left this screen: the
+   * cycle is decided before the page is asked for and nothing here can change it afterwards.
+   * That makes the fallback chain above the whole of the decision rather than its opening
+   * position, which is why it is worth more than it looks — the footnote under the price says
+   * which one was picked («Billed monthly · renews …»), and that sentence is now the only
+   * correction a reader gets. Somebody who wanted the other cycle goes back to /pricing, where
+   * the choice belongs.
    */
-  const [cycle, setCycle] = useState<BillingPeriod>(
-    props.plan === 'lifetime'
-      ? 'year'
-      : (props.initialCycle ?? props.live?.cycle ?? 'month'),
-  )
+  const cycle: BillingPeriod =
+    props.plan === 'lifetime' ? 'year' : (props.initialCycle ?? props.live?.cycle ?? 'month')
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
@@ -456,8 +461,11 @@ export function PaddleCheckout(props: Props) {
   /**
    * Make a transaction and put its payment form on the page.
    *
-   * Takes the cycle rather than reading it from state, because the toggle calls this in the
-   * same tick as `setCycle` — where the state still holds the old value.
+   * Takes the cycle rather than closing over it. It was written that way for the Yearly/Monthly
+   * switch, which called this in the same tick as its own `setCycle` — where the state still
+   * held the old value. The switch is gone and the parameter stays: it costs nothing, and a
+   * function that is handed what it charges for is the safer shape for the one call in this
+   * file that makes a transaction.
    */
   async function buy(forCycle: BillingPeriod = cycle) {
     setBusy(true)
@@ -668,7 +676,6 @@ export function PaddleCheckout(props: Props) {
    * link falls back to the cycle they are already billed on, and with no control on the screen
    * they would have no way to ask for the other.
    */
-  const asksForCycle = props.plan !== 'lifetime' && props.initialCycle === null
 
   /*
    * **A screen that has done its job shows the outcome and nothing else.** Everything below is
@@ -718,10 +725,6 @@ export function PaddleCheckout(props: Props) {
   /* What is charged, and what the listino said — the second only where a discount would really
      be applied, which the page decided with `discountIdFor`. */
   const reduced = props.plan === 'lifetime' ? props.discounted : props.discounted[cycle]
-
-  /* Null for the Lifetime, which has no second cycle to be compared with, and null again
-     wherever the two cycles are not priced on the same list — see `cycleComparison`. */
-  const comparison = props.plan === 'lifetime' ? null : cycleComparison(props.amounts, props.discounted)
   const cycleWord = props.plan === 'lifetime' ? 'once' : cycle === 'year' ? 'a year' : 'a month'
 
   const footNote =
@@ -732,53 +735,6 @@ export function PaddleCheckout(props: Props) {
 
   return (
     <div className="mt-6">
-      {/* `segment` / `segment-button is-on`, the control /pricing's own toggle uses for this
-          exact choice — the classes already exist and carry the theme, so this is not the
-          place to invent a second look for one switch. Yearly first, the side /pricing opens
-          on.
-
-          **`Checkout.dc.html` does not draw this control and it stays**, which is the one place
-          this redesign departs from its mock. The mock's own script still carries the
-          segment's styles with nothing rendering them — a control drawn in an earlier revision
-          and left out of this composition rather than a decision to remove it — and
-          `asksForCycle` below has a reason the drawing cannot see: a bare link chose nothing,
-          and a subscriber who arrives by one would otherwise have no way to ask for the other
-          cycle at all. */}
-      {asksForCycle && (
-        <div className="segment mb-3 w-fit" role="group" aria-label="Billing period">
-          {(['year', 'month'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              /*
-               * **Changing the cycle rebuilds the form rather than freezing it.** The
-               * transaction behind an open form was made server-side for one price, so the
-               * toggle cannot simply move under it — but disabling it would strand the reader
-               * on a decision this page opens with, now that the form is drawn on arrival.
-               *
-               * Rebuilt through the server and not through `Checkout.updateItems`, which would
-               * mean the browser naming a price: the whole reason `startPaddleCheckout` hands
-               * back an id instead of taking one.
-               */
-              onClick={() => {
-                if (option === cycle) return
-                setCycle(option)
-                if (openTransaction === null) return
-                paddle.current?.Checkout.close()
-                opened.current = null
-                setOpenTransaction(null)
-                void buy(option)
-              }}
-              aria-pressed={cycle === option}
-              disabled={busy || paid}
-              className={option === cycle ? 'segment-button is-on px-4' : 'segment-button px-4'}
-            >
-              {option === 'year' ? 'Yearly' : 'Monthly'}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/*
         * **The price card**, which is what this screen used to say in one line of body text.
         * `Checkout.dc.html` gives the figure the size of the screen's own title, because it is
@@ -803,24 +759,6 @@ export function PaddleCheckout(props: Props) {
                   <span className="text-[0.9375rem] font-normal leading-[1.1] text-muted">{cycleWord}</span>
                 </span>
               </div>
-
-              {/*
-                * The comparison /pricing makes rather than a claim about savings: the reader
-                * puts the two numbers side by side themselves, which they do correctly and
-                * faster than they read a sentence about it. **Only where the switch is** — with
-                * the cycle already settled this argues for a change the screen offers no way to
-                * make.
-                *
-                * Both figures come from `cycleComparison`, never from `props.amounts` directly:
-                * printing the listino under a headline the coupon has already reduced put
-                * «€2.44 a month» and «€41.88 a year» one line apart. It answers null where no
-                * true comparison is left, which is why this is three conditions and not two.
-                */}
-              {asksForCycle && cycle === 'month' && comparison !== null && (
-                <p className="mt-1.5 text-[0.8125rem] leading-[1.45] text-muted">
-                  {comparison.monthlyOverAYear} a year, against {comparison.yearly} paid yearly.
-                </p>
-              )}
 
               <p className="mt-3.5 border-t border-line-soft pt-3.5 text-[0.8125rem] leading-[1.45] text-muted">
                 {footNote}
