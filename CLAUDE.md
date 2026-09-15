@@ -472,6 +472,50 @@ Three more properties of that catalogue, each of which is a decision rather than
   not by any check. `catalogue.ts` asserts it now, so **the live catalogue must be created with
   the cap set** rather than relying on whoever makes it to remember.
 
+### The payment form is branded from Paddle's dashboard, and the palette is one for both themes
+
+The inline checkout frame is Paddle's, inside our card. What the *code* controls is in
+`PaddleCheckout.tsx` — `theme` follows `resolvedTheme()`, `variant: 'one-page'`, `frameStyle`
+with a transparent background and no border, `showAddDiscounts: false`. Everything else is
+**Paddle > Checkout > Checkout Settings > Inline**, five sections (Overall, Buttons, Inputs,
+Links, Messages), and it lives in the Paddle account rather than in this repo.
+
+**Measured 2026-09-15, and it is the fact the whole configuration turns on: there is one
+palette, and it applies to the light and the dark checkout alike.** No per-theme set of values
+exists in that editor. So a colour is only safe to set when it is right against *both* our
+surfaces — which is why what is configured is the geometry plus the one colour that carries its
+own background:
+
+- **Overall** — focus border and shadow `#97490f`; checkout padding **off**, so the frame has no
+  gutter of its own inside `.card`'s `1.375rem` (this is why `frameStyle` says `min-width: 286px`
+  — 286 is the padding-off minimum, 312 the padding-on one).
+- **Buttons** — primary height 44, radius 45 (**the field caps at 45**, which on a 44px button is
+  already `--r-pill`), background `#97490f`, hover `#884311` (`color-mix(--accent 88%, --ink)`),
+  font 15px `#fffaf4`, and the primary **border** set to the same two so the 1px is invisible —
+  the default is Paddle green and it draws a ring around the fill. Secondary: height 40,
+  radius 45, colours left alone.
+- **Inputs** — radius 18 (`--r-lg`), height 50, border width 1, box shadow **off** (`.card
+  .form-field` is recessed, not raised), **font size 16**. That last one is not styling: 16px is
+  what stops iOS zooming the viewport when a field takes focus, exactly as `.form-field`'s own
+  comment says, and it applies inside the iframe too.
+- **Messages** — container radius 18.
+- **Left deliberately at Paddle's defaults**: every text, placeholder, border and background
+  colour, and the link colour. Each of those sits *on* the theme's own surface, so one value
+  cannot serve both — a 12px link readable on `#f6f5f2` fails on `#101216` and the reverse.
+  Paddle's defaults already track the `theme` we pass; a fixed value would not.
+
+Two things that cannot follow us at all, worth knowing before anybody tries again: **the font**
+(the picker offers Arial, Helvetica Neue, Lato, Lucida Grande, Verdana and Georgia — Outfit is
+not among them, so Lato stays, and changing it buys nothing), and **the selected payment-method
+tab's green outline**, which the editor does not expose.
+
+**Sandbox and live are separate accounts, so this is configured twice** — the sandbox is done,
+the live is not, and it belongs with the catalogue and the notification destination in the list
+below. And since the values are copies of `DESIGN.md`'s tokens held outside this repo, a change
+to `--accent`, `--r-lg` or `--r-pill` makes them wrong with nothing to catch it: the same
+«change one place and the others are wrong» this file states about the booklet override and the
+install row.
+
 ### The webhook, and the two traps in the SDK
 
 `POST /api/paddle/webhook` (`app/api/paddle/webhook/route.ts`) is where Paddle says money
@@ -536,7 +580,9 @@ means neither «same cycle» nor «change of cycle» predicts the credit, and on
 is unexplained even by the restarted period; the screen therefore reads `update_summary.credit`
 and infers nothing. `plans/CLAUDE.md` has all six measurements.
 
-**Still to do before any of this takes money in production**: the live catalogue does not exist
+**Still to do before any of this takes money in production**: the live inline checkout carries
+none of the branding above (the values are in the section that describes them), the live
+catalogue does not exist
 (create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,
 maximum: 1}` — see the traps above), the live notification destination does not exist either and
 must subscribe to **`adjustment.created` and `adjustment.updated`** alongside the subscription and
