@@ -25,7 +25,7 @@
 import { cookies } from 'next/headers'
 
 import { activeCoupon, redeemability, type Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE } from '@/lib/coupons/types'
+import { COUPON_COOKIE, type CouponFailure } from '@/lib/coupons/types'
 
 import type { CheckoutPlan } from './prices'
 
@@ -45,5 +45,41 @@ export async function redeemableCouponFor(
   } catch (error) {
     console.error('redeemableCouponFor failed', error)
     return null
+  }
+}
+
+/**
+ * The same question `redeemableCouponFor` answers, with the reason kept — for the **screen**,
+ * which until 2026-09-15 was not asking it at all.
+ *
+ * `/checkout/[plan]` decided what to show from `activeCoupon` alone, which answers «a campaign
+ * exists and covers this plan» and nothing about the ceilings, the window or whether this
+ * account has already redeemed. The charge went through the function above, which asks all
+ * three. So a reader who had spent their code was shown the Lifetime at €139.99 and handed a
+ * transaction for €199.99 — the shown-price/charged-price gap, in the direction that takes more
+ * money than was advertised. Both paths ask `redeemability` now, and this is how the screen
+ * does it.
+ *
+ * **A failure answers `'failed'`, which refuses rather than allows**, and that is the half worth
+ * stating: `redeemableCouponFor` swallows its own errors and answers `null`, which makes the
+ * charge fall back to the listino. Answering «no refusal» here on the same error would put the
+ * discount back on the screen while the charge had already given up on it — the same gap again,
+ * caused by the repair for it. Refusing on both keeps them saying one thing.
+ *
+ * Takes the campaign rather than reading the cookie, unlike its sibling: the page has already
+ * resolved one, and resolving it twice could answer differently between two lines of the same
+ * render.
+ */
+export async function couponRefusalFor(
+  campaign: Campaign,
+  plan: CheckoutPlan,
+  accountOwnerEmail: string,
+): Promise<CouponFailure | null> {
+  try {
+    const allowed = await redeemability(campaign, plan, accountOwnerEmail)
+    return allowed.ok ? null : allowed.reason
+  } catch (error) {
+    console.error('couponRefusalFor failed', error)
+    return 'failed'
   }
 }

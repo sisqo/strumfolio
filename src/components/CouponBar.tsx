@@ -60,6 +60,7 @@ import { useOnline } from '@/lib/useOnline'
  */
 export function CouponBar({
   applied,
+  refused,
   persist,
   note,
 }: {
@@ -69,6 +70,19 @@ export function CouponBar({
    * which it can only do with the two apart.
    */
   applied: { percent: string; headline: string; detail: string } | null
+  /**
+   * Why the coupon this reader arrived with is not on the price above — decided on the server by
+   * `couponRefusedNotice`, and absent for everybody there is nothing to explain.
+   *
+   * **It shares the slot with the typed-code error and not its `role`.** That one announces
+   * something that just happened and has to interrupt a screen reader mid-task; this is present
+   * in the first byte of HTML, so it is read in its place like any other sentence. Declaring it
+   * an alert would make the page shout at arrival.
+   *
+   * Arriving here means `applied` is null, so the bar shows its «Have a code?» field — which is
+   * the useful offer to make somebody whose own code is spent.
+   */
+  refused?: string
   /**
    * A code the URL brought that the cookie does not hold yet — written once, from an effect,
    * because Next.js allows a cookie write only from a server action, a route handler or
@@ -282,10 +296,12 @@ export function CouponBar({
         </button>
       </form>
 
-      {error !== null && (
+      {error !== null ? (
         <p id="coupon-error" className="coupon-bar-error" role="alert">
           {error}
         </p>
+      ) : (
+        refused !== undefined && <p className="coupon-bar-error">{refused}</p>
       )}
     </div>
   )

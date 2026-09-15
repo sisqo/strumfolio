@@ -624,26 +624,29 @@ Since 2026-09-14 a campaign in `lib/coupons/` has real Paddle Discount entities 
 and the checkout attaches one by its `dsc_…` id. Four things about it are expensive to
 rediscover; `coupons/CLAUDE.md` has the rest.
 
-- **The refusal was narrowed, not lifted, and the narrow form is the invariant** — but it does
-  not cover everything it was written to cover, and that is an **open defect**, measured on
-  2026-09-15 and not yet fixed. `coupon-unsupported` answers «a coupon is in play and this exact
-  plan and cycle have no `dsc_…`»: a sync that never ran, one Paddle refused, a campaign covering
-  no Lifetime, a cycle whose three prices could not all be named. All of those sell nothing.
-  **What falls through is a coupon that is not redeemable at all** — most easily, one this
-  account has already redeemed. `redeemableCouponFor` answers `null` for those, so the guard
-  (`coupon !== null && discountId === null`) never fires, and the sale proceeds at the listino.
+- **The refusal was narrowed, not lifted, and the narrow form is the invariant** — and it takes
+  *two* questions to keep, which is what a real defect found on 2026-09-15 established.
+  `coupon-unsupported` answers the first: «a coupon is in play and this exact plan and cycle have
+  no `dsc_…`» — a sync that never ran, one Paddle refused, a campaign covering no Lifetime, a
+  cycle whose three prices could not all be named. All of those sell nothing.
 
-  Meanwhile `/checkout/[plan]` decides what to *show* from `activeCoupon` alone, which asks only
-  whether a campaign exists and covers the plan — the page says so in its own comment, «this
-  decides what the screen says and nothing about what it charges», written for a tampered
-  `?coupon=` where showing a discount and not honouring it is right. «Already redeemed» falls in
-  the same hole and inverts the direction: **the screen offered the Lifetime at €139.99 while
-  the transaction the server created carried `discount_id: null` and `total: 19999`** — sixty
-  euro more than was advertised, which is precisely the shown-price/charged-price gap this
-  paragraph claims cannot happen. Evidence in `/media/psf/Download/strumfolio-qa-2026-09-15/`.
-  The fix is to make the display ask `redeemability` as the write path does; the machinery
-  exists (it returns a reason, and `COUPON_FAILURE_MESSAGE` renders one), so what is missing is
-  the sentence a reader who has spent their coupon should read. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
+  The second is **may this account still redeem it at all**, and the screen was not asking it.
+  `/checkout/[plan]` decided what to show from `activeCoupon` alone, which knows about campaigns
+  and nothing about ceilings, windows or previous redemptions; the charge went through
+  `redeemableCouponFor`, which asks all three and answers `null` — and a `null` coupon does not
+  trip the guard, so the sale proceeded at the listino. A reader who had spent COUPON30 on a
+  subscription **was shown the Lifetime at €139.99 while the transaction the server made carried
+  `discount_id: null` and `total: 19999`**: sixty euro more than advertised, the gap this
+  paragraph exists to deny, arriving through the door left open for a *tampered* `?coupon=`
+  (where showing a discount and not honouring it is the safe direction). Evidence in
+  `/media/psf/Download/strumfolio-qa-2026-09-15/06-lifetime-scontato/`.
+
+  Fixed the same day: `couponRefusalFor` puts `redeemability` on the display path beside the
+  write path, the ticket comes down where the coupon will not be honoured, and
+  `couponRefusedNotice` says why in one sentence that ends «The price above is the usual one.»
+  Two silences are deliberate and tested — a campaign that simply does not reach this plan, which
+  `appliedCopy` already words, and a coupon table that could not be read, where the charge gives
+  up the same way so the two still agree. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
   a recurring discount survives a plan change on its own, so what is left is a code never
   redeemed, and the two sentences that say what a change costs know nothing about discounts.
 - **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts

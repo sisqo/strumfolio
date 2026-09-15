@@ -13,9 +13,10 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy, discountedAmount } from '@/lib/coupons/discount'
 import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
-import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
+import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
 import { checkoutMode } from '@/lib/plans/planChange'
+import { couponRefusalFor } from '@/lib/plans/redeemable'
 import { isCheckoutPlan, LIFETIME, periodEnd, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
@@ -167,21 +168,46 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const note = user !== null && campaign !== null && campaign.status === 'active' ? campaign.code : undefined
 
   /*
-   * **The struck price is shown only where the discount would actually be charged**, and the
-   * test for that is `discountIdFor`, not «is a campaign applied».
+   * **The struck price is shown only where the discount would actually be charged**, and that
+   * takes two questions, not one. This page used to ask a third of it.
    *
-   * `Checkout.dc.html` draws the listino struck beside the reduced figure, which is right and is
-   * also the one place this redesign could reintroduce the gap the whole coupon feature is
-   * arranged to close. A campaign with no Paddle Discount behind it is redeemable, draws a
-   * ticket on the bar above, and is refused by `startPaddleCheckout` — so a price card promising
-   * €2.44 there would be promising a sale this page will not make. Asked per cycle because the
-   * toggle can move it and a campaign can cover one cycle and not the other.
+   * *Does the campaign reach this plan and cycle* — `discountIdFor`, below. A campaign with no
+   * Paddle Discount behind it draws a ticket and is refused by `startPaddleCheckout`, so a price
+   * card promising €2.44 there would promise a sale this page will not make. That much was
+   * already right.
+   *
+   * *May this account still redeem it* — `couponRefusalFor`, which is `redeemability`: the
+   * ceilings, the window, and whether this account has redeemed before. **That was missing, and
+   * its absence was a money bug.** The reader who had already spent COUPON30 on a subscription
+   * was shown the Lifetime at €139.99 while the transaction the server made carried
+   * `discount_id: null` and `total: 19999` — sixty euro more than the screen promised, measured
+   * 2026-09-15. The page's older comment above («this decides what the screen says and nothing
+   * about what it charges») was written for a *tampered* `?coupon=`, where showing a discount
+   * and not honouring it is the safe direction. «Already redeemed» arrives by the same door and
+   * inverts it.
+   *
+   * Asked once for the whole render rather than per cycle: redeemability is about the account
+   * and the plan, and cannot differ between the two cycles of one screen.
    */
-  const chargeable = (forCycle: BillingPeriod | null): boolean =>
+  const refusal =
+    campaign === null || user === null ? null : await couponRefusalFor(campaign, plan, user.accountOwnerEmail)
+
+  /* What the campaign *reaches*, ignoring whether this reader may still have it — the question
+     `appliedCopy` already answers in words on the bar, and the one that tells a spent coupon
+     apart from a campaign that simply does not cover the Lifetime. */
+  const covers = (forCycle: BillingPeriod | null): boolean =>
     campaign !== null && discountIdFor(campaign, plan, forCycle) !== null
+
+  const coversThisPlan = plan === 'lifetime' ? covers(null) : covers('month') || covers('year')
+
+  const chargeable = (forCycle: BillingPeriod | null): boolean => covers(forCycle) && refusal === null
 
   const reduced = (full: string, forCycle: BillingPeriod | null): string | null =>
     campaign !== null && chargeable(forCycle) ? discountedAmount(full, campaign.discountPercent) : null
+
+  /* Why the price above is not the one they came for. `null` where there is nothing to say —
+     see `couponRefusedNotice`, which holds both silent cases and the reason for each. */
+  const refused = couponRefusedNotice(refusal, coversThisPlan)
 
   /*
    * The day a purchase made now would first renew, one per cycle — computed here rather than in
@@ -205,9 +231,16 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      `appliedCopy`'s own comment. */
   const couponBar = (
     <CouponBar
+      /* No ticket where the coupon will not be honoured: «COUPON30 is on this price» over a
+         price it is not on is the contradiction this whole change exists to remove. The bar
+         falls back to its «Have a code?» field, which is the useful thing to offer somebody
+         whose own code is spent. */
       applied={
-        campaign === null ? null : appliedCopy(campaign, lifetimeOnSale, formatPlanDate, plan === 'lifetime' ? 'lifetime' : null)
+        campaign === null || refused !== null
+          ? null
+          : appliedCopy(campaign, lifetimeOnSale, formatPlanDate, plan === 'lifetime' ? 'lifetime' : null)
       }
+      refused={refused ?? undefined}
       persist={campaign !== null && campaign.code !== cookieCode ? campaign.code : undefined}
       note={note}
     />

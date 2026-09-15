@@ -24,7 +24,9 @@ import {
 import type { CampaignFacts } from './discount'
 import {
   COUPON_COOKIE_MAX_DAYS,
+  COUPON_FAILURE_MESSAGE,
   OFFER_COLLAPSED_COOKIE,
+  couponRefusedNotice,
   isCodeShape,
   normalizeCode,
   offerCollapsedCookie,
@@ -760,5 +762,58 @@ describe('restorableCode', () => {
 
   it('has nothing to remember when nothing is in force', () => {
     assert.equal(restorableCode(null), null)
+  })
+})
+
+/*
+ * The sentence a checkout says to somebody whose coupon it will not honour — and, as much,
+ * the two cases where it says nothing.
+ *
+ * It exists because the screen and the charge consulted different rules: what to show asked «is
+ * there a campaign covering this plan», what to charge asked `redeemability` as well. A reader
+ * who had spent their code saw €139.99 and got a transaction for €199.99.
+ */
+describe('couponRefusedNotice', () => {
+  it('names the reason and then what the price is', () => {
+    assert.equal(
+      couponRefusedNotice('already-redeemed', true),
+      'This account has already used that code. The price above is the usual one.',
+    )
+    assert.match(couponRefusedNotice('exhausted', true) ?? '', /fully claimed\. The price above is the usual one\./)
+  })
+
+  it('says nothing when the coupon is being honoured', () => {
+    assert.equal(couponRefusedNotice(null, true), null)
+  })
+
+  /*
+   * A subscription-only campaign on /checkout/lifetime reaches here as `unknown-code`, the same
+   * reason a genuinely bad code gets. `appliedCopy` already words that one («The Lifetime is not
+   * included») and the ticket stays up, so a second, blunter sentence would contradict the
+   * first — which is why this takes the coverage question rather than reading it out of the
+   * reason.
+   */
+  it('says nothing when the campaign simply does not reach this plan', () => {
+    assert.equal(couponRefusedNotice('unknown-code', false), null)
+    assert.equal(couponRefusedNotice('already-redeemed', false), null)
+  })
+
+  /* A coupon table that could not be read is not something to explain at a checkout, and the
+     charge gives up the same way, so the two still agree. */
+  it('says nothing when the refusal is a fault of ours', () => {
+    assert.equal(couponRefusedNotice('failed', true), null)
+  })
+
+  /* Every reason has a sentence: a new one added to `CouponFailure` must not reach a reader as
+     «undefined. The price above is the usual one.» */
+  it('has a sentence for every reason there is', () => {
+    /* The keys of the message table are the union at runtime — a reason added to one without
+       the other is exactly what this is here to catch. */
+    for (const reason of Object.keys(COUPON_FAILURE_MESSAGE) as (keyof typeof COUPON_FAILURE_MESSAGE)[]) {
+      const notice = couponRefusedNotice(reason, true)
+      if (reason === 'failed') continue
+      assert.equal(typeof notice, 'string')
+      assert.doesNotMatch(notice ?? '', /undefined/)
+    }
   })
 })

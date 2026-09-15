@@ -203,6 +203,37 @@ export type CouponFailure =
   | 'no-database'
   | 'failed'
 
+/**
+ * What a checkout says to a reader who arrived carrying a coupon it will not honour.
+ *
+ * **It exists because the screen and the charge used to consult different rules.** What to
+ * *show* was decided by «is there a campaign, and does it cover this plan»; what to *charge* by
+ * `redeemability`, which also asks the ceilings, the window and whether this account has redeemed
+ * before. A reader who had already spent their code was therefore shown €139.99 and handed a
+ * transaction for €199.99 — measured 2026-09-15, sixty euro more than the screen promised, and
+ * the exact gap `coupons/CLAUDE.md` is written around.
+ *
+ * `null` in the two cases where there is nothing to announce:
+ *
+ * - **No refusal.** The coupon applies; the ticket says so and the price is struck.
+ * - **`coversThisPlan` false.** The campaign is fine and simply does not reach this plan — a
+ *   subscription-only campaign on `/checkout/lifetime`. `appliedCopy` already words that («The
+ *   Lifetime is not included») and `discountIdFor` already withholds the discount, so a second,
+ *   blunter sentence would contradict the first. That case reaches here as `unknown-code`, which
+ *   is the same reason a genuinely bad code gets, and is why this takes the coverage question
+ *   rather than trying to read it back out of the reason.
+ *
+ * `failed` is silent too: a coupon table that could not be read is not something to explain at a
+ * checkout, and the charge refuses on its own the same way, so the two still agree.
+ *
+ * The second sentence is the one that matters. «This account has already used that code» is true
+ * and leaves the reader looking at a figure without knowing whether it is the reduced one.
+ */
+export function couponRefusedNotice(reason: CouponFailure | null, coversThisPlan: boolean): string | null {
+  if (reason === null || reason === 'failed' || !coversThisPlan) return null
+  return `${COUPON_FAILURE_MESSAGE[reason]} The price above is the usual one.`
+}
+
 export const COUPON_FAILURE_MESSAGE: Record<CouponFailure, string> = {
   'unknown-code': 'That code is not valid.',
   expired: 'That offer has ended.',
