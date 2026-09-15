@@ -497,9 +497,19 @@ grey. **Once the inline checkout is branded at all, Paddle stops giving the labe
 palette**, whether or not `Label color` holds a value. The white text a dark checkout used to
 have is not recoverable while any branding is configured.
 
-So the only lever left for those is the single shared value, and it has to be a compromise.
-`Label color` is **`#6f757e`** — a grey chosen to clear AA on white (4.6:1) and stay legible on
-`#101216` (4.0:1). Neither theme gets what it would get untouched; both get something readable.
+**So the app's theme gives way instead: `PaddleCheckout` pins the form to `light`.** A single
+palette chosen against a single known background is right by construction, and it is the only
+arrangement here in which every value in that dashboard can simply be one of `DESIGN.md`'s light
+tokens. The cost is visible and was chosen knowingly — in the dark theme the payment form is a
+light panel inside a dark page — and it buys one thing back: the frame used to be re-opened on
+every change of theme, throwing away a half-typed card number, and a form that never changes
+theme never needs that.
+
+**The card under the frame is `bg-white`, and it is the only hard-coded colour in this app.**
+`frameStyle` keeps the frame transparent, so that element is the ground Paddle draws on; it was
+`--surface`, which is `#181b21` in the dark theme and would put black label text on a near-black
+panel. It is not our surface any more, it is Paddle's, and calling it `--surface` would claim a
+relationship to our theme that no longer exists.
 Every other colour is left cleared, since for those the defaults still adapt.
 
 What is deliberately **set**, because each is right against both our surfaces:

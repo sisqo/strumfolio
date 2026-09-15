@@ -45,7 +45,6 @@ import Link from 'next/link'
 
 import { IconCheck } from '@/components/icons'
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
-import { resolvedTheme, useResolvedTheme } from '@/lib/useResolvedTheme'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
 import { changeStops, changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
 import {
@@ -154,12 +153,22 @@ const FRAME_TARGET = 'paddle-checkout-frame'
 /**
  * How the payment form should look, read at the moment it is opened rather than once at mount.
  *
- * **The theme is why this is a function.** Paddle defaults to `light` whatever the page is
- * doing, which as a modal was merely unfortunate and inside our own column would be a white card
- * sitting in a dark one. `resolvedTheme` answers it from the two places the answer lives — the
- * attribute, and the system scheme when `auto` has set none — and it is asked here, at the
- * moment of opening, so that a theme changed while the page was sitting open is the one the
- * form is drawn in.
+ * **The form is pinned to `light`, and it is the app's own theme that gives way.** Paddle's
+ * branded inline checkout — every colour of it, set in the dashboard — has **one** palette for
+ * both of its themes, and the moment any branding exists it stops giving the labels their dark
+ * one (measured 2026-09-15; `CLAUDE.md` carries the whole of it). So a form that follows the
+ * reader's theme is a form whose labels are unreadable for half of them. Pinned, every value in
+ * that dashboard is chosen against one known background and is right by construction.
+ *
+ * **What this costs is visible and was chosen knowingly**: in the dark theme the payment form is
+ * a light panel inside a dark page. The card below it is painted white for exactly that reason —
+ * `frameStyle` keeps the frame transparent, so the ground is ours to set, and it can no longer
+ * be `--surface`, which is `#181b21` in the dark theme and would put Paddle's black label text
+ * on a near-black panel. That is worse than the mismatch, not better.
+ *
+ * It also retires a defect rather than trading one for another: the frame used to be re-opened
+ * whenever the theme changed, because `updateCheckout` cannot restyle one — and re-opening threw
+ * away a half-typed card number. A form that never changes theme never needs that.
  *
  * `one-page` because the default, `multi-page`, collects the details and then the card on two
  * screens, and an embedded frame changing height between them moves the page under the reader's
@@ -172,7 +181,7 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  */
 function checkoutSettings(): CheckoutSettings {
   return {
-    theme: resolvedTheme(),
+    theme: 'light',
     displayMode: 'inline',
     variant: 'one-page',
     frameTarget: FRAME_TARGET,
@@ -493,34 +502,28 @@ export function PaddleCheckout(props: Props) {
    * `open()` against an uninitialised SDK is a silent no-op rather than an error.
    */
   /**
-   * **A frame already drawn keeps the theme it was drawn with**, and that is a real defect
-   * rather than a nicety: `updateCheckout` takes items, a discount and customer data — there is
-   * no setting on it — so a reader who switches theme mid-payment is left with a light form
-   * inside a dark card, or the reverse. The only lever Paddle offers is opening again.
+   * **Opened once per transaction, and no longer re-opened when the theme changes.**
    *
-   * The cost is stated because it is not free: re-opening restarts the form, so a half-typed
-   * card number is lost. Taken anyway — changing theme is a deliberate act, rare at this exact
-   * moment, and what it produces otherwise is precisely the mismatch that was reported.
+   * It used to be: `updateCheckout` takes items, a discount and customer data and no settings, so
+   * the only way to restyle a drawn frame was to open it again — and a reader who switched theme
+   * mid-payment otherwise sat in a light form inside a dark card. Re-opening threw away whatever
+   * they had typed, which was the price of fixing it.
    *
-   * The guard is keyed on the transaction **and** the theme, which is what lets the same id be
-   * re-opened for the second reason while still refusing the double mount React does in
-   * development. `checkoutSettings` re-reads the DOM rather than trusting the state that woke
-   * this: the hook is the signal, the attribute is the truth.
+   * With the form pinned to `light` (see `checkoutSettings`) there is no mismatch left to chase,
+   * so that whole trade is gone: the guard is the transaction id alone, and a half-typed card
+   * number survives a change of theme.
    */
-  const theme = useResolvedTheme()
   const opened = useRef<string | null>(null)
   useEffect(() => {
     if (openTransaction === null || !ready) return
     /* **Never after the money has moved.** Paddle's own «thank you» state lives in the frame,
        and re-opening a paid transaction would replace it with a form for a payment that has
-       already happened — the one redraw that could make somebody think they had to pay twice.
-       A theme mismatch on a form nobody is filling in any more costs nothing by comparison. */
+       already happened — the one redraw that could make somebody think they had to pay twice. */
     if (paid) return
-    const drawn = `${openTransaction}:${theme}`
-    if (opened.current === drawn) return
-    opened.current = drawn
+    if (opened.current === openTransaction) return
+    opened.current = openTransaction
     paddle.current?.Checkout.open({ transactionId: openTransaction, settings: checkoutSettings() })
-  }, [openTransaction, ready, theme, paid])
+  }, [openTransaction, ready, paid])
 
   /**
    * **The cycle was chosen on /pricing, so this screen does not ask again.**
@@ -882,12 +885,19 @@ export function PaddleCheckout(props: Props) {
       {openTransaction !== null && (
         <div className="mt-4">
           {/*
-            * **The frame sits on a card of ours, not on the page.** `--bg` in the light theme is
-            * a warm off-white (#f6f5f2) and Paddle's light form is drawn for white: on the page
-            * background its fields and hairlines wash out, which is exactly what it looked like
-            * — dark mode was fine because dark-on-dark forgives it. `--surface` is #ffffff here
-            * and a lifted panel in the dark theme, so one card serves both, and `frameStyle`
-            * stays transparent so the colour comes from this element.
+            * **The frame sits on a card of ours, not on the page, and that card is white in both
+            * themes.** `frameStyle` keeps the frame itself transparent, so this element is the
+            * ground Paddle's form is drawn on — and since the form is pinned to `light`
+            * (`checkoutSettings`), the ground has to be the white that palette was chosen
+            * against. `--surface` used to serve both and can no longer: it is `#181b21` in the
+            * dark theme, which would put Paddle's black label text on a near-black panel.
+            *
+            * So `bg-white` rather than a token, deliberately, and it is the only place in this
+            * app that does it. This is not our surface, it is **Paddle's** — the one colour the
+            * dashboard's single palette assumes — and writing it as `--surface` would be
+            * claiming a relationship to our theme that no longer exists. `--bg` was wrong for the
+            * same kind of reason before: a warm off-white (#f6f5f2) washes out the form's own
+            * fields and hairlines, which is what it looked like when it sat on the page.
             */}
           {/*
             * **No side padding until there is room for it, and a scroller either way.** Paddle
@@ -898,7 +908,7 @@ export function PaddleCheckout(props: Props) {
             * ever happens anyway, the card scrolls rather than the page: this repo's rule is
             * that the body never scrolls sideways, and a table or a frame gets its own box.
             */}
-          <div className="overflow-x-auto rounded-card border border-line-soft bg-surface py-2 shadow-card sm:p-3">
+          <div className="overflow-x-auto rounded-card border border-line-soft bg-white py-2 shadow-card sm:p-3">
             <div className={FRAME_TARGET} />
           </div>
           {/* Absent once the money has moved: there is nothing left to back out of, and a way
