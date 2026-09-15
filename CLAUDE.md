@@ -472,7 +472,7 @@ Three more properties of that catalogue, each of which is a decision rather than
   not by any check. `catalogue.ts` asserts it now, so **the live catalogue must be created with
   the cap set** rather than relying on whoever makes it to remember.
 
-### The payment form is branded from Paddle's dashboard, and the palette is one for both themes
+### The payment form is branded from Paddle's dashboard, and Save is what breaks the dark theme
 
 The inline checkout frame is Paddle's, inside our card. What the *code* controls is in
 `PaddleCheckout.tsx` — `theme` follows `resolvedTheme()`, `variant: 'one-page'`, `frameStyle`
@@ -480,11 +480,22 @@ with a transparent background and no border, `showAddDiscounts: false`. Everythi
 **Paddle > Checkout > Checkout Settings > Inline**, five sections (Overall, Buttons, Inputs,
 Links, Messages), and it lives in the Paddle account rather than in this repo.
 
-**Measured 2026-09-15, and it is the fact the whole configuration turns on: there is one
-palette, and it applies to the light and the dark checkout alike.** No per-theme set of values
-exists in that editor. So a colour is only safe to set when it is right against *both* our
-surfaces — which is why what is configured is the geometry plus the one colour that carries its
-own background:
+**The trap, and it is the whole of this section: an *unset* colour follows the theme, a *set* one
+does not — and pressing Save sets every colour in the editor, including the ones nobody
+touched.** There is no per-theme palette. What that means in practice was measured on
+2026-09-15: after the first save the dark checkout's labels, its typed text and the selected
+country all turned near-black on near-black, because `#2B2A35` — Paddle's *light* default — had
+been written into the fields as an explicit value. The white text that used to appear in dark
+was not a setting; it was the absence of one.
+
+**So the procedure has two halves and the second is not optional.** Set what you mean to set,
+save, then go back through every section and **clear** — select the field's contents and delete
+— every colour that has to follow the theme. A cleared field shows its default hex in grey with
+an empty swatch beside it; a set one shows it in dark text with the colour filled in, and that
+difference is the only way to tell them apart. Saving again keeps the cleared ones cleared
+(verified by reloading the page and by looking at the real checkout in both themes).
+
+What is deliberately **set**, because each is right against both our surfaces:
 
 - **Overall** — focus border and shadow `#97490f`; checkout padding **off**, so the frame has no
   gutter of its own inside `.card`'s `1.375rem` (this is why `frameStyle` says `min-width: 286px`
@@ -492,17 +503,21 @@ own background:
 - **Buttons** — primary height 44, radius 45 (**the field caps at 45**, which on a 44px button is
   already `--r-pill`), background `#97490f`, hover `#884311` (`color-mix(--accent 88%, --ink)`),
   font 15px `#fffaf4`, and the primary **border** set to the same two so the 1px is invisible —
-  the default is Paddle green and it draws a ring around the fill. Secondary: height 40,
-  radius 45, colours left alone.
-- **Inputs** — radius 18 (`--r-lg`), height 50, border width 1, box shadow **off** (`.card
-  .form-field` is recessed, not raised), **font size 16**. That last one is not styling: 16px is
-  what stops iOS zooming the viewport when a field takes focus, exactly as `.form-field`'s own
-  comment says, and it applies inside the iframe too.
+  the default is Paddle green and it draws a ring around the fill. Secondary: height 40 and
+  radius 45 only — every one of its colours is cleared.
+- **Inputs** — radius 18 (`--r-lg`), height 50, border width 1, **font size 16**. That last one
+  is not styling: 16px is what stops iOS zooming the viewport when a field takes focus, exactly
+  as `.form-field`'s own comment says, and it applies inside the iframe too.
 - **Messages** — container radius 18.
-- **Left deliberately at Paddle's defaults**: every text, placeholder, border and background
-  colour, and the link colour. Each of those sits *on* the theme's own surface, so one value
-  cannot serve both — a 12px link readable on `#f6f5f2` fails on `#101216` and the reverse.
-  Paddle's defaults already track the `theme` we pass; a fixed value would not.
+- **Cleared, and they must stay cleared**: input label / placeholder / font / border colour, the
+  checkbox background, both link colours, all four Messages colours, and every colour on the
+  *secondary* button. Each of those sits **on** the theme's own surface, so one value cannot
+  serve both — a 12px link readable on `#f6f5f2` fails on `#101216`, and the reverse. Box shadow
+  is left unset for the same reason: Paddle draws it in a colour of its own.
+
+  The primary button is the exception that proves the rule, and it is why it is the one colour
+  worth pinning: a filled button carries its own background, so terracotta with cream text reads
+  the same whichever surface it lands on.
 
 Two things that cannot follow us at all, worth knowing before anybody tries again: **the font**
 (the picker offers Arial, Helvetica Neue, Lato, Lucida Grande, Verdana and Georgia — Outfit is
