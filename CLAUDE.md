@@ -624,13 +624,26 @@ Since 2026-09-14 a campaign in `lib/coupons/` has real Paddle Discount entities 
 and the checkout attaches one by its `dsc_…` id. Four things about it are expensive to
 rediscover; `coupons/CLAUDE.md` has the rest.
 
-- **The refusal was narrowed, not lifted, and the narrow form is the invariant.** The question
-  is not «is a coupon in play» but «has this exact plan and cycle a `dsc_…`». Every way the
-  feature can fail — a sync that never ran, one Paddle refused, a campaign covering no Lifetime,
-  a cycle whose three prices could not all be named — ends at `coupon-unsupported`, which sells
-  nothing. It never ends at a charge of the listino to somebody just shown 30% off: that is the
-  shown-price/charged-price gap inverted into the direction that takes *more* money than was
-  advertised. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
+- **The refusal was narrowed, not lifted, and the narrow form is the invariant** — but it does
+  not cover everything it was written to cover, and that is an **open defect**, measured on
+  2026-09-15 and not yet fixed. `coupon-unsupported` answers «a coupon is in play and this exact
+  plan and cycle have no `dsc_…`»: a sync that never ran, one Paddle refused, a campaign covering
+  no Lifetime, a cycle whose three prices could not all be named. All of those sell nothing.
+  **What falls through is a coupon that is not redeemable at all** — most easily, one this
+  account has already redeemed. `redeemableCouponFor` answers `null` for those, so the guard
+  (`coupon !== null && discountId === null`) never fires, and the sale proceeds at the listino.
+
+  Meanwhile `/checkout/[plan]` decides what to *show* from `activeCoupon` alone, which asks only
+  whether a campaign exists and covers the plan — the page says so in its own comment, «this
+  decides what the screen says and nothing about what it charges», written for a tampered
+  `?coupon=` where showing a discount and not honouring it is right. «Already redeemed» falls in
+  the same hole and inverts the direction: **the screen offered the Lifetime at €139.99 while
+  the transaction the server created carried `discount_id: null` and `total: 19999`** — sixty
+  euro more than was advertised, which is precisely the shown-price/charged-price gap this
+  paragraph claims cannot happen. Evidence in `/media/psf/Download/strumfolio-qa-2026-09-15/`.
+  The fix is to make the display ask `redeemability` as the write path does; the machinery
+  exists (it returns a reason, and `COUPON_FAILURE_MESSAGE` renders one), so what is missing is
+  the sentence a reader who has spent their coupon should read. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
   a recurring discount survives a plan change on its own, so what is left is a code never
   redeemed, and the two sentences that say what a change costs know nothing about discounts.
 - **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
