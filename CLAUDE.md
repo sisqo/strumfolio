@@ -510,9 +510,10 @@ theme never needs that.
 `--surface`, which is `#181b21` in the dark theme and would put black label text on a near-black
 panel. It is not our surface any more, it is Paddle's, and calling it `--surface` would claim a
 relationship to our theme that no longer exists.
-Every other colour is left cleared, since for those the defaults still adapt.
 
-What is deliberately **set**, because each is right against both our surfaces:
+**Every value in the dashboard is then one of `DESIGN.md`'s light tokens**, which is the whole
+dividend of pinning the theme — there is one background to be right against, so nothing is a
+compromise and nothing has to be left to Paddle:
 
 - **Overall** — focus border and shadow `#97490f`; checkout padding **off**, so the frame has no
   gutter of its own inside `.card`'s `1.375rem` (this is why `frameStyle` says `min-width: 286px`
@@ -522,19 +523,14 @@ What is deliberately **set**, because each is right against both our surfaces:
   font 15px `#fffaf4`, and the primary **border** set to the same two so the 1px is invisible —
   the default is Paddle green and it draws a ring around the fill. Secondary: height 40 and
   radius 45 only — every one of its colours is cleared.
-- **Inputs** — radius 18 (`--r-lg`), height 50, border width 1, **font size 16**. That last one
-  is not styling: 16px is what stops iOS zooming the viewport when a field takes focus, exactly
-  as `.form-field`'s own comment says, and it applies inside the iframe too.
-- **Messages** — container radius 18.
-- **Cleared, and they must stay cleared**: input placeholder / font / border colour, the
-  checkbox background, both link colours, all four Messages colours, and every colour on the
-  *secondary* button. Each of those sits **on** the theme's own surface, so one value cannot
-  serve both — a 12px link readable on `#f6f5f2` fails on `#101216`, and the reverse. Box shadow
-  is left unset for the same reason: Paddle draws it in a colour of its own.
-
-  The primary button is the exception that proves the rule, and it is why it is the one colour
-  worth pinning: a filled button carries its own background, so terracotta with cream text reads
-  the same whichever surface it lands on.
+- **Inputs** — label `#5c626c` (`--muted`), typed text `#16181d` (`--ink`), placeholder
+  `#8d939c` (`--faint`), border `#e6e3dc` (`--line-soft`); radius 18 (`--r-lg`), height 50,
+  border width 1, **font size 16**. That last one is not styling: 16px is what stops iOS zooming
+  the viewport when a field takes focus, exactly as `.form-field`'s own comment says, and it
+  applies inside the iframe too.
+- **Links** — `#97490f` and `#884311`, the accent and its hover.
+- **Messages** — container radius 18, border `#e6e3dc`, background `#f1efe9` (`--surface-3`), for
+  both the checkout footer and the coupon notice.
 
 Two things that cannot follow us at all, worth knowing before anybody tries again: **the font**
 (the picker offers Arial, Helvetica Neue, Lato, Lucida Grande, Verdana and Georgia — Outfit is
