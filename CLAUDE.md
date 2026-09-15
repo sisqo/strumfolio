@@ -488,12 +488,19 @@ country all turned near-black on near-black, because `#2B2A35` — Paddle's *lig
 been written into the fields as an explicit value. The white text that used to appear in dark
 was not a setting; it was the absence of one.
 
-**So the procedure has two halves and the second is not optional.** Set what you mean to set,
-save, then go back through every section and **clear** — select the field's contents and delete
-— every colour that has to follow the theme. A cleared field shows its default hex in grey with
-an empty swatch beside it; a set one shows it in dark text with the colour filled in, and that
-difference is the only way to tell them apart. Saving again keeps the cleared ones cleared
-(verified by reloading the page and by looking at the real checkout in both themes).
+**Clearing a field gets the value out of the configuration but does not get the adaptivity
+back**, and that is the part worth knowing before anybody spends an afternoon on it. Measured
+the same day, on the labels: emptied, saved, reloaded the dashboard (still empty — a cleared
+field shows its default hex in grey with an empty swatch, a set one in dark text with the colour
+filled in), hard-reloaded the checkout — and the dark form's labels stayed the same unreadable
+grey. **Once the inline checkout is branded at all, Paddle stops giving the labels their dark
+palette**, whether or not `Label color` holds a value. The white text a dark checkout used to
+have is not recoverable while any branding is configured.
+
+So the only lever left for those is the single shared value, and it has to be a compromise.
+`Label color` is **`#6f757e`** — a grey chosen to clear AA on white (4.6:1) and stay legible on
+`#101216` (4.0:1). Neither theme gets what it would get untouched; both get something readable.
+Every other colour is left cleared, since for those the defaults still adapt.
 
 What is deliberately **set**, because each is right against both our surfaces:
 
@@ -509,7 +516,7 @@ What is deliberately **set**, because each is right against both our surfaces:
   is not styling: 16px is what stops iOS zooming the viewport when a field takes focus, exactly
   as `.form-field`'s own comment says, and it applies inside the iframe too.
 - **Messages** — container radius 18.
-- **Cleared, and they must stay cleared**: input label / placeholder / font / border colour, the
+- **Cleared, and they must stay cleared**: input placeholder / font / border colour, the
   checkbox background, both link colours, all four Messages colours, and every colour on the
   *secondary* button. Each of those sits **on** the theme's own surface, so one value cannot
   serve both — a 12px link readable on `#f6f5f2` fails on `#101216`, and the reverse. Box shadow
