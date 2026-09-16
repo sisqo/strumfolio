@@ -476,13 +476,16 @@ Three more properties of that catalogue, each of which is a decision rather than
   not by any check. `catalogue.ts` asserts it now, so **the live catalogue must be created with
   the cap set** rather than relying on whoever makes it to remember.
 
-### The payment form is branded from Paddle's dashboard, and Save is what breaks the dark theme
+### The payment form is branded from Paddle's dashboard, and one palette is all there is
 
 The inline checkout frame is Paddle's, inside our card. What the *code* controls is in
-`PaddleCheckout.tsx` — `theme` follows `resolvedTheme()`, `variant: 'one-page'`, `frameStyle`
+`PaddleCheckout.tsx` — `theme` pinned to `light` (see below), `variant: 'one-page'`, `frameStyle`
 with a transparent background and no border, `showAddDiscounts: false`. Everything else is
-**Paddle > Checkout > Checkout Settings > Inline**, five sections (Overall, Buttons, Inputs,
-Links, Messages), and it lives in the Paddle account rather than in this repo.
+**`/checkout-settings#Inline`** — the documentation calls it «Branded inline checkout» and there
+is **no page by that name**: it is the Inline tab of Checkout Settings, verified 2026-09-16
+against the dashboard's own navigation, so do not go hunting for a second screen. Five sections
+(Overall, Buttons, Inputs, Links, Messages), living in the Paddle account rather than in this
+repo.
 
 **The trap, and it is the whole of this section: an *unset* colour follows the theme, a *set* one
 does not — and pressing Save sets every colour in the editor, including the ones nobody
@@ -499,9 +502,39 @@ field shows its default hex in grey with an empty swatch, a set one in dark text
 filled in), hard-reloaded the checkout — and the dark form's labels stayed the same unreadable
 grey. **Once the inline checkout is branded at all, Paddle stops giving the labels their dark
 palette**, whether or not `Label color` holds a value. The white text a dark checkout used to
-have is not recoverable while any branding is configured.
+have is not recoverable while any branding is configured. The **Reset** button beside Save is
+the bulk form of that same clear, so it is not a route back either, and pressing it to find out
+costs the whole configuration.
 
-**So the app's theme gives way instead: `PaddleCheckout` pins the form to `light`.** A single
+**A dark palette does not exist to be found, and that is a fact about the editor rather than a
+thing we failed to locate.** Checked 2026-09-16 against both the reference and the dashboard
+itself: the «Brand inline checkout» page lists the same five sections and never mentions a
+theme, and the editor carries no light/dark selector, no preview toggle and no second palette
+anywhere. What it *can* colour is foreground only —
+
+| Section | Colours it holds |
+|---|---|
+| Overall | focus shadow, focus border (plus font family, checkout padding, `Max width (px)` 643) |
+| Buttons | primary and secondary fill, text, border, hover |
+| Inputs | label, placeholder, input text, input border, **checkbox background** (`Label position: Left`) |
+| Links | link and hover |
+| Messages | footer and coupon-notice **border and background** — not their text |
+
+— and the checkbox background is the **only** background field in the whole editor. **The ground
+is not settable, and neither is the heading «Please enter your details», the helper line under
+it, the footer's «Sold by Paddle…», nor the text inside the message containers.** Those five
+follow `theme`, so they are light on a dark ground and dark on a light one whatever the branding
+says.
+
+**Which makes pinning the theme the only coherent state, not a defeat.** One colour cannot be
+legible on two grounds — the decisive pair is that the input *text* colour is settable and the
+input *background* is not — so the palette fixes the ground, and `theme` has to match the ground
+the palette was chosen against. Branding and theme-switching are mutually exclusive here by
+construction. Nor is «drop the branding and let the theme follow» the other half of a choice: the
+card would have to go back to `--surface`, and Paddle's own light form on our warm off-white is
+the complaint the inline work started from.
+
+**So the app's theme gives way, and `PaddleCheckout` pins the form to `light`.** A single
 palette chosen against a single known background is right by construction, and it is the only
 arrangement here in which every value in that dashboard can simply be one of `DESIGN.md`'s light
 tokens. The cost is visible and was chosen knowingly — in the dark theme the payment form is a
