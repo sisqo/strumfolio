@@ -653,6 +653,23 @@ rediscover; `coupons/CLAUDE.md` has the rest.
   up the same way so the two still agree. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
   a recurring discount survives a plan change on its own, so what is left is a code never
   redeemed, and the two sentences that say what a change costs know nothing about discounts.
+
+  **That last clause is also an open defect, and it is worth naming rather than leaving as a
+  property.** The discount survives, and it is `restrict_to` all three prices of its cycle — so
+  after a move from Standard to Premium on the same cycle it covers the *new* plan too. The
+  change screens do not know: the calendar's later stop and the confirmation's «Next charge» row
+  both price the renewal from `PRICES`. Measured twice, 2026-09-15 and 2026-09-16: the screen
+  said «Renews, then every month €6.99» while the subscription carried a recurring 30% whose
+  `restrict_to` includes Premium monthly, so Paddle would take **€4.89**. The direction is
+  benign — less than advertised, not more, so it is not the €139.99/€199.99 gap turned around —
+  but the figure is wrong, and `/billing` contradicts it one screen over by saying the discount
+  runs to 2027. Evidence in `/media/psf/Download/strumfolio-qa-2026-09-16/05-cambio-piano/`.
+
+  Not fixed, because the fix is a choice about **where the preview learns that the subscription
+  carries a discount**: read `subscription.discount` back from Paddle, or recompute it from the
+  `accounts.coupon*` columns already held. The second is an inference, and inferring is exactly
+  what that screen refuses to do elsewhere — it reads `update_summary.credit` and derives
+  nothing, for the reasons the plan-change section above sets out.
 - **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
   billing periods**, while `coupon_campaigns.discount_months` is one figure in months — three
   months is `3` monthly and `1` yearly, and one entity cannot hold both. Two entities, three when
