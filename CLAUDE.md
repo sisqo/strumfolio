@@ -45,13 +45,15 @@ read such a comment as a self-contained statement, which is how each was written
 ## Where the rest lives
 
 Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a nested
-`CLAUDE.md`, which loads only when Claude works under that directory:
+`CLAUDE.md`, which loads only when Claude works under that directory. **The last two rows are
+neither**: `CASES.md` and `INTEGRATION-TESTS.md` are documents rather than rule files — nothing
+loads them automatically, and they are listed here because this table is the index of where
+everything that is not in this file has gone. Open them by name when the work is theirs.
 
 | File | Covers |
 |---|---|
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
 | `src/lib/plans/CLAUDE.md` | plans, entitlements, the mock checkout and its two env flags, which Paddle id the code holds, and how the catalogue is verified |
-| `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
 | `src/lib/coupons/CLAUDE.md` | campaigns, `liveDiscount`, and what a coupon is not allowed to decide |
 | `src/lib/accounts/CLAUDE.md` | the admin surface, names, the newsletter preference, the old-account quirk |
 | `src/lib/music/CLAUDE.md` | the song chips, alternate chord shapes, German and Nashville notation |
@@ -60,6 +62,8 @@ Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a n
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the four seams that record it, and the touch rules |
+| `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
+| `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the
 four facts whose absence is expensive are repeated here rather than left behind a path:
@@ -989,6 +993,13 @@ Three more things worth not re-deriving:
 
 Its `publicRoutes.ts` row is unconditional and the page 404s in production instead, so the one
 list keeps giving both its readers the same answer.
+
+**What to do with it once you are in is `INTEGRATION-TESTS.md`**, at the root: the environment a
+live run belongs on, the coupon to apply and why the same one twice on one account is a case
+rather than a mistake, the sandbox card, the Paddle calls that decide who is right when the
+screen and the charge disagree, and the shape of the folder the screenshots go into. `npm test`
+and a run of that kind answer different questions — the second is what found the €139.99/€199.99
+gap that every pure test passed straight through.
 
 ## Everything this app stores in a browser is scoped to one account
 
