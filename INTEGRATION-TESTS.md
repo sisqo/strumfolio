@@ -25,9 +25,9 @@ sandbox che punta lì.
   comprerebbe senza che niente conceda il piano, cioè si proverebbe metà catena.
 - **Mai in produzione.** `/qa` lì non esiste per costruzione, il catalogo live non esiste
   ancora, e i soldi sarebbero veri.
-- **La preview è dietro l'SSO di Vercel**, custom domain compreso. Serve il browser già loggato
-  (l'estensione Chrome), oppure il bypass token come *query parameter* — l'unica forma che
-  funziona, vedi `CLAUDE.md`.
+- **La preview è dietro l'SSO di Vercel**, custom domain compreso — quindi non basta un
+  `curl`. Serve il browser già loggato (sotto), oppure il bypass token come *query parameter*,
+  che è l'unica forma che funziona: vedi `CLAUDE.md`.
 
 **Se il commit legge una colonna nuova, la migrazione va applicata alla preview *prima* del
 deploy**, o la pagina che la legge sputa `column "…" does not exist` e non un difetto di
@@ -39,6 +39,43 @@ DATABASE_URL_UNPOOLED="$(~/.config/strumfolio/preview-url)" npm run db:migrate
 
 Provarla sempre prima in una transazione annullata — `BEGIN; \i drizzle/00xx.sql; …; ROLLBACK;`
 — che gira il file vero sui dati veri e non lascia niente.
+
+## Come si guida: Chrome vero, e ogni passo fotografato
+
+**Claude Code va avviato con `--chrome`**, o gli strumenti del browser non esistono proprio — e
+il sintomo è «questa capacità non c'è», non «il collegamento non va», che è il modo più facile
+di perderci mezz'ora. Il binario non è sul `PATH` della shell degli strumenti, come `vercel`:
+
+```bash
+~/.local/bin/claude --chrome          # --no-chrome è l'opposto, se dà fastidio
+```
+
+**Chrome vero e non un browser headless, per un motivo solo: è già loggato.** Due accessi che
+altrimenti andrebbero digitati a mano stanno già lì — l'SSO di Vercel che protegge la preview, e
+il dashboard di Paddle quando c'è da toccare la configurazione della form.
+
+E c'è la ragione che viene prima di tutte: **digitare una password dentro un campo è una cosa
+che l'agente non fa**, nemmeno quando è l'utente a fornirla e a chiederlo. Non è prudenza
+eccessiva, è una regola che non si aggira — ed è il motivo per cui `/qa` esiste. Quella pagina
+non è una scorciatoia comoda: è l'unico modo che un agente ha di trovarsi **dentro** l'app. Chi
+fa questi giri a mano non ha il problema e può ignorare la pagina del tutto.
+
+Playwright resta il ripiego, con `executablePath` esplicito, ma perde tutti e due gli accessi e
+va rifatto ogni volta.
+
+**Ogni passo si fotografa**, e gli scatti sono il prodotto del giro tanto quanto il difetto
+trovato: sono ciò che permette a chi legge di vedere quello che ha visto chi l'ha fatto, senza
+doverlo rifare.
+Il flusso è sempre lo stesso:
+
+1. Lo screenshot con `save_to_disk` restituisce un percorso sotto
+   `/tmp/claude-chrome-screenshots-*/`, con un nome generato che non dice niente.
+2. Da lì si **copia** nella cartella del giro col nome definitivo — `cp`, non spostare: il
+   percorso originale serve ancora se si vuole ritagliare.
+3. I ritagli si fanno in locale con `convert` (ImageMagick c'è) **sullo scatto intero**, mai con
+   lo zoom del browser, per la trappola del renderer più sotto.
+
+Una scheda per volta, e chiuderle alla fine: sono dell'agente che le ha aperte.
 
 ## Gli utenti: `/qa`
 
@@ -150,6 +187,11 @@ Costano tempo ogni volta che si riscoprono.
   scadenza e CVV vogliono un `Tab` esplicito.
 - **La rotella può ingrandire la pagina** invece di scorrerla. Scorrere con `window.scrollTo` da
   JavaScript.
+- **L'estensione può scollegarsi del tutto**, e allora ogni chiamata risponde «Browser
+  extension is not connected». Non è la scheda: è il collegamento, e si riprende riavviando
+  Chrome. Se succede a metà giro, quello che non si è visto **non è verificato** — il 15/9 è
+  successo subito dopo il deploy di una correzione, e la riprova di quella correzione non è mai
+  entrata nella cartella. Dirlo nel `LEGGIMI` invece di lasciarlo intendere.
 - **Non giudicare colori e contrasto a occhio su uno screenshot compresso.** Il 15/9 ho detto
   due volte «le etichette sono bianche» quando erano grigio scuro, e l'ha visto l'utente. Se la
   domanda è un colore, va misurata — o va detto che non è verificata, che è sempre meglio di

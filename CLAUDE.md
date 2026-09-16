@@ -63,7 +63,7 @@ everything that is not in this file has gone. Open them by name when the work is
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the four seams that record it, and the touch rules |
 | `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
-| `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
+| `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, why they are driven through a real signed-in Chrome and photographed step by step, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the
 four facts whose absence is expensive are repeated here rather than left behind a path:
@@ -995,9 +995,12 @@ Its `publicRoutes.ts` row is unconditional and the page 404s in production inste
 list keeps giving both its readers the same answer.
 
 **What to do with it once you are in is `INTEGRATION-TESTS.md`**, at the root: the environment a
-live run belongs on, the coupon to apply and why the same one twice on one account is a case
-rather than a mistake, the sandbox card, the Paddle calls that decide who is right when the
-screen and the charge disagree, and the shape of the folder the screenshots go into. `npm test`
+live run belongs on, how it is driven — a real Chrome that is already signed in, `claude
+--chrome`, every step photographed — the coupon to apply and why the same one twice on one
+account is a case rather than a mistake, the sandbox card, the Paddle calls that decide who is
+right when the screen and the charge disagree, and the shape of the folder the screenshots go
+into. That page exists **because** an agent may not type a password into a field: it is not a
+convenience, it is the only way one gets inside the app at all. `npm test`
 and a run of that kind answer different questions — the second is what found the €139.99/€199.99
 gap that every pure test passed straight through.
 
