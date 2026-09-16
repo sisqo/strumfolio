@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 import { Footer } from '@/components/Footer'
 import { APP_NAME } from '@/lib/brand'
-import { RELEASES, releaseMonth } from '@/lib/changelog'
+import { KIND_LABEL, RELEASES, releaseAnchor, releaseDate } from '@/lib/changelog'
 
 /**
  * Spelled out rather than built from `SITE_URL`, which is what the four legal pages each do
@@ -34,19 +34,24 @@ export const metadata: Metadata = {
 /**
  * What has shipped, newest first.
  *
- * Public, and linked from the footer beside the legal pages and `/brand`: the point of writing
- * a release note is that a customer reads it. Nothing here needs a session, so there is no gate
- * and no `dynamic` — the content is a constant in `lib/changelog.ts`, which is exactly the shape
- * that statically prerenders.
+ * Public, and linked from the footer beside the legal pages: the point of writing a release note
+ * is that a customer reads it. Nothing here needs a session, so there is no gate and no
+ * `dynamic` — the content is a constant in `lib/changelog.ts`, which is exactly the shape that
+ * statically prerenders.
  *
  * Deliberately **not** in `scripts/precache-routes.ts`, like every other public page in this app
- * except the two shell routes: a stale changelog served from an install-time cache would tell a
- * reader the newest release is one they are already past. `/pricing`'s own comment makes the
- * sharper version of this argument about prices; the same reasoning applies more mildly here.
+ * except the manifest: a stale changelog served from an install-time cache would tell a reader
+ * the newest release is one they are already past — which matters more now that a release lands
+ * about every week. `/pricing`'s own comment makes the sharper version of this argument about
+ * prices; the same reasoning applies here with a shorter fuse.
  *
  * A `<section>` per release rather than one long list, so a screen reader can move release by
- * release, and `<time dateTime>` so the date is machine-readable even though it is rendered as a
- * month — see `releaseMonth` on why it is never rendered as a day.
+ * release, and `<time dateTime>` so the date is machine-readable as well as printed.
+ *
+ * **Each release is addressable**: the version badge links to its own `id`, so «fixed in 1.1»
+ * can be sent as a URL rather than as an instruction to scroll. That is the half of `Footer`'s
+ * argument for printing a version number at all that was missing until now — see `releaseAnchor`
+ * on why the fragment carries no dot.
  */
 export default function ChangelogPage() {
   return (
@@ -54,34 +59,44 @@ export default function ChangelogPage() {
       <header className="mb-10">
         <h1 className="landing-title">Changelog</h1>
         <p className="mt-4 text-[1.03125rem] leading-[1.6] text-muted">
-          The changes worth knowing about, gathered into releases rather than listed one by one. Written when there is
-          something new to tell you, which is less often than {APP_NAME} changes.
+          A new version about once a week, listing what changed for you — not every repair under the floor. A quiet week
+          gets no entry rather than a padded one, so everything below is something you can go and use.
         </p>
       </header>
 
       <div className="flex flex-col gap-10">
-        {RELEASES.map((release) => (
-          <section key={release.version}>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="section-title">{release.title}</h2>
-              <span className="badge">{release.version}</span>
-              <time dateTime={release.date} className="text-sm text-muted">
-                {releaseMonth(release.date)}
-              </time>
-            </div>
+        {RELEASES.map((release) => {
+          const anchor = releaseAnchor(release.version)
 
-            <ul className="mt-3 flex flex-col gap-2.5">
-              {release.highlights.map((line) => (
-                <li key={line} className="flex gap-2.5 text-[0.9375rem] leading-[1.55] text-ink">
-                  {/* A bullet drawn rather than a list-marker, so the second line of a long
-                      entry lines up under the first word and not under the dot. */}
-                  <span aria-hidden className="mt-[0.5em] h-[0.3125rem] w-[0.3125rem] flex-none rounded-full bg-accent" />
-                  <span className="min-w-0">{line}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+          return (
+            <section key={release.version} id={anchor}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="section-title">{release.title}</h2>
+                <a href={`#${anchor}`} className="badge" aria-label={`Link to version ${release.version}`}>
+                  {release.version}
+                </a>
+                <time dateTime={release.date} className="text-sm text-muted">
+                  {releaseDate(release.date)}
+                </time>
+              </div>
+
+              <ul className="mt-3 flex flex-col gap-2.5">
+                {release.highlights.map((highlight) => (
+                  <li key={highlight.text} className="changelog-entry text-[0.9375rem] leading-[1.55] text-ink">
+                    {/* Real text, not the `aria-hidden` bullet it replaces: "Fixed" is
+                        information, and a screen reader should get it like any other word.
+                        Below 30rem it sits above the sentence instead of stealing width from
+                        it — a fixed label column and a phone cannot both have that space. The
+                        row/column switch lives in `.changelog-entry`, not in utilities here;
+                        that class's own comment says what happened when it did not. */}
+                    <span className="changelog-kind">{KIND_LABEL[highlight.kind]}</span>
+                    <span className="min-w-0">{highlight.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        })}
       </div>
 
       <p className="mt-12 text-sm text-muted">

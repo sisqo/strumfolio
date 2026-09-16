@@ -10352,6 +10352,64 @@
   }
 
   /*
+   * The kind of change in front of a `/changelog` highlight — New, Better, Fixed.
+   *
+   * It replaced a drawn bullet when the releases became weekly: ten sentences describing a whole
+   * product all weigh the same, but a week mixes a new capability with a repair and the two read
+   * as one undifferentiated list unless the kind is visible.
+   *
+   * **No colour, and that is the whole of the design decision.** Three tinted tags would be a
+   * second colour family on a page a *reader* opens, which is exactly what the Chord-First Rule
+   * refuses without a declared exception — and `DESIGN.md` grants that exception to `/accounts`
+   * precisely because an operator's screen has no song sheet to compete with. A changelog does
+   * not earn one. So this borrows `.acct-cell-label`'s voice instead, the app's existing way of
+   * saying "what this value is": `--faint`, small, tracked, uppercase, and no hue at all.
+   *
+   * The width is fixed so the labels form a column and every sentence starts on the same x,
+   * which is what makes the list scannable — but only from 30rem up, where there is room for a
+   * column and a sentence. Below that the page stacks the label above the text, and a fixed
+   * width would then be a ragged indent for no reason.
+   */
+  .changelog-kind {
+    flex: none;
+    padding-top: 0.3125rem;
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  /*
+   * One highlight: the label, then the sentence.
+   *
+   * Written here rather than as `flex min-[30rem]:flex-row` utilities on the element, and that
+   * is not a style preference — **Tailwind generated no rule at all for `min-[30rem]:`**, so the
+   * row layout silently never applied and every label sat above its own sentence at 1200px. It
+   * would have been the first arbitrary *variant* in this repo (the arbitrary *values* beside it
+   * compile fine), and it cost a screenshot to notice, because stacked labels look deliberate.
+   * A plain media query cannot fail that way, and it puts the breakpoint next to the width it
+   * governs instead of a file away.
+   */
+  .changelog-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  @media (min-width: 30rem) {
+    .changelog-entry {
+      flex-direction: row;
+      gap: 0.75rem;
+    }
+
+    .changelog-kind {
+      width: 3.5rem;
+    }
+  }
+
+  /*
    * Plan badges (v3.7) — `/accounts` only, an operator screen with no song
    * sheet and no chords to compete with. See DESIGN.md's "Plan Badges" section for why this is
    * a declared exception to the Chord-First Rule rather than a drift from it: everywhere a
