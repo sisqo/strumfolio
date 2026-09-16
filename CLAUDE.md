@@ -488,23 +488,44 @@ against the dashboard's own navigation, so do not go hunting for a second screen
 repo.
 
 **The trap, and it is the whole of this section: an *unset* colour follows the theme, a *set* one
-does not — and pressing Save sets every colour in the editor, including the ones nobody
-touched.** There is no per-theme palette. What that means in practice was measured on
+does not — and pressing Save sets every colour in the editor, including the ones nobody touched
+and the ones somebody has just emptied.** There is no per-theme palette. What that means in practice was measured on
 2026-09-15: after the first save the dark checkout's labels, its typed text and the selected
 country all turned near-black on near-black, because `#2B2A35` — Paddle's *light* default — had
 been written into the fields as an explicit value. The white text that used to appear in dark
 was not a setting; it was the absence of one.
 
-**Clearing a field gets the value out of the configuration but does not get the adaptivity
-back**, and that is the part worth knowing before anybody spends an afternoon on it. Measured
-the same day, on the labels: emptied, saved, reloaded the dashboard (still empty — a cleared
-field shows its default hex in grey with an empty swatch, a set one in dark text with the colour
-filled in), hard-reloaded the checkout — and the dark form's labels stayed the same unreadable
-grey. **Once the inline checkout is branded at all, Paddle stops giving the labels their dark
-palette**, whether or not `Label color` holds a value. The white text a dark checkout used to
-have is not recoverable while any branding is configured. The **Reset** button beside Save is
-the bulk form of that same clear, so it is not a route back either, and pressing it to find out
-costs the whole configuration.
+**A cleared field cannot be saved, and that is the whole mechanism.** Emptying one gets the
+value out of the *editor* — it goes back to showing its default hex in grey with an empty
+swatch, where a set one is dark text with the colour filled in — and then **Save writes the
+default into it as an explicit value**. Measured properly on 2026-09-16, which is what this
+paragraph used to get wrong: nine colours were emptied (the five in Inputs, the four in
+Messages), saved, and the page reloaded. Every one came back explicit — `Label color` `#2B2A35`,
+`Placeholder` `#9393A8`, `Font` `#2B2A35`, `Border` `#D2D4DE`, `Checkbox background` `#FFFFFF`,
+and both message pairs `#EBECF0`/`#FFFFFF`. So there is no way through this editor to *persist*
+an unset colour once anything has been saved.
+
+**One detail in that is a trap of its own**: the grey hint shown in an empty field is not
+always the value Save writes. `Label color` displayed `#9393A8` while empty and was saved as
+`#2B2A35`. Read the hint as «something will be written here», never as «this is what you will
+get».
+
+**An earlier note here blamed the wrong thing and is retracted.** It said that branding the
+checkout at all makes Paddle stop giving the labels their dark palette, whether or not `Label
+color` holds a value. There is no such rule: what happens is only ever the sentence above, and
+the labels stayed unreadable after a clear because the clear never survived the Save.
+
+**`Reset` is «revert to the last published settings», not «restore Paddle's defaults»** — its
+own confirmation dialog says so, and adds that Paddle's defaults are used only if nothing was
+ever published. So it undoes unsaved edits and is safe to press; it is not a way back to an
+unbranded checkout, and a previous note here calling it a bulk clear was wrong.
+
+**Which is what settles «keep only the orange button and let the rest follow the theme»**, the
+obvious idea and a good one: it cannot be persisted. Clear the neutrals, keep the accent, press
+Save, and the neutrals come back as Paddle's own light-theme hexes. And since those defaults
+are themselves light values, a «cleared» configuration is not an adaptive one — it is Paddle's
+light palette, with the dark form exactly as broken as it is with ours. Clearing buys nothing,
+which is why the Strumfolio palette was put back the same day rather than left half-undone.
 
 **A dark palette does not exist to be found, and that is a fact about the editor rather than a
 thing we failed to locate.** Checked 2026-09-16 against both the reference and the dashboard
