@@ -182,9 +182,27 @@ Costano tempo ogni volta che si riscoprono.
   *prima* di rifarlo, o si compra due volte.
 - **Il renderer a volte restituisce scatti duplicati o ingranditi.** Non fidarsi dello zoom del
   browser: fare uno screenshot intero e ritagliarlo in locale con `convert` (ImageMagick c'è).
-- **Nella form di Paddle, `Tab` fra i campi funziona meglio dei click**, che mancano il bersaglio
-  quando il layout si riassesta. Il campo della carta **non avanza da solo** dopo le 16 cifre:
-  scadenza e CVV vogliono un `Tab` esplicito.
+- **Dentro l'iframe di Paddle `type` non consegna i tasti: serve `key`.** È la trappola che
+  costa di più, perché non somiglia a un errore — il click arriva, il campo prende davvero il
+  fuoco (l'anello terracotta si vede, e `document.activeElement` risponde
+  `IFRAME.paddle-frame-inline`), e i caratteri semplicemente non compaiono. Con `key`, passando i
+  caratteri separati da spazio, entrano al primo colpo, `-` `@` `.` compresi:
+
+  ```
+  key "q a - s e d i c i @ s t r u m f o l i o . t e s t"
+  ```
+
+  L'intera form — email, nome, 16 cifre, scadenza, CVV, CAP — si compila in un batch solo
+  alternando `key` e `Tab`. Misurato il 16/9/2026, dopo che `type` aveva bloccato un giro intero
+  la sera prima.
+- **`Tab` fra i campi funziona meglio dei click**, che mancano il bersaglio quando il layout si
+  riassesta. Il campo della carta **non avanza da solo** dopo le 16 cifre: scadenza e CVV
+  vogliono un `Tab` esplicito.
+- **Aspettare che il frame sia cresciuto prima di toccarlo.** Finché ha la barra di scorrimento
+  interna sta ancora inizializzando; il segnale affidabile non sono i secondi ma l'altezza, che
+  si legge da JavaScript (`document.querySelector('iframe').getBoundingClientRect().height` —
+  883 px a form intera). Le coordinate dello screenshot non sono quelle CSS: il rapporto è
+  `1568 / window.innerWidth`.
 - **La rotella può ingrandire la pagina** invece di scorrerla. Scorrere con `window.scrollTo` da
   JavaScript.
 - **L'estensione può scollegarsi del tutto**, e allora ogni chiamata risponde «Browser
