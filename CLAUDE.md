@@ -654,22 +654,30 @@ rediscover; `coupons/CLAUDE.md` has the rest.
   a recurring discount survives a plan change on its own, so what is left is a code never
   redeemed, and the two sentences that say what a change costs know nothing about discounts.
 
-  **That last clause is also an open defect, and it is worth naming rather than leaving as a
-  property.** The discount survives, and it is `restrict_to` all three prices of its cycle — so
-  after a move from Standard to Premium on the same cycle it covers the *new* plan too. The
-  change screens do not know: the calendar's later stop and the confirmation's «Next charge» row
-  both price the renewal from `PRICES`. Measured twice, 2026-09-15 and 2026-09-16: the screen
-  said «Renews, then every month €6.99» while the subscription carried a recurring 30% whose
-  `restrict_to` includes Premium monthly, so Paddle would take **€4.89**. The direction is
-  benign — less than advertised, not more, so it is not the €139.99/€199.99 gap turned around —
-  but the figure is wrong, and `/billing` contradicts it one screen over by saying the discount
-  runs to 2027. Evidence in `/media/psf/Download/strumfolio-qa-2026-09-16/05-cambio-piano/`.
+  **`recurring_transaction_details` ignores a subscription's discount and `next_transaction`
+  applies it**, which is the field that decides whether a discounted reader is quoted the
+  listino. Measured 2026-09-16 on four sandbox subscriptions: Premium monthly carrying a
+  recurring 30% reads `total 999` / `discount 0` in the first and `total 699` / `discount 246`
+  in the second, and Standard monthly `349`/`0` against `244`/`86`. The documentation calls the
+  first «what the customer can expect to be billed», which is true of everything except the
+  discount. `nextChargeOf` reads `next_transaction`; reading the neighbouring field instead
+  would put the listino in front of somebody who is being charged 30% less — the
+  shown-price/charged-price gap this file already guards twice.
 
-  Not fixed, because the fix is a choice about **where the preview learns that the subscription
-  carries a discount**: read `subscription.discount` back from Paddle, or recompute it from the
-  `accounts.coupon*` columns already held. The second is an inference, and inferring is exactly
-  what that screen refuses to do elsewhere — it reads `update_summary.credit` and derives
-  nothing, for the reasons the plan-change section above sets out.
+  **A change of *cycle* stops the discount being applied, and `/billing` goes on promising it.**
+  Each Discount entity is `restrict_to` its own cycle's three prices, so a tier change within a
+  cycle keeps it — Standard → Premium monthly previews `699` with `discount 246` — while moving
+  the same subscription to a yearly price comes back `discount: null` and `total 9999`, the full
+  listino. `nextChargeOf` is right on both counts, since the branch that quotes `PRICES` is
+  exactly the change-of-cycle one. What is wrong is one screen further on:
+  `accounts.discount_ends_at` is computed at redemption and read back from nowhere, so
+  `discountLine` keeps telling that reader «COUPON30 −30% until 16 September 2027» over a
+  subscription Paddle has stopped discounting. The direction is the dangerous one — a benefit
+  they redeemed, silently lost — and it is reachable: `changePaddlePlan`'s `coupon-unsupported`
+  guard asks `redeemableCouponFor`, which excludes a coupon already spent, so it never fires for
+  the one reader who actually holds a live discount. **Measured by `subscriptions.preview`, not
+  by an executed update**, and it says only that Paddle stops *applying* the discount — whether
+  moving back to monthly would restore it is not measured and not assumed.
 - **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
   billing periods**, while `coupon_campaigns.discount_months` is one figure in months — three
   months is `3` monthly and `1` yearly, and one entity cannot hold both. Two entities, three when
