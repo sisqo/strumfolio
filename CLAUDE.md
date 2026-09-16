@@ -664,20 +664,38 @@ rediscover; `coupons/CLAUDE.md` has the rest.
   would put the listino in front of somebody who is being charged 30% less — the
   shown-price/charged-price gap this file already guards twice.
 
-  **A change of *cycle* stops the discount being applied, and `/billing` goes on promising it.**
+  **A change of *cycle* stops the discount being applied, and `/billing` went on promising it.**
   Each Discount entity is `restrict_to` its own cycle's three prices, so a tier change within a
   cycle keeps it — Standard → Premium monthly previews `699` with `discount 246` — while moving
   the same subscription to a yearly price comes back `discount: null` and `total 9999`, the full
   listino. `nextChargeOf` is right on both counts, since the branch that quotes `PRICES` is
-  exactly the change-of-cycle one. What is wrong is one screen further on:
+  exactly the change-of-cycle one. What was wrong was one screen further on:
   `accounts.discount_ends_at` is computed at redemption and read back from nowhere, so
-  `discountLine` keeps telling that reader «COUPON30 −30% until 16 September 2027» over a
-  subscription Paddle has stopped discounting. The direction is the dangerous one — a benefit
-  they redeemed, silently lost — and it is reachable: `changePaddlePlan`'s `coupon-unsupported`
-  guard asks `redeemableCouponFor`, which excludes a coupon already spent, so it never fires for
-  the one reader who actually holds a live discount. **Measured by `subscriptions.preview`, not
-  by an executed update**, and it says only that Paddle stops *applying* the discount — whether
-  moving back to monthly would restore it is not measured and not assumed.
+  `discountLine` kept telling that reader «COUPON30 −30% until 16 September 2027» over a
+  subscription Paddle had stopped discounting. The direction is the dangerous one — a benefit
+  they redeemed, silently lost — and it was reachable, because `changePaddlePlan`'s
+  `coupon-unsupported` guard asks `redeemableCouponFor`, which excludes a coupon already spent:
+  it never fires for the one reader who actually holds a live discount.
+
+  **Fixed 2026-09-16 by letting Paddle veto the columns, never replace them.**
+  `paddleDiscountState` (`paddleAccount.ts`) answers `carried`, `dropped` or `unknown`, and
+  `discountStillLive` (`coupons/discount.ts`, pure and tested) takes the line down on `dropped`
+  alone. Four properties of that shape are the whole of it, and each is a decision:
+  **`unknown` keeps the discount** — Paddle unconfigured, no subscription, a read that threw —
+  because a stale line for one read is a smaller wrong than taking away something somebody
+  redeemed, the asymmetry `accountExists` already argues for. **Paddle is asked only when there
+  is a line to take down**, so no reader without a coupon pays a round trip and the loaders still
+  render where Paddle is not configured at all. **Never for a Lifetime**, since
+  `paddle_subscription_id` means «has had a subscription», not «has one», and judging a one-off
+  purchase's coupon against a dead subscription is exactly how this would come back. And **it
+  does not read Paddle's `ends_at`**: that is the half measured to agree, and the fix stays on
+  the half measured not to. The operator screens (`/coupons`, `/accounts/[email]`) still read the
+  columns in the clear, deliberately — the defect is about what a *customer* is promised, and a
+  Paddle call per row on a list is not the price of showing an operator what the row says.
+
+  **Measured by `subscriptions.preview`, not by an executed update**, and it says only that
+  Paddle stops *applying* the discount — whether moving back to monthly would restore it is not
+  measured and not assumed, which is also why the repair is a veto rather than a rewrite.
 - **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
   billing periods**, while `coupon_campaigns.discount_months` is one figure in months — three
   months is `3` monthly and `1` yearly, and one entity cannot hold both. Two entities, three when

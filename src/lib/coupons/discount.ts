@@ -269,6 +269,43 @@ export function liveDiscount(columns: DiscountColumns, now: Date): LiveDiscount 
 }
 
 /**
+ * Whether Paddle is still applying the discount those columns describe.
+ *
+ * Three answers rather than a boolean, because the two ways of not saying «yes» are not the
+ * same thing. `dropped` is Paddle positively reporting that the subscription carries no
+ * discount; `unknown` is every way of not knowing — Paddle not configured, no subscription to
+ * ask about, a read that threw. Collapsing those into one `false` is what would take a live
+ * reduction off the screen of somebody who still has it the moment Paddle has a bad minute.
+ */
+export type PaddleDiscountState = 'carried' | 'dropped' | 'unknown'
+
+/**
+ * The columns say a discount runs until a date; Paddle says whether it is still attached. Here
+ * the two meet, and **only a positive `dropped` takes the line down.**
+ *
+ * `accounts.discount_ends_at` is computed once at redemption and read back from nowhere, which
+ * is right about the arithmetic — `discountEnd` reproduces what `maximum_recurring_intervals`
+ * does, measured — and blind to the one thing it cannot compute. Each Paddle Discount is
+ * `restrict_to` the three prices of *its own* cycle, so moving a subscription from a monthly
+ * price to a yearly one leaves it matching nothing at all. Measured 2026-09-16: the same
+ * subscription previews `discount: null` and the full listino afterwards. Until this, `/billing`
+ * went on printing «−30% until 16 September 2027» over a subscription Paddle had stopped
+ * discounting — a benefit the reader redeemed, silently lost, which is the dangerous direction
+ * of the shown-price/charged-price rule the rest of this directory exists to keep.
+ *
+ * **It does not read Paddle's own `ends_at`, deliberately.** That is the half measured to agree;
+ * this repairs the half measured not to, and widening it would reopen a decision nothing has
+ * contradicted.
+ */
+export function discountStillLive(
+  resolved: LiveDiscount | null,
+  onPaddle: PaddleDiscountState,
+): LiveDiscount | null {
+  if (resolved === null) return null
+  return onPaddle === 'dropped' ? null : resolved
+}
+
+/**
  * The line under a discounted price: what is being paid, for how long, and what comes after.
  *
  * The duration is counted in **cycles** (`discountCycles`), never in the campaign's raw

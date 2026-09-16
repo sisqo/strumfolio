@@ -11,6 +11,7 @@ import {
   discountCycles,
   discountEnd,
   discountedAmount,
+  discountStillLive,
   discountedMonths,
   durationCopy,
   firstYearCopy,
@@ -815,5 +816,47 @@ describe('couponRefusedNotice', () => {
       assert.equal(typeof notice, 'string')
       assert.doesNotMatch(notice ?? '', /undefined/)
     }
+  })
+})
+
+/*
+ * The columns and Paddle can disagree, and which way the disagreement is resolved is the whole
+ * of `discountStillLive`. These pin the asymmetry rather than the arithmetic: a positive
+ * `dropped` is the only answer allowed to take a reduction off somebody's screen.
+ */
+describe('discountStillLive', () => {
+  const held = { code: 'COUPON30', percent: '30', endsAt: new Date('2027-09-16T00:00:00Z') }
+
+  it('keeps the discount while Paddle still carries it', () => {
+    assert.deepEqual(discountStillLive(held, 'carried'), held)
+  })
+
+  /* The defect this exists for: a change of cycle leaves the Discount matching no price, and
+     the columns go on promising it until the date they were computed with. */
+  it('drops it when Paddle says the subscription no longer has one', () => {
+    assert.equal(discountStillLive(held, 'dropped'), null)
+  })
+
+  /* Paddle unconfigured, no subscription to ask about, or a read that threw — all of which
+     arrive as `unknown`, and none of which is evidence of anything. Failing open here leaves a
+     stale line for one read; failing closed takes away a reduction somebody redeemed. */
+  it('keeps it when Paddle could not be asked', () => {
+    assert.deepEqual(discountStillLive(held, 'unknown'), held)
+  })
+
+  /* No discount in the columns is no line, whatever Paddle would have said — and the caller
+     does not even make the call. */
+  it('has nothing to say when the columns hold no discount', () => {
+    for (const state of ['carried', 'dropped', 'unknown'] as const) {
+      assert.equal(discountStillLive(null, state), null)
+    }
+  })
+
+  /* A discount with no end date is the «for as long as this plan runs» campaign, and it is just
+     as capable of being left behind by a change of cycle as a dated one. */
+  it('drops an open-ended discount too', () => {
+    const forever = { code: 'FOREVER', percent: '20', endsAt: null }
+    assert.equal(discountStillLive(forever, 'dropped'), null)
+    assert.deepEqual(discountStillLive(forever, 'carried'), forever)
   })
 })

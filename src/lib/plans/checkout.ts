@@ -34,7 +34,7 @@ import { eq, sql } from 'drizzle-orm'
 import { auth } from '@/auth'
 import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
-import { liveDiscount } from '@/lib/coupons/discount'
+import { discountStillLive, liveDiscount } from '@/lib/coupons/discount'
 import type { LiveDiscount } from '@/lib/coupons/discount'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
@@ -42,6 +42,7 @@ import { accounts } from '@/lib/db/schema'
 import { liveSubscription, resolveSubscription } from './entitlements'
 import type { SubscriptionColumns } from './entitlements'
 import { paymentHistoryFor } from './history'
+import { paddleDiscountState } from './paddleAccount'
 import type { BillingPeriod } from './prices'
 import type { PaymentHistoryLine } from './history'
 import { buildThanksPreview } from './preview'
@@ -125,6 +126,25 @@ async function liveDiscountOf(accountOwnerEmail: string): Promise<LiveDiscount |
 }
 
 /**
+ * The discount line as it should actually be rendered: the columns first, then Paddle's veto.
+ *
+ * **Paddle is asked only when there is a line to take down.** Almost nobody holds a coupon, so
+ * making the round trip unconditional would put a Paddle call in front of every `/billing` and
+ * every `/thanks` to answer «no» — and this loader is the one that must keep rendering when
+ * Paddle is not configured at all.
+ *
+ * **Never for a Lifetime**, which is the trap rather than an optimisation:
+ * `paddle_subscription_id` means «has had a subscription», not «has one» (`plans/CLAUDE.md`),
+ * so a Lifetime holder who used to subscribe would have their coupon judged against a dead
+ * subscription — and a one-off purchase has no recurring Paddle discount for that answer to be
+ * about in the first place.
+ */
+async function shownDiscount(resolved: LiveDiscount | null, plan: Plan): Promise<LiveDiscount | null> {
+  if (resolved === null || plan === 'lifetime') return resolved
+  return discountStillLive(resolved, await paddleDiscountState())
+}
+
+/**
  * The raw subscription columns for one account, read as `SubscriptionColumns` — the narrow
  * shape `liveSubscription`/`resolveSubscription` actually need, with no grant fields to fill
  * with filler values this file never uses (see that interface's own comment).
@@ -192,7 +212,7 @@ export async function loadCheckoutStatus(): Promise<
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
       pendingCycle: resolved.pendingCycle,
-      discount,
+      discount: await shownDiscount(discount, resolved.plan),
     },
     live: liveSubscription(raw, now),
   }
@@ -232,7 +252,7 @@ export async function loadPurchaseSummary(): Promise<
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
       pendingCycle: resolved.pendingCycle,
-      discount,
+      discount: await shownDiscount(discount, resolved.plan),
     },
     /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the
      * thank-you page is the one screen a lapsed plan could still be congratulated on. */

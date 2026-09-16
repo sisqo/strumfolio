@@ -14,6 +14,8 @@ import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts } from '@/lib/db/schema'
 
+import type { PaddleDiscountState } from '@/lib/coupons/discount'
+
 import { paddleClient } from './paddleClient'
 import type { BillingPeriod } from './prices'
 import type { Plan } from './types'
@@ -193,6 +195,36 @@ export async function livePaddleSubscription(): Promise<LivePaddleSubscription> 
   } catch (error) {
     console.error('livePaddleSubscription failed', error)
     return { ok: false, reason: 'unreadable' }
+  }
+}
+
+/**
+ * Whether Paddle still carries a discount on this account's subscription.
+ *
+ * **Narrow on purpose, and deliberately not `livePaddleSubscription` above.** That function
+ * refuses a `past_due` or `paused` subscription, because a reader on either needs a card rather
+ * than a plan — and neither status says anything whatever about the discount. A subscription in
+ * dunning still carries its reduction, so borrowing that refusal here would take the line off
+ * the screen of the one reader least able to afford the surprise.
+ *
+ * Everything that is not Paddle saying «no discount» answers `unknown`, leaving the columns in
+ * charge: `accountExists` fails open for the same reason and states it at length. The cost of
+ * being wrong in this direction is a line that lingers until the next read; the other direction
+ * takes away something somebody redeemed.
+ */
+export async function paddleDiscountState(): Promise<PaddleDiscountState> {
+  const paddle = paddleClient()
+  if (paddle === null) return 'unknown'
+
+  const account = await paddleAccountRef()
+  if (!account?.subscriptionId) return 'unknown'
+
+  try {
+    const subscription = await paddle.subscriptions.get(account.subscriptionId)
+    return subscription.discount == null ? 'dropped' : 'carried'
+  } catch (error) {
+    console.error('paddleDiscountState failed', error)
+    return 'unknown'
   }
 }
 
