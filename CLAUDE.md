@@ -684,8 +684,10 @@ rediscover; `coupons/CLAUDE.md` has the rest.
   **`unknown` keeps the discount** — Paddle unconfigured, no subscription, a read that threw —
   because a stale line for one read is a smaller wrong than taking away something somebody
   redeemed, the asymmetry `accountExists` already argues for. **Paddle is asked only when there
-  is a line to take down**, so no reader without a coupon pays a round trip and the loaders still
-  render where Paddle is not configured at all. **Never for a Lifetime**, since
+  is a line to take down, and only on `/billing`** — no reader without a coupon pays a round
+  trip, the loader still renders where Paddle is not configured at all, and `loadPurchaseSummary`
+  is left alone because `/thanks` never prints the line and does not deserve a Paddle call in the
+  critical path of the screen that loads right after a card is charged. **Never for a Lifetime**, since
   `paddle_subscription_id` means «has had a subscription», not «has one», and judging a one-off
   purchase's coupon against a dead subscription is exactly how this would come back. And **it
   does not read Paddle's `ends_at`**: that is the half measured to agree, and the fix stays on

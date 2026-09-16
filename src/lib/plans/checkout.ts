@@ -133,6 +133,14 @@ async function liveDiscountOf(accountOwnerEmail: string): Promise<LiveDiscount |
  * every `/thanks` to answer «no» — and this loader is the one that must keep rendering when
  * Paddle is not configured at all.
  *
+ * **`loadCheckoutStatus` only, not `loadPurchaseSummary` beside it.** `/thanks` never renders
+ * `discountLine` — it reads the plan, its status and the date, and nothing else out of
+ * `SubscriptionState` — so asking Paddle there would put a round trip in the critical path of
+ * the screen that loads straight after somebody's card was charged, to answer a question that
+ * page does not ask. `PlanChangeConfirm` declines to re-preview for the same reason. So the
+ * purchase summary keeps returning the columns as they read, and the veto lives on the one
+ * screen that prints the promise.
+ *
  * **Never for a Lifetime**, which is the trap rather than an optimisation:
  * `paddle_subscription_id` means «has had a subscription», not «has one» (`plans/CLAUDE.md`),
  * so a Lifetime holder who used to subscribe would have their coupon judged against a dead
@@ -252,7 +260,7 @@ export async function loadPurchaseSummary(): Promise<
       expiresAt: resolved.expiresAt,
       pendingPlan: resolved.pendingPlan,
       pendingCycle: resolved.pendingCycle,
-      discount: await shownDiscount(discount, resolved.plan),
+      discount,
     },
     /* Same field, same reason, as `loadCheckoutStatus` above — and it matters most here: the
      * thank-you page is the one screen a lapsed plan could still be congratulated on. */

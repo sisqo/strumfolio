@@ -827,8 +827,10 @@ describe('couponRefusedNotice', () => {
 describe('discountStillLive', () => {
   const held = { code: 'COUPON30', percent: '30', endsAt: new Date('2027-09-16T00:00:00Z') }
 
+  /* Identity, not shape: the resolved discount is handed back untouched, and a refactor that
+     rebuilt the object would be reconstructing a fact it does not own. */
   it('keeps the discount while Paddle still carries it', () => {
-    assert.deepEqual(discountStillLive(held, 'carried'), held)
+    assert.equal(discountStillLive(held, 'carried'), held)
   })
 
   /* The defect this exists for: a change of cycle leaves the Discount matching no price, and
