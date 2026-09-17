@@ -107,15 +107,26 @@ break from a distance:
   reader who opened the checkout to look at it is stuck with it until they reload, on the one
   screen where being stuck reads as «this is about to charge me». It calls `Checkout.close()` and
   drops the id; the unpaid transaction is harmless and the next press makes another.
-- **Three settings are passed and one is deliberately not.** `theme` is read from
-  `documentElement` at the moment of opening — Paddle defaults to `light` whatever the page is
-  doing, which inside our own column would be a white card in a dark one, and `auto` sets no
-  attribute at all, so the fallback asks the system. `variant: 'one-page'` because the default
-  collects details and card on two screens, and a frame changing height between them moves the
-  page under the reader's thumb. `frameStyle` carries a minimum width and **no height**: Paddle
-  grows the frame itself, and a height of ours is what would clip the «merchant of record»
-  footer it is required to show. `locale` is **not** passed: Paddle follows the browser, so an
-  Italian phone gets an Italian payment form.
+- **Four settings are passed, and two of them reverse what this bullet used to say.** `variant:
+  'one-page'` because the default collects details and card on two screens, and a frame changing
+  height between them moves the page under the reader's thumb. `frameStyle` carries a minimum
+  width and **no height**: Paddle grows the frame itself, and a height of ours is what would clip
+  the «merchant of record» footer it is required to show.
+
+  `theme` is **pinned to `light`** and no longer «read from `documentElement` at the moment of
+  opening», which is what this said and what shipped first. The branding in Paddle's dashboard has
+  one palette for both themes, so a form that follows the reader is a form whose labels are
+  unreadable for half of them; the root `CLAUDE.md` carries the whole measurement.
+
+  `locale` is **pinned to `en`** since 2026-09-17 and is no longer left off «so an Italian phone
+  gets an Italian payment form». The frame is not a thing a reader arrives at on its own — it sits
+  inside our page, under our own English price line, in an app with no language selector — so the
+  old arrangement did not meet anybody in their language, it put «2,44 €» three lines under our own
+  «€2.44». **And it reaches past the frame**: `startPaddleCheckout` sends no customer, so Paddle
+  creates that record from the checkout itself and `customers.locale` is what its receipts and
+  invoice PDFs are written in. All seven sandbox customers read `locale: "it"` on 2026-09-17, the
+  browser's. The form is documented, the email is inference — **read a customer back after the next
+  sandbox purchase and confirm `locale: "en"`** before anybody calls that half settled.
 - **The form opens on arrival, because the cycle was chosen on /pricing** (2026-09-14). Every
   CTA there carries `?cycle=`, and Lifetime has none to carry — so the reader arriving has
   already decided everything this page could ask, and a «Pay» button in front of the form is a

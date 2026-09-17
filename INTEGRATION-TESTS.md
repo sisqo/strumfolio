@@ -135,6 +135,13 @@ Con l'MCP **`paddle-sandbox`**, `execute`:
 | L'addebito | `client.transactions.list({ per_page, order_by: 'created_at[DESC]' })` | `status`, `origin`, `discount_id`, `custom_data`, `details.totals` |
 | L'abbonamento | `client.subscriptions.get(id)` | gli `items`, lo `discount` con `starts_at`/`ends_at`, il periodo in corso |
 | Lo sconto | `client.discounts.get(id)` | `restrict_to`, `maximum_recurring_intervals`, `times_used` |
+| **La lingua** | `client.customers.list({ per_page: 5 })` | `locale` — **deve dire `en`** |
+
+**Quel `locale` è da guardare al prossimo giro, ed è l'unica cosa in questa tabella che non è
+ancora stata vista giusta.** Il 17/9/2026 tutti e sette i clienti sandbox riportavano `it`, preso
+dal browser, ed è il campo con cui Paddle scrive ricevute e PDF delle fatture. Da allora il form
+passa `locale: 'en'` e l'app non manda mai un cliente, quindi quel campo non ha altre sorgenti —
+ma è dedotto, non misurato. Un acquisto e una lettura lo chiudono.
 
 **La regola che conta: quando lo schermo e l'addebito sembrano in disaccordo, è la transazione
 l'arbitro, non l'occhio.** E si può leggere **senza pagare**: aprire il form crea già una

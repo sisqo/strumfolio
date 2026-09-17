@@ -172,9 +172,27 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  *
  * `one-page` because the default, `multi-page`, collects the details and then the card on two
  * screens, and an embedded frame changing height between them moves the page under the reader's
- * thumb. `locale` is deliberately **not** passed: Paddle follows the browser, so a reader whose
- * phone is in Italian gets the payment form in Italian, which is better than pinning it to the
- * language this app happens to be written in.
+ * thumb.
+ *
+ * **`locale` is pinned to `en`, reversing what this comment used to argue.** It said Paddle should
+ * follow the browser, so that «a reader whose phone is in Italian gets the payment form in
+ * Italian, which is better than pinning it to the language this app happens to be written in».
+ * That reasoning treats the form as a thing a reader arrives at on its own. It is not: it is a
+ * frame inside our own page, under our own «Premium €9.99 a month» and above our own «Pay for
+ * Premium», in an app with no language selector and no translation anywhere. So the form did not
+ * meet a reader in their language — it put Italian labels and «2,44 €» inside an English screen
+ * that had just written «€2.44» three lines above, which is two ways of writing one number on one
+ * card. Paddle's own guidance points the same way: pass the locale «so that it matches», meant for
+ * a site *with* a language selector, and this one's selector is the absence of one.
+ *
+ * **It reaches further than the frame, which is the part worth knowing before anybody reverses it
+ * again.** `startPaddleCheckout` creates the transaction with items, a discount and `customData`
+ * and **no customer** — Paddle makes that record itself, from the email typed into this frame, and
+ * `customers.locale` is what it then sends receipts and invoice PDFs in. Measured 2026-09-17: all
+ * seven sandbox customers carry `locale: "it"`, taken from the browser, so the invoices were
+ * Italian too. Since this app never sends a customer, this setting is the only thing upstream of
+ * that field. **The frame is documented; the email is inference** — read a customer back after the
+ * next purchase and confirm `locale: "en"` before treating it as settled.
  *
  * `frameStyle` carries no height: Paddle grows the frame as the form does, and a height of ours
  * is exactly what would clip the «merchant of record» footer it is required to show.
@@ -182,6 +200,7 @@ const FRAME_TARGET = 'paddle-checkout-frame'
 function checkoutSettings(): CheckoutSettings {
   return {
     theme: 'light',
+    locale: 'en',
     displayMode: 'inline',
     variant: 'one-page',
     frameTarget: FRAME_TARGET,
