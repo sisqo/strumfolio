@@ -193,9 +193,11 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  * amounts follow neither this setting nor the form's country — moving it to Ireland through
  * `updateCheckout` left the string exactly as it was — and Paddle's own server-side formatter
  * disagrees with the frame as well: `pricingPreview` answers «€3.49» for IT, IE, DE, US and GB
- * alike, so there is no euro convention Paddle is applying on purpose. What is left is the
- * browser's preferred language, `navigator.languages[0] === 'it-IT'` here, and not the runtime's
- * `Intl` default, which answers «€2.44» on this very machine. **There is no setting for it**: the
+ * alike, so there is no euro convention Paddle is applying on purpose. What survives that
+ * elimination is the browser's preferred language — `navigator.languages[0]` is `it-IT` here, and
+ * it is not the runtime's `Intl` default, which answers «€2.44» on this very machine. **That last
+ * step is what is left standing and not what was measured**: closing it takes the same frame in
+ * front of an English browser, which this run did not have. **There is no setting for it**: the
  * documented list carries `locale` and nothing about formatting. So the mismatch with our own
  * `euro()` stands until Paddle changes it, and chasing it from this file is wasted work.
  *

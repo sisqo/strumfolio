@@ -129,9 +129,10 @@ break from a distance:
   then 2,44 €/month from 17 Oct 2026» — one sentence in two locales, three lines under our own
   «€2.44». The amounts follow neither `locale` nor the form's country (moved to Ireland through
   `updateCheckout`, the string did not change), and Paddle's own `pricingPreview` answers «€3.49»
-  for IT, IE, DE, US and GB alike, so it is not a euro convention either. What is left is the
-  browser's preferred language. **No checkout setting reaches it**, so the mismatch stands until
-  Paddle changes it; `PaddleCheckout.tsx` carries the measurement in full.
+  for IT, IE, DE, US and GB alike, so it is not a euro convention either. What survives that
+  elimination is the browser's preferred language — standing, not measured; an English browser in
+  front of the same frame would close it. **No checkout setting reaches it**, so the mismatch
+  stands until Paddle changes it; `PaddleCheckout.tsx` carries the measurement in full.
 
   **And it reaches past the frame**: `startPaddleCheckout` sends no customer, so Paddle
   creates that record from the checkout itself and `customers.locale` is what its receipts and
