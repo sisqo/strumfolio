@@ -803,16 +803,27 @@ export function PaddleCheckout(props: Props) {
               </div>
 
               {/*
-                * Case C6, kept: a reader whose Paddle items have already moved must be told so
-                * wherever a plan is discussed, or this card's two stops read as the only thing
-                * arranged on the account. It is a row in the dialog's list; here it is the one
-                * line the calendar has no stop for.
+                * The card's own small print, below the rule, and it is now unconditional — the
+                * tax line is always in it and case C6's sentence joins it when there is one.
+                *
+                * **Case C6, kept**: a reader whose Paddle items have already moved must be told
+                * so wherever a plan is discussed, or this card's two stops read as the only
+                * thing arranged on the account. It is a row in the dialog's list; here it is the
+                * one line the calendar has no stop for.
+                *
+                * **The tax line, added 2026-09-17 with /pricing's own.** `footNote` above says
+                * it for a first purchase and this branch never renders that string, so the one
+                * screen in the app where two amounts are quoted *and* about to be charged was
+                * the one saying nothing about what is inside them. Not `footNote` itself,
+                * deliberately: that sentence also names a cycle and a renewal date, and on a
+                * change those are precisely what the stops above decide — printing a second,
+                * simpler answer under them is the card disagreeing with itself. So only the half
+                * that is true either way.
                 */}
-              {live.scheduled !== null && (
-                <p className="mt-3.5 border-t border-line-soft pt-3.5 text-[0.8125rem] leading-[1.45] text-muted">
-                  {live.scheduled}
-                </p>
-              )}
+              <div className="mt-3.5 border-t border-line-soft pt-3.5 text-[0.8125rem] leading-[1.45] text-muted">
+                {live.scheduled !== null && <p>{live.scheduled}</p>}
+                <p className={live.scheduled !== null ? 'mt-1.5' : undefined}>Tax included, in euro.</p>
+              </div>
             </>
           ) : (
             /* No price, so no calendar: the same sentence the summary block used to fall back

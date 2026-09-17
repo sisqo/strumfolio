@@ -21,8 +21,12 @@
  * Euro only, and tax-inclusive: the number written here is the number the customer pays,
  * wherever they are — a statement about *tax*, and about nothing else. It does not say what a
  * non-euro cardholder's statement will read, which is their bank's rate and their bank's fee
- * and is not ours to promise; /pricing's lede says so in as many words, and this sentence is
- * not the licence to take that clause back out. No currency map, no conversion, no Paddle.js on
+ * and is not ours to promise. **Where each half is now written down has changed and the old
+ * pointer here was stale**: this said «/pricing's lede says so in as many words», and that lede
+ * went with the v3.4 redesign. The tax half is back on that page as `TAX_NOTE` below, beside
+ * every price it qualifies rather than in a paragraph; the bank's-cut half is in § 7 of the
+ * Terms of Service and nowhere on /pricing, which is a deliberate omission and not an oversight
+ * — see `HERO_SUBTITLE`'s neighbour in `app/pricing/page.tsx`. No currency map, no conversion, no Paddle.js on
  * the page — the page that renders these is statically generated and knows nothing about who is
  * reading it, so a localised price would be a claim it cannot make. That is also why the
  * amounts are strings and not numbers: nothing here does arithmetic on them except
@@ -147,6 +151,31 @@ export const LIFETIME = {
 export function euro(amount: string): string {
   return `€${amount}`
 }
+
+/**
+ * The two words that print this module's own central claim, beside every amount a page shows.
+ *
+ * The claim is the header's: the number in this table is the number the customer pays. It held
+ * in the code and in Paddle (`tax_mode: 'internal'`, and `CLAUDE.md` measures it on the total
+ * rather than trusting the field) and was **written nowhere a reader could see** between the
+ * v3.4 redesign — which dropped `BILLING_NOTE`, the paragraph that used to carry it — and
+ * 2026-09-17. A price claim that omits whether tax is on top is the one omission a price list
+ * cannot afford, because the reader's only other way to find out is the checkout.
+ *
+ * Here rather than in the page, because this is the module that makes the claim true: change
+ * `tax_mode` in Paddle and this constant is what has to stop being printed. /pricing renders it
+ * three times (the cards, the comparison table, the Lifetime panel) and `PaddleCheckout` says
+ * the same thing in a fuller sentence of its own — «Tax included, in euro.» — which is left
+ * spelled out there rather than interpolated around this, since those are whole sentences under
+ * a figure about to be charged and this is a label under a figure being compared.
+ *
+ * «Tax» and not «VAT», deliberately. Paddle is the merchant of record and charges whatever the
+ * reader's own jurisdiction levies — VAT in the EU, sales tax in the United States, GST
+ * elsewhere — so «VAT included» is false for some of the people reading it. § 7 of the Terms of
+ * Service, «Paid plans and billing», words the same fact the long way: «include VAT or any other
+ * applicable sales tax — the amount shown is the amount charged», and the two must not drift.
+ */
+export const TAX_NOTE = 'Tax included'
 
 /**
  * `from` + one billing period — a calendar month or a calendar year, never a fixed day count.

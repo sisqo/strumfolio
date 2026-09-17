@@ -451,6 +451,40 @@ inferred. Verify this way after any catalogue change, on the *total*: a `200` fr
 `prices.create` proves only that the field was accepted. **Never `tax_mode: 'location'`**,
 whose per-jurisdiction behaviour is the exact opposite of "wherever they are".
 
+**And the reader has to be told, which /pricing stopped doing for four months.** The claim was
+true in the code, true in Paddle and measured in the table above, and between the v3.4 redesign
+(`134c043`, which dropped `BILLING_NOTE` along with everything else the mock does not draw) and
+2026-09-17 it was written **nowhere a visitor could see** — the page printed «€34.99» and left
+«plus whatever your country adds» to be ruled out by reaching the checkout and looking. Those are
+two different offers, so this is not a missing disclaimer but a missing half of the price.
+`TAX_NOTE` (`prices.ts`, beside `euro()` and the table that makes the claim true) is the fix, and
+it is deliberately **two words repeated under every number** rather than one note under the grid:
+a reader compares one column against another and never reads a price list top to bottom.
+
+So the tax claim is now printed in **six** places and they move together — the rule this file
+already states about the booklet override, the install row and the Telegram notice. On /pricing:
+the four plan cards (`.plan-price-tax`, absent on Free, which has no price to tax), the
+comparison table's header (`.plan-table-tax`) and the Lifetime panel (`.lifetime-tax`). In
+`PaddleCheckout`: `footNote`'s «Tax included, in euro.» on a first purchase, and the same
+sentence under a **plan change**, which had been quoting two amounts about to be charged and
+saying nothing about either — added the same day, and kept out of `footNote` itself because that
+string also names a cycle and a renewal date, which on a change is exactly what the calendar
+above it decides. And § 7 of the Terms of Service, which words it the long way («VAT or any other
+applicable sales tax — the amount shown is the amount charged») and is the one that has to stay
+true if the others are ever reworded.
+
+**«Tax», never «VAT»**, wherever it is printed. Paddle is the merchant of record and collects
+whatever the reader's own jurisdiction levies, so «VAT included» is simply false for an American
+one. The Italian shorthand this was reported in («i prezzi sono tutti vat included») is the fact,
+not the wording.
+
+**Two of the three facts `BILLING_NOTE` carried are still gone, and that stays a decision.** No
+free trial needs no line — the Free card says the plan has no end date, which is what a trial
+claim would be denying, and no price carries a `trial_period` (above). The bank's cut on a
+non-euro card is in Terms § 7 and nowhere on /pricing; the comment in `pricing/page.tsx` that
+called it «not stated anywhere else on the site either» was wrong on that point and has been
+corrected rather than acted on.
+
 Everything else about the catalogue is checked by `scripts/verify-paddle-catalogue.ts`, which
 compares it against `PRICES` row by row — `--sandbox` matches on the stamped `custom_data` and
 needs no ids, and since no Paddle credential lives in this repo the catalogue is fetched

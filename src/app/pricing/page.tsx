@@ -20,7 +20,7 @@ import {
 import { activeCoupon } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
 import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
-import { euro, LIFETIME, PRICES } from '@/lib/plans/prices'
+import { euro, LIFETIME, PRICES, TAX_NOTE } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
@@ -117,10 +117,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /*
- * The v3.4 redesign's own hero line, replacing the longer disclosure-heavy `LEDE` this used
- * to be — the tax/currency/no-trial facts it carried still matter and are not gone, only
- * moved: see `BILLING_NOTE`, below, in the smaller print beside the prices themselves rather
- * than in the first sentence a visitor reads.
+ * The v3.4 redesign's own hero line, replacing the longer disclosure-heavy `LEDE` this used to
+ * be.
+ *
+ * **This used to point at `BILLING_NOTE`, which has not existed since `134c043`** — the commit
+ * that raised the page's fidelity to the design took the demoted paragraph out with everything
+ * else the mock does not draw, and left the sentence above pointing at nothing. What happened to
+ * the three facts it carried is the comment below.
  */
 const HERO_SUBTITLE =
   'One account, every device, nothing to install — your chords, in your key, with your capo — ' +
@@ -128,11 +131,27 @@ const HERO_SUBTITLE =
 
 /*
  * The three facts `LEDE` used to say — tax included, a currency-conversion disclaimer, no free
- * trial — are gone from this page entirely (v3.4), matching the design exactly rather than
- * keeping a demoted paragraph the design does not have. The gap this leaves, worth naming
- * because it is not stated anywhere else on the site either: nothing currently tells a reader
- * their bank may convert or add a fee. Left as a known omission rather than invented text the
- * mock does not show.
+ * trial — went with it when v3.4 matched the design exactly rather than keeping a demoted
+ * paragraph the design does not have. **One of the three came back on 2026-09-17, and it is the
+ * one that should never have been allowed to leave.**
+ *
+ * *Tax included* is not a disclaimer, it is half of what a price *is*: «€34.99» and «€34.99 plus
+ * whatever your country adds» are two different offers, and this page was printing the first
+ * while saying only the second could be ruled out by going to the checkout and looking. It is
+ * back as `TAX_NOTE`, and back in the shape the design can carry — two words under each number,
+ * on all four cards, in the comparison table's header and on the Lifetime panel, rather than a
+ * paragraph. `prices.ts` holds the words, since it is the table that makes the claim true.
+ *
+ * *No free trial* needs no line here and never did: the Free card says the plan has no end date,
+ * which is the fact a trial claim would be denying, and `PRICES` carries no `trial_period` for
+ * the same reason (`CLAUDE.md`, the sandbox catalogue).
+ *
+ * *The bank's cut* stays off this page, and the reasoning that kept it off has been corrected on
+ * one point: this said it «is not stated anywhere else on the site either», which was wrong — § 7
+ * of the Terms of Service says a non-euro card may be converted at the bank's own rate with its
+ * own fees, in as many words, and links here as the authoritative price list. So it is a fact the
+ * site states in the place that states terms, deliberately not repeated beside every number. That
+ * is a different thing from the gap this comment used to describe, and a much smaller one.
  *
  * The other clause this page used to carry — «the prices on this page are final» — is gone too.
  * Nothing in this repository can make that promise — `prices.ts` says in its own header that its
@@ -254,7 +273,10 @@ const CHECKOUT_LIVE = paddleCheckoutEnabled()
 function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null): ColumnPrice {
   const full = PRICES[plan][cycle].amount
   const suffix = cycle === 'year' ? '/yr' : '/mo'
-  if (coupon === null) return { amount: euro(full), suffix }
+  /* On both branches and on both cycles, because it is true of both: a coupon changes what the
+     number is, never whether the tax is inside it. `columnsFor`'s Free column sets no `tax` at
+     all, which is the only place the page decides not to say it — see `ColumnPrice.tax`. */
+  if (coupon === null) return { amount: euro(full), suffix, tax: TAX_NOTE }
 
   const discounted = discountedAmount(full, coupon.discountPercent)
 
@@ -265,6 +287,7 @@ function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null
     suffix,
     was: euro(full),
     off: `−${coupon.discountPercent}%`,
+    tax: TAX_NOTE,
     /* `termCopy` and not `durationCopy`: the discounted amount is the line directly above this
        one on a card, and the design prints it once. The three screens that have no such line —
        /checkout, the stored receipt, the plan-change email — keep the sentence that opens with
@@ -978,6 +1001,14 @@ export default async function PricingPage({
                   {lifetimePillText !== null && <span className="lifetime-pill">{lifetimePillText}</span>}
                   <p className="lifetime-price">{euro(lifetimeDiscount ?? LIFETIME.amount)}</p>
                 </div>
+
+                {/*
+                  * The same two words the cards carry, written out here rather than reaching
+                  * through `ColumnPrice`: this panel is not a column and has no price slot. It
+                  * is the largest number on the page and the only one paid in a single press,
+                  * so it is the last place the fact could be left to a neighbour.
+                  */}
+                <p className="lifetime-tax">{TAX_NOTE}</p>
 
                 <LifetimeCta
                   href={coupon === null ? '/checkout/lifetime' : `/checkout/lifetime?coupon=${encodeURIComponent(coupon.code)}`}

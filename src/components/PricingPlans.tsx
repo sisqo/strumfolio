@@ -77,6 +77,24 @@ export interface ColumnPrice {
    * that moves the money — and `termCopy`'s own comment records the move.
    */
   note?: string
+  /**
+   * «Tax included» — the last line of the price block, and the one this page went without.
+   *
+   * A field arriving finished from the server rather than a string this component owns, for the
+   * reason every other string here is: `TAX_NOTE` lives in `lib/plans/prices.ts`, beside the
+   * table that makes the claim true, and importing it would be this file reaching into the
+   * pricing module for a word. Optional, and **Free never sets it** — that is the whole of the
+   * exception, with no `slug === 'free'` branch anywhere: €0 is not a tax-inclusive price, it is
+   * the absence of one, and a card saying «Tax included» under nothing to tax reads as a
+   * disclaimer looking for a bill.
+   *
+   * Below `note` rather than above it: the coupon caption qualifies the number (how long this
+   * price holds, and what follows it), and this qualifies the whole card. Under the audience
+   * line was the other candidate and is worse — it would put the fact after the reader has moved
+   * on from the figure it is about, which is the same argument `.plan-price-note` already makes
+   * for its own position.
+   */
+  tax?: string
 }
 
 export interface PlanColumn {
@@ -503,6 +521,16 @@ export function PricingPlans({
               {column.price[period].note !== undefined && (
                 <p className="plan-price-note">{column.price[period].note}</p>
               )}
+              {/*
+                * Repeated on every paid card rather than written once under the grid, which is
+                * what was asked for and is also the right shape: a reader compares one column
+                * against another and never reads the page top to bottom, so a single note below
+                * four cards is a fact none of them carries. Absent on Free, where `tax` is
+                * simply never set — see `ColumnPrice.tax`.
+                */}
+              {column.price[period].tax !== undefined && (
+                <p className="plan-price-tax">{column.price[period].tax}</p>
+              )}
               <p className="plan-audience">{column.audience}</p>
 
               {/*
@@ -728,6 +756,23 @@ export function PricingPlans({
                         {column.price[period].amount}
                         {column.price[period].suffix}
                       </span>
+                      {/*
+                        * And so does the tax note, for the same reason the strike does: this
+                        * header repeats the price, and a card that says «Tax included» above a
+                        * header that does not is the page qualifying the same number twice and
+                        * differently.
+                        *
+                        * The neighbouring comment's objection — that a line here would wrap the
+                        * table wider than a laptop — was about the *duration* sentence, and it
+                        * still stands for that one. It does not reach two words: `.plan-table`
+                        * is `table-layout: fixed` on a `min-width: 56rem`, so nothing in a `<th>`
+                        * can move the table's width at all, and what a sentence would really do
+                        * is stack four or five lines inside a fixed-width cell. «Tax included»
+                        * is narrower than the price above it.
+                        */}
+                      {column.price[period].tax !== undefined && (
+                        <span className="plan-table-tax">{column.price[period].tax}</span>
+                      )}
                     </th>
                   ))}
                 </tr>
