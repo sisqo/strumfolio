@@ -143,6 +143,12 @@ dal browser, ed è il campo con cui Paddle scrive ricevute e PDF delle fatture. 
 passa `locale: 'en'` e l'app non manda mai un cliente, quindi quel campo non ha altre sorgenti —
 ma è dedotto, non misurato. Un acquisto e una lettura lo chiudono.
 
+**Il frame invece è misurato, ed è inglese tranne le cifre.** Il 17/9/2026 sulla preview a
+`5596ede`: etichette, bottoni e date tutti in inglese, e sotto il bottone «2,44 € now, then 2,44
+€/month from 17 Oct 2026». Quelle cifre non seguono né `locale` né il paese scelto nel form, e
+nessuna impostazione del checkout le raggiunge — **non è un difetto da riaprire a ogni giro**, e
+`PaddleCheckout.tsx` ha la misura per intero.
+
 **La regola che conta: quando lo schermo e l'addebito sembrano in disaccordo, è la transazione
 l'arbitro, non l'occhio.** E si può leggere **senza pagare**: aprire il form crea già una
 transazione `draft` lato server, quindi `total` e `discount_id` dicono in anticipo cosa verrebbe

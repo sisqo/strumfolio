@@ -121,8 +121,19 @@ break from a distance:
   `locale` is **pinned to `en`** since 2026-09-17 and is no longer left off «so an Italian phone
   gets an Italian payment form». The frame is not a thing a reader arrives at on its own — it sits
   inside our page, under our own English price line, in an app with no language selector — so the
-  old arrangement did not meet anybody in their language, it put «2,44 €» three lines under our own
-  «€2.44». **And it reaches past the frame**: `startPaddleCheckout` sends no customer, so Paddle
+  old arrangement did not meet anybody in their language, it put Italian labels inside an English
+  screen.
+
+  **It bought the words and not the figures.** Measured on the preview the same day: every label,
+  button and date in the frame is English, and the line under the button still reads «2,44 € now,
+  then 2,44 €/month from 17 Oct 2026» — one sentence in two locales, three lines under our own
+  «€2.44». The amounts follow neither `locale` nor the form's country (moved to Ireland through
+  `updateCheckout`, the string did not change), and Paddle's own `pricingPreview` answers «€3.49»
+  for IT, IE, DE, US and GB alike, so it is not a euro convention either. What is left is the
+  browser's preferred language. **No checkout setting reaches it**, so the mismatch stands until
+  Paddle changes it; `PaddleCheckout.tsx` carries the measurement in full.
+
+  **And it reaches past the frame**: `startPaddleCheckout` sends no customer, so Paddle
   creates that record from the checkout itself and `customers.locale` is what its receipts and
   invoice PDFs are written in. All seven sandbox customers read `locale: "it"` on 2026-09-17, the
   browser's. The form is documented, the email is inference — **read a customer back after the next

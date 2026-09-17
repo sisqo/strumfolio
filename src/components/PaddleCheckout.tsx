@@ -185,6 +185,20 @@ const FRAME_TARGET = 'paddle-checkout-frame'
  * card. Paddle's own guidance points the same way: pass the locale «so that it matches», meant for
  * a site *with* a language selector, and this one's selector is the absence of one.
  *
+ * **It bought the words and not the figures, and that half is not ours to set.** Measured on the
+ * preview at `5596ede` on 2026-09-17: every label, button and date inside the frame is English —
+ * «Email address», «Card details», «Cancel anytime.», «17 Oct 2026» — while the line under the
+ * button still reads «2,44 € now, then 2,44 €/month from 17 Oct 2026», three lines under our own
+ * «€2.44». So one sentence is printed in two locales, with its own dates in the other one. The
+ * amounts follow neither this setting nor the form's country — moving it to Ireland through
+ * `updateCheckout` left the string exactly as it was — and Paddle's own server-side formatter
+ * disagrees with the frame as well: `pricingPreview` answers «€3.49» for IT, IE, DE, US and GB
+ * alike, so there is no euro convention Paddle is applying on purpose. What is left is the
+ * browser's preferred language, `navigator.languages[0] === 'it-IT'` here, and not the runtime's
+ * `Intl` default, which answers «€2.44» on this very machine. **There is no setting for it**: the
+ * documented list carries `locale` and nothing about formatting. So the mismatch with our own
+ * `euro()` stands until Paddle changes it, and chasing it from this file is wasted work.
+ *
  * **It reaches further than the frame, which is the part worth knowing before anybody reverses it
  * again.** `startPaddleCheckout` creates the transaction with items, a discount and `customData`
  * and **no customer** — Paddle makes that record itself, from the email typed into this frame, and
