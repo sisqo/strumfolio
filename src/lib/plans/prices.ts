@@ -167,7 +167,15 @@ export function euro(amount: string): string {
  * three times (the cards, the comparison table, the Lifetime panel) and `PaddleCheckout` says
  * the same thing in a fuller sentence of its own — «Tax included, in euro.» — which is left
  * spelled out there rather than interpolated around this, since those are whole sentences under
- * a figure about to be charged and this is a label under a figure being compared.
+ * a figure about to be charged and this is a label beside a figure being compared.
+ *
+ * **Abbreviated, because of where it sits.** It was «Tax included» on its own line under the
+ * price for a day, and it now runs on the same line as the number, after the «/mo» — which is
+ * the position that answers what a reader is actually asking («€3.49 for what?») and the
+ * position that will not hold eleven characters: a plan card's content box is about 140px wide
+ * at the four-column desktop layout, and the full words push «€9.99/mo Tax included» past it.
+ * The stop is part of the string, not styling — «Tax incl» without it reads as a word somebody
+ * cut off.
  *
  * «Tax» and not «VAT», deliberately. Paddle is the merchant of record and charges whatever the
  * reader's own jurisdiction levies — VAT in the EU, sales tax in the United States, GST
@@ -175,7 +183,7 @@ export function euro(amount: string): string {
  * Service, «Paid plans and billing», words the same fact the long way: «include VAT or any other
  * applicable sales tax — the amount shown is the amount charged», and the two must not drift.
  */
-export const TAX_NOTE = 'Tax included'
+export const TAX_NOTE = 'Tax incl.'
 
 /**
  * `from` + one billing period — a calendar month or a calendar year, never a fixed day count.

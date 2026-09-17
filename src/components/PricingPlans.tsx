@@ -512,24 +512,31 @@ export function PricingPlans({
                   <span className="sr-only">, now</span>
                 </p>
               )}
+              {/*
+                * **The price line holds all three: the number, its period, and the tax.** The
+                * tax note spent a day as a `<p>` of its own under this one and was moved into
+                * it on request — «lo vorrei vicino al prezzo». That is the better place on its
+                * own merits: a card is a flex column with a `0.75rem` gap, so a separate line
+                * sat as far from the number as the audience sentence did, and on a discounted
+                * card the coupon caption came between them and pushed it a second line away
+                * from the figure it qualifies.
+                *
+                * Repeated on every paid card rather than written once under the grid: a reader
+                * compares one column against another and never reads a price list top to
+                * bottom, so a single note below four cards is a fact none of them carries.
+                * Absent on Free, where `tax` is simply never set — see `ColumnPrice.tax`.
+                */}
               <p className="plan-price">
                 {column.price[period].amount}
                 {column.price[period].suffix !== '' && (
                   <span className="plan-price-period">{column.price[period].suffix}</span>
                 )}
+                {column.price[period].tax !== undefined && (
+                  <span className="plan-price-tax">{column.price[period].tax}</span>
+                )}
               </p>
               {column.price[period].note !== undefined && (
                 <p className="plan-price-note">{column.price[period].note}</p>
-              )}
-              {/*
-                * Repeated on every paid card rather than written once under the grid, which is
-                * what was asked for and is also the right shape: a reader compares one column
-                * against another and never reads the page top to bottom, so a single note below
-                * four cards is a fact none of them carries. Absent on Free, where `tax` is
-                * simply never set — see `ColumnPrice.tax`.
-                */}
-              {column.price[period].tax !== undefined && (
-                <p className="plan-price-tax">{column.price[period].tax}</p>
               )}
               <p className="plan-audience">{column.audience}</p>
 
@@ -755,24 +762,26 @@ export function PricingPlans({
                         )}
                         {column.price[period].amount}
                         {column.price[period].suffix}
+                        {/*
+                          * And the tax note reaches the header too, for the same reason the
+                          * strike does: this header repeats the price, and a card qualifying a
+                          * number the header leaves bare is the page saying two things about the
+                          * same figure.
+                          *
+                          * Inside this span and not after it, so it runs on the same line as the
+                          * number — `.plan-table-price` is `display: block`, and a sibling would
+                          * start a line of its own however inline it was styled.
+                          *
+                          * The neighbouring comment's objection — that a line here would wrap the
+                          * table wider than a laptop — was about the *duration* sentence and still
+                          * stands for that one. It does not reach two words: `.plan-table` is
+                          * `table-layout: fixed` on a `min-width: 56rem`, so nothing in a `<th>`
+                          * can move the table's width at all.
+                          */}
+                        {column.price[period].tax !== undefined && (
+                          <span className="plan-table-tax"> {column.price[period].tax}</span>
+                        )}
                       </span>
-                      {/*
-                        * And so does the tax note, for the same reason the strike does: this
-                        * header repeats the price, and a card that says «Tax included» above a
-                        * header that does not is the page qualifying the same number twice and
-                        * differently.
-                        *
-                        * The neighbouring comment's objection — that a line here would wrap the
-                        * table wider than a laptop — was about the *duration* sentence, and it
-                        * still stands for that one. It does not reach two words: `.plan-table`
-                        * is `table-layout: fixed` on a `min-width: 56rem`, so nothing in a `<th>`
-                        * can move the table's width at all, and what a sentence would really do
-                        * is stack four or five lines inside a fixed-width cell. «Tax included»
-                        * is narrower than the price above it.
-                        */}
-                      {column.price[period].tax !== undefined && (
-                        <span className="plan-table-tax">{column.price[period].tax}</span>
-                      )}
                     </th>
                   ))}
                 </tr>

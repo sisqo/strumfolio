@@ -458,13 +458,26 @@ true in the code, true in Paddle and measured in the table above, and between th
 «plus whatever your country adds» to be ruled out by reaching the checkout and looking. Those are
 two different offers, so this is not a missing disclaimer but a missing half of the price.
 `TAX_NOTE` (`prices.ts`, beside `euro()` and the table that makes the claim true) is the fix, and
-it is deliberately **two words repeated under every number** rather than one note under the grid:
-a reader compares one column against another and never reads a price list top to bottom.
+it is deliberately **repeated beside every number** rather than written once under the grid: a
+reader compares one column against another and never reads a price list top to bottom.
+
+**Beside and not under, which is why it is abbreviated.** It shipped as «Tax included» on a line
+of its own for a day and was moved onto the price's own line on request — «€3.49 /mo Tax incl.».
+That position answers the question a reader is actually asking, and it will not hold eleven
+characters: a plan card's content box is about 140px at the four-column desktop layout, so «Tax
+included» pushes «€9.99/mo» past the edge where «Tax incl.» fits with room to spare. Verified at
+1280, 1024, 820 and 390px, on both cycles, with and without a coupon: one line everywhere, and
+`white-space: nowrap` means the phrase can only ever break *before* «Tax», never between the two
+words. A line of its own was also the worse place on its own merits — a card is a flex column
+with a `0.75rem` gap, so it sat as far from the number as the audience sentence did, and on a
+discounted card the coupon caption came between them.
 
 So the tax claim is now printed in **six** places and they move together — the rule this file
 already states about the booklet override, the install row and the Telegram notice. On /pricing:
 the four plan cards (`.plan-price-tax`, absent on Free, which has no price to tax), the
-comparison table's header (`.plan-table-tax`) and the Lifetime panel (`.lifetime-tax`). In
+comparison table's header (`.plan-table-tax`, inside `.plan-table-price` rather than after it,
+since that one is `display: block` and a sibling would start its own line) and the Lifetime panel
+(`.lifetime-tax`). In
 `PaddleCheckout`: `footNote`'s «Tax included, in euro.» on a first purchase, and the same
 sentence under a **plan change**, which had been quoting two amounts about to be charged and
 saying nothing about either — added the same day, and kept out of `footNote` itself because that
@@ -473,7 +486,8 @@ above it decides. And § 7 of the Terms of Service, which words it the long way 
 applicable sales tax — the amount shown is the amount charged») and is the one that has to stay
 true if the others are ever reworded.
 
-**«Tax», never «VAT»**, wherever it is printed. Paddle is the merchant of record and collects
+**«Tax», never «VAT»**, wherever it is printed, and the stop in «incl.» is part of the string
+rather than styling — «Tax incl» reads as a word somebody cut off. Paddle is the merchant of record and collects
 whatever the reader's own jurisdiction levies, so «VAT included» is simply false for an American
 one. The Italian shorthand this was reported in («i prezzi sono tutti vat included») is the fact,
 not the wording.

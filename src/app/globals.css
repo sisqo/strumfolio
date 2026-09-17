@@ -7580,30 +7580,43 @@
   }
 
   /*
-   * «Tax included» — the standing fact under the number, where `.plan-price-note` above it is
-   * the temporary one. The two are deliberately different in colour as well as size: the
-   * caption is drawn in the accent because it belongs to a campaign, and this is `--muted`
-   * because it belongs to the price and would be just as true with every campaign gone.
+   * «Tax incl.» — the standing fact about the number, trailing it on the same line, where
+   * `.plan-price-note` below is the temporary one. The two are deliberately different in colour
+   * as well as size: the caption is drawn in the accent because it belongs to a campaign, and
+   * this is `--muted` because it belongs to the price and would be just as true with every
+   * campaign gone.
    *
-   * No `margin-top`, unlike every neighbour here. `.plan-card` is a flex column with a
-   * `0.75rem` gap, so this line already sits exactly as far below the price as the audience
-   * sentence sits below it — an even rhythm the note's own `0.3125rem` deliberately breaks and
-   * this one has no reason to.
+   * **On the price's own line since it was asked for**, and the request improved it: as a `<p>`
+   * of its own it inherited `.plan-card`'s `0.75rem` flex gap and so sat exactly as far from the
+   * number as the audience sentence sat from it, and on a discounted card the coupon caption came
+   * between the two. Now it cannot be read as belonging to anything else.
    *
-   * `--muted` and not `--faint`, which is what a line this small would otherwise take: three of
+   * `letter-spacing` and `font-weight` are both reset, because `.plan-price` sets them for a
+   * 28px number — `-0.02em` tightened for display sizes is visible as a squeeze at 12px, and the
+   * 500 weight would make this the same weight as the figure it qualifies.
+   *
+   * `white-space: nowrap` so the phrase breaks *before* «Tax» and never between the two words.
+   * It does wrap onto its own line on a narrow card, which is the graceful end of this: the line
+   * below the price is where it used to live, and it is still legible there.
+   *
+   * `--muted` and not `--faint`, which is what a label this small would otherwise take: three of
    * the four cards draw it on `--accent-soft`, where `--faint` measures 2.61:1 in the light theme
    * and 2.72:1 in the dark — it fails in both, so this is not a light-theme concession. `--muted`
    * on the same grounds is 5.05 and 5.99. A disclosure nobody can read is the same as the one
    * that was missing.
    */
   .plan-price-tax {
+    margin-left: 0.4375rem;
     color: var(--muted);
     font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: normal;
     line-height: 1.45;
+    white-space: nowrap;
   }
 
   /*
-   * `.plan-audience`'s own share, so on the featured card this line is the audience colour one
+   * `.plan-audience`'s own share, so on the featured card this label is the audience colour one
    * size down — exactly the relationship it has on the other three, where both are `--muted`.
    *
    * It was 72%, chosen to read a step quieter the way `.plan-price-period` does, and **that
@@ -7831,21 +7844,21 @@
   }
 
   /*
-   * The third line of a plan's header cell, under the price it qualifies. It costs the header
-   * height and no width at all: `.plan-table` is `table-layout: fixed` on a `min-width: 56rem`,
-   * so the four value columns split the same space whatever they hold. The note below about the
-   * duration sentence still stands — that one is a sentence, and a sentence in a fixed-width
-   * cell stacks five lines deep.
+   * The cards' own «Tax incl.», trailing the price in a plan's header cell. It costs the header
+   * no width at all: `.plan-table` is `table-layout: fixed` on a `min-width: 56rem`, so the four
+   * value columns split the same space whatever they hold — it costs a second line in the cell
+   * on a column that cannot fit it, which a discounted header cannot. The note below about the
+   * duration sentence still stands: that one is a sentence, and a sentence in a fixed-width cell
+   * stacks five lines deep.
    *
    * No featured override: `.plan-table-featured`'s ground is `--accent-soft`, the same tint
    * three of the four cards already draw `--muted` on.
    */
   .plan-table-tax {
-    display: block;
-    margin-top: 0.125rem;
     color: var(--muted);
     font-size: 0.75rem;
     font-weight: 400;
+    white-space: nowrap;
   }
 
   /* The strike reaches the table header too — the design repeats each plan's price there, and
@@ -8764,10 +8777,13 @@
   }
 
   /*
-   * The cards' own «Tax included», on the accent ground this panel stands on — so a cream mixed
-   * down rather than `--muted`, which is a grey chosen against paper and disappears here.
+   * The cards' own «Tax incl.», beside the 52px number rather than under it, on the accent ground
+   * this panel stands on — so a cream mixed down rather than `--muted`, which is a grey chosen
+   * against paper and disappears here. The same resets `.plan-price-tax` takes and for the same
+   * reasons; `line-height: 1.45` against the price's own `1.1` matters here rather than there,
+   * since 52px of leading around a 13px label is what would otherwise set the row's height.
    *
-   * 82%, the same share the featured card's own tax line takes, and **not** `.lifetime-original`'s
+   * 82%, the same share the featured card's own tax label takes, and **not** `.lifetime-original`'s
    * 62%, which is what this was first written as. That was reasoning from the wrong neighbour:
    * the struck anchor above is 26px, where AA asks 3:1 and 62% (3.40:1 light) clears it
    * comfortably; this is 13px, where the bar is 4.5:1 and the same share does not. Measured
@@ -8775,10 +8791,13 @@
    * somebody who already knows what it says.
    */
   .lifetime-tax {
-    margin-top: 0.4375rem;
+    margin-left: 0.5rem;
     color: color-mix(in srgb, var(--on-accent) 82%, transparent);
     font-size: 0.8125rem;
+    font-weight: 400;
+    letter-spacing: normal;
     line-height: 1.45;
+    white-space: nowrap;
   }
 
   /*

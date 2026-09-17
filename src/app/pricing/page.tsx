@@ -999,16 +999,20 @@ export default async function PricingPage({
                     price with a caveat trailing after it. */}
                 <div className="mt-1 flex items-center justify-end gap-3">
                   {lifetimePillText !== null && <span className="lifetime-pill">{lifetimePillText}</span>}
-                  <p className="lifetime-price">{euro(lifetimeDiscount ?? LIFETIME.amount)}</p>
+                  {/*
+                    * The same note the cards carry, written out here rather than reaching through
+                    * `ColumnPrice`: this panel is not a column and has no price slot. It is the
+                    * largest number on the page and the only one paid in a single press, so it is
+                    * the last place the fact could be left to a neighbour.
+                    *
+                    * Inside the price, on its baseline, for the reason it is inside the cards'
+                    * price line: beside the number rather than under it.
+                    */}
+                  <p className="lifetime-price">
+                    {euro(lifetimeDiscount ?? LIFETIME.amount)}
+                    <span className="lifetime-tax">{TAX_NOTE}</span>
+                  </p>
                 </div>
-
-                {/*
-                  * The same two words the cards carry, written out here rather than reaching
-                  * through `ColumnPrice`: this panel is not a column and has no price slot. It
-                  * is the largest number on the page and the only one paid in a single press,
-                  * so it is the last place the fact could be left to a neighbour.
-                  */}
-                <p className="lifetime-tax">{TAX_NOTE}</p>
 
                 <LifetimeCta
                   href={coupon === null ? '/checkout/lifetime' : `/checkout/lifetime?coupon=${encodeURIComponent(coupon.code)}`}
