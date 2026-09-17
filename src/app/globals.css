@@ -7591,8 +7591,10 @@
    * this one has no reason to.
    *
    * `--muted` and not `--faint`, which is what a line this small would otherwise take: three of
-   * the four cards draw it on `--accent-soft`, where `--faint` falls to roughly 2.6:1. A
-   * disclosure nobody can read is the same as the one that was missing.
+   * the four cards draw it on `--accent-soft`, where `--faint` measures 2.61:1 in the light theme
+   * and 2.72:1 in the dark — it fails in both, so this is not a light-theme concession. `--muted`
+   * on the same grounds is 5.05 and 5.99. A disclosure nobody can read is the same as the one
+   * that was missing.
    */
   .plan-price-tax {
     color: var(--muted);
@@ -7600,10 +7602,18 @@
     line-height: 1.45;
   }
 
-  /* Quieter than `.plan-audience`'s own 82% on the amber, the same step down `.plan-price-period`
-     takes from the number it trails. */
+  /*
+   * `.plan-audience`'s own share, so on the featured card this line is the audience colour one
+   * size down — exactly the relationship it has on the other three, where both are `--muted`.
+   *
+   * It was 72%, chosen to read a step quieter the way `.plan-price-period` does, and **that
+   * failed AA**: 72% of `--on-accent` composited over `--accent` is 4.02:1 in the light theme
+   * (5.27 in the dark, which is not the one that decides). 80% is the floor, 82% measures
+   * 4.72/6.85, and the quieter reading is not worth buying at the price of a disclosure that
+   * cannot be read — which is the argument the rule above already makes against `--faint`.
+   */
   .plan-card.is-featured .plan-price-tax {
-    color: color-mix(in srgb, var(--on-accent) 72%, transparent);
+    color: color-mix(in srgb, var(--on-accent) 82%, transparent);
   }
 
   .plan-audience {
@@ -8755,13 +8765,18 @@
 
   /*
    * The cards' own «Tax included», on the accent ground this panel stands on — so a cream mixed
-   * down rather than `--muted`, which is a grey chosen against paper and disappears here. 62% is
-   * `.lifetime-original`'s own share: the two are the same weight of small print around the one
-   * number this panel exists for, one above it and one below.
+   * down rather than `--muted`, which is a grey chosen against paper and disappears here.
+   *
+   * 82%, the same share the featured card's own tax line takes, and **not** `.lifetime-original`'s
+   * 62%, which is what this was first written as. That was reasoning from the wrong neighbour:
+   * the struck anchor above is 26px, where AA asks 3:1 and 62% (3.40:1 light) clears it
+   * comfortably; this is 13px, where the bar is 4.5:1 and the same share does not. Measured
+   * rather than eyeballed, because on an amber ground a cream at 62% looks perfectly fine to
+   * somebody who already knows what it says.
    */
   .lifetime-tax {
     margin-top: 0.4375rem;
-    color: color-mix(in srgb, var(--on-accent) 62%, transparent);
+    color: color-mix(in srgb, var(--on-accent) 82%, transparent);
     font-size: 0.8125rem;
     line-height: 1.45;
   }
