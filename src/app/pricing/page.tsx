@@ -17,11 +17,13 @@ import {
   discountedAmount,
   termCopy,
 } from '@/lib/coupons/discount'
+import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
-import { COUPON_COOKIE, restorableCode } from '@/lib/coupons/types'
+import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES, TAX_NOTE } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
+import { couponRefusalFor } from '@/lib/plans/redeemable'
 import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
@@ -269,14 +271,25 @@ const CHECKOUT_LIVE = paddleCheckoutEnabled()
  * with it: /checkout still prints it, one screen later and directly above the button that moves
  * the money, which is where `firstYearTotal`'s own comment says the number has to be right.
  * `termCopy` records the same move from the other side.
+ *
+ * **`chargeable`, found missing 2026-09-18.** This used to draw the discount from `coupon`
+ * alone — a campaign-exists check, the same one `activeCoupon` already makes — and never asked
+ * whether *this* cycle would actually be charged the reduced amount: `/checkout/[plan]` has
+ * asked that since 2026-09-15/16 (`couponRefusalFor` + `discountIdFor`, see `redeemable.ts`),
+ * and this page never picked it up. An account signed in with COUPON30 already spent on
+ * Standard still saw −30% advertised here on Plus and Premium — not this account's money, since
+ * checkout re-checks and refuses, but a price this screen promised and the next one would not
+ * keep. `chargeable` is the caller's answer to that question for this one cycle; `false` is
+ * handled exactly like `coupon === null`, which is what an unredeemable or unsynced coupon is
+ * worth showing.
  */
-function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null): ColumnPrice {
+function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null, chargeable: boolean): ColumnPrice {
   const full = PRICES[plan][cycle].amount
   const suffix = cycle === 'year' ? '/yr' : '/mo'
   /* On both branches and on both cycles, because it is true of both: a coupon changes what the
      number is, never whether the tax is inside it. `columnsFor`'s Free column sets no `tax` at
      all, which is the only place the page decides not to say it — see `ColumnPrice.tax`. */
-  if (coupon === null) return { amount: euro(full), suffix, tax: TAX_NOTE }
+  if (coupon === null || !chargeable) return { amount: euro(full), suffix, tax: TAX_NOTE }
 
   const discounted = discountedAmount(full, coupon.discountPercent)
 
@@ -297,7 +310,13 @@ function priceSlot(plan: PaidPlan, cycle: BillingPeriod, coupon: Campaign | null
 }
 
 /** A paid column, worded once for the three that differ only in their amounts and their audience. */
-function paidColumn(name: string, plan: PaidPlan, audience: string, coupon: Campaign | null): PlanColumn {
+function paidColumn(
+  name: string,
+  plan: PaidPlan,
+  audience: string,
+  coupon: Campaign | null,
+  chargeable: { month: boolean; year: boolean },
+): PlanColumn {
   return {
     name,
     /* Always `plan`, unlike `checkoutPlan` below — a reader's own rank comparison against
@@ -317,8 +336,8 @@ function paidColumn(name: string, plan: PaidPlan, audience: string, coupon: Camp
      * exactly what gets disputed when it was never written down.
      */
     price: {
-      year: priceSlot(plan, 'year', coupon),
-      month: priceSlot(plan, 'month', coupon),
+      year: priceSlot(plan, 'year', coupon, chargeable.year),
+      month: priceSlot(plan, 'month', coupon, chargeable.month),
     },
     audience,
     /* Standard and Premium both buy something — the faint tint `.is-paid` draws for both,
@@ -335,8 +354,14 @@ function paidColumn(name: string, plan: PaidPlan, audience: string, coupon: Camp
  * "only this overlay varies per request" has been updated with it: a coupon changes what every
  * paid card *says*, not merely which one is ringed, so the prices cannot be computed once per
  * process any more. The words themselves are still written exactly once, here.
+ *
+ * `chargeable` is one flag per cycle rather than one per plan: `discountIdFor` names a Paddle
+ * Discount by *cycle* for every non-Lifetime plan (`paddleDiscountIdMonthly`/`…Annual`), and
+ * `redeemability`'s per-account check does not vary by which of the three a reader is looking
+ * at either — so Standard, Plus and Premium always agree on whether this cycle is chargeable,
+ * and the caller computes it once instead of three times.
  */
-function columnsFor(coupon: Campaign | null): PlanColumn[] {
+function columnsFor(coupon: Campaign | null, chargeable: { month: boolean; year: boolean }): PlanColumn[] {
   return [
   {
     name: 'Free',
@@ -380,6 +405,7 @@ function columnsFor(coupon: Campaign | null): PlanColumn[] {
     'standard',
     `${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, a printed booklet and the ukulele.`,
     coupon,
+    chargeable,
   ),
   {
     ...paidColumn(
@@ -388,6 +414,7 @@ function columnsFor(coupon: Campaign | null): PlanColumn[] {
       `Unlimited songbooks and songs, up to ${PLANS.plus.devices} other screens, printed booklet with no ` +
         'credit line.',
       coupon,
+      chargeable,
     ),
     /*
      * The one column raised above the rest — see `.plan-card.is-featured`'s own comment on
@@ -413,6 +440,7 @@ function columnsFor(coupon: Campaign | null): PlanColumn[] {
     'premium',
     'The whole room follows, unlimited songs, printed booklet with no credit line.',
     coupon,
+    chargeable,
   ),
   ]
 }
@@ -866,13 +894,74 @@ export default async function PricingPage({
   const note = identity !== null && coupon !== null && coupon.status === 'active' ? coupon.code : undefined
 
   /*
+   * **May this account still redeem it — asked here since 2026-09-18, missing before.**
+   * `/checkout/[plan]` has asked `redeemability` (ceilings, window, and whether this account has
+   * redeemed before) since 2026-09-15/16, over the same gap this page never closed: it drew a
+   * discount from `activeCoupon` alone, a campaign-exists check that knows nothing about who is
+   * looking at it. A signed-in account that had already spent COUPON30 on Standard still saw
+   * −30% advertised on Plus, Premium and the Lifetime — found on a live QA run 2026-09-18. Not a
+   * charging defect, since checkout re-validates and refuses on its own, but the same
+   * shown-price/charged-price gap one screen earlier, in the safe direction rather than the
+   * dangerous one.
+   *
+   * `identity.accountOwnerEmail`, not `identity.email` — the same field `couponRefusalFor`
+   * takes on checkout, and `loadIdentity` already resolves it from `currentUser()` beneath
+   * `email`, so this costs nothing extra to reach.
+   *
+   * `null` for a signed-out visitor, exactly like checkout's own `user === null` branch: there
+   * is no account yet to have redeemed anything against, and the write path re-checks at the
+   * moment of payment regardless.
+   *
+   * Two calls, not four, because `redeemability`'s per-account checks do not vary across the
+   * three subscription plans — only the Lifetime-only ceiling and `appliesToLifetime` gate
+   * differ, which is why `redeemableCouponFor`/`couponRefusalFor` take a `plan` at all.
+   */
+  const accountOwnerEmail = identity?.accountOwnerEmail ?? null
+  const [subscriptionRefusal, lifetimeRefusal] =
+    coupon === null || accountOwnerEmail === null
+      ? [null, null]
+      : await Promise.all([
+          couponRefusalFor(coupon, 'standard', accountOwnerEmail),
+          couponRefusalFor(coupon, 'lifetime', accountOwnerEmail),
+        ])
+
+  /*
+   * Does the campaign reach this cycle *at all* — `discountIdFor`, the other half checkout
+   * already asks and this page did not. A campaign whose sync never ran, or ran and failed, has
+   * nothing to hand Paddle, and `startPaddleCheckout`/`changePaddlePlan` refuse the sale
+   * outright regardless of who is asking. One id per cycle, shared by Standard/Plus/Premium
+   * (`discountKindFor` does not look at which of the three), so this is checked once.
+   */
+  const monthlyCovers = coupon !== null && discountIdFor(coupon, 'standard', 'month') !== null
+  const yearlyCovers = coupon !== null && discountIdFor(coupon, 'standard', 'year') !== null
+  const lifetimeCovers =
+    coupon !== null && coupon.appliesToLifetime && discountIdFor(coupon, 'lifetime', null) !== null
+
+  const chargeable = {
+    month: monthlyCovers && subscriptionRefusal === null,
+    year: yearlyCovers && subscriptionRefusal === null,
+  }
+  const lifetimeChargeable = lifetimeCovers && lifetimeRefusal === null
+
+  /*
    * The Lifetime's own two coupon facts, derived once so the block below reads as markup.
-   * `null` on both whenever no campaign covers the Lifetime, which is the default state of
-   * `applies_to_lifetime` and therefore the ordinary one.
+   * `null` on both whenever the coupon would not actually be honoured there — no campaign, one
+   * that does not cover the Lifetime, one with no synced Discount, or one this account has
+   * already spent — which is the default state of `applies_to_lifetime` and therefore the
+   * ordinary one either way.
    */
   const lifetimeDiscount =
-    coupon !== null && coupon.appliesToLifetime ? discountedAmount(LIFETIME.amount, coupon.discountPercent) : null
-  const lifetimePillText = lifetimePill(coupon)
+    coupon !== null && lifetimeChargeable ? discountedAmount(LIFETIME.amount, coupon.discountPercent) : null
+  const lifetimePillText = lifetimeChargeable ? lifetimePill(coupon) : null
+
+  /*
+   * Why the price above is not the one a reader came for — the same sentence checkout shows,
+   * for the same reason. Judged against the subscription cards' own coverage (`monthlyCovers ||
+   * yearlyCovers`) rather than the Lifetime's: this banner sits over four cards and speaks for
+   * all of them, and a campaign that simply excludes the Lifetime already has its own sentence
+   * in `appliedCopy`'s detail line, not a red refusal notice.
+   */
+  const refused = couponRefusedNotice(subscriptionRefusal, monthlyCovers || yearlyCovers)
 
   /*
    * The applied bar's two lines, composed from the campaign's own facts — never a stored
@@ -880,8 +969,11 @@ export default async function PricingPage({
    * promise what it does not, and a hand-written headline can. `lifetimeIsOpen` is what decides
    * whether the Lifetime is worth naming as an exclusion: with it withdrawn from sale there is
    * nothing for the coupon to be excluding.
+   *
+   * No ticket where the coupon will not be honoured for this account — «COUPON30 is on these
+   * prices» over prices it is not on any more is the contradiction this whole change removes.
    */
-  const couponBanner = coupon === null ? null : appliedCopy(coupon, lifetimeIsOpen, formatPlanDate)
+  const couponBanner = coupon === null || refused !== null ? null : appliedCopy(coupon, lifetimeIsOpen, formatPlanDate)
 
   /*
    * Two overlays on the copy written once in `columnsFor`: the coupon, which changes what
@@ -889,7 +981,7 @@ export default async function PricingPage({
    * first is why this is a function call per request rather than the module-scope `COLUMNS`
    * constant it used to be — see `columnsFor`'s own comment.
    */
-  const priced = columnsFor(coupon)
+  const priced = columnsFor(coupon, chargeable)
   const columns =
     highlightPlan === null
       ? priced
@@ -942,7 +1034,7 @@ export default async function PricingPage({
         * to arrive by, and this is where they use it.
         */}
       <section className="mt-8">
-        <CouponBar applied={couponBanner} persist={persist} note={note} />
+        <CouponBar applied={couponBanner} refused={refused ?? undefined} persist={persist} note={note} />
         {/* Renders nothing; `Suspense` only because it reads the query string, which it needs
             in order to stand aside while `CouponBar` above is already resolving a URL coupon. */}
         <Suspense fallback={null}>
