@@ -1049,6 +1049,7 @@ function FollowedSong({
           chords={chordTokens(parsed)}
           songCapo={parsed.capo}
           songKey={parsed.key}
+          songTranspose={parsed.transpose}
           semitonesLocked={song.following}
           broadcastEnabled={false}
         />
@@ -1067,6 +1068,7 @@ function FollowedSong({
         * would only be pushed straight back by the next poll.
         */}
       <ControlBar
+        songTranspose={parsed.transpose}
         songSlug={song.data.slug}
         broadcastEnabled={false}
         steps={steps}

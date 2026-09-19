@@ -134,6 +134,7 @@ import { type Accidentals, type Notation, formatChord, parseChord, readChord } f
 import type { Instrument } from '../music/shapes'
 import { readShift, transposeNoteText } from '../music/capo'
 import { type MetadataValues, metadataValues, substituteMetadata } from '../chordproMeta'
+import { resolvedCapo, resolvedSemitones } from '../prefs/resolve'
 import { spellingFor } from '../music/key'
 
 // React-pdf hyphenates long words by default (a title wrapping as "ani-mati"),
@@ -769,9 +770,17 @@ function prepare(
    */
   parsed.sections = visibleSections(parsed.sections, instrument)
 
+  /*
+   * Print follows screen here too: a reader who never chose takes the song's own `{capo: 3}`
+   * and `{transpose: 2}`, so a printed sheet and the phone beside it show the same chords.
+   * `personal` being null is a reader with no row at all, which is the same «never chose».
+   */
   const personal = song.personal
-  const shift = personal === null ? 0 : readShift(personal.semitones, personal.capo)
-  const transposeNote = personal === null ? null : transposeNoteText(personal.capo, personal.semitones)
+  const capo = resolvedCapo(personal?.capo ?? null, parsed.capo)
+  const semitones = resolvedSemitones(personal?.semitones ?? null, parsed.transpose)
+
+  const shift = readShift(semitones, capo)
+  const transposeNote = capo === 0 && semitones === 0 ? null : transposeNoteText(capo, semitones)
 
   /*
    * Per song, and it has to be: a `Spelling` carries the tonic Nashville numbers count

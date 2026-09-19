@@ -734,17 +734,28 @@ export const userSongPrefs = pgTable(
     songId: integer('song_id')
       .notNull()
       .references(() => songs.id, { onDelete: 'cascade' }),
-    semitones: integer('semitones').notNull().default(0),
+    /**
+     * How far this reader moved this song, or **null for «I take the song's»** — which is
+     * what `{transpose: 2}` fills. Nullable since `0048`, on `bpm`'s terms exactly: with a
+     * default of 0 the column said «I did not move it» and «I never chose» with one value,
+     * so a song declaring a transposition would have overruled somebody who had put it back.
+     */
+    semitones: integer('semitones'),
     scrollSpeed: integer('scroll_speed').notNull().default(3),
     /**
      * The fret the capo is on, 0 for none.
      *
      * Not the same thing as `semitones`, which is why it is a second column and not a
      * clever reuse of the first: transposing moves the sound, a capo moves the hand and
-     * leaves the sound where it was. Defaulted rather than nullable, because every row
-     * that exists already answers this — nobody had a capo on.
+     * leaves the sound where it was.
+     *
+     * **Null means «I take the song's»**, which is what `{capo: 3}` fills. It was
+     * `NOT NULL DEFAULT 0` until `0048` on the reasoning that every existing row answered
+     * the question by itself — nobody had a capo on — and that was true while the directive
+     * was discarded. Once a file can declare one, 0 says «I took it off» and «I never chose»
+     * at once, and seeding from the file would put a capo on somebody who had removed it.
      */
-    capo: integer('capo').notNull().default(0),
+    capo: integer('capo'),
     /**
      * Which shape to draw instead of the default, for chords of this song a reader has
      * picked an alternative for. Keyed `${instrument}:${root}:${family}`, valued with the

@@ -18,8 +18,8 @@ import { entitlementsOf } from '@/lib/plans/resolve'
 import {
   type GlobalPrefs,
   type SongPrefs,
-  clampCapo,
-  clampSemitones,
+  readCapo,
+  readSemitones,
   clampSpeed,
   clampZoom,
   readAccidentals,
@@ -139,9 +139,11 @@ export async function loadPrefs(songSlug: string | null): Promise<LoadedPrefs> {
     songRows.length === 0
       ? null
       : {
-          semitones: clampSemitones(songRows[0].semitones),
+          /* Null stays null on all three now: «I take the song's» is an answer, and the
+             reading screen is where it meets the song that supplies it. */
+          semitones: readSemitones(songRows[0].semitones),
           scrollSpeed: clampSpeed(songRows[0].scrollSpeed),
-          capo: clampCapo(songRows[0].capo),
+          capo: readCapo(songRows[0].capo),
           /* Narrowed rather than clamped, and null stays null: the column is nullable
              because «this reader has not chosen a tempo» is a real answer, and the song's
              own `{tempo: …}` is what answers in its place. See `SongPrefs.bpm`. */
@@ -223,9 +225,9 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
   if (email === null) return 'no-destination'
 
   const values = {
-    semitones: clampSemitones(prefs.semitones),
+    semitones: readSemitones(prefs.semitones),
     scrollSpeed: clampSpeed(prefs.scrollSpeed),
-    capo: clampCapo(prefs.capo),
+    capo: readCapo(prefs.capo),
     /* `readBpm` here too, and it is the write side that makes it matter: a client sending
        null is saying «I went back to the song's own tempo», and that has to reach the
        column as a null rather than as a number nobody chose. */

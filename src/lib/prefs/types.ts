@@ -2,6 +2,7 @@ import type { Accidentals, Notation } from '../music/chord'
 import type { Instrument } from '../music/shapes'
 
 export { clampCapo } from '../music/capo'
+import { clampCapo } from '../music/capo'
 /**
  * The metronome's own arithmetic, re-exported so preference code has one place to import
  * from — the same courtesy `clampCapo` above already does for the capo. It lives in
@@ -122,7 +123,8 @@ export interface GlobalPrefs {
 
 /** Preferences that belong to a song: the key you sing it in, the speed you read it at. */
 export interface SongPrefs {
-  semitones: number
+  /** Null is «I take the song's `{transpose: …}`» — see `SongPrefs.capo` just below. */
+  semitones: number | null
   /** Index into SCROLL_SPEEDS. */
   scrollSpeed: number
   /**
@@ -131,8 +133,13 @@ export interface SongPrefs {
    * A decision about this song — "I play this one with the capo at 2" — so it sits
    * here with the transposition rather than among the reader's global preferences: a
    * capo kept globally would silently change the chords of songs never opened.
+   *
+   * **Null is a value here, not a missing one**, the same load-bearing distinction `bpm`
+   * below carries: a reader who never chose takes the song's own `{capo: 3}`, and a reader
+   * who took the capo off chose 0. Those were one value until 2026-09-19, which is why the
+   * directive could be shown and not applied.
    */
-  capo: number
+  capo: number | null
   /**
    * Which shape to draw instead of the default, for the chords of this song a reader has
    * picked an alternative for — never a preference kept across songs, the same reasoning
@@ -283,9 +290,9 @@ export function readChordShapes(value: unknown): Record<string, string> {
 }
 
 export const DEFAULT_SONG_PREFS: SongPrefs = {
-  semitones: 0,
+  semitones: null,
   scrollSpeed: 3,
-  capo: 0,
+  capo: null,
   /* Null rather than 120 and 4: the default is «the reader has not chosen», which is what
      lets the song's own directives speak. See `SongPrefs.bpm`. */
   bpm: null,
@@ -307,6 +314,23 @@ export function clampSpeed(step: number): number {
  * Transposition wraps at the octave: twelve semitones up is the same music, so
  * there is no reason to let the number run away.
  */
+/**
+ * A capo read off a row or a request, keeping null as null.
+ *
+ * `readBpm`'s counterpart, and it exists for the same reason: the column is nullable because
+ * «this reader has not chosen» is a real answer, and clamping a null into a 0 would throw
+ * that answer away — which on the write side means a reader going back to the song's own
+ * capo would silently be recorded as having chosen «none».
+ */
+export function readCapo(fret: number | null): number | null {
+  return fret === null ? null : clampCapo(fret)
+}
+
+/** The same, for a transposition. */
+export function readSemitones(semitones: number | null): number | null {
+  return semitones === null ? null : clampSemitones(semitones)
+}
+
 export function clampSemitones(semitones: number): number {
   const wrapped = Math.round(semitones) % 12
   if (wrapped > 6) return wrapped - 12

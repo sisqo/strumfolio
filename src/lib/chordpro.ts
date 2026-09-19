@@ -339,6 +339,15 @@ export interface ParsedSong {
    * In the body rather than a column of its own, for `tempo`'s reason directly above.
    */
   capo: number | null
+  /**
+   * `{transpose: 2}` — how far the song asks to be moved, in semitones, and the only
+   * directive in the format that asks for the chords to be *changed*.
+   *
+   * A starting value for the reader's own transposition, never an instruction: the same
+   * arrangement as `tempo` and `capo`, and for the same reason — `user_song_prefs.semitones`
+   * is where a reader's answer lives and `null` there means «I take the song's».
+   */
+  transpose: number | null
   sections: Section[]
 }
 
@@ -400,6 +409,7 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   bpm: 'tempo',
   time: 'timeSignature',
   capo: 'capo',
+  transpose: 'transpose',
   define: 'define',
   chord: 'define',
   /* Everything the file says and nothing acts on. Mapped to one case below rather than to a
@@ -502,6 +512,7 @@ export function parseChordPro(source: string): ParsedSong {
     tempo: null,
     beatsPerBar: null,
     capo: null,
+    transpose: null,
     sections: [],
   }
 
@@ -704,6 +715,13 @@ export function parseChordPro(source: string): ParsedSong {
         case 'capo':
           song.capo = readCapo(value)
           break
+        /* Narrowed like the rest: an octave either way is the most anybody transposes, and a
+           directive nobody can play leaves the song saying nothing. */
+        case 'transpose': {
+          const moved = /^[+-]?\d{1,2}$/.test(value.trim()) ? Number(value.trim()) : null
+          song.transpose = moved !== null && Math.abs(moved) <= 12 ? moved : null
+          break
+        }
         case 'define': {
           const defined = readDefinition(value)
           if (defined !== null) song.definitions[defined.name.toLowerCase()] = defined

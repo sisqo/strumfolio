@@ -33,17 +33,17 @@ import {
   writeSongPrefs,
 } from '@/lib/prefs/store'
 import {
-  DEFAULT_GLOBAL_PREFS,
-  DEFAULT_SONG_PREFS,
   type ChordDisplay,
   type GlobalPrefs,
   type SongPrefs,
+  DEFAULT_GLOBAL_PREFS,
+  DEFAULT_SONG_PREFS,
   clampBeatsPerBar,
   clampBpm,
-  clampCapo,
-  clampSemitones,
   clampSpeed,
   clampZoom,
+  readCapo,
+  readSemitones,
 } from '@/lib/prefs/types'
 
 interface PrefsContextValue {
@@ -56,9 +56,9 @@ interface PrefsContextValue {
   setInstrument: (instrument: Instrument) => void
   setChordDisplay: (chordDisplay: ChordDisplay) => void
   setAccidentals: (accidentals: Accidentals) => void
-  setSemitones: (semitones: number) => void
+  setSemitones: (semitones: number | null) => void
   setScrollSpeed: (step: number) => void
-  setCapo: (fret: number) => void
+  setCapo: (fret: number | null) => void
   /**
    * The metronome's tempo for this song, or `null` to hand the question back to the song's
    * own `{tempo: …}` directive. Null is a value to be saved, not a no-op — see
@@ -392,9 +392,13 @@ export function PrefsProvider({
       setChordDisplay: (chordDisplay) => updateGlobal({ ...readable, chordDisplay }),
       setAccidentals: (accidentals) => updateGlobal({ ...readable, accidentals }),
       setSemitones: (semitones) =>
-        updateSong((prev) => ({ ...prev, semitones: clampSemitones(semitones) })),
+        /* Null travels through, as for the capo: it hands the song's own `{transpose: …}`
+           back the job of answering. */
+        updateSong((prev) => ({ ...prev, semitones: readSemitones(semitones) })),
       setScrollSpeed: (step) => updateSong((prev) => ({ ...prev, scrollSpeed: clampSpeed(step) })),
-      setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: clampCapo(fret) })),
+      /* A null travels through: it is how a reader hands the song's own `{capo: …}` back
+         the job of answering, and clamping it would record «none» instead. */
+      setCapo: (fret) => updateSong((prev) => ({ ...prev, capo: readCapo(fret) })),
       /* Clamped when it is a number and passed through when it is null: null is the reader
          asking for the song's own tempo back, and clamping it into a number would be
          answering a different question. */

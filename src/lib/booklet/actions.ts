@@ -20,13 +20,14 @@ import { accountIdOf, songbookIdOf } from '@/lib/db/ids'
 import { accounts, sections, songbooks, songs, userSongComments, userSongPrefs } from '@/lib/db/schema'
 import { type Entitlements, bookletBrandLine, bookletCustomFooterAllowed } from '@/lib/plans/entitlements'
 import type { LimitReason } from '@/lib/plans/types'
-import { clampCapo, clampSemitones } from '@/lib/prefs/types'
+import { readCapo, readSemitones } from '@/lib/prefs/types'
 import { editableSongbook } from '@/lib/songbooks/access'
 
 /** A reader's own transposition and capo for one song — see `BookletSong.personal` below. */
 export interface PersonalSettings {
-  semitones: number
-  capo: number
+  /** Null on either is «this reader never chose», and the song's own directive answers. */
+  semitones: number | null
+  capo: number | null
 }
 
 export interface BookletSong {
@@ -120,7 +121,9 @@ async function personalSettingsFor(
     .where(and(eq(userSongPrefs.accountId, accountIdOf(user.email)), inArray(songs.slug, songSlugs)))
 
   return new Map(
-    rows.map((row) => [row.songSlug, { semitones: clampSemitones(row.semitones), capo: clampCapo(row.capo) }]),
+    /* Null stays null and the booklet resolves it against the song, the same as the screen:
+       `prepare` is where a reader's answer meets the `{capo: …}` that stands in for it. */
+    rows.map((row) => [row.songSlug, { semitones: readSemitones(row.semitones), capo: readCapo(row.capo) }]),
   )
 }
 

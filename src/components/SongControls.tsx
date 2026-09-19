@@ -22,6 +22,7 @@ import {
   suggestCapo,
 } from '@/lib/music/capo'
 import { type Accidentals, type Spelling, formatChord, parseChord, readChord } from '@/lib/music/chord'
+import { resolvedCapo, resolvedSemitones } from '@/lib/prefs/resolve'
 import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, shapeFor } from '@/lib/music/shapes'
 import {
@@ -61,6 +62,7 @@ export function SongControls({
   chords,
   songCapo,
   songKey,
+  songTranspose,
   semitonesLocked = false,
   broadcastEnabled = true,
 }: {
@@ -87,6 +89,8 @@ export function SongControls({
    * identical until somebody reads a modal song in Nashville numbers.
    */
   songKey: string | null
+  /** What this song's own `{transpose: …}` asks for, or null. Required, for `songCapo`'s reason. */
+  songTranspose: number | null
   /**
    * True only on Strum Together's guest screen: a follower reads the leader's key rather
    * than choosing their own, so the two steppers are disabled and the chip says why.
@@ -104,6 +108,14 @@ export function SongControls({
   const { global, song, setSemitones, setCapo, setAccidentals, setChordDisplay } = usePrefs()
   const metronome = useMetronomeControls()
   const [menu, setMenu] = useState<Menu>(null)
+
+  /*
+   * What this reader answered, or failing that what the song declares. The chips show and
+   * step the resolved number, while the setters write the reader's own — so the first step
+   * away from a song's `{capo: 3}` starts at 3 and is recorded as a choice.
+   */
+  const capo = resolvedCapo(song.capo, songCapo)
+  const semitones = resolvedSemitones(song.semitones, songTranspose)
   const { broadcast } = useStrumTogether()
 
   const broadcasting = broadcastEnabled && broadcast !== null && broadcast !== undefined
@@ -142,8 +154,8 @@ export function SongControls({
    */
   const suggestion = useMemo(
     () =>
-      menu === 'capo' ? suggestCapo(chords, song.semitones, song.capo, global.instrument) : null,
-    [menu, chords, song.semitones, song.capo, global.instrument],
+      menu === 'capo' ? suggestCapo(chords, semitones, capo, global.instrument) : null,
+    [menu, chords, semitones, capo, global.instrument],
   )
   /*
    * One dot per chord, per fret — the menu's own visual, not a summary of it. Gated the
@@ -152,8 +164,8 @@ export function SongControls({
    * more than asking for one.
    */
   const ease = useMemo(
-    () => (menu === 'capo' ? easeByFret(chords, song.semitones, global.instrument) : null),
-    [menu, chords, song.semitones, global.instrument],
+    () => (menu === 'capo' ? easeByFret(chords, semitones, global.instrument) : null),
+    [menu, chords, semitones, global.instrument],
   )
 
   /*
@@ -164,7 +176,7 @@ export function SongControls({
    */
   const chordsPreview = useMemo(() => {
     if (menu !== 'chords') return null
-    const shift = readShift(song.semitones, song.capo)
+    const shift = readShift(semitones, capo)
     return {
       total: distinctChordCount(chords),
       items: previewChords(
@@ -179,8 +191,8 @@ export function SongControls({
   }, [
     menu,
     chords,
-    song.semitones,
-    song.capo,
+    semitones,
+    capo,
     songKey,
     global.accidentals,
     global.notation,
@@ -193,7 +205,7 @@ export function SongControls({
         <button
           type="button"
           className="song-chip-step"
-          onClick={() => move(song.semitones - 1)}
+          onClick={() => move(semitones - 1)}
           disabled={semitonesLocked}
           title="Transpose down"
           aria-label="Lower by a semitone"
@@ -212,28 +224,28 @@ export function SongControls({
           type="button"
           className="song-chip-value"
           onClick={() => move(0)}
-          disabled={semitonesLocked || song.semitones === 0}
+          disabled={semitonesLocked || semitones === 0}
           title={
-            semitonesLocked || song.semitones === 0
-              ? formatSemitones(song.semitones)
+            semitonesLocked || semitones === 0
+              ? formatSemitones(semitones)
               : 'Return to the written key'
           }
           aria-label={
-            song.semitones === 0
-              ? `Key, ${formatSemitones(song.semitones)}`
-              : `Key ${semitoneBadge(song.semitones)}, return to the written key`
+            semitones === 0
+              ? `Key, ${formatSemitones(semitones)}`
+              : `Key ${semitoneBadge(semitones)}, return to the written key`
           }
         >
           Key{' '}
-          <span className={song.semitones === 0 ? 'song-chip-badge' : 'song-chip-badge is-set'}>
-            {semitoneBadge(song.semitones)}
+          <span className={semitones === 0 ? 'song-chip-badge' : 'song-chip-badge is-set'}>
+            {semitoneBadge(semitones)}
           </span>
         </button>
 
         <button
           type="button"
           className="song-chip-step"
-          onClick={() => move(song.semitones + 1)}
+          onClick={() => move(semitones + 1)}
           disabled={semitonesLocked}
           title="Transpose up"
           aria-label="Raise by a semitone"
@@ -250,8 +262,8 @@ export function SongControls({
         title="Choose the capo fret"
       >
         Capo
-        <span className={song.capo === 0 ? 'song-chip-badge' : 'song-chip-badge is-solid'}>
-          {song.capo}
+        <span className={capo === 0 ? 'song-chip-badge' : 'song-chip-badge is-solid'}>
+          {capo}
         </span>
         <IconChevronDown size={11} />
       </button>
@@ -352,7 +364,7 @@ export function SongControls({
 
       {menu === 'capo' && ease !== null && (
         <CapoMenu
-          capo={song.capo}
+          capo={capo}
           songCapo={songCapo}
           suggestion={suggestion}
           ease={ease}
@@ -368,7 +380,7 @@ export function SongControls({
           chordDisplay={global.chordDisplay}
           total={chordsPreview.total}
           preview={chordsPreview.items}
-          capo={song.capo}
+          capo={capo}
           onPick={(value) => {
             setChordDisplay(value)
             setMenu(null)

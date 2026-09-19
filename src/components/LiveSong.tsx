@@ -192,6 +192,7 @@ export function SongHeading({
         chords={chords}
         songCapo={parsed.capo}
         songKey={parsed.key}
+        songTranspose={parsed.transpose}
       />
 
       {/*
@@ -278,7 +279,7 @@ export function LiveMetronome({ children }: { children: ReactNode }) {
  * disagree. `NavSteps` and `Series` are the same four fields, so there is nothing to map.
  */
 export function LiveControlBar({ sequence }: { sequence: Sequence }) {
-  const { song } = useSong()
+  const { song, parsed } = useSong()
   const steps = useSequence(sequence)
-  return <ControlBar songSlug={song.slug} steps={steps} />
+  return <ControlBar songSlug={song.slug} songTranspose={parsed.transpose} steps={steps} />
 }

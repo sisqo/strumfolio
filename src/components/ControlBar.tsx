@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { useMetronomeControls } from '@/components/MetronomeProvider'
 import { usePrefs } from '@/components/PrefsProvider'
+import { resolvedSemitones } from '@/lib/prefs/resolve'
 import { useRole } from '@/components/RoleProvider'
 import { useStrumTogether } from '@/components/StrumTogetherProvider'
 import { StrumTogetherPanel } from '@/components/StrumTogetherPanel'
@@ -65,6 +66,7 @@ type Panel = 'settings' | 'speed' | 'sing' | 'metronome' | null
  */
 export function ControlBar({
   songSlug,
+  songTranspose,
   broadcastEnabled = true,
   steps = null,
   stepsLocked = false,
@@ -77,6 +79,11 @@ export function ControlBar({
    * that is true even when nobody is broadcasting, in which case they say it to nobody.
    */
   songSlug: string
+  /**
+   * What this song's own `{transpose: …}` asks for, so «play» tells the followers the key the
+   * leader is *seeing* — which is the song's when this reader never chose one of their own.
+   */
+  songTranspose: number | null
   /**
    * False only for Strum Together's guest view. `broadcastPlay` would otherwise fire
    * under whichever real account happens to be signed into the browser showing the link
@@ -205,7 +212,7 @@ export function ControlBar({
                * that this reader's own `broadcast` state hasn't caught up with yet.
                */
               if (!running && broadcastEnabled) {
-                void broadcastPlay(songSlug, song.semitones).catch(() => {})
+                void broadcastPlay(songSlug, resolvedSemitones(song.semitones, songTranspose)).catch(() => {})
                 if (isLive) setBroadcastPulse((count) => count + 1)
               }
               toggle()

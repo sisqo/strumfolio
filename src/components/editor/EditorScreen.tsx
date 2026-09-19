@@ -908,10 +908,11 @@ export function EditorScreen({ song }: { song: Song }) {
             chords={chordTokens(parsed)}
             songCapo={parsed.capo}
             songKey={parsed.key}
+            songTranspose={parsed.transpose}
           />
           <SongSheet song={parsed} values={metadataValues(parsed, fields.title, fields.artist)} />
           <div className="bar-spacer" />
-          <ControlBar songSlug={song.slug} />
+          <ControlBar songSlug={song.slug} songTranspose={parsed.transpose} />
         </MetronomeProvider>
       )}
 

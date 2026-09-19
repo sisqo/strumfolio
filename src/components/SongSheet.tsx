@@ -20,6 +20,7 @@ import {
 import { readShift } from '@/lib/music/capo'
 import type { MetadataValues } from '@/lib/chordproMeta'
 import { substituteMetadata } from '@/lib/chordproMeta'
+import { resolvedCapo, resolvedSemitones } from '@/lib/prefs/resolve'
 import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, pickShape } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
@@ -115,7 +116,15 @@ export function SongSheet({
    * settled which — and since v4.1 the reader settles it directly (`readChord`,
    * `GlobalPrefs.accidentals`). No spelling on this page consults a key.
    */
-  const shift = readShift(songPrefs.semitones, songPrefs.capo)
+  /*
+   * What this reader answered, or failing that what the song declares — `{capo: 3}` and
+   * `{transpose: 2}`. Computed once here and passed down, so nothing below has to ask the
+   * question again and no two places can answer it differently.
+   */
+  const capo = resolvedCapo(songPrefs.capo, song.capo)
+  const semitones = resolvedSemitones(songPrefs.semitones, song.transpose)
+
+  const shift = readShift(semitones, capo)
 
   /**
    * How the chords get written down: the reader's notation, and — for Nashville numbers
@@ -206,7 +215,7 @@ export function SongSheet({
         <ChordSummary
           chords={summary}
           as={global.chordDisplay === 'diagrams' ? 'diagrams' : 'fingerings'}
-          capo={songPrefs.capo}
+          capo={capo}
           onPick={setShown}
         />
       )}
@@ -229,7 +238,7 @@ export function SongSheet({
                   accidentals={global.accidentals}
                   chordDisplay={global.chordDisplay}
                   instrument={global.instrument}
-                  capo={songPrefs.capo}
+                  capo={capo}
                   chordShapes={songPrefs.chordShapes}
                   definitions={song.definitions}
                   roomForChords={roomForChords}
@@ -278,7 +287,7 @@ export function SongSheet({
           chord={shown}
           spelling={spelling}
           instrument={global.instrument}
-          capo={songPrefs.capo}
+          capo={capo}
           chordShapes={songPrefs.chordShapes}
           definitions={song.definitions}
           onChangeShape={setChordShape}
