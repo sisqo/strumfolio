@@ -319,6 +319,8 @@ export function parseChordPro(source: string): ParsedSong {
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
   let verbatimRows: string[] | null = null
   let verbatimVariant: 'tab' | 'grid' = 'tab'
+  /** `{start_of_tab: Solo}`'s label, printed above the block exactly as a section's is. */
+  let verbatimLabel = ''
 
   const openSection = (kind: SectionKind): Section => {
     const created: Section = { kind, lines: [] }
@@ -340,8 +342,10 @@ export function parseChordPro(source: string): ParsedSong {
       // swallows the whole rest of the song into a grid nobody can see past.
       if (closingName === 'end_of_tab' || closingName === 'end_of_grid') {
         section ??= openSection(forcedKind ?? 'verse')
+        if (verbatimLabel !== '') section.lines.push({ kind: 'comment', text: verbatimLabel })
         section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
         verbatimRows = null
+        verbatimLabel = ''
       } else {
         // Verbatim, not trimmed: trailing spaces inside one of these rows are as much a
         // part of its alignment as anything else in it.
@@ -378,6 +382,28 @@ export function parseChordPro(source: string): ParsedSong {
       }
 
       const name = DIRECTIVE_ALIAS[rawName]
+
+      /*
+       * A conditional directive — `{comment-guitar: …}`, `{start_of_chorus-piano}` — runs
+       * only when its selector matches the instrument the sheet is being rendered for.
+       * **This parser cannot evaluate one**: it is pure, and the reader's instrument lives
+       * in their preferences, which arrive at the screen and never here.
+       *
+       * So the whole directive is skipped, which is what happened before section labels
+       * existed and has to keep happening. Honouring the base name instead is the tempting
+       * shortcut and is the worse answer twice over: `{start_of_chorus-piano}` fell through
+       * to the generic `start_of_…` branch below and opened a **verse** captioned
+       * «Chorus-piano» — a made-up label on the wrong kind of block — and even done
+       * correctly it would show piano-only content to a guitarist under a heading claiming
+       * it was theirs. Skipping shows nothing that was not meant for this reader; the
+       * lines *inside* the block still render, which is the same thing an unknown
+       * directive has always done.
+       *
+       * Only a name whose base this parser actually knows counts, so `{ccli-number: …}`
+       * and any other genuinely hyphenated directive fall through untouched.
+       */
+      const conditionalBase = rawName.includes('-') ? rawName.slice(0, rawName.indexOf('-')) : null
+      if (conditionalBase !== null && DIRECTIVE_ALIAS[conditionalBase] !== undefined) continue
 
       /**
        * A section's own label, printed above it as a comment so it reaches the screen,
@@ -464,10 +490,12 @@ export function parseChordPro(source: string): ParsedSong {
         case 'start_of_tab':
           verbatimRows = []
           verbatimVariant = 'tab'
+          verbatimLabel = value
           break
         case 'start_of_grid':
           verbatimRows = []
           verbatimVariant = 'grid'
+          verbatimLabel = value
           break
         case 'end_of_verse':
         case 'end_of_chorus':
@@ -514,6 +542,7 @@ export function parseChordPro(source: string): ParsedSong {
   // typed by someone, not something to drop silently for want of an `{end_of_tab}`.
   if (verbatimRows !== null) {
     section ??= openSection(forcedKind ?? 'verse')
+    if (verbatimLabel !== '') section.lines.push({ kind: 'comment', text: verbatimLabel })
     section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
   }
 

@@ -459,6 +459,48 @@ describe('ChordPro format compliance', () => {
     })
   })
 
+  /*
+   * A selector this parser cannot evaluate — it is pure, and the reader's instrument is a
+   * preference that reaches the screen and never this module. Skipping the directive is
+   * what happened before section labels existed; the regression these guard against is the
+   * generic `start_of_…` branch catching `{start_of_chorus-piano}` and opening a *verse*
+   * captioned «Chorus-piano».
+   */
+  describe('conditional directives', () => {
+    it('skips a conditional section rather than inventing a block for it', () => {
+      const song = parseChordPro('{title: T}\n{start_of_chorus-piano}\nword\n{end_of_chorus}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+      assert.deepEqual(song.sections.map((section) => section.kind), ['verse'])
+    })
+
+    it('skips a conditional comment', () => {
+      const song = parseChordPro('{title: T}\n{comment-guitar: open position}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+
+    it('leaves a genuinely hyphenated directive alone', () => {
+      const song = parseChordPro('{title: T}\n{ccli-number: 12345}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+  })
+
+  describe('labels on a tab or a grid', () => {
+    it('prints the name a tab gives itself', () => {
+      const song = parseChordPro('{title: T}\n{start_of_tab: Solo}\ne|--3--\n{end_of_tab}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#Solo'], ['|e|--3--']])
+    })
+
+    it('prints the name a grid gives itself', () => {
+      const song = parseChordPro('{title: T}\n{start_of_grid: Intro}\n| Am |\n{end_of_grid}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#Intro'], ['|| Am |']])
+    })
+
+    it('says nothing above an unnamed one', () => {
+      const song = parseChordPro('{title: T}\n{sot}\ne|--3--\n{eot}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['|e|--3--']])
+    })
+  })
+
   describe('{capo}', () => {
     it('reads the fret the song says it is played at', () => {
       assert.equal(parseChordPro('{title: T}\n{capo: 3}\nword').capo, 3)
@@ -528,6 +570,8 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a chorus reference': '{title: T}\nword\n{chorus}',
     'every comment spelling': '{title: T}\n{ci: a}\n{comment_box: b}\n{highlight: c}\nword',
     'a column break': '{title: T}\nfirst\n{cb}\nsecond',
+    'a conditional section': '{title: T}\n{start_of_chorus-piano}\nword\n{end_of_chorus}',
+    'a labelled tab': '{title: T}\nfirst\n{start_of_tab: Solo}\ne|--3--\n{end_of_tab}',
     'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',
     'a verse marked by hand': '{title: T}\n{sov}\none\n\ntwo\n{eov}',
     'an escaped bracket': '{title: T}\nsay \\[this\\]\nsecond',
