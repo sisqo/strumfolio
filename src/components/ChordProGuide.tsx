@@ -124,7 +124,23 @@ Was [Em]blind, but [D]now I [G]see.
           the short ones.
         </p>
         <p>
-          Anything else — <code>{'{key: ...}'}</code>, <code>{'{capo: ...}'}</code>, and the
+          <strong>Everything else the format defines is kept and shown</strong> in the
+          &quot;About this song&quot; panel, behind a tap beside the artist:{' '}
+          <code>{'{album}'}</code>, <code>{'{composer}'}</code>, <code>{'{lyricist}'}</code>,{' '}
+          <code>{'{year}'}</code>, <code>{'{copyright}'}</code>, <code>{'{duration}'}</code>,{' '}
+          <code>{'{ccli}'}</code>, <code>{'{subtitle}'}</code> and the two sorting keys{' '}
+          <code>{'{sorttitle}'}</code> and <code>{'{sortartist}'}</code>. Behind a tap because
+          none of them is wanted mid-song, and the words need the room.
+        </p>
+        <p>
+          <strong><code>{'{key: ...}'}</code></strong> is the one that also does something: it
+          names the note the Nashville numbers count from. Without it Strumfolio works the key
+          out from the chords, which is a good guess and only a guess — so when the song says,
+          the song wins. A key written in a notation we don&apos;t read (German{' '}
+          <code>H</code>, for instance) falls back to the guess rather than to C.
+        </p>
+        <p>
+          Anything else — <code>{'{capo: ...}'}</code> and the
           typesetting directives a printed songbook needs (<code>{'{textfont}'}</code>,{' '}
           <code>{'{columns}'}</code>, <code>{'{new_page}'}</code>, <code>{'{define}'}</code>) — is
           read and silently ignored, never shown to whoever opens the song. Ignored, not lost: the
@@ -165,9 +181,9 @@ Was [Em]blind, but [D]now I [G]see.
           <li>
             <code>{'{comment: ...}'}</code> (or <code>{'{c: ...}'}</code>) — a spoken aside, shown
             between the lines. Good for &quot;intro&quot;, &quot;x2&quot;, stage directions.{' '}
-            <code>{'{comment_italic}'}</code>, <code>{'{ci}'}</code>, <code>{'{comment_box}'}</code>{' '}
-            and <code>{'{highlight}'}</code> all mean the same thing here — they differ only in how
-            a printed page frames them, and Strumfolio frames none of them. Not{' '}
+            <code>{'{comment_italic}'}</code> and <code>{'{ci}'}</code> read the same way, since
+            an aside here is already set in italics. <code>{'{comment_box}'}</code> draws a box
+            around it and <code>{'{highlight}'}</code> picks it out in colour. Not{' '}
             <code>{'{cb}'}</code>, which is a column break and not a comment at all.
           </li>
           <li>
@@ -235,6 +251,26 @@ Was [Em]blind, but [D]now I [G]see.
             ordinary backslash. Write the long line as one line.
           </li>
         </ul>
+
+        <h2>Putting a value inside the words</h2>
+        <p>
+          <code>%&#123;artist&#125;</code> anywhere in a line becomes the artist —{' '}
+          <code>Written by %&#123;artist&#125;</code> reads as you&apos;d expect. Any of the
+          fields above can be named that way.
+        </p>
+        <p>
+          There&apos;s a conditional form too:{' '}
+          <code>%&#123;artist|by %&#123;&#125;&#125;</code> prints &quot;by …&quot; only when
+          there <em>is</em> an artist, and nothing at all when there isn&apos;t — the inner{' '}
+          <code>%&#123;&#125;</code> stands for the value just named. Add a third part for the
+          other case: <code>%&#123;artist|by %&#123;&#125;|traditional&#125;</code>. A name
+          Strumfolio doesn&apos;t hold comes out empty rather than printing itself.
+        </p>
+        <p>
+          The song file keeps the placeholder exactly as you wrote it — what you see on the
+          page is the value, what you get back from an export is{' '}
+          <code>%&#123;artist&#125;</code>.
+        </p>
 
         <h2>More than one song in a paste</h2>
         <p>Split songs with one of these, and only these:</p>

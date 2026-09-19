@@ -100,8 +100,45 @@ which is the page that documents all of it.
 
 The format reference is the [cheat
 sheet](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/), and compliance was
-brought up to it on 2026-09-19. What is deliberately **not** followed, each argued where
-it lives rather than here:
+brought up to it on 2026-09-19.
+
+**The rule that governs the import path: understood must never mean deleted.**
+`isDroppedDialectDirective` removes any directive it recognises, on the assumption that a
+column is taking the value. For `key`, `copyright`, `ccli`, `duration`, `capo` and
+`subtitle` no column takes it, so that line was the only copy anybody had and the importer
+deleted it — a songbook app deleting a copyright line being the case that makes the shape
+obvious. `KEPT_IN_BODY` (`import/deduce.ts`) is now the whole answer to «what does the
+importer keep»: **a `Field` with no column belongs in it**, and nothing but that list
+connects the two facts.
+
+**Where each field lives**, since «handled» means four different things here:
+
+| Kind | Fields | Where |
+|---|---|---|
+| Column, stripped from the body, rewritten on export | `title` `artist` `tags` `link1..3` `songbook` `division` | `songs.*` |
+| Body, reread every time the song opens | `tempo` `time` `capo` `key` | no column, by decision |
+| Body, shown and never acted on | `album` `composer` `lyricist` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
+| Body, kept and never shown to a reader | the ~30 typesetting directives | editor only, graphic and raw |
+
+- **`{key}` beats `estimateKey`**, reversing what `import/CLAUDE.md` calls «archival only».
+  The estimate is a guess and is weakest exactly where a file bothers to declare one. A key
+  this app cannot read (`{key: H}`, German) falls back to the estimate and never to zero.
+- **`{subtitle}`/`{st}` is decided by `sniffDialect`**, not by the reader: the artist in an
+  OnSong file and consumed into that column, a subtitle everywhere else. Measured first — of
+  223 stored songs 37 carry a `{subtitle:}` and **all 37 hold what their artist column
+  holds**, which is why `songInfoRows` refuses to print a subtitle that only repeats the
+  artist.
+- **`%{…}` is resolved at render and never at parse**, both forms. A placeholder swapped for
+  a value of a different length at parse time would slide every comment anchored below it,
+  and the file has to keep what its writer typed for the export to hand it back.
+  `parseLyricLine` therefore keeps a placeholder *whole* through word splitting — the
+  conditional form contains a space, and a split one could never be put together again.
+- **The four comment spellings are four values in the parse and three looks on screen.**
+  `plain` and `italic` coincide because this app's comment style *is* muted italic; `box` and
+  `highlight` asked for a frame and now get one. Every comment this app generates — a section
+  label, `{chorus}`, a tab's name — is `plain`.
+
+What is deliberately **not** followed, each argued where it lives rather than here:
 
 - **`{st}`/`{subtitle}` is the artist**, which is OnSong's convention and not the
   specification's — `import/dialect.ts` has the argument. Moving it would change how every
@@ -124,7 +161,8 @@ it lives rather than here:
   on how many lyric lines a song has» is that rule as a test, and is the cheapest check
   that a new construct is safe.
 
-- **`{capo}` is stated, never applied** (decided 2026-09-19). `parseChordPro` reads it into
+- **`{capo}` is stated, never applied** for now (decided 2026-09-19; Phase 4 of the plan
+  reverses it once `user_song_prefs.capo` is nullable). `parseChordPro` reads it into
   `ParsedSong.capo` and the Capo menu says «Written with the capo on fret 3» — a sentence
   with no button beside it. It does **not** reach `user_song_prefs.capo`, which is
   `NOT NULL DEFAULT 0` and therefore spells «no capo» and «never chose» with one value:
