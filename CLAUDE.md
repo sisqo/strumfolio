@@ -787,23 +787,40 @@ three days. Nothing can be delivered before the first live purchase, which the d
 makes impossible, so the window is safe rather than lucky — but the secret belongs in Production
 before anything is ever bought.
 
-**One gate sits in front of every one of them: the live domain must be approved.**
-`strumfolio.com` was submitted on 2026-09-19 — `chedom_01m2we9rfyfcy7jtwpnr90rcvm`,
-`pending_review`, readable from here with `client.checkoutDomains.get`, so the status needs no
-browser. Approval is what unlocks the **default payment link**, a field in Checkout Settings →
-General whose own text reads «a default payment link is required to create a transaction».
-`startPaddleCheckout` creates one on **every** view of `/checkout/[plan]`, so until that field
-holds a value nothing is sellable at all, whatever else is configured.
+**The gate that sat in front of all of them was the live domain, and it opened on 2026-09-19.**
+`strumfolio.com` (`chedom_01m2we9rfyfcy7jtwpnr90rcvm`) went from `pending_review` to `approved`
+in about forty minutes, and **Apple Pay came out `verified` with it** — the domain-association
+file under `.well-known/` was never hosted, so that step can be skipped and checked rather than
+done. `client.checkoutDomains.get` reads the status, so none of this needs a browser.
 
-**And the field fails silently until then**, which is the half worth not rediscovering: typing a
+Approval is what unlocks the **default payment link**, a field in Checkout Settings → General
+whose own text reads «a default payment link is required to create a transaction».
+`startPaddleCheckout` creates one on **every** view of `/checkout/[plan]`, so until that field
+holds a value nothing is sellable at all, whatever else is configured. It is now
+`https://strumfolio.com/pay` — **not the home page**, because that URL is where Paddle appends
+`?_ptxn=…` for its own dunning emails and only `/pay` carries Paddle.js without a session.
+
+**Before approval the field fails silently**, which is the half worth not rediscovering: typing a
 URL into it and pressing Save answers «Checkout settings saved», persists every other change made
 on that same form, and leaves the field **empty on reload**, with no error anywhere. Measured
-2026-09-19. Read it as «the domain is not approved yet», not as a typo in the URL.
+2026-09-19, on both sides of the approval — it took the value and kept it the moment the domain
+turned `approved`. Read an empty field as «the domain is not approved yet», never as a typo.
 
-So the live `PADDLE_*` variables and any code change that depends on them ship **together, after
-approval** — never the variables after the push. `/pricing` reads `paddleCheckoutEnabled()` at
-module scope, so they are baked at build time, and adding one later needs the `vercel redeploy`
-that the auto-mode classifier blocks.
+**Production holds all five `PADDLE_*` variables since 2026-09-19**: `PADDLE_API_KEY`,
+`NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`, `NEXT_PUBLIC_PADDLE_ENV=production`,
+`PADDLE_NOTIFICATION_WEBHOOK_SECRET` and `PADDLE_PRICE_IDS`. They were set **before** the push
+that bakes them, which is the required order and not a preference: `/pricing` reads
+`paddleCheckoutEnabled()` at module scope, so a variable added after a deploy needs the `vercel
+redeploy` that the auto-mode classifier blocks. Any ordinary forward commit does the baking.
+
+**The live API key carries three permissions and no others**, derived from the calls rather than
+guessed — the whole app makes exactly seven, on three entities: `transactions.create`;
+`subscriptions.get`/`update`/`cancel`/`previewUpdate`; `discounts.create`/`update`. So
+**Transactions write, Subscriptions read+write, Discounts read+write**. Nothing else, and
+**Adjustments write above all**: that is the power to issue refunds, and no code path here issues
+one — the webhook only *receives* `adjustment.*`, and it authenticates with the signing secret,
+never with this key. Products and Prices are absent too, since the ids come from the environment
+and the app never asks Paddle for a price.
 
 Two more things the dashboard holds that are decisions rather than defaults, both set 2026-09-19.
 **Sales tax settings** is «Price includes tax»: it was «Automatic based on location», i.e. the
