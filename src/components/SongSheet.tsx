@@ -113,7 +113,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
    * one thing the notation promises never to do.
    */
   const spelling = useMemo(
-    () => spellingFor(global.notation, () => chordTokens(song), shift),
+    () => spellingFor(global.notation, () => chordTokens(song), shift, song.key),
     [global.notation, song, shift],
   )
 

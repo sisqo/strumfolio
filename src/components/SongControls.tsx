@@ -60,6 +60,7 @@ export function SongControls({
   songSlug,
   chords,
   songCapo,
+  songKey,
   semitonesLocked = false,
   broadcastEnabled = true,
 }: {
@@ -79,6 +80,13 @@ export function SongControls({
    * simply forgot to pass it, which is the quiet kind of wrong this repo keeps naming.
    */
   songCapo: number | null
+  /**
+   * The key this song's own `{key: …}` names, or null when it does not say. Required for
+   * `songCapo`'s reason: a screen that forgot to pass it would silently fall back to
+   * guessing the key from the chords, which is the behaviour this replaced and which looks
+   * identical until somebody reads a modal song in Nashville numbers.
+   */
+  songKey: string | null
   /**
    * True only on Strum Together's guest screen: a follower reads the leader's key rather
    * than choosing their own, so the two steppers are disabled and the chip says why.
@@ -163,12 +171,21 @@ export function SongControls({
         chords,
         shift,
         global.accidentals,
-        spellingFor(global.notation, () => chords, shift),
+        spellingFor(global.notation, () => chords, shift, songKey),
         global.instrument,
         3,
       ),
     }
-  }, [menu, chords, song.semitones, song.capo, global.accidentals, global.notation, global.instrument])
+  }, [
+    menu,
+    chords,
+    song.semitones,
+    song.capo,
+    songKey,
+    global.accidentals,
+    global.notation,
+    global.instrument,
+  ])
 
   return (
     <div className="song-chips">

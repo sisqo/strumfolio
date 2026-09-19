@@ -1047,6 +1047,7 @@ function FollowedSong({
           songSlug={song.data.slug}
           chords={chordTokens(parsed)}
           songCapo={parsed.capo}
+          songKey={parsed.key}
           semitonesLocked={song.following}
           broadcastEnabled={false}
         />

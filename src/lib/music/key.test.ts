@@ -80,15 +80,15 @@ describe('spellingFor', () => {
     }
 
     for (const notation of ['int', 'it', 'de'] as const) {
-      const spelling = spellingFor(notation, trap, 3)
+      const spelling = spellingFor(notation, trap, 3, null)
       assert.equal(spelling.notation, notation)
       assert.equal(spelling.tonic, 0)
     }
   })
 
   it('numbers from the song own key rather than from C', () => {
-    assert.equal(spellingFor('nash', () => ['Am', 'F', 'C', 'G', 'Am'], 0).tonic, 9)
-    assert.equal(spellingFor('nash', () => ['Bb', 'Eb', 'F', 'Gm7', 'Bb'], 0).tonic, 10)
+    assert.equal(spellingFor('nash', () => ['Am', 'F', 'C', 'G', 'Am'], 0, null).tonic, 9)
+    assert.equal(spellingFor('nash', () => ['Bb', 'Eb', 'F', 'Gm7', 'Bb'], 0, null).tonic, 10)
   })
 
   /*
@@ -98,15 +98,15 @@ describe('spellingFor', () => {
    */
   it('moves the tonic by the same shift as the chords', () => {
     const tokens = () => ['Am', 'F', 'C', 'G', 'Am']
-    assert.equal(spellingFor('nash', tokens, 2).tonic, 11)
-    assert.equal(spellingFor('nash', tokens, -2).tonic, 7)
-    assert.equal(spellingFor('nash', tokens, 3).tonic, 0)
-    assert.equal(spellingFor('nash', tokens, 12).tonic, 9)
+    assert.equal(spellingFor('nash', tokens, 2, null).tonic, 11)
+    assert.equal(spellingFor('nash', tokens, -2, null).tonic, 7)
+    assert.equal(spellingFor('nash', tokens, 3, null).tonic, 0)
+    assert.equal(spellingFor('nash', tokens, 12, null).tonic, 9)
   })
 
   it('lands on C for a song with no chords, which has nothing to number anyway', () => {
-    assert.equal(spellingFor('nash', () => [], 0).tonic, 0)
-    assert.equal(spellingFor('nash', () => ['Ritornello', 'x2'], 0).tonic, 0)
+    assert.equal(spellingFor('nash', () => [], 0, null).tonic, 0)
+    assert.equal(spellingFor('nash', () => ['Ritornello', 'x2'], 0, null).tonic, 0)
   })
 })
 
@@ -124,7 +124,7 @@ describe('a Nashville sheet reads the same at every shift', () => {
 
   /** Exactly what the sheet does: one `Spelling` for the song, every chord through it. */
   const sheet = (shift: number, accidentals: 'sharp' | 'flat' = 'sharp'): string[] => {
-    const spelling = spellingFor('nash', () => tokens, shift)
+    const spelling = spellingFor('nash', () => tokens, shift, null)
     return tokens.map((token) =>
       formatChord(readChord(parseChord(token)!, shift, accidentals), spelling),
     )
@@ -145,5 +145,48 @@ describe('a Nashville sheet reads the same at every shift', () => {
   it('prints them the same for a reader who asked for flats', () => {
     assert.deepEqual(sheet(0, 'flat'), sheet(0, 'sharp'))
     assert.deepEqual(sheet(5, 'flat'), sheet(5, 'sharp'))
+  })
+})
+
+/*
+ * `{key: …}` beats the estimate, which reverses what this repo held until 2026-09-19.
+ * The estimate is a guess; a declared key is whoever wrote the file saying what they wrote,
+ * and a file bothers to say it exactly where the guess is weakest.
+ */
+describe('a key the song declares', () => {
+  const ambiguous = () => ['Am', 'F', 'C', 'G', 'Am']
+
+  it('decides the tonic instead of the chords', () => {
+    assert.equal(spellingFor('nash', ambiguous, 0, 'C').tonic, 0)
+    assert.equal(spellingFor('nash', ambiguous, 0, 'F').tonic, 5)
+  })
+
+  it('reads the Italian spelling too, like everything else that takes a chord', () => {
+    assert.equal(spellingFor('nash', ambiguous, 0, 'Sol').tonic, 7)
+    assert.equal(spellingFor('nash', ambiguous, 0, 'Sib').tonic, 10)
+  })
+
+  it('takes the minor of a key without moving it — the tonic is the root', () => {
+    assert.equal(spellingFor('nash', ambiguous, 0, 'Am').tonic, 9)
+  })
+
+  /* C is pitch class 0, so `??` and never `||`: a song in C is not a song with no key. */
+  it('does not mistake C for no answer', () => {
+    assert.equal(spellingFor('nash', () => ['Bb', 'Eb', 'F'], 0, 'C').tonic, 0)
+  })
+
+  it('travels with the chords, exactly as the estimate does', () => {
+    assert.equal(spellingFor('nash', ambiguous, 2, 'C').tonic, 2)
+    assert.equal(spellingFor('nash', ambiguous, -2, 'C').tonic, 10)
+  })
+
+  it('falls back to the estimate for a key it cannot read, never to C', () => {
+    // German `H` is B, and `readRoots` deliberately does not read German.
+    assert.equal(spellingFor('nash', ambiguous, 0, 'H').tonic, 9)
+    assert.equal(spellingFor('nash', ambiguous, 0, 'nonsense').tonic, 9)
+  })
+
+  it('is ignored entirely when the reader is not on Nashville numbers', () => {
+    assert.equal(spellingFor('int', ambiguous, 0, 'F').tonic, 0)
   })
 })

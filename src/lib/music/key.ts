@@ -163,8 +163,32 @@ export function spellingFor(
   notation: Notation,
   chordTokens: () => string[],
   shift: number,
+  declaredKey: string | null,
 ): Spelling {
   if (notation !== 'nash') return { notation, tonic: 0 }
 
-  return { notation, tonic: mod12((estimateKey(chordTokens())?.pc ?? 0) + shift) }
+  return { notation, tonic: mod12(tonicOf(chordTokens, declaredKey) + shift) }
+}
+
+/**
+ * The note the numbers count from: what the song says, or failing that what the chords
+ * suggest.
+ *
+ * **The declared key wins**, which reverses the rule this repo held until 2026-09-19 —
+ * `import/CLAUDE.md` called an imported key «archival only» and let the estimate stand. The
+ * estimate is a guess and says so; `{key: Sol}` is whoever wrote the file stating what they
+ * wrote, and it is exactly where the guess is weakest that a file bothers to say it — a
+ * modal song, or one with too few chords to triangulate from.
+ *
+ * `??` and not `||`, because C is pitch class 0 and a song in C is not a song with no key.
+ *
+ * A key this app cannot read falls back to the estimate rather than to zero: `{key: H}` is
+ * German for B and `readRoots` does not read German (`music/CLAUDE.md` says why), and
+ * answering «C» to a question we did not understand would renumber a whole sheet against a
+ * key nobody named.
+ */
+function tonicOf(chordTokens: () => string[], declaredKey: string | null): number {
+  const declared = declaredKey === null ? null : (parseChord(declaredKey)?.root ?? null)
+
+  return declared ?? estimateKey(chordTokens())?.pc ?? 0
 }

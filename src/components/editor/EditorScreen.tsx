@@ -844,7 +844,12 @@ export function EditorScreen({ song }: { song: Song }) {
             * see the song the way it will be read, transposition included — which is why
             * the row that sets it comes along with the sheet rather than only the bar.
             */}
-          <SongControls songSlug={song.slug} chords={chordTokens(parsed)} songCapo={parsed.capo} />
+          <SongControls
+            songSlug={song.slug}
+            chords={chordTokens(parsed)}
+            songCapo={parsed.capo}
+            songKey={parsed.key}
+          />
           <SongSheet song={parsed} />
           <div className="bar-spacer" />
           <ControlBar songSlug={song.slug} />

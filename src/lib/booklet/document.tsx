@@ -755,7 +755,7 @@ function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals
    * `bookletToBlob` for that reason — the notation is the reader's and travels the whole
    * document, the tonic belongs to whichever song is being laid out.
    */
-  const spelling = spellingFor(notation, () => chordTokens(parsed), shift)
+  const spelling = spellingFor(notation, () => chordTokens(parsed), shift, parsed.key)
 
   const chordLabel = (raw: string | null): string | null => {
     if (raw === null) return null
