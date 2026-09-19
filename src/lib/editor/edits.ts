@@ -11,8 +11,10 @@ import {
   type ChordAt,
   type LyricsBlock,
   type SongDocument,
+  fromSource,
   sectionsOf,
   shiftChords,
+  toSource,
 } from './document'
 import { wordStarts } from './syllables'
 
@@ -355,11 +357,27 @@ const TAB_TEMPLATE_ROWS = [
   'E|--------------------------------------',
 ]
 
+/**
+ * Adds a directive line after `index` — the graphic editor's «add field» menu.
+ *
+ * The document is rebuilt from its own source rather than having a block pushed into it, so
+ * what lands is exactly what that line *means*: `{start_of_grid: …}` opens a verbatim block
+ * and not a directive chip, which a hand-built block would have got wrong until the next
+ * save. One rule for what a line is, and it is `fromSource`'s.
+ */
+export function addField(document: SongDocument, index: number, line: string): SongDocument {
+  const lines = toSource(document).split(/\r?\n/)
+  lines.splice(Math.min(index + 1, lines.length), 0, line)
+
+  return { ...fromSource(lines.join(document.eol)), eol: document.eol }
+}
+
 /** Inserts a blank tab after `index`, the toolbar's "Tab" command. */
 export function insertTab(document: SongDocument, index: number): SongDocument {
   return insertLineAfter(document, index, {
     kind: 'tab',
     startDirective: 'start_of_tab',
+    startValue: '',
     endDirective: 'end_of_tab',
     rows: [...TAB_TEMPLATE_ROWS],
     variant: 'tab',
@@ -448,6 +466,8 @@ export function toggleSection(
         directive: DIRECTIVE_FOR[section][edge],
         edge,
         section,
+        // Swapping a marker for another kind keeps the marker's own label, whatever it said.
+        value: block.kind === 'boundary' ? block.value : '',
       }
     })
 
@@ -457,9 +477,10 @@ export function toggleSection(
   const { from, to } = runAround(blocks, index)
   const wrapped = [
     ...blocks.slice(0, from),
-    { kind: 'boundary' as const, directive: DIRECTIVE_FOR[section].start, edge: 'start' as const, section },
+    // Markers the toolbar writes around a run: unlabelled, since nobody has named anything.
+    { kind: 'boundary' as const, directive: DIRECTIVE_FOR[section].start, edge: 'start' as const, section, value: '' },
     ...blocks.slice(from, to + 1),
-    { kind: 'boundary' as const, directive: DIRECTIVE_FOR[section].end, edge: 'end' as const, section },
+    { kind: 'boundary' as const, directive: DIRECTIVE_FOR[section].end, edge: 'end' as const, section, value: '' },
     ...blocks.slice(to + 1),
   ]
 

@@ -13685,6 +13685,45 @@
     background: var(--accent-soft);
   }
 
+  /*
+   * The «add a field» menu in the editor's toolbar. It hangs off its own button rather than
+   * off the row, unlike the reading screen's chip menus: this row scrolls sideways on a
+   * phone, so a menu anchored to the row would drift away from the button that opened it.
+   */
+  .editor-field-menu {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .editor-field-list {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    left: 0;
+    z-index: 30;
+    width: 16rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    text-align: start;
+  }
+
+  .editor-field-option {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.4375rem 0.625rem;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    text-align: start;
+  }
+
+  .editor-field-option:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
   .capo-written {
     padding: 0.5rem 0.75rem;
     border-radius: var(--r-sm);

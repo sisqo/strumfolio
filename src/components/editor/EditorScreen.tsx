@@ -45,7 +45,8 @@ import {
   removeRange,
 } from '@/lib/editor/clipboard'
 import { type SongDocument, fromSource, readLyricLine, toSource } from '@/lib/editor/document'
-import { addChord, insertTab, removeLine, toggleComment, toggleSection } from '@/lib/editor/edits'
+import { FIELD_GROUPS, fieldLine } from '@/lib/editor/fields'
+import { addChord, addField, insertTab, removeLine, toggleComment, toggleSection } from '@/lib/editor/edits'
 import { deleteSong, saveSong } from '@/lib/import/actions'
 import { saveMessage, type SaveRefusal } from '@/lib/import/types'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
@@ -158,6 +159,8 @@ export function EditorScreen({ song }: { song: Song }) {
   const [focus, setFocus] = useState<Caret | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  /** Whether the «add a field» menu is open — one menu, so a boolean is the whole of it. */
+  const [fieldsOpen, setFieldsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Kept apart from `error` so an unrelated failure cannot overwrite it, same as `SongForm`.
   const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
@@ -711,6 +714,61 @@ export function EditorScreen({ song }: { song: Song }) {
                   <IconPlus size={15} />
                   Chord
                 </button>
+
+                {/*
+                  * Everything else the format lets a song carry. A menu rather than more
+                  * buttons because the list is forty long and none of it is reached for
+                  * often — and only what lives in the *body*: the title, the artist, the
+                  * tags and the links each have an input of their own in this editor, and a
+                  * line typed for one of them here would be stripped at the next save. A
+                  * menu entry that quietly disappears costs more than a complete list buys.
+                  */}
+                <div className="editor-field-menu">
+                  <button
+                    type="button"
+                    className="btn btn-inset btn-sm"
+                    aria-expanded={fieldsOpen}
+                    onClick={() => setFieldsOpen((open) => !open)}
+                    title="Add a field"
+                  >
+                    <IconPlus size={15} />
+                    Field
+                  </button>
+
+                  {fieldsOpen && (
+                    <>
+                      <div
+                        className="menu-overlay"
+                        onClick={() => setFieldsOpen(false)}
+                        aria-hidden
+                      />
+                      <div className="chip-menu editor-field-list" role="menu">
+                        {FIELD_GROUPS.map((group) => (
+                          <div key={group.title}>
+                            <div className="chip-menu-head">
+                              <span className="control-name-label">{group.title}</span>
+                            </div>
+                            {group.options.map((option) => (
+                              <button
+                                key={option.name}
+                                type="button"
+                                role="menuitem"
+                                className="editor-field-option"
+                                onClick={() => {
+                                  command((document) => addField(document, caret.line, fieldLine(option)))
+                                  setFieldsOpen(false)
+                                }}
+                              >
+                                <span>{option.label}</span>
+                                <code className="editor-hint">{`{${option.name}}`}</code>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {COMMANDS.map((entry) => (
                   <button

@@ -77,7 +77,9 @@ function closing(opener: Boundary): Boundary {
         ? 'eob'
         : 'end_of_bridge'
 
-  return { kind: 'boundary', directive, edge: 'end', section: opener.section }
+  // A closing directive the app writes to balance an open section, so there is no label:
+  // only the opening one a person typed ever carries a name.
+  return { kind: 'boundary', directive, edge: 'end', section: opener.section, value: '' }
 }
 
 /**

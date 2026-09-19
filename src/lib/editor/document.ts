@@ -36,7 +36,22 @@ export type Block =
   /** `{c: ...}`, keeping the spelling the file used. */
   | { kind: 'comment'; directive: string; text: string }
   /** `{soc}`, `{eoc}`, `{sob}`, `{eob}`, again as written. */
-  | { kind: 'boundary'; directive: string; edge: 'start' | 'end'; section: SectionKind }
+  /**
+   * `{soc}`, `{eoc}`, `{sob}`, `{eob}`, again as written — and with the label a section may
+   * give itself, which is the whole reason `value` is here.
+   *
+   * It was dropped until 2026-09-19: `lineOf` wrote the directive back with its name alone,
+   * so `{start_of_chorus: Chorus 2}` came out of a visit to the editor as
+   * `{start_of_chorus}`. Nothing failed, nothing warned, and the only copy of that label was
+   * gone. Caught by the test that round-trips every field the editor offers to add.
+   */
+  | {
+      kind: 'boundary'
+      directive: string
+      edge: 'start' | 'end'
+      section: SectionKind
+      value: string
+    }
   /** Any other directive, kept verbatim because something else may depend on it. */
   | { kind: 'directive'; raw: string }
   /**
@@ -59,6 +74,12 @@ export type Block =
   | {
       kind: 'tab'
       startDirective: string
+      /**
+       * The name the block gives itself — `{start_of_tab: Solo}`. Empty for the ordinary
+       * unnamed block. Kept for the same reason a section's label is: written back without
+       * it, the only copy of that name was gone.
+       */
+      startValue: string
       endDirective: string | null
       rows: string[]
       /**
@@ -197,6 +218,7 @@ export function fromSource(source: string): SongDocument {
         blocks.push({
           kind: 'tab',
           startDirective: directive[1],
+          startValue: directive[2] ?? '',
           endDirective,
           rows,
           variant: GRID_START_NAMES.has(name) ? 'grid' : 'tab',
@@ -211,7 +233,12 @@ export function fromSource(source: string): SongDocument {
 
       const boundary = BOUNDARIES[name]
       if (boundary) {
-        blocks.push({ kind: 'boundary', directive: directive[1], ...boundary })
+        blocks.push({
+          kind: 'boundary',
+          directive: directive[1],
+          ...boundary,
+          value: directive[2] ?? '',
+        })
         continue
       }
 
@@ -265,12 +292,14 @@ function lineOf(block: Block, eol: string): string {
     case 'comment':
       return block.text === '' ? `{${block.directive}}` : `{${block.directive}: ${block.text}}`
     case 'boundary':
-      return `{${block.directive}}`
+      return block.value === '' ? `{${block.directive}}` : `{${block.directive}: ${block.value}}`
     case 'lyrics':
       return writeLyricLine(block.text, block.chords)
     case 'tab':
       return [
-        `{${block.startDirective}}`,
+        block.startValue === ''
+          ? `{${block.startDirective}}`
+          : `{${block.startDirective}: ${block.startValue}}`,
         ...block.rows,
         `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
       ].join(eol)
