@@ -97,9 +97,79 @@ export interface Section {
   lines: Line[]
 }
 
+/**
+ * What the file says about the song that this app stores nowhere and only shows.
+ *
+ * Read as written and never interpreted — a year is `string` because a file may say «1979»
+ * or «circa 1979», and a duration «3:40» or «220». Nothing here is parsed into a number,
+ * because nothing here is used for anything but being printed back to a reader; the moment
+ * one of these earns a behaviour it stops belonging in this bag and gets a field of its own,
+ * the way `key` did.
+ *
+ * All of it lives in the body and none of it in a column, which is what `KEPT_IN_BODY`
+ * guarantees: the line the file carried is the only copy, and an export hands it back
+ * exactly where the writer put it.
+ */
+export interface SongMetadata {
+  album: string | null
+  composer: string | null
+  lyricist: string | null
+  year: string | null
+  copyright: string | null
+  duration: string | null
+  ccli: string | null
+  /** Sorting keys, for a list this app does not build — shown so nothing in the file is invisible. */
+  sortTitle: string | null
+  sortArtist: string | null
+}
+
+const EMPTY_METADATA: SongMetadata = {
+  album: null,
+  composer: null,
+  lyricist: null,
+  year: null,
+  copyright: null,
+  duration: null,
+  ccli: null,
+  sortTitle: null,
+  sortArtist: null,
+}
+
+/** Directive name → the field of `SongMetadata` it fills. Everything here is text and only text. */
+const METADATA_FIELD: Record<string, keyof SongMetadata> = {
+  album: 'album',
+  composer: 'composer',
+  lyricist: 'lyricist',
+  year: 'year',
+  copyright: 'copyright',
+  duration: 'duration',
+  length: 'duration',
+  ccli: 'ccli',
+  'ccli-number': 'ccli',
+  ccli_number: 'ccli',
+  sorttitle: 'sortTitle',
+  sortartist: 'sortArtist',
+}
+
 export interface ParsedSong {
   title: string | null
   artist: string | null
+  /**
+   * `{subtitle: …}`, which the specification means literally and OnSong redefined as the
+   * artist. **This reader always takes it literally**, and can, because the ambiguity is
+   * settled one layer up: `import/dialect.ts` consumes it into the artist column for an
+   * OnSong file and strips the line, so a body that still carries one is a body where it
+   * really is a subtitle. See that module's header for the measurement behind it.
+   */
+  subtitle: string | null
+  /**
+   * `{key: …}` as the song was written, verbatim — «G», «Am», «Sol». The one piece of
+   * metadata here that *does* something: it names the note Nashville numbers count from,
+   * where otherwise `estimateKey` guesses it from the chords. Null when the song does not
+   * say, which is nearly always, and then the guess stands.
+   */
+  key: string | null
+  metadata: SongMetadata
   tags: string[]
   /**
    * Name of the songbook this song *starts* in. Only ever an initial value:
@@ -202,9 +272,10 @@ const META_VALUE = /^([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*)$/
 const DIRECTIVE_ALIAS: Record<string, string> = {
   t: 'title',
   title: 'title',
-  st: 'artist',
-  subtitle: 'artist',
+  st: 'subtitle',
+  subtitle: 'subtitle',
   artist: 'artist',
+  key: 'key',
   tags: 'tags',
   tag: 'tags',
   canzoniere: 'songbookName',
@@ -226,6 +297,9 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   bpm: 'tempo',
   time: 'timeSignature',
   capo: 'capo',
+  /* Everything the file says and nothing acts on. Mapped to one case below rather than to a
+     case each: none of them is interpreted, so none of them needs its own. */
+  ...Object.fromEntries(Object.keys(METADATA_FIELD).map((name) => [name, 'metadata'])),
   /* Every shape of comment the format defines collapses to one here. `comment_italic` and
      `comment_box` differ from `comment` only in how a PDF typesetter draws the box around
      them, and this app draws no box; `highlight` is the same sentence again under a third
@@ -302,6 +376,9 @@ export function parseChordPro(source: string): ParsedSong {
   const song: ParsedSong = {
     title: null,
     artist: null,
+    subtitle: null,
+    key: null,
+    metadata: { ...EMPTY_METADATA },
     tags: [],
     songbookName: null,
     sectionName: null,
@@ -399,10 +476,14 @@ export function parseChordPro(source: string): ParsedSong {
        * lines *inside* the block still render, which is the same thing an unknown
        * directive has always done.
        *
-       * Only a name whose base this parser actually knows counts, so `{ccli-number: …}`
-       * and any other genuinely hyphenated directive fall through untouched.
+       * **A name this table already knows is never a conditional**, however many hyphens it
+       * has: `{ccli-number: …}` is a directive whose own name contains one, and reading it as
+       * «`ccli`, for readers of type `number`» dropped it. So the whole name is tried first,
+       * and only a name that resolves to nothing is split. A test holds this: it started
+       * failing the moment `ccli` entered the table, which is the day the two facts met.
        */
-      const conditionalBase = rawName.includes('-') ? rawName.slice(0, rawName.indexOf('-')) : null
+      const conditionalBase =
+        name === undefined && rawName.includes('-') ? rawName.slice(0, rawName.indexOf('-')) : null
       if (conditionalBase !== null && DIRECTIVE_ALIAS[conditionalBase] !== undefined) continue
 
       /**
@@ -429,6 +510,15 @@ export function parseChordPro(source: string): ParsedSong {
           break
         case 'artist':
           song.artist = value || null
+          break
+        case 'subtitle':
+          song.subtitle = value || null
+          break
+        case 'key':
+          song.key = value || null
+          break
+        case 'metadata':
+          song.metadata[METADATA_FIELD[rawName]] = value || null
           break
         case 'tags':
           song.tags = value

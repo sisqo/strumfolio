@@ -111,10 +111,18 @@ describe('parseChordPro', () => {
     assert.deepEqual(shape(chorus.lines[1]), ['[F]Ritornello'])
   })
 
+  /*
+   * `{st:}` reads as a subtitle here and not as the artist, which reverses what this reader
+   * did until 2026-09-19. It can, because the ambiguity is settled at import: a file OnSong
+   * wrote has `{st:}` consumed into the artist column and the line stripped, so a body still
+   * carrying one is a body where it really is a subtitle. `import/dialect.ts` has the
+   * measurement.
+   */
   it('accepts short directive aliases', () => {
     const short = parseChordPro('{t: T}\n{st: A}\n{soc}\n[C]x\n{eoc}')
     assert.equal(short.title, 'T')
-    assert.equal(short.artist, 'A')
+    assert.equal(short.subtitle, 'A')
+    assert.equal(short.artist, null)
     assert.equal(short.sections[0].kind, 'chorus')
   })
 
@@ -582,4 +590,67 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
       assert.equal(lyricLineCount(source), buildAnchorMap(source).length)
     })
   }
+})
+
+/*
+ * Everything the file says about the song that this app stores nowhere. None of it is
+ * interpreted — it is read as written and printed back — so the test that matters is that it
+ * arrives, that it survives an export, and that it never reaches the words.
+ */
+describe('metadata the app shows and does not act on', () => {
+  const song = parseChordPro(
+    [
+      '{title: T}',
+      '{artist: Chi suona}',
+      '{subtitle: Dal vivo}',
+      '{album: Un disco}',
+      '{composer: Chi ha scritto}',
+      '{lyricist: Chi ha messo le parole}',
+      '{year: 1979}',
+      '{copyright: (c) 1979 Qualcuno}',
+      '{duration: 3:40}',
+      '{ccli: 22025}',
+      '{sorttitle: T, La}',
+      '{sortartist: Suona, Chi}',
+      '{key: Sol}',
+      'word',
+    ].join('\n'),
+  )
+
+  it('reads each one as written', () => {
+    assert.equal(song.artist, 'Chi suona')
+    assert.equal(song.subtitle, 'Dal vivo')
+    assert.equal(song.key, 'Sol')
+    assert.deepEqual(song.metadata, {
+      album: 'Un disco',
+      composer: 'Chi ha scritto',
+      lyricist: 'Chi ha messo le parole',
+      year: '1979',
+      copyright: '(c) 1979 Qualcuno',
+      duration: '3:40',
+      ccli: '22025',
+      sortTitle: 'T, La',
+      sortArtist: 'Suona, Chi',
+    })
+  })
+
+  it('keeps every one of them out of the words', () => {
+    assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+  })
+
+  it('leaves a year written in words alone rather than making it a number', () => {
+    assert.equal(parseChordPro('{title: T}\n{year: circa 1979}\nword').metadata.year, 'circa 1979')
+  })
+
+  it('reads the hyphenated CCLI spellings as the same field', () => {
+    assert.equal(parseChordPro('{title: T}\n{ccli-number: 1}\nword').metadata.ccli, '1')
+    assert.equal(parseChordPro('{title: T}\n{ccli_number: 2}\nword').metadata.ccli, '2')
+  })
+
+  it('says nothing for a song that says nothing', () => {
+    const bare = parseChordPro('{title: T}\nword')
+    assert.equal(bare.subtitle, null)
+    assert.equal(bare.key, null)
+    assert.ok(Object.values(bare.metadata).every((value) => value === null))
+  })
 })
