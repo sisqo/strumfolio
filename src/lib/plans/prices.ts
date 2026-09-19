@@ -14,9 +14,11 @@
  * charged; this holds the prices that are shown. The comparison itself now exists —
  * `catalogue.ts`, run by `scripts/verify-paddle-catalogue.ts` — but it needs a catalogue to
  * read and this repo holds no Paddle credential, so it is something a person runs and not
- * something the build does. Until the live ids are written into the `paddleId` fields below,
- * that agreement is still maintained by hand, in one direction: a price is changed in Paddle
- * first and here second, in the same change, and the id is written in at the same time.
+ * something the build does. **The live ids are deliberately not written into the `paddleId`
+ * fields below** — they live in `PADDLE_PRICE_IDS`, per environment, because a committed id wins
+ * everywhere and filling these made the preview name live prices at the sandbox API
+ * (`paddlePrices.ts` carries the measurement). So that agreement is maintained by hand, in one
+ * direction: a price is changed in Paddle first and here second, in the same change.
  *
  * Euro only, and tax-inclusive: the number written here is the number the customer pays,
  * wherever they are — a statement about *tax*, and about nothing else. It does not say what a
@@ -81,8 +83,8 @@ export interface PlanPrice {
   /** Euro, tax included, as it is printed: no thousands separator, `.` as the decimal point. */
   amount: string
   /**
-   * The id of the matching price in Paddle's **live** catalogue, or `''` while that catalogue
-   * does not exist yet. Empty is honest and a placeholder like `'pri_TODO'` is not: an
+   * The id of the matching price in Paddle's **live** catalogue, or `''` — which is what all
+   * seven hold, by decision, even though that catalogue has existed since 2026-09-19. Empty is honest and a placeholder like `'pri_TODO'` is not: an
    * id-shaped string that resolves to nothing is the one value a future checkout could pass to
    * Paddle without noticing, where an empty string cannot survive the first call.
    *

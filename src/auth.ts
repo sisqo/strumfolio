@@ -8,9 +8,12 @@ import { provisionAccount } from './lib/accounts/provision'
 import { freezeLeadAttribution, recordLeadAttribution } from './lib/attribution/write'
 import { isAccountSuspended } from './lib/accounts/status'
 import { readPasswordHash } from './lib/auth/credentials'
+import { outcomeFor, passwordSourceFor } from './lib/auth/loginAttempt'
 import { splitName } from './lib/auth/nameSplit'
 import { verifyAgainstNothing, verifyPassword } from './lib/auth/password'
+import { readPendingCredential } from './lib/auth/pendingCredential'
 import { recordSignIn } from './lib/auth/signIns'
+import { UnverifiedEmail } from './lib/auth/unverifiedEmail'
 import { attachCouponViewFromCookie } from './lib/coupons/views'
 import { sendEmail } from './lib/email/send'
 import { welcomeEmail } from './lib/email/templates'
@@ -36,11 +39,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * (v3.2) — set at registration, or by a global owner from Accounts — so a correct password
      * against it is, on its own, enough to sign in: there is nothing left to ask permission from.
      *
-     * Everything that can fail returns the same null. No password set, or a wrong one typed —
-     * the caller is told "wrong email or password" and nothing more, because otherwise this
-     * form would answer the question "does this person have an account here", which no login
-     * page should answer. `verifyAgainstNothing` is what stops the *timing* from answering it
-     * either.
+     * **Almost everything that can fail returns the same null**, and the exception is the whole
+     * of `loginAttempt.ts`: no password set, a wrong one typed, an address nobody knows — the
+     * caller is told "wrong email or password" and nothing more, because otherwise this form
+     * would answer the question "does this person have an account here", which no login page
+     * should answer. `verifyAgainstNothing` is what stops the *timing* from answering it either,
+     * and the two reads below are unconditional for that same reason. The one refusal that says
+     * more is `UnverifiedEmail`, thrown only for somebody who has already typed the right
+     * password for a registration still sitting in `pendingRegistrations` — which tells a
+     * stranger nothing, since a stranger does not have it.
      */
     Credentials({
       credentials: {
@@ -63,13 +70,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const emailAllowed = await checkRateLimit(`login:email:${email}`, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)
         if (!ipAllowed || !emailAllowed) return null
 
+        /*
+         * Both reads always, never the second one only when the first missed: an address with
+         * no `credentials` row would then cost one extra round trip to Neon — the same order
+         * as a scrypt — and the timing would answer the question `verifyAgainstNothing` was
+         * written to leave unanswered. The obvious short-circuit here is the bug, not the
+         * optimisation.
+         */
         const stored = await readPasswordHash(email)
-        if (stored === null) {
-          await verifyAgainstNothing(password)
-          return null
-        }
+        const pending = await readPendingCredential(email)
 
-        if (!(await verifyPassword(password, stored))) return null
+        const source = passwordSourceFor(stored, pending)
+        const matched =
+          source.kind === 'none'
+            ? await verifyAgainstNothing(password)
+            : await verifyPassword(password, source.hash)
+
+        const outcome = outcomeFor(source, matched, new Date())
+        /* Thrown rather than returned: `authorize` can only answer with a user or a null, and
+           a user is a session. Whoever has not confirmed their address gets neither. */
+        if (outcome.outcome === 'unverified') throw new UnverifiedEmail(outcome.linkExpired)
+        if (outcome.outcome === 'refused') return null
 
         return { id: email, email }
       },

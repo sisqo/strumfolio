@@ -9,7 +9,7 @@
  * this app actually reads are then written down in one place instead of being implied by the
  * code that reaches into them.
  *
- * **The account contract, which the checkout has to satisfy and does not exist yet.** A
+ * **The account contract, which the checkout has to satisfy and does.** A
  * webhook has to answer «whose account is this», and it gets three chances, in this order:
  * `custom_data.account_id` on the subscription or transaction, then
  * `accounts.paddle_subscription_id`, then `accounts.paddle_customer_id`. The first is the only

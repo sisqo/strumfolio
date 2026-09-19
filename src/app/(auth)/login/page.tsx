@@ -8,11 +8,14 @@ import { StorageCleanup } from '@/components/StorageCleanup'
 import { AuthLockup } from '@/components/AuthLockup'
 import { Footer } from '@/components/Footer'
 import { IconGoogle } from '@/components/icons'
+import { ResendVerificationButton } from '@/components/ResendVerificationButton'
+import { isEmailShape, normalizeEmail } from '@/lib/allowlist'
+import { unverifiedFromCode } from '@/lib/auth/loginAttempt'
 
 export const metadata: Metadata = { title: 'Sign in' }
 
 interface Props {
-  searchParams: Promise<{ error?: string; failed?: string; reset?: string }>
+  searchParams: Promise<{ error?: string; failed?: string; reset?: string; unverified?: string; email?: string }>
 }
 
 /**
@@ -40,18 +43,40 @@ interface Props {
  * Both refusals are one sentence. "Wrong email or password" covers a wrong password, an
  * address with no password, and an address that is not on the list, because telling those
  * apart is telling a stranger which addresses exist here.
+ *
+ * **One case is named, and it is the only one that can be**: an address that registered and
+ * never followed the verification link, typed here *with its right password*. That used to
+ * fall into the sentence above and be told the two things that were not wrong — reported as a
+ * bug on 2026-09-19, and it was one, because the reader is then left guessing at a password
+ * they got right. `loginAttempt.ts` carries the rule and the reason it leaks nothing; what
+ * matters here is that the notice only ever renders for somebody who has already proved they
+ * know the password, so the page still answers nothing about which addresses exist.
+ *
+ * It arrives as `?unverified=1|expired&email=…` rather than as the error's own code, because
+ * a Server Action answers by redirecting and the reader has to be able to reload the page. The
+ * address is read back only through `isEmailShape`: it is reflected into the card as text, and
+ * an unvalidated query parameter printed inside our own chrome is a sentence an attacker gets
+ * to write on a page the reader trusts.
  */
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, failed, reset } = await searchParams
+  const { error, failed, reset, unverified, email } = await searchParams
+
+  // Both halves required: the flag alone has nobody to resend to, and the address alone is
+  // just a value in a URL. Absent either, the page is the ordinary sign-in card.
+  const unverifiedEmail = unverified !== undefined && email !== undefined && isEmailShape(email) ? email : null
 
   const message =
-    failed !== undefined
-      ? 'Wrong email or password.'
-      : error === undefined
-        ? null
-        : error === 'AccessDenied'
-          ? "Google couldn't confirm this email address. Try again, or sign in a different way."
-          : 'Sign-in failed. Please try again.'
+    unverifiedEmail !== null
+      ? unverified === 'expired'
+        ? 'This email address has not been confirmed yet, and the link we sent has expired. Send yourself a new one.'
+        : 'This email address has not been confirmed yet. Open the link in the email we sent, or send yourself a new one.'
+      : failed !== undefined
+        ? 'Wrong email or password.'
+        : error === undefined
+          ? null
+          : error === 'AccessDenied'
+            ? "Google couldn't confirm this email address. Try again, or sign in a different way."
+            : 'Sign-in failed. Please try again.'
 
   // Only shown when there is no failure to report instead — landing here with `?reset=1`
   // straight after `/reset-password` (v3.2) is never itself an error.
@@ -74,6 +99,11 @@ export default async function LoginPage({ searchParams }: Props) {
               {message}
             </p>
           )}
+
+          {/* The same button `/verify` shows, and deliberately the same component: it already
+              carries the captcha and the rate limit `resendVerification` insists on, and a
+              second copy of that form would be a second place to keep them in step. */}
+          {unverifiedEmail !== null && <ResendVerificationButton email={unverifiedEmail} />}
 
           {success !== null && (
             <p className="notice notice-accent text-start" role="status">
@@ -103,9 +133,11 @@ export default async function LoginPage({ searchParams }: Props) {
             action={async (data: FormData) => {
               'use server'
 
+              const typed = normalizeEmail(String(data.get('email') ?? ''))
+
               try {
                 await signIn('credentials', {
-                  email: String(data.get('email') ?? ''),
+                  email: typed,
                   password: String(data.get('password') ?? ''),
                   redirectTo: '/',
                 })
@@ -113,10 +145,21 @@ export default async function LoginPage({ searchParams }: Props) {
                 /*
                  * `signIn` reports success by throwing a redirect, so the redirect has to
                  * pass through untouched — only a real `AuthError` means the attempt failed.
-                 * It is answered with a flag in the URL rather than with the error's own
-                 * code, because the code distinguishes cases this page must not.
+                 * It is answered with a flag in the URL rather than with the error's own code,
+                 * because the code distinguishes cases this page must not — every one but the
+                 * single case `authorize` throws `UnverifiedEmail` for, which is reachable
+                 * only with the right password and is therefore safe to name.
                  */
-                if (thrown instanceof AuthError) redirect('/login?failed=1')
+                if (thrown instanceof AuthError) {
+                  const pending = unverifiedFromCode((thrown as { code?: unknown }).code)
+                  if (pending === null) redirect('/login?failed=1')
+
+                  const params = new URLSearchParams({
+                    unverified: pending.linkExpired ? 'expired' : '1',
+                    email: typed,
+                  })
+                  redirect(`/login?${params.toString()}`)
+                }
                 throw thrown
               }
             }}

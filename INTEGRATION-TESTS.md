@@ -23,8 +23,8 @@ sandbox che punta lì.
 
 - **Non in locale.** Nessuna chiave Paddle, e soprattutto nessun webhook in ingresso: si
   comprerebbe senza che niente conceda il piano, cioè si proverebbe metà catena.
-- **Mai in produzione.** `/qa` lì non esiste per costruzione, il catalogo live non esiste
-  ancora, e i soldi sarebbero veri.
+- **Mai in produzione.** `/qa` lì non esiste per costruzione, il catalogo live adesso esiste e i soldi
+sarebbero veri.
 - **La preview è dietro l'SSO di Vercel**, custom domain compreso — quindi non basta un
   `curl`. Serve il browser già loggato (sotto), oppure il bypass token come *query parameter*,
   che è l'unica forma che funziona: vedi `CLAUDE.md`.

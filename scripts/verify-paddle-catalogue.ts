@@ -20,8 +20,11 @@
  *
  * **Exit 2 means nothing was verified, and it is not a pass.** Every `paddleId` in `prices.ts`
  * is `''` today, so a live run has nothing to compare; reporting that as success would make
- * this script read as agreement at exactly the moment it is checking nothing. Wire it into CI
- * only once a live catalogue exists, and let exit 2 be what says it is not there yet.
+ * this script read as agreement at exactly the moment it is checking nothing. **A live run exits
+ * 2 today and will keep doing so**: the live catalogue exists since 2026-09-19, but `prices.ts`
+ * deliberately holds none of its ids (`paddlePrices.ts` says why), so there is nothing to match
+ * by. The repair, if this is ever wanted in CI, is to match live on the stamped `custom_data` the
+ * way `--sandbox` already does — **not** to fill `prices.ts`, which was tried and rolled back.
  */
 
 import { readFileSync } from 'node:fs'
@@ -136,7 +139,7 @@ async function main() {
   }
 
   if (report.unwired.length) {
-    console.error('\nNOTHING VERIFIED: write the live price ids into `prices.ts` first.')
+    console.error('\nNOTHING VERIFIED: `prices.ts` holds no live ids, by decision — match on custom_data instead.')
     process.exit(2)
   }
 

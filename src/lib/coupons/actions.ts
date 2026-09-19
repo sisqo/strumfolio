@@ -266,8 +266,9 @@ interface ValidCampaign {
  *
  * Two of the reference document's checks are deliberately absent. «Almeno uno dei tre
  * `applies_to_*` attivo» has nothing left to mean — the monthly and the yearly cycle are
- * covered by construction (see `discountCycles`) — and the «copertura dei price ID» check is a
- * comparison against a Paddle catalogue that does not exist yet.
+ * covered by construction (see `discountCycles`) — and the «copertura dei price ID» check is what
+ * `paddleDiscount.ts` already performs per price, against catalogues that now exist in both
+ * environments.
  *
  * The two *warnings* the plan asks for are not here, on purpose: a warning that blocks is a
  * validation, and both of these describe something the operator may legitimately want. They

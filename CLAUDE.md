@@ -53,7 +53,7 @@ everything that is not in this file has gone. Open them by name when the work is
 | File | Covers |
 |---|---|
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
-| `src/lib/plans/CLAUDE.md` | plans, entitlements, the mock checkout and its two env flags, which Paddle id the code holds, and how the catalogue is verified |
+| `src/lib/plans/CLAUDE.md` | plans, entitlements, the Paddle checkout, which Paddle id the code holds and which it deliberately does not, and how the catalogue is verified |
 | `src/lib/coupons/CLAUDE.md` | campaigns, `liveDiscount`, and what a coupon is not allowed to decide |
 | `src/lib/accounts/CLAUDE.md` | the admin surface, names, the newsletter preference, the old-account quirk |
 | `src/lib/music/CLAUDE.md` | the song chips, alternate chord shapes, German and Nashville notation |
@@ -386,9 +386,9 @@ for a migration whose first execution is the real one.
 
 ## Paddle: three MCP servers, two catalogues, and one promise about tax
 
-The payment processor. Nothing in the app talks to it yet — the mock checkout still writes the
-columns a real webhook will write (`plans/CLAUDE.md`) — but the sandbox catalogue exists since
-2026-09-12 and the facts below are the ones that cost something to rediscover.
+The payment processor, and **it has taken real money in production since 2026-09-19**. The
+sandbox catalogue exists since 2026-09-12 and the live one since 2026-09-19; the facts below are
+the ones that cost something to rediscover.
 
 **Three MCP servers, three different authentications, and the server name *is* the
 environment** — there is no flag to pass and no way to point one at the other:
@@ -785,17 +785,18 @@ simulations on the sandbox destination, which exists for exactly that.
 **Its signing secret was never read.** It was created through the MCP with code that returns
 every field except `endpoint_secret_key`, so the value lives only inside Paddle and has to be
 copied from the dashboard — Developer Tools → Notifications — into Production's
-`PADDLE_NOTIFICATION_WEBHOOK_SECRET` by hand. That is the same arrangement `prod-url` exists for,
+`PADDLE_NOTIFICATION_WEBHOOK_SECRET` by hand, which was done the same day. That is the same arrangement `prod-url` exists for,
 applied to a secret an agent would otherwise have printed into a transcript.
 
-**Still to do before any of this takes money in production**: the live inline checkout carries
-none of the branding above (the values are in the section that describes them), and Production has
-no `PADDLE_*` variables at all — `PADDLE_PRICE_IDS` included, since that is where the live ids
-live. Note the order that follows from the destination already being active: it will refuse every
-delivery with a 401 until that secret is in Production, and a refused delivery is retried for
-three days. Nothing can be delivered before the first live purchase, which the domain gate below
-makes impossible, so the window is safe rather than lucky — but the secret belongs in Production
-before anything is ever bought.
+**Everything that stood between the integration and a real charge was finished on 2026-09-19** —
+the branding, the five variables, the domain, the default payment link and the campaign's Discount
+entities. **What has never happened is a purchase.** No live transaction has been created, no
+webhook has been delivered, and therefore the signing secret sitting in Production **has never
+verified a real signature**. That is the one untested link in the chain, and its failure mode is
+quiet in the expensive direction: a wrong secret answers 401 to every delivery and Paddle retries
+for three days before giving up. So the first live purchase tests the secret as much as it tests
+the checkout, and it is worth driving deliberately rather than waiting for a customer to be the
+first.
 
 **The gate that sat in front of all of them was the live domain, and it opened on 2026-09-19.**
 `strumfolio.com` (`chedom_01m2we9rfyfcy7jtwpnr90rcvm`) went from `pending_review` to `approved`

@@ -220,19 +220,20 @@ ${APP_NAME} — ${APP_PAYOFF}`
  * The purchase confirmation (`announcePayment`, `webhookApply.ts`), and the one email in this file that is about
  * something the reader just *did* rather than a link they have to follow.
  *
- * **Worded as a real payment confirmation, deliberately, while the processor behind it is
- * still a stand-in that charges nothing** (`lib/plans/checkout.ts`, `FAKE_CARD`). That is a
- * decided trade-off and not an oversight, so the reasoning belongs here rather than in a commit
- * message: every account reaching this today is a test account, the app is neither advertised
- * nor linked from anywhere, and so there is nobody this can mislead — while writing the copy as
- * if the payment were real is what makes the day a processor actually lands a change of wiring
- * rather than a rewrite of every sentence a customer reads. The one thing to know when that day
- * comes: nothing in this template needs revisiting, because it already says what a real
- * purchase would say.
+ * **Worded as a real payment confirmation while the processor behind it was still a stand-in
+ * that charged nothing — and since 2026-09-19 it is a real one.** The bet was that writing the
+ * copy as if the payment were real would make the day a processor landed a change of wiring
+ * rather than a rewrite of every sentence a customer reads. That day came and the bet paid:
+ * nothing in this template needed revisiting.
+ *
+ * **What is retired with it is the safety net that argument leaned on** — «every account reaching
+ * this today is a test account, the app is neither advertised nor linked from anywhere, so there
+ * is nobody this can mislead». Production sells from a public pricing page now, so every word
+ * here is read by somebody whose card was actually charged.
  *
  * The one clause that was *not* covered by that argument, and was corrected in v3.13, is
- * `endsOn`'s — see its own comment. A processor being a stand-in is why no money moved; it is
- * not a reason to name a renewal date that no code anywhere will act on.
+ * `endsOn`'s — see its own comment. That the processor was a stand-in was why no money moved; it
+ * was never a reason to name a renewal date that no code anywhere would act on.
  *
  * `amount` is `amountFor`'s own string (`plans/history.ts`), the same figure the ledger row
  * written in the same breath records — never recomputed here, so a receipt cannot disagree with

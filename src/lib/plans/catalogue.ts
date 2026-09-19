@@ -58,7 +58,7 @@ export interface ExpectedPrice {
   euro: string
   /** The same amount in cents, which is what Paddle stores. */
   cents: string
-  /** The live price id, or `''` while the live catalogue does not exist yet. */
+  /** The live price id, or `''` — which is what `prices.ts` holds, by decision rather than delay. */
   paddleId: string
 }
 

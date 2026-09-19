@@ -119,8 +119,8 @@ qui sopra.
    sbagliata, il caso «qualcuno tiene un piano senza averlo pagato» sarebbe ancora aperto e lo
    crederemmo chiuso. Si prova nel sandbox rimborsando una transazione di subscription.
    **La destination deve essere iscritta a `adjustment.created` e `adjustment.updated`**, o
-   niente di tutto questo parte: aggiunti a quella del preview il 14/09/2026, e la live non
-   esiste ancora.
+   niente di tutto questo parte: aggiunti a quella del preview il 14/09/2026 e a
+   quella live il 19/09/2026.
 3. **Le schermate, che non ha mai guardato nessuno.** La branch `subscribed` di
    `/checkout/[plan]` e la riga di C6 sono compilate e testate nella parte pura, mai viste
    funzionare: servono una sessione e un preview deployment.

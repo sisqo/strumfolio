@@ -92,9 +92,10 @@ export async function listAllAccounts(): Promise<AccountSummary[] | null> {
  * surprised by it: a gift given and withdrawn on the same day reads as the same day, with no
  * way to tell which came first. Acceptable in an audit opened a handful of times a year.
  *
- * `paddleCustomerId`/`paddleSubscriptionId` are deliberately absent, and not for tidiness:
- * there is no Paddle integration yet, so a field for them would be a stub with nothing to put
- * in it. `gclid` is absent because it is marketing data that nothing in this feature may read.
+ * `paddleCustomerId`/`paddleSubscriptionId` are deliberately absent, and not for tidiness: this
+ * screen answers who an account is and what it holds, and a processor's own identifiers answer
+ * neither. `webhookApply.ts` has written both columns from signed live events since 2026-09-19;
+ * nothing on this surface reads them. `gclid` is absent because it is marketing data that nothing in this feature may read.
  */
 export interface AccountPlanLine {
   /**

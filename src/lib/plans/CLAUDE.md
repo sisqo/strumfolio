@@ -299,8 +299,8 @@ break from a distance:
   into it would change what an operator metric means, which is a decision and not a defect.
 - **The destination has to carry the events or none of this fires.** `adjustment.created` and
   `adjustment.updated` were added to the sandbox preview destination on 2026-09-14 (it had nine
-  event types and neither of them); **the live destination does not exist yet and must be created
-  with them**. This is the silent failure the root `CLAUDE.md` already warns about in general —
+  event types and neither of them); **the live destination was created with both on 2026-09-19**
+  (`ntfset_01m2wgwgzewvq76c14h83xa15a`, whose `traffic_source` decision the root `CLAUDE.md` carries). This is the silent failure the root `CLAUDE.md` already warns about in general —
   a handler nothing ever calls, with no error anywhere to find.
 
 ## The email a change sends, and the two silences (2026-09-14)
@@ -396,9 +396,11 @@ consequences land in *this* directory:
   cannot carry two environments, and the sandbox ids are the wrong half to keep: the
   verification script the field exists for would then interrogate the sandbox catalogue from
   production — the id-shaped-string-that-resolves-to-nothing failure the empty string was
-  chosen over `'pri_TODO'` to prevent. All seven are still `''` because no live catalogue
-  exists yet, and a *sandbox* checkout reads its ids from the environment rather than from
-  here. What the decision costs is nothing on the verification side and one env lookup on the
+  chosen over `'pri_TODO'` to prevent. **All seven are still `''` although the live catalogue has
+  existed since 2026-09-19**, and that reverses what this bullet used to plan for: writing them in
+  was tried and rolled back within the hour, because a committed id wins in *every* environment
+  and filling it made the preview name live prices at the sandbox API. Every deployment reads its
+  ids from `PADDLE_PRICE_IDS`, production included. What the decision costs is nothing on the verification side and one env lookup on the
   checkout side, which is the cheaper end of the trade.
 - **`catalogue.ts` is that verification, and `scripts/verify-paddle-catalogue.ts` runs it.**
   The comparison is pure and tested (`catalogue.test.ts`), so the rules live somewhere `npm
@@ -411,16 +413,18 @@ consequences land in *this* directory:
   `custom_data`, so `--sandbox` needs no ids and no configuration — and since this repo holds
   no Paddle credential, the catalogue is fetched through the MCP server and handed over with
   `--from`.
-- **Coupons have no counterpart in Paddle at all.** `discountedAmount` (`lib/coupons/`)
-  reproduces all seven figures of the commercial deck's promo column, and not one of them is
-  backed by a Paddle Discount object. That is the same shown-price-versus-charged-price
+- **Coupons had no counterpart in Paddle at all until 2026-09-14, and everything from here to the
+  end of this bullet is the argument from before that date**, kept because the invariant it
+  defends is still the point. `discountedAmount` (`lib/coupons/`) reproduces all seven figures of
+  the commercial deck's promo column, and each is now backed by a real Discount entity that
+  `paddleDiscountSync` writes on every create and edit. That is the same shown-price-versus-charged-price
   invariant the listino itself now satisfies — measured, in the root section — left unsatisfied
   one level down: a live campaign changes what `/pricing` says and nothing whatsoever about
   what a real checkout would take. **No longer harmless**: the mock is gone and the Paddle
   checkout is the only one, so `startPaddleCheckout` and `changePaddlePlan` both refuse the sale
   outright (`coupon-unsupported`) while a campaign is redeemable, rather than charging the
-  listino to somebody who has just been promised 30% off. That refusal is the gate that
-  disappears when campaigns carry a `paddle_discount_id`.
+  listino to somebody who has just been promised 30% off. That refusal is the gate, and it now fires only where a
+  campaign has no `dsc_…` for that exact plan and cycle rather than as the standing state.
   **It reads the cookie and nothing else, on purpose — so every screen that shows a coupon has to
   write the cookie.** `redeemableCouponFor` takes the code from the request's own jar because
   nothing client-side may reach a decision about money; the consequence is that a screen showing

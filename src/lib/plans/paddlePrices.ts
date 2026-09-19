@@ -7,11 +7,16 @@
  * the place a sandbox or preview deployment gets its own ids from without a second table of
  * amounts to keep in step.
  *
- * **`PADDLE_PRICE_IDS` is read only where `paddleId` is empty**, never instead of it. So the
- * day the live catalogue is wired in, production stops consulting the environment for that row
- * without anybody having to remember to unset anything — and a stray variable left behind in
- * some environment cannot quietly redirect a real purchase at a sandbox price that would never
- * charge anyone.
+ * **`PADDLE_PRICE_IDS` is read only where `paddleId` is empty**, never instead of it — and all
+ * seven are empty, so in practice every environment reads this variable, production included.
+ *
+ * **That reverses what this comment used to plan for**, and the reversal is measured rather than
+ * preferred. Writing the live ids into `paddleId` was tried on 2026-09-19 and rolled back within
+ * the hour: the committed id wins in *every* environment, so filling it made the **preview** name
+ * live prices at the sandbox API — killing the only place a purchase can be rehearsed. What the
+ * old arrangement was meant to buy, a stray variable redirecting a real purchase at a sandbox
+ * price that would charge nobody, is bought instead by the key: a sandbox `pri_…` sent to the live
+ * API is not found, so the checkout refuses rather than completing a sale for nothing.
  *
  * The variable is one JSON object rather than seven flat names, because seven names is seven
  * chances to set six of them:
@@ -44,7 +49,7 @@ export function parsePriceIds(raw: string | undefined): PriceIdMap {
   }
 }
 
-/** The id written in the code — live only, and `''` until a live catalogue exists. */
+/** The id written in the code — live only, and `''` for all seven by decision; see the header. */
 function committedId(plan: CheckoutPlan, cycle: BillingPeriod | null): string {
   if (plan === 'lifetime') return LIFETIME.paddleId
   return cycle === null ? '' : PRICES[plan][cycle].paddleId
