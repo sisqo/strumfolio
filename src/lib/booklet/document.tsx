@@ -440,6 +440,21 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginBottom: 4,
   },
+  /* A box the file asked for, in the printed sheet's own muted palette. */
+  commentBox: {
+    borderWidth: 0.5,
+    borderColor: RULE,
+    borderStyle: 'solid',
+    borderRadius: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  commentHighlight: {
+    backgroundColor: ACCENT_BG,
+    borderRadius: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
   tabRow: {
     fontFamily: 'Courier',
     fontSize: 7.5,
@@ -799,7 +814,12 @@ function BookletLine({
   notes: BookletNotes | null
 }) {
   if (line.kind === 'comment') {
-    return <Text style={styles.comment}>{line.text}</Text>
+    // The same three looks as the screen, for the same reasons — see `SongSheet`'s own
+    // comment on why `plain` and `italic` coincide here too.
+    const framed =
+      line.style === 'box' ? styles.commentBox : line.style === 'highlight' ? styles.commentHighlight : null
+
+    return <Text style={framed === null ? styles.comment : [styles.comment, framed]}>{line.text}</Text>
   }
 
   if (line.kind === 'tab') {

@@ -536,11 +536,34 @@
     cursor: pointer;
   }
 
+  /*
+   * The app's comment style, which is what `{comment}` and `{comment_italic}` both draw in:
+   * muted italic is this sheet's voice for an aside, and it is also what a section's own
+   * label and the line `{chorus}` prints are drawn in. The two modifiers below exist because
+   * `{comment_box}` and `{highlight}` ask for a frame, and a request for a frame that comes
+   * out as an unframed grey line has been lost rather than honoured.
+   */
   .sheet-comment {
     color: var(--muted);
     font-size: 0.8em;
     font-style: italic;
     margin: 0.6em 0 0.3em;
+  }
+
+  .sheet-comment.is-box,
+  .sheet-comment.is-highlight {
+    display: inline-block;
+    padding: 0.2em 0.5em;
+    border-radius: var(--r-sm);
+  }
+
+  .sheet-comment.is-box {
+    border: 1px solid var(--line-soft);
+  }
+
+  .sheet-comment.is-highlight {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   /* ---- Anchored notes -------------------------------------------------- */

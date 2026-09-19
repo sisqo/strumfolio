@@ -448,8 +448,25 @@ function SheetLine({
   /** This line's slice of the anchor map: word, then part. */
   anchors?: PartAnchor[][]
 }) {
+  /*
+   * The four spellings of a comment, which used to be drawn as one.
+   *
+   * `plain` and `italic` deliberately land on the same look, and that is not a flattening
+   * left half-done: this app's *comment style* is muted italic, so `{comment}` drawn in it
+   * is drawn correctly and `{comment_italic}` asks for what it already has. The two that
+   * genuinely asked for something else — a box, a highlight — are the two that get it, and
+   * they are the two whose request used to vanish.
+   *
+   * `plain` is also what every comment this app generates carries — a section's label, the
+   * line `{chorus}` prints — so leaving it as the established aside look keeps a label from
+   * reading like a lyric.
+   */
   if (line.kind === 'comment') {
-    return <p className="sheet-comment">{line.text}</p>
+    const framed = line.style === 'box' || line.style === 'highlight'
+
+    return (
+      <p className={framed ? `sheet-comment is-${line.style}` : 'sheet-comment'}>{line.text}</p>
+    )
   }
 
   /*

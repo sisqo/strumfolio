@@ -441,6 +441,37 @@ describe('ChordPro format compliance', () => {
       assert.deepEqual(song.sections[0].lines.map(shape), [['#quietly'], ['#loud'], ['#watch']])
     })
 
+    /*
+     * Which frame each spelling asks for. `plain` and `italic` coincide on screen because
+     * this app's comment style *is* muted italic — but they stay two values here, because
+     * the parse records what the file asked for and the renderer decides what that looks
+     * like. Conflating them in the parse would throw the request away.
+     */
+    it('records the frame each spelling asks for', () => {
+      const song = parseChordPro(
+        '{title: T}\n{c: a}\n{ci: b}\n{comment_italic: c}\n{comment_box: d}\n{highlight: e}',
+      )
+
+      assert.deepEqual(
+        song.sections[0].lines.map((line) => (line.kind === 'comment' ? line.style : line.kind)),
+        ['plain', 'italic', 'italic', 'box', 'highlight'],
+      )
+    })
+
+    /* A comment this app invents is never framed: the file asked for no frame, because the
+       file did not ask for the line at all. */
+    it('leaves every comment it generates unframed', () => {
+      const song = parseChordPro(
+        '{title: T}\n{start_of_solo}\nword\n{end_of_solo}\n{chorus}\n{start_of_tab: Solo}\ne|-3-\n{eot}',
+      )
+
+      const styles = song.sections
+        .flatMap((section) => section.lines)
+        .flatMap((line) => (line.kind === 'comment' ? [line.style] : []))
+
+      assert.deepEqual(styles, ['Solo', 'Chorus', 'Solo'].map(() => 'plain'))
+    })
+
     /* The abbreviation that looks like it belongs above and does not: `cb` is
        `{column_break}`, and reading it as a comment put an empty line in the song. */
     it('leaves {cb} alone, since it is a column break and not a comment', () => {

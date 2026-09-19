@@ -74,9 +74,20 @@ export interface Word {
   parts: Part[]
 }
 
+/**
+ * How a comment is framed. The format has four spellings and they differ only in the box a
+ * typesetter draws around them, so this app drew none of them and read all four as one — a
+ * `{comment_box}` and a `{highlight}` came out as the same grey line as `{c}`.
+ *
+ * `plain` is also what a *generated* comment carries: a section's own label and the line
+ * `{chorus}` prints are comments this parser invents, and neither is a frame the file asked
+ * for.
+ */
+export type CommentStyle = 'plain' | 'box' | 'italic' | 'highlight'
+
 export type Line =
   | { kind: 'lyrics'; words: Word[]; hasChords: boolean }
-  | { kind: 'comment'; text: string }
+  | { kind: 'comment'; text: string; style: CommentStyle }
   /**
    * A verbatim block — every row kept exactly as written, never split into words or read
    * for chords: alignment is the whole point, and a string of dashes is not a syllable to
@@ -346,6 +357,14 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   chorus: 'chorus',
 }
 
+/** Which frame each spelling of a comment asks for; anything else is `plain`. */
+const COMMENT_STYLE: Record<string, CommentStyle> = {
+  comment_box: 'box',
+  ci: 'italic',
+  comment_italic: 'italic',
+  highlight: 'highlight',
+}
+
 /**
  * The section a `{start_of_…}` opens, for the three this app draws differently.
  *
@@ -419,7 +438,8 @@ export function parseChordPro(source: string): ParsedSong {
       // swallows the whole rest of the song into a grid nobody can see past.
       if (closingName === 'end_of_tab' || closingName === 'end_of_grid') {
         section ??= openSection(forcedKind ?? 'verse')
-        if (verbatimLabel !== '') section.lines.push({ kind: 'comment', text: verbatimLabel })
+        if (verbatimLabel !== '')
+          section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain' })
         section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
         verbatimRows = null
         verbatimLabel = ''
@@ -501,7 +521,7 @@ export function parseChordPro(source: string): ParsedSong {
       const labelLine = (fallback: string | null): void => {
         const label = value || fallback
         if (label === null || label === '') return
-        section?.lines.push({ kind: 'comment', text: label })
+        section?.lines.push({ kind: 'comment', text: label, style: 'plain' })
       }
 
       switch (name) {
@@ -558,7 +578,11 @@ export function parseChordPro(source: string): ParsedSong {
           break
         case 'comment':
           section ??= openSection(forcedKind ?? 'verse')
-          section.lines.push({ kind: 'comment', text: value })
+          section.lines.push({
+            kind: 'comment',
+            text: value,
+            style: COMMENT_STYLE[rawName] ?? 'plain',
+          })
           break
         /* `{chorus}` repeats the chorus without writing it out again. Nothing here can
            *replay* it — the reading screen shows the song in the order it was typed, and
@@ -568,7 +592,7 @@ export function parseChordPro(source: string): ParsedSong {
            mark a spot, and a silent one marks nothing. */
         case 'chorus':
           section ??= openSection(forcedKind ?? 'verse')
-          section.lines.push({ kind: 'comment', text: value || 'Chorus' })
+          section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain' })
           break
         case 'start_of_verse':
         case 'start_of_chorus':
@@ -632,7 +656,8 @@ export function parseChordPro(source: string): ParsedSong {
   // typed by someone, not something to drop silently for want of an `{end_of_tab}`.
   if (verbatimRows !== null) {
     section ??= openSection(forcedKind ?? 'verse')
-    if (verbatimLabel !== '') section.lines.push({ kind: 'comment', text: verbatimLabel })
+    if (verbatimLabel !== '')
+      section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain' })
     section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
   }
 
