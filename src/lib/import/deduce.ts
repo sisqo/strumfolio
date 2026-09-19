@@ -17,7 +17,17 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
 /**
  * Directives that only ever repeat a column this row already has of its own —
  * title, artist, tags, the songbook and section a re-import declares, the three
- * links, and a key nothing has stored in years. `export.ts` writes every one of
+ * links — and, until 2026-09-19, a key and a subtitle.
+ *
+ * `{st:}`/`{subtitle:}` left on the same date and for a different reason than `{key:}`: what
+ * it means depends on the dialect, so a list that cannot see the dialect is the wrong place
+ * to decide. `fieldFor` strips it where it is the artist (OnSong) and keeps it where it is a
+ * subtitle (everywhere else) — see `dialect.ts`'s header.
+
+ * `{key:}` left this list on that date: nothing stores it beside the song, so stripping it
+ * here deleted the only copy. It is read from the body now (`ParsedSong.key`) and decides
+ * the tonic Nashville numbers count from, so the body is its home exactly as it is the
+ * tempo's. Everything still listed does have a column of its own. `export.ts` writes every one of
  * these fresh from the row rather than trusting a copy left in the body, so a copy
  * that survived import has no job left: it cannot be shown (the reading layer never
  * prints a directive it recognises), it cannot be exported (the row wins), and the
@@ -25,7 +35,7 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
  * behind it to explain. Stripped here for the same reason `export.ts` strips it there.
  */
 export const METADATA_DIRECTIVE =
-  /^\s*\{\s*(?:title|t|artist|st|subtitle|key|tags?|canzoniere|songbook|x_songbook|division|sezione|x_division|link[123]|x_link[123])\s*:[^}]*\}\s*$/i
+  /^\s*\{\s*(?:title|t|artist|tags?|canzoniere|songbook|x_songbook|division|sezione|x_division|link[123]|x_link[123])\s*:[^}]*\}\s*$/i
 
 export interface Deduced {
   title: string
@@ -180,15 +190,41 @@ export function deduce(body: string): Deduced {
 /**
  * Fields whose value this app reads **out of the body**, rather than storing beside it.
  *
- * The exception the rule below needs, and the reason it exists: a song's tempo and its
- * time signature have no column of their own anywhere — `parseChordPro` reads them off the
- * body every time the song is opened, and the metronome starts there (see `ParsedSong.tempo`
- * and `MetronomeProvider`). So for these two the body is not a leftover copy, it is the
- * only copy, and stripping the line on the way in would mean a song imported from
- * SongbookPro or OpenSong — both of which write `{tempo: …}` — arriving with its tempo
- * deleted by the importer that had just understood it.
+ * The exception the rule below needs, and the reason it exists: a song's tempo, its time
+ * signature and its capo have no column of their own anywhere — `parseChordPro` reads them
+ * off the body every time the song is opened, the metronome starts there (see
+ * `ParsedSong.tempo` and `MetronomeProvider`) and the Capo menu states the fret from there
+ * (`ParsedSong.capo`). So for these three the body is not a leftover copy, it is the only
+ * copy, and stripping the line on the way in would mean a song imported from SongbookPro or
+ * OpenSong — both of which write `{tempo: …}` — arriving with its tempo deleted by the
+ * importer that had just understood it.
+ *
+ * **`capo` joined them on 2026-09-19 and its absence was a real defect**, worth naming
+ * because it is the shape this list exists to prevent and it still happened. `{capo: 3}` is
+ * a `Field` in `dialect.ts`, so `isDroppedDialectDirective` counted it as «read into a
+ * column» and deleted the line — while no column takes it. The reader was taught to show
+ * the fret the same day, so the feature worked on a song typed into the editor and never on
+ * an imported one, which is the only way the directive ever arrives.
+ *
+ * **The rest joined them on the same day, and the rule is now stated the other way round:
+ * a `Field` with no column belongs here, and the list is the whole answer to «what does the
+ * importer keep».** `key`, `copyright`, `ccli` and `duration` were each understood, matched
+ * to a field, and then deleted from the only copy anybody had — and `copyright` is the one
+ * that makes the shape obvious, because an app for songbooks deleting a copyright line is
+ * indefensible whatever the architecture says. `subtitle` is here because it too has no
+ * column: in an OnSong file `{st:}` still means the artist and is still stripped, which is
+ * `fieldFor`'s job and not this list's.
  */
-const KEPT_IN_BODY: Field[] = ['tempo', 'timeSignature']
+const KEPT_IN_BODY: Field[] = [
+  'tempo',
+  'timeSignature',
+  'capo',
+  'key',
+  'copyright',
+  'ccli',
+  'duration',
+  'subtitle',
+]
 
 /**
  * Whether a line is a directive this dialect reads into a field of its own, and which

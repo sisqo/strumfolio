@@ -15,16 +15,20 @@
  * identifies the source, the ambiguous directives are **ignored rather than guessed**
  * — `{a: …}` in a file of unknown provenance becomes neither artist nor album.
  *
- * ## One inherited exception, deliberately kept
+ * ## The most contested directive, settled here since 2026-09-19
  *
- * `DIRECTIVE_ALIAS` in `chordpro.ts` already maps `st` and `subtitle` onto `artist`,
- * and has since long before this module existed. On the single most contested
- * directive in the whole survey, this app therefore already follows *OnSong's*
- * convention rather than the specification's. That is not corrected here. Files that
- * import correctly today would start importing differently, which is a regression
- * dressed as a standards fix — and the value in `{st:}` is, in every real file this
- * repo has seen, an artist. The base table stays as shipped; only what the base table
- * does not already decide is decided here.
+ * `{st:}`/`{subtitle:}` used to be read as the artist everywhere, OnSong's convention rather
+ * than the specification's, and this file used to say so and leave it alone — because the
+ * value in `{st:}` is, in every real file this repo had seen, an artist. That observation
+ * was correct and was measured again: of 223 stored songs, 37 carry a `{subtitle:}` line and
+ * **all 37 hold exactly what their artist column holds**.
+ *
+ * It is settled the way this module settles everything else instead: the dialect decides. An
+ * OnSong file's `{st:}` is the artist and is consumed into that column; anywhere else it is
+ * what the specification says, a subtitle, which has no column and stays in the body for the
+ * reader to show. Neither world loses a field, and the collision that used to let a file
+ * carrying *both* `{artist:}` and `{subtitle:}` silently keep only whichever came last is
+ * gone with it.
  */
 
 /** The apps whose directive conventions differ enough to matter. */
@@ -40,6 +44,12 @@ export type Dialect = 'chordpro' | 'onsong' | 'songbookpro' | 'mobilesheets'
 export type Field =
   | 'title'
   | 'artist'
+  /**
+   * The song's own subtitle, which has **no column** and is therefore read straight off the
+   * body (`ParsedSong.subtitle`) — so it appears in `KEPT_IN_BODY` rather than in `Deduced`.
+   * Only ever produced under a dialect that does not redefine `{st:}`; see `OVERRIDES`.
+   */
+  | 'subtitle'
   | 'tags'
   | 'songbookName'
   | 'sectionName'
@@ -98,6 +108,11 @@ const COMMON: Record<string, Field | null> = {
  */
 const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
   chordpro: {
+    // The specification's own meaning, and the reason this pair is in every table below:
+    // read as a subtitle it needs no column, so `KEPT_IN_BODY` leaves the line where it is
+    // and `ParsedSong.subtitle` picks it up.
+    st: 'subtitle',
+    subtitle: 'subtitle',
     // Not an abbreviation in the specification at all; and with the source unknown,
     // it is as likely to be MobileSheets' album as OnSong's artist. Left alone.
     a: null,
@@ -110,6 +125,10 @@ const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
     book: null,
   },
   onsong: {
+    // OnSong's redefinition, and the one the wild actually uses: here it is the artist and
+    // is consumed into that column, so the line is stripped like any other column's copy.
+    st: 'artist',
+    subtitle: 'artist',
     a: 'artist',
     k: 'key',
     // OnSong's «original key» — the key before its own transposition. We store the
@@ -126,6 +145,8 @@ const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
     book: 'songbookName',
   },
   mobilesheets: {
+    st: 'subtitle',
+    subtitle: 'subtitle',
     // The collision that motivates this whole module.
     a: null,
     su: null,
@@ -135,6 +156,8 @@ const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
     book: null,
   },
   songbookpro: {
+    st: 'subtitle',
+    subtitle: 'subtitle',
     a: null,
     cb: 'comment',
     book: null,

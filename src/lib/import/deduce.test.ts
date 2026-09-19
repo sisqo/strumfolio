@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { convert } from './convert'
+import { parseChordPro } from '../chordpro'
 import { deduce } from './deduce'
 
 describe('deduce', () => {
@@ -10,10 +11,16 @@ describe('deduce', () => {
 
     assert.equal(result.title, 'Certe notti')
     assert.equal(result.artist, 'Ligabue')
-    // Read into their own fields, so the copies in the body are redundant —
-    // `export.ts` rewrites them from the row anyway — and stripped here rather than
-    // left as directive chips with nothing behind them in the visual editor.
-    assert.equal(result.body, '[Am]testo')
+    /*
+     * Title and artist have columns, so their copies in the body are redundant —
+     * `export.ts` rewrites them from the row anyway — and are stripped rather than left as
+     * directive chips with nothing behind them in the visual editor.
+     *
+     * `{key:}` is the counter-example and used to be stripped beside them, which deleted the
+     * only copy anybody had: nothing stores a key. It stays now, and the reader reads it off
+     * the body — see `KEPT_IN_BODY`.
+     */
+    assert.equal(result.body, '{key: G}\n\n[Am]testo')
   })
 
   it('strips a songbook or section a re-import declares, and stray tags', () => {
@@ -112,6 +119,18 @@ describe('deduce', () => {
     const result = deduce('{title: Prova}\n{tempo: 96}\n{time: 3/4}\n\n[C]parola')
     assert.ok(result.body.includes('{tempo: 96}'))
     assert.ok(result.body.includes('{time: 3/4}'))
+  })
+
+  /*
+   * The same trap, walked into again on 2026-09-19 with `{capo:}`: it is a `Field` here, so
+   * it was stripped as «read into a column», and no column takes it. The Capo menu was
+   * taught to state the fret the same day, which made the feature work on a song typed into
+   * the editor and never on an imported one — the only way the directive ever arrives.
+   */
+  it('keeps the capo in the body, where the Capo menu reads it', () => {
+    const result = deduce('{title: Prova}\n{capo: 3}\n\n[C]parola')
+    assert.ok(result.body.includes('{capo: 3}'))
+    assert.equal(parseChordPro(result.body).capo, 3)
   })
 
   it('reports plain ChordPro as the dialect when nothing identifies the source', () => {

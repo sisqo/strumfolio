@@ -52,14 +52,18 @@ describe('toChoproFile', () => {
   })
 
   /*
-   * The key is in the body of the fixture and in no column, which is the state every
-   * imported song is in now. It has to leave: it is metadata the app does not keep, and
-   * a directive nothing reads is not something to hand back in an export.
+   * A directive whose value a column holds is written fresh from that column, so the stale
+   * copy left in the body has to go — an old title handed back beside the current one would
+   * make the export disagree with itself.
+   *
+   * `{key:}` is the opposite case and used to be dropped here too: no column holds it, so
+   * dropping it deleted the only copy and an export stopped being a restore. It is handed
+   * back exactly as it was written.
    */
-  it('drops the stale directives that were in the body', () => {
+  it('drops a stale copy of a column, and hands back what no column holds', () => {
     const file = toChoproFile(song, 'Repertorio', 'Prima parte')
     assert.ok(!file.includes('Vecchio titolo'), 'old title survived')
-    assert.ok(!file.includes('{key: G}'), 'the key directive survived')
+    assert.ok(file.includes('{key: G}'), 'the key directive was dropped')
   })
 
   it('keeps the music', () => {

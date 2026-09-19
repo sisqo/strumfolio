@@ -71,13 +71,20 @@ describe('the collisions, one test each', () => {
     assert.equal(fieldFor('su', 'chordpro'), null)
   })
 
-  it('leaves {st:} to the base table, which this app has always read as the artist', () => {
-    // Deliberately absent from every override: `chordpro.ts` maps `st` and `subtitle`
-    // onto `artist` and has since long before dialects existed. Correcting it to the
-    // specification here would change how files that import correctly today are read.
-    for (const dialect of ['chordpro', 'onsong', 'mobilesheets', 'songbookpro'] as const) {
-      assert.equal(fieldFor('st', dialect), undefined, dialect)
-      assert.equal(fieldFor('subtitle', dialect), undefined, dialect)
+  /*
+   * The most contested directive in the survey, and the one this module used to decline to
+   * settle: `{st:}` was read as the artist everywhere, OnSong's convention rather than the
+   * specification's, because that is what real files hold. The dialect decides it now, which
+   * is what this module is for — OnSong keeps its meaning, everybody else gets the
+   * specification's, and neither loses a field.
+   */
+  it('reads {st:} as OnSong means it, and as the specification means it everywhere else', () => {
+    assert.equal(fieldFor('st', 'onsong'), 'artist')
+    assert.equal(fieldFor('subtitle', 'onsong'), 'artist')
+
+    for (const dialect of ['chordpro', 'mobilesheets', 'songbookpro'] as const) {
+      assert.equal(fieldFor('st', dialect), 'subtitle', dialect)
+      assert.equal(fieldFor('subtitle', dialect), 'subtitle', dialect)
     }
   })
 
