@@ -102,3 +102,50 @@ test('every real song in content/ maps one-to-one, and every anchor lands on its
     })
   }
 })
+
+/*
+ * The two shapes Phase 3 introduced, and the two the old counting map could not survive.
+ */
+test('a joined line resolves each half into the source line it really sits in', () => {
+  const source = 'uno due \\\nquattro cinque'
+  const parsed = parseChordPro(source)
+  const map = buildAnchorMap(parsed.sections, source)
+  const blocks = fromSource(source).blocks
+
+  const [line] = [...map.keys()]
+  assert.ok(line.kind === 'lyrics')
+  const [words] = [...map.values()]
+
+  // Four words on one drawn line, built from two source lines — so the anchors must name
+  // two different blocks, and each must sit on its own letters.
+  assert.equal(words.length, 4)
+  assert.deepEqual(
+    words.map((parts) => parts[0].blockIndex),
+    [0, 0, 1, 1],
+  )
+
+  words.forEach((parts, wordIndex) => {
+    const anchor = parts[0]
+    const block = blocks[anchor.blockIndex]
+    assert.ok(block.kind === 'lyrics')
+    const expected = line.words[wordIndex].parts[0].text
+    assert.equal(block.text.slice(anchor.charOffset, anchor.charOffset + expected.length), expected)
+  })
+})
+
+test('a repeated chorus carries no anchors, so no note can land on it', () => {
+  const source = ['{soc}', 'prima riga', '{eoc}', 'seconda riga', '{chorus}'].join('\n')
+  const parsed = parseChordPro(source)
+  const map = buildAnchorMap(parsed.sections, source)
+
+  const drawn = parsed.sections
+    .flatMap((section) => section.lines)
+    .filter((line): line is Extract<Line, { kind: 'lyrics' }> => line.kind === 'lyrics')
+
+  // Three drawn lines: the chorus, the verse, and the chorus again.
+  assert.equal(drawn.length, 3)
+  assert.equal(map.size, 3)
+
+  assert.ok((map.get(drawn[0]) ?? []).every((parts) => parts.length > 0))
+  assert.deepEqual(map.get(drawn[2]), [[], []])
+})

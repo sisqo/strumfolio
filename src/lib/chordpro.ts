@@ -434,6 +434,13 @@ export function parseChordPro(source: string): ParsedSong {
 
   let section: Section | null = null
   let forcedKind: SectionKind | null = null
+  /**
+   * The chorus a later `{chorus}` replays, and the ones a labelled `{chorus: …}` may pick
+   * out by name. The most recent unlabelled chorus is the default, which is what a file
+   * writing `{soc}` once and `{chorus}` three times means.
+   */
+  let lastChorus: Line[] | null = null
+  const chorusByLabel = new Map<string, Line[]>()
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
   let verbatimRows: string[] | null = null
   let verbatimVariant: 'tab' | 'grid' = 'tab'
@@ -482,7 +489,26 @@ export function parseChordPro(source: string): ParsedSong {
      */
     if (rawLine.startsWith('#')) continue
 
-    const line = rawLine.trimEnd()
+    /*
+     * A line ending in a single backslash continues on the one after it.
+     *
+     * Done here rather than over the whole source so it cannot reach inside a tab or a
+     * grid, where a trailing backslash is a character in a drawing. `\\` at the end is an
+     * escaped backslash and not a continuation, which is why the count is what decides.
+     *
+     * Every line it swallows is recorded, because that is what the anchors are found by:
+     * the drawn line covers two source lines and its parts must resolve into whichever of
+     * the two each one really sits in.
+     */
+    const sourceLines = [index]
+    let joined = rawLine
+    while (/(^|[^\\])(\\\\)*\\$/.test(joined) && index + 1 < rawLines.length) {
+      index += 1
+      sourceLines.push(index)
+      joined = joined.slice(0, -1) + rawLines[index]
+    }
+
+    const line = joined.trimEnd()
 
     const directive = DIRECTIVE.exec(line.trim())
     const meta = directive === null ? META_DIRECTIVE.exec(line.trim()) : null
@@ -606,22 +632,50 @@ export function parseChordPro(source: string): ParsedSong {
             style: COMMENT_STYLE[rawName] ?? 'plain',
           })
           break
-        /* `{chorus}` repeats the chorus without writing it out again. Nothing here can
-           *replay* it — the reading screen shows the song in the order it was typed, and
-           quoting a block back would put the same words under two different comment
-           anchors — so it is printed as the reference it is. Unlabelled it says «Chorus»,
-           which is the one place a default label is right: the directive's whole job is to
-           mark a spot, and a silent one marks nothing. */
-        case 'chorus':
-          section ??= openSection(forcedKind ?? 'verse')
-          section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain' })
+        /*
+         * `{chorus}` repeats the chorus without writing it out again, and now it really
+         * does repeat it — a stanza somebody on a stand does not know by heart is worth
+         * more than the word «Chorus».
+         *
+         * **The repeated lines carry no `sourceLines`, which is what makes this safe.**
+         * They are not in the file: the note a reader placed stays on the stanza where they
+         * placed it, and `buildAnchorMap` gives a line with no source an empty set of
+         * anchors rather than the original's. Before Phase 2 there was no way to say that —
+         * the anchors were found by counting drawn lines, so a repeat shifted every note
+         * below it onto the wrong row, which is why this printed a word instead.
+         *
+         * A repeat opens a chorus section of its own so it is drawn as a chorus; the verse
+         * around it resumes afterwards. With no chorus to repeat — a file that says
+         * `{chorus}` and never `{soc}` — the reference is printed as it used to be, since
+         * saying nothing at all would lose the one thing the directive marks.
+         */
+        case 'chorus': {
+          const wanted = value === '' ? lastChorus : (chorusByLabel.get(value.toLowerCase()) ?? null)
+
+          if (wanted === null || wanted.length === 0) {
+            section ??= openSection(forcedKind ?? 'verse')
+            section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain' })
+            break
+          }
+
+          const repeat = openSection('chorus')
+          repeat.lines.push(...wanted.map(repeated))
+          // The verse the reference sat in resumes; a repeat is not a section boundary.
+          section = null
           break
+        }
         case 'start_of_verse':
         case 'start_of_chorus':
         case 'start_of_bridge':
           forcedKind = SECTION_OF[name]
           section = openSection(forcedKind)
           labelLine(null)
+          // Remembered by reference: the block is still being filled, and a `{chorus}`
+          // further down wants it as it finally stands.
+          if (forcedKind === 'chorus') {
+            lastChorus = section.lines
+            if (value !== '') chorusByLabel.set(value.toLowerCase(), section.lines)
+          }
           break
         case 'start_of_tab':
           verbatimRows = []
@@ -671,7 +725,7 @@ export function parseChordPro(source: string): ParsedSong {
     }
 
     section ??= openSection(forcedKind ?? 'verse')
-    section.lines.push(parseLyricLine(line, [index]))
+    section.lines.push(parseLyricLine(line, sourceLines))
   }
 
   // A tab or grid with no closing directive — malformed, but its rows are real content
@@ -698,6 +752,16 @@ function readCapo(value: string): number | null {
 
   const fret = Number(value.trim())
   return fret <= MAX_CAPO ? fret : null
+}
+
+/**
+ * The same line again, detached from the source.
+ *
+ * Emptying `sourceLines` is the whole of it: a repeat draws the same words and owns none of
+ * the notes, which stay where somebody put them.
+ */
+function repeated(line: Line): Line {
+  return line.kind === 'lyrics' ? { ...line, sourceLines: [] } : line
 }
 
 /** What a backslash may escape, per the format: the characters that otherwise mean something. */

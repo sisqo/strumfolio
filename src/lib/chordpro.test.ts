@@ -331,12 +331,38 @@ describe('ChordPro format compliance', () => {
       assert.deepEqual(shape(parseLyricLine('one \\ two')), ['one', '\\', 'two'])
     })
 
-    /* Line continuation is the one thing on the cheat sheet deliberately not read — see
-       this module's header for what joining two source lines does to every comment
-       anchored below it. Asserted so nobody adds it back without meeting that first. */
-    it('does not join a line that ends in a backslash', () => {
+    /*
+     * Joining two source lines into one drawn line is what used to make this unsafe: the
+     * notes were found by counting drawn lines, so every note below a join landed on the
+     * wrong row. Safe since the anchors are found by identity — and the drawn line records
+     * both source lines, which is how its parts resolve into the right one.
+     */
+    it('joins a line that ends in a backslash to the one after it', () => {
       const song = parseChordPro('{title: T}\n[C]one \\\ntwo')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['[C]one', '\\'], ['two']])
+      assert.deepEqual(song.sections[0].lines.map(shape), [['[C]one', 'two']])
+    })
+
+    it('records both source lines on the line it drew', () => {
+      const line = parseChordPro('{title: T}\nfirst \\\nsecond').sections[0].lines[0]
+      assert.deepEqual(line.kind === 'lyrics' && line.sourceLines, [1, 2])
+    })
+
+    it('joins a run of them, not just a pair', () => {
+      const song = parseChordPro('{title: T}\na \\\nb \\\nc')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['a', 'b', 'c']])
+    })
+
+    it('does not join on an escaped backslash', () => {
+      const song = parseChordPro('{title: T}\nends with \\\\\nnext line')
+      assert.deepEqual(song.sections[0].lines.map(shape), [
+        ['ends', 'with', '\\'],
+        ['next', 'line'],
+      ])
+    })
+
+    it('leaves a backslash inside a tab alone, where it is part of the drawing', () => {
+      const song = parseChordPro('{title: T}\n{sot}\ne|--3--\\\nB|--5--\n{eot}')
+      assert.deepEqual(shape(song.sections[0].lines[0]), ['|e|--3--\\', '|B|--5--'])
     })
   })
 
@@ -401,14 +427,51 @@ describe('ChordPro format compliance', () => {
       assert.deepEqual(song.sections[0].lines.map(shape), [['#Solo'], ['word']])
     })
 
-    it('prints {chorus} as the reference it is', () => {
-      const song = parseChordPro('{title: T}\nword\n{chorus}')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['#Chorus']])
+    /*
+     * `{chorus}` really repeats the chorus now. The repeat owns no notes — it is not in the
+     * file — which is what `sourceLines: []` says and what `buildAnchorMap` reads it as.
+     */
+    it('repeats the chorus where the file asks for it', () => {
+      const song = parseChordPro(
+        '{title: T}\n{soc}\n[C]sung part\n{eoc}\n\nverse line\n{chorus}',
+      )
+
+      assert.deepEqual(
+        song.sections.map((section) => section.kind),
+        ['chorus', 'verse', 'chorus'],
+      )
+      assert.deepEqual(song.sections[2].lines.map(shape), [['[C]sung', 'part']])
     })
 
-    it('lets {chorus} name which one', () => {
-      const song = parseChordPro('{title: T}\nword\n{chorus: Chorus 2}')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['#Chorus 2']])
+    it('gives the repeat no source, so no note can land on it', () => {
+      const song = parseChordPro('{title: T}\n{soc}\nsung part\n{eoc}\n{chorus}')
+      const repeat = song.sections[1].lines[0]
+      assert.deepEqual(repeat.kind === 'lyrics' && repeat.sourceLines, [])
+    })
+
+    it('picks the chorus a labelled reference names', () => {
+      const song = parseChordPro(
+        [
+          '{title: T}',
+          '{start_of_chorus: One}',
+          'first chorus',
+          '{end_of_chorus}',
+          '{start_of_chorus: Two}',
+          'second chorus',
+          '{end_of_chorus}',
+          '{chorus: One}',
+        ].join('\n'),
+      )
+
+      const repeat = song.sections[song.sections.length - 1]
+      assert.deepEqual(repeat.lines.map(shape), [['#One'], ['first', 'chorus']])
+    })
+
+    /* A file that references a chorus it never wrote still marks the spot: saying nothing
+       would lose the one thing the directive is for. */
+    it('prints the reference when there is no chorus to repeat', () => {
+      const song = parseChordPro('{title: T}\nword\n{chorus}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['#Chorus']])
     })
   })
 
@@ -648,6 +711,8 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a chorus reference': '{title: T}\nword\n{chorus}',
     'every comment spelling': '{title: T}\n{ci: a}\n{comment_box: b}\n{highlight: c}\nword',
     'a column break': '{title: T}\nfirst\n{cb}\nsecond',
+    'a joined line': '{title: T}\nfirst \\\nsecond\nthird',
+    'a repeated chorus': '{title: T}\n{soc}\nsung\n{eoc}\nverse\n{chorus}',
     'a conditional section': '{title: T}\n{start_of_chorus-piano}\nword\n{end_of_chorus}',
     'a labelled tab': '{title: T}\nfirst\n{start_of_tab: Solo}\ne|--3--\n{end_of_tab}',
     'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',

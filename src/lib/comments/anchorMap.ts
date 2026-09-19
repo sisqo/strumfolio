@@ -78,12 +78,23 @@ export function buildAnchorMap(sections: Section[], source: string): AnchorMap {
       if (line.kind !== 'lyrics') continue
 
       const segments: Segment[] = []
-      for (const sourceLine of line.sourceLines) {
+      line.sourceLines.forEach((sourceLine, position) => {
         const found = lyricsBySourceLine.get(sourceLine)
-        if (found !== undefined && found.block.kind === 'lyrics') {
-          segments.push({ blockIndex: found.blockIndex, text: found.block.text })
-        }
-      }
+        if (found === undefined || found.block.kind !== 'lyrics') return
+
+        /*
+         * The backslash that joined this line to the next is in the source and not in the
+         * drawn line, so it is not a character the walker may charge anybody for. Dropped
+         * from every segment but the last, which is the only one that never carried one.
+         */
+        const continues = position < line.sourceLines.length - 1
+        const text =
+          continues && found.block.text.endsWith('\\')
+            ? found.block.text.slice(0, -1)
+            : found.block.text
+
+        segments.push({ blockIndex: found.blockIndex, text })
+      })
 
       map.set(line, anchorsFor(line, segments))
     }
