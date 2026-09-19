@@ -41,6 +41,9 @@ const TITLE = /^\{\s*(?:t|title)\s*:[^}]*\}$/i
 /** Three or more of one rule character, and nothing else. */
 const RULE = /^(?:-{3,}|={3,}|\*{3,}|_{3,})$/
 
+/** A line that is nothing but a directive — part of a song's header, never of its words. */
+const DIRECTIVE_ONLY = /^\{[^}]*\}$/
+
 /** `{start_of_tab}` or `{sot}` — same aliases `document.ts` reads. */
 const START_OF_TAB = /^\{\s*(?:sot|start_of_tab)\s*\}$/i
 
@@ -54,7 +57,26 @@ export function splitSongs(text: string): string[] {
   const songs: string[][] = []
   let current: string[] = []
   let inTab = false
-  const hasContent = () => current.some((line) => line.trim() !== '')
+  /**
+   * Whether a *song* is underway — which means words, not merely a header.
+   *
+   * The rule below cuts at a `{title:}` only when one is, precisely so a paste that opens
+   * with a title — every ChordPro export does — does not begin with an empty song in front
+   * of it. That guard used to ask only «is any line non-blank», and a real file rarely opens
+   * with its title on line one: it opens with a `#` note about where the file came from, or
+   * with `{pagetype}` and `{titles center}`, and either made the answer yes. Six of twelve
+   * real files then came apart into a phantom song plus the real one, and in two the comment
+   * went on to become the phantom's title.
+   *
+   * So a header does not count: blank lines, `#` comments and directive-only lines are all
+   * things a song has *before* it starts. Erring this way is the documented safe direction —
+   * one song too few is a re-paste, one too many is a mess to clean up.
+   */
+  const hasContent = () =>
+    current.some(
+      (line) =>
+        line.trim() !== '' && !line.startsWith('#') && !DIRECTIVE_ONLY.test(line.trim()),
+    )
 
   const cut = () => {
     if (hasContent()) songs.push(current)

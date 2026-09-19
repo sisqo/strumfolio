@@ -146,3 +146,50 @@ describe('preparing what was pasted', () => {
     assert.deepEqual(prepareSongs('\n \n'), [])
   })
 })
+
+/*
+ * What a real file looks like before its title, and what that used to do.
+ *
+ * `splitSongs` cuts at a `{title:}` only when a song is already underway, so a paste opening
+ * with a title does not begin with an empty song. The check used to be «is any line
+ * non-blank», and a real file rarely opens with its title on line one — six of twelve
+ * generated test files came apart into a phantom song plus the real one, and in two of them
+ * the leading comment went on to become the phantom's title.
+ */
+describe('a header is not a song', () => {
+  it('keeps a leading # comment with the song it introduces', () => {
+    const songs = splitSongs('# where this file came from\n\n{title: Uno}\n[C]parole')
+
+    assert.equal(songs.length, 1)
+    assert.ok(songs[0].startsWith('# where this file came from'))
+  })
+
+  it('keeps leading directives with it too', () => {
+    const songs = splitSongs('{pagetype: a4}\n{titles center}\n\n{t:Uno}\n[C]parole')
+
+    assert.equal(songs.length, 1)
+    assert.ok(songs[0].includes('{pagetype: a4}'))
+  })
+
+  it('handles the two together, which is what the real files do', () => {
+    const songs = splitSongs('# una nota\n{pagetype: a4}\n\n{title: Uno}\n[C]parole')
+    assert.equal(songs.length, 1)
+  })
+
+  /* The guard must still let a genuine second song through. */
+  it('still cuts at a title once there are words above it', () => {
+    const songs = splitSongs('{title: Uno}\n[C]parole\n\n{title: Due}\n[G]altre parole')
+
+    assert.equal(songs.length, 2)
+    assert.ok(songs[0].includes('Uno'))
+    assert.ok(songs[1].includes('Due'))
+  })
+
+  it('cuts a medley at each of its titles', () => {
+    const songs = splitSongs(
+      '# nota\n{title: Uno}\n[C]parole\n{new_song}\n{title: Due}\n[G]parole\n{ns}\n{title: Tre}\n[D]parole',
+    )
+
+    assert.equal(songs.length, 3)
+  })
+})
