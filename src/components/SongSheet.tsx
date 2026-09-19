@@ -18,6 +18,8 @@ import {
   readChord,
 } from '@/lib/music/chord'
 import { readShift } from '@/lib/music/capo'
+import type { MetadataValues } from '@/lib/chordproMeta'
+import { substituteMetadata } from '@/lib/chordproMeta'
 import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, pickShape } from '@/lib/music/shapes'
 import { type ChordDisplay, ZOOM_STEPS } from '@/lib/prefs/types'
@@ -80,7 +82,22 @@ export function pointOf(element: HTMLElement): CardPoint {
  * In a song with chords, every line keeps the chord row above it whether it has
  * chords or not, so the spacing between lines is even.
  */
-export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNotes }) {
+export function SongSheet({
+  song,
+  values,
+  notes,
+}: {
+  song: ParsedSong
+  /**
+   * What a `%{…}` in the words may name. Required rather than derived from `song` alone,
+   * because the two names most worth substituting — the title and the artist — live in
+   * columns the parse cannot see: the importer consumes them and strips their lines. A
+   * default would have made `%{title}` resolve to nothing on every imported song, which is
+   * every song.
+   */
+  values: MetadataValues
+  notes?: SheetNotes
+}) {
   const { global, song: songPrefs, setChordShape, toggleTabsExpanded } = usePrefs()
   const [shown, setShown] = useState<Chord | null>(null)
 
@@ -202,6 +219,7 @@ export function SongSheet({ song, notes }: { song: ParsedSong; notes?: SheetNote
                 <SheetLine
                   key={lineIndex}
                   line={line}
+                  values={values}
                   shift={shift}
                   spelling={spelling}
                   accidentals={global.accidentals}
@@ -413,6 +431,7 @@ function OverrideDot() {
 
 function SheetLine({
   line,
+  values,
   shift,
   spelling,
   accidentals,
@@ -428,6 +447,8 @@ function SheetLine({
   anchors,
 }: {
   line: Line
+  /** What a `%{…}` in this line may name — see `SongSheet`'s own prop of this name. */
+  values: MetadataValues
   /** Transposition and capo together: how far the written chords move to reach the page. */
   shift: number
   spelling: Spelling
@@ -465,7 +486,9 @@ function SheetLine({
     const framed = line.style === 'box' || line.style === 'highlight'
 
     return (
-      <p className={framed ? `sheet-comment is-${line.style}` : 'sheet-comment'}>{line.text}</p>
+      <p className={framed ? `sheet-comment is-${line.style}` : 'sheet-comment'}>
+        {substituteMetadata(line.text, values)}
+      </p>
     )
   }
 
@@ -512,6 +535,9 @@ function SheetLine({
           <span className="sheet-word">
             {word.parts.map((part, partIndex) => {
               const anchor = anchors?.[wordIndex]?.[partIndex]
+              /* Resolved here and nowhere earlier: the parse keeps `%{…}` exactly as the
+                 file wrote it, so the note anchored to this part still lands on it. */
+              const text = substituteMetadata(part.text, values)
               const lyric =
                 notes !== undefined && anchor !== undefined ? notesAt(notes.comments, anchor, 'lyric') : null
               const chordNote =
@@ -536,7 +562,7 @@ function SheetLine({
                     {lyric !== null && lyric.ids.length > 0 && (
                       <CommentBadge
                         number={lyric.number}
-                        label={part.text}
+                        label={text}
                         stacked={lyric.ids.length}
                         interactive={!notes.armed}
                         onOpen={(at) => notes.onOpen(lyric.ids, at)}
@@ -587,14 +613,14 @@ function SheetLine({
                       onClick={(event) =>
                         notes.onPlace({ ...anchor, target: 'lyric' }, pointOf(event.currentTarget))
                       }
-                      aria-label={`Add a note on ${part.text}`}
+                      aria-label={`Add a note on ${text}`}
                     >
-                      {part.text === '' ? BLANK : part.text}
+                      {text === '' ? BLANK : text}
                       {badges}
                     </button>
                   ) : (
                     <span className={lyric !== null && lyric.ids.length > 0 ? 'sheet-lyric is-noted' : 'sheet-lyric'}>
-                      {part.text === '' ? BLANK : part.text}
+                      {text === '' ? BLANK : text}
                       {badges}
                     </span>
                   )}

@@ -44,6 +44,7 @@
  *   of a line is therefore an ordinary backslash, and `\\` still escapes one.
  */
 
+import { metadataValues, placeholderAt, substituteMetadata } from './chordproMeta'
 import { MAX_CAPO } from './music/capo'
 import { parseTimeSignature, readBpm } from './metronome/tempo'
 
@@ -744,6 +745,23 @@ export function parseLyricLine(line: string): Line {
       continue
     }
 
+    /*
+     * A `%{…}` travels whole, spaces and all, and is not resolved here.
+     *
+     * Whole, because the conditional form contains one: `%{artist|di %{}}` would otherwise
+     * be split at its space into two words and could never be resolved afterwards. Not
+     * resolved, because every note in a song is anchored by a character offset into this
+     * very line — swapping a placeholder for a value of a different length would slide every
+     * note after it. The renderer substitutes on the way to the screen and the file keeps
+     * what its writer typed, which is also what an export has to hand back.
+     */
+    const placeholderEnd = char === '%' ? placeholderAt(line, i) : null
+    if (placeholderEnd !== null) {
+      appendText(line.slice(i, placeholderEnd))
+      i = placeholderEnd - 1
+      continue
+    }
+
     if (char === '[') {
       const close = line.indexOf(']', i)
       if (close === -1) {
@@ -795,14 +813,27 @@ export function parseLyricLine(line: string): Line {
   return { kind: 'lyrics', words, hasChords }
 }
 
-/** Lyrics with all chords removed — used to build the search index. */
+/**
+ * Lyrics with all chords removed — used to build the search index.
+ *
+ * Placeholders are resolved as far as the body alone allows, so a line reading
+ * `%{artist}` is indexed as the artist rather than as the six characters of the
+ * placeholder. Only as far as the body allows: the title and the artist usually live in
+ * columns this function cannot see, and a name it cannot resolve indexes as nothing, which
+ * is still better than indexing `%{artist}` and matching a search for «artist».
+ */
 export function plainLyrics(song: ParsedSong): string {
   const lines: string[] = []
+  const values = metadataValues(song, null, null)
 
   for (const section of song.sections) {
     for (const line of section.lines) {
       if (line.kind !== 'lyrics') continue
-      lines.push(line.words.map((word) => word.parts.map((part) => part.text).join('')).join(' '))
+      lines.push(
+        line.words
+          .map((word) => substituteMetadata(word.parts.map((part) => part.text).join(''), values))
+          .join(' '),
+      )
     }
   }
   return lines.join('\n')

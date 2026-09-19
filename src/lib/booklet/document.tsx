@@ -132,6 +132,7 @@ import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
 import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '../music/chord'
 import { readShift, transposeNoteText } from '../music/capo'
+import { type MetadataValues, metadataValues, substituteMetadata } from '../chordproMeta'
 import { spellingFor } from '../music/key'
 
 // React-pdf hyphenates long words by default (a title wrapping as "ani-mati"),
@@ -791,7 +792,13 @@ function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals
 
   const notes = buildNotes(song, parsed.sections)
 
-  return { parsed, chordLabel, roomForChords, transposeNote, notes }
+  /* From the row and not from the body: the importer consumes the title and the artist into
+     columns and strips their lines, so `%{title}` resolved off the parse alone would be
+     empty on every imported song. Print has to agree with the screen here, or the same
+     placeholder reads one way on the phone and another on paper. */
+  const values = metadataValues(parsed, song.title, song.artist)
+
+  return { parsed, chordLabel, roomForChords, transposeNote, notes, values }
 }
 
 /** The footnote numbers a marker carries — more than one when several notes are
@@ -803,11 +810,14 @@ function markerNumbers(ids: string[], numberById: Map<string, number>): string {
 
 function BookletLine({
   line,
+  values,
   chordLabel,
   roomForChords,
   notes,
 }: {
   line: Line
+  /** What a `%{…}` in this line may name — see `prepare`, which builds it from the row. */
+  values: MetadataValues
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
   /** Null when the reader printed with no comments — see `BookletNotes`'s own comment. */
@@ -819,7 +829,11 @@ function BookletLine({
     const framed =
       line.style === 'box' ? styles.commentBox : line.style === 'highlight' ? styles.commentHighlight : null
 
-    return <Text style={framed === null ? styles.comment : [styles.comment, framed]}>{line.text}</Text>
+    return (
+      <Text style={framed === null ? styles.comment : [styles.comment, framed]}>
+        {substituteMetadata(line.text, values)}
+      </Text>
+    )
   }
 
   if (line.kind === 'tab') {
@@ -859,7 +873,9 @@ function BookletLine({
                   </Text>
                 )}
                 <Text style={styles.lyric}>
-                  {part.text === '' ? ' ' : part.text}
+                  {substituteMetadata(part.text, values) === ''
+                    ? ' '
+                    : substituteMetadata(part.text, values)}
                   {lyricNote !== null && lyricNote.ids.length > 0 && (
                     <Text style={styles.noteMarker}> {markerNumbers(lyricNote.ids, notes!.numberById)}</Text>
                   )}
@@ -875,11 +891,14 @@ function BookletLine({
 
 function Stanzas({
   sections,
+  values,
   chordLabel,
   roomForChords,
   notes,
 }: {
   sections: Section[]
+  /** What a `%{…}` in these stanzas may name — built once per song in `prepare`. */
+  values: MetadataValues
   chordLabel: (raw: string | null) => string | null
   roomForChords: boolean
   notes: BookletNotes | null
@@ -913,7 +932,13 @@ function Stanzas({
         >
           {section.lines.map((line, lineIndex) => (
             <View key={lineIndex} style={lineIndex > 0 ? styles.lineSpacing : undefined}>
-              <BookletLine line={line} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+              <BookletLine
+                line={line}
+                values={values}
+                chordLabel={chordLabel}
+                roomForChords={roomForChords}
+                notes={notes}
+              />
             </View>
           ))}
         </View>
@@ -941,6 +966,7 @@ function BookletSongPage({
   sectionName,
   left,
   right,
+  values,
   chordLabel,
   roomForChords,
   transposeNote,
@@ -950,6 +976,8 @@ function BookletSongPage({
 }: {
   title: string
   artist: string | null
+  /** What a `%{…}` anywhere in this song may name — built once per song in `prepare`. */
+  values: MetadataValues
   /** The song's own links, in their fixed slots — empty ones already dropped. */
   links: string[]
   /** The songbook section this song lives in — shown as a running header on every page. */
@@ -993,16 +1021,16 @@ function BookletSongPage({
 
       {right === null ? (
         <View style={styles.columnsSingle}>
-          <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+          <Stanzas sections={left} values={values} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
         </View>
       ) : (
         <View style={styles.columns}>
           <View style={styles.columnLeft}>
-            <Stanzas sections={left} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+            <Stanzas sections={left} values={values} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
           </View>
           <View style={styles.column}>
             {right.length > 0 && (
-              <Stanzas sections={right} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
+              <Stanzas sections={right} values={values} chordLabel={chordLabel} roomForChords={roomForChords} notes={notes} />
             )}
           </View>
         </View>
@@ -1198,8 +1226,10 @@ async function paginateSong(
    *  real document, the same reason `IndexPage`'s own element is (see `countPages`'
    *  own comment): a second render of the same props could only ever agree. */
   footnotes: { element: React.ReactElement; pageCount: number } | null
+  /** What a `%{…}` in this song may name, built once beside everything else it needs. */
+  values: MetadataValues
 }> {
-  const { parsed, chordLabel, roomForChords, transposeNote, notes } = prepare(
+  const { parsed, chordLabel, roomForChords, transposeNote, notes, values } = prepare(
     song,
     notation,
     accidentals,
@@ -1211,6 +1241,7 @@ async function paginateSong(
     <BookletSongPage
       title={song.title}
       artist={song.artist}
+      values={values}
       links={links}
       sectionName={sectionName}
       left={left}
@@ -1349,7 +1380,7 @@ async function paginateSong(
     footnotes = { element, pageCount: await countPages(element) }
   }
 
-  return { pages, chordLabel, roomForChords, transposeNote, notes, footnotes }
+  return { pages, chordLabel, roomForChords, transposeNote, notes, footnotes, values }
 }
 
 /** Renders the booklet to a downloadable blob — the one thing the export panel needs. */
@@ -1432,6 +1463,7 @@ export async function bookletToBlob(
               key={pageIndex}
               title={entry.song.title}
               artist={entry.song.artist}
+              values={songPagination[index].values}
               links={linksOf(entry.song)}
               sectionName={entry.sectionName}
               left={songPage.left}

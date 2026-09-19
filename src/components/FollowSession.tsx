@@ -10,6 +10,7 @@ import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
 import { IconBroadcast, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
+import { metadataValues } from '@/lib/chordproMeta'
 import type { Song } from '@/lib/data/types'
 import type { Notation } from '@/lib/music/chord'
 import { DEFAULT_GLOBAL_PREFS, DEFAULT_SONG_PREFS } from '@/lib/prefs/types'
@@ -1053,7 +1054,7 @@ function FollowedSong({
         />
       </header>
 
-      <SongSheet song={parsed} />
+      <SongSheet song={parsed} values={metadataValues(parsed, song.data.title, song.data.artist)} />
 
       <div className="bar-spacer" />
 

@@ -540,6 +540,45 @@ describe('ChordPro format compliance', () => {
     })
   })
 
+  /*
+   * The property the whole substitution feature rests on. `%{artist|di %{}}` contains a
+   * space, so the ordinary word split would cut it in two and nothing downstream could ever
+   * put it back together. And it stays *unresolved* here, because every note in a song is
+   * anchored by a character offset into this line: swapping a placeholder for a value of a
+   * different length at parse time would slide every note after it.
+   */
+  describe('%{…} placeholders', () => {
+    it('keeps a conditional placeholder whole, space and all', () => {
+      const line = parseLyricLine('%{artist|di %{}} tonight')
+      assert.deepEqual(shape(line), ['%{artist|di %{}}', 'tonight'])
+    })
+
+    it('leaves the placeholder exactly as the file wrote it', () => {
+      const song = parseChordPro('{title: T}\n{artist: Chi suona}\nScritta da %{artist}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['Scritta', 'da', '%{artist}']])
+    })
+
+    it('keeps a chord attached to the word a placeholder opens', () => {
+      const line = parseLyricLine('[C]%{title} here')
+      assert.deepEqual(shape(line), ['[C]%{title}', 'here'])
+    })
+
+    it('treats an unclosed placeholder as the text it is', () => {
+      assert.deepEqual(shape(parseLyricLine('a %{artist b')), ['a', '%{artist', 'b'])
+    })
+
+    it('does not mistake a per-cent sign for one', () => {
+      assert.deepEqual(shape(parseLyricLine('100% sure')), ['100%', 'sure'])
+    })
+
+    /* The index resolves what the body alone allows, so a search matches the value and
+       never the six characters of the placeholder. */
+    it('resolves what it can for the search index', () => {
+      const song = parseChordPro('{title: T}\n{artist: Chi suona}\nScritta da %{artist}')
+      assert.equal(plainLyrics(song), 'Scritta da Chi suona')
+    })
+  })
+
   describe('{capo}', () => {
     it('reads the fret the song says it is played at', () => {
       assert.equal(parseChordPro('{title: T}\n{capo: 3}\nword').capo, 3)

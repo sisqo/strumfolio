@@ -23,6 +23,7 @@ import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
 import { IconExternal, IconInfo } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
+import { metadataValues } from '@/lib/chordproMeta'
 import { songInfoRows } from '@/lib/songInfo'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
@@ -222,6 +223,7 @@ export function LiveSheet() {
   return (
     <SongSheet
       song={parsed}
+      values={metadataValues(parsed, song.title, song.artist)}
       notes={{
         anchors,
         comments,

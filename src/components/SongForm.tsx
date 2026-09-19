@@ -7,6 +7,7 @@ import { SongFields, type SongFieldValues } from '@/components/SongFields'
 import { SongSheet } from '@/components/SongSheet'
 import { IconTrash } from '@/components/icons'
 import { parseChordPro } from '@/lib/chordpro'
+import { metadataValues } from '@/lib/chordproMeta'
 import type { Songbook, Section } from '@/lib/data/types'
 import { saveMessage, type Decision, type DuplicateOf, type SaveRefusal, type SaveResult, type SongInput } from '@/lib/import/types'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
@@ -134,7 +135,7 @@ export function SongForm({
         <div>
           <span className="field-label">Preview</span>
           <div className="card max-h-[26rem] overflow-auto p-3">
-            <SongSheet song={parsed} />
+            <SongSheet song={parsed} values={metadataValues(parsed, values.title, values.artist)} />
           </div>
         </div>
       </div>

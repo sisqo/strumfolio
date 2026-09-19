@@ -35,6 +35,7 @@ import {
   IconUndo,
 } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
+import { metadataValues } from '@/lib/chordproMeta'
 import type { Song } from '@/lib/data/types'
 import {
   type LineRange,
@@ -850,7 +851,7 @@ export function EditorScreen({ song }: { song: Song }) {
             songCapo={parsed.capo}
             songKey={parsed.key}
           />
-          <SongSheet song={parsed} />
+          <SongSheet song={parsed} values={metadataValues(parsed, fields.title, fields.artist)} />
           <div className="bar-spacer" />
           <ControlBar songSlug={song.slug} />
         </MetronomeProvider>
