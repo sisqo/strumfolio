@@ -94,6 +94,19 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
    * a crawler could reach it from it does not exist. The page carries a `noindex` of its own.
    */
   { path: '/qa', indexable: false },
+  /*
+   * Where Paddle's **default payment link** points, carrying `?_ptxn=txn_…`.
+   *
+   * Session-free because the reader arrived from an email Paddle sent — most often the «update
+   * your payment method» one a subscriber gets when their card fails — and asking them to sign
+   * in first is the friction that turns a failing card into a lapsed subscription. It is safe
+   * to open: the page reads no database, names no price, and the transaction id it opens was
+   * issued by Paddle, so the form shows only what Paddle's own link would have shown anyway.
+   *
+   * Not indexable: without the parameter the URL is an empty payment page, and the page carries
+   * a `robots` noindex of its own for the second question — see `/home` on why both.
+   */
+  { path: '/pay', indexable: false },
 
   { path: '/pricing', indexable: true },
   { path: '/changelog', indexable: true },
