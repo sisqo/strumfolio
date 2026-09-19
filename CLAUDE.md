@@ -760,13 +760,32 @@ means neither «same cycle» nor «change of cycle» predicts the credit, and on
 is unexplained even by the restarted period; the screen therefore reads `update_summary.credit`
 and infers nothing. `plans/CLAUDE.md` has all six measurements.
 
+**The live notification destination exists since 2026-09-19**: `ntfset_01m2wgwgzewvq76c14h83xa15a`,
+`https://strumfolio.com/api/paddle/webhook`, active, `api_version: 1` and
+`include_sensitive_fields: false` — the same two as the sandbox one, so the payloads the webhook
+was tested against are the payloads production receives. It carries the same eleven events,
+**`adjustment.created` and `adjustment.updated` included**; without those two a refunded Lifetime
+is never revoked and nothing anywhere errors (`plans/CLAUDE.md`).
+
+**Its `traffic_source` is `platform`, where the sandbox one is `all`, and that is a decision.**
+A simulation delivered to production is a real payload reaching `webhookApply.ts`, which is the
+single writer of the plan columns — so a test event could grant or revoke somebody's plan. Keep
+simulations on the sandbox destination, which exists for exactly that.
+
+**Its signing secret was never read.** It was created through the MCP with code that returns
+every field except `endpoint_secret_key`, so the value lives only inside Paddle and has to be
+copied from the dashboard — Developer Tools → Notifications — into Production's
+`PADDLE_NOTIFICATION_WEBHOOK_SECRET` by hand. That is the same arrangement `prod-url` exists for,
+applied to a secret an agent would otherwise have printed into a transcript.
+
 **Still to do before any of this takes money in production**: the live inline checkout carries
-none of the branding above (the values are in the section that describes them), the live
-notification destination does not exist and must subscribe to **`adjustment.created` and
-`adjustment.updated`** alongside the subscription and transaction events — without them a
-refunded Lifetime is never revoked and nothing anywhere errors (`plans/CLAUDE.md`) — and
-Production has no `PADDLE_*` variables at all, `PADDLE_PRICE_IDS` now included, since that is
-where the live ids live.
+none of the branding above (the values are in the section that describes them), and Production has
+no `PADDLE_*` variables at all — `PADDLE_PRICE_IDS` included, since that is where the live ids
+live. Note the order that follows from the destination already being active: it will refuse every
+delivery with a 401 until that secret is in Production, and a refused delivery is retried for
+three days. Nothing can be delivered before the first live purchase, which the domain gate below
+makes impossible, so the window is safe rather than lucky — but the secret belongs in Production
+before anything is ever bought.
 
 **One gate sits in front of every one of them: the live domain must be approved.**
 `strumfolio.com` was submitted on 2026-09-19 — `chedom_01m2we9rfyfcy7jtwpnr90rcvm`,
