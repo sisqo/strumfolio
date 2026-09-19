@@ -86,6 +86,49 @@ four facts whose absence is expensive are repeated here rather than left behind 
   five places and the others are wrong**, the rule the booklet override and the install row already
   live under. There is no consent banner, by decision.
 
+## ChordPro is read by two parsers, and they have to agree
+
+`src/lib/chordpro.ts` is the **reader** — it throws away what the screen does not need.
+`src/lib/editor/document.ts` is the **editor's**, one block per source line, holding
+`toSource(fromSource(x)) === x` byte for byte so saving never rewrites somebody's file.
+A construct taught to one and not the other does not fail: the editor turns it into an
+opaque chip, or worse reads it as lyrics and offers its `[` as a chord. **Teach both, in
+the same commit**, and note the fan-out — `SongSheet.tsx` (screen), `booklet/layout.ts`
+plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s `METADATA_DIRECTIVE` (what is
+stripped), `import/export.ts` (what is written), and `components/ChordProGuide.tsx`,
+which is the page that documents all of it.
+
+The format reference is the [cheat
+sheet](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/), and compliance was
+brought up to it on 2026-09-19. What is deliberately **not** followed, each argued where
+it lives rather than here:
+
+- **`{st}`/`{subtitle}` is the artist**, which is OnSong's convention and not the
+  specification's — `import/dialect.ts` has the argument. Moving it would change how every
+  already-importable file imports.
+- **`{songbook}`, `{division}` and `{link1..3}` are written unprefixed**, where a strict
+  reading spells a private directive `{x_…}`. The `{x_}` forms are *read* since the same
+  date, so a file from a stricter tool is understood; what the export writes is unchanged,
+  because the export is also this repo's restore path.
+- **The typesetting directives are ignored** — `{textfont}`, `{columns}`, `{new_page}`,
+  `{image}`, `{define}` and the rest. This app lays a song out for a phone on a stand and
+  has no page to break. Ignored is not lost: the editor keeps them verbatim.
+- **`{chorus}` prints the reference, it does not replay the chorus.** Quoting the block
+  back would put the same words under two different comment anchors.
+- **Line continuation (a trailing `\`) is not read**, and it is the one construct that
+  could not be added at all. Every comment is anchored by its block index in
+  `editor/document.ts` — one block per *source* line — and `buildAnchorMap` and
+  `SongSheet` walk that list in step with the reader's lines. Joining two source lines
+  makes the reader's list shorter, and from there down every note in the song renders
+  against the wrong line, silently. `chordpro.test.ts`'s «the reader and the editor agree
+  on how many lyric lines a song has» is that rule as a test, and is the cheapest check
+  that a new construct is safe.
+
+Two questions it leaves open, neither answered by fiat: whether `{key}` and `{capo}` should
+seed a song (today they are read and dropped, because capo and transposition belong to the
+reader in `user_song_prefs`, and a file would be overwriting a choice made months ago), and
+whether `{define}`/`{chord}` diagrams should feed `ChordLibrary`.
+
 ## Commands
 
 ```bash

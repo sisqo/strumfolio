@@ -471,10 +471,14 @@ function SheetLine({
           className="sheet-tab-toggle"
           onClick={onToggleTabs}
           aria-expanded={tabsExpanded}
-          title={tabsExpanded ? 'Hide the tab' : 'Show the tab'}
+          title={
+            tabsExpanded
+              ? `Hide the ${line.variant === 'grid' ? 'grid' : 'tab'}`
+              : `Show the ${line.variant === 'grid' ? 'grid' : 'tab'}`
+          }
         >
           <IconTab size={14} />
-          Tab
+          {line.variant === 'grid' ? 'Grid' : 'Tab'}
           {tabsExpanded ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
         </button>
         {tabsExpanded && <pre className="sheet-tab">{line.rows.join('\n')}</pre>}
@@ -538,6 +542,7 @@ function SheetLine({
                   {roomForChords && (
                     <SheetChord
                       raw={part.chord}
+                      annotation={part.annotation === true}
                       shift={shift}
                       spelling={spelling}
                       accidentals={accidentals}
@@ -660,6 +665,7 @@ function CommentBadge({
  */
 function SheetChord({
   raw,
+  annotation,
   shift,
   spelling,
   accidentals,
@@ -671,6 +677,12 @@ function SheetChord({
   note,
 }: {
   raw: string | null
+  /**
+   * Whether `raw` is an annotation (`[*Capo 3]`) rather than a chord. It is drawn in the
+   * chord's slot and is not a chord: no transposition, no respelling, no fingering to
+   * open. `[*C]` is why the flag has to travel rather than be guessed from the text.
+   */
+  annotation: boolean
   shift: number
   spelling: Spelling
   accidentals: Accidentals
@@ -701,7 +713,9 @@ function SheetChord({
 
   const marked = note?.marked === true
 
-  const parsed = parseChord(raw)
+  /* An annotation takes the unparseable branch on purpose — plain text in the slot,
+     still a target while notes are being placed, never a button that opens a fingering. */
+  const parsed = annotation ? null : parseChord(raw)
   if (parsed === null) {
     return arming ? (
       <button type="button" className="sheet-chord sheet-chord-target" onClick={(event) => note.onPlace(pointOf(event.currentTarget))} aria-label={`Add a note on ${raw}`}>

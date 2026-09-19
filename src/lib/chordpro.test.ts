@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
+import { buildAnchorMap } from './comments/anchorMap'
 import { type Line, chordTokens, parseChordPro, parseLyricLine, plainLyrics } from './chordpro'
 
 /** Compact view of a parsed line: one string per word, chords in brackets. */
@@ -280,4 +281,226 @@ describe('chordTokens', () => {
     const song = parseChordPro('[Am]a [F]b [Am]c [C]d')
     assert.deepEqual(chordTokens(song), ['Am', 'F', 'C'])
   })
+})
+
+/*
+ * The constructs the published format defines that this parser did not read until
+ * 2026-09-19. Each is here because ignoring it had a visible cost, not for completeness:
+ * a `#` line was printed as a lyric, an annotation was transposed as a chord, a grid was
+ * split into words and wrapped, and a named block lost its name.
+ */
+describe('ChordPro format compliance', () => {
+  describe('source comments', () => {
+    it('ignores a line that starts with a hash', () => {
+      const song = parseChordPro('{title: T}\n# a note to myself\nFirst line')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['First', 'line']])
+    })
+
+    it('keeps an indented hash, which is a lyric and not a comment', () => {
+      const song = parseChordPro('{title: T}\n  # not a comment')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#', 'not', 'a', 'comment']])
+    })
+
+    it('prints a hash the writer escaped', () => {
+      const song = parseChordPro('{title: T}\nnumber \\#1')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['number', '#1']])
+    })
+
+    it('leaves a hash inside a tab alone', () => {
+      const song = parseChordPro('{title: T}\n{sot}\n# 7 5 #\n{eot}')
+      assert.deepEqual(shape(song.sections[0].lines[0]), ['|# 7 5 #'])
+    })
+  })
+
+  describe('escapes and continuation', () => {
+    it('treats an escaped bracket as text rather than a chord', () => {
+      const line = parseLyricLine('say \\[this\\] out loud')
+      assert.deepEqual(shape(line), ['say', '[this]', 'out', 'loud'])
+      assert.equal(line.kind === 'lyrics' && line.hasChords, false)
+    })
+
+    it('leaves a backslash that escapes nothing where it is', () => {
+      assert.deepEqual(shape(parseLyricLine('one \\ two')), ['one', '\\', 'two'])
+    })
+
+    /* Line continuation is the one thing on the cheat sheet deliberately not read — see
+       this module's header for what joining two source lines does to every comment
+       anchored below it. Asserted so nobody adds it back without meeting that first. */
+    it('does not join a line that ends in a backslash', () => {
+      const song = parseChordPro('{title: T}\n[C]one \\\ntwo')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['[C]one', '\\'], ['two']])
+    })
+  })
+
+  describe('annotations', () => {
+    const song = parseChordPro('{title: T}\n[*Solo] [Am]word [*C]other')
+
+    it('drops the star and marks the part as an annotation', () => {
+      const line = song.sections[0].lines[0]
+      assert.equal(line.kind, 'lyrics')
+      if (line.kind !== 'lyrics') return
+
+      assert.deepEqual(line.words[0].parts, [{ chord: 'Solo', text: '', annotation: true }])
+      assert.deepEqual(line.words[1].parts, [{ chord: 'Am', text: 'word' }])
+      assert.deepEqual(line.words[2].parts, [{ chord: 'C', text: 'other', annotation: true }])
+    })
+
+    it('keeps the chord row, since an annotation is drawn in it', () => {
+      const line = song.sections[0].lines[0]
+      assert.equal(line.kind === 'lyrics' && line.hasChords, true)
+    })
+
+    it('never offers an annotation as a chord, even one spelled like one', () => {
+      assert.deepEqual(chordTokens(song), ['Am'])
+    })
+
+    /* The leading space is a word with no letters in it — what a chord-only slot has
+       always produced, annotation or not. What matters is that «Solo» is not in there:
+       searching the repertoire for it must not turn up every song with a solo marked. */
+    it('leaves an annotation out of the search index', () => {
+      assert.equal(plainLyrics(song).trim(), 'word other')
+      assert.ok(!plainLyrics(song).includes('Solo'))
+    })
+  })
+
+  describe('sections', () => {
+    it('reads an explicit verse and its end', () => {
+      const song = parseChordPro('{title: T}\n{sov}\nin\n\nstill in\n{eov}\nout')
+      assert.deepEqual(
+        song.sections.map((section) => section.kind),
+        ['verse', 'verse'],
+      )
+      // The blank line does not close a block the file opened by hand.
+      assert.equal(song.sections[0].lines.length, 2)
+    })
+
+    it('prints the label a section gives itself', () => {
+      const song = parseChordPro('{title: T}\n{start_of_chorus: Chorus 2}\nword\n{end_of_chorus}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#Chorus 2'], ['word']])
+    })
+
+    it('says nothing above an unlabelled chorus, which is drawn as one already', () => {
+      const song = parseChordPro('{title: T}\n{start_of_chorus}\nword\n{end_of_chorus}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+
+    it('keeps a block it has no styling for, under its own name', () => {
+      const song = parseChordPro('{title: T}\n{start_of_solo}\nword\n{end_of_solo}\nafter')
+      assert.deepEqual(
+        song.sections.map((section) => section.kind),
+        ['verse', 'verse'],
+      )
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#Solo'], ['word']])
+    })
+
+    it('prints {chorus} as the reference it is', () => {
+      const song = parseChordPro('{title: T}\nword\n{chorus}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['#Chorus']])
+    })
+
+    it('lets {chorus} name which one', () => {
+      const song = parseChordPro('{title: T}\nword\n{chorus: Chorus 2}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['#Chorus 2']])
+    })
+  })
+
+  describe('grids', () => {
+    it('keeps a grid verbatim rather than splitting it into words', () => {
+      const song = parseChordPro('{title: T}\n{sog}\n| Am . . . | F . . . |\n{eog}')
+      const line = song.sections[0].lines[0]
+      assert.equal(line.kind, 'tab')
+      if (line.kind !== 'tab') return
+
+      assert.deepEqual(line.rows, ['| Am . . . | F . . . |'])
+      assert.equal(line.variant, 'grid')
+    })
+
+    it('calls a tab a tab', () => {
+      const song = parseChordPro('{title: T}\n{sot}\ne|--3--\n{eot}')
+      const line = song.sections[0].lines[0]
+      assert.equal(line.kind === 'tab' && line.variant, 'tab')
+    })
+
+    it('keeps an unclosed grid rather than losing its rows', () => {
+      const song = parseChordPro('{title: T}\n{sog}\n| Am |')
+      assert.deepEqual(shape(song.sections[0].lines[0]), ['|| Am |'])
+    })
+  })
+
+  describe('comment spellings', () => {
+    it('reads every shape of comment the format defines', () => {
+      const song = parseChordPro('{title: T}\n{ci: quietly}\n{comment_box: loud}\n{highlight: watch}')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#quietly'], ['#loud'], ['#watch']])
+    })
+  })
+
+  describe('{meta}', () => {
+    it('reads the space-separated form', () => {
+      const song = parseChordPro('{meta artist Someone}\n{meta tempo 96}\nword')
+      assert.equal(song.artist, 'Someone')
+      assert.equal(song.tempo, 96)
+    })
+
+    it('reads the colon form the same way', () => {
+      const song = parseChordPro('{meta: artist Someone}\nword')
+      assert.equal(song.artist, 'Someone')
+    })
+
+    it('ignores a meta directive naming something nothing here holds', () => {
+      const song = parseChordPro('{meta album Something}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+  })
+
+  describe('{x_} extensions', () => {
+    it("reads this app's own directives under their strict spelling too", () => {
+      const song = parseChordPro('{x_songbook: Book}\n{x_division: Part}\n{x_link1: https://example.com}\nword')
+      assert.equal(song.songbookName, 'Book')
+      assert.equal(song.sectionName, 'Part')
+      assert.equal(song.link1, 'https://example.com')
+    })
+
+    it('ignores an extension nobody here claims', () => {
+      const song = parseChordPro('{x_something: else}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+  })
+})
+
+/*
+ * The rule `CLAUDE.md` states in words, as something that fails the suite.
+ *
+ * A song has two parsers: this one, which the sheet renders, and `editor/document.ts`,
+ * whose blocks every comment is anchored into. `buildAnchorMap` produces one entry per
+ * lyrics *block* and `SongSheet` consumes it one per lyrics *Line*, so the two counts
+ * must match exactly — and when they do not, nothing is missing and nothing throws:
+ * every note below the first disagreement simply renders against the wrong line.
+ *
+ * That is what a line continuation did, which is why the reader does not read one.
+ */
+describe('the reader and the editor agree on how many lyric lines a song has', () => {
+  const lyricLineCount = (source: string): number =>
+    parseChordPro(source)
+      .sections.flatMap((section) => section.lines)
+      .filter((line) => line.kind === 'lyrics').length
+
+  const cases: Record<string, string> = {
+    'a hash comment': '{title: T}\n# note\nfirst\nsecond',
+    'a trailing backslash': '{title: T}\nfirst \\\nsecond\nthird',
+    'a grid': '{title: T}\n{sog}\n| Am . . . |\n{eog}\nword',
+    'a tab': '{title: T}\n{sot}\ne|--3--\n{eot}\nword',
+    'a named section': '{title: T}\n{start_of_chorus: Chorus 2}\nword\n{end_of_chorus}',
+    'an unstyled section': '{title: T}\n{start_of_solo}\nword\n{end_of_solo}',
+    'a chorus reference': '{title: T}\nword\n{chorus}',
+    'every comment spelling': '{title: T}\n{ci: a}\n{cb: b}\n{highlight: c}\nword',
+    'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',
+    'a verse marked by hand': '{title: T}\n{sov}\none\n\ntwo\n{eov}',
+    'an escaped bracket': '{title: T}\nsay \\[this\\]\nsecond',
+  }
+
+  for (const [name, source] of Object.entries(cases)) {
+    it(`counts the same with ${name}`, () => {
+      assert.equal(lyricLineCount(source), buildAnchorMap(source).length)
+    })
+  }
 })

@@ -115,8 +115,21 @@ Was [Em]blind, but [D]now I [G]see.
           <code>{'{division: ...}'}</code> instead.
         </p>
         <p>
-          Anything else — <code>{'{key: ...}'}</code>, <code>{'{capo: ...}'}</code> — is read and
-          silently ignored, never shown to whoever opens the song. Strumfolio doesn&apos;t store a
+          <strong><code>{'{meta name value}'}</code></strong> works too, for any of the above:{' '}
+          <code>{'{meta artist Traditional}'}</code> is <code>{'{artist: Traditional}'}</code>.
+          So does the strict spelling for the three directives that are Strumfolio&apos;s own
+          rather than the format&apos;s — <code>{'{x_songbook: ...}'}</code>,{' '}
+          <code>{'{x_division: ...}'}</code>, <code>{'{x_link1: ...}'}</code> — which is what a
+          tool fussy about private directives will have written. Strumfolio reads both and writes
+          the short ones.
+        </p>
+        <p>
+          Anything else — <code>{'{key: ...}'}</code>, <code>{'{capo: ...}'}</code>, and the
+          typesetting directives a printed songbook needs (<code>{'{textfont}'}</code>,{' '}
+          <code>{'{columns}'}</code>, <code>{'{new_page}'}</code>, <code>{'{define}'}</code>) — is
+          read and silently ignored, never shown to whoever opens the song. Ignored, not lost: the
+          editor keeps every one of them, so a file that arrives carrying them leaves carrying
+          them. Strumfolio doesn&apos;t store a
           key or a capo position for a song: it works the key out live from the chords, and a capo
           is a suggestion made live to whoever&apos;s reading, not a fact about the song itself —
           so there&apos;s nothing for either directive to set.
@@ -151,7 +164,10 @@ Was [Em]blind, but [D]now I [G]see.
         <ul>
           <li>
             <code>{'{comment: ...}'}</code> (or <code>{'{c: ...}'}</code>) — a spoken aside, shown
-            between the lines. Good for &quot;intro&quot;, &quot;x2&quot;, stage directions.
+            between the lines. Good for &quot;intro&quot;, &quot;x2&quot;, stage directions.{' '}
+            <code>{'{comment_italic}'}</code>, <code>{'{ci}'}</code>, <code>{'{comment_box}'}</code>,{' '}
+            <code>{'{cb}'}</code> and <code>{'{highlight}'}</code> all mean the same thing here —
+            they differ only in how a printed page frames them, and Strumfolio frames none of them.
           </li>
           <li>
             <code>{'{start_of_chorus}'}</code> … <code>{'{end_of_chorus}'}</code> (or{' '}
@@ -162,9 +178,60 @@ Was [Em]blind, but [D]now I [G]see.
             <code>{'{sob}'}</code> … <code>{'{eob}'}</code>) — same treatment, in italics.
           </li>
           <li>
+            <code>{'{start_of_verse}'}</code> … <code>{'{end_of_verse}'}</code> (or{' '}
+            <code>{'{sov}'}</code> … <code>{'{eov}'}</code>) — a verse marked by hand. Worth it only
+            when a verse has a blank line inside it: otherwise a blank line already ends one.
+          </li>
+          <li>
+            <code>{'{chorus}'}</code> — &quot;the chorus goes here&quot;, without writing it out
+            again. Shown as the reminder it is; Strumfolio doesn&apos;t repeat the words, since a
+            song on a stand is read in the order it was typed.
+          </li>
+          <li>
+            Any other <code>{'{start_of_...}'}</code> … <code>{'{end_of_...}'}</code> pair —{' '}
+            <code>{'{start_of_solo}'}</code>, <code>{'{start_of_intro}'}</code> — is kept, and the
+            block prints its own name above it. It reads as a verse, since those three are the only
+            kinds Strumfolio draws differently. Naming one — <code>{'{start_of_chorus: Chorus 2}'}</code>{' '}
+            — prints that name instead.
+          </li>
+          <li>
             <code>{'{start_of_tab}'}</code> … <code>{'{end_of_tab}'}</code> (or <code>{'{sot}'}</code>{' '}
             … <code>{'{eot}'}</code>) — a block of tablature, kept exactly as typed: never read for
             chords, never wrapped or reflowed.
+          </li>
+          <li>
+            <code>{'{start_of_grid}'}</code> … <code>{'{end_of_grid}'}</code> (or{' '}
+            <code>{'{sog}'}</code> … <code>{'{eog}'}</code>) — a chord grid,{' '}
+            <code>| Am . . . | F . . . |</code>. Treated exactly like a tab, because what both need
+            is the same: every column left where it was put.
+          </li>
+        </ul>
+
+        <h2>Notes to yourself, and characters that mean something</h2>
+        <ul>
+          <li>
+            A line starting with <code>#</code> in the first column is a comment on the{' '}
+            <em>file</em> — Strumfolio reads it and never shows it. A <code>#</code> anywhere else
+            in a line is an ordinary character. To print one at the start of a line, write{' '}
+            <code>\#</code>.
+          </li>
+          <li>
+            <code>[*text]</code> is an annotation: it sits where a chord would, and is not one.{' '}
+            <code>[*let ring]</code>, <code>[*capo 3]</code> — never transposed, never respelled,
+            never offered as a fingering, and never in the song&apos;s chord list. That last part
+            is why the star is needed at all: <code>[*C]</code> is the word C, <code>[C]</code> is
+            the chord.
+          </li>
+          <li>
+            A backslash makes the next character literal, for the five that mean something:{' '}
+            <code>\[</code>, <code>\]</code>, <code>\{'{'}</code>, <code>\{'}'}</code>,{' '}
+            <code>\#</code> and <code>\\</code> itself. A backslash in front of anything else
+            stays a backslash.
+          </li>
+          <li>
+            A backslash at the <em>end</em> of a line is the one thing in the format Strumfolio
+            doesn&apos;t read: elsewhere it continues the line onto the next one, here it stays an
+            ordinary backslash. Write the long line as one line.
           </li>
         </ul>
 

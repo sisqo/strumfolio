@@ -263,3 +263,84 @@ describe('the chords a song already uses', () => {
     assert.deepEqual(chordVocabulary(blocks), ['la'])
   })
 })
+
+/*
+ * The format's other verbatim constructs, held to the same byte-for-byte contract as
+ * everything above. A `#` comment and a grid both used to arrive here as `lyrics`
+ * blocks, which round-tripped by luck rather than by design: a `[` anywhere in either
+ * one was read as a chord and offered for editing as one.
+ */
+describe('the constructs the editor learned with the format', () => {
+  it('keeps a # comment as itself rather than as words', () => {
+    const source = '{title: T}\n# a note [with] a bracket in it\nfirst line'
+    const blocks = fromSource(source).blocks
+
+    assert.equal(blocks[1].kind, 'source-comment')
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  it('leaves an indented hash as the lyric it is', () => {
+    const source = '  # indented'
+    assert.equal(fromSource(source).blocks[0].kind, 'lyrics')
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  it('keeps a grid in one block, columns untouched', () => {
+    const source = '{start_of_grid}\n| Am . . . | F . . . |\n{end_of_grid}'
+    const block = fromSource(source).blocks[0]
+
+    assert.equal(block.kind, 'tab')
+    assert.equal(block.kind === 'tab' && block.variant, 'grid')
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  it('closes an unclosed grid as a grid, not as a tab', () => {
+    const document = fromSource('{sog}\n| Am |')
+    assert.equal(toSource(document), '{sog}\n| Am |\n{end_of_grid}')
+  })
+
+  it('does not invent a colon for a comment that has no value', () => {
+    const source = '{c}\nword'
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  it('reads a verse marker as a marker rather than as an opaque directive', () => {
+    const blocks = fromSource('{sov}\nword\n{eov}').blocks
+
+    assert.deepEqual(
+      blocks.map((block) => block.kind),
+      ['boundary', 'lyrics', 'boundary'],
+    )
+    assert.deepEqual(sectionsOf(blocks), ['verse', 'verse', 'verse'])
+  })
+
+  it('reads every spelling of a comment as one', () => {
+    const source = '{ci: quietly}\n{comment_box: loud}\n{highlight: watch}'
+    const blocks = fromSource(source).blocks
+
+    assert.deepEqual(
+      blocks.map((block) => block.kind),
+      ['comment', 'comment', 'comment'],
+    )
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  /* The invariant that matters most here: whatever the editor does to these, the reader
+     must see the same song afterwards as before. */
+  it('renders the same song after a trip through the editor', () => {
+    const source = [
+      '{title: T}',
+      '# a note',
+      '{sov}',
+      '[C]word here',
+      '{eov}',
+      '{start_of_grid}',
+      '| C . . . |',
+      '{end_of_grid}',
+      '[*Solo] [Am]after',
+    ].join('\n')
+
+    assert.deepEqual(parseChordPro(toSource(fromSource(source))), parseChordPro(source))
+    assert.equal(toSource(fromSource(source)), source)
+  })
+})

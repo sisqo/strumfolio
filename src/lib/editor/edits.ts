@@ -362,6 +362,7 @@ export function insertTab(document: SongDocument, index: number): SongDocument {
     startDirective: 'start_of_tab',
     endDirective: 'end_of_tab',
     rows: [...TAB_TEMPLATE_ROWS],
+    variant: 'tab',
   })
 }
 

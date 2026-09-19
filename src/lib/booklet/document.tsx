@@ -821,7 +821,9 @@ function BookletLine({
       {line.words.map((word, wordIndex) => (
         <View key={wordIndex} style={styles.word}>
           {word.parts.map((part, partIndex) => {
-            const label = chordLabel(part.chord)
+            /* `chordLabel` transposes and respells; an annotation must reach the page
+               as the words somebody typed. Same rule as the reading screen. */
+            const label = part.annotation === true ? part.chord : chordLabel(part.chord)
             const anchor = anchorsForLine?.[wordIndex]?.[partIndex]
             const lyricNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'lyric') : null
             const chordNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'chord') : null

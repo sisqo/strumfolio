@@ -36,9 +36,16 @@ export type Block =
   /** `{c: ...}`, keeping the spelling the file used. */
   | { kind: 'comment'; directive: string; text: string }
   /** `{soc}`, `{eoc}`, `{sob}`, `{eob}`, again as written. */
-  | { kind: 'boundary'; directive: string; edge: 'start' | 'end'; section: 'chorus' | 'bridge' }
+  | { kind: 'boundary'; directive: string; edge: 'start' | 'end'; section: SectionKind }
   /** Any other directive, kept verbatim because something else may depend on it. */
   | { kind: 'directive'; raw: string }
+  /**
+   * A `#` source comment — a note from whoever wrote the file, which the reader never
+   * shows. Verbatim, and a kind of its own rather than a `directive`: the two are
+   * preserved identically and read completely differently, and without this it would be
+   * a `lyrics` block, offered for editing word by word with its `[` read as a chord.
+   */
+  | { kind: 'source-comment'; raw: string }
   | { kind: 'blank'; raw: string }
   /**
    * `{start_of_tab}` … `{end_of_tab}`, one block for the whole run rather than one
@@ -49,7 +56,19 @@ export type Block =
    * since leaving it open would swallow every line after it into the same tab
    * the next time this is read.
    */
-  | { kind: 'tab'; startDirective: string; endDirective: string | null; rows: string[] }
+  | {
+      kind: 'tab'
+      startDirective: string
+      endDirective: string | null
+      rows: string[]
+      /**
+       * Which of the two verbatim blocks this is — tablature or a chord grid. It decides
+       * the closing directive written for a block the source never closed, and nothing
+       * else: everything either one needs from an editor is «leave every column where it
+       * is», which is the same need twice.
+       */
+      variant: 'tab' | 'grid'
+    }
 
 /** `Block` narrowed to the one kind that has words and chords of its own. */
 export type LyricsBlock = Extract<Block, { kind: 'lyrics' }>
@@ -63,11 +82,20 @@ export interface SongDocument {
 // Digits are allowed in the name so numbered directives like `{link1: ...}` still
 // parse as a directive rather than falling through to a lyrics line — see
 // `chordpro.ts`'s own copy of this regex.
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*(.*?)\s*)?\}$/
+const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?::\s*(.*?)\s*)?\}$/
 
-const COMMENT_NAMES = new Set(['c', 'comment'])
+/**
+ * Every spelling of a comment the format has. They differ only in how a PDF typesetter
+ * frames them, which this editor does not do and this app does not draw — so they are
+ * one row here, keeping whichever name the file used (`lineOf` writes `directive` back).
+ */
+const COMMENT_NAMES = new Set(['c', 'comment', 'ci', 'comment_italic', 'comment_box', 'cb', 'highlight'])
 
-const BOUNDARIES: Record<string, { edge: 'start' | 'end'; section: 'chorus' | 'bridge' }> = {
+const BOUNDARIES: Record<string, { edge: 'start' | 'end'; section: SectionKind }> = {
+  sov: { edge: 'start', section: 'verse' },
+  start_of_verse: { edge: 'start', section: 'verse' },
+  eov: { edge: 'end', section: 'verse' },
+  end_of_verse: { edge: 'end', section: 'verse' },
   soc: { edge: 'start', section: 'chorus' },
   start_of_chorus: { edge: 'start', section: 'chorus' },
   eoc: { edge: 'end', section: 'chorus' },
@@ -78,8 +106,10 @@ const BOUNDARIES: Record<string, { edge: 'start' | 'end'; section: 'chorus' | 'b
   end_of_bridge: { edge: 'end', section: 'bridge' },
 }
 
+/** The two verbatim blocks, and the end directives that close either of them. */
 const TAB_START_NAMES = new Set(['sot', 'start_of_tab'])
-const TAB_END_NAMES = new Set(['eot', 'end_of_tab'])
+const GRID_START_NAMES = new Set(['sog', 'start_of_grid'])
+const TAB_END_NAMES = new Set(['eot', 'end_of_tab', 'eog', 'end_of_grid'])
 
 /**
  * Splits one lyric line into plain text and the chords above it.
@@ -134,11 +164,19 @@ export function fromSource(source: string): SongDocument {
       continue
     }
 
+    // Tested on the raw line, exactly as `chordpro.ts` tests it: the two have to agree
+    // about which lines are comments, or the editor would offer to edit a line the
+    // reader is not showing.
+    if (line.startsWith('#')) {
+      blocks.push({ kind: 'source-comment', raw: line })
+      continue
+    }
+
     const directive = DIRECTIVE.exec(line.trim())
     if (directive) {
       const name = directive[1].toLowerCase()
 
-      if (TAB_START_NAMES.has(name)) {
+      if (TAB_START_NAMES.has(name) || GRID_START_NAMES.has(name)) {
         const rows: string[] = []
         let endDirective: string | null = null
 
@@ -152,7 +190,13 @@ export function fromSource(source: string): SongDocument {
           rows.push(inner)
         }
 
-        blocks.push({ kind: 'tab', startDirective: directive[1], endDirective, rows })
+        blocks.push({
+          kind: 'tab',
+          startDirective: directive[1],
+          endDirective,
+          rows,
+          variant: GRID_START_NAMES.has(name) ? 'grid' : 'tab',
+        })
         continue
       }
 
@@ -186,17 +230,24 @@ function lineOf(block: Block, eol: string): string {
     case 'blank':
       return block.raw
     case 'directive':
+    case 'source-comment':
       return block.raw
+    /* `{c}` and `{c: forte}` are both comments and only one of them has a value. Writing
+       the colon back regardless turned an empty one into `{c: }` — a line that says the
+       same thing in bytes the file never had, which is the one thing this module exists
+       not to do. */
     case 'comment':
-      return `{${block.directive}: ${block.text}}`
+      return block.text === '' ? `{${block.directive}}` : `{${block.directive}: ${block.text}}`
     case 'boundary':
       return `{${block.directive}}`
     case 'lyrics':
       return writeLyricLine(block.text, block.chords)
     case 'tab':
-      return [`{${block.startDirective}}`, ...block.rows, `{${block.endDirective ?? 'end_of_tab'}}`].join(
-        eol,
-      )
+      return [
+        `{${block.startDirective}}`,
+        ...block.rows,
+        `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
+      ].join(eol)
   }
 }
 

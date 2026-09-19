@@ -583,15 +583,15 @@ function BlockRow({
   }
 
   /**
-   * The lines that are not words and are not blank either: a chorus/bridge marker, a
-   * directive. Neither has text of its own a line-input could hold — a marker is a
-   * pair of boundaries, a directive is edited in Source — so, unlike a blank line,
-   * there is no promotion to a lyrics row here. Each still carries its own × ; the
-   * toolbar can delete the line the cursor is on and always could, but nobody found
-   * it there. Backspace (or Delete) does the same once the row is focused.
+   * The lines that are not words and are not blank either: a section marker, a
+   * directive, a `#` source comment. None has text of its own a line-input could hold —
+   * a marker is a pair of boundaries, the other two are edited in Source — so, unlike a
+   * blank line, there is no promotion to a lyrics row here. Each still carries its own
+   * × ; the toolbar can delete the line the cursor is on and always could, but nobody
+   * found it there. Backspace (or Delete) does the same once the row is focused.
    */
-  if (block.kind === 'boundary' || block.kind === 'directive') {
-    const section = block.kind === 'boundary' && block.section === 'chorus' ? 'chorus' : 'bridge'
+  if (block.kind === 'boundary' || block.kind === 'directive' || block.kind === 'source-comment') {
+    const section = block.kind === 'boundary' ? block.section : null
 
     return (
       <div className={classes} data-line={index}>
@@ -623,15 +623,25 @@ function BlockRow({
           )}
 
           {/* Shown rather than hidden: it is in the file, so it is on the screen.
-              Its text is edited in Source, where a directive is just a line. */}
-          {block.kind === 'directive' && <code className="editor-hint">{block.raw.trim()}</code>}
+              Its text is edited in Source, where either of these is just a line. A `#`
+              comment is shown for the same reason and not because a reader will ever
+              see it — the editor's job is that nothing in the file is invisible here. */}
+          {(block.kind === 'directive' || block.kind === 'source-comment') && (
+            <code className="editor-hint">{block.raw.trim()}</code>
+          )}
         </button>
 
         <button
           type="button"
           className="line-remove"
           onClick={onRemove}
-          aria-label={block.kind === 'boundary' ? 'Delete this marker' : 'Delete this directive'}
+          aria-label={
+            block.kind === 'boundary'
+              ? 'Delete this marker'
+              : block.kind === 'source-comment'
+                ? 'Delete this comment'
+                : 'Delete this directive'
+          }
         >
           ×
         </button>
