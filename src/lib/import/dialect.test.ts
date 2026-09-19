@@ -57,11 +57,20 @@ describe('the collisions, one test each', () => {
     }
   })
 
-  it('{cb} is a comment in every dialect, whichever kind of comment it names', () => {
-    // `comment_bold` in OnSong, `comment_box` elsewhere — one thing to render here.
-    for (const dialect of ['chordpro', 'onsong', 'mobilesheets', 'songbookpro'] as const) {
+  /*
+   * The collision that has now bitten twice. In the apps that redefined it `cb` names a
+   * comment — `comment_bold` in OnSong, `comment_box` elsewhere — and in the specification it
+   * is `{column_break}`, a layout directive. Read as a comment in a plain ChordPro file it
+   * was matched to a field nothing stores and **deleted from the body**, which is how a real
+   * file lost its column break. `null` here is «understood, and nothing holds it», which
+   * leaves the line exactly where the writer put it.
+   */
+  it('{cb} is a comment where an app redefined it, and a column break in the format', () => {
+    for (const dialect of ['onsong', 'mobilesheets', 'songbookpro'] as const) {
       assert.equal(fieldFor('cb', dialect), 'comment', dialect)
     }
+
+    assert.equal(fieldFor('cb', 'chordpro'), null)
   })
 
   it('{su:} and {gc:} exist only in MobileSheets', () => {

@@ -103,7 +103,7 @@ export interface SongDocument {
 // Digits are allowed in the name so numbered directives like `{link1: ...}` still
 // parse as a directive rather than falling through to a lyrics line — see
 // `chordpro.ts`'s own copy of this regex.
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?::\s*(.*?)\s*)?\}$/
+const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
 
 /**
  * Every spelling of a comment the format has. They differ only in how a PDF typesetter

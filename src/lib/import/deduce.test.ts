@@ -127,6 +127,15 @@ describe('deduce', () => {
    * taught to state the fret the same day, which made the feature work on a song typed into
    * the editor and never on an imported one — the only way the directive ever arrives.
    */
+  /* `{cb}` is a column break in a plain ChordPro file, and a comment has no column in any
+     dialect — read as a field nothing stores, both were deleted from the only copy. */
+  it('keeps a column break and a comment, which no column holds', () => {
+    const result = deduce('{title: Prova}\n{cb}\n{comment: forte}\n\n[C]parola')
+
+    assert.ok(result.body.includes('{cb}'))
+    assert.ok(result.body.includes('{comment: forte}'))
+  })
+
   it('keeps the capo in the body, where the Capo menu reads it', () => {
     const result = deduce('{title: Prova}\n{capo: 3}\n\n[C]parola')
     assert.ok(result.body.includes('{capo: 3}'))

@@ -345,10 +345,17 @@ export interface ParsedSong {
 /**
  * One directive on its own line.
  *
+ * **A space separates the name from the value as readily as a colon does.** `{comment: x}` is
+ * the form the cheat sheet writes, and real files carry `{comment Repeat ad lib…}` and
+ * `{titles center}` just as happily — the colon is punctuation, not structure. Without the
+ * space alternative those lines matched nothing and were drawn as *words*, so a comment
+ * printed in the middle of the song as though somebody sang it. Found by importing twelve
+ * generated files rather than by any test here, which is what integration is for.
+ *
  * `-` is in the name charset for the format's own hyphenated spellings (`{ccli-number}`);
  * digits are there so the three numbered link directives match too.
  */
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?::\s*(.*?)\s*)?\}$/
+const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
 
 /**
  * `{meta artist Foo}` — the space-separated form, which the regex above cannot match

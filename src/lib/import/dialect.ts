@@ -121,7 +121,12 @@ const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
     su: null,
     f: null,
     gc: null,
-    cb: 'comment',
+    /*
+     * A column break, which is what the specification says and what a plain ChordPro file
+     * means by it — not a comment. Read as one it was matched to a field nothing stores and
+     * deleted from the body; `chordpro.ts` carries the long version of this collision.
+     */
+    cb: null,
     book: null,
   },
   onsong: {

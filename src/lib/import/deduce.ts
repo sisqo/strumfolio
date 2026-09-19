@@ -224,6 +224,13 @@ const KEPT_IN_BODY: Field[] = [
   'ccli',
   'duration',
   'subtitle',
+  /*
+   * A comment has no column either, and until the twelve test files went through nobody had
+   * noticed: `{cb: …}` and `{gc: …}` map to `comment` in the dialects that mean one by them,
+   * so the importer read the line, matched it to a field nothing stores, and deleted it.
+   * Whatever somebody wrote in that comment was gone.
+   */
+  'comment',
 ]
 
 /**

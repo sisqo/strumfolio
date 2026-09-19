@@ -552,6 +552,33 @@ describe('ChordPro format compliance', () => {
     })
   })
 
+  /*
+   * The colon is punctuation, not structure. Real files write both, and until twelve
+   * generated ones were imported a line like `{comment Repeat ad lib…}` matched nothing and
+   * was drawn as *words* — a comment printed in the middle of the song as though somebody
+   * sang it.
+   */
+  describe('a space where the colon would be', () => {
+    it('reads a comment written without one', () => {
+      const song = parseChordPro('{title: T}\n{comment Repeat ad lib}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['#Repeat ad lib'], ['word']])
+    })
+
+    it('reads a value directive written without one', () => {
+      assert.equal(parseChordPro('{title: T}\n{key G}\nword').key, 'G')
+      assert.equal(parseChordPro('{title: T}\n{tempo 96}\nword').tempo, 96)
+    })
+
+    it('keeps a typesetting directive out of the words either way', () => {
+      const song = parseChordPro('{title: T}\n{titles center}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+
+    it('still reads the ordinary colon form', () => {
+      assert.equal(parseChordPro('{title: T}\n{key: G}\nword').key, 'G')
+    })
+  })
+
   describe('{meta}', () => {
     it('reads the space-separated form', () => {
       const song = parseChordPro('{meta artist Someone}\n{meta tempo 96}\nword')
