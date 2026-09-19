@@ -128,6 +128,27 @@ connects the two facts.
   223 stored songs 37 carry a `{subtitle:}` and **all 37 hold what their artist column
   holds**, which is why `songInfoRows` refuses to print a subtitle that only repeats the
   artist.
+- **Everything a drawn line does that the source does not say is decided at render, never at
+  parse**, and there are now three of them: `%{…}` substitution, a `{chorus}` repeat, and a
+  conditional's selector. `parseChordPro` stays a pure function of the text, which is what
+  lets one file mean one thing while two readers see two — and what keeps the notes
+  resolvable, since they are found by the identity of the lines that remain.
+- **Notes are anchored by line identity, not by counting.** `buildAnchorMap` returns a
+  `Map<Line, …>` and takes **the caller's own sections**, because an identity-keyed map is
+  useless to a caller holding different objects — parsing a second time inside made every
+  lookup miss, silently, and the test that walks `content/` is what caught it. Each lyrics
+  line records the source lines it was built from (`sourceLines`), which is how a joined line
+  resolves into two blocks and a repeated stanza resolves into none. **This is what made
+  `{chorus}` repeat and `\` continue possible at all**; before it, either one shifted every
+  note below itself onto the wrong row.
+- **`{define}`/`{chord}` win over the built-in library for that song**, and lose to a shape
+  the reader chose by hand. The file's fingering goes to the *front* of the candidate list
+  rather than replacing it, so it is the default and still sits beside the table's voicings in
+  the alternates picker. Matched on the chord as currently **shown**: a file's C fingering is
+  not a D, so transposing correctly stops using it.
+- **The editor's «add field» menu offers only what lives in the body.** A `{title:}` typed
+  into the body is stripped at the next save, so offering it would be offering something that
+  quietly disappears; `fields.test.ts` checks every entry against `METADATA_DIRECTIVE`.
 - **`%{…}` is resolved at render and never at parse**, both forms. A placeholder swapped for
   a value of a different length at parse time would slide every comment anchored below it,
   and the file has to keep what its writer typed for the export to hand it back.
@@ -152,17 +173,18 @@ What is deliberately **not** followed, each argued where it lives rather than he
   has no page to break. Ignored is not lost: the editor keeps them verbatim.
 - **`{chorus}` prints the reference, it does not replay the chorus.** Quoting the block
   back would put the same words under two different comment anchors.
-- **Line continuation (a trailing `\`) is not read**, and it is the one construct that
-  could not be added at all. Every comment is anchored by its block index in
-  `editor/document.ts` — one block per *source* line — and `buildAnchorMap` and
-  `SongSheet` walk that list in step with the reader's lines. Joining two source lines
-  makes the reader's list shorter, and from there down every note in the song renders
-  against the wrong line, silently. `chordpro.test.ts`'s «the reader and the editor agree
-  on how many lyric lines a song has» is that rule as a test, and is the cheapest check
-  that a new construct is safe.
+- **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
+  stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the
+  editor agree on how many lyric lines a song has» is still the cheapest check that a new
+  construct is safe.
 
-- **`{capo}` is stated, never applied** for now (decided 2026-09-19; Phase 4 of the plan
-  reverses it once `user_song_prefs.capo` is nullable). `parseChordPro` reads it into
+- **`{capo}` is stated, never applied**, and it is the **one piece of the format still
+  outstanding**. The plan's answer is that the file seeds the control and the reader overrides
+  it — which needs `user_song_prefs.capo` and `.semitones` to become nullable, so `null` can
+  mean «I take the song's» exactly as `bpm` already does. That is a migration against three
+  databases and **preview cannot be migrated from here**: `preview-db.env` has to be created
+  by hand by whoever owns that environment. Until it exists, the write path that stores a
+  `null` must not ship there. `{transpose}` waits on the same migration. `parseChordPro` reads it into
   `ParsedSong.capo` and the Capo menu says «Written with the capo on fret 3» — a sentence
   with no button beside it. It does **not** reach `user_song_prefs.capo`, which is
   `NOT NULL DEFAULT 0` and therefore spells «no capo» and «never chose» with one value:
