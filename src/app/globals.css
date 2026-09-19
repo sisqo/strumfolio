@@ -13639,6 +13639,29 @@
    * with a button, and this is a fact about the song with nothing to accept. Every value
    * here is a token, so the dark theme follows on its own.
    */
+  /*
+   * The «about this song» affordance, beside the artist. Quiet on purpose: it is information
+   * nobody reaches for while playing, so it must not compete with the title above it or the
+   * chips below. Sized to the 44px tap target the rest of this screen keeps, with the padding
+   * doing the work rather than the icon.
+   */
+  .song-info-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: -0.375rem 0;
+    border-radius: var(--r-pill);
+    color: var(--faint);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .song-info-button:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
   .capo-written {
     padding: 0.5rem 0.75rem;
     border-radius: var(--r-sm);

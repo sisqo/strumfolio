@@ -8,7 +8,7 @@
  * form renders the same sheet with no provider anywhere near it.
  */
 
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 
 import { CommentsToggle } from '@/components/CommentsToggle'
 import { useComments } from '@/components/CommentsProvider'
@@ -18,10 +18,12 @@ import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { EditSongLink } from '@/components/EditSongLink'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { SongControls } from '@/components/SongControls'
+import { SongInfoPanel } from '@/components/SongInfoPanel'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
-import { IconExternal } from '@/components/icons'
+import { IconExternal, IconInfo } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
+import { songInfoRows } from '@/lib/songInfo'
 import { buildAnchorMap } from '@/lib/comments/anchorMap'
 import { labelFor } from '@/lib/comments/reanchor'
 import { fromSource } from '@/lib/editor/document'
@@ -107,6 +109,14 @@ export function SongHeading({
    */
   const chords = useMemo(() => chordTokens(parsed), [parsed])
 
+  /*
+   * What the file declares about the song and this app stores nowhere. Empty for nearly
+   * every song, which is the point: the button below is rendered only when there is
+   * something behind it, so a header gains nothing on a song whose file says nothing.
+   */
+  const infoRows = useMemo(() => songInfoRows(parsed, song.artist), [parsed, song.artist])
+  const [infoOpen, setInfoOpen] = useState(false)
+
   return (
     <header className="mb-4">
       {/*
@@ -132,6 +142,22 @@ export function SongHeading({
       </div>
       <p className="mt-2.5 flex flex-wrap items-center gap-2 text-base text-muted">
         {song.artist !== null && <span>{song.artist}</span>}
+        {/*
+          * Beside the artist rather than up among the heading's three controls: that row is
+          * already a 44px notes track and a 44px pencil next to a title that has only a few
+          * characters at 390px, and this is the one thing here nobody needs mid-song.
+          */}
+        {infoRows.length > 0 && (
+          <button
+            type="button"
+            className="song-info-button"
+            onClick={() => setInfoOpen(true)}
+            aria-label="About this song"
+            title="About this song"
+          >
+            <IconInfo size={15} />
+          </button>
+        )}
         {place !== null && (
           <span className="text-muted">
             {within !== null && `${within} · `}
@@ -139,6 +165,8 @@ export function SongHeading({
           </span>
         )}
       </p>
+
+      {infoOpen && <SongInfoPanel rows={infoRows} onClose={() => setInfoOpen(false)} />}
 
       {links.length > 0 && (
         <p className="mt-2 flex flex-wrap items-center gap-3 text-sm">
