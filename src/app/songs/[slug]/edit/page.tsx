@@ -123,8 +123,17 @@ export default async function EditSongPage({ params }: Props) {
             * again, not on the sheet, since that is the screen this reader was on.
             */
           steps={{
-            previous: series?.previous ? `/songs/${series.previous}/edit` : null,
-            next: series?.next ? `/songs/${series.next}/edit` : null,
+            /*
+              * `.slug`, not the step itself: `SongStep` is `{slug, title}`, and a template
+              * literal takes an object without complaint — `/songs/[object Object]/edit`
+              * typechecks, because `${…}` is a string however it is filled. What it does at
+              * runtime depends on where it runs, which is why this survived from 2026-08-15:
+              * Next's dynamic-href assertion is dev-only, so production quietly drew two
+              * arrows pointing at a URL that 404s, while `next dev` — the normal way to work
+              * here — threw out of `<Link>` and answered the whole editor with a 500.
+              */
+            previous: series?.previous ? `/songs/${series.previous.slug}/edit` : null,
+            next: series?.next ? `/songs/${series.next.slug}/edit` : null,
           }}
         />
 

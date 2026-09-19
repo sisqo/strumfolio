@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ControlBar } from '@/components/ControlBar'
+import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { SongControls } from '@/components/SongControls'
 import { SongFields, type SongFieldValues } from '@/components/SongFields'
 import { SongSheet } from '@/components/SongSheet'
@@ -816,7 +817,28 @@ export function EditorScreen({ song }: { song: Song }) {
       )}
 
       {mode === 'preview' && (
-        <>
+        /*
+         * `MetronomeProvider` is not decoration here, it is what makes this mode render at
+         * all: both controls below call `useMetronomeControls`, which *throws* when no
+         * provider is above them, and the editor page carries only `PrefsProvider` and
+         * `SongbookProvider` — the reader's stack mounts this one in `LiveMetronome` and the
+         * follower's in `FollowSession`, neither of which this screen goes through. Without
+         * it the whole screen is replaced by an error the moment Preview is chosen.
+         *
+         * The three props are `LiveMetronome`'s, read from the same parse the sheet draws,
+         * so the tempo previewed is the one the words on screen currently say — including a
+         * `{tempo: …}` typed a second ago and not yet saved.
+         *
+         * Inside the branch on purpose: it mounts with the preview and unmounts when the
+         * reader goes back to typing, and the provider's own layout effect stops the click
+         * on mount — so the metronome cannot go on beating over the source editor, where
+         * nothing on screen could stop it.
+         */
+        <MetronomeProvider
+          songSlug={song.slug}
+          songTempo={parsed.tempo}
+          songBeatsPerBar={parsed.beatsPerBar}
+        >
           {/*
             * The reader's own controls, not a copy of them: the point of this mode is to
             * see the song the way it will be read, transposition included — which is why
@@ -826,7 +848,7 @@ export function EditorScreen({ song }: { song: Song }) {
           <SongSheet song={parsed} />
           <div className="bar-spacer" />
           <ControlBar songSlug={song.slug} />
-        </>
+        </MetronomeProvider>
       )}
 
       <div className="mt-10 flex flex-wrap items-center gap-2 border-t pt-4" style={{ borderColor: 'var(--surface-2)' }}>
