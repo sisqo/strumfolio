@@ -314,6 +314,12 @@ describe('the constructs the editor learned with the format', () => {
     assert.deepEqual(sectionsOf(blocks), ['verse', 'verse', 'verse'])
   })
 
+  it('keeps a column break as the layout directive it is, not as a comment', () => {
+    const source = 'word\n{cb}\nmore'
+    assert.equal(fromSource(source).blocks[1].kind, 'directive')
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
   it('reads every spelling of a comment as one', () => {
     const source = '{ci: quietly}\n{comment_box: loud}\n{highlight: watch}'
     const blocks = fromSource(source).blocks

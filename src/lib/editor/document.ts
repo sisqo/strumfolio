@@ -88,8 +88,12 @@ const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?::\s*(.*?)\s*)?\}$/
  * Every spelling of a comment the format has. They differ only in how a PDF typesetter
  * frames them, which this editor does not do and this app does not draw — so they are
  * one row here, keeping whichever name the file used (`lineOf` writes `directive` back).
+ *
+ * Not `cb`: that is `{column_break}` in the specification, and `comment_box` has no short
+ * form at all. It stays an opaque directive, kept verbatim like the rest of the layout
+ * ones. `chordpro.ts` carries the long version of this.
  */
-const COMMENT_NAMES = new Set(['c', 'comment', 'ci', 'comment_italic', 'comment_box', 'cb', 'highlight'])
+const COMMENT_NAMES = new Set(['c', 'comment', 'ci', 'comment_italic', 'comment_box', 'highlight'])
 
 const BOUNDARIES: Record<string, { edge: 'start' | 'end'; section: SectionKind }> = {
   sov: { edge: 'start', section: 'verse' },

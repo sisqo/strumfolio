@@ -212,15 +212,22 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
      `comment_box` differ from `comment` only in how a PDF typesetter draws the box around
      them, and this app draws no box; `highlight` is the same sentence again under a third
      name. Losing the distinction costs nothing a reader can see — but they must not fall
-     through to the `default:` branch, which would drop the sentence itself. `cb` is
-     `comment_bold` in OnSong and `comment_box` everywhere else, and both are a comment
-     (`import/dialect.ts` makes the same call for the same reason). */
+     through to the `default:` branch, which would drop the sentence itself.
+
+     **`cb` is not among them**, and it is the one abbreviation here that looks like it
+     should be. In the specification `cb` is `{column_break}`, a layout directive; only
+     `comment_italic` has a short form (`ci`), and `comment_box` has none. Reading `cb` as
+     a comment turns a column break into an empty comment line — a blank gap in the middle
+     of a song, where ignoring it leaves nothing at all, which is right for an app with no
+     page to break. `import/dialect.ts` *does* map it to a comment and that is not a
+     contradiction: that table is a survey of what other apps mean by it (OnSong's
+     `comment_bold`, MobileSheets' `comment_box`) and governs reading their files, where
+     this one governs reading the format. */
   c: 'comment',
   comment: 'comment',
   ci: 'comment',
   comment_italic: 'comment',
   comment_box: 'comment',
-  cb: 'comment',
   highlight: 'comment',
   /* The section directives. `{chorus}` is not one of them: it is a *reference* to the
      chorus rather than a block, and is handled on its own below. */

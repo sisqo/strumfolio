@@ -432,6 +432,13 @@ describe('ChordPro format compliance', () => {
       const song = parseChordPro('{title: T}\n{ci: quietly}\n{comment_box: loud}\n{highlight: watch}')
       assert.deepEqual(song.sections[0].lines.map(shape), [['#quietly'], ['#loud'], ['#watch']])
     })
+
+    /* The abbreviation that looks like it belongs above and does not: `cb` is
+       `{column_break}`, and reading it as a comment put an empty line in the song. */
+    it('leaves {cb} alone, since it is a column break and not a comment', () => {
+      const song = parseChordPro('{title: T}\nword\n{cb}\nmore')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word'], ['more']])
+    })
   })
 
   describe('{meta}', () => {
@@ -492,7 +499,8 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a named section': '{title: T}\n{start_of_chorus: Chorus 2}\nword\n{end_of_chorus}',
     'an unstyled section': '{title: T}\n{start_of_solo}\nword\n{end_of_solo}',
     'a chorus reference': '{title: T}\nword\n{chorus}',
-    'every comment spelling': '{title: T}\n{ci: a}\n{cb: b}\n{highlight: c}\nword',
+    'every comment spelling': '{title: T}\n{ci: a}\n{comment_box: b}\n{highlight: c}\nword',
+    'a column break': '{title: T}\nfirst\n{cb}\nsecond',
     'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',
     'a verse marked by hand': '{title: T}\n{sov}\none\n\ntwo\n{eov}',
     'an escaped bracket': '{title: T}\nsay \\[this\\]\nsecond',

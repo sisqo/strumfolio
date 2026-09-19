@@ -165,9 +165,10 @@ Was [Em]blind, but [D]now I [G]see.
           <li>
             <code>{'{comment: ...}'}</code> (or <code>{'{c: ...}'}</code>) — a spoken aside, shown
             between the lines. Good for &quot;intro&quot;, &quot;x2&quot;, stage directions.{' '}
-            <code>{'{comment_italic}'}</code>, <code>{'{ci}'}</code>, <code>{'{comment_box}'}</code>,{' '}
-            <code>{'{cb}'}</code> and <code>{'{highlight}'}</code> all mean the same thing here —
-            they differ only in how a printed page frames them, and Strumfolio frames none of them.
+            <code>{'{comment_italic}'}</code>, <code>{'{ci}'}</code>, <code>{'{comment_box}'}</code>{' '}
+            and <code>{'{highlight}'}</code> all mean the same thing here — they differ only in how
+            a printed page frames them, and Strumfolio frames none of them. Not{' '}
+            <code>{'{cb}'}</code>, which is a column break and not a comment at all.
           </li>
           <li>
             <code>{'{start_of_chorus}'}</code> … <code>{'{end_of_chorus}'}</code> (or{' '}
