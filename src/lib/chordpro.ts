@@ -109,7 +109,22 @@ export type Line =
        */
       sourceLines: number[]
     }
-  | { kind: 'comment'; text: string; style: CommentStyle }
+  | {
+      kind: 'comment'
+      text: string
+      style: CommentStyle
+      /**
+       * The instrument this line is for, when the file said — `{comment-guitar: …}`. Null is
+       * «everybody», which is nearly always.
+       *
+       * **Recorded rather than obeyed here**, and that is the whole shape of the feature:
+       * this parser is a pure function of the text, and the instrument belongs to whoever is
+       * reading. Deciding it at parse time would make the same file parse two ways for two
+       * readers, and the notes anchored in it are found by walking these very objects.
+       * `selectorMatches` is what the screen asks on the way to drawing.
+       */
+      selector: string | null
+    }
   /**
    * A verbatim block — every row kept exactly as written, never split into words or read
    * for chords: alignment is the whole point, and a string of dashes is not a syllable to
@@ -128,6 +143,27 @@ export type SectionKind = 'verse' | 'chorus' | 'bridge'
 export interface Section {
   kind: SectionKind
   lines: Line[]
+  /** The instrument this whole block is for, from `{start_of_chorus-piano}`. Usually null. */
+  selector: string | null
+}
+
+/**
+ * Whether something the file guarded is for this reader.
+ *
+ * `{comment-guitar}` is for a guitarist; `{comment-!guitar}` is for everybody else. A
+ * selector naming an instrument this app does not have — piano, bass — is somebody else's,
+ * which is the honest reading: a file that bothered to say «piano» did not mean us.
+ *
+ * Pure and here rather than in the renderer so `npm test` can reach it, and so the screen
+ * and the printed booklet can never disagree about who a line was for.
+ */
+export function selectorMatches(selector: string | null, instrument: string): boolean {
+  if (selector === null) return true
+
+  const negated = selector.startsWith('!')
+  const wanted = (negated ? selector.slice(1) : selector).trim().toLowerCase()
+
+  return negated ? wanted !== instrument.toLowerCase() : wanted === instrument.toLowerCase()
 }
 
 /**
@@ -447,8 +483,8 @@ export function parseChordPro(source: string): ParsedSong {
   /** `{start_of_tab: Solo}`'s label, printed above the block exactly as a section's is. */
   let verbatimLabel = ''
 
-  const openSection = (kind: SectionKind): Section => {
-    const created: Section = { kind, lines: [] }
+  const openSection = (kind: SectionKind, selector: string | null = null): Section => {
+    const created: Section = { kind, lines: [], selector }
     song.sections.push(created)
     return created
   }
@@ -468,7 +504,7 @@ export function parseChordPro(source: string): ParsedSong {
       if (closingName === 'end_of_tab' || closingName === 'end_of_grid') {
         section ??= openSection(forcedKind ?? 'verse')
         if (verbatimLabel !== '')
-          section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain' })
+          section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain', selector: null })
         section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
         verbatimRows = null
         verbatimLabel = ''
@@ -526,33 +562,40 @@ export function parseChordPro(source: string): ParsedSong {
         value = inner[2].trim()
       }
 
-      const name = DIRECTIVE_ALIAS[rawName]
-
       /*
        * A conditional directive — `{comment-guitar: …}`, `{start_of_chorus-piano}` — runs
-       * only when its selector matches the instrument the sheet is being rendered for.
-       * **This parser cannot evaluate one**: it is pure, and the reader's instrument lives
-       * in their preferences, which arrive at the screen and never here.
+       * only for a reader whose instrument the selector names.
        *
-       * So the whole directive is skipped, which is what happened before section labels
-       * existed and has to keep happening. Honouring the base name instead is the tempting
-       * shortcut and is the worse answer twice over: `{start_of_chorus-piano}` fell through
-       * to the generic `start_of_…` branch below and opened a **verse** captioned
-       * «Chorus-piano» — a made-up label on the wrong kind of block — and even done
-       * correctly it would show piano-only content to a guitarist under a heading claiming
-       * it was theirs. Skipping shows nothing that was not meant for this reader; the
-       * lines *inside* the block still render, which is the same thing an unknown
-       * directive has always done.
+       * **The selector is recorded here and answered at the screen.** This parser is a pure
+       * function of the text and the instrument belongs to whoever is reading; deciding it
+       * here would make one file parse two ways for two readers, and the notes anchored in
+       * it are found by walking these very objects. `selectorMatches` is the question, and
+       * `SongSheet` and the booklet are the ones who ask it.
        *
-       * **A name this table already knows is never a conditional**, however many hyphens it
-       * has: `{ccli-number: …}` is a directive whose own name contains one, and reading it as
-       * «`ccli`, for readers of type `number`» dropped it. So the whole name is tried first,
-       * and only a name that resolves to nothing is split. A test holds this: it started
-       * failing the moment `ccli` entered the table, which is the day the two facts met.
+       * **Only what a reader sees may be conditional.** A comment and a section are drawn or
+       * not drawn, so the answer can wait; a `{tempo-guitar: 96}` would have to change a
+       * number before anybody looks, which this parser is in no position to decide — those
+       * are skipped, exactly as every conditional was before.
+       *
+       * A name this table already knows is never split, however many hyphens it has:
+       * `{ccli-number: …}` is a directive whose own name contains one, and reading it as
+       * «`ccli`, for readers of type `number`» dropped it. A test holds that, and it started
+       * failing the moment `ccli` entered the table.
        */
-      const conditionalBase =
-        name === undefined && rawName.includes('-') ? rawName.slice(0, rawName.indexOf('-')) : null
-      if (conditionalBase !== null && DIRECTIVE_ALIAS[conditionalBase] !== undefined) continue
+      let selector: string | null = null
+
+      if (DIRECTIVE_ALIAS[rawName] === undefined && rawName.includes('-')) {
+        const cut = rawName.indexOf('-')
+        const base = DIRECTIVE_ALIAS[rawName.slice(0, cut)]
+
+        if (base !== undefined) {
+          if (base !== 'comment' && SECTION_OF[base] === undefined) continue
+          selector = rawName.slice(cut + 1)
+          rawName = rawName.slice(0, cut)
+        }
+      }
+
+      const name = DIRECTIVE_ALIAS[rawName]
 
       /**
        * A section's own label, printed above it as a comment so it reaches the screen,
@@ -569,7 +612,7 @@ export function parseChordPro(source: string): ParsedSong {
       const labelLine = (fallback: string | null): void => {
         const label = value || fallback
         if (label === null || label === '') return
-        section?.lines.push({ kind: 'comment', text: label, style: 'plain' })
+        section?.lines.push({ kind: 'comment', text: label, style: 'plain', selector: null })
       }
 
       switch (name) {
@@ -630,6 +673,7 @@ export function parseChordPro(source: string): ParsedSong {
             kind: 'comment',
             text: value,
             style: COMMENT_STYLE[rawName] ?? 'plain',
+            selector,
           })
           break
         /*
@@ -654,7 +698,7 @@ export function parseChordPro(source: string): ParsedSong {
 
           if (wanted === null || wanted.length === 0) {
             section ??= openSection(forcedKind ?? 'verse')
-            section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain' })
+            section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain', selector: null })
             break
           }
 
@@ -668,7 +712,7 @@ export function parseChordPro(source: string): ParsedSong {
         case 'start_of_chorus':
         case 'start_of_bridge':
           forcedKind = SECTION_OF[name]
-          section = openSection(forcedKind)
+          section = openSection(forcedKind, selector)
           labelLine(null)
           // Remembered by reference: the block is still being filled, and a `{chorus}`
           // further down wants it as it finally stands.
@@ -733,7 +777,7 @@ export function parseChordPro(source: string): ParsedSong {
   if (verbatimRows !== null) {
     section ??= openSection(forcedKind ?? 'verse')
     if (verbatimLabel !== '')
-      section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain' })
+      section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain', selector: null })
     section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
   }
 
@@ -896,6 +940,30 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
   }
 
   return { kind: 'lyrics', words, hasChords, sourceLines }
+}
+
+/**
+ * The song as this reader sees it: everything the file guarded for somebody else removed.
+ *
+ * One function, called once by each renderer at the point where it decides what to draw, so
+ * the screen and the printed booklet can never disagree about who a block was for. Filtering
+ * here rather than in the parse is what keeps `parseChordPro` a pure function of the text —
+ * and what makes hiding safe at all, since the notes are found by the identity of the lines
+ * that remain, and a line nobody draws is simply never looked up.
+ *
+ * A song with no conditionals in it — every song, very nearly — comes back untouched, the
+ * same objects in the same order, which is what the anchors depend on.
+ */
+export function visibleSections(sections: Section[], instrument: string): Section[] {
+  return sections
+    .filter((section) => selectorMatches(section.selector, instrument))
+    .map((section) => {
+      const lines = section.lines.filter(
+        (line) => line.kind !== 'comment' || selectorMatches(line.selector, instrument),
+      )
+
+      return lines.length === section.lines.length ? section : { ...section, lines }
+    })
 }
 
 /**

@@ -8,7 +8,7 @@ import { usePrefs } from '@/components/PrefsProvider'
 import { IconChevronDown, IconChevronUp, IconTab } from '@/components/icons'
 import { type AnchorMap, type PartAnchor, notesAt } from '@/lib/comments/anchorMap'
 import type { CardPoint, CommentAnchor, SongComment } from '@/lib/comments/types'
-import { type Line, type ParsedSong, chordTokens } from '@/lib/chordpro'
+import { type Line, type ParsedSong, chordTokens, visibleSections } from '@/lib/chordpro'
 import {
   type Accidentals,
   type Chord,
@@ -151,6 +151,17 @@ export function SongSheet({
     [song],
   )
 
+  /*
+   * What this reader sees: a `{comment-ukulele}` is not for a guitarist, and a block the
+   * file guarded the same way is not theirs either. Decided here rather than in the parse,
+   * so one file still parses one way for everybody and the notes anchored in it still
+   * resolve — a line nobody draws is simply never looked up.
+   */
+  const sections = useMemo(
+    () => visibleSections(song.sections, global.instrument),
+    [song.sections, global.instrument],
+  )
+
   const showNotes = notes !== undefined && notes.visible
   const orphans = showNotes ? notes.comments.filter((comment) => comment.anchor === null) : []
 
@@ -204,7 +215,7 @@ export function SongSheet({
         className={showNotes && notes.armed ? 'song-sheet is-adding' : 'song-sheet'}
         style={{ fontSize: `${ZOOM_STEPS[global.zoomStep]}px` }}
       >
-        {song.sections.map((section, sectionIndex) => (
+        {sections.map((section, sectionIndex) => (
           <section key={sectionIndex} className={`sheet-section is-${section.kind}`}>
             {section.lines.map((line, lineIndex) => {
               return (

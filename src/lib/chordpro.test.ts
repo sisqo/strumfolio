@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { buildAnchorMap } from './comments/anchorMap'
-import { type Line, chordTokens, parseChordPro, parseLyricLine, plainLyrics } from './chordpro'
+import {
+  type Line,
+  chordTokens,
+  parseChordPro,
+  parseLyricLine,
+  plainLyrics,
+  selectorMatches,
+  visibleSections,
+} from './chordpro'
 
 /** Compact view of a parsed line: one string per word, chords in brackets. */
 function shape(line: Line): string[] {
@@ -562,27 +570,102 @@ describe('ChordPro format compliance', () => {
   })
 
   /*
-   * A selector this parser cannot evaluate — it is pure, and the reader's instrument is a
-   * preference that reaches the screen and never this module. Skipping the directive is
-   * what happened before section labels existed; the regression these guard against is the
-   * generic `start_of_…` branch catching `{start_of_chorus-piano}` and opening a *verse*
-   * captioned «Chorus-piano».
+   * A conditional runs only for a reader whose instrument the selector names. The parser
+   * *records* it and the screen answers it — this module is a pure function of the text, and
+   * deciding it here would make one file parse two ways for two readers while the notes
+   * anchored in it are found by walking these very objects.
    */
   describe('conditional directives', () => {
-    it('skips a conditional section rather than inventing a block for it', () => {
+    it('records the selector on a conditional section instead of guessing', () => {
       const song = parseChordPro('{title: T}\n{start_of_chorus-piano}\nword\n{end_of_chorus}')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
-      assert.deepEqual(song.sections.map((section) => section.kind), ['verse'])
+
+      assert.equal(song.sections[0].kind, 'chorus')
+      assert.equal(song.sections[0].selector, 'piano')
     })
 
-    it('skips a conditional comment', () => {
+    it('records the selector on a conditional comment', () => {
       const song = parseChordPro('{title: T}\n{comment-guitar: open position}\nword')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+      const comment = song.sections[0].lines[0]
+
+      assert.equal(comment.kind === 'comment' && comment.selector, 'guitar')
+    })
+
+    /* A conditional on something nobody draws would have to change a value before anybody
+       looks, which this parser is in no position to decide. Skipped, as they all used to be. */
+    it('skips a conditional on a directive that is never drawn', () => {
+      assert.equal(parseChordPro('{title: T}\n{tempo-guitar: 96}\nword').tempo, null)
     })
 
     it('leaves a genuinely hyphenated directive alone', () => {
-      const song = parseChordPro('{title: T}\n{ccli-number: 12345}\nword')
-      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+      assert.equal(parseChordPro('{title: T}\n{ccli-number: 12345}\nword').metadata.ccli, '12345')
+    })
+  })
+
+  describe('selectorMatches', () => {
+    it('answers yes to no selector at all, which is nearly every line', () => {
+      assert.equal(selectorMatches(null, 'guitar'), true)
+    })
+
+    it('matches the instrument it names, ignoring capitals', () => {
+      assert.equal(selectorMatches('guitar', 'guitar'), true)
+      assert.equal(selectorMatches('Guitar', 'guitar'), true)
+      assert.equal(selectorMatches('ukulele', 'guitar'), false)
+    })
+
+    it('reads the negated form', () => {
+      assert.equal(selectorMatches('!guitar', 'guitar'), false)
+      assert.equal(selectorMatches('!guitar', 'ukulele'), true)
+    })
+
+    /* An instrument this app does not have is somebody else's, which is the honest reading:
+       a file that bothered to say «piano» did not mean us. */
+    it('treats an instrument this app does not have as somebody else’s', () => {
+      assert.equal(selectorMatches('piano', 'guitar'), false)
+      assert.equal(selectorMatches('!piano', 'guitar'), true)
+    })
+  })
+
+  describe('visibleSections', () => {
+    const song = parseChordPro(
+      [
+        '{title: T}',
+        '{comment-guitar: for a guitar}',
+        '{comment-ukulele: for a ukulele}',
+        '{c: for everybody}',
+        'word',
+        '{start_of_chorus-ukulele}',
+        'ukulele only',
+        '{end_of_chorus}',
+      ].join('\n'),
+    )
+
+    it('keeps what is this reader’s and drops what is not', () => {
+      const guitar = visibleSections(song.sections, 'guitar')
+
+      assert.deepEqual(guitar.length, 1)
+      assert.deepEqual(guitar[0].lines.map(shape), [['#for a guitar'], ['#for everybody'], ['word']])
+    })
+
+    it('gives the other reader the other half', () => {
+      const ukulele = visibleSections(song.sections, 'ukulele')
+
+      assert.deepEqual(ukulele.length, 2)
+      assert.deepEqual(ukulele[0].lines.map(shape), [
+        ['#for a ukulele'],
+        ['#for everybody'],
+        ['word'],
+      ])
+      assert.deepEqual(ukulele[1].lines.map(shape), [['ukulele', 'only']])
+    })
+
+    /* The property the anchors depend on: a song with no conditionals comes back as the very
+       same objects, so every note in it still resolves. */
+    it('hands back the same objects when a song guards nothing', () => {
+      const plain = parseChordPro('{title: T}\n{c: note}\nword')
+      const visible = visibleSections(plain.sections, 'guitar')
+
+      assert.equal(visible[0], plain.sections[0])
+      assert.equal(visible[0].lines[0], plain.sections[0].lines[0])
     })
   })
 

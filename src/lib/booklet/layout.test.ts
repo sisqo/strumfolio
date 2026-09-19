@@ -27,7 +27,8 @@ function lyrics(words = 1): Line {
 }
 
 function verse(lines: number): Section {
-  return { kind: 'verse', lines: Array.from({ length: lines }, () => lyrics()) }
+  // A weight never asks who a block is for; null is «everybody», the ordinary case.
+  return { kind: 'verse', lines: Array.from({ length: lines }, () => lyrics()), selector: null }
 }
 
 test('a lyrics line weighs the same however many words it has, and less with no chord row', () => {
@@ -47,7 +48,7 @@ test('an empty tab block still carries some weight rather than none', () => {
 
 test('a chorus weighs more than a verse of the same lines, for its padding and rule', () => {
   const lines = Array.from({ length: 4 }, () => lyrics())
-  assert.ok(sectionWeight({ kind: 'chorus', lines }, true) > sectionWeight({ kind: 'verse', lines }, true))
+  assert.ok(sectionWeight({ kind: 'chorus', lines, selector: null }, true) > sectionWeight({ kind: 'verse', lines, selector: null }, true))
 })
 
 test('flattening a song keeps every line, in order, remembering its stanza', () => {
@@ -67,7 +68,7 @@ test('flattening a song keeps every line, in order, remembering its stanza', () 
 
 test('fragments regroup a run of lines under their stanzas, sharing the Line objects', () => {
   const a = verse(2)
-  const b: Section = { kind: 'chorus', lines: Array.from({ length: 3 }, () => lyrics()) }
+  const b: Section = { kind: 'chorus', lines: Array.from({ length: 3 }, () => lyrics()), selector: null }
   const flat = flattenSections([a, b])
   const fragments = fragmentSections(flat)
   assert.equal(fragments.length, 2)
@@ -79,7 +80,7 @@ test('fragments regroup a run of lines under their stanzas, sharing the Line obj
 })
 
 test('a slice that starts mid-stanza becomes a fragment that keeps the stanza kind', () => {
-  const chorus: Section = { kind: 'chorus', lines: Array.from({ length: 6 }, () => lyrics()) }
+  const chorus: Section = { kind: 'chorus', lines: Array.from({ length: 6 }, () => lyrics()), selector: null }
   const flat = flattenSections([chorus])
   const fragments = fragmentSections(flat.slice(4))
   assert.equal(fragments.length, 1)

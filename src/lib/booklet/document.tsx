@@ -127,10 +127,11 @@ import {
   sectionWeight,
   splitRowsForColumns,
 } from './layout'
-import { type Line, type Section, chordTokens, parseChordPro } from '../chordpro'
+import { type Line, type Section, chordTokens, parseChordPro, visibleSections } from '../chordpro'
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
 import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '../music/chord'
+import type { Instrument } from '../music/shapes'
 import { readShift, transposeNoteText } from '../music/capo'
 import { type MetadataValues, metadataValues, substituteMetadata } from '../chordproMeta'
 import { spellingFor } from '../music/key'
@@ -752,8 +753,21 @@ function buildNotes(song: BookletSong, sections: Section[]): BookletNotes | null
  * where a capo and a transposition cancel on the page (`shift === 0` with a real capo
  * set) still gets its sentence — see this file's own top comment.
  */
-function prepare(song: BookletSong, notation: Notation, accidentals: Accidentals) {
+function prepare(
+  song: BookletSong,
+  notation: Notation,
+  accidentals: Accidentals,
+  instrument: Instrument,
+) {
   const parsed = parseChordPro(song.body)
+
+  /*
+   * What this reader sees, decided once and before anything measures or paginates: a block
+   * the file guarded for another instrument must not take up a column it will not fill.
+   * Print follows screen here as it does for `accidentals` — a booklet and a phone showing
+   * different words would be the worst of the two.
+   */
+  parsed.sections = visibleSections(parsed.sections, instrument)
 
   const personal = song.personal
   const shift = personal === null ? 0 : readShift(personal.semitones, personal.capo)
@@ -1209,6 +1223,7 @@ async function paginateSong(
   sectionName: string,
   notation: Notation,
   accidentals: Accidentals,
+  instrument: Instrument,
   footerText: string,
 ): Promise<{
   pages: SongPage[]
@@ -1227,6 +1242,7 @@ async function paginateSong(
     song,
     notation,
     accidentals,
+    instrument,
   )
 
   const links = linksOf(song)
@@ -1382,6 +1398,8 @@ export async function bookletToBlob(
   booklet: Booklet,
   notation: Notation,
   accidentals: Accidentals,
+  /** The reader's instrument, for the conditionals a file may carry — see `visibleSections`. */
+  instrument: Instrument,
   footerText: string,
 ): Promise<Blob> {
   const entries = flatten(booklet)
@@ -1391,7 +1409,7 @@ export async function bookletToBlob(
   // before any page number exists.
   const songPagination = await Promise.all(
     entries.map((entry) =>
-      paginateSong(entry.song, entry.sectionName, notation, accidentals, footerText),
+      paginateSong(entry.song, entry.sectionName, notation, accidentals, instrument, footerText),
     ),
   )
 

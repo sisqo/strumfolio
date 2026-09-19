@@ -119,7 +119,9 @@ export function fragmentSections(items: FlatLine[]): Section[] {
   for (const item of items) {
     if (item.section !== source) {
       source = item.section
-      fragments.push({ kind: source.kind, lines: [] })
+      // The selector travels with the fragment: a block split across two columns is still
+      // for whoever the whole block was for.
+      fragments.push({ kind: source.kind, lines: [], selector: source.selector })
     }
     fragments[fragments.length - 1].lines.push(item.line)
   }
