@@ -1046,6 +1046,7 @@ function FollowedSong({
         <SongControls
           songSlug={song.data.slug}
           chords={chordTokens(parsed)}
+          songCapo={parsed.capo}
           semitonesLocked={song.following}
           broadcastEnabled={false}
         />

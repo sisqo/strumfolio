@@ -44,6 +44,7 @@
  *   of a line is therefore an ordinary backslash, and `\\` still escapes one.
  */
 
+import { MAX_CAPO } from './music/capo'
 import { parseTimeSignature, readBpm } from './metronome/tempo'
 
 export interface Part {
@@ -156,6 +157,22 @@ export interface ParsedSong {
    * for. Null when the song does not say.
    */
   beatsPerBar: number | null
+  /**
+   * The fret the song says it is played with the capo on, from `{capo: 3}` — **stated,
+   * never applied.** Null when the song does not say, which today is every song in the
+   * archive: nothing here has ever written the directive, so it only ever arrives on an
+   * imported file.
+   *
+   * It is deliberately not wired to `user_song_prefs.capo`. That column is the reader's
+   * own answer and is `NOT NULL DEFAULT 0`, so `0` means «no capo» and «never chose» at
+   * once; letting a file supply the value where the reader's reads 0 would put a capo on
+   * for somebody who had taken it off, which is `SongPrefs.bpm`'s own argument turned the
+   * wrong way round. Telling them what the file says costs nobody their setting, and the
+   * stronger version is still available afterwards — it needs that column nullable first.
+   *
+   * In the body rather than a column of its own, for `tempo`'s reason directly above.
+   */
+  capo: number | null
   sections: Section[]
 }
 
@@ -208,6 +225,7 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   tempo: 'tempo',
   bpm: 'tempo',
   time: 'timeSignature',
+  capo: 'capo',
   /* Every shape of comment the format defines collapses to one here. `comment_italic` and
      `comment_box` differ from `comment` only in how a PDF typesetter draws the box around
      them, and this app draws no box; `highlight` is the same sentence again under a third
@@ -292,6 +310,7 @@ export function parseChordPro(source: string): ParsedSong {
     link3: null,
     tempo: null,
     beatsPerBar: null,
+    capo: null,
     sections: [],
   }
 
@@ -415,6 +434,12 @@ export function parseChordPro(source: string): ParsedSong {
         case 'timeSignature':
           song.beatsPerBar = parseTimeSignature(value)
           break
+        /* Narrowed like the two above: a fret this app could not draw — a word, a
+           negative, something past the end of the neck — leaves the song saying nothing
+           rather than putting an impossible number in front of a reader. */
+        case 'capo':
+          song.capo = readCapo(value)
+          break
         case 'comment':
           section ??= openSection(forcedKind ?? 'verse')
           section.lines.push({ kind: 'comment', text: value })
@@ -493,6 +518,20 @@ export function parseChordPro(source: string): ParsedSong {
   }
 
   return song
+}
+
+/**
+ * `{capo: 3}` as a fret, or null for anything that is not one.
+ *
+ * Whole frets only, and inside the neck this app draws (`MAX_CAPO`): `{capo: none}` and
+ * `{capo: 2nd fret}` both turn up in real files and neither is a number. `0` is a real
+ * answer and stays one — a file saying «no capo» is saying something.
+ */
+function readCapo(value: string): number | null {
+  if (!/^\d{1,2}$/.test(value.trim())) return null
+
+  const fret = Number(value.trim())
+  return fret <= MAX_CAPO ? fret : null
 }
 
 /** What a backslash may escape, per the format: the characters that otherwise mean something. */

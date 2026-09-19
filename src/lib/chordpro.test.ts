@@ -459,6 +459,33 @@ describe('ChordPro format compliance', () => {
     })
   })
 
+  describe('{capo}', () => {
+    it('reads the fret the song says it is played at', () => {
+      assert.equal(parseChordPro('{title: T}\n{capo: 3}\nword').capo, 3)
+    })
+
+    it('reads a declared absence of one, which is a statement too', () => {
+      assert.equal(parseChordPro('{title: T}\n{capo: 0}\nword').capo, 0)
+    })
+
+    it('says nothing when the song says nothing', () => {
+      assert.equal(parseChordPro('{title: T}\nword').capo, null)
+    })
+
+    it('refuses a fret nobody can put a capo on', () => {
+      assert.equal(parseChordPro('{title: T}\n{capo: none}\nword').capo, null)
+      assert.equal(parseChordPro('{title: T}\n{capo: 2nd fret}\nword').capo, null)
+      assert.equal(parseChordPro('{title: T}\n{capo: 99}\nword').capo, null)
+    })
+
+    /* Stated, never applied: the directive must not reach the reader's own capo, which
+       lives in `user_song_prefs` and means «no capo» and «never chose» with one value. */
+    it('does not print itself into the song', () => {
+      const song = parseChordPro('{title: T}\n{capo: 3}\nword')
+      assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+    })
+  })
+
   describe('{x_} extensions', () => {
     it("reads this app's own directives under their strict spelling too", () => {
       const song = parseChordPro('{x_songbook: Book}\n{x_division: Part}\n{x_link1: https://example.com}\nword')

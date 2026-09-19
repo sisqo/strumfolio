@@ -13633,6 +13633,22 @@
    * the one fret cell above it that shares this fact — see `.fret-button.is-suggested`
    * for why that is `--success` and not the accent.
    */
+  /*
+   * What the song's own `{capo: 3}` says, in the Capo menu. Deliberately quiet, and
+   * deliberately not `.capo-suggestion` below: that one is green because it is an offer
+   * with a button, and this is a fact about the song with nothing to accept. Every value
+   * here is a token, so the dark theme follows on its own.
+   */
+  .capo-written {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    border: 1px solid var(--line-soft);
+    color: var(--muted);
+    font-size: 0.78125rem;
+    line-height: 1.35;
+  }
+
   .capo-suggestion {
     display: flex;
     align-items: center;

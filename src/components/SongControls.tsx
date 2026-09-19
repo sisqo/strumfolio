@@ -59,6 +59,7 @@ type Menu = 'capo' | 'chords' | 'tempo' | null
 export function SongControls({
   songSlug,
   chords,
+  songCapo,
   semitonesLocked = false,
   broadcastEnabled = true,
 }: {
@@ -69,6 +70,15 @@ export function SongControls({
    * then has nothing to suggest.
    */
   chords: string[]
+  /**
+   * The fret this song's own `{capo: 3}` names, or null when it does not say — which is
+   * every song written here, since nothing in this app writes the directive.
+   *
+   * Required rather than defaulted, so the three screens that mount this row each have to
+   * answer: a default of null would have read as «this song says nothing» on a screen that
+   * simply forgot to pass it, which is the quiet kind of wrong this repo keeps naming.
+   */
+  songCapo: number | null
   /**
    * True only on Strum Together's guest screen: a follower reads the leader's key rather
    * than choosing their own, so the two steppers are disabled and the chip says why.
@@ -326,6 +336,7 @@ export function SongControls({
       {menu === 'capo' && ease !== null && (
         <CapoMenu
           capo={song.capo}
+          songCapo={songCapo}
           suggestion={suggestion}
           ease={ease}
           setCapo={setCapo}
@@ -397,12 +408,15 @@ function semitoneBadge(semitones: number): string {
  */
 function CapoMenu({
   capo,
+  songCapo,
   suggestion,
   ease,
   setCapo,
   onDone,
 }: {
   capo: number
+  /** What the song's own `{capo: …}` says, stated and never applied — see below. */
+  songCapo: number | null
   suggestion: CapoOption | null
   ease: FretEase
   setCapo: (fret: number) => void
@@ -496,6 +510,30 @@ function CapoMenu({
           </button>
         )}
       </div>
+
+      {/*
+        * What the file says, when the file says anything — and a sentence with no button
+        * beside it, which is the whole of the decision behind this line.
+        *
+        * A capo arriving in an imported song is worth knowing: it is how the person who
+        * wrote the chart played it, and without it a reader has no way to tell a chart
+        * written at the nut from one written three frets up. What it is not is an
+        * instruction. `user_song_prefs.capo` is `NOT NULL DEFAULT 0`, so «no capo» and
+        * «never chose» are one value there; applying the file's fret wherever that column
+        * reads 0 would put a capo on for somebody who had deliberately taken it off.
+        * Saying it costs them nothing and tells them everything the directive holds.
+        *
+        * Neutral, not `.capo-suggestion`'s green: that one is an improvement to accept,
+        * this one is a fact about the song, and colouring a fact as an offer would invite
+        * the tap that this line exists not to ask for.
+        */}
+      {songCapo !== null && (
+        <p className="capo-written mt-2.5">
+          {songCapo === 0
+            ? 'Written with no capo.'
+            : `Written with the capo on fret ${songCapo}.`}
+        </p>
+      )}
 
       {/*
         * What a capo would do for the hands, when it would do something. A sentence and a

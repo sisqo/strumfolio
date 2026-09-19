@@ -158,7 +158,7 @@ export function SongHeading({
         </p>
       )}
 
-      <SongControls songSlug={song.slug} chords={chords} />
+      <SongControls songSlug={song.slug} chords={chords} songCapo={parsed.capo} />
 
       {/*
         * Said only when the server has answered that the row is gone — never
