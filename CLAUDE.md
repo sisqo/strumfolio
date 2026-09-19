@@ -124,10 +124,26 @@ it lives rather than here:
   on how many lyric lines a song has» is that rule as a test, and is the cheapest check
   that a new construct is safe.
 
-Two questions it leaves open, neither answered by fiat: whether `{key}` and `{capo}` should
-seed a song (today they are read and dropped, because capo and transposition belong to the
-reader in `user_song_prefs`, and a file would be overwriting a choice made months ago), and
-whether `{define}`/`{chord}` diagrams should feed `ChordLibrary`.
+- **`{capo}` is stated, never applied** (decided 2026-09-19). `parseChordPro` reads it into
+  `ParsedSong.capo` and the Capo menu says «Written with the capo on fret 3» — a sentence
+  with no button beside it. It does **not** reach `user_song_prefs.capo`, which is
+  `NOT NULL DEFAULT 0` and therefore spells «no capo» and «never chose» with one value:
+  applying the file's fret wherever that column reads 0 would put a capo on for somebody who
+  had taken it off. The stronger version — null meaning «I take the song's», exactly as
+  `SongPrefs.bpm` already works — needs that column nullable first, which is a migration
+  against three databases and **preview cannot be migrated from here**. Measured before
+  deciding: of 223 stored songs, **zero** declare `{capo:}` and zero declare `{key:}`, so the
+  directive only ever arrives on an imported file.
+- **`{key}` seeds nothing, and that is not a gap.** `estimateKey` derives the key from the
+  chords, which are present and say it; a reader's `semitones` is a shift *relative to what
+  is written*, which is exactly what `{key}` declares, so seeding from it would transpose the
+  song away from itself. It stays archival, as `import/CLAUDE.md` already says, and
+  `METADATA_DIRECTIVE` still strips it on import.
+
+One question it leaves open: whether `{define}`/`{chord}` diagrams should feed `ChordLibrary`
+— a file can carry its own fingerings, for an odd voicing or an open tuning, and today they
+are ignored in favour of the built-in table. Approved as separate work on 2026-09-19, not
+started.
 
 ## Commands
 
