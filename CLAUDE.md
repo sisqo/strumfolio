@@ -689,9 +689,19 @@ Two things that cannot follow us at all, worth knowing before anybody tries agai
 not among them, so Lato stays, and changing it buys nothing), and **the selected payment-method
 tab's green outline**, which the editor does not expose.
 
-**Sandbox and live are separate accounts, so this is configured twice** — the sandbox is done,
-the live is not, and it belongs with the catalogue and the notification destination in the list
-below. And since the values are copies of `DESIGN.md`'s tokens held outside this repo, a change
+**Sandbox and live are separate accounts, so this is configured twice — and the live one is done
+since 2026-09-19**, verified field by field after a reload rather than on the «saved» toast. Two
+values could not be carried across, and both are the live editor offering less than the sandbox
+one did: **the primary button's border is `No` instead of matched colours**, because this
+dashboard exposes only a Yes/No for it and `Yes` left Paddle's green ring around the orange fill
+(seen by zooming, not inferred); and **`Label color` has no field at all**, only «Label visible»,
+so `--muted` has nowhere to go. Everything else is the palette below, to the hex.
+
+**The secondary button came out of the Save explicitly Paddle green** — `#06C668`/`#05B25E` on
+its border, font and hover — where it had been unset. That is the rule this section already
+states, met in the wild: Save writes every colour in the editor, the untouched ones included. The
+sandbox sits in the same state, so the two environments agree; it is recorded here because it
+looks like a mistake and is not one. And since the values are copies of `DESIGN.md`'s tokens held outside this repo, a change
 to `--accent`, `--r-lg` or `--r-pill` makes them wrong with nothing to catch it: the same
 «change one place and the others are wrong» this file states about the booklet override and the
 install row.
