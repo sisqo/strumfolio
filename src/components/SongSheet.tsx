@@ -151,13 +151,6 @@ export function SongSheet({
     [song],
   )
 
-  /*
-   * The sheet renders lines section by section; the anchor map is a flat list of the
-   * lyrics lines in source order. This counter is what joins them, and it has to be
-   * incremented for every lyrics line whether or not anything is anchored in it.
-   */
-  let lyricLine = -1
-
   const showNotes = notes !== undefined && notes.visible
   const orphans = showNotes ? notes.comments.filter((comment) => comment.anchor === null) : []
 
@@ -214,7 +207,6 @@ export function SongSheet({
         {song.sections.map((section, sectionIndex) => (
           <section key={sectionIndex} className={`sheet-section is-${section.kind}`}>
             {section.lines.map((line, lineIndex) => {
-              if (line.kind === 'lyrics') lyricLine += 1
               return (
                 <SheetLine
                   key={lineIndex}
