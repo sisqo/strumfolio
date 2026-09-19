@@ -431,6 +431,52 @@ a `pri_…` back to one of `PRICES`' rows from the payload itself — no second 
 step with this one, which is the failure mode every other "two places must agree" note in this
 file describes.
 
+### The live catalogue, and why its ids are *not* in `prices.ts`
+
+Created 2026-09-19 through the `paddle-live` MCP as an exact replica of the sandbox one —
+`tax_category: saas`, `tax_mode: internal`, `quantity: {minimum: 1, maximum: 1}`, euro, no
+`trial_period`, no `unit_price_overrides`, the same `custom_data` stamps, and no product for
+`free`.
+
+| Plan | Product | Year | Month |
+|---|---|---|---|
+| Standard | `pro_01m2wf60jkrz5p6md76wxp8sss` | `pri_01m2wf613emkxqg0xs0khgfcm8` | `pri_01m2wf6161k8x9gt38gdns0jy6` |
+| Plus | `pro_01m2wf60r06d3xstsfp1b66xqm` | `pri_01m2wf618tke9dbed6phx45bt3` | `pri_01m2wf61c6a4q5rqf8fdm9g6cj` |
+| Premium | `pro_01m2wf60wc8s68aqecqqsknv2y` | `pri_01m2wf61fp9ygk4pecwrxt27et` | `pri_01m2wf61jf8p6ed05zyg2377z3` |
+| Lifetime | `pro_01m2wf610p86147t1k3v1s21wm` | — | `pri_01m2wf61n74er87t4hmwtb75jt` |
+
+**Verified on the total, not on the field.** `pricingPreview` on 2026-09-19 for IT (22%), DE
+(19%) and US (0%) returns the identical total for every one of the seven while the taxable base
+moves — Standard yearly reads 28.68 + 6.31, 29.40 + 5.59 and 34.99 + 0.00, all landing on
+**€34.99**. That is `prices.ts`' central sentence, demonstrated against the catalogue that will
+take real money.
+
+**The seven ids live in `PADDLE_PRICE_IDS`, not in `paddleId`, and that reverses what
+`paddlePrices.ts` and `plans/CLAUDE.md` describe as the plan.** Writing them into `prices.ts`
+was tried the same day and reverted within the hour, because the committed id wins **in every
+environment**: `paddlePriceId` consults the environment only where `paddleId` is empty, so the
+moment all seven are filled the *preview* deployment stops reading its sandbox ids and starts
+naming live prices at the sandbox API — killing the one environment where a purchase can be
+tested at all, which is what `INTEGRATION-TESTS.md` is built on. The original comment reasoned
+about production alone and never about the same code running elsewhere.
+
+**Two tests are what caught it, and they are a tripwire rather than an oversight.**
+`paddlePrices.test.ts`'s «is only reachable while the code holds no live id» asserts the
+*premise* — all seven `paddleId` empty — precisely so that filling them in fails loudly; and
+`catalogue.test.ts`'s unwired case can no longer be built from a wired table. Both failed the
+minute the ids went in, which is exactly what they were written to do. **Do not "update" them to
+match a future change without deciding this question again.**
+
+**What the decision costs, stated because it is invisible**: a *live* run of
+`verify-paddle-catalogue.ts` has no ids to match by and exits 2 — the state that means «nothing
+was verified», which is honest but is no longer a check. The repair is available and not taken:
+the live prices carry the same `{plan, cycle}` stamps as the sandbox ones, so the `--sandbox`
+mode's `custom-data` matching would work against live unchanged. What it also costs is the thing
+`paddlePrices.ts` argues against — production now depends on an environment variable being right,
+where the committed id could not be forgotten. The mitigation is that being wrong fails loudly:
+a sandbox `pri_…` sent to the live API is not found, so the checkout refuses rather than
+completing a sale that charges nothing.
+
 ### `tax_mode: 'internal'` is what makes `prices.ts`'s central sentence true
 
 `prices.ts` promises that «the number written here is the number the customer pays, wherever
@@ -716,12 +762,39 @@ and infers nothing. `plans/CLAUDE.md` has all six measurements.
 
 **Still to do before any of this takes money in production**: the live inline checkout carries
 none of the branding above (the values are in the section that describes them), the live
-catalogue does not exist
-(create it with `tax_category: saas`, `tax_mode: internal` and `quantity: {minimum: 1,
-maximum: 1}` — see the traps above), the live notification destination does not exist either and
-must subscribe to **`adjustment.created` and `adjustment.updated`** alongside the subscription and
-transaction events — without them a refunded Lifetime is never revoked and nothing anywhere
-errors (`plans/CLAUDE.md`) — and Production has no `PADDLE_*` variables at all.
+notification destination does not exist and must subscribe to **`adjustment.created` and
+`adjustment.updated`** alongside the subscription and transaction events — without them a
+refunded Lifetime is never revoked and nothing anywhere errors (`plans/CLAUDE.md`) — and
+Production has no `PADDLE_*` variables at all, `PADDLE_PRICE_IDS` now included, since that is
+where the live ids live.
+
+**One gate sits in front of every one of them: the live domain must be approved.**
+`strumfolio.com` was submitted on 2026-09-19 — `chedom_01m2we9rfyfcy7jtwpnr90rcvm`,
+`pending_review`, readable from here with `client.checkoutDomains.get`, so the status needs no
+browser. Approval is what unlocks the **default payment link**, a field in Checkout Settings →
+General whose own text reads «a default payment link is required to create a transaction».
+`startPaddleCheckout` creates one on **every** view of `/checkout/[plan]`, so until that field
+holds a value nothing is sellable at all, whatever else is configured.
+
+**And the field fails silently until then**, which is the half worth not rediscovering: typing a
+URL into it and pressing Save answers «Checkout settings saved», persists every other change made
+on that same form, and leaves the field **empty on reload**, with no error anywhere. Measured
+2026-09-19. Read it as «the domain is not approved yet», not as a typo in the URL.
+
+So the live `PADDLE_*` variables and any code change that depends on them ship **together, after
+approval** — never the variables after the push. `/pricing` reads `paddleCheckoutEnabled()` at
+module scope, so they are baked at build time, and adding one later needs the `vercel redeploy`
+that the auto-mode classifier blocks.
+
+Two more things the dashboard holds that are decisions rather than defaults, both set 2026-09-19.
+**Sales tax settings** is «Price includes tax»: it was «Automatic based on location», i.e. the
+`location` mode this file forbids by name, which mattered not for the seven prices — each states
+`tax_mode: internal` for itself — but for the next price created without the field. And
+**«Display discount field on the checkout» is off**: `PaddleCheckout` already passes
+`showAddDiscounts: false`, but the account default is a second door, and a code typed into
+Paddle's own field attaches a discount without passing `redeemableCouponFor` — no row in
+`coupon_redemptions`, no campaign ceiling applied, none of the three `accounts.coupon*` columns
+written.
 
 ### Coupons are Paddle Discounts, and a coupon never causes a sale at full price
 
