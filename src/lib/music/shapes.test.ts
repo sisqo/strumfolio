@@ -14,6 +14,8 @@ import {
   shapeFor,
   shapeNotes,
   shapesFor,
+  definedShape,
+  pickShape,
 } from './shapes'
 
 /**
@@ -419,5 +421,73 @@ describe('fingeringText', () => {
 
   it('spaces the cells out once a fret needs two digits', () => {
     assert.equal(fingeringText([10, 12, 12, 11, 10, 10]), '10 12 12 11 10 10')
+  })
+})
+
+/*
+ * A fingering the song drew itself, from `{define}` or `{chord}`.
+ *
+ * Somebody who writes one is saying either that our table has no such voicing or that the
+ * instrument is in an open tuning, and in both cases they know more than the table does. The
+ * one thing that still outranks them is a shape this reader chose by hand.
+ */
+describe('a fingering the song drew itself', () => {
+  const chord = parseChord('C')
+  const definition = { c: { name: 'C', frets: [8, 10, 10, 9, 8, 8] } }
+
+  it('is what gets drawn, ahead of the table', () => {
+    assert.ok(chord !== null)
+    const picked = pickShape(chord, 'guitar', {}, definition)
+
+    assert.deepEqual(picked?.shape.frets, [8, 10, 10, 9, 8, 8])
+  })
+
+  it('joins the alternates rather than hiding the table’s own', () => {
+    assert.ok(chord !== null)
+    const picked = pickShape(chord, 'guitar', {}, definition)
+    const plain = pickShape(chord, 'guitar', {})
+
+    assert.equal(picked?.shapes.length, (plain?.shapes.length ?? 0) + 1)
+  })
+
+  /* The reader is the most recent voice and the most their own. */
+  it('gives way to a shape this reader chose by hand', () => {
+    assert.ok(chord !== null)
+    const plain = pickShape(chord, 'guitar', {})
+    const theirs = fingeringText(plain?.shapes[1]?.frets ?? [])
+    const key = plain?.key ?? ''
+
+    const picked = pickShape(chord, 'guitar', { [key]: theirs }, definition)
+    assert.equal(fingeringText(picked?.shape.frets ?? []), theirs)
+  })
+
+  it('matches the chord and not the spelling, so {define: Do …} reaches a C', () => {
+    assert.ok(chord !== null)
+    const italian = { do: { name: 'Do', frets: [8, 10, 10, 9, 8, 8] } }
+
+    assert.deepEqual(definedShape(chord, italian)?.frets, [8, 10, 10, 9, 8, 8])
+  })
+
+  /*
+   * A file's fingering for C is a C fingering. Once a reader transposes, the drawn chord is
+   * a D and the table's D is right — the file's C would be a lie.
+   */
+  it('does not follow the chord once it has been transposed away', () => {
+    const moved = parseChord('D')
+    assert.ok(moved !== null)
+
+    assert.equal(definedShape(moved, definition), null)
+  })
+
+  it('ignores a definition for a different quality of the same root', () => {
+    const minor = parseChord('Cm')
+    assert.ok(minor !== null)
+
+    assert.equal(definedShape(minor, definition), null)
+  })
+
+  it('leaves every song that draws nothing exactly as it was', () => {
+    assert.ok(chord !== null)
+    assert.deepEqual(pickShape(chord, 'guitar', {}, {})?.shape, pickShape(chord, 'guitar', {})?.shape)
   })
 })

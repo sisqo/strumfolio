@@ -8,6 +8,7 @@ import {
   parseChordPro,
   parseLyricLine,
   plainLyrics,
+  readDefinition,
   selectorMatches,
   visibleSections,
 } from './chordpro'
@@ -870,5 +871,70 @@ describe('metadata the app shows and does not act on', () => {
     assert.equal(bare.subtitle, null)
     assert.equal(bare.key, null)
     assert.ok(Object.values(bare.metadata).every((value) => value === null))
+  })
+})
+
+/*
+ * A fingering the file draws itself. The arithmetic below is the whole risk: with the usual
+ * `base-fret 1` it cancels out and the numbers are already absolute, so getting it wrong
+ * would go unnoticed on almost every file and be silently wrong on the ones that use it.
+ */
+describe('readDefinition', () => {
+  it('reads the ordinary form, where the numbers are already absolute', () => {
+    assert.deepEqual(readDefinition('C base-fret 1 frets 0 3 2 0 1 0'), {
+      name: 'C',
+      frets: [0, 3, 2, 0, 1, 0],
+    })
+  })
+
+  it('assumes the first fret when the file does not say', () => {
+    assert.deepEqual(readDefinition('C frets 0 3 2 0 1 0')?.frets, [0, 3, 2, 0, 1, 0])
+  })
+
+  /* A 1 means «the first fret the diagram shows», so with base-fret 3 it is really fret 3. */
+  it('counts a higher base-fret from where the diagram starts', () => {
+    assert.deepEqual(readDefinition('Bb base-fret 3 frets 1 3 3 2 1 1')?.frets, [3, 5, 5, 4, 3, 3])
+  })
+
+  /* An open string is not on the diagram at all, so the base never moves it. */
+  it('leaves an open string open however high the diagram starts', () => {
+    assert.deepEqual(readDefinition('X base-fret 5 frets 0 1 0')?.frets, [0, 5, 0])
+  })
+
+  it('reads both spellings of a muted string', () => {
+    assert.deepEqual(readDefinition('D frets x x 0 2 3 2')?.frets, [null, null, 0, 2, 3, 2])
+    assert.deepEqual(readDefinition('D frets N N 0 2 3 2')?.frets, [null, null, 0, 2, 3, 2])
+  })
+
+  it('keeps the chord name exactly as the file spelled it', () => {
+    assert.equal(readDefinition('Cmaj7 frets 0 3 2 0 0 0')?.name, 'Cmaj7')
+  })
+
+  it('reads a ukulele definition, which is simply shorter', () => {
+    assert.deepEqual(readDefinition('C frets 0 0 0 3')?.frets, [0, 0, 0, 3])
+  })
+
+  /* Null rather than a guess: a fingering drawn wrong is worse than one drawn from the
+     table, because a reader has no way to tell. */
+  it('refuses a definition it cannot read', () => {
+    assert.equal(readDefinition(''), null)
+    assert.equal(readDefinition('C'), null)
+    assert.equal(readDefinition('C base-fret 1'), null)
+  })
+
+  it('files a definition under the chord it names', () => {
+    const song = parseChordPro('{title: T}\n{define: Cmaj7 frets 0 3 2 0 0 0}\nword')
+    assert.deepEqual(song.definitions.cmaj7.frets, [0, 3, 2, 0, 0, 0])
+  })
+
+  /* `{chord: …}` takes the same options and this app reads it the same way. */
+  it('reads {chord: …} as a definition too', () => {
+    const song = parseChordPro('{title: T}\n{chord: G frets 3 2 0 0 0 3}\nword')
+    assert.deepEqual(song.definitions.g.frets, [3, 2, 0, 0, 0, 3])
+  })
+
+  it('keeps a definition out of the words', () => {
+    const song = parseChordPro('{title: T}\n{define: C frets 0 3 2 0 1 0}\nword')
+    assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
   })
 })

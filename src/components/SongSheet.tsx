@@ -181,6 +181,7 @@ export function SongSheet({
             spelling,
             global.instrument,
             songPrefs.chordShapes,
+            song.definitions,
           )
         : null,
     [
@@ -230,6 +231,7 @@ export function SongSheet({
                   instrument={global.instrument}
                   capo={songPrefs.capo}
                   chordShapes={songPrefs.chordShapes}
+                  definitions={song.definitions}
                   roomForChords={roomForChords}
                   tabsExpanded={songPrefs.tabsExpanded}
                   onToggleTabs={toggleTabsExpanded}
@@ -278,6 +280,7 @@ export function SongSheet({
           instrument={global.instrument}
           capo={songPrefs.capo}
           chordShapes={songPrefs.chordShapes}
+          definitions={song.definitions}
           onChangeShape={setChordShape}
           onClose={() => setShown(null)}
         />
@@ -320,6 +323,7 @@ function summarise(
   spelling: Spelling,
   instrument: Instrument,
   chordShapes: Record<string, string>,
+  definitions: ParsedSong['definitions'],
 ): SummaryChord[] {
   const found: SummaryChord[] = []
   const seen = new Set<string>()
@@ -329,7 +333,7 @@ function summarise(
     if (parsed === null) continue
 
     const chord = readChord(parsed, shift, accidentals)
-    const picked = pickShape(chord, instrument, chordShapes)
+    const picked = pickShape(chord, instrument, chordShapes, definitions)
     if (picked === null) continue
 
     const label = formatChord(chord, spelling)
@@ -442,6 +446,7 @@ function SheetLine({
   instrument,
   capo,
   chordShapes,
+  definitions,
   roomForChords,
   tabsExpanded,
   onToggleTabs,
@@ -463,6 +468,8 @@ function SheetLine({
   /** This song's own choices of shape, so the inline diagram never disagrees with the
    *  summary panel or the popup over the same chord. */
   chordShapes: Record<string, string>
+  /** The fingerings this song drew itself — see `ParsedSong.definitions`. */
+  definitions: ParsedSong['definitions']
   roomForChords: boolean
   /** Whether this song's tab blocks show open — one flag for the whole song, see `SongPrefs.tabsExpanded`. */
   tabsExpanded: boolean
@@ -596,6 +603,7 @@ function SheetLine({
                       instrument={instrument}
                       capo={capo}
                       chordShapes={chordShapes}
+                      definitions={definitions}
                       onPick={onPick}
                       note={
                         notes === undefined || anchor === undefined
@@ -719,6 +727,7 @@ function SheetChord({
   instrument,
   capo,
   chordShapes,
+  definitions,
   onPick,
   note,
 }: {
@@ -737,6 +746,8 @@ function SheetChord({
   capo: number
   /** This song's own choices of shape — see `SheetLine`'s own prop of the same name. */
   chordShapes: Record<string, string>
+  /** The fingerings this song drew itself — see `ParsedSong.definitions`. */
+  definitions: ParsedSong['definitions']
   onPick: (chord: Chord) => void
   /**
    * What this slot does about notes. While `adding` is armed the tap places one instead of
@@ -786,7 +797,8 @@ function SheetChord({
    * and in the popup — no badge here (out of scope), but the
    * drawing itself must never disagree with the other two.
    */
-  const shape = chordDisplay === 'shape' ? (pickShape(chord, instrument, chordShapes)?.shape ?? null) : null
+  const shape =
+    chordDisplay === 'shape' ? (pickShape(chord, instrument, chordShapes, definitions)?.shape ?? null) : null
 
   return (
     <button

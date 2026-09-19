@@ -220,6 +220,23 @@ const METADATA_FIELD: Record<string, keyof SongMetadata> = {
   sortartist: 'sortArtist',
 }
 
+/**
+ * A fingering the file drew itself, from `{define: …}` or `{chord: …}`.
+ *
+ * Both directives take the same options and this app reads the two that decide where the
+ * fingers go; `fingers`, `keys`, `diagram`, `display` and `format` are about how a typesetter
+ * draws the box and are ignored, like every other typesetting instruction here.
+ *
+ * `frets` is in this app's own terms — absolute fret positions, `null` for a muted string —
+ * rather than the file's, so nothing downstream has to know that ChordPro counts from
+ * `base-fret`. That translation happens once, in `readDefinition`, where it can be tested.
+ */
+export interface ChordDefinition {
+  /** The chord as the file named it, kept verbatim for the error nobody wants to debug. */
+  name: string
+  frets: (number | null)[]
+}
+
 export interface ParsedSong {
   title: string | null
   artist: string | null
@@ -239,6 +256,16 @@ export interface ParsedSong {
    */
   key: string | null
   metadata: SongMetadata
+  /**
+   * The fingerings this song brings with it, keyed by the chord name lowercased.
+   *
+   * **They win over the built-in library for this song**, and only for this song: somebody
+   * who writes a `{define}` is saying either that our table has no such voicing or that the
+   * instrument is in an open tuning, and in both cases they know more than the table does.
+   * What still beats them is a shape this reader chose by hand, which is the most recent and
+   * the most theirs.
+   */
+  definitions: Record<string, ChordDefinition>
   tags: string[]
   /**
    * Name of the songbook this song *starts* in. Only ever an initial value:
@@ -366,6 +393,8 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   bpm: 'tempo',
   time: 'timeSignature',
   capo: 'capo',
+  define: 'define',
+  chord: 'define',
   /* Everything the file says and nothing acts on. Mapped to one case below rather than to a
      case each: none of them is interpreted, so none of them needs its own. */
   ...Object.fromEntries(Object.keys(METADATA_FIELD).map((name) => [name, 'metadata'])),
@@ -456,6 +485,7 @@ export function parseChordPro(source: string): ParsedSong {
     subtitle: null,
     key: null,
     metadata: { ...EMPTY_METADATA },
+    definitions: {},
     tags: [],
     songbookName: null,
     sectionName: null,
@@ -667,6 +697,11 @@ export function parseChordPro(source: string): ParsedSong {
         case 'capo':
           song.capo = readCapo(value)
           break
+        case 'define': {
+          const defined = readDefinition(value)
+          if (defined !== null) song.definitions[defined.name.toLowerCase()] = defined
+          break
+        }
         case 'comment':
           section ??= openSection(forcedKind ?? 'verse')
           section.lines.push({
@@ -806,6 +841,42 @@ function readCapo(value: string): number | null {
  */
 function repeated(line: Line): Line {
   return line.kind === 'lyrics' ? { ...line, sourceLines: [] } : line
+}
+
+/**
+ * `Cmaj7 base-fret 3 frets 0 3 2 0 0 0` as a fingering this app can draw.
+ *
+ * Two translations happen here and nowhere else. A string is muted when the file writes `x`
+ * or `N`, which becomes `null`. And a fret is written **relative to `base-fret`**, where 1 is
+ * the first fret the diagram shows — so with `base-fret 3` a `1` is really fret 3. An open
+ * string is `0` and stays 0 whatever the base is, since an open string is not on the diagram
+ * at all. With the usual `base-fret 1` the arithmetic cancels and the numbers are already
+ * absolute, which is why getting it wrong would go unnoticed on almost every file.
+ *
+ * Anything this cannot read is null rather than a guess: a fingering drawn wrong is worse
+ * than a fingering drawn from the table, because a reader has no way to tell.
+ */
+export function readDefinition(value: string): ChordDefinition | null {
+  const name = value.trim().split(/\s+/)[0] ?? ''
+  if (name === '') return null
+
+  const frets = /(?:^|\s)frets\s+((?:[\dxXnN]+\s*)+)/.exec(value)
+  if (frets === null) return null
+
+  const base = /(?:^|\s)base-fret\s+(\d+)/.exec(value)
+  const baseFret = base === null ? 1 : Number(base[1])
+
+  const positions = frets[1]
+    .trim()
+    .split(/\s+/)
+    .map((cell): number | null => {
+      if (/^[xXnN]$/.test(cell)) return null
+      const fret = Number(cell)
+      if (!Number.isInteger(fret) || fret < 0) return null
+      return fret === 0 ? 0 : baseFret + fret - 1
+    })
+
+  return positions.length === 0 ? null : { name, frets: positions }
 }
 
 /** What a backslash may escape, per the format: the characters that otherwise mean something. */

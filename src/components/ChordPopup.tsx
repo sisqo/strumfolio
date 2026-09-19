@@ -26,6 +26,7 @@ export function ChordPopup({
   instrument,
   capo,
   chordShapes,
+  definitions,
   onChangeShape,
   onClose,
 }: {
@@ -38,6 +39,12 @@ export function ChordPopup({
   capo: number
   /** This song's own choices of shape — see `SongPrefs.chordShapes`. */
   chordShapes: Record<string, string>
+  /**
+   * The fingerings this song drew itself. Threaded here and not defaulted, because the popup
+   * and the sheet must draw the same shape for the same chord — a default would have left
+   * this one quietly showing the table's voicing under a sheet showing the file's.
+   */
+  definitions: Record<string, { name: string; frets: (number | null)[] }>
   /** Sets, or with `null` clears, this song's choice of shape for the chord shown here. */
   onChangeShape: (key: string, fingering: string | null) => void
   onClose: () => void
@@ -50,7 +57,7 @@ export function ChordPopup({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const picked = pickShape(chord, instrument, chordShapes)
+  const picked = pickShape(chord, instrument, chordShapes, definitions)
   const notes = chordNoteNames(chord).map((note) => formatNoteName(note, spelling.notation))
 
   return (

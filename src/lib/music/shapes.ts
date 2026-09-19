@@ -22,7 +22,7 @@
  * are the fingerings a given book prints".
  */
 
-import { type Chord, normalizeSuffix } from './chord'
+import { type Chord, normalizeSuffix, parseChord } from './chord'
 import { type PitchClass, mod12, spellPitchClass } from './notes'
 
 export type Instrument = 'guitar' | 'ukulele'
@@ -584,12 +584,52 @@ export interface PickedShape {
  * default in silence otherwise, whether because nothing was ever chosen or because the
  * chord shown has since moved out from under an old choice (see `chordShapeKey`).
  */
+/**
+ * The fingering the song drew for this chord itself, from a `{define}` or a `{chord}`.
+ *
+ * Matched on the chord rather than on the spelling, so a file writing `{define: Do …}` and a
+ * sheet showing `C` still meet. Matched on the chord **as it is currently shown**, which is
+ * the one subtlety worth stating: a file's fingering for C is a C fingering, so once a reader
+ * transposes the song the drawn chord is a D and this correctly finds nothing — the table's
+ * D is right and the file's C would be a lie.
+ *
+ * Typed structurally rather than against `chordpro.ts`'s own `ChordDefinition`, so the music
+ * modules go on depending on nothing above them.
+ */
+export function definedShape(
+  chord: Chord,
+  definitions: Record<string, { name: string; frets: Fret[] }>,
+): ChordShape | null {
+  for (const definition of Object.values(definitions)) {
+    const named = parseChord(definition.name)
+    if (named === null || named.root !== chord.root) continue
+    if (normalizeSuffix(named.suffix) !== normalizeSuffix(chord.suffix)) continue
+    if (definition.frets.length === 0) continue
+
+    return { frets: definition.frets, family: chord.suffix, simplified: false }
+  }
+
+  return null
+}
+
 export function pickShape(
   chord: Chord,
   instrument: Instrument,
   overrides: Record<string, string>,
+  /** What the song itself drew — empty for every song that draws nothing, which is most. */
+  definitions: Record<string, { name: string; frets: Fret[] }> = {},
 ): PickedShape | null {
-  const shapes = shapesFor(chord, instrument)
+  const fromTable = shapesFor(chord, instrument)
+
+  /*
+   * The song's own fingering goes to the front of the list rather than replacing it, which
+   * does two things at once: it becomes the default, since the default is the first
+   * candidate, and it joins the alternate-forms picker instead of hiding the table's
+   * voicings. A reader who prefers one of those can still choose it, and that choice is the
+   * one thing that outranks the file — it is the most recent and the most theirs.
+   */
+  const defined = definedShape(chord, definitions)
+  const shapes = defined === null ? fromTable : [defined, ...fromTable]
   if (shapes.length === 0) return null
 
   const key = chordShapeKey(chord, instrument)
