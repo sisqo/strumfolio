@@ -8,17 +8,35 @@
  * flushWord(); continue }`), so joining the parts back up recovers the letters but not the
  * spacing, and an offset derived that way would drift on any line written with two spaces.
  *
- * So the map is built from the source, where both are still true at once. For each lyrics
- * block the source line is reconstructed with `writeLyricLine` and re-read with the
- * reader's own `parseLyricLine`, which yields exactly the words and parts the sheet will
- * render; walking the block's plain text alongside them — skipping the whitespace the
- * reader dropped — gives each part the offset it sits at.
+ * So the map is built from the source, where both are still true at once: each drawn line is
+ * walked against the text of the source lines it was built from, and each part gets the
+ * offset it sits at.
+ *
+ * ## Keyed on the line, because counting stopped being safe
+ *
+ * This used to be an array, and the screen and the booklet each found a line's notes by
+ * counting lyrics lines from the top of the song. That works while every drawn line is a
+ * source line and fails silently the moment one is not — `{chorus}` draws a stanza the
+ * source states once, a trailing `\` joins two source lines into one drawn one. Either way
+ * the two counts slip apart and every note below the slip renders against the wrong line,
+ * with nothing missing and nothing thrown.
+ *
+ * The key is the `Line` object itself, which the booklet already relied on for its own
+ * reason: `paginateSong` divides a song into columns and pages by slicing and regrouping,
+ * never by cloning, so the same reference survives every split.
+ *
+ * **Which is why the sections come in as an argument rather than being parsed here.** An
+ * identity-keyed map is only useful to a caller holding the very objects it was keyed on,
+ * and every screen already has a parse of its own — `useSong`'s on the reading screen,
+ * `prepare`'s in the booklet. Parsing a second time inside would build a map whose keys
+ * match nothing any caller holds, and every lookup would miss: no notes anywhere, no error
+ * anywhere. The test that walks `content/` is what caught exactly that.
  *
  * Built on the server, once, beside the parse that is already happening there.
  */
 
-import { parseLyricLine } from '../chordpro'
-import { fromSource, writeLyricLine } from '../editor/document'
+import type { Line, Section } from '../chordpro'
+import { type Block, blockStartLines, fromSource } from '../editor/document'
 
 import type { CommentTarget, SongComment } from './types'
 
@@ -28,41 +46,109 @@ export interface PartAnchor {
 }
 
 /**
- * Indexed the way the sheet renders: lyrics line, then word, then part.
+ * Indexed by the drawn line, then word, then part.
  *
  * Only lyrics lines are in here. Comment lines and tab blocks have no words to anchor
  * into, which is also why a block that stops being lyrics orphans its notes
- * (`reanchor.ts`).
+ * (`reanchor.ts`). A line the source does not contain — a repeated stanza — maps to an
+ * empty list rather than being absent, so a caller never has to tell «no notes here» from
+ * «this line is not in the map».
  */
-export type AnchorMap = PartAnchor[][][]
+export type AnchorMap = Map<Line, PartAnchor[][]>
 
-export function buildAnchorMap(source: string): AnchorMap {
-  const map: AnchorMap = []
+/** One stretch of source text a drawn line was built from, and the block it belongs to. */
+interface Segment {
+  blockIndex: number
+  text: string
+}
 
-  fromSource(source).blocks.forEach((block, blockIndex) => {
-    if (block.kind !== 'lyrics') return
+export function buildAnchorMap(sections: Section[], source: string): AnchorMap {
+  const { blocks } = fromSource(source)
+  const starts = blockStartLines(blocks)
 
-    const line = parseLyricLine(writeLyricLine(block.text, block.chords))
-    if (line.kind !== 'lyrics') return
-
-    const text = block.text
-    let cursor = 0
-
-    map.push(
-      line.words.map((word) => {
-        // The reader dropped the whitespace between words; the block's text still has it.
-        while (cursor < text.length && /\s/.test(text[cursor])) cursor += 1
-
-        return word.parts.map((part) => {
-          const charOffset = cursor
-          cursor += part.text.length
-          return { blockIndex, charOffset }
-        })
-      }),
-    )
+  const lyricsBySourceLine = new Map<number, { blockIndex: number; block: Block }>()
+  blocks.forEach((block, blockIndex) => {
+    if (block.kind === 'lyrics') lyricsBySourceLine.set(starts[blockIndex], { blockIndex, block })
   })
 
+  const map: AnchorMap = new Map()
+
+  for (const section of sections) {
+    for (const line of section.lines) {
+      if (line.kind !== 'lyrics') continue
+
+      const segments: Segment[] = []
+      for (const sourceLine of line.sourceLines) {
+        const found = lyricsBySourceLine.get(sourceLine)
+        if (found !== undefined && found.block.kind === 'lyrics') {
+          segments.push({ blockIndex: found.blockIndex, text: found.block.text })
+        }
+      }
+
+      map.set(line, anchorsFor(line, segments))
+    }
+  }
+
   return map
+}
+
+/**
+ * Where each part of a drawn line sits in the source.
+ *
+ * Walks the line's own words and parts against the source text they came from, skipping the
+ * whitespace the reader dropped. More than one segment is a line the source spells over two
+ * lines and the reader joined; none at all is a line the source does not contain, which
+ * anchors nothing.
+ */
+function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]): PartAnchor[][] {
+  // A line the source does not contain — a repeated stanza. Its shape is still the drawn
+  // line's, so a caller can index into it without checking, and every slot is empty.
+  if (segments.length === 0) return line.words.map((word) => word.parts.map(() => null).flatMap(() => []))
+
+  let index = 0
+  let cursor = 0
+
+  /** Moves past the whitespace between words, and off the end of a segment that is spent. */
+  const settle = () => {
+    while (index < segments.length) {
+      const { text } = segments[index]
+      if (cursor >= text.length) {
+        index += 1
+        cursor = 0
+        continue
+      }
+      if (!/\s/.test(text[cursor])) return
+      cursor += 1
+    }
+  }
+
+  return line.words.map((word) => {
+    settle()
+
+    return word.parts.map((part) => {
+      settle()
+      const segment = segments[Math.min(index, segments.length - 1)]
+      const anchor = { blockIndex: segment.blockIndex, charOffset: cursor }
+
+      // A part can straddle two segments only where the reader joined two source lines
+      // with no space between them; then it anchors where it starts, and the cursor walks
+      // on into whichever segment it ends in.
+      let remaining = part.text.length
+      while (remaining > 0 && index < segments.length) {
+        const room = segments[index].text.length - cursor
+        if (remaining < room) {
+          cursor += remaining
+          remaining = 0
+        } else {
+          remaining -= room
+          index += 1
+          cursor = 0
+        }
+      }
+
+      return anchor
+    })
+  })
 }
 
 /**

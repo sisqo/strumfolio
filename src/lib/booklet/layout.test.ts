@@ -21,6 +21,8 @@ function lyrics(words = 1): Line {
     kind: 'lyrics',
     hasChords: false,
     words: Array.from({ length: words }, () => ({ parts: [{ chord: null, text: 'la' }] })),
+    // A weight never looks at where a line came from; one is as good as another here.
+    sourceLines: [0],
   }
 }
 

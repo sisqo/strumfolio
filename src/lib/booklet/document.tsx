@@ -730,19 +730,13 @@ function buildNotes(song: BookletSong, sections: Section[]): BookletNotes | null
   const comments = inReadingOrder(song.comments)
   const numberById = new Map(comments.map((comment, index) => [comment.id, index + 1]))
 
-  // The map is flat over the whole song's lyrics lines, in source order — the same
-  // counter `SongSheet` keeps, kept here across every section before any page or
-  // column split touches them, since the map's indices assume nothing has yet.
-  const anchorMap = buildAnchorMap(song.body)
-  const anchorsByLine = new Map<Line, PartAnchor[][]>()
-  let lyricLine = -1
-  for (const section of sections) {
-    for (const line of section.lines) {
-      if (line.kind !== 'lyrics') continue
-      lyricLine += 1
-      anchorsByLine.set(line, anchorMap[lyricLine] ?? [])
-    }
-  }
+  /*
+   * Keyed on the `Line` object by `buildAnchorMap` itself now, so nothing here counts.
+   * It used to walk these sections with a counter of its own, mirroring `SongSheet`'s —
+   * two counters, one assumption, and the assumption was that every drawn line is a source
+   * line. `sections` is re-parsed from the same body, so the references match.
+   */
+  const anchorsByLine = buildAnchorMap(sections, song.body)
 
   return { anchorsByLine, comments, numberById }
 }

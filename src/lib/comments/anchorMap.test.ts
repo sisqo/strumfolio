@@ -3,16 +3,16 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { parseChordPro } from '../chordpro'
+import { type Line, parseChordPro } from '../chordpro'
 import { fromSource } from '../editor/document'
 import { buildAnchorMap } from './anchorMap'
 
 test('a part anchor points at the very text the part shows', () => {
   const source = '[G]A[C]mazing [G]grace, how [D]sweet the sound'
-  const map = buildAnchorMap(source)
+  const map = buildAnchorMap(parseChordPro(source).sections, source)
   const { text } = fromSource(source).blocks[0] as { text: string }
 
-  const [line] = map
+  const [line] = [...map.values()]
   const [amazing, grace, how] = line
   assert.equal(text.slice(amazing[0].charOffset, amazing[0].charOffset + 1), 'A')
   assert.equal(text.slice(amazing[1].charOffset, amazing[1].charOffset + 6), 'mazing')
@@ -23,10 +23,10 @@ test('a part anchor points at the very text the part shows', () => {
 test('extra spacing in the source does not shift the anchors off the words', () => {
   // The reader collapses this to single spaces; the offsets must follow the source.
   const source = 'uno   due     tre'
-  const map = buildAnchorMap(source)
+  const map = buildAnchorMap(parseChordPro(source).sections, source)
   const { text } = fromSource(source).blocks[0] as { text: string }
 
-  const [[uno, due, tre]] = map
+  const [[uno, due, tre]] = [...map.values()]
   assert.equal(text.slice(uno[0].charOffset, uno[0].charOffset + 3), 'uno')
   assert.equal(text.slice(due[0].charOffset, due[0].charOffset + 3), 'due')
   assert.equal(text.slice(tre[0].charOffset, tre[0].charOffset + 3), 'tre')
@@ -47,11 +47,17 @@ test('the map has one entry per lyrics line the reader renders, in the same orde
     'terza riga',
   ].join('\n')
 
-  const rendered = parseChordPro(source)
-    .sections.flatMap((section) => section.lines)
-    .filter((line) => line.kind === 'lyrics')
+  // One parse, used for both — the map is keyed on these very objects.
+  const parsed = parseChordPro(source)
+  const rendered = parsed.sections
+    .flatMap((section) => section.lines)
+    .filter((line): line is Extract<Line, { kind: 'lyrics' }> => line.kind === 'lyrics')
 
-  assert.equal(buildAnchorMap(source).length, rendered.length)
+  const map = buildAnchorMap(parsed.sections, source)
+  assert.equal(map.size, rendered.length)
+  // Stronger than the counts agreeing: every line the reader draws is a key, so no drawn
+  // line can be missing and no stale entry can be hiding among them.
+  for (const line of rendered) assert.ok(map.has(line), 'a drawn line has no entry')
 })
 
 test('every real song in content/ maps one-to-one, and every anchor lands on its own letters', () => {
@@ -62,17 +68,24 @@ test('every real song in content/ maps one-to-one, and every anchor lands on its
 
   for (const file of files) {
     const source = readFileSync(path.join(dir, file), 'utf8')
-    const map = buildAnchorMap(source)
+    const parsed = parseChordPro(source)
+    const map = buildAnchorMap(parsed.sections, source)
     const blocks = fromSource(source).blocks
-    const rendered = parseChordPro(source)
-      .sections.flatMap((section) => section.lines)
-      .filter((line) => line.kind === 'lyrics')
+    const rendered = parsed.sections
+      .flatMap((section) => section.lines)
+      .filter((line): line is Extract<Line, { kind: 'lyrics' }> => line.kind === 'lyrics')
 
-    assert.equal(map.length, rendered.length, `${file}: line counts disagree`)
+    assert.equal(map.size, rendered.length, `${file}: line counts disagree`)
 
-    map.forEach((words, lineIndex) => {
-      const line = rendered[lineIndex]
+    /*
+     * The key *is* the drawn line, so this no longer pairs two lists by position and hopes
+     * they were built the same way — which is exactly the assumption that used to make a
+     * repeated stanza or a joined line put every note below it on the wrong row.
+     */
+    map.forEach((words, line) => {
       if (line.kind !== 'lyrics') return
+      assert.ok(rendered.includes(line), `${file}: an entry belongs to no drawn line`)
+
       words.forEach((parts, wordIndex) => {
         parts.forEach((anchor, partIndex) => {
           const block = blocks[anchor.blockIndex]
@@ -82,7 +95,7 @@ test('every real song in content/ maps one-to-one, and every anchor lands on its
           assert.equal(
             block.text.slice(anchor.charOffset, anchor.charOffset + expected.length),
             expected,
-            `${file}: anchor ${lineIndex}/${wordIndex}/${partIndex} does not sit on its own text`,
+            `${file}: an anchor does not sit on its own text`,
           )
         })
       })

@@ -87,7 +87,28 @@ export interface Word {
 export type CommentStyle = 'plain' | 'box' | 'italic' | 'highlight'
 
 export type Line =
-  | { kind: 'lyrics'; words: Word[]; hasChords: boolean }
+  | {
+      kind: 'lyrics'
+      words: Word[]
+      hasChords: boolean
+      /**
+       * Which lines of the source this one was built from, in order — almost always one.
+       *
+       * **This is what pairs a drawn line with the notes anchored to it**, and it replaced
+       * counting. Every comment is stored against a block of `editor/document.ts`, which is
+       * one block per source line, and both the screen and the booklet used to find a line's
+       * notes by counting lyrics lines from the top of the song and trusting the two counts
+       * to agree. They agree today and stop agreeing the moment a drawn line is not a source
+       * line: `{chorus}` draws a stanza the source states once, a trailing `\` joins two
+       * source lines into one drawn one. Either way the counts slip and every note below the
+       * slip renders against the wrong line — silently, since nothing is missing and nothing
+       * throws.
+       *
+       * Empty means «nothing in the source is this line», which is what a repeated stanza
+       * is: the note stays on the stanza where somebody put it, and the repeat carries none.
+       */
+      sourceLines: number[]
+    }
   | { kind: 'comment'; text: string; style: CommentStyle }
   /**
    * A verbatim block — every row kept exactly as written, never split into words or read
@@ -650,7 +671,7 @@ export function parseChordPro(source: string): ParsedSong {
     }
 
     section ??= openSection(forcedKind ?? 'verse')
-    section.lines.push(parseLyricLine(line))
+    section.lines.push(parseLyricLine(line, [index]))
   }
 
   // A tab or grid with no closing directive — malformed, but its rows are real content
@@ -690,7 +711,7 @@ const ESCAPABLE = '[]{}#\\'
  * `[Am] Certe notti`. A chord with no following word at all (an instrumental
  * line such as `[C] [F] [G]`) becomes a word of its own.
  */
-export function parseLyricLine(line: string): Line {
+export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
   const words: Word[] = []
   let parts: Part[] = []
   let text = ''
@@ -810,7 +831,7 @@ export function parseLyricLine(line: string): Line {
     words.push({ parts: [strandedPart(deferred)] })
   }
 
-  return { kind: 'lyrics', words, hasChords }
+  return { kind: 'lyrics', words, hasChords, sourceLines }
 }
 
 /**

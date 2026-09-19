@@ -218,7 +218,9 @@ export function LiveSheet() {
   const { song, parsed } = useSong()
   const { comments, mode, armed, setOpen, place } = useComments()
 
-  const anchors = useMemo(() => buildAnchorMap(song.body), [song.body])
+  /* Built from *this* parse, not from a fresh one: the map is keyed on the `Line` objects
+     themselves, and `SongSheet` draws these. See `buildAnchorMap`'s own comment. */
+  const anchors = useMemo(() => buildAnchorMap(parsed.sections, song.body), [parsed, song.body])
 
   return (
     <SongSheet

@@ -225,6 +225,28 @@ export function fromSource(source: string): SongDocument {
   return { blocks, eol }
 }
 
+/**
+ * Which line of the source each block starts on.
+ *
+ * Here rather than in the one module that needs it (`comments/anchorMap.ts`) because the
+ * rule is `fromSource`'s own and nowhere else's: every block is one line, except a tab or a
+ * grid, which swallows its start directive, its rows and its end directive into one. Written
+ * out a second time somewhere else it would drift the first time a new block kind consumed
+ * two lines, and the symptom would be notes landing on the wrong line rather than anything
+ * that looks like a bug in a line counter.
+ */
+export function blockStartLines(blocks: Block[]): number[] {
+  const starts: number[] = []
+  let line = 0
+
+  for (const block of blocks) {
+    starts.push(line)
+    line += block.kind === 'tab' ? 1 + block.rows.length + (block.endDirective === null ? 0 : 1) : 1
+  }
+
+  return starts
+}
+
 export function toSource(document: SongDocument): string {
   return document.blocks.map((block) => lineOf(block, document.eol)).join(document.eol)
 }

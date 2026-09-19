@@ -232,7 +232,7 @@ export function SongSheet({
                   onToggleTabs={toggleTabsExpanded}
                   onPick={setShown}
                   notes={showNotes ? notes : undefined}
-                  anchors={showNotes ? notes.anchors[lyricLine] : undefined}
+                  anchors={showNotes ? notes.anchors.get(line) : undefined}
                 />
               )
             })}

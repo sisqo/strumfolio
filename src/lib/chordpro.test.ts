@@ -657,7 +657,7 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
 
   for (const [name, source] of Object.entries(cases)) {
     it(`counts the same with ${name}`, () => {
-      assert.equal(lyricLineCount(source), buildAnchorMap(source).length)
+      assert.equal(lyricLineCount(source), buildAnchorMap(parseChordPro(source).sections, source).size)
     })
   }
 })
