@@ -6788,14 +6788,10 @@
   }
 
   /*
-   * One FAQ group's own questions: a single column on a phone, two side by side from
-   * `lg` up — the redesign's own call, replacing `.card-stack`'s single column at every
-   * width. `align-items: start` rather than grid's own default `stretch`: a `<details>`
-   * opened in the left column would otherwise stretch its right-hand neighbour to match,
-   * which reads as a layout bug rather than as one answer being longer than another. A
-   * group with an odd number of questions, or exactly one, simply leaves the second
-   * column's last row empty — the same thing `.plan-columns` already does at three
-   * against four.
+   * One FAQ group's own questions, a single column at every width. Two side by side from
+   * `lg` up was the redesign's original call; put back to one per row on request, since a
+   * `<details>` opened in one column read as pushing the answer beside it out of place
+   * rather than as one answer being longer than another.
    */
   .faq-grid {
     display: grid;
@@ -6813,13 +6809,6 @@
   .faq-item {
     border-color: var(--line-soft);
     border-radius: var(--r-panel);
-  }
-
-  @media (min-width: 1024px) {
-    .faq-grid {
-      grid-template-columns: repeat(2, 1fr);
-      align-items: start;
-    }
   }
 
   /*
@@ -6865,7 +6854,7 @@
   }
 
   /* Open, the arrow turns *and* takes the accent — the mock draws both, and the colour is
-     what reads at a glance across a two-column grid of eleven closed questions. */
+     what reads at a glance down a column of closed questions. */
   .faq-item[open] > summary .faq-arrow {
     rotate: 90deg;
     color: var(--accent);

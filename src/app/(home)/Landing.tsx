@@ -319,6 +319,21 @@ const PLAN_HOLD = plansEnforced()
  */
 const PLANS_OPEN_HEDGE = plansEnforced() ? '' : ' once they open'
 
+/**
+ * The one implementation reference for ChordPro itself — every FAQ answer that names the
+ * format links this same URL through `cheatSheetLink` below, rather than each writing out
+ * its own `<a>`, so a link that ever needs correcting is one edit and not four.
+ */
+const CHEAT_SHEET_URL = 'https://www.chordpro.org/chordpro/chordpro-cheat_sheet/'
+
+function cheatSheetLink(label: string): ReactNode {
+  return (
+    <a href={CHEAT_SHEET_URL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+      {label}
+    </a>
+  )
+}
+
 const FAQ: FaqGroup[] = [
   {
     title: 'Bringing in your collection',
@@ -348,7 +363,17 @@ const FAQ: FaqGroup[] = [
          * on the positive. What did change is that a person holding a folder of PDFs is no
          * longer being told, by omission, to convert it first.
          */
-        a: 'ChordPro is what Strumfolio reads and writes — and around it, the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, PDF, Word, and a zip holding any of those: fifteen file types in all, plus any text you can paste. Chords written above the words are converted for you, always behind a preview you can correct before anything is saved, since that conversion is a guess and not always the right one. Export hands you standard ChordPro back — one song, or the whole collection as a zip.',
+        a: (
+          <>
+            {cheatSheetLink('ChordPro')} is what Strumfolio reads and writes — and around it,
+            the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, PDF, Word,
+            and a zip holding any of those: fifteen file types in all, plus any text you can
+            paste. Chords written above the words are converted for you, always behind a
+            preview you can correct before anything is saved, since that conversion is a
+            guess and not always the right one. Export hands you standard ChordPro back — one
+            song, or the whole collection as a zip.
+          </>
+        ),
       },
       {
         q: 'What format does Strumfolio save files in?',
@@ -357,18 +382,10 @@ const FAQ: FaqGroup[] = [
             Behind the scenes, every song on Strumfolio is saved in ChordPro, the standard
             format for lyrics and chords. Our reader is up to date and understands the rules
             of the format: we currently support the official specifications documented in the{' '}
-            <a
-              href="https://www.chordpro.org/chordpro/chordpro-cheat_sheet/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
-              ChordPro cheat sheet
-            </a>{' '}
-            (version 6.07). This means the app reads your files respecting exactly the details
-            you entered. Because we don&apos;t use closed, proprietary formats that only we
-            understand, when you export your repertoire you will get back clean, universal
-            files ready to be opened anywhere.
+            {cheatSheetLink('ChordPro cheat sheet')} (version 6.07). This means the app reads
+            your files respecting exactly the details you entered. Because we don&apos;t use
+            closed, proprietary formats that only we understand, when you export your
+            repertoire you will get back clean, universal files ready to be opened anywhere.
           </>
         ),
       },
@@ -442,7 +459,14 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to learn ChordPro to edit my songs?',
-        a: 'No. The visual editor shows the song exactly as it reads — words on the line, chords above them — and writes standard ChordPro for you underneath. If you like working with brackets, the Source view is one tap away, and the two can never disagree.',
+        a: (
+          <>
+            No. The visual editor shows the song exactly as it reads — words on the line,
+            chords above them — and writes standard {cheatSheetLink('ChordPro')} for you
+            underneath. If you like working with brackets, the Source view is one tap away,
+            and the two can never disagree.
+          </>
+        ),
       },
       {
         q: 'How precisely can I place a chord?',
@@ -602,7 +626,15 @@ const FAQ: FaqGroup[] = [
          * point asking on a landing page, so this answers the question that gets asked instead —
          * whether it is possible at all, and whether leaving is a favour anyone has to grant.
          */
-        a: 'Yes, in one download: Backup gives you the whole repertoire as a zip of standard ChordPro files — plain text you can read yourself and hand to another app. Nothing here is kept in a format only Strumfolio understands, and closing the account for good is a button in your own settings rather than a request you have to send us.',
+        a: (
+          <>
+            Yes, in one download: Backup gives you the whole repertoire as a zip of standard{' '}
+            {cheatSheetLink('ChordPro')} files — plain text you can read yourself and hand to
+            another app. Nothing here is kept in a format only Strumfolio understands, and
+            closing the account for good is a button in your own settings rather than a
+            request you have to send us.
+          </>
+        ),
       },
     ],
   },
