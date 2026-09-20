@@ -95,8 +95,19 @@ A construct taught to one and not the other does not fail: the editor turns it i
 opaque chip, or worse reads it as lyrics and offers its `[` as a chord. **Teach both, in
 the same commit**, and note the fan-out — `SongSheet.tsx` (screen), `booklet/layout.ts`
 plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s `METADATA_DIRECTIVE` (what is
-stripped), `import/export.ts` (what is written), and `components/ChordProGuide.tsx`,
-which is the page that documents all of it.
+stripped), `import/export.ts` (what is written), `editor/songData.ts` (which fields the
+song-data form owns), and `components/ChordProGuide.tsx`, which is the page that documents
+all of it.
+
+**`toSource(fromSource(x)) === x` includes the separator, since 2026-09-20.** A `comment`,
+a `boundary` and a tab's opening line each carry `raw` — the line as the file wrote it —
+and hand it back until somebody edits that line, at which point `setLineText` drops `raw`
+and the canonical `{name: value}` is written instead. Keep what was written, normalise what
+was typed. Before that the three were always re-emitted canonically, so `{c:forte}` and
+`{comment Repeat ad lib}` — both legal, neither ours — were rewritten the moment anybody
+opened the song and pressed Save. One file in the twelve-file corpus did it, on three lines,
+and no fixture had caught it: **run the invariant over `content/` and the reference files,
+not over a hand-written string.**
 
 The format reference is the [cheat
 sheet](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/), and compliance was
@@ -122,6 +133,34 @@ The general rule: **`db:migrate` dropping a column and `KEPT_IN_BODY` gaining it
 one change**, and the second half has no compiler behind it.
 
 **Where each field lives**, since «handled» means four different things here:
+
+**All of it is edited in one form since 2026-09-20** — `SongDataForm`, in the editor's «Song
+data» drawer, from the `Edit Song v2.dc.html` handoff. The head used to be drawn line by line
+above the words, so a well-described file put a dozen chips between a musician and the first
+verse. Three things about that form are load-bearing and none is obvious from looking at it:
+
+- **It is a view over the blocks, never a second copy.** Each row carries the index of the
+  block it came from and editing it is `setLineText` on that block. Nothing rebuilds or
+  reorders the head, which is what keeps an untouched file byte-identical and a reader's
+  notes on the lines they were left on. `songData.test.ts` asserts it directly — **one field,
+  one line** — because a round-trip test passes just as well against a form that re-emits the
+  whole head in its own order.
+- **A field is found wherever it sits and is not moved there.** A `{capo: 2}` written below
+  the words shows in the form and edits that line where it stands. What decides «head» is
+  position and not name (`headEnd`: everything before the first block that draws something),
+  and that only decides two things — where a *new* field is written, and which unrecognised
+  directives are metadata rather than layout. A `{column_break}` mid-song is positional, so it
+  keeps its row in the editor; an unknown directive in the head is metadata, so it lands in
+  «Anything else» under its own name.
+- **`tag` and `define` are repeat groups**, with N rows and their own add and remove. Both
+  directives are singular and repeatable and a single input would have kept the first and
+  destroyed the rest — the bug the reader had until `{tag:}` was fixed the same week.
+
+One trap that cost a round trip to find: **a value round-trips through `{name: value}` and the
+parse trims**, so a controlled input fed from the document loses a trailing space and «Disco di
+prova» arrives as «Discodiprova». `DraftInput` holds what was typed while the field has focus,
+and only while the two still agree once trimmed, so Undo and the Source tab still win. It is
+used by the form *and* by the editor's directive rows, which had the same bug.
 
 | Kind | Fields | Where |
 |---|---|---|
