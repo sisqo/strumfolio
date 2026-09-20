@@ -616,6 +616,27 @@ function BlockRow({
     const placeholder =
       block.kind === 'boundary' ? 'name this block' : block.kind === 'source-comment' ? 'note to yourself' : 'value'
 
+    /*
+     * A closing boundary is not *invited* to be named, because it has nothing to name.
+     *
+     * The format labels `{start_of_chorus: …}` and never `{end_of_chorus}`, and the reader
+     * agrees — `end_of_*` ignores any value handed to it. «name this block» under every
+     * `chorus end` row was therefore asking for a name that would be written into the file
+     * and mean nothing to anybody, this app included. Seen in a browser and not in a test,
+     * because nothing here is wrong enough to fail one.
+     *
+     * The input itself stays, deliberately: it carries the focus, the caret this editor
+     * tracks per line, and the Backspace-on-empty that removes the row. Taking the element
+     * away to make a point would cost three behaviours to save one placeholder. What goes
+     * is the invitation.
+     *
+     * And only while the value is empty, which is the escape hatch: a file that really did
+     * arrive carrying `{end_of_chorus: something}` keeps its prompt, so the oddity stays
+     * visible rather than becoming a row nobody can explain. Round-tripping was never in
+     * question either way — `toSource` writes `value` whether or not anything draws it.
+     */
+    const closing = block.kind === 'boundary' && block.edge === 'end' && value === ''
+
     return (
       <div className={classes} data-line={index}>
         <div className="line-scroll">
@@ -629,7 +650,7 @@ function BlockRow({
             <input
               className="line-input editor-directive-value"
               value={value}
-              placeholder={placeholder}
+              placeholder={closing ? undefined : placeholder}
               onChange={(event) => onText(event.target.value, event.target.selectionStart ?? 0)}
               onFocus={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
               onClick={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
