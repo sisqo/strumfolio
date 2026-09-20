@@ -38,6 +38,27 @@ describe('deduce', () => {
     assert.deepEqual(parseChordPro(result.body).tags, ['rock'])
   })
 
+  /*
+   * The half of that the test above could not see, because `{tags:}` is a name the *reader*
+   * knows and these two are names only a dialect knows.
+   *
+   * `{keywords: …}` and `{topic: …}` map to the `tags` field, so while `songs.tags` existed
+   * the importer read them, filled the column and dropped the line — correctly. Dropping the
+   * column on 2026-09-20 turned that into deletion with nothing catching the value, which is
+   * the `{copyright:}` failure exactly: understood, and therefore destroyed. Measured, not
+   * feared — `{keywords: rock}` really did come back as `[C]testo` alone.
+   *
+   * They are kept as written rather than rewritten into `{tag: rock}`: nothing here edits
+   * somebody's file on the way in. So the value survives an import and an export, and only
+   * `{tag:}`/`{tags:}` are read as tags — the bargain `{album:}` already makes.
+   */
+  it('keeps a dialect name for the tags, now that no column catches it', () => {
+    for (const line of ['{keywords: rock}', '{topic: live}']) {
+      const result = deduce(`{title: Uno}\n${line}\n[C]testo`)
+      assert.equal(result.body, `${line}\n[C]testo`, `${line} was deleted`)
+    }
+  })
+
   it('reads a two-line heading and removes it from the body', () => {
     const result = deduce('Certe notti\nLigabue\n\n[Am]Certe notti la [F]macchina')
 

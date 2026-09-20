@@ -111,6 +111,16 @@ obvious. `KEPT_IN_BODY` (`import/deduce.ts`) is now the whole answer to «what d
 importer keep»: **a `Field` with no column belongs in it**, and nothing but that list
 connects the two facts.
 
+**Dropping a column is therefore a change to that list, and forgetting it is silent.**
+`0050` dropped `songs.tags` and left `tags` out of `KEPT_IN_BODY` for a day: `{keywords: …}`
+and `{topic: …}` map to that field in the dialects that mean tags by them, so what had been
+a correct strip — read the line, fill the column, drop the line — became a deletion with
+nothing catching the value. `{tag:}` itself was never at risk, since no dialect claims that
+name, which is exactly why testing the field this app writes would have missed it. Measured
+and fixed on 2026-09-20; zero stored songs carried either directive, so nothing was lost.
+The general rule: **`db:migrate` dropping a column and `KEPT_IN_BODY` gaining its field are
+one change**, and the second half has no compiler behind it.
+
 **Where each field lives**, since «handled» means four different things here:
 
 | Kind | Fields | Where |

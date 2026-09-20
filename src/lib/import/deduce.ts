@@ -216,6 +216,20 @@ const KEPT_IN_BODY: Field[] = [
    * Whatever somebody wrote in that comment was gone.
    */
   'comment',
+  /*
+   * And `tags` joined them on 2026-09-20, the day the column was dropped — the same hole,
+   * opened by the fix for a different one. `{keywords: …}` and `{topic: …}` map to this
+   * field in the dialects that mean tags by them, so while `songs.tags` existed the
+   * importer read the line, filled the column and deleted the line correctly. With no
+   * column left, «understood» became «deleted» and the tag was simply gone: measured, not
+   * reasoned — `{keywords: rock}` came back as `[C]parole` with the line removed.
+   *
+   * Kept rather than rewritten into `{tag: rock}`. This app does not edit somebody's file
+   * on the way in, and an export is this repo's restore path; the line survives, which is
+   * the promise, even though only `{tag:}` and `{tags:}` are read *as* tags by the reader.
+   * That is the same bargain `{album:}` already makes — understood, kept, not acted on.
+   */
+  'tags',
 ]
 
 /**
