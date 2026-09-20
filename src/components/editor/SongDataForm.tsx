@@ -156,7 +156,7 @@ export function SongDataForm({
                 ))}
               </div>
             ) : (
-              <div className="song-data-list">
+              <div className={`song-data-list ${group.mono ? '' : 'is-short'}`}>
                 {group.rows.map((row) => (
                   <div className="song-data-repeat" key={row.block ?? -1}>
                     <input
@@ -227,6 +227,12 @@ export function SongDataForm({
   )
 }
 
+/** How many of the three columns a row takes; one is the default and needs no class. */
+function spanClass(span: DataRow['span']): string {
+  if (span === 'full') return 'is-full'
+  return span === 2 ? 'is-wide' : ''
+}
+
 function Heading({ title }: { title: string }) {
   return (
     <div className="song-data-heading">
@@ -266,7 +272,7 @@ function Column({
 /** A row whose value is one line of the file. */
 function Field({ row, onChange }: { row: DataRow; onChange: (next: string) => void }) {
   return (
-    <label className={`song-data-row ${row.wide ? 'is-wide' : ''}`}>
+    <label className={`song-data-row ${spanClass(row.span)}`}>
       <span className="song-data-label">
         <span>{row.label}</span>
         <code>{row.name}</code>

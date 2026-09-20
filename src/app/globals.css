@@ -14554,6 +14554,11 @@
     grid-column: span 2;
   }
 
+  /* A fingering is a line of notation, so it gets the width rather than a third of it. */
+  .song-data-row.is-full {
+    grid-column: 1 / -1;
+  }
+
   .song-data-label {
     display: flex;
     align-items: baseline;
@@ -14603,6 +14608,14 @@
     align-items: center;
     gap: 0.5rem;
     width: 100%;
+  }
+
+  /*
+   * A tag is a word, so its row is capped rather than stretched across the form: «rock» in
+   * a 700px input reads as a mistake. A fingering is a line of notation and takes the width.
+   */
+  .song-data-list.is-short .song-data-repeat {
+    max-width: 24rem;
   }
 
   .song-data-other {

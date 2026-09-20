@@ -57,8 +57,12 @@ export interface FieldSpec {
   label: string
   /** A value that is not prose — a fingering, a time signature — is shown in the mono face. */
   mono?: boolean
-  /** Narrow fields share a row; the wide ones take the width. */
-  wide?: boolean
+  /**
+   * How many of the three columns the field takes. One is the default and what nearly
+   * everything wants — a key, a year, a tempo — so three sit on a row; `2` is for a value
+   * that is a sentence, and `'full'` for one that is a line of its own notation.
+   */
+  span?: 2 | 'full'
 }
 
 export interface GroupSpec {
@@ -90,12 +94,12 @@ export const DATA_GROUPS: GroupSpec[] = [
     title: 'Identity',
     kind: 'single',
     fields: [
-      { name: 'title', label: 'Title', wide: true },
-      { name: 'artist', label: 'Artist', wide: true },
-      { name: 'subtitle', label: 'Subtitle', wide: true },
-      { name: 'album', label: 'Album', wide: true },
-      { name: 'composer', label: 'Composer', wide: true },
-      { name: 'lyricist', label: 'Lyricist', wide: true },
+      { name: 'title', label: 'Title', span: 2 },
+      { name: 'artist', label: 'Artist' },
+      { name: 'subtitle', label: 'Subtitle', span: 2 },
+      { name: 'album', label: 'Album' },
+      { name: 'composer', label: 'Composer' },
+      { name: 'lyricist', label: 'Lyricist' },
       { name: 'year', label: 'Year' },
     ],
   },
@@ -114,27 +118,27 @@ export const DATA_GROUPS: GroupSpec[] = [
   {
     title: 'Chord shapes',
     kind: 'repeat',
-    fields: [{ name: 'define', label: 'Fingering', mono: true, wide: true }],
+    fields: [{ name: 'define', label: 'Fingering', mono: true, span: 'full' }],
   },
   {
     title: 'Rights',
     kind: 'single',
     fields: [
-      { name: 'copyright', label: 'Copyright', wide: true },
+      { name: 'copyright', label: 'Copyright', span: 2 },
       { name: 'ccli', label: 'CCLI' },
     ],
   },
   {
     title: 'Finding it',
     kind: 'repeat',
-    fields: [{ name: 'tag', label: 'Tag', wide: true }],
+    fields: [{ name: 'tag', label: 'Tag' }],
   },
   {
     title: 'Sorting',
     kind: 'single',
     fields: [
-      { name: 'sorttitle', label: 'Sorts as', wide: true },
-      { name: 'sortartist', label: 'Artist sorts as', wide: true },
+      { name: 'sorttitle', label: 'Sorts as', span: 2 },
+      { name: 'sortartist', label: 'Artist sorts as', span: 2 },
     ],
   },
 ]
@@ -186,7 +190,7 @@ export interface DataRow {
   name: string
   label: string
   mono: boolean
-  wide: boolean
+  span: 1 | 2 | 'full'
   /** The block this value lives on, or null when the song does not carry the field at all. */
   block: number | null
   value: string
@@ -247,7 +251,7 @@ export function readSongData(document: SongDocument): SongData {
         name: first.name,
         label: first.label,
         mono: first.mono === true,
-        wide: first.wide === true,
+        span: first.span ?? (1 as const),
         block: index,
         value: valueOf(document.blocks[index]!),
       }))
@@ -271,7 +275,7 @@ export function readSongData(document: SongDocument): SongData {
         name: field.name,
         label: field.label,
         mono: field.mono === true,
-        wide: field.wide === true,
+        span: field.span ?? (1 as const),
         block,
         value: block === null ? '' : valueOf(document.blocks[block]!),
       }
@@ -292,7 +296,7 @@ export function readSongData(document: SongDocument): SongData {
       name,
       label: name,
       mono: true,
-      wide: true,
+      span: 'full' as const,
       block: index,
       value: valueOf(block),
     })

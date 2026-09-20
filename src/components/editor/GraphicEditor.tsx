@@ -28,6 +28,7 @@ import {
   setTabRows,
   splitLine,
 } from '@/lib/editor/edits'
+import { headEnd } from '@/lib/editor/songData'
 import { nearestSnap } from '@/lib/editor/syllables'
 
 /**
@@ -182,6 +183,21 @@ export function GraphicEditor({
   onSelection: (selection: LineRange | null) => void
 }) {
   const doc = fromSource(source)
+  /*
+   * The head's directives are the «Song data» form's, so they are not drawn again here — a
+   * well-described file put thirteen chips between somebody and the first verse, which is
+   * the whole reason the form exists.
+   *
+   * **Skipped, never filtered out.** `index` is the block's real index and everything on
+   * this screen counts in it: the caret, a taken run, `data-line`, every edit. Removing the
+   * blocks would renumber all of it. Returning null for a row leaves the numbering alone.
+   *
+   * Only `directive`, and only in the head: the `#` note and the blank lines stay, because
+   * they are still lines somebody may want to see and delete, and a directive *below* the
+   * first sung line keeps its row too — down there its position is its meaning, so the form
+   * shows its value and the editor goes on showing where it sits.
+   */
+  const head = headEnd(doc.blocks)
   const sections = sectionsOf(doc.blocks)
   const suggestions = chordVocabulary(doc.blocks).slice(0, 8)
   const wanted = useRef<{ line: number; at: number } | null>(null)
@@ -345,7 +361,8 @@ export function GraphicEditor({
         setCrossing(false)
       }}
     >
-      {doc.blocks.map((block, index) => (
+      {doc.blocks.map((block, index) =>
+        index < head && block.kind === 'directive' ? null : (
         <Fragment key={index}>
           <BlockRow
             block={block}
@@ -447,7 +464,8 @@ export function GraphicEditor({
             onTabText={(text) => apply(setTabRows(doc, index, text.split('\n')), `tab:${index}`)}
           />
         </Fragment>
-      ))}
+        ),
+      )}
 
       {/*
         * A song always offers one more line at the end, so adding a verse never
