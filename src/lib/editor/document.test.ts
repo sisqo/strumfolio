@@ -60,6 +60,27 @@ describe('a source survives being read and written', () => {
     }
   })
 
+  /*
+   * The editor's directive regex and the reader's are two copies of one pattern, and this is
+   * the cheapest way to notice them drifting: a name one of them rejects becomes a lyrics
+   * line here — editable, offering its `[` as a chord — while the reader draws a directive.
+   * The negated selector is the case that was actually wrong, in both, until 2026-09-20.
+   */
+  it('reads a conditional directive as a directive, negated or not', () => {
+    const source = '{comment-guitar: a}\n{comment-!guitar: b}\n{start_of_chorus-!ukulele}\nx\n{end_of_chorus}'
+    const kinds = fromSource(source).blocks.map((block) => block.kind)
+
+    assert.equal(toSource(fromSource(source)), source)
+    /*
+     * Only `x` is words. A conditional lands on `directive` rather than on `comment` or
+     * `boundary` — the editor keeps it whole and opaque instead of taking the selector
+     * apart — and that is fine, and deliberately asserted loosely: what must never happen
+     * is `lyrics`, which is an editable line offering its braces and brackets as content.
+     */
+    assert.deepEqual(kinds, ['directive', 'directive', 'directive', 'lyrics', 'boundary'])
+    assert.equal(kinds.filter((kind) => kind === 'lyrics').length, 1)
+  })
+
   it('keeps windows line endings rather than rewriting the whole file', () => {
     const source = '{title: X}\r\n\r\n[la]prima\r\n[mi]seconda'
     assert.equal(toSource(fromSource(source)), source)

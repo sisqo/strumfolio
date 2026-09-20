@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRef, useState } from 'react'
 
 import { IconCheck, IconCopy } from '@/components/icons'
@@ -53,12 +54,28 @@ export function ChordProGuide() {
         <p className="legal-updated">
           Every directive Strumfolio reads and writes, and the two edge cases worth knowing about.
         </p>
+        <p>
+          ChordPro is not ours — it is a plain-text format from 1992 that a great many programs
+          read, which is the reason a repertoire kept in it outlives the app it was typed into.
+          The format itself is specified at{' '}
+          <a href="https://www.chordpro.org/chordpro/chordpro-cheat_sheet/" target="_blank" rel="noopener noreferrer">
+            www.chordpro.org/chordpro/chordpro-cheat_sheet/
+          </a>{' '}
+          — a cheat sheet that is one page and covers the lot. (The address is written out
+          because this page is meant to be copied: a link that becomes bare text still has to
+          say where it went.) This page is the same ground from
+          Strumfolio&apos;s side: what it does with each directive, and the handful of places
+          where an app has to decide something the format leaves open.{' '}
+          <Link href="/blog/chordpro-explained">Where the format came from</Link> is a separate
+          read.
+        </p>
 
         <h2>The shape of a song</h2>
         <p>A chord sits in square brackets immediately before the syllable it belongs to. Everything else is lyrics, read exactly as typed.</p>
         <pre className="code-block">{`{title: Amazing Grace}
 {artist: Traditional (John Newton, 1779)}
-{tags: hymn, gospel}
+{tag: hymn}
+{tag: gospel}
 
 [G]Amazing [G7]grace, how [C]sweet the [G]sound,
 That [G]saved a [Em]wretch like [D]me.
@@ -77,16 +94,23 @@ Was [Em]blind, but [D]now I [G]see.
             are title then artist — a directive is always the safer bet.
           </li>
           <li>
-            <strong><code>{'{artist: ...}'}</code></strong> — optional. <code>{'{subtitle: ...}'}</code>{' '}
-            and <code>{'{st: ...}'}</code> mean the same thing.
+            <strong><code>{'{artist: ...}'}</code></strong> — optional.
           </li>
           <li>
-            <strong><code>{'{tags: rock, live}'}</code></strong> — optional, comma-separated.
+            <strong><code>{'{subtitle: ...}'}</code></strong> (or <code>{'{st: ...}'}</code>) — a
+            second line under the title, which is what the format says it is. One app in this
+            corner, OnSong, redefined it to mean the artist, and files written by that app are
+            read its way — Strumfolio works out which program wrote a file before trusting this
+            one directive. Write <code>{'{artist: ...}'}</code> when you mean the artist and
+            there is nothing to work out.
           </li>
           <li>
-            <strong><code>{'{link1: ...}'}</code></strong>, <code>{'{link2: ...}'}</code> and{' '}
-            <code>{'{link3: ...}'}</code> — optional, one URL each. Three fixed slots rather than
-            a list, so a link can sit in the second or third one with nothing in the first.
+            <strong><code>{'{tag: rock}'}</code></strong> — one tag, and the line repeats for
+            more of them: <code>{'{tag: rock}'}</code> then <code>{'{tag: live}'}</code>. That is
+            the format&apos;s own shape — the directive is singular and says one thing each time.
+            A comma-separated <code>{'{tags: rock, live}'}</code> is read too, since plenty of
+            files carry it, but the repeated line is what to write. Tags make a song findable:
+            searching your songbooks looks at them alongside the title and the artist.
           </li>
           <li>
             <strong><code>{'{songbook: ...}'}</code></strong> and{' '}
@@ -117,11 +141,12 @@ Was [Em]blind, but [D]now I [G]see.
         <p>
           <strong><code>{'{meta name value}'}</code></strong> works too, for any of the above:{' '}
           <code>{'{meta artist Traditional}'}</code> is <code>{'{artist: Traditional}'}</code>.
-          So does the strict spelling for the three directives that are Strumfolio&apos;s own
-          rather than the format&apos;s — <code>{'{x_songbook: ...}'}</code>,{' '}
-          <code>{'{x_division: ...}'}</code>, <code>{'{x_link1: ...}'}</code> — which is what a
-          tool fussy about private directives will have written. Strumfolio reads both and writes
-          the short ones.
+          So does the strict spelling for the two directives that are Strumfolio&apos;s own
+          rather than the format&apos;s — <code>{'{x_songbook: ...}'}</code> and{' '}
+          <code>{'{x_division: ...}'}</code> — which is what a tool fussy about private
+          directives will have written. Strumfolio reads both and writes the short ones. They
+          are the only two: everything else on this page is the format&apos;s, so a song that
+          leaves here is a song any other ChordPro program can read.
         </p>
         <p>
           <strong>Everything else the format defines is kept and shown</strong> in the
@@ -140,15 +165,33 @@ Was [Em]blind, but [D]now I [G]see.
           <code>H</code>, for instance) falls back to the guess rather than to C.
         </p>
         <p>
-          Anything else — <code>{'{capo: ...}'}</code> and the
-          typesetting directives a printed songbook needs (<code>{'{textfont}'}</code>,{' '}
-          <code>{'{columns}'}</code>, <code>{'{new_page}'}</code>, <code>{'{define}'}</code>) — is
-          read and silently ignored, never shown to whoever opens the song. Ignored, not lost: the
-          editor keeps every one of them, so a file that arrives carrying them leaves carrying
-          them. Strumfolio doesn&apos;t store a
-          key or a capo position for a song: it works the key out live from the chords, and a capo
-          is a suggestion made live to whoever&apos;s reading, not a fact about the song itself —
-          so there&apos;s nothing for either directive to set.
+          <strong><code>{'{capo: 3}'}</code></strong> and{' '}
+          <strong><code>{'{transpose: -2}'}</code></strong> set where the reading starts: the
+          capo goes on that fret and the chords move by that many semitones the first time
+          somebody opens the song. Both are a starting point and not a verdict — move the capo
+          or transpose from the reading bar and your answer is kept for you, on your device,
+          without touching the file. The song&apos;s own value is still there to go back to, and
+          the control says so.
+        </p>
+        <p>
+          <strong><code>{'{define: ...}'}</code></strong> (or{' '}
+          <code>{'{chord: ...}'}</code>) draws a fingering, and Strumfolio uses it: a shape the
+          file defines becomes the one shown for that chord in this song, ahead of the built-in
+          library, and the library&apos;s other voicings stay available beside it. Written the
+          format&apos;s way — <code>{'{define: Bm7 base-fret 2 frets 1 3 1 2 1 1}'}</code>, with{' '}
+          <code>x</code> for a string you don&apos;t play. <code>base-fret</code> is optional and
+          the numbers are read as actual frets without it; the <code>frets</code> keyword is not,
+          so a bare list of numbers isn&apos;t read. The fingering is matched on the chord as it
+          is currently <em>shown</em>, so transposing a song correctly stops using a shape that
+          was drawn for the chord it used to be.
+        </p>
+        <p>
+          Everything that is left is the typesetting a printed songbook needs —{' '}
+          <code>{'{textfont}'}</code>, <code>{'{columns}'}</code>, <code>{'{new_page}'}</code>,{' '}
+          <code>{'{column_break}'}</code>, <code>{'{image}'}</code> and the rest. Strumfolio lays
+          a song out for a phone on a stand and has no page to break, so it reads them and draws
+          nothing. <strong>Ignored is not lost</strong>: the editor keeps every one of them
+          verbatim, so a file that arrives carrying them leaves carrying them.
         </p>
 
         <h2>Chords</h2>
@@ -201,8 +244,12 @@ Was [Em]blind, but [D]now I [G]see.
           </li>
           <li>
             <code>{'{chorus}'}</code> — &quot;the chorus goes here&quot;, without writing it out
-            again. Shown as the reminder it is; Strumfolio doesn&apos;t repeat the words, since a
-            song on a stand is read in the order it was typed.
+            again. Strumfolio prints the stanza itself, set as a chorus: on a stand, a verse you
+            don&apos;t know by heart is worth more than the word &quot;Chorus&quot;. Name one to
+            repeat a particular chorus — <code>{'{start_of_chorus: Final}'}</code> further up,
+            then <code>{'{chorus: Final}'}</code> — and with no name it repeats the last chorus
+            seen. A <code>{'{chorus}'}</code> in a file that never opened one prints the word,
+            since that is all there is to say.
           </li>
           <li>
             Any other <code>{'{start_of_...}'}</code> … <code>{'{end_of_...}'}</code> pair —{' '}
@@ -223,6 +270,24 @@ Was [Em]blind, but [D]now I [G]see.
             is the same: every column left where it was put.
           </li>
         </ul>
+
+        <h2>A line for one instrument only</h2>
+        <p>
+          A dash and an instrument after the directive&apos;s name makes that line conditional:{' '}
+          <code>{'{comment-guitar: capo 3 here}'}</code> is shown to somebody reading the guitar
+          shapes and to nobody else, and <code>{'{comment-!guitar: ...}'}</code> is shown to
+          everybody <em>but</em> them. Whole blocks take one too —{' '}
+          <code>{'{start_of_chorus-ukulele}'}</code> … <code>{'{end_of_chorus}'}</code>.
+        </p>
+        <p>
+          Strumfolio knows two instruments, <code>guitar</code> and <code>ukulele</code>, and
+          decides per reader rather than per file: the same song shows different lines to two
+          people reading it at once, and the file is one file. A selector naming an instrument
+          this app doesn&apos;t have — <code>piano</code>, <code>bass</code> — hides the line,
+          which is the honest reading of a file that took the trouble to say &quot;piano&quot;.
+          Only things that are drawn can be conditional: a comment and a section, not{' '}
+          <code>{'{title-guitar}'}</code>.
+        </p>
 
         <h2>Notes to yourself, and characters that mean something</h2>
         <ul>
@@ -246,9 +311,11 @@ Was [Em]blind, but [D]now I [G]see.
             stays a backslash.
           </li>
           <li>
-            A backslash at the <em>end</em> of a line is the one thing in the format Strumfolio
-            doesn&apos;t read: elsewhere it continues the line onto the next one, here it stays an
-            ordinary backslash. Write the long line as one line.
+            A backslash at the <em>end</em> of a line continues that line onto the next one, so a
+            long line can be broken up in the file and still read as one on the page. Inside a tab
+            or a grid it stays an ordinary character, where a trailing backslash is part of the
+            drawing. <code>\\</code> at the end of a line is an escaped backslash and continues
+            nothing.
           </li>
         </ul>
 

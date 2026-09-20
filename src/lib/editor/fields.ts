@@ -1,11 +1,14 @@
 /**
  * The fields the graphic editor offers to add, and the line each one writes.
  *
- * **Only what lives in the body.** Title, artist, tags and the three links are not here and
- * must not be: a column holds each of them, the form has an input for each of them, and a
- * `{title: …}` line typed into the body is stripped the next time the song is saved. A menu
- * entry that quietly disappears is the kind of surprise that costs somebody their trust in
- * an editor, which is worth more than the completeness of a list.
+ * **Only what lives in the body.** Title and artist are not here and must not be: a column
+ * holds each of them, the form has an input for each of them, and a `{title: …}` line typed
+ * into the body is stripped the next time the song is saved. A menu entry that quietly
+ * disappears is the kind of surprise that costs somebody their trust in an editor, which is
+ * worth more than the completeness of a list. `{tag:}` and the three `{link…}` directives used
+ * to be excluded for the same reason and no longer are: their columns were dropped on
+ * 2026-09-20, so a tag now lives in the body like everything else here — which is why the
+ * guard is `fields.test.ts` against `METADATA_DIRECTIVE` rather than a list written out twice.
  *
  * Nor is it the whole format — the raw editor takes any directive at all, and the reader
  * keeps every one it does not act on. This is the short list worth a tap.
@@ -38,6 +41,11 @@ export const FIELD_GROUPS: FieldGroup[] = [
     title: 'About the song',
     options: [
       value('subtitle', 'Subtitle'),
+      /* Singular and repeatable, which is the format's own shape: one line per tag. It
+         belongs here since the column was dropped (2026-09-20) — the body is the only home
+         a tag has now, so leaving it out would mean the graphic editor could not tag a song
+         at all. `METADATA_DIRECTIVE` does not strip it, which is what `fields.test.ts` checks. */
+      value('tag', 'Tag'),
       value('composer', 'Composer'),
       value('lyricist', 'Lyricist'),
       value('album', 'Album'),

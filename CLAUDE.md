@@ -115,8 +115,8 @@ connects the two facts.
 
 | Kind | Fields | Where |
 |---|---|---|
-| Column, stripped from the body, rewritten on export | `title` `artist` `tags` `link1..3` `songbook` `division` | `songs.*` |
-| Body, reread every time the song opens | `tempo` `time` `capo` `key` | no column, by decision |
+| Column, stripped from the body, rewritten on export | `title` `artist` `songbook` `division` | `songs.*` |
+| Body, reread every time the song opens | `tempo` `time` `capo` `transpose` `key` `tag` `define` | no column, by decision |
 | Body, shown and never acted on | `album` `composer` `lyricist` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
 | Body, kept and never shown to a reader | the ~30 typesetting directives | editor only, graphic and raw |
 
@@ -154,6 +154,18 @@ connects the two facts.
   and the file has to keep what its writer typed for the export to hand it back.
   `parseLyricLine` therefore keeps a placeholder *whole* through word splitting — the
   conditional form contains a space, and a split one could never be put together again.
+- **A conditional's `!` lives in the directive-name regex, and that regex exists twice.** The
+  negated form (`{comment-!guitar}`, «everybody except») was unreachable until 2026-09-20:
+  `selectorMatches` had implemented and tested negation from the start, but neither parser's
+  name charset admitted `!`, so the line matched no directive and was drawn as **lyrics** —
+  the `{comment Repeat ad lib}` failure again, from the other end. Both halves were correct
+  in isolation, which is why no unit test found it and why the check that did was parsing a
+  file that used every construct the guide documents. `!` is admitted only *after* a dash, so
+  a bare `{!foo}` is still words. **The two copies must not drift** (`chordpro.ts` and
+  `editor/document.ts`): a name only one accepts is a line the reader draws as a directive
+  and the editor offers as lyrics with its `[` live. The editor keeps a conditional whole as
+  an opaque `directive` block rather than as `comment`/`boundary`, which is deliberate — it
+  never takes the selector apart, so it cannot lose it.
 - **The four comment spellings are four values in the parse and three looks on screen.**
   `plain` and `italic` coincide because this app's comment style *is* muted italic; `box` and
   `highlight` asked for a frame and now get one. Every comment this app generates — a section
@@ -169,41 +181,43 @@ What is deliberately **not** followed, each argued where it lives rather than he
   date, so a file from a stricter tool is understood; what the export writes is unchanged,
   because the export is also this repo's restore path.
 - **The typesetting directives are ignored** — `{textfont}`, `{columns}`, `{new_page}`,
-  `{image}`, `{define}` and the rest. This app lays a song out for a phone on a stand and
-  has no page to break. Ignored is not lost: the editor keeps them verbatim.
-- **`{chorus}` prints the reference, it does not replay the chorus.** Quoting the block
-  back would put the same words under two different comment anchors.
+  `{image}` and the rest — but **not `{define}`**, which was on this list until 2026-09-20 and
+  now feeds the shapes. This app lays a song out for a phone on a stand and has no page to
+  break. Ignored is not lost: the editor keeps them verbatim.
+- **`{chorus}` replays the stanza, and the repeated lines carry no `sourceLines`.** That is
+  what made it safe: a line with no source resolves to no anchors, so a reader's note stays on
+  the stanza they put it on instead of being duplicated onto the repeat. It reads the last
+  chorus seen, or a named one (`{start_of_chorus: Final}` … `{chorus: Final}`), and falls back
+  to printing the word where a file references a chorus it never opened. Until 2026-09-19 it
+  printed the reference, and the reason was exactly this anchoring problem.
 - **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
   stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the
   editor agree on how many lyric lines a song has» is still the cheapest check that a new
   construct is safe.
 
-- **`{capo}` is stated, never applied**, and it is the **one piece of the format still
-  outstanding**. The plan's answer is that the file seeds the control and the reader overrides
-  it — which needs `user_song_prefs.capo` and `.semitones` to become nullable, so `null` can
-  mean «I take the song's» exactly as `bpm` already does. That is a migration against three
-  databases and **preview cannot be migrated from here**: `preview-db.env` has to be created
-  by hand by whoever owns that environment. Until it exists, the write path that stores a
-  `null` must not ship there. `{transpose}` waits on the same migration. `parseChordPro` reads it into
-  `ParsedSong.capo` and the Capo menu says «Written with the capo on fret 3» — a sentence
-  with no button beside it. It does **not** reach `user_song_prefs.capo`, which is
-  `NOT NULL DEFAULT 0` and therefore spells «no capo» and «never chose» with one value:
-  applying the file's fret wherever that column reads 0 would put a capo on for somebody who
-  had taken it off. The stronger version — null meaning «I take the song's», exactly as
-  `SongPrefs.bpm` already works — needs that column nullable first, which is a migration
-  against three databases and **preview cannot be migrated from here**. Measured before
-  deciding: of 223 stored songs, **zero** declare `{capo:}` and zero declare `{key:}`, so the
-  directive only ever arrives on an imported file.
+- **`{capo}` and `{transpose}` seed the controls, and the reader overrides them** — settled by
+  `0048`, which made `user_song_prefs.capo` and `.semitones` nullable so `null` can mean «I take
+  the song's», exactly as `SongPrefs.bpm` already worked. That distinction is the whole
+  mechanism and the reason a migration was unavoidable: under `NOT NULL DEFAULT 0` the column
+  spelled «no capo» and «never chose» with one value, so applying the file's fret wherever it
+  read 0 would have put a capo back on somebody who had taken it off. `resolve.ts` holds the
+  three-way answer (`resolvedCapo`, `resolvedSemitones`, `canTakeSongValue`) in one pure module
+  because the reading screen, the booklet and Strum Together must not each arrive at their own;
+  `canTakeSongValue` is what decides whether the «back to the song's own» control has anywhere
+  to go. Applied to all three databases on 2026-09-20, preview included — `preview-db.env`
+  exists now, so the third environment is no longer a step for somebody else. Measured before
+  deciding: of 223 stored songs **zero** declare `{capo:}` and zero declare `{key:}`, so both
+  directives only ever arrive on an imported file.
 - **`{key}` seeds nothing, and that is not a gap.** `estimateKey` derives the key from the
   chords, which are present and say it; a reader's `semitones` is a shift *relative to what
   is written*, which is exactly what `{key}` declares, so seeding from it would transpose the
   song away from itself. It stays archival, as `import/CLAUDE.md` already says, and
   `METADATA_DIRECTIVE` still strips it on import.
 
-One question it leaves open: whether `{define}`/`{chord}` diagrams should feed `ChordLibrary`
-— a file can carry its own fingerings, for an odd voicing or an open tuning, and today they
-are ignored in favour of the built-in table. Approved as separate work on 2026-09-19, not
-started.
+That leaves nothing on the cheat sheet unanswered. The last open question — whether
+`{define}`/`{chord}` diagrams should feed the chord library — was decided on 2026-09-20 and is
+the `{define}` bullet above: the file's fingering goes to the front of the candidate list, and
+`readDefinition` requires the `frets` keyword, so a bare list of numbers is not a definition.
 
 ## Commands
 

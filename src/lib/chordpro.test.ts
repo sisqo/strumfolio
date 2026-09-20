@@ -604,6 +604,38 @@ describe('ChordPro format compliance', () => {
       assert.equal(comment.kind === 'comment' && comment.selector, 'guitar')
     })
 
+    /*
+     * The negated form, which reached `selectorMatches` for the first time on 2026-09-20.
+     *
+     * Both halves were correct on their own and the feature was still broken: the directive
+     * name charset had no `!`, so the line matched no directive and was drawn as **lyrics** —
+     * `{comment-!guitar: no capo}` printed among the words of the song — while the negation
+     * branch of `selectorMatches` sat there fully tested and unreachable. That is why this
+     * asserts the parse and not the predicate: a test of the predicate passed throughout.
+     */
+    it('reads a negated selector rather than printing the directive as words', () => {
+      const song = parseChordPro('{title: T}\n{comment-!guitar: no capo}\nword')
+      const comment = song.sections[0].lines[0]
+
+      assert.equal(comment.kind, 'comment')
+      assert.equal(comment.kind === 'comment' && comment.text, 'no capo')
+      assert.equal(comment.kind === 'comment' && comment.selector, '!guitar')
+    })
+
+    it('takes a negated selector on a section too', () => {
+      const song = parseChordPro('{title: T}\n{start_of_chorus-!ukulele}\nword\n{end_of_chorus}')
+
+      assert.equal(song.sections[0].kind, 'chorus')
+      assert.equal(song.sections[0].selector, '!ukulele')
+    })
+
+    /* `!` is allowed only after a dash, so this stays what it has always been: not a
+       directive, and therefore a line of words. */
+    it('does not take a bare exclamation mark as a directive name', () => {
+      const song = parseChordPro('{title: T}\n{!foo}\nword')
+      assert.ok(song.sections[0].lines.every((line) => line.kind !== 'comment'))
+    })
+
     /* A conditional on something nobody draws would have to change a value before anybody
        looks, which this parser is in no position to decide. Skipped, as they all used to be. */
     it('skips a conditional on a directive that is never drawn', () => {
@@ -810,6 +842,7 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a joined line': '{title: T}\nfirst \\\nsecond\nthird',
     'a repeated chorus': '{title: T}\n{soc}\nsung\n{eoc}\nverse\n{chorus}',
     'a conditional section': '{title: T}\n{start_of_chorus-piano}\nword\n{end_of_chorus}',
+    'a negated conditional': '{title: T}\n{comment-!guitar: no capo}\nword\nsecond',
     'a labelled tab': '{title: T}\nfirst\n{start_of_tab: Solo}\ne|--3--\n{end_of_tab}',
     'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',
     'a verse marked by hand': '{title: T}\n{sov}\none\n\ntwo\n{eov}',

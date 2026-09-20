@@ -132,12 +132,47 @@ whether it fits your repertoire:
   universal; the edges are dialect. Anything importing a large library should be sniffing
   which program wrote a file before trusting its metadata.
 
+## Where it came from
+
+The format is older than almost everything that reads it, and the story is unusually small.
+In June 1991 two developers, Martin Leclerc and Mario Dorion, turned up early for a tennis
+game and had half an hour to fill. What they sketched was a notation for writing chords into
+a line of lyrics, and the program to typeset it: `Chord`, released from 1992, which took a
+text file of songs and printed a clean lead sheet. **The bracket convention this whole article
+is about was invented at a tennis court, waiting.**
+
+The program spread, and the files spread further. Nobody planned the name — people started
+calling them "ChordPro" files, and by the time anyone noticed, that was what they were called.
+The last release of the original `Chord` was version 3.6.2, in July 1995.
+
+That should have been the end of it. Instead a user named Johan Vromans, who had picked the
+tool up in 1992 and quietly kept improving it for himself, was persuaded in 2007 by another
+user, Adam Monsen, that the work should not be lost. He published his version — first as
+`Chordie`, renamed `Chord_ii_` to stop it being confused with a website — and maintained it
+for another decade. In 2016 he started again from nothing, in Perl, and the result is the
+program now called **ChordPro**, named after the format rather than the other way round. Its
+first alpha was released on 4 June 2016.
+
+The language itself is on version 6; version 5 was drafted and never shipped, folded into 6
+before release. That version is what added text markup and annotations, and it is what a
+current file is written against. The specification lives at
+[chordpro.org](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/) — the cheat sheet is a
+single page and covers essentially all of it — and the reference implementation is on GitHub,
+open source, still maintained.
+
+**There is no standards body, no committee and no company**, which cuts both ways. It is why
+the rarer directives drift between apps, and it is also why the format has cost nobody a
+licence fee, an account or a migration in thirty years. The core has not changed since the
+tennis court: a chord in square brackets, glued to its syllable.
+
 ## It outlives the app
 
 The quiet argument for ChordPro is not any feature. It is that **the file is readable by a
 human being with a text editor, twenty years from now, on a device nobody has designed yet.**
-A repertoire is a thing you build slowly and expect to keep; storing it in a format only one
-company can open is how people lose a decade of work when that company is bought.
+That is not a hope, which is the point of the history above: a file written for `Chord` in
+1993 still opens today, and the program that wrote it has been gone since 1995. A repertoire
+is a thing you build slowly and expect to keep; storing it in a format only one company can
+open is how people lose a decade of work when that company is bought.
 
 The files themselves are ordinary text with an unglamorous set of extensions — `.chopro`,
 `.cho`, `.crd`, `.pro` — and any of them opens in any editor on any machine. That is not a
@@ -154,6 +189,11 @@ changed hands, or names, or gone.
 
 <Faq
   items={[
+    {
+      question: 'Who invented ChordPro, and when?',
+      answer:
+        'Martin Leclerc and Mario Dorion, who sketched the notation in June 1991 and released the Chord program that read it from 1992. The name came from users rather than from the authors: the files simply became known as ChordPro files. Johan Vromans maintained the tool from 2007 and rewrote it from scratch in 2016 as the program now called ChordPro, which is the reference implementation of the format today. The current language version is ChordPro 6, specified at chordpro.org.',
+    },
     {
       question: 'What is a ChordPro file?',
       answer:

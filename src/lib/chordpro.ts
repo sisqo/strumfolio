@@ -33,18 +33,20 @@
  *   format does not ask — *where does this song live* — which is why they stayed when
  *   `{link1..3}` went (2026-09-20): a link is a field, and the format already decides which
  *   fields a song has.
- * - **Line continuation — a line ending in `\` joined to the one after it — is not
- *   read**, and this is the one construct on the cheat sheet that could not be added
- *   without breaking something. Every comment in a song is anchored by its block index in
- *   `editor/document.ts`, which is one block per *source* line; `buildAnchorMap` and the
- *   sheet walk those two lists in step. Joining two source lines into one here makes the
- *   reader's list shorter than the editor's, and from the continuation down every note in
- *   the song renders against the wrong line — silently, since nothing is missing and
- *   nothing throws. Supporting it honestly means teaching `fromSource` to hold the break
- *   so `lineOf` can put it back, which is real machinery for the rarest thing on the
- *   sheet. `chordpro.test.ts` holds the invariant that caught this
- *   («the two parsers agree on how many lyric lines a song has»); a backslash at the end
- *   of a line is therefore an ordinary backslash, and `\\` still escapes one.
+ * - **Line continuation — a line ending in `\` joined to the one after it — is read**, and
+ *   it was the last construct on the cheat sheet to arrive because it could not be added
+ *   safely before the anchors stopped counting. Every comment in a song is anchored into
+ *   `editor/document.ts`, which is one block per *source* line; while `buildAnchorMap`
+ *   walked the two lists in step, joining two source lines into one here made the reader's
+ *   list shorter than the editor's, and from the continuation down every note rendered
+ *   against the wrong line — silently, since nothing was missing and nothing threw. What
+ *   made it possible is `sourceLines`: a drawn line records which source lines it was built
+ *   from, so a joined line resolves into the two blocks it really spans. The join happens
+ *   per line rather than over the whole source, so it cannot reach inside a tab or a grid
+ *   where a trailing backslash is part of a drawing, and `\\` at the end is an escaped
+ *   backslash rather than a continuation. `chordpro.test.ts` holds the invariant that
+ *   caught the original breakage («the two parsers agree on how many lyric lines a song
+ *   has»), and it is still the cheapest check that a new construct is safe.
  */
 
 import { metadataValues, placeholderAt, substituteMetadata } from './chordproMeta'
@@ -356,10 +358,20 @@ export interface ParsedSong {
  * printed in the middle of the song as though somebody sang it. Found by importing twelve
  * generated files rather than by any test here, which is what integration is for.
  *
- * `-` is in the name charset for the format's own hyphenated spellings (`{ccli-number}`);
- * digits are there so the three numbered link directives match too.
+ * `-` is in the name charset for the format's own hyphenated spellings (`{ccli-number}`)
+ * and for a conditional's selector (`{comment-guitar}`); digits are there because a
+ * hyphenated name may end in one.
+ *
+ * **The `!` after a dash is what makes a negated conditional reachable at all.** A selector
+ * may be `!guitar` — «everybody except» — and `selectorMatches` has implemented that since
+ * the day conditionals landed, but this charset excluded the character, so the line matched
+ * no directive and was drawn as *words*: `{comment-!guitar: no capo}` printed in the middle
+ * of a song exactly as `{comment Repeat ad lib}` used to, and the negation branch downstream
+ * was dead code for every real file. Only after a dash, so a bare `{!foo}` is still not a
+ * directive. Found on 2026-09-20 by parsing a file that used every construct the guide
+ * documents, which is the kind of bug no unit test finds because each half is correct.
  */
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
+const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-!?[a-zA-Z0-9_-]*)?)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
 
 /**
  * `{meta artist Foo}` — the space-separated form, which the regex above cannot match
