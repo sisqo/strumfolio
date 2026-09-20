@@ -100,6 +100,36 @@ function canCancel(current: SubscriptionState, live: Plan | null): boolean {
 }
 
 /**
+ * Whether «Change plan» has anywhere to go.
+ *
+ * **Lifetime is the one plan it does not**, and the link was drawn for it unconditionally until
+ * now. `planChangeEffect` refuses Lifetime as the *live* plan — there is no subscription left to
+ * update and nothing above it to sell — so `/pricing` could only offer that reader the plan they
+ * already hold or a step down the checkout would turn away. Worse, it was the **only** control on
+ * the card: `canCancel` excludes Lifetime too, so the one screen a Lifetime holder is sent to
+ * offered them a single button that could not work.
+ *
+ * Both reads rather than one, in the direction that hides. They can disagree — `live` is `null`
+ * for a row resolved to `expired` — and a Lifetime whose purchase was refunded is back on `free`
+ * in both, so the link returns with it rather than staying hidden for good.
+ */
+function canChangePlan(current: SubscriptionState, live: Plan | null): boolean {
+  return current.plan !== 'lifetime' && live !== 'lifetime'
+}
+
+/**
+ * Whether the row under the plan card holds anything at all.
+ *
+ * `.card-foot` is a full-width rule *plus* its own padding, so an empty one is not an invisible
+ * element: it is a stray divider under a strip of blank space. With «Change plan» now conditional
+ * a Lifetime account reaches exactly that state — nothing scheduled, nothing to cancel, nothing to
+ * change — and it is the only one that does.
+ */
+function hasFootControls(current: SubscriptionState, live: Plan | null): boolean {
+  return current.pendingPlan !== null || canChangePlan(current, live) || canCancel(current, live)
+}
+
+/**
  * The one hub for a plan already bought: what it is, what it is about to become, the
  * payment history, and the controls to cancel it or undo a scheduled change. Choosing a
  * *different* plan is deliberately not answered here: that is `/pricing`'s own comparison
@@ -257,7 +287,7 @@ export function BillingScreen() {
   return (
     <>
       <header className="mb-[1.125rem]">
-        <h1 className="screen-title">Billing</h1>
+        <h1 className="screen-title">Plan &amp; billing</h1>
         <p className="mt-2 text-sm leading-[1.45] text-muted">
           What this account has bought, and the history of it.
         </p>
@@ -304,7 +334,7 @@ export function BillingScreen() {
               {/*
                 * The plan, at the size the screen's own title is set in — the mock gives the
                 * two the same weight on purpose: what this page is about is which plan this is,
-                * and «Billing» is only where you are.
+                * and «Plan & billing» is only where you are.
                 */}
               <p className="screen-title">{PLAN_LABEL[status.current.plan]}</p>
               {badge !== null && (
@@ -417,35 +447,39 @@ export function BillingScreen() {
                 </span>
               </div>
             ) : (
-              <div className="card-foot justify-end">
-                {status.current.pendingPlan !== null && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(keepPaddleSubscription, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)
-                    }
-                  >
-                    Keep {PLAN_LABEL[status.current.plan]}
-                  </button>
-                )}
+              hasFootControls(status.current, status.live) && (
+                <div className="card-foot justify-end">
+                  {status.current.pendingPlan !== null && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(keepPaddleSubscription, () => `Kept — staying on ${PLAN_LABEL[status.current.plan]}.`)
+                      }
+                    >
+                      Keep {PLAN_LABEL[status.current.plan]}
+                    </button>
+                  )}
 
-                <Link href="/pricing" className="btn btn-sm">
-                  Change plan
-                </Link>
+                  {canChangePlan(status.current, status.live) && (
+                    <Link href="/pricing" className="btn btn-sm">
+                      Change plan
+                    </Link>
+                  )}
 
-                {canCancel(status.current, status.live) && (
-                  <button
-                    type="button"
-                    className="btn btn-quiet btn-sm"
-                    disabled={busy}
-                    onClick={() => setConfirmingCancel(true)}
-                  >
-                    Cancel my plan
-                  </button>
-                )}
-              </div>
+                  {canCancel(status.current, status.live) && (
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      disabled={busy}
+                      onClick={() => setConfirmingCancel(true)}
+                    >
+                      Cancel my plan
+                    </button>
+                  )}
+                </div>
+              )
             )}
           </div>
 

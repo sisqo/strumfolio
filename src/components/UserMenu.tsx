@@ -43,7 +43,7 @@ import { useDialogA11y } from '@/lib/useDialogA11y'
  * pickers: it is a consequence of the account — leaving altogether — not a preference to
  * set.
  *
- * **Billing sits on the main panel, beside Change password**, and used to nest under Settings
+ * **Plan & billing sits on the main panel, beside Change password**, and used to nest under Settings
  * with Delete account for the reasoning above. Moved deliberately: that placement was decided
  * while billing was a marginal test screen, and it stopped being true once purchases became a
  * real flow with a thank-you page and a confirmation email that links straight to `/billing`.
@@ -223,7 +223,7 @@ export function UserMenu({ children }: { children: React.ReactNode }) {
                  */}
                 <Link href="/billing" className="menu-item" role="menuitem" onClick={close}>
                   <IconReceipt size={17} />
-                  Billing
+                  Plan &amp; billing
                 </Link>
 
                 <div className="menu-divider" />

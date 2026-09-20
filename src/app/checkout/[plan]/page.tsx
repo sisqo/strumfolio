@@ -356,7 +356,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
                 <p className="mt-2 text-sm leading-[1.5] text-muted">{stalled.body}</p>
               </div>
               <Link href="/billing" className="btn btn-primary mt-4 w-full">
-                Go to Billing
+                Go to Plan &amp; billing
                 <IconArrowRight size={17} />
               </Link>
             </div>

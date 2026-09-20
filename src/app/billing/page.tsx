@@ -6,7 +6,7 @@ import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 
-export const metadata: Metadata = { title: 'Billing' }
+export const metadata: Metadata = { title: 'Plan & billing' }
 
 /**
  * A static shell, like `/checkout/[plan]` and `/password`: nothing here can know who is
