@@ -98,6 +98,21 @@ function button(label: string, url: string): string {
 }
 
 /**
+ * The name of the section these emails send people to, in the two spellings this file needs.
+ *
+ * One label in the app and two strings here, because of the ampersand: `paragraph()` and
+ * `button()` above interpolate raw HTML — `escapeHtml` is reserved for text a person typed —
+ * while the plain-text body beside them must carry the character itself. So the clauses that
+ * appear in both are built twice, once with each, rather than written once and wrong in one of
+ * them.
+ *
+ * It is quoted from the screen it points at, so it moves with `UserMenu`'s row and
+ * `BillingScreen`'s heading and not on its own.
+ */
+const BILLING_SECTION = 'Plan & billing'
+const BILLING_SECTION_HTML = 'Plan &amp; billing'
+
+/**
  * The one thing in this file that ever handles text a person typed.
  *
  * Every other template interpolates a URL we minted, a plan name from a closed set or a
@@ -291,24 +306,24 @@ export function purchaseEmail(input: {
       ? ''
       : ` You used ${coupon.code}, off the full price of ${euro(coupon.fullAmount)}.` +
         (coupon.duration === null ? '' : ` ${coupon.duration}`)
-  const renewalClause =
+  const renewalClause = (section: string) =>
     endsOn === null
       ? 'There is nothing to renew — it stays yours, for good.'
-      : `It runs until ${endsOn}, and you can change or cancel it any time from Billing.`
+      : `It runs until ${endsOn}, and you can change or cancel it any time from ${section}.`
 
   const billingUrl = `https://${SITE_URL}/billing`
 
   const html = layout(`
     ${heading(`Thanks — you're on ${planLabel}`)}
-    ${paragraph(`${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}`)}
-    ${paragraph(`Your payment history and this plan's settings are in <a href="${billingUrl}" style="color:${ACCENT};">Billing</a>.`)}
+    ${paragraph(`${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause(BILLING_SECTION_HTML)}`)}
+    ${paragraph(`Your payment history and this plan's settings are in <a href="${billingUrl}" style="color:${ACCENT};">${BILLING_SECTION_HTML}</a>.`)}
   `)
 
   const text = `Thanks — you're on ${planLabel}
 
-${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause}
+${paidClause}${couponClause} ${planLabel} is active on your account right now. ${renewalClause(BILLING_SECTION)}
 
-Your payment history and this plan's settings are in Billing: ${billingUrl}
+Your payment history and this plan's settings are in ${BILLING_SECTION}: ${billingUrl}
 
 ${APP_NAME} — ${APP_PAYOFF}`
 
@@ -415,10 +430,10 @@ export function planChangeEmail(input: {
 
   /* «before then» rather than «before that day», so the one sentence serves the named-day shape
      and the dateless one alike — after «ends on 22 September 2027» it reads the same. */
-  const undo =
+  const undo = (section: string) =>
     effect === 'now'
       ? 'You can start a plan again whenever you want.'
-      : `Changed your mind? «Keep ${fromLabel}» in Billing calls this off, any time before then.`
+      : `Changed your mind? «Keep ${fromLabel}» in ${section} calls this off, any time before then.`
 
   const billingUrl = `https://${SITE_URL}/billing`
 
@@ -426,15 +441,15 @@ export function planChangeEmail(input: {
     ${heading(subject)}
     ${paragraph(what)}
     ${kept === null ? '' : paragraph(kept)}
-    ${paragraph(undo)}
-    ${button('Open Billing', billingUrl)}
+    ${paragraph(undo(BILLING_SECTION_HTML))}
+    ${button(`Open ${BILLING_SECTION_HTML}`, billingUrl)}
   `)
 
   const text = `${subject}
 
 ${what}
 ${kept === null ? '' : `\n${kept}\n`}
-${undo}
+${undo(BILLING_SECTION)}
 
 ${billingUrl}
 

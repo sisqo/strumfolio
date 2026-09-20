@@ -162,7 +162,7 @@ export default function TermsOfServicePage() {
         subscriptions, billed monthly or yearly as you choose at checkout. At the end of each period
         the plan renews for another period of the same length, charged to the payment method on file
         at the price then in force, until you cancel. We tell you at checkout the day the next renewal
-        falls, and the Billing page inside the app always shows it. Cancelling stops the next
+        falls, and the Plan &amp; billing page inside the app always shows it. Cancelling stops the next
         renewal, not the plan you already hold: you keep it until the end of the period you have paid
         for, and the account then returns to the free plan.
       </p>
@@ -170,7 +170,8 @@ export default function TermsOfServicePage() {
         <strong>Changing plan.</strong> An upgrade to a higher plan takes effect immediately. A
         downgrade to a lower paid plan, or a cancellation, takes effect at the end of the period
         already paid for, and nothing is charged for it today; until then you keep the plan you paid
-        for, and you can undo a scheduled change from the Billing page at any time before it lands.
+        for, and you can undo a scheduled change from the Plan &amp; billing page at any time before it
+        lands.
         Changing the billing cycle of the plan you hold starts a new period from the day you confirm.
         Whenever a change would replace a period you have already paid for with a shorter one, the
         checkout says so before you confirm.
@@ -230,7 +231,7 @@ export default function TermsOfServicePage() {
       </p>
       <p>
         <strong>Renewals.</strong> The way to avoid a renewal charge is to cancel before the renewal
-        date, which you can do at any time from the Billing page. If a renewal goes through that you
+        date, which you can do at any time from the Plan &amp; billing page. If a renewal goes through that you
         did not mean to keep, write to us within 14 days of the charge and we refund it, in which case
         the plan ends at once. Outside these cases, refunds are at our discretion, except where the
         law of your country entitles you to one — for example because the Service failed to work as

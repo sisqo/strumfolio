@@ -429,7 +429,7 @@ export function PricingPlans({
           <IconInfo />
           <span>
             One step left: pick the plan to start on. Free is a real plan with no end date, not a trial — and
-            whichever you pick, you can change or cancel it any time from Billing.
+            whichever you pick, you can change or cancel it any time from Plan &amp; billing.
           </span>
         </p>
       )}

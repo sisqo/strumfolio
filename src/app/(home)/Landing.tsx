@@ -634,7 +634,7 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'How does a paid plan renew, and how do I stop it?',
-        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. An upgrade takes effect immediately, while a downgrade or a cancellation waits for the end of the period already paid for — and you can undo a scheduled change any time before it lands.',
+        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Plan & billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. An upgrade takes effect immediately, while a downgrade or a cancellation waits for the end of the period already paid for — and you can undo a scheduled change any time before it lands.',
       },
       {
         q: 'What if I change my mind after paying?',

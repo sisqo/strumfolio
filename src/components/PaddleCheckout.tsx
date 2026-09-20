@@ -89,7 +89,7 @@ const REFUSALS: Record<PaddleCheckoutFailure, string> = {
    */
   'already-subscribed':
     'You already have a subscription running, so this would start a second one beside it. ' +
-    'Change the plan you have from Billing instead.',
+    'Change the plan you have from Plan & billing instead.',
   failed: 'Something went wrong starting your checkout. Please try again.',
 }
 
@@ -131,7 +131,7 @@ const CHANGE_REFUSALS: Record<PaddlePlanChangeFailure, string> = {
    */
   'pending-downgrade':
     'Your plan is already set to change at the end of the period you have paid for. Call that ' +
-    'off in Billing first and this move can be priced against the plan you actually hold.',
+    'off in Plan & billing first and this move can be priced against the plan you actually hold.',
   /* Not reachable from this screen any more — Lifetime is bought, never switched to, so the
      lifetime checkout draws the buy button instead of the change one. Kept because the action
      is callable on its own, and reworded because the old sentence told the reader to cancel

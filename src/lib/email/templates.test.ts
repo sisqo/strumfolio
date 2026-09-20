@@ -238,8 +238,9 @@ test('giftEmail', async (t) => {
   })
 
   /* `/billing` reports `liveSubscription`, which ignores the `granted_*` columns entirely, so
-     it would tell somebody holding a gifted Premium that they have no subscription. */
-  await t.test('no shape points at Billing', () => {
+     it would tell somebody holding a gifted Premium that they have no subscription. The regex
+     still catches the renamed section, since «Plan & billing» contains the old word. */
+  await t.test('no shape points at Plan & billing', () => {
     for (const input of [DATED_GIFT, ENDLESS_GIFT]) {
       const mail = giftEmail(input)
       for (const body of [mail.html, mail.text]) {
