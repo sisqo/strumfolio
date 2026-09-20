@@ -27,9 +27,12 @@ import { requirePlanChoice } from '@/lib/plans/gate'
  * own title. Caught by running it; it would never have shown up in production, where there is
  * always a database. One question, one answer, no way for the two to disagree again.
  *
- * `currentUser()` costs no query — `auth()` reads the JWT cookie, `readAccountCookie` a cookie,
- * `roleOf` the environment (v3.1) — so being asked twice per request is two cookie reads, not
- * two round trips.
+ * **`currentUser()` is not free, and a sentence here said it was.** That was true at v3.1, when
+ * `auth()` read the JWT cookie, `readAccountCookie` a cookie and `roleOf` the environment; a
+ * session no longer outlives its account, so there is one indexed lookup in it now. Being asked
+ * twice per request still costs one query rather than two, because `accountExists` is memoized
+ * with React `cache()` — which is a different guarantee from being free, and the difference is
+ * what `lib/publicBar.ts` reasons about for the seven other bars.
  *
  * **What `user === null` stopped meaning.** It used to be "the session is still valid but is no
  * longer admitted anywhere" — every membership pulled, no owner status either — and it answered
@@ -79,10 +82,13 @@ export default async function HomeLayout({ children }: { children: ReactNode }) 
    * `landing: true` through `currentUser()` answering null — so they get the public home with
    * «Sign in» in the bar, which is true, and is the way out rather than a dead end.
    *
-   * The rule this protects is about the brand mark: `TopBar`, `PublicHeader` and `SiteHeader`
-   * all point it at `/`, and it must land there. A redirect here would make the logo bounce to
-   * the sign-in form from every page in the app for anybody in that state, which reads as the
-   * app throwing you out of its own front door.
+   * The rule this protects is about the brand mark: `TopBar` and `SiteHeader` point it at `/`
+   * unconditionally, and `PublicHeader` points it there for everybody this branch is about —
+   * a reader it cannot tell from a visitor. It must land. A redirect here would make the logo
+   * bounce to the sign-in form from every page in the app for anybody in that state, which
+   * reads as the app throwing you out of its own front door. (`PublicHeader` sends a *signed-in*
+   * reader to `/home` instead, which is the same landing page at a URL with no branch at all —
+   * so that half of it cannot be broken from here either way.)
    *
    * Nothing is weakened by it: `currentUser()` still answers null, so `permit()` still refuses
    * every write, and none of this reader's own content is rendered — the landing page is the
@@ -103,7 +109,10 @@ export default async function HomeLayout({ children }: { children: ReactNode }) 
     return (
       <>
         <StandaloneRedirect />
-        <Landing />
+        {/* `signedIn={false}` is not a guess: reaching this branch *is* `currentUser()` having
+            answered null. Handing it over is what stops `Landing` asking the same question a
+            second time in the same render — see the prop's own comment there. */}
+        <Landing signedIn={false} />
       </>
     )
   }

@@ -10,6 +10,13 @@
  * a reader who is *in* the blog or the tools can move around them, and everybody else has
  * `Footer`'s row, which every page carries.
  *
+ * That mock's last item has since been overruled — `PublicHeader` carries **one** action now,
+ * «Sign in» or «My songbooks» depending on who is reading (`lib/publicBar.ts`), where this bar
+ * still prints the original pair and is still blind to the session. The asymmetry is deliberate
+ * and temporary: these pages are prerendered, which is what a search result needs them to be,
+ * and asking who is reading is what would stop them being it. `CLAUDE.md` carries the two ways
+ * out of that when it is picked up again.
+ *
  * Kept as a module rather than folded into `SiteHeader` for the reason it was extracted: the
  * next surface written to be found from a search will want the same names in the same order,
  * and a constant inside one component is where the second copy comes from.

@@ -100,7 +100,15 @@ export function PromoPanel() {
         </div>
 
         <div className="promo-actions">
-          <Link href="/login" className="promo-action">
+          {/*
+            * `/register`, and it said `/login` until 2026-09-20 — a button reading «Start free»
+            * that opened the form for people who already have an account. A leftover from when
+            * `/login` *was* the public home and carried the whole pitch, registration link
+            * included; nothing pointed at it after the split, and since this panel closes every
+            * article and all seven tools, it was the most-seen call to action on the public site
+            * sending the audience it is written for to the one page that is not theirs.
+            */}
+          <Link href="/register" className="promo-action">
             Start free
           </Link>
           <span className="promo-note">{FREE_PLAN}</span>

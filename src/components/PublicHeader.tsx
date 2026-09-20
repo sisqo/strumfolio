@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { APP_NAME } from '@/lib/brand'
+import type { BarLink } from '@/lib/publicBar'
 
 /**
  * The header on every page that is not `TopBar`'s to draw and not the blog's: the landing
@@ -11,12 +12,20 @@ import { APP_NAME } from '@/lib/brand'
  * (`.top-bar`/`.top-bar-inner`/`.brand`, reused rather than redrawn); what changes between
  * "inside" and "outside" the app is what the row holds beside it.
  *
- * **Drawn from `Home.dc.html`, which gives this bar four things and no more**: the theme
- * switch, a «Pricing» link, «Sign in», and «Start free» as a capsule — every quiet item a
- * 36px pill that fills on hover, the capsule the accent. The mock's own geometry lives on
+ * **Drawn from `Home.dc.html`, which gives this bar four things**: the theme switch, a
+ * «Pricing» link, «Sign in», and «Start free» as a capsule — every quiet item a 36px pill
+ * that fills on hover, the capsule the accent. The mock's own geometry lives on
  * `.public-bar-link` and `.public-bar-cta` rather than on `.btn` plus utilities, the rule the
  * `/accounts` block states for its own mock: a 36px pill beside a 44px `.btn` is a different
  * control, not a variant.
+ *
+ * **The mock is overridden on the last of those four, and the note is here so nobody puts it
+ * back.** «Sign in» quiet beside «Start free» loud asked two different things of the same
+ * corner and was reported as confusing, so the bar carries **one** action now and the capsule
+ * is where it goes: «Sign in» for a visitor, «My songbooks» for somebody already inside.
+ * «Start free» still exists where it converts — the landing page's own hero button, and the
+ * panel that closes every article and every tool — it is simply not navigation. The rule and
+ * the words both live in `lib/publicBar.ts`; this component only draws what it is handed.
  *
  * **It briefly carried a section row — Pricing · Tools · Blog — and the mock took it back
  * out.** That row was built the same day, on the reasoning that blog and tools are the
@@ -35,54 +44,61 @@ import { APP_NAME } from '@/lib/brand'
  * page added later without one is a build-time prop error rather than a header that quietly
  * stops matching what it sits on.
  *
- * The brand mark is the way back to `/` — which, since the restructure, is a page a visitor
- * has a reason to go back *to* rather than a redirect to this same bar's sign-in page.
+ * **The mark is always drawn, and `brandHref` is required for the same reason `width` is.**
+ * Two call sites used to pass `brand={false}` — the landing page and the five sign-in forms,
+ * both of which print the same lockup a few dozen pixels below — on the argument that the same
+ * drawing twice on one screen reads as a mistake rather than as a masthead. That argument lost
+ * to the one against an empty corner: the top-left of a page is where a reader looks to find
+ * out where they are and how to leave, and «it is further down» is not an answer while they are
+ * looking at the bar. So both now carry it twice, knowingly.
  *
- * `brand={false}` leaves it out, for the pages that print the logo themselves a few dozen
- * pixels below: `/`'s own hero badge, and the vertical lockup `AuthLockup` heads the five
- * sign-in-adjacent pages with. The same drawing twice on one screen, once small in the corner
- * and once large in the middle, reads as a mistake rather than as a masthead. The bar stays
- * either way — it is what holds the light/dark/auto switch.
+ * Where it leads is not a constant, which is the part that surprises: `/` is the marketing home
+ * for a visitor and the reader's own songbooks for everybody else, so a signed-in reader's mark
+ * points at `/home` instead — the same landing page at a URL that ignores the session.
+ * `lib/publicBar.ts` has the whole argument, including why a crawler never meets that link.
  *
- * `links` and `cta` are what differ per page, and both are optional because who is reading
- * decides them while this component deliberately has no notion of a session. `/pricing` is the
- * page that proved the point: its bar used to offer «Sign in» unconditionally, to signed-in
- * readers included, and the fix was for its own layout to decide — six other layouts render
- * this in front of somebody with no session, where «Sign in» is exactly right. So the decision
- * stays at the call site, and so does the rule that a bar never links to the page it is
- * standing on: `/pricing` passes no «Pricing» link.
+ * `links` and `cta` are what differ per page. The *quiet* row is still the call site's to name,
+ * because it is about the page rather than the reader — `/pricing` passes no «Pricing» pill,
+ * since a bar that links to the page it is standing on is a dead control. The *capsule* is no
+ * longer anybody's to choose: it comes from `publicBarFor`, which is what fixed seven bars that
+ * were offering «Sign in» to people who were already signed in while `/pricing` alone had the
+ * branch.
  */
 export function PublicHeader({
   width,
-  brand = true,
+  brandHref,
   links = [],
   cta,
+  wideAction = false,
 }: {
   width: string
-  brand?: boolean
-  /** The quiet pill actions, left of the capsule — «Pricing», «Sign in». */
-  links?: { href: string; label: string }[]
-  /** The primary action, as an accent capsule. */
-  cta?: { href: string; label: string }
+  /** Where the mark leads — from `publicBarFor`, never written out at a call site. */
+  brandHref: string
+  /** The quiet pill actions, left of the capsule — «Pricing». */
+  links?: BarLink[]
+  /** The one action, as an accent capsule. */
+  cta?: BarLink
+  /** See `PublicBar.wideAction`: which capsule is in the row, which is what has to fit. */
+  wideAction?: boolean
 }) {
   /* `public-bar` beside `top-bar` is what scopes the mock's flatter, 36px controls to this
      bar: `ThemeToggle` renders `.nav-link`, the same class `TopBar`'s own buttons use, so
      restyling that class would restyle the app's header on every screen. */
+  /* A data attribute rather than a class, because it is not a variant of this bar — it is the
+     one fact the narrow-width rules need and cannot read off the row: how wide the capsule's
+     own words are. `globals.css` has the measurements. */
   return (
-    <header className="top-bar public-bar">
+    <header className="top-bar public-bar" data-wide-action={wideAction ? '' : undefined}>
       <div className="top-bar-inner" style={{ '--top-bar-width': width } as React.CSSProperties}>
-        {brand && (
-          /* Both render; CSS shows one — see the same comment in TopBar.tsx. */
-          <Link href="/" className="brand" aria-label={`${APP_NAME}, home`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
-            <img src="/brand/lockup-horizontal-black.svg" alt="" className="lockup-light" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
-            <img src="/brand/lockup-horizontal-white.svg" alt="" className="lockup-dark" />
-          </Link>
-        )}
+        {/* Both render; CSS shows one — see the same comment in TopBar.tsx. */}
+        <Link href={brandHref} className="brand" aria-label={`${APP_NAME}, home`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
+          <img src="/brand/lockup-horizontal-black.svg" alt="" className="lockup-light" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- theme-swapped SVG lockup, see TopBar.tsx */}
+          <img src="/brand/lockup-horizontal-white.svg" alt="" className="lockup-dark" />
+        </Link>
 
-        {/* Holds everything after it against the right edge, with or without a mark on the
-            left — and the mock has nothing at all on the left of `/`'s own bar. */}
+        {/* Holds everything after it against the right edge. */}
         <span className="flex-1" />
 
         <ThemeToggle />

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { PublicHeader } from '@/components/PublicHeader'
 import { currentUser } from '@/lib/auth/session'
 import { PLAN_LABEL } from '@/lib/plans/types'
+import { publicBarFrom } from '@/lib/publicBar'
 import { createQaUser, enterAsQaUser } from '@/lib/qa/actions'
 import { QA_OWNER_EMAIL, QA_PASSWORD, qaEntryEnabled } from '@/lib/qa/entry'
 import { qaAccounts } from '@/lib/qa/read'
@@ -56,7 +57,12 @@ export default async function QaPage() {
 
   return (
     <>
-      <PublicHeader width="48rem" links={[{ href: '/pricing', label: 'Pricing' }]} />
+      {/* `publicBarFrom` and not `publicBarFor`: `user` is already resolved above, and this is
+          the one page that would otherwise ask the same question twice in the same render. */}
+      <PublicHeader
+        width="48rem"
+        {...publicBarFrom(user !== null, { links: [{ href: '/pricing', label: 'Pricing' }] })}
+      />
 
       <main className="mx-auto w-full max-w-[48rem] px-5 py-10">
         <p className="card-eyebrow">Quality testing · {environment}</p>

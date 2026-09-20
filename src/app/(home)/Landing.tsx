@@ -35,12 +35,20 @@ import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
 import { paddleCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
+import { publicBarFor, publicBarFrom } from '@/lib/publicBar'
 
 /**
  * The tab title and the share card's headline. Exported because the metadata that carries it
  * is `generateMetadata` in `layout.tsx` beside this file, not a `metadata` export of `page.tsx`
  * — see that layout for why the whole decision about who is reading `/` lives there.
  */
+/**
+ * The bar's quiet row: «Pricing» alone, per `Home.dc.html`, which draws this bar with no
+ * sections. The capsule beside it is not here because it is not this page's to choose — see
+ * `lib/publicBar.ts`.
+ */
+const LANDING_BAR_LINKS = [{ href: '/pricing', label: 'Pricing' }]
+
 export const LANDING_TITLE = `${APP_NAME} — ${APP_PAYOFF}`
 
 /**
@@ -787,7 +795,7 @@ const FEATURES: Feature[] = [
  * would have followed this page to `/home` and sent the installed app to `/login` from the one
  * URL whose whole purpose is to show the landing page unconditionally.
  */
-export async function Landing() {
+export async function Landing({ signedIn }: { signedIn?: boolean } = {}) {
   /*
    * The live offer, advertised on the front door.
    *
@@ -822,23 +830,44 @@ export async function Landing() {
   const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
   const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 
+  /*
+   * The bar, and the one prop this component takes.
+   *
+   * `layout.tsx` beside this file only renders `Landing` in its `landing` branch, which it
+   * reaches by having already asked `currentUser()` and got `null` — so it passes
+   * `signedIn={false}` and the question is not asked a second time in the same render.
+   * `app/home/page.tsx`, which serves this same page at `/home` to anybody, passes nothing and
+   * lets it resolve: that URL's whole promise is to show the landing page whoever is reading,
+   * so it is the one caller that genuinely does not know.
+   *
+   * An optional prop is the shape `CLAUDE.md` rejects for `PrefsProvider`, where one omission
+   * among twenty mounts would fall back silently to an unscoped key. The arithmetic is
+   * different with two callers written in one commit: there is no room for the omission to
+   * appear, and if it ever did the fallback is the correct answer at the price of one read.
+   */
+  const bar =
+    signedIn === undefined
+      ? await publicBarFor({ links: LANDING_BAR_LINKS })
+      : publicBarFrom(signedIn, { links: LANDING_BAR_LINKS })
+
   return (
     <>
       {/*
-        * No mark in the bar: the hero badge a few pixels below prints the same lockup, and the
-        * same drawing twice on one screen reads as a mistake. 70rem to match `.landing-width`,
-        * which every band under it shares. Both actions, since this is the one page whose whole
-        * purpose is to offer them.
+        * 70rem to match `.landing-width`, which every band under it shares.
+        *
+        * **The mark is in the bar, above the hero badge that prints the same lockup.** It was
+        * left out of exactly these two pages on the argument that the same drawing twice on one
+        * screen reads as a mistake rather than as a masthead — which is true, and lost to the
+        * corner being empty on the one page a stranger arrives at first. Both are drawn now,
+        * knowingly; `PublicHeader` carries the argument in full.
+        *
+        * **And one action, not two.** The bar used to carry «Sign in» quiet beside «Start free»
+        * loud, this being the one page whose whole purpose is to offer them — but two invitations
+        * out of one corner, asking for different things, was what somebody reported as confusing.
+        * The capsule is the shared one now (`lib/publicBar.ts`), and the hero a screenful below
+        * still says «Start free», which is where that ask belongs: after the pitch, not before it.
         */}
-      <PublicHeader
-        width="70rem"
-        brand={false}
-        links={[
-          { href: '/pricing', label: 'Pricing' },
-          { href: '/login', label: 'Sign in' },
-        ]}
-        cta={{ href: '/register', label: 'Start free' }}
-      />
+      <PublicHeader width="70rem" {...bar} />
 
       <main className="relative flex min-h-[100dvh] flex-col items-center px-5 py-10 sm:px-8 sm:py-16 lg:px-12 xl:px-20">
         {/*
@@ -891,13 +920,15 @@ export async function Landing() {
                 * sat under them for a while, then between the headline and the button before
                 * that; both are gone with the cards that now say the same things properly.
                 *
-                * **«Start free», the same words as the bar** — it read «Get started free» here
-                * on the reasoning that the loud control could phrase itself, which is how one
-                * action came to have two names on one screen. It is still drawn loud: the
-                * mock's 64px/21px against the bar's 36px/14px, and its own class rather than
-                * `.btn.btn-primary` plus utilities, the rule the `/accounts` block states — a
-                * 64px capsule is a different control from a 44px `.btn`, not a variant of it.
-                * Louder, not differently worded.
+                * **«Start free» is now the only place on this page that says it** — the bar
+                * carried the same words until it was cut to one action, and this is the half
+                * that was kept, because it sits where somebody has just read what the thing is.
+                * It read «Get started free» before that, on the reasoning that the loud control
+                * could phrase itself, which is how one action came to have two names on one
+                * screen; the words were matched to the bar's and then outlived it. Still drawn
+                * loud: the mock's 64px/21px, and its own class rather than `.btn.btn-primary`
+                * plus utilities, the rule the `/accounts` block states — a 64px capsule is a
+                * different control from a 44px `.btn`, not a variant of it.
                 *
                 * The second is a sign-in, not an anchor. It read «See how it works» and pointed
                 * at the editor band, on the reasoning that a visitor should be able to see the

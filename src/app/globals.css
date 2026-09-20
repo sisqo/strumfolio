@@ -9631,17 +9631,40 @@
   }
 
   /*
-   * The row has four things and no hamburger to hide any of them behind: the mock draws no
+   * The row has three things and no hamburger to hide any of them behind: the mock draws no
    * menu, and `PublicNavMenu` went back to being `SiteHeader`'s alone. So the gutters and the
    * pill padding tighten below 30rem, and «Pricing» — the one item that is navigation rather
    * than an action, and the only one also in `Footer`'s row on every page — steps out at the
    * very bottom rather than letting the row wrap or the capsule shrink.
    *
-   * **20rem, measured rather than reckoned.** The first attempt put that at 26rem on an
-   * estimate, which took «Pricing» off every phone including a 390px one with 145px of the row
-   * still empty. Screenshotted at 320, 360 and 390: all three fit theme + Pricing + Sign in +
-   * Start free with the squeeze below applied, so the only width that needs to drop anything
-   * is 320 and under.
+   * **The breakpoint was 20rem and is 25rem, and the reason is the whole point of keeping this
+   * comment.** That 20rem was measured rather than reckoned — 320, 360 and 390 were all
+   * screenshotted, and all three fitted the row with «145px still empty». What the measurement
+   * could not know is that it was taken on the one bar that had no brand mark: the landing page
+   * passed `brand={false}`, and `/pricing` was then the only other page with a capsule. The
+   * mark is on every public bar now, it is 149px wide, and it ate almost exactly the slack that
+   * number recorded.
+   *
+   * Re-measured the same way, on the row a *signed-in* reader gets — «My songbooks» is 116px
+   * where «Sign in» is 63, and it is the only combination that overflows at all. Swept in 4px
+   * steps: 396px overflows by 1 and **400px fits**, so 25rem is the edge itself rather than a
+   * guess with padding.
+   *
+   * **Both narrow blocks are scoped to `[data-wide-action]`, and that scope is the point.** A
+   * rule keyed on width alone would take «Pricing» off a visitor's 360px phone to solve
+   * something only a signed-in reader has — which is the exact outcome the 20rem measurement
+   * was taken to prevent, arrived at from the other direction. `PublicHeader` sets the
+   * attribute when the capsule is the long one (`PublicBar.wideAction`), so a visitor's bar is
+   * what it always was at every width, down to 320px and below.
+   *
+   * At 20rem «Pricing» is already gone and the mark, the switch and «My songbooks» still want
+   * ~330px, so the second block goes on squeezing what is left. The pieces that give are the
+   * gaps and the padding — never the mark, which is what this whole row is for, and never the
+   * capsule's words. Measured after: the reader's row fits from **320px** up, which is this
+   * block's own floor and the narrowest width anything here has ever been drawn for. At 300px
+   * it overflows by 12 and is left to, no phone being that narrow — the only way to buy those
+   * twelve pixels is to shrink the mark, which is the one thing this change exists to put on
+   * the bar.
    */
   @media (max-width: 30rem) {
     .public-bar .top-bar-inner {
@@ -9658,9 +9681,20 @@
     }
   }
 
-  @media (max-width: 20rem) {
-    .public-bar-link[href='/pricing'] {
+  @media (max-width: 25rem) {
+    .public-bar[data-wide-action] .public-bar-link[href='/pricing'] {
       display: none;
+    }
+  }
+
+  @media (max-width: 20rem) {
+    .public-bar[data-wide-action] .top-bar-inner {
+      gap: 0.125rem;
+      padding-inline: 0.5rem;
+    }
+
+    .public-bar[data-wide-action] .public-bar-cta {
+      padding-inline: 0.625rem;
     }
   }
 

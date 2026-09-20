@@ -1231,13 +1231,55 @@ that as an open problem beside its own entry for months. It is split now:
   the page adds a `robots` `noindex` of its own, because the two flags answer different
   questions — one stops this site advertising the URL, the other stops a crawler that arrived
   from a pasted link putting a byte-identical duplicate of `/` in front of the same search
-  intent. Nothing links to it, by design: it is a tool for whoever works on the page.
+  intent. **It is linked from exactly one place, and only ever to somebody signed in**: the
+  public bar's brand mark, which leads here for a reader and to `/` for a visitor
+  (`lib/publicBar.ts`, from 2026-09-20). That is what lets the `noindex` keep meaning what it
+  says — a crawler is never signed in, so what a crawler is served on every public page is a
+  mark pointing at `/`, and this URL still reaches an index only through a pasted link. Until
+  then nothing linked to it at all, and a bar that pointed everybody here would have made a
+  hidden duplicate the most-linked page on the site while `/` lost the internal links that
+  decide how it ranks.
 - **The two public bars are deliberately not the same bar.** `PublicHeader` draws the app's
-  own chrome and, per `Home.dc.html`, carries no sections at all — theme, «Pricing», «Sign
-  in», «Start free». `SiteHeader` draws the paper surface the blog and the tools share and
-  does carry them, from `lib/publicNav.ts`, collapsing into `PublicNavMenu` below 48rem. Two
-  components because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`/`.tool-page` and
-  cannot leave them. Blog and tools are reachable from every page through `Footer`'s row.
+  own chrome and, per `Home.dc.html`, carries no sections at all — theme, «Pricing», and one
+  action. `SiteHeader` draws the paper surface the blog and the tools share and does carry
+  them, from `lib/publicNav.ts`, collapsing into `PublicNavMenu` below 48rem. Two components
+  because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`/`.tool-page` and cannot leave
+  them. Blog and tools are reachable from every page through `Footer`'s row.
+- **`PublicHeader` carries one action and knows who is reading, since 2026-09-20 — and that
+  overrules `Home.dc.html`, which draws two.** The mock's «Sign in» quiet beside «Start free»
+  loud asked two different things of one corner and was reported as confusing; the bar now has
+  a single capsule, **«Sign in» for a visitor and «My songbooks» for a reader**, and its mark
+  leads to `/` or to `/home` by the same answer. The rule is `lib/publicBar.ts` and nothing
+  else decides it — `publicBarFrom` is the pure half, covered by `npm test`; `publicBarFor` is
+  the read. Three things about it cost something to rediscover:
+  - **It reads `currentUser()`, never `auth()`.** `auth()` answers «signed in» for a session
+    whose account has been deleted, and that reader would be handed «My songbooks» pointing at
+    `/`, which for them *is* the landing page they are standing on — a loop. The price is that
+    a signed-in reader costs one indexed lookup per public page, memoized per request by
+    `accountExists` and skipped for a global owner; a visitor costs a cookie read and never
+    touches the database.
+  - **Seven pages stopped being prerendered for it** — the four legal ones, `/changelog`,
+    `/register`, `/forgot-password` — because reading a session is a dynamic API. Taken
+    knowingly over the alternative, which is deciding in the browser and showing «Sign in» to a
+    signed-in reader for a frame on every public page.
+  - **`/pricing` keeps a third case the shared rule does not know about**: a reader
+    `requirePlanChoice` redirected *there* gets no capsule at all, because every destination
+    bounces them back. It is also the only public page that may pay for `hasChosenPlan`.
+  **`SiteHeader` was deliberately left out** and still prints «Sign in» + «Start free» to
+  everybody, signed-in readers included — the same defect, knowingly deferred: the blog and the
+  seven tool pages are prerendered (`/blog/[slug]` with `generateStaticParams` and
+  `dynamicParams = false`) and are what a search sends people to. When it is picked up, the two
+  ways are to decide in the browser from the `songbook-scope` cookie (already non-`httpOnly`,
+  and `currentScope()` reads it) at the price of a flash, or to give up the prerender.
+- **«Start free» is not navigation and stays where it converts**: the landing page's hero and
+  `PromoPanel`, which closes every article and all seven tools. That panel pointed at `/login`
+  until 2026-09-20 — a «Start free» opening the form for people who already have an account,
+  left over from when `/login` was the public home — and points at `/register` now.
+- **The brand mark is drawn on every public page, including the two that print it again a few
+  dozen pixels below** (the landing hero badge, `AuthLockup` over the five sign-in cards). The
+  `brand={false}` prop those two passed is gone. «The same drawing twice on one screen reads as
+  a mistake» was the argument, and it lost to the top-left corner being empty on the pages a
+  stranger arrives at first; the repetition is known, not missed.
 
 Four things here are expensive to get wrong, and none of them fails loudly:
 
