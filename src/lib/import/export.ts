@@ -28,7 +28,11 @@ export function toChoproFile(
   const head: string[] = [`{title: ${song.title}}`]
 
   if (song.artist !== null && song.artist !== '') head.push(`{artist: ${song.artist}}`)
-  if (song.tags.length > 0) head.push(`{tags: ${song.tags.join(', ')}}`)
+  /* One line per tag, which is the format's own form: `{tag:}` is singular and repeats.
+     This wrote `{tags: a, b}` until 2026-09-20 — a plural spelling of this app's invention
+     that no other program reads. Still read on the way in, so every export ever made still
+     restores; no longer written on the way out. */
+  for (const tag of song.tags) head.push(`{tag: ${tag}}`)
   if (songbookName !== null) head.push(`{songbook: ${songbookName}}`)
   if (sectionName !== null) head.push(`{division: ${sectionName}}`)
 

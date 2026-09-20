@@ -665,11 +665,25 @@ export function parseChordPro(source: string): ParsedSong {
         case 'metadata':
           song.metadata[METADATA_FIELD[rawName]] = value || null
           break
+        /*
+         * **`{tag:}` accumulates, because the specification says it repeats.** One tag per
+         * line is the format's primary form — «Multiple tags are possible» — and this used
+         * to *assign*, so a song saying `{tag: rock}` then `{tag: live}` kept only «live»
+         * and threw the rest away without a word. Five of twelve real files carried two
+         * `{tag}` lines, so it was not a corner: they imported with half their tags gone.
+         *
+         * `{tags: rock, live}` is this app's own plural, comma-separated spelling and is
+         * still read — every export it ever wrote used it, and every song already stored
+         * came in through it. It adds to the same list rather than replacing it, so the two
+         * forms can sit in one file without either winning.
+         *
+         * Deduplicated, since accumulating two spellings of the same word otherwise shows
+         * it twice on the song.
+         */
         case 'tags':
-          song.tags = value
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter((tag) => tag !== '')
+          for (const tag of value.split(',').map((one) => one.trim())) {
+            if (tag !== '' && !song.tags.includes(tag)) song.tags.push(tag)
+          }
           break
         case 'songbookName':
           song.songbookName = value || null

@@ -30,7 +30,8 @@ describe('toChoproFile', () => {
 
     assert.ok(file.startsWith('{title: Certe notti}\n'))
     assert.ok(file.includes('{artist: Ligabue}'))
-    assert.ok(file.includes('{tags: lento}'))
+    // One line per tag, singular — the format's own form, where `{tags: a, b}` was ours.
+    assert.ok(file.includes('{tag: lento}'))
     assert.ok(file.includes('{songbook: Repertorio}'))
     assert.ok(file.includes('{division: Prima parte}'))
   })
@@ -52,6 +53,25 @@ describe('toChoproFile', () => {
 
   it('keeps the music', () => {
     assert.ok(toChoproFile(song, 'Repertorio', 'Prima parte').includes('[Am]Certe notti'))
+  })
+
+  /*
+   * `{tag:}` repeats rather than taking a list, so a song with several writes several lines
+   * and reads them all back. It used to write one `{tags: a, b}` — a plural of this app's
+   * own invention that no other program reads.
+   */
+  it('writes one line per tag, and reads them all back', () => {
+    const many = toChoproFile({ ...song, tags: ['lento', 'live', 'acustico'] }, null, null)
+
+    assert.ok(many.includes('{tag: lento}'))
+    assert.ok(many.includes('{tag: live}'))
+    assert.ok(many.includes('{tag: acustico}'))
+    assert.deepEqual(parseChordPro(many).tags, ['lento', 'live', 'acustico'])
+  })
+
+  /* Everything this app ever exported used the plural, so it has to keep coming back. */
+  it('still reads the plural spelling it used to write', () => {
+    assert.deepEqual(parseChordPro('{title: T}\n{tags: rock, live}\nword').tags, ['rock', 'live'])
   })
 
   it('omits directives with nothing to say', () => {
