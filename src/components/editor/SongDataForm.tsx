@@ -255,7 +255,7 @@ function Column({
   onChange: (next: string) => void
 }) {
   return (
-    <label className="song-data-row is-wide">
+    <label className="song-data-row">
       <span className="song-data-label">
         <span>{label}</span>
         <code>{name}</code>

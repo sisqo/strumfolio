@@ -58,9 +58,13 @@ export interface FieldSpec {
   /** A value that is not prose — a fingering, a time signature — is shown in the mono face. */
   mono?: boolean
   /**
-   * How many of the three columns the field takes. One is the default and what nearly
-   * everything wants — a key, a year, a tempo — so three sit on a row; `2` is for a value
-   * that is a sentence, and `'full'` for one that is a line of its own notation.
+   * How many of the three columns the field takes.
+   *
+   * One is the default and what nearly everything wants, so the form reads as a grid three
+   * across; `2` is for the one value that is a whole sentence (a copyright notice), and
+   * `'full'` for one that is a line of notation in its own right (a fingering). Anything
+   * else widened for the sake of it leaves a hole in the row beside it, which is what the
+   * first pass looked like in a browser.
    */
   span?: 2 | 'full'
 }
@@ -94,9 +98,9 @@ export const DATA_GROUPS: GroupSpec[] = [
     title: 'Identity',
     kind: 'single',
     fields: [
-      { name: 'title', label: 'Title', span: 2 },
+      { name: 'title', label: 'Title' },
       { name: 'artist', label: 'Artist' },
-      { name: 'subtitle', label: 'Subtitle', span: 2 },
+      { name: 'subtitle', label: 'Subtitle' },
       { name: 'album', label: 'Album' },
       { name: 'composer', label: 'Composer' },
       { name: 'lyricist', label: 'Lyricist' },
@@ -137,8 +141,8 @@ export const DATA_GROUPS: GroupSpec[] = [
     title: 'Sorting',
     kind: 'single',
     fields: [
-      { name: 'sorttitle', label: 'Sorts as', span: 2 },
-      { name: 'sortartist', label: 'Artist sorts as', span: 2 },
+      { name: 'sorttitle', label: 'Sorts as' },
+      { name: 'sortartist', label: 'Artist sorts as' },
     ],
   },
 ]
