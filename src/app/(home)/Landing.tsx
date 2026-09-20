@@ -385,15 +385,59 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'What format does Strumfolio save files in?',
+        /*
+         * The spec-compliance half of this answer moved into «How closely…» below, which is the
+         * question that actually asks it — this one was making the same claim in weaker words,
+         * cheat-sheet link and version number included, and two independent statements of one
+         * fact is how the pair comes to drift. What is left here answers what was asked: which
+         * format, and what an export hands back.
+         */
         a: (
           <>
             Behind the scenes, every song on Strumfolio is saved in ChordPro, the standard
-            format for lyrics and chords. Our reader is up to date and understands the rules
-            of the format: we currently support the official specifications documented in the{' '}
-            {cheatSheetLink('ChordPro cheat sheet')} (version 6.07). This means the app reads
-            your files respecting exactly the details you entered. Because we don&apos;t use
-            closed, proprietary formats that only we understand, when you export your
-            repertoire you will get back clean, universal files ready to be opened anywhere.
+            format for lyrics and chords. Because we don&apos;t use closed, proprietary formats
+            that only we understand, when you export your repertoire you will get back clean,
+            universal files ready to be opened anywhere.
+          </>
+        ),
+      },
+      {
+        q: 'How closely does Strumfolio follow the ChordPro specification?',
+        /*
+         * «Import a song, export it again, and you get your own file back, not our interpretation
+         * of it» was the closing sentence this was written from, and it is false on the
+         * import→export path — the byte-for-byte promise belongs to `editor/document.ts`, where
+         * `toSource(fromSource(x)) === x` really does hold. `toChoproFile` writes `{title}`,
+         * `{artist}`, `{songbook}` and `{division}` fresh from the row and strips every body copy
+         * (`METADATA_DIRECTIVE`), which is deliberate and is what makes an export a restore.
+         *
+         * Measured through `deduce` + `toChoproFile` rather than argued: `{t: Prova}` came back
+         * `{title: Prova}` and a `{canzoniere:}` on the last line came back `{songbook:}` on the
+         * second, while `{x_mood:}`, `{textfont:}`, `{key:}`, `{comment:}`, `{define:}` and the
+         * chorus block survived byte for byte and in order. So the sentence names the four that
+         * move instead of promising they do not — which is the stronger claim anyway, since it
+         * says exactly how much is untouched.
+         *
+         * The four are named in the spelling a reader sees them in (title, artist, songbook,
+         * section) rather than as directives: `division` is the file's word and «section» is this
+         * app's, everywhere else on this page.
+         *
+         * `x_` is plain text and not a `<code>`: nothing in this project styles that element —
+         * grepped, not assumed — so one would render in the browser's default monospace against
+         * Outfit, and it would be the only one on the page.
+         */
+        a: (
+          <>
+            Closely, and deliberately so. Strumfolio implements ChordPro as published in the{' '}
+            {cheatSheetLink('ChordPro cheat sheet')} (version 6.07): sections and their labels,
+            the full set of metadata directives, chord and fingering definitions, annotations,
+            comments and custom x_ directives. Anything the specification defines
+            for print typesetting — fonts, colours, page and column breaks — has no equivalent on
+            a scrolling screen, so Strumfolio carries it through your file untouched rather than
+            dropping it. Export a song you imported and it comes back as you wrote it, down to
+            the directives we never act on; only the title, artist, songbook and section are
+            rewritten in the standard spelling, because those four are the fields Strumfolio
+            keeps of its own.
           </>
         ),
       },
@@ -649,7 +693,7 @@ const FAQ: FaqGroup[] = [
 ]
 
 /**
- * Eleven, not an exhaustive list. Each is something a visitor can picture doing on
+ * Twelve, not an exhaustive list. Each is something a visitor can picture doing on
  * stage, in one sentence — the rest is for whoever is already inside to discover.
  */
 const FEATURES: Feature[] = [
@@ -657,6 +701,31 @@ const FEATURES: Feature[] = [
     icon: <IconImport size={26} />,
     title: 'Bring your own songs',
     text: "No catalogue to browse. Import what you already have — and start with an example songbook of public-domain songs already in place, so there's something to play from minute one. Edit it your way, export it whenever you like.",
+  },
+  {
+    icon: <IconCode size={26} />,
+    title: 'ChordPro, to the letter',
+    /* Placed second on purpose: «import what you already have» is the card above, and the very
+     * next thing somebody with a folder of files wants to know is whether this app will mangle
+     * them. The order of this grid is an argument, per the header comment.
+     *
+     * **Two claims in the copy this was written from were cut, each against the code.** «Not a
+     * dialect of its own» is contradicted by two deliberate deviations this repo argues for at
+     * length: `{st}`/`{subtitle}` is read as the *artist* in an OnSong file (`import/dialect.ts`),
+     * and `{songbook}`/`{division}` are written unprefixed where a strict reading spells a private
+     * directive `{x_…}`. The export is a dialect, knowingly. And «what you import is what you get
+     * back» borrows `editor/document.ts`' byte-for-byte guarantee — which is real, and is about the
+     * *editor* — and attaches it to the import→export path, where `toChoproFile` rewrites the four
+     * column directives fresh from the row. Measured rather than reasoned: `{t:}` comes back
+     * `{title:}` and a `{canzoniere:}` at the foot comes back `{songbook:}` at the head, while
+     * `{x_mood:}`, `{textfont:}`, `{key:}`, `{comment:}` and `{define:}` survived untouched and in
+     * order. So the promise made here is the one that held — nothing is deleted — and the FAQ
+     * answer below names the four that move. */
+    text:
+      'Sections, metadata, chord definitions, annotations, custom directives: Strumfolio speaks ' +
+      'the published ChordPro specification, not a format only we can read. What a scrolling ' +
+      "screen can't draw — fonts, colours, page breaks — is kept untouched in your file rather " +
+      'than dropped, so nothing you wrote is lost on the way in.',
   },
   {
     icon: <IconOnStage size={26} />,
