@@ -1,5 +1,6 @@
 'use client'
 
+import { DraftInput } from '@/components/editor/DraftInput'
 import { IconPlus } from '@/components/icons'
 import type { Section, Songbook } from '@/lib/data/types'
 import { type SongDocument, fromSource, toSource } from '@/lib/editor/document'
@@ -159,11 +160,9 @@ export function SongDataForm({
               <div className={`song-data-list ${group.mono ? '' : 'is-short'}`}>
                 {group.rows.map((row) => (
                   <div className="song-data-repeat" key={row.block ?? -1}>
-                    <input
+                    <DraftInput
                       value={row.value}
-                      onChange={(event) =>
-                        write(setSongField(document, row.block, row.name, event.target.value))
-                      }
+                      onChange={(next) => write(setSongField(document, row.block, row.name, next))}
                       className={`form-field song-data-input ${row.mono ? 'is-mono' : ''}`}
                       aria-label={group.label}
                     />
@@ -202,11 +201,9 @@ export function SongDataForm({
             {data.others.map((row) => (
               <div className="song-data-repeat" key={row.block ?? -1}>
                 <code className="song-data-other">{row.name}</code>
-                <input
+                <DraftInput
                   value={row.value}
-                  onChange={(event) =>
-                    write(setSongField(document, row.block, row.name, event.target.value))
-                  }
+                  onChange={(next) => write(setSongField(document, row.block, row.name, next))}
                   className="form-field song-data-input is-mono"
                   aria-label={row.name}
                 />
@@ -260,9 +257,9 @@ function Column({
         <span>{label}</span>
         <code>{name}</code>
       </span>
-      <input
+      <DraftInput
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         className="form-field song-data-input"
       />
     </label>
@@ -277,9 +274,9 @@ function Field({ row, onChange }: { row: DataRow; onChange: (next: string) => vo
         <span>{row.label}</span>
         <code>{row.name}</code>
       </span>
-      <input
+      <DraftInput
         value={row.value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         className={`form-field song-data-input ${row.mono ? 'is-mono' : ''}`}
       />
     </label>

@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { DraftInput } from '@/components/editor/DraftInput'
 import { IconCheck } from '@/components/icons'
 import type { LineRange } from '@/lib/editor/clipboard'
 import {
@@ -665,11 +666,17 @@ function BlockRow({
               <code className="editor-hint editor-directive-name">{label}</code>
             )}
 
-            <input
+            {/*
+              * A draft input, and for the directive row it is not a nicety: the value is
+              * written into `{name: value}` and read straight back, and the parse trims — so
+              * a trailing space died between keystrokes and «Repeat ad lib» came out
+              * «Repeatadlib». The same fix the song-data form needs, for the same reason.
+              */}
+            <DraftInput
               className="line-input editor-directive-value"
               value={value}
               placeholder={closing ? undefined : placeholder}
-              onChange={(event) => onText(event.target.value, event.target.selectionStart ?? 0)}
+              onChange={(next) => onText(next, next.length)}
               onFocus={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
               onClick={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
               onKeyUp={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}

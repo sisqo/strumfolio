@@ -286,6 +286,36 @@ describe('the corpus survives being read as a form', () => {
   }
 })
 
+/*
+ * Why `DraftInput` exists, pinned here because `npm test` reaches a module and not a React
+ * tree — so the component itself cannot be tested, but the fact that forced it can.
+ */
+describe('a value does not survive the round trip byte for byte', () => {
+  it('loses a trailing space, which is what stopped anybody typing one', () => {
+    const written = setSongField(fromSource('{title: T}\nparole'), null, 'album', 'Disco ')
+    const back = readSongData(written).groups
+      .find((one) => one.title === 'Identity')
+      ?.rows.find((one) => one.name === 'album')
+
+    // Written with the space, read back without it — so a controlled input fed from the
+    // document dropped every space the moment it was typed, and «Disco di prova» arrived
+    // as «Discodiprova». The input keeps its own draft while it has the focus.
+    assert.ok(toSource(written).includes('{album: Disco }'))
+    assert.equal(back?.value, 'Disco')
+  })
+
+  /* The other half: once the value is a word again the two agree, which is the condition
+     the draft is kept under — disagree and the document wins, so Undo is not fought. */
+  it('is unchanged for a value with nothing hanging off the end', () => {
+    const written = setSongField(fromSource('{title: T}\nparole'), null, 'album', 'Disco di prova')
+    const back = readSongData(written).groups
+      .find((one) => one.title === 'Identity')
+      ?.rows.find((one) => one.name === 'album')
+
+    assert.equal(back?.value, 'Disco di prova')
+  })
+})
+
 describe('the fieldset table', () => {
   it('names every field once across the groups', () => {
     const names = DATA_GROUPS.flatMap((group) => group.fields.map((field) => field.name))
