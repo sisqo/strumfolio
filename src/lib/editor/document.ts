@@ -34,7 +34,15 @@ export interface ChordAt {
 export type Block =
   | { kind: 'lyrics'; text: string; chords: ChordAt[] }
   /** `{c: ...}`, keeping the spelling the file used. */
-  | { kind: 'comment'; directive: string; text: string }
+  /**
+   * `raw` is the line exactly as the file wrote it, and it is what gets written back while
+   * the text is untouched. Without it `{c:forte}` came back `{c: forte}` and
+   * `{comment Repeat ad lib}` came back `{comment: Repeat ad lib}` — a canonical spelling
+   * this module invented, applied to lines nobody had edited, so opening such a song and
+   * pressing Save rewrote three lines of somebody's file. Absent on a block this editor
+   * built itself, which has no original spelling to keep.
+   */
+  | { kind: 'comment'; directive: string; text: string; raw?: string }
   /** `{soc}`, `{eoc}`, `{sob}`, `{eob}`, again as written. */
   /**
    * `{soc}`, `{eoc}`, `{sob}`, `{eob}`, again as written — and with the label a section may
@@ -51,6 +59,8 @@ export type Block =
       edge: 'start' | 'end'
       section: SectionKind
       value: string
+      /** The line as written — see the `comment` block above for why. */
+      raw?: string
     }
   /** Any other directive, kept verbatim because something else may depend on it. */
   | { kind: 'directive'; raw: string }
@@ -80,6 +90,8 @@ export type Block =
        * it, the only copy of that name was gone.
        */
       startValue: string
+      /** The opening line as written — see the `comment` block above for why. */
+      startRaw?: string
       endDirective: string | null
       rows: string[]
       /**
@@ -221,6 +233,7 @@ export function fromSource(source: string): SongDocument {
           kind: 'tab',
           startDirective: directive[1],
           startValue: directive[2] ?? '',
+          startRaw: line,
           endDirective,
           rows,
           variant: GRID_START_NAMES.has(name) ? 'grid' : 'tab',
@@ -229,7 +242,7 @@ export function fromSource(source: string): SongDocument {
       }
 
       if (COMMENT_NAMES.has(name)) {
-        blocks.push({ kind: 'comment', directive: directive[1], text: directive[2] ?? '' })
+        blocks.push({ kind: 'comment', directive: directive[1], text: directive[2] ?? '', raw: line })
         continue
       }
 
@@ -240,6 +253,7 @@ export function fromSource(source: string): SongDocument {
           directive: directive[1],
           ...boundary,
           value: directive[2] ?? '',
+          raw: line,
         })
         continue
       }
@@ -311,18 +325,28 @@ function lineOf(block: Block, eol: string): string {
     /* `{c}` and `{c: forte}` are both comments and only one of them has a value. Writing
        the colon back regardless turned an empty one into `{c: }` — a line that says the
        same thing in bytes the file never had, which is the one thing this module exists
-       not to do. */
+       not to do.
+
+       `raw` is the rest of that argument, found on 2026-09-20 by reading the whole corpus
+       instead of a fixture: the separator is the file's too. `{c:forte}` and
+       `{comment Repeat ad lib}` are both legal and neither is what this canonical form
+       writes, so an untouched line of either shape was rewritten the moment anybody saved
+       the song. An edit drops `raw` (see `setLineText`) and falls through to the canonical
+       spelling, which is the right trade: keep what was written, normalise what was typed. */
     case 'comment':
+      if (block.raw !== undefined) return block.raw
       return block.text === '' ? `{${block.directive}}` : `{${block.directive}: ${block.text}}`
     case 'boundary':
+      if (block.raw !== undefined) return block.raw
       return block.value === '' ? `{${block.directive}}` : `{${block.directive}: ${block.value}}`
     case 'lyrics':
       return writeLyricLine(block.text, block.chords)
     case 'tab':
       return [
-        block.startValue === ''
-          ? `{${block.startDirective}}`
-          : `{${block.startDirective}: ${block.startValue}}`,
+        block.startRaw ??
+          (block.startValue === ''
+            ? `{${block.startDirective}}`
+            : `{${block.startDirective}: ${block.startValue}}`),
         ...block.rows,
         `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
       ].join(eol)

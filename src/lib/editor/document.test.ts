@@ -12,6 +12,7 @@ import {
   toSource,
   writeLyricLine,
 } from './document'
+import { setLineText } from './edits'
 
 /**
  * Every structural feature the real repertoire uses, in one file.
@@ -79,6 +80,38 @@ describe('a source survives being read and written', () => {
      */
     assert.deepEqual(kinds, ['directive', 'directive', 'directive', 'lyrics', 'boundary'])
     assert.equal(kinds.filter((kind) => kind === 'lyrics').length, 1)
+  })
+
+  /*
+   * The separator is the file's too, which this module had been quietly overruling.
+   *
+   * `{c:forte}` and `{comment Repeat ad lib}` are both legal ChordPro and neither is the
+   * `{name: value}` this editor writes, so opening a song that used either and pressing
+   * Save rewrote those lines — untouched lines, in somebody else's file, which is the one
+   * thing the round trip exists to prevent. Found on 2026-09-20 by running the invariant
+   * over the whole reference corpus instead of over a fixture: one file in twelve did it,
+   * on three lines.
+   */
+  it('keeps the spelling of a comment, colon and spaces included', () => {
+    for (const source of [
+      '{c:forte}',
+      '{comment Repeat ad lib until the landlord objects}',
+      '{c: spaziato}',
+      '{comment_box:incorniciato}',
+      '{start_of_chorus:Finale}',
+      '{start_of_tab:Solo}\ne|--3--\n{end_of_tab}',
+    ]) {
+      assert.equal(toSource(fromSource(source)), source)
+    }
+  })
+
+  /*
+   * And the other half, or the first would be a way of making an edit do nothing: once the
+   * text has been typed into, the line is written the canonical way.
+   */
+  it('writes the canonical spelling once the line has been edited', () => {
+    const document = fromSource('{c:forte}')
+    assert.equal(toSource(setLineText(document, 0, 'piano')), '{c: piano}')
   })
 
   it('keeps windows line endings rather than rewriting the whole file', () => {

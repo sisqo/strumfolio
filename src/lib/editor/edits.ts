@@ -37,7 +37,14 @@ export function setLineText(document: SongDocument, index: number, text: string)
   const block = document.blocks[index]
   if (block === undefined) return document
 
-  if (block.kind === 'comment') return replace(document, index, { ...block, text })
+  /*
+   * `raw: undefined` on both of these, and it is load-bearing rather than tidy: the block
+   * carries the line as the file wrote it so an *untouched* one is handed back unchanged
+   * (see `lineOf`), and a spread that kept it would write the old line back over the new
+   * text — the edit would appear to do nothing. Dropping it falls through to the canonical
+   * spelling, which is what a line somebody has just typed into should have.
+   */
+  if (block.kind === 'comment') return replace(document, index, { ...block, text, raw: undefined })
 
   /*
    * The three kinds that show something a person may want to change, and could not until
@@ -52,7 +59,8 @@ export function setLineText(document: SongDocument, index: number, text: string)
    * line nobody touched exactly as it was, which is the half that matters for a file this
    * app did not write.
    */
-  if (block.kind === 'boundary') return replace(document, index, { ...block, value: text })
+  if (block.kind === 'boundary')
+    return replace(document, index, { ...block, value: text, raw: undefined })
 
   if (block.kind === 'source-comment') {
     return replace(document, index, { ...block, raw: `#${text}` })
@@ -110,6 +118,8 @@ export function setLineText(document: SongDocument, index: number, text: string)
 export function setTabRows(document: SongDocument, index: number, rows: string[]): SongDocument {
   const block = document.blocks[index]
   if (block === undefined || block.kind !== 'tab') return document
+  // The rows change and the opening line does not, so `startRaw` stays: this edit has no
+  // opinion about how `{start_of_tab}` was spelled.
   return replace(document, index, { ...block, rows })
 }
 
