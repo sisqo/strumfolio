@@ -76,7 +76,7 @@ export default async function QaPage() {
           <p className="notice notice-accent mt-5 text-start" role="status">
             Signed in as <strong>{user.email}</strong>.{' '}
             <Link href="/billing" className="underline">
-              Billing
+              Plan &amp; billing
             </Link>{' '}
             ·{' '}
             <Link href="/" className="underline">
