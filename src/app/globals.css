@@ -13690,16 +13690,16 @@
    * off the row, unlike the reading screen's chip menus: this row scrolls sideways on a
    * phone, so a menu anchored to the row would drift away from the button that opened it.
    */
-  .editor-field-menu {
-    position: relative;
-    display: inline-flex;
-  }
-
+  /*
+   * Anchored to `.editor-tools`, which is the row — never to the button, which lives inside
+   * a strip that scrolls sideways and would clip this to nothing. `z-index` has to clear
+   * `.menu-overlay`'s 30, or the veil is drawn over the panel it exists to sit behind.
+   */
   .editor-field-list {
     position: absolute;
-    top: calc(100% + 0.375rem);
+    top: calc(100% - 0.125rem);
     left: 0;
-    z-index: 30;
+    z-index: 31;
     width: 16rem;
     max-height: 22rem;
     overflow-y: auto;
@@ -14552,6 +14552,7 @@
   }
 
   .editor-tools {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.35rem;
