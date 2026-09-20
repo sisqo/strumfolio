@@ -125,6 +125,38 @@ function commitHash(): string {
 
 const nextConfig: NextConfig = {
   /**
+   * `mdx` is in here for a reason that has nothing to do with routing, and taking it out
+   * again breaks the blog in `next dev` — every article, with a 500 and no obvious cause.
+   *
+   * Next decides which copy of React a module's imports resolve to with a webpack rule
+   * carrying `issuerLayer: shouldUseReactServerCondition`, and that rule's `test` is
+   * `aliasCodeConditionTest` = `[/\.(tsx|ts|js|cjs|mjs|jsx)$/, pageExtensionsRegex]`
+   * (`next/dist/build/webpack-config.js`). An `.mdx` resource matches the first only never
+   * and the second only if `mdx` is listed *here* — so without it the compiled article
+   * imported `node_modules/react/jsx-dev-runtime.js`, the client copy, while
+   * `mdx-components.tsx` a few lines away in the same chunk got the vendored
+   * `.../app-page/vendored/rsc/react-jsx-dev-runtime.js`. React's `react-server` build
+   * exports no `__CLIENT_INTERNALS_…`, so `jsxDEV` read `undefined` and threw «Cannot read
+   * properties of undefined (reading 'recentlyCreatedOwnerStacks')» at the first component
+   * of every file.
+   *
+   * **`next build` never saw it**, which is how it survived: production renders with the
+   * slim runtime that touches no internals, `/blog/[slug]` prerenders and the live site
+   * answers 200 — the blog was broken only on the machine of whoever was writing an article.
+   * Two near-misses worth not repeating: `createMDX({ options: { development: false } })`
+   * looks like the fix and is not (`react/jsx-runtime.js` picks dev or prod by `NODE_ENV`,
+   * not by which export is called, so `next dev` lands on the same runtime and throws
+   * identically), and neither is putting the loader rule in the `rsc` layer — the module is
+   * *already* in it, as its own `(rsc)/./content/blog/…` id says. Both measured.
+   *
+   * What listing it costs is the thing this used to be left alone to avoid: an `.mdx` file
+   * inside `src/app/` now becomes a route. Nothing here is one, and `lib/blog/mdxRoutes.test.ts`
+   * is what keeps it that way — a failing test rather than a config that quietly forbids it.
+   * The four defaults have to be spelled out because naming this replaces them wholesale.
+   */
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'mdx'],
+
+  /**
    * Inlined at build time wherever `process.env.COMMIT_HASH` is read, in server or
    * client code alike — see `Footer.tsx`, the only reader.
    */
@@ -176,11 +208,10 @@ const nextConfig: NextConfig = {
  * Teaches the bundler to import an `.mdx` file as a React component — the blog's articles,
  * which live in `content/blog/` and are imported by `lib/blog/posts.ts`.
  *
- * **`pageExtensions` is deliberately left alone.** Adding `mdx` to it is what the @next/mdx
- * README suggests, and it is what makes an `.mdx` file *inside `src/app/` become a route*.
- * Nothing here wants that: the articles are content imported as modules, not pages, and
- * leaving route resolution exactly as it was means no file dropped into the app directory can
- * turn into a URL by accident. What this wrapper is used for is the loader rule alone.
+ * **`pageExtensions` lists `mdx` and that is not about routing** — see its own comment above,
+ * which is where the reason lives, because the reason is React resolution rather than URLs.
+ * This wrapper is still used for the loader rule alone: the articles are content imported by
+ * `lib/blog/posts.ts`, not pages, and none of them is anywhere near `src/app/`.
  */
 const withMDX = createMDX({})
 
