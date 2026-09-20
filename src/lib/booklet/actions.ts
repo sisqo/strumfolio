@@ -34,9 +34,6 @@ export interface BookletSong {
   slug: string
   title: string
   artist: string | null
-  link1: string | null
-  link2: string | null
-  link3: string | null
   body: string
   /**
    * The downloading reader's own settings for this song, only when they asked to print
@@ -196,9 +193,6 @@ export async function loadBooklet(
       slug: songs.slug,
       title: songs.title,
       artist: songs.artist,
-      link1: songs.link1,
-      link2: songs.link2,
-      link3: songs.link3,
       body: songs.body,
       sectionId: sections.id,
       sectionName: sections.name,
@@ -230,9 +224,6 @@ export async function loadBooklet(
       slug: row.slug,
       title: row.title,
       artist: row.artist,
-      link1: row.link1,
-      link2: row.link2,
-      link3: row.link3,
       body: row.body,
       personal: personalBySlug.get(row.slug) ?? null,
       comments: commentsBySlug.get(row.slug) ?? [],

@@ -21,7 +21,7 @@ import { SongControls } from '@/components/SongControls'
 import { SongInfoPanel } from '@/components/SongInfoPanel'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
-import { IconExternal, IconInfo } from '@/components/icons'
+import { IconInfo } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
 import { metadataValues } from '@/lib/chordproMeta'
 import { songInfoRows } from '@/lib/songInfo'
@@ -100,7 +100,6 @@ export function SongHeading({
   sequence: Sequence
 }) {
   const { song, parsed, deleted } = useSong()
-  const links = [song.link1, song.link2, song.link3].filter((link) => link !== null)
   const place = useSequence(sequence)
 
   /*
@@ -168,24 +167,6 @@ export function SongHeading({
       </p>
 
       {infoOpen && <SongInfoPanel rows={infoRows} onClose={() => setInfoOpen(false)} />}
-
-      {links.length > 0 && (
-        <p className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-          {links.map((link) => (
-            <a
-              key={link}
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-accent underline underline-offset-2"
-            >
-              {link.replace(/^https?:\/\//, '')}
-              <span className="sr-only">(opens in a new tab)</span>
-              <IconExternal size={12} />
-            </a>
-          ))}
-        </p>
-      )}
 
       <SongControls
         songSlug={song.slug}

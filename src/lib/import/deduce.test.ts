@@ -32,15 +32,6 @@ describe('deduce', () => {
     assert.equal(result.body, '[C]testo')
   })
 
-  it('reads the three links and strips them from the body, gap included', () => {
-    const result = deduce('{title: Uno}\n{link1: https://a}\n{link3: https://c}\n[C]testo')
-
-    assert.equal(result.link1, 'https://a')
-    assert.equal(result.link2, null)
-    assert.equal(result.link3, 'https://c')
-    assert.equal(result.body, '[C]testo')
-  })
-
   it('reads a two-line heading and removes it from the body', () => {
     const result = deduce('Certe notti\nLigabue\n\n[Am]Certe notti la [F]macchina')
 

@@ -7,9 +7,6 @@ export interface SongInput {
   title: string
   artist: string | null
   tags: string[]
-  link1: string | null
-  link2: string | null
-  link3: string | null
   songbookSlug: string
   /**
    * The section within it, or null for «wherever this songbook files things first».

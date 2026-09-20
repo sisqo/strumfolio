@@ -6,9 +6,6 @@ export interface SongFieldValues {
   title: string
   artist: string
   tags: string
-  link1: string
-  link2: string
-  link3: string
   songbookSlug: string
   /** The section's id as the select holds it: a string, empty when none is offered. */
   sectionId: string
@@ -133,44 +130,6 @@ export function SongFields({
         />
       </label>
 
-      {/*
-        * Three plain slots rather than an "add a link" list: a song rarely has more
-        * than a couple, and a fixed field can sit empty while a later one is filled —
-        * which a list that only ever holds what was added could not do without the
-        * gap looking like a mistake.
-        */}
-      <label className="block">
-        <span className="field-label">Link 1</span>
-        <input
-          type="url"
-          value={values.link1}
-          onChange={(event) => onChange('link1', event.target.value)}
-          placeholder="https://…"
-          className="form-field"
-        />
-      </label>
-
-      <label className="block">
-        <span className="field-label">Link 2</span>
-        <input
-          type="url"
-          value={values.link2}
-          onChange={(event) => onChange('link2', event.target.value)}
-          placeholder="https://…"
-          className="form-field"
-        />
-      </label>
-
-      <label className="block">
-        <span className="field-label">Link 3</span>
-        <input
-          type="url"
-          value={values.link3}
-          onChange={(event) => onChange('link3', event.target.value)}
-          placeholder="https://…"
-          className="form-field"
-        />
-      </label>
     </div>
   )
 }

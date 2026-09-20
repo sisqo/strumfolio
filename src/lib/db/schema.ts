@@ -449,15 +449,6 @@ export const songs = pgTable(
     title: text('title').notNull(),
     artist: text('artist'),
     tags: text('tags').array().notNull().default([]),
-    /**
-     * Three free-form links a song can carry — a video, a tab, an official page,
-     * whatever earns a place — kept as three named columns rather than one array so
-     * a gap between two filled ones (the second empty, the third not) stays a fact
-     * about *which* slot is empty, not a hole a list would collapse or reorder away.
-     */
-    link1: text('link1'),
-    link2: text('link2'),
-    link3: text('link3'),
     body: text('body').notNull(),
     /**
      * `restrict` puts the "refuse to delete a non-empty songbook" rule in the

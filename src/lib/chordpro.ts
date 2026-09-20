@@ -25,11 +25,14 @@
  *   the specification's. `import/dialect.ts` argues it at length: on the single most
  *   contested directive in the survey, the value in real files is an artist, and moving
  *   it would change how every already-importable file imports.
- * - **`{songbook}`, `{division}` and `{link1..3}` are this app's own directives**, where
- *   a strict reading says a private extension is spelled `{x_…}`. The `{x_}` spellings
- *   are read too (below) so a file written by a stricter tool is understood; what this
- *   app *writes* is unchanged, because the export is also this repo's restore path and
- *   renaming what it writes would strand every backup already made.
+ * - **`{songbook}` and `{division}` are this app's own directives**, where a strict reading
+ *   says a private extension is spelled `{x_…}`. The `{x_}` spellings are read too (below)
+ *   so a file written by a stricter tool is understood; what this app *writes* is unchanged,
+ *   because the export is also this repo's restore path and renaming what it writes would
+ *   strand every backup already made. They earn their keep by answering a question the
+ *   format does not ask — *where does this song live* — which is why they stayed when
+ *   `{link1..3}` went (2026-09-20): a link is a field, and the format already decides which
+ *   fields a song has.
  * - **Line continuation — a line ending in `\` joined to the one after it — is not
  *   read**, and this is the one construct on the cheat sheet that could not be added
  *   without breaking something. Every comment in a song is anchored by its block index in
@@ -294,14 +297,6 @@ export interface ParsedSong {
    */
   sectionName: string | null
   /**
-   * Three free-form links, each its own slot rather than a joined list — see
-   * `songs.link1` in `db/schema.ts` for why a gap between them has to stay a gap.
-   * Written and read as `{link1: ...}`, `{link2: ...}`, `{link3: ...}`.
-   */
-  link1: string | null
-  link2: string | null
-  link3: string | null
-  /**
    * The tempo the song is written at, from `{tempo: 96}` — the metronome's starting
    * point, and nothing else. Null when the song does not say, which is most of them.
    *
@@ -396,12 +391,6 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   division: 'sectionName',
   sezione: 'sectionName',
   x_division: 'sectionName',
-  link1: 'link1',
-  link2: 'link2',
-  link3: 'link3',
-  x_link1: 'link1',
-  x_link2: 'link2',
-  x_link3: 'link3',
   /* Read for the metronome, and the one pair of directives here that is read as a number.
      `bpm` is `tempo`'s own alias in the import dialect table too (`import/dialect.ts`), so
      a file is understood the same way whichever door it came in through. */
@@ -506,9 +495,6 @@ export function parseChordPro(source: string): ParsedSong {
     tags: [],
     songbookName: null,
     sectionName: null,
-    link1: null,
-    link2: null,
-    link3: null,
     tempo: null,
     beatsPerBar: null,
     capo: null,
@@ -690,15 +676,6 @@ export function parseChordPro(source: string): ParsedSong {
           break
         case 'sectionName':
           song.sectionName = value || null
-          break
-        case 'link1':
-          song.link1 = value || null
-          break
-        case 'link2':
-          song.link2 = value || null
-          break
-        case 'link3':
-          song.link3 = value || null
           break
         /* Narrowed, not stored raw: `readBpm` and `parseTimeSignature` answer null for
            everything that is not a number this can beat, so a directive nobody can play

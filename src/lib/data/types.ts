@@ -35,10 +35,6 @@ export interface Song {
   title: string
   artist: string | null
   tags: string[]
-  /** Three free-form links, each its own column — see `songs.link1` in `db/schema.ts`. */
-  link1: string | null
-  link2: string | null
-  link3: string | null
   /**
    * The songbook at build time. A snapshot, not the truth: names and
    * assignments can change at runtime, so the client refreshes this from the

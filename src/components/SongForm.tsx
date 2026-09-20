@@ -65,9 +65,6 @@ export function SongForm({
     title: values.title,
     artist: values.artist,
     tags: values.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''),
-    link1: values.link1,
-    link2: values.link2,
-    link3: values.link3,
     songbookSlug: values.songbookSlug,
     // An empty menu — a songbook with no sections at all — leaves the answer to the
     // server, which files the song in the first one it can and creates it if it must.

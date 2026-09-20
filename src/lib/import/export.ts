@@ -29,9 +29,6 @@ export function toChoproFile(
 
   if (song.artist !== null && song.artist !== '') head.push(`{artist: ${song.artist}}`)
   if (song.tags.length > 0) head.push(`{tags: ${song.tags.join(', ')}}`)
-  if (song.link1 !== null && song.link1 !== '') head.push(`{link1: ${song.link1}}`)
-  if (song.link2 !== null && song.link2 !== '') head.push(`{link2: ${song.link2}}`)
-  if (song.link3 !== null && song.link3 !== '') head.push(`{link3: ${song.link3}}`)
   if (songbookName !== null) head.push(`{songbook: ${songbookName}}`)
   if (sectionName !== null) head.push(`{division: ${sectionName}}`)
 

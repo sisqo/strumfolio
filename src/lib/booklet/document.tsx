@@ -111,7 +111,7 @@
 
 import { Fragment } from 'react'
 
-import { Document, Font, Link, Page, Path, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer'
+import { Document, Font, Page, Path, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer'
 import { PDFDocument } from 'pdf-lib'
 
 import type { Booklet, BookletSong } from './actions'
@@ -702,10 +702,6 @@ async function paginateIndex(
   return slices
 }
 
-/** A song's three link slots, empty ones dropped, order kept. */
-function linksOf(song: BookletSong): string[] {
-  return [song.link1, song.link2, song.link3].filter((link) => link !== null)
-}
 
 /**
  * Everything the booklet needs to print this reader's own comments on this song — or
@@ -979,7 +975,6 @@ function Stanzas({
 function BookletSongPage({
   title,
   artist,
-  links,
   sectionName,
   left,
   right,
@@ -995,8 +990,6 @@ function BookletSongPage({
   artist: string | null
   /** What a `%{…}` anywhere in this song may name — built once per song in `prepare`. */
   values: MetadataValues
-  /** The song's own links, in their fixed slots — empty ones already dropped. */
-  links: string[]
   /** The songbook section this song lives in — shown as a running header on every page. */
   sectionName: string
   left: Section[]
@@ -1017,15 +1010,6 @@ function BookletSongPage({
           <Text style={styles.songTitle}>{title}</Text>
           {artist !== null && <Text style={styles.songArtist}>{artist}</Text>}
           {transposeNote !== null && <Text style={styles.personalNote}>{transposeNote}</Text>}
-          {links.length > 0 && (
-            <View style={styles.songLinks}>
-              {links.map((link) => (
-                <Link key={link} src={link} style={styles.songLink}>
-                  {link.replace(/^https?:\/\//, '')}
-                </Link>
-              ))}
-            </View>
-          )}
         </View>
       ) : (
         <View style={styles.continuationHeader}>
@@ -1254,14 +1238,12 @@ async function paginateSong(
     instrument,
   )
 
-  const links = linksOf(song)
 
   const renderCandidate = (left: Section[], right: Section[] | null, isFirstPage: boolean) => (
     <BookletSongPage
       title={song.title}
       artist={song.artist}
       values={values}
-      links={links}
       sectionName={sectionName}
       left={left}
       right={right}
@@ -1485,7 +1467,6 @@ export async function bookletToBlob(
               title={entry.song.title}
               artist={entry.song.artist}
               values={songPagination[index].values}
-              links={linksOf(entry.song)}
               sectionName={entry.sectionName}
               left={songPage.left}
               right={songPage.right}

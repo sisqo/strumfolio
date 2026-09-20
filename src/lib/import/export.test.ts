@@ -17,9 +17,6 @@ const song: Song = {
   title: 'Certe notti',
   artist: 'Ligabue',
   tags: ['lento'],
-  link1: 'https://example.com/video',
-  link2: null,
-  link3: null,
   songbookSlug: 'repertorio',
   sectionId: 3,
   body: '{title: Vecchio titolo}\n{key: G}\n\n[Am]Certe notti',
@@ -34,21 +31,8 @@ describe('toChoproFile', () => {
     assert.ok(file.startsWith('{title: Certe notti}\n'))
     assert.ok(file.includes('{artist: Ligabue}'))
     assert.ok(file.includes('{tags: lento}'))
-    assert.ok(file.includes('{link1: https://example.com/video}'))
     assert.ok(file.includes('{songbook: Repertorio}'))
     assert.ok(file.includes('{division: Prima parte}'))
-  })
-
-  /*
-   * `link2` sits null between two filled slots — see `songs.link1`'s own comment in
-   * `db/schema.ts` for why that gap has to survive rather than close up.
-   */
-  it('writes only the link slots that are filled, leaving the gap between them', () => {
-    const file = toChoproFile({ ...song, link2: null, link3: 'https://example.com/tab' }, null, null)
-
-    assert.ok(file.includes('{link1: https://example.com/video}'))
-    assert.ok(!file.includes('{link2:'))
-    assert.ok(file.includes('{link3: https://example.com/tab}'))
   })
 
   /*
@@ -71,12 +55,9 @@ describe('toChoproFile', () => {
   })
 
   it('omits directives with nothing to say', () => {
-    const bare = toChoproFile({ ...song, artist: null, tags: [], link1: null }, null, null)
+    const bare = toChoproFile({ ...song, artist: null, tags: [] }, null, null)
     assert.ok(!bare.includes('{artist:'))
     assert.ok(!bare.includes('{tags:'))
-    assert.ok(!bare.includes('{link1:'))
-    assert.ok(!bare.includes('{link2:'))
-    assert.ok(!bare.includes('{link3:'))
     assert.ok(!bare.includes('{songbook:'))
     assert.ok(!bare.includes('{division:'))
   })
@@ -87,7 +68,6 @@ describe('toChoproFile', () => {
     assert.equal(parsed.title, 'Certe notti')
     assert.equal(parsed.artist, 'Ligabue')
     assert.deepEqual(parsed.tags, ['lento'])
-    assert.equal(parsed.link1, 'https://example.com/video')
     assert.equal(parsed.songbookName, 'Repertorio')
     assert.equal(parsed.sectionName, 'Prima parte')
     assert.equal(parsed.sections.length, 1)
@@ -161,9 +141,6 @@ describe('organizeExport', () => {
       title: over.title ?? 'Song',
       artist: null,
       tags: [],
-      link1: null,
-      link2: null,
-      link3: null,
       songbookSlug: over.songbookSlug ?? 'canzoniere',
       sectionId: over.sectionId ?? 1,
       body: over.body ?? '[Am]Testo',

@@ -46,9 +46,6 @@ function toSong(slug: string, body: string): ParsedFile {
       title: parsed.title ?? slug,
       artist: parsed.artist,
       tags: parsed.tags,
-      link1: parsed.link1,
-      link2: parsed.link2,
-      link3: parsed.link3,
       songbookSlug: slugify(songbookName) || UNFILED.slug,
       body,
       // No versions to compare without a database, and nothing to compare them

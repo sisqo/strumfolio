@@ -17,7 +17,8 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
 /**
  * Directives that only ever repeat a column this row already has of its own —
  * title, artist, tags, the songbook and section a re-import declares, the three
- * links — and, until 2026-09-19, a key and a subtitle.
+ * and — until 2026-09-20 — three links of this app's own, which the format does not have
+ * and which one song in two hundred had ever filled in.
  *
  * `{st:}`/`{subtitle:}` left on the same date and for a different reason than `{key:}`: what
  * it means depends on the dialect, so a list that cannot see the dialect is the wrong place
@@ -35,7 +36,7 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
  * behind it to explain. Stripped here for the same reason `export.ts` strips it there.
  */
 export const METADATA_DIRECTIVE =
-  /^\s*\{\s*(?:title|t|artist|tags?|canzoniere|songbook|x_songbook|division|sezione|x_division|link[123]|x_link[123])\s*:[^}]*\}\s*$/i
+  /^\s*\{\s*(?:title|t|artist|tags?|canzoniere|songbook|x_songbook|division|sezione|x_division)\s*:[^}]*\}\s*$/i
 
 export interface Deduced {
   title: string
@@ -43,9 +44,6 @@ export interface Deduced {
   tags: string[]
   songbookName: string | null
   sectionName: string | null
-  link1: string | null
-  link2: string | null
-  link3: string | null
   /** The body with any consumed heading lines removed. */
   body: string
   /**
@@ -179,9 +177,6 @@ export function deduce(body: string): Deduced {
     tags: tagList,
     songbookName: parsed.songbookName ?? dialectFields.songbookName ?? null,
     sectionName: parsed.sectionName ?? dialectFields.sectionName ?? null,
-    link1: parsed.link1,
-    link2: parsed.link2,
-    link3: parsed.link3,
     body: rest,
     dialect,
   }

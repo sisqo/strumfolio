@@ -208,20 +208,6 @@ describe('parseChordPro', () => {
     assert.equal(parseChordPro('{sezione: Prima parte}').sectionName, 'Prima parte')
   })
 
-  it('reads the three link directives', () => {
-    const parsed = parseChordPro(
-      '{link1: https://example.com/video}\n{link3: https://example.com/tab}',
-    )
-    assert.equal(parsed.link1, 'https://example.com/video')
-    assert.equal(parsed.link2, null)
-    assert.equal(parsed.link3, 'https://example.com/tab')
-  })
-
-  it('reads a link directive with no value as unset, same as an empty one', () => {
-    assert.equal(parseChordPro('{link1: }').link1, null)
-    assert.equal(parseChordPro('[C]niente').link1, null)
-  })
-
   /**
    * `{section: chorus}` is how other tools name a *block of the song*. Reading it as
    * filing would put the song in a section called «chorus», so the alias does not
@@ -782,10 +768,9 @@ describe('ChordPro format compliance', () => {
 
   describe('{x_} extensions', () => {
     it("reads this app's own directives under their strict spelling too", () => {
-      const song = parseChordPro('{x_songbook: Book}\n{x_division: Part}\n{x_link1: https://example.com}\nword')
+      const song = parseChordPro('{x_songbook: Book}\n{x_division: Part}\nword')
       assert.equal(song.songbookName, 'Book')
       assert.equal(song.sectionName, 'Part')
-      assert.equal(song.link1, 'https://example.com')
     })
 
     it('ignores an extension nobody here claims', () => {
