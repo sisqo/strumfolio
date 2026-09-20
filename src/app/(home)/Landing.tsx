@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -249,7 +249,12 @@ const STRUM_TOGETHER_POINTS: StrumPoint[] = [
 
 interface FaqItem {
   q: string
-  a: string
+  /**
+   * `ReactNode` rather than `string`, and the one item below that names the ChordPro cheat
+   * sheet is the only one that needs it — every other answer here is still a plain string,
+   * which the type allows unchanged.
+   */
+  a: ReactNode
 }
 
 interface FaqGroup {
@@ -344,6 +349,28 @@ const FAQ: FaqGroup[] = [
          * longer being told, by omission, to convert it first.
          */
         a: 'ChordPro is what Strumfolio reads and writes — and around it, the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, PDF, Word, and a zip holding any of those: fifteen file types in all, plus any text you can paste. Chords written above the words are converted for you, always behind a preview you can correct before anything is saved, since that conversion is a guess and not always the right one. Export hands you standard ChordPro back — one song, or the whole collection as a zip.',
+      },
+      {
+        q: 'What format does Strumfolio save files in?',
+        a: (
+          <>
+            Behind the scenes, every song on Strumfolio is saved in ChordPro, the standard
+            format for lyrics and chords. Our reader is up to date and understands the rules
+            of the format: we currently support the official specifications documented in the{' '}
+            <a
+              href="https://www.chordpro.org/chordpro/chordpro-cheat_sheet/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              ChordPro cheat sheet
+            </a>{' '}
+            (version 6.07). This means the app reads your files respecting exactly the details
+            you entered. Because we don&apos;t use closed, proprietary formats that only we
+            understand, when you export your repertoire you will get back clean, universal
+            files ready to be opened anywhere.
+          </>
+        ),
       },
       {
         q: 'Is there a limit to how many songs or songbooks I can create?',
