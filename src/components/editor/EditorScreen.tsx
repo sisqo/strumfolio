@@ -141,7 +141,6 @@ export function EditorScreen({ song }: { song: Song }) {
   const [fields, setFields] = useState<SongFieldValues>({
     title: song.title,
     artist: song.artist ?? '',
-    tags: song.tags.join(', '),
     songbookSlug: song.songbookSlug,
     sectionId: song.sectionId === null ? '' : String(song.sectionId),
   })
@@ -495,7 +494,6 @@ export function EditorScreen({ song }: { song: Song }) {
         slug: song.slug,
         title: fields.title,
         artist: fields.artist,
-        tags: fields.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''),
         songbookSlug: fields.songbookSlug,
         sectionId: fields.sectionId === '' ? null : Number(fields.sectionId),
         body: source,

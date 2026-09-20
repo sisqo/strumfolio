@@ -181,7 +181,6 @@ async function main() {
         slug: song.slug,
         title: song.title,
         artist: song.artist,
-        tags: song.tags,
         songbookId: songbookIdOf(song.songbookSlug),
         sectionId,
         body: song.body,

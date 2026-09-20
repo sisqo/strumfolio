@@ -16,7 +16,6 @@ const song: Song = {
   slug: 'certe-notti',
   title: 'Certe notti',
   artist: 'Ligabue',
-  tags: ['lento'],
   songbookSlug: 'repertorio',
   sectionId: 3,
   body: '{title: Vecchio titolo}\n{key: G}\n\n[Am]Certe notti',
@@ -30,8 +29,6 @@ describe('toChoproFile', () => {
 
     assert.ok(file.startsWith('{title: Certe notti}\n'))
     assert.ok(file.includes('{artist: Ligabue}'))
-    // One line per tag, singular — the format's own form, where `{tags: a, b}` was ours.
-    assert.ok(file.includes('{tag: lento}'))
     assert.ok(file.includes('{songbook: Repertorio}'))
     assert.ok(file.includes('{division: Prima parte}'))
   })
@@ -56,26 +53,20 @@ describe('toChoproFile', () => {
   })
 
   /*
-   * `{tag:}` repeats rather than taking a list, so a song with several writes several lines
-   * and reads them all back. It used to write one `{tags: a, b}` — a plural of this app's
-   * own invention that no other program reads.
+   * Nothing writes the tags any more, and nothing has to: they never leave the body. The
+   * export used to rebuild them from a column — first as `{tags: a, b}`, then briefly as one
+   * `{tag:}` per line — and since 2026-09-20 there is no column to rebuild them from.
    */
-  it('writes one line per tag, and reads them all back', () => {
-    const many = toChoproFile({ ...song, tags: ['lento', 'live', 'acustico'] }, null, null)
+  it('leaves the tags where they already are, in the body', () => {
+    const withTags = toChoproFile({ ...song, body: '{tag: lento}\n{tag: live}\n[C]parole' }, null, null)
 
-    assert.ok(many.includes('{tag: lento}'))
-    assert.ok(many.includes('{tag: live}'))
-    assert.ok(many.includes('{tag: acustico}'))
-    assert.deepEqual(parseChordPro(many).tags, ['lento', 'live', 'acustico'])
-  })
-
-  /* Everything this app ever exported used the plural, so it has to keep coming back. */
-  it('still reads the plural spelling it used to write', () => {
-    assert.deepEqual(parseChordPro('{title: T}\n{tags: rock, live}\nword').tags, ['rock', 'live'])
+    assert.ok(withTags.includes('{tag: lento}'))
+    assert.ok(withTags.includes('{tag: live}'))
+    assert.deepEqual(parseChordPro(withTags).tags, ['lento', 'live'])
   })
 
   it('omits directives with nothing to say', () => {
-    const bare = toChoproFile({ ...song, artist: null, tags: [] }, null, null)
+    const bare = toChoproFile({ ...song, artist: null }, null, null)
     assert.ok(!bare.includes('{artist:'))
     assert.ok(!bare.includes('{tags:'))
     assert.ok(!bare.includes('{songbook:'))
@@ -87,7 +78,6 @@ describe('toChoproFile', () => {
 
     assert.equal(parsed.title, 'Certe notti')
     assert.equal(parsed.artist, 'Ligabue')
-    assert.deepEqual(parsed.tags, ['lento'])
     assert.equal(parsed.songbookName, 'Repertorio')
     assert.equal(parsed.sectionName, 'Prima parte')
     assert.equal(parsed.sections.length, 1)
@@ -160,7 +150,6 @@ describe('organizeExport', () => {
       slug: over.slug ?? 'song',
       title: over.title ?? 'Song',
       artist: null,
-      tags: [],
       songbookSlug: over.songbookSlug ?? 'canzoniere',
       sectionId: over.sectionId ?? 1,
       body: over.body ?? '[Am]Testo',

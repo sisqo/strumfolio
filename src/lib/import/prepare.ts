@@ -19,7 +19,6 @@ export interface PreparedSong {
   title: string
   artist: string
   /** Comma-separated, as the fields hold them. */
-  tags: string
   body: string
   format: InputFormat
   /**
@@ -62,7 +61,6 @@ function prepareOne(piece: string, id: number, fallbackSection: string | null): 
     id,
     title: found.title,
     artist: found.artist ?? '',
-    tags: found.tags.join(', '),
     body: found.body,
     format: converted.format,
     declares: found.songbookName,

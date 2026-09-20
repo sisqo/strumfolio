@@ -5,7 +5,6 @@ import type { Songbook, Section } from '@/lib/data/types'
 export interface SongFieldValues {
   title: string
   artist: string
-  tags: string
   songbookSlug: string
   /** The section's id as the select holds it: a string, empty when none is offered. */
   sectionId: string
@@ -115,20 +114,6 @@ export function SongFields({
           </label>
         </>
       )}
-
-      {/*
-        * The tags take the whole width only when there is a whole width to take: with
-        * the songbook and its section the fields are five, so this one closes the
-        * third row, and without them it is alone on the second.
-        */}
-      <label className={`block ${showSongbook ? 'sm:col-span-2' : ''}`}>
-        <span className="field-label">Tags, comma separated</span>
-        <input
-          value={values.tags}
-          onChange={(event) => onChange('tags', event.target.value)}
-          className="form-field"
-        />
-      </label>
 
     </div>
   )

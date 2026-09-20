@@ -351,6 +351,13 @@
       "when": 1789882342386,
       "tag": "0049_drop_song_links",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789895103498,
+      "tag": "0050_drop_song_tags",
+      "breakpoints": true
     }
   ]
 }

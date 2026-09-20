@@ -721,7 +721,6 @@ export async function copySongbook(
           slug: copiedSongSlug,
           title: song.title,
           artist: song.artist,
-          tags: song.tags,
           body: song.body,
           songbookId: copiedSongbook.id,
           sectionId: newSectionId,

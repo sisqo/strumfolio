@@ -492,7 +492,6 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
     const values = {
       title,
       artist,
-      tags: input.tags.map((tag) => tag.trim()).filter((tag) => tag !== ''),
       songbookId: placed.songbookId,
       sectionId: placed.sectionId,
       body: input.body,
@@ -689,7 +688,6 @@ export async function createSong(
     const values = {
       title: trimmed,
       artist: null,
-      tags: [] as string[],
       songbookId: placed.songbookId,
       sectionId: placed.sectionId,
       body: '',

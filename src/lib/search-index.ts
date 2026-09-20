@@ -28,13 +28,26 @@ export interface SongIndexEntry extends SongIndexRow {
   haystack: string
 }
 
-/** The row on its own, for a list with nothing to search — a single songbook's. */
+/**
+ * The row on its own, for a list with nothing to search — a single songbook's.
+ *
+ * **The tags are read out of the body**, which is where they live since the column was
+ * dropped (2026-09-20): `{tag:}` is the format's own field and this app stopped keeping a
+ * second copy of it. That costs a parse per row where a list used to cost none, and it is
+ * the price of one home for the value instead of two that can disagree — the same trade
+ * `tempo`, `capo` and `key` already made. `toIndexEntry` below parses once and builds the
+ * row itself rather than calling this, so searching never pays it twice.
+ */
 export function toIndexRow(song: Song): SongIndexRow {
+  return rowOf(song, parseChordPro(song.body).tags)
+}
+
+function rowOf(song: Song, tags: string[]): SongIndexRow {
   return {
     slug: song.slug,
     title: song.title,
     artist: song.artist,
-    tags: song.tags,
+    tags,
     updatedAt: song.updatedAt,
   }
 }
@@ -50,9 +63,9 @@ export function toIndexRow(song: Song): SongIndexRow {
 export function toIndexEntry(song: Song): SongIndexEntry {
   const parsed = parseChordPro(song.body)
 
-  const haystack = [song.title, song.artist ?? '', song.tags.join(' '), plainLyrics(parsed)]
+  const haystack = [song.title, song.artist ?? '', parsed.tags.join(' '), plainLyrics(parsed)]
     .join('\n')
     .toLowerCase()
 
-  return { ...toIndexRow(song), haystack }
+  return { ...rowOf(song, parsed.tags), haystack }
 }

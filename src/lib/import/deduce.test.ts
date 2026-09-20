@@ -23,13 +23,19 @@ describe('deduce', () => {
     assert.equal(result.body, '{key: G}\n\n[Am]testo')
   })
 
-  it('strips a songbook or section a re-import declares, and stray tags', () => {
+  /*
+   * The songbook and the section are consumed into columns, so their lines go. The tags are
+   * not: since 2026-09-20 no column holds them and `{tag:}` in the body is where they live,
+   * so stripping the line would delete the only copy — the rule `KEPT_IN_BODY` already
+   * states for the key, the capo and the tempo.
+   */
+  it('strips a songbook or section a re-import declares, and keeps the tags', () => {
     const result = deduce('{title: Uno}\n{songbook: Cartoni animati}\n{division: Sigle}\n{tags: rock}\n[C]testo')
 
     assert.equal(result.songbookName, 'Cartoni animati')
     assert.equal(result.sectionName, 'Sigle')
-    assert.deepEqual(result.tags, ['rock'])
-    assert.equal(result.body, '[C]testo')
+    assert.equal(result.body, '{tags: rock}\n[C]testo')
+    assert.deepEqual(parseChordPro(result.body).tags, ['rock'])
   })
 
   it('reads a two-line heading and removes it from the body', () => {

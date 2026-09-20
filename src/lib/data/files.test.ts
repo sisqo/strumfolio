@@ -15,7 +15,8 @@ describe('fileRepository', () => {
     const song = await fileRepository.getSong('le-luci-di-via-ostiense')
     assert.equal(song?.title, 'Le luci di via Ostiense')
     assert.equal(song?.artist, 'Placeholder')
-    assert.deepEqual(song?.tags, ['lento'])
+    // From the body now: `{tag:}` is where a tag lives since the column was dropped.
+    assert.deepEqual(parseChordPro(song?.body ?? '').tags, ['lento'])
     assert.equal(song?.songbookSlug, 'repertorio')
   })
 
@@ -129,8 +130,9 @@ describe('songbooks from the files', () => {
 
   it('no longer carries the tags that became songbooks', async () => {
     for (const song of await fileRepository.listSongs()) {
-      assert.ok(!song.tags.includes('repertorio'), `${song.slug} still tagged repertorio`)
-      assert.ok(!song.tags.includes('da imparare'), `${song.slug} still tagged da imparare`)
+      const { tags } = parseChordPro(song.body)
+      assert.ok(!tags.includes('repertorio'), `${song.slug} still tagged repertorio`)
+      assert.ok(!tags.includes('da imparare'), `${song.slug} still tagged da imparare`)
     }
   })
 })

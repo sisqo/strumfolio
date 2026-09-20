@@ -36,12 +36,11 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
  * behind it to explain. Stripped here for the same reason `export.ts` strips it there.
  */
 export const METADATA_DIRECTIVE =
-  /^\s*\{\s*(?:title|t|artist|tags?|canzoniere|songbook|x_songbook|division|sezione|x_division)\s*:[^}]*\}\s*$/i
+  /^\s*\{\s*(?:title|t|artist|canzoniere|songbook|x_songbook|division|sezione|x_division)\s*:[^}]*\}\s*$/i
 
 export interface Deduced {
   title: string
   artist: string | null
-  tags: string[]
   songbookName: string | null
   sectionName: string | null
   /** The body with any consumed heading lines removed. */
@@ -163,18 +162,9 @@ export function deduce(body: string): Deduced {
 
   const dialectFields = { ...readDialectDirectives(lines, dialect), ...fromMetatags }
 
-  const tagList =
-    parsed.tags.length > 0
-      ? parsed.tags
-      : (dialectFields.tags ?? '')
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter((tag) => tag !== '')
-
   return {
     title: parsed.title ?? dialectFields.title ?? heading[0] ?? '',
     artist: parsed.artist ?? dialectFields.artist ?? heading[1] ?? null,
-    tags: tagList,
     songbookName: parsed.songbookName ?? dialectFields.songbookName ?? null,
     sectionName: parsed.sectionName ?? dialectFields.sectionName ?? null,
     body: rest,

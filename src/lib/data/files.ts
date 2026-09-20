@@ -45,7 +45,6 @@ function toSong(slug: string, body: string): ParsedFile {
       // A file with no {title} still needs a name to show in the list.
       title: parsed.title ?? slug,
       artist: parsed.artist,
-      tags: parsed.tags,
       songbookSlug: slugify(songbookName) || UNFILED.slug,
       body,
       // No versions to compare without a database, and nothing to compare them

@@ -13,6 +13,7 @@
  * because both happen to be signed in.
  */
 
+import { parseChordPro } from '../chordpro'
 import { eq } from 'drizzle-orm'
 
 import { accessTo, currentUser } from '@/lib/auth/session'
@@ -78,7 +79,7 @@ export async function loadSongIndex(): Promise<SongIndexRow[] | null> {
       slug: song.slug,
       title: song.title,
       artist: song.artist,
-      tags: song.tags,
+      tags: parseChordPro(song.body).tags,
       updatedAt: song.updatedAt,
     }))
   } catch (error) {

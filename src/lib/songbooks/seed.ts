@@ -81,7 +81,6 @@ export async function insertSampleSongbook(
         slug: songSlug,
         title: song.title,
         artist: song.artist,
-        tags: song.tags,
         body: song.body,
         songbookId: songbook.id,
         sectionId,

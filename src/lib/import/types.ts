@@ -6,7 +6,6 @@ export interface SongInput {
   slug?: string
   title: string
   artist: string | null
-  tags: string[]
   songbookSlug: string
   /**
    * The section within it, or null for «wherever this songbook files things first».

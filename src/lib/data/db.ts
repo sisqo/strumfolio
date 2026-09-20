@@ -30,7 +30,6 @@ export function rowToSong(row: typeof songs.$inferSelect, songbookSlug: string):
     slug: row.slug,
     title: row.title,
     artist: row.artist,
-    tags: row.tags,
     songbookSlug,
     sectionId: row.sectionId,
     body: row.body,

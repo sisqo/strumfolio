@@ -484,7 +484,6 @@ export function AddSongScreen({
               initial={{
                 title: single.title,
                 artist: single.artist,
-                tags: single.tags,
                 songbookSlug,
                 sectionId: chosenSection === undefined ? '' : String(chosenSection.id),
                 body: single.body,

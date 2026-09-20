@@ -39,8 +39,7 @@ function looksLikeSong(value: unknown): value is Song {
     typeof song === 'object' &&
     typeof song.slug === 'string' &&
     typeof song.title === 'string' &&
-    typeof song.body === 'string' &&
-    Array.isArray(song.tags)
+    typeof song.body === 'string'
   )
 }
 

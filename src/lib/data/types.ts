@@ -34,7 +34,6 @@ export interface Song {
   slug: string
   title: string
   artist: string | null
-  tags: string[]
   /**
    * The songbook at build time. A snapshot, not the truth: names and
    * assignments can change at runtime, so the client refreshes this from the

@@ -15,7 +15,6 @@ function song(slug: string, songbookSlug: string): Song {
     slug,
     title: slug,
     artist: null,
-    tags: [],
     songbookSlug,
     sectionId: 1,
     body: '',

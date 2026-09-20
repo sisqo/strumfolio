@@ -448,7 +448,6 @@ export const songs = pgTable(
     slug: text('slug').notNull(),
     title: text('title').notNull(),
     artist: text('artist'),
-    tags: text('tags').array().notNull().default([]),
     body: text('body').notNull(),
     /**
      * `restrict` puts the "refuse to delete a non-empty songbook" rule in the

@@ -212,7 +212,6 @@ export function ImportBatch({
           {
             title: row.title,
             artist: row.artist,
-            tags: row.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''),
             songbookSlug,
             sectionId: declaredSection !== null ? null : sectionId,
             sectionName: declaredSection,
