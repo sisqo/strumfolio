@@ -48,11 +48,11 @@ import {
   removeRange,
 } from '@/lib/editor/clipboard'
 import { type SongDocument, fromSource, readLyricLine, toSource } from '@/lib/editor/document'
-import { FIELD_GROUPS, fieldLine } from '@/lib/editor/fields'
+import { FIELD_GROUPS, type FieldOption, fieldLine } from '@/lib/editor/fields'
 import { keyFor } from '@/lib/storage/scope'
 import {
   addChord,
-  addField,
+  addFieldAt,
   insertGrid,
   insertTab,
   removeLine,
@@ -356,6 +356,29 @@ export function EditorScreen({ song }: { song: Song }) {
     const landing = { line, at: 0 }
 
     change(toSource(removeRange(doc, picked)), null)
+    setCaret(landing)
+    setFocus(landing)
+    setNotice(null)
+  }
+
+  /**
+   * A field chosen from the menu, with the caret left inside it.
+   *
+   * The focus is the point of the menu and was missing: adding `{tag: }` wrote the line,
+   * left the caret wherever it had been, and whatever was typed next went into the *old*
+   * line — so the gesture the menu exists for («add a field, type the value») needed a
+   * click in between to work at all, and silently did the wrong thing without one.
+   *
+   * `addFieldAt` is what says where the line landed, rather than this screen working it out:
+   * the edit inserts a *source* line and `caret.line` counts *blocks*, and the two differ by
+   * however many verbatim runs sit above. `at: 0` and not the end of the line — a directive
+   * row's input holds the value alone, which is empty, so nought is the only position in it.
+   */
+  const addChosenField = (option: FieldOption) => {
+    const added = addFieldAt(fromSource(source), caret.line, fieldLine(option))
+    const landing = { line: added.block, at: 0 }
+
+    change(toSource(added.document), null)
     setCaret(landing)
     setFocus(landing)
     setNotice(null)
@@ -897,7 +920,7 @@ export function EditorScreen({ song }: { song: Song }) {
                           role="menuitem"
                           className="editor-field-option"
                           onClick={() => {
-                            command((document) => addField(document, caret.line, fieldLine(option)))
+                            addChosenField(option)
                             setFieldsOpen(false)
                           }}
                         >

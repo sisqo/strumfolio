@@ -5,6 +5,7 @@ import { parseChordPro } from '../chordpro'
 import { fromSource, toSource } from './document'
 import {
   addChord,
+  addFieldAt,
   chordIndexAt,
   insertChordAmong,
   insertTab,
@@ -382,5 +383,64 @@ describe('typing into the rows that are not words', () => {
     const edited = at('{key:G}\n{capo:  3}\n[C]parole', 0, 'Sol')
 
     assert.equal(edited, '{key: Sol}\n{capo:  3}\n[C]parole')
+  })
+})
+
+/*
+ * Both of these were found in a browser on 2026-09-20 and neither had a test, for the same
+ * reason: every song they were tried on was a flat list of lines, where a block index and a
+ * source-line index are the same number and nothing can go wrong.
+ */
+describe('addFieldAt', () => {
+  const TAB = ['{title: T}', '{start_of_tab}', 'e|--3--', 'B|--5--', '{end_of_tab}', 'ultima'].join(
+    '\n',
+  )
+
+  /*
+   * The bug: `index` counts blocks, the splice counts lines, and a tab is one block over
+   * four lines. Adding a field at the end of this song put it between two tablature rows —
+   * inside the verbatim block, where it is read back as another row and drawn as part of
+   * the tab.
+   */
+  it('puts the line after the block, not inside a tab that happens to be above it', () => {
+    const doc = fromSource(TAB)
+    assert.deepEqual(
+      doc.blocks.map((block) => block.kind),
+      ['directive', 'tab', 'lyrics'],
+    )
+
+    const added = addFieldAt(doc, 2, '{tag: X}')
+    assert.equal(toSource(added.document), `${TAB}\n{tag: X}`)
+  })
+
+  it('closes the tab before the field when the caret is on the tab itself', () => {
+    const added = addFieldAt(fromSource(TAB), 1, '{tag: X}')
+    const lines = toSource(added.document).split('\n')
+
+    assert.deepEqual(lines[4], '{end_of_tab}')
+    assert.deepEqual(lines[5], '{tag: X}')
+  })
+
+  /*
+   * And the half the editor needs: which block to put the caret in. Without it the menu
+   * wrote `{tag: }` and left the caret on the old line, so the value typed next went
+   * somewhere else entirely — the one gesture the menu exists for.
+   */
+  it('says which block holds the new line, counting the tab as one', () => {
+    assert.equal(addFieldAt(fromSource(TAB), 2, '{tag: X}').block, 3)
+    assert.equal(addFieldAt(fromSource(TAB), 0, '{tag: X}').block, 1)
+
+    const flat = fromSource('{title: T}\nparole')
+    assert.equal(addFieldAt(flat, 0, '{tag: X}').block, 1)
+  })
+
+  it('leaves the block it names actually holding the field', () => {
+    for (const index of [0, 1, 2]) {
+      const added = addFieldAt(fromSource(TAB), index, '{tag: X}')
+      const block = added.document.blocks[added.block]
+
+      assert.equal(block?.kind, 'directive', `block ${added.block} is not the field`)
+      assert.equal(block?.kind === 'directive' && block.raw, '{tag: X}')
+    }
   })
 })

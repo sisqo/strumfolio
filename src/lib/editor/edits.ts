@@ -11,6 +11,7 @@ import {
   type ChordAt,
   type LyricsBlock,
   type SongDocument,
+  blockStartLines,
   directiveLine,
   directiveParts,
   fromSource,
@@ -386,18 +387,50 @@ const TAB_TEMPLATE_ROWS = [
 ]
 
 /**
- * Adds a directive line after `index` — the graphic editor's «add field» menu.
+ * Adds a directive line after the block at `index` — the graphic editor's «add field» menu.
  *
  * The document is rebuilt from its own source rather than having a block pushed into it, so
  * what lands is exactly what that line *means*: `{start_of_grid: …}` opens a verbatim block
  * and not a directive chip, which a hand-built block would have got wrong until the next
  * save. One rule for what a line is, and it is `fromSource`'s.
+ *
+ * **`index` counts blocks and the splice counts source lines, and they are not the same
+ * number.** A tab or a grid is one block over several lines, so `index + 1` as a line
+ * number walks *into* the nearest verbatim run: with a tab anywhere above the caret, a
+ * field added at the end of the song landed between two tablature rows — inside the block,
+ * where `fromSource` then reads it as another row and the directive is drawn as part of the
+ * drawing. `blockStartLines` is the map between the two, and the insert point is where the
+ * *next* block starts, or the end of the file for the last one. Found in a browser on
+ * 2026-09-20 by adding a field to a song that happened to have a tab in it.
  */
 export function addField(document: SongDocument, index: number, line: string): SongDocument {
-  const lines = toSource(document).split(/\r?\n/)
-  lines.splice(Math.min(index + 1, lines.length), 0, line)
+  return addFieldAt(document, index, line).document
+}
 
-  return { ...fromSource(lines.join(document.eol)), eol: document.eol }
+/**
+ * The same edit, saying where it put the line — what the screen needs to leave the caret
+ * inside the field it has just added.
+ *
+ * Two return values rather than a second function that recomputes the position: the insert
+ * point is derived from the document *before* the rebuild and the block index from the one
+ * after, so a caller working it out again would have to hold both and repeat this reasoning
+ * exactly. `block` is what `caret.line` counts in.
+ */
+export function addFieldAt(
+  document: SongDocument,
+  index: number,
+  line: string,
+): { document: SongDocument; block: number } {
+  const lines = toSource(document).split(/\r?\n/)
+  const starts = blockStartLines(document.blocks)
+  const at = Math.min(index + 1 < starts.length ? starts[index + 1] : lines.length, lines.length)
+
+  lines.splice(at, 0, line)
+
+  const rebuilt = { ...fromSource(lines.join(document.eol)), eol: document.eol }
+  const found = blockStartLines(rebuilt.blocks).indexOf(at)
+
+  return { document: rebuilt, block: found === -1 ? index : found }
 }
 
 /** Inserts an empty chord grid after `index`, the toolbar's "Grid" command. */
