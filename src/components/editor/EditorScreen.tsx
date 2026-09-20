@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ControlBar } from '@/components/ControlBar'
 import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { SongControls } from '@/components/SongControls'
-import { SongFields, type SongFieldValues } from '@/components/SongFields'
+import { type SongFieldValues } from '@/components/SongFields'
+import { SongDataForm } from '@/components/editor/SongDataForm'
 import { SongSheet } from '@/components/SongSheet'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
@@ -955,11 +956,21 @@ export function EditorScreen({ song }: { song: Song }) {
         </summary>
 
         <div className="mt-4">
-          <SongFields
-            values={fields}
+          <SongDataForm
+            source={source}
+            title={fields.title}
+            artist={fields.artist}
+            songbookSlug={fields.songbookSlug}
+            sectionId={fields.sectionId}
             songbooks={songbooks}
             sections={sections}
-            onChange={(field, value) => setFields((current) => ({ ...current, [field]: value }))}
+            /*
+             * `'data'` as the history kind, so a run of keystrokes in one field collapses
+             * into a single Undo the way typing into a line already does — without it every
+             * letter of a copyright notice became its own step.
+             */
+            onSource={(next) => change(next, 'data')}
+            onColumn={(field, value) => setFields((current) => ({ ...current, [field]: value }))}
           />
         </div>
       </details>
