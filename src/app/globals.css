@@ -14554,9 +14554,17 @@
   .editor-tools {
     position: relative;
     display: flex;
-    align-items: center;
-    gap: 0.35rem;
+    /* The groups are two lines tall — a title over its buttons — so the toggle beside them
+       sits at the top rather than floating in the middle of them. */
+    align-items: flex-start;
+    gap: 0.5rem;
     padding-block-end: 0.5rem;
+  }
+
+  .editor-tools-toggle {
+    flex: none;
+    /* Level with the first row of buttons, clear of the group titles above them. */
+    margin-block-start: 0.875rem;
   }
 
   /* An icon-only command: square, so five of them fit the row a phone has. */
@@ -14571,6 +14579,62 @@
    * second and third line. Undo stays outside this strip, because a command you
    * reach for after a mistake should not have to be found first.
    */
+  /*
+   * The commands, in three named groups that wrap instead of scrolling sideways.
+   *
+   * The old strip was `overflow-x: auto`, which on a phone put some commands off the edge of
+   * the screen with nothing to say they were there — and clipped the «Field» menu to nothing
+   * the day one was added. Wrapping costs a second line and hides none of them.
+   */
+  .editor-tool-groups {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+  }
+
+  .editor-tool-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .editor-tool-group-title {
+    color: var(--faint);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .editor-tool-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  /* One row for a directive, a section's name or a `#` note: what is fixed on the left,
+     what can be typed on the right. */
+  .editor-directive-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .editor-directive-name {
+    flex: none;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .editor-directive-value {
+    flex: 1;
+    min-width: 0;
+  }
+
   .editor-tools-scroll {
     display: flex;
     gap: 0.35rem;

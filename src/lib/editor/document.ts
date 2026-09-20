@@ -262,6 +262,27 @@ export function fromSource(source: string): SongDocument {
  * two lines, and the symptom would be notes landing on the wrong line rather than anything
  * that looks like a bug in a line counter.
  */
+/**
+ * A directive line split into the name and the value the editor lets somebody type into.
+ *
+ * Here rather than in the editor because `DIRECTIVE` is this module's regex and the rule for
+ * what counts as a name belongs beside it — written out a second time in a component it
+ * would drift the first time the format grew a spelling.
+ *
+ * Null for a line that is not a directive at all.
+ */
+export function directiveParts(raw: string): { name: string; value: string } | null {
+  const match = DIRECTIVE.exec(raw.trim())
+  if (match === null) return null
+
+  return { name: match[1], value: match[2] ?? '' }
+}
+
+/** The line a directive writes once its value has been typed into. */
+export function directiveLine(name: string, value: string): string {
+  return value.trim() === '' ? `{${name}}` : `{${name}: ${value}}`
+}
+
 export function blockStartLines(blocks: Block[]): number[] {
   const starts: number[] = []
   let line = 0

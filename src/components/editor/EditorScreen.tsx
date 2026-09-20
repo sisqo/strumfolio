@@ -16,8 +16,11 @@ import { UnsavedGuard } from '@/components/editor/UnsavedGuard'
 import {
   IconBridge,
   IconCheck,
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
+  IconChevronUp,
+  IconChordShape,
   IconChorus,
   IconClipboard,
   IconCode,
@@ -46,7 +49,16 @@ import {
 } from '@/lib/editor/clipboard'
 import { type SongDocument, fromSource, readLyricLine, toSource } from '@/lib/editor/document'
 import { FIELD_GROUPS, fieldLine } from '@/lib/editor/fields'
-import { addChord, addField, insertTab, removeLine, toggleComment, toggleSection } from '@/lib/editor/edits'
+import { keyFor } from '@/lib/storage/scope'
+import {
+  addChord,
+  addField,
+  insertGrid,
+  insertTab,
+  removeLine,
+  toggleComment,
+  toggleSection,
+} from '@/lib/editor/edits'
 import { deleteSong, saveSong } from '@/lib/import/actions'
 import { saveMessage, type SaveRefusal } from '@/lib/import/types'
 import { LIMIT_MESSAGE, type LimitReason } from '@/lib/plans/types'
@@ -74,31 +86,49 @@ const MODES: { mode: Mode; label: string; icon: typeof IconPencil }[] = [
  * them into a comment does, so it adds a fresh block after the cursor instead, the
  * same as the "+ line" button at the foot of the graphic editor.
  */
-const COMMANDS: {
-  label: string
-  icon: typeof IconPencil
-  act: (line: number) => (document: SongDocument) => SongDocument
+/**
+ * The commands, in the three groups the row draws them in.
+ *
+ * Grouped and named because eight square icons in a row said nothing: every one but «Chord»
+ * was a picture with no word, in a strip that scrolled sideways, so on a phone some of them
+ * were simply off the edge of the screen. The groups answer «what am I looking for» —
+ * something to add, something to mark, something to do to whole lines — and every button now
+ * carries its word beside its icon.
+ *
+ * `Chord`, `Field` and `Select lines` are not in here: each has a behaviour of its own rather
+ * than an `act`, and each is drawn into its group by hand.
+ */
+/** Where the toolbar's own open/closed choice is remembered — scoped by `keyFor`. */
+const TOOLS_OPEN_KEY = 'songs:editor-tools'
+
+const COMMAND_GROUPS: {
+  title: string
+  commands: {
+    label: string
+    icon: typeof IconPencil
+    act: (line: number) => (document: SongDocument) => SongDocument
+  }[]
 }[] = [
   {
-    label: 'Chorus',
-    icon: IconChorus,
-    act: (line) => (document) => toggleSection(document, line, 'chorus'),
+    title: 'Insert',
+    commands: [
+      { label: 'Comment', icon: IconComment, act: (line) => (document) => toggleComment(document, line) },
+      { label: 'Tab', icon: IconTab, act: (line) => (document) => insertTab(document, line) },
+      { label: 'Grid', icon: IconChordShape, act: (line) => (document) => insertGrid(document, line) },
+    ],
   },
   {
-    label: 'Bridge',
-    icon: IconBridge,
-    act: (line) => (document) => toggleSection(document, line, 'bridge'),
-  },
-  { label: 'Comment', icon: IconComment, act: (line) => (document) => toggleComment(document, line) },
-  {
-    label: 'Tab',
-    icon: IconTab,
-    act: (line) => (document) => insertTab(document, line),
+    title: 'Mark',
+    commands: [
+      { label: 'Chorus', icon: IconChorus, act: (line) => (document) => toggleSection(document, line, 'chorus') },
+      { label: 'Bridge', icon: IconBridge, act: (line) => (document) => toggleSection(document, line, 'bridge') },
+    ],
   },
   {
-    label: 'Delete line',
-    icon: IconRemoveLine,
-    act: (line) => (document) => removeLine(document, line),
+    title: 'Lines',
+    commands: [
+      { label: 'Delete', icon: IconRemoveLine, act: (line) => (document) => removeLine(document, line) },
+    ],
   },
 ]
 
@@ -157,6 +187,46 @@ export function EditorScreen({ song }: { song: Song }) {
   const [notice, setNotice] = useState<string | null>(null)
   /** Whether the «add a field» menu is open — one menu, so a boolean is the whole of it. */
   const [fieldsOpen, setFieldsOpen] = useState(false)
+
+  /*
+   * Whether the command groups are showing. Open to begin with, because a toolbar nobody can
+   * find is worse than one that takes a line — and remembered, because whoever closes it on a
+   * phone is closing it for a reason that will still be true tomorrow.
+   *
+   * Through `keyFor`, like everything this app puts in `localStorage`: the key is scoped to
+   * the account, and with no scope there is simply no memory, which costs a reader nothing
+   * but an open toolbar. Read in an effect rather than in the initialiser so the server and
+   * the first client render agree.
+   */
+  const [toolsOpen, setToolsOpen] = useState(true)
+
+  useEffect(() => {
+    const key = keyFor(TOOLS_OPEN_KEY)
+    if (key === null) return
+
+    try {
+      if (window.localStorage.getItem(key) === 'closed') setToolsOpen(false)
+    } catch {
+      // A browser with storage blocked keeps the toolbar open, which is the harmless half.
+    }
+  }, [])
+
+  const toggleTools = () => {
+    setToolsOpen((open) => {
+      const next = !open
+      const key = keyFor(TOOLS_OPEN_KEY)
+
+      if (key !== null) {
+        try {
+          window.localStorage.setItem(key, next ? 'open' : 'closed')
+        } catch {
+          // Nothing to do: the choice simply does not outlive this visit.
+        }
+      }
+
+      return next
+    })
+  }
   const [error, setError] = useState<string | null>(null)
   // Kept apart from `error` so an unrelated failure cannot overwrite it, same as `SongForm`.
   const [planNotice, setPlanNotice] = useState<PlanNotice | null>(null)
@@ -690,83 +760,116 @@ export function EditorScreen({ song }: { song: Song }) {
                 </button>
               </div>
             ) : (
-              <div className="editor-tools-scroll" role="group" aria-label="Commands for this line">
-                {/*
-                  * Only this one keeps its word. It is the command reached for most, it
-                  * is the one whose icon — a plus — says least on its own, and one label
-                  * in the row is what tells you the rest are commands too.
-                  */}
+              <>
                 <button
                   type="button"
-                  className="btn btn-inset btn-sm"
-                  disabled={!canChord}
-                  onClick={insertChord}
-                  title={canChord ? undefined : 'Put the cursor on a line of words first'}
-                >
-                  <IconPlus size={15} />
-                  Chord
-                </button>
+                  className="btn btn-quiet btn-sm editor-tools-toggle"
+                aria-expanded={toolsOpen}
+                onClick={toggleTools}
+                title={toolsOpen ? 'Hide the commands' : 'Show the commands'}
+              >
+                Tools
+                {toolsOpen ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+              </button>
 
+              <div
+                className="editor-tool-groups"
+                role="group"
+                aria-label="Commands for this line"
+                hidden={!toolsOpen}
+              >
                 {/*
-                  * Everything else the format lets a song carry. A menu rather than more
-                  * buttons because the list is forty long and none of it is reached for
-                  * often — and only what lives in the *body*: the title, the artist, the
-                  * tags and the links each have an input of their own in this editor, and a
-                  * line typed for one of them here would be stripped at the next save. A
-                  * menu entry that quietly disappears costs more than a complete list buys.
+                  * Every button carries its word. They were square icons in a strip that
+                  * scrolled sideways, so on a phone some were off the edge of the screen and
+                  * none of them said what it did — a picture of a bridge is not the word
+                  * «bridge» to somebody who has not met it before.
                   */}
-                <button
-                  type="button"
-                  className="btn btn-inset btn-sm"
-                  aria-expanded={fieldsOpen}
-                  onClick={() => setFieldsOpen((open) => !open)}
-                  title="Add a field"
-                >
-                  <IconPlus size={15} />
-                  Field
-                </button>
+                <div className="editor-tool-group">
+                  <span className="editor-tool-group-title">Insert</span>
+                  <div className="editor-tool-buttons">
+                    <button
+                      type="button"
+                      className="btn btn-inset btn-sm"
+                      disabled={!canChord}
+                      onClick={insertChord}
+                      title={canChord ? undefined : 'Put the cursor on a line of words first'}
+                    >
+                      <IconPlus size={15} />
+                      Chord
+                    </button>
 
-                {COMMANDS.map((entry) => (
-                  <button
-                    key={entry.label}
-                    type="button"
-                    className="btn btn-inset btn-sm btn-square"
-                    title={entry.label}
-                    aria-label={entry.label}
-                    onClick={() => command(entry.act(caret.line))}
-                  >
-                    <entry.icon size={16} />
-                  </button>
+                    {COMMAND_GROUPS[0].commands.map((entry) => (
+                      <button
+                        key={entry.label}
+                        type="button"
+                        className="btn btn-inset btn-sm"
+                        onClick={() => command(entry.act(caret.line))}
+                      >
+                        <entry.icon size={15} />
+                        {entry.label}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="btn btn-inset btn-sm"
+                      aria-expanded={fieldsOpen}
+                      onClick={() => setFieldsOpen((open) => !open)}
+                      title="Add a field"
+                    >
+                      <IconPlus size={15} />
+                      Field
+                      <IconChevronDown size={12} />
+                    </button>
+                  </div>
+                </div>
+
+                {COMMAND_GROUPS.slice(1).map((group) => (
+                  <div className="editor-tool-group" key={group.title}>
+                    <span className="editor-tool-group-title">{group.title}</span>
+                    <div className="editor-tool-buttons">
+                      {group.commands.map((entry) => (
+                        <button
+                          key={entry.label}
+                          type="button"
+                          className="btn btn-inset btn-sm"
+                          onClick={() => command(entry.act(caret.line))}
+                        >
+                          <entry.icon size={15} />
+                          {entry.label}
+                        </button>
+                      ))}
+
+                      {/*
+                        * The door into a run of lines, and at a touch the only one there is:
+                        * a mouse takes one by dragging across the words, but on a phone the
+                        * gestures over a line are already spent — a vertical drag scrolls
+                        * the page and a horizontal one on the chord row moves a chord.
+                        */}
+                      {group.title === 'Lines' && mode === 'graphic' && (
+                        <button
+                          type="button"
+                          className={`btn btn-inset btn-sm${picking ? ' is-on' : ''}`}
+                          aria-pressed={picking}
+                          onClick={() => {
+                            setPicking(!picking)
+                            /*
+                             * A chord name field left open keeps `.chord-bar` rendered under
+                             * its row: chord controls sitting inside a run that the next
+                             * command may move or take away.
+                             */
+                            setEditing(null)
+                          }}
+                        >
+                          <IconSelect size={15} />
+                          Select
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
-
-                {/*
-                  * The door into a run of lines, and at a touch the only one there is:
-                  * a mouse takes one by dragging across the words, but on a phone the
-                  * gestures over a line are already spent — a vertical drag scrolls the
-                  * page and a horizontal one on the chord row moves a chord. So this
-                  * says out loud what a drag cannot ask for there.
-                  */}
-                {mode === 'graphic' && (
-                  <button
-                    type="button"
-                    className={`btn btn-inset btn-sm btn-square${picking ? ' is-on' : ''}`}
-                    title="Select lines"
-                    aria-label="Select lines"
-                    aria-pressed={picking}
-                    onClick={() => {
-                      setPicking(!picking)
-                      /*
-                       * A chord name field left open keeps `.chord-bar` rendered under
-                       * its row: chord controls sitting inside a run that the next
-                       * command may move or take away.
-                       */
-                      setEditing(null)
-                    }}
-                  >
-                    <IconSelect size={16} />
-                  </button>
-                )}
-              </div>
+                </div>
+              </>
             )}
 
             {/*

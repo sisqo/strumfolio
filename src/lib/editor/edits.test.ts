@@ -339,3 +339,48 @@ describe('tabs', () => {
     assert.equal(edit('[la]uno', (doc) => setTabRows(doc, 0, ['x'])), '[la]uno')
   })
 })
+
+/*
+ * Every row that shows text can now be typed into. Until 2026-09-20 a directive, a section's
+ * own name and a `#` comment were all drawn as dead chips with a note saying to edit them in
+ * Source — a fine answer for a directive nobody reads, and a poor one for the `{key: }` the
+ * «add a field» menu had just written, empty, one tap earlier.
+ */
+describe('typing into the rows that are not words', () => {
+  const at = (source: string, index: number, text: string) =>
+    toSource(setLineText(fromSource(source), index, text))
+
+  it('sets a directive value', () => {
+    assert.equal(at('{key: G}\n[C]parole', 0, 'Sol'), '{key: Sol}\n[C]parole')
+  })
+
+  it('writes a bare directive when the value is emptied', () => {
+    assert.equal(at('{key: G}\n[C]parole', 0, ''), '{key}\n[C]parole')
+  })
+
+  it('fills one the menu left empty', () => {
+    assert.equal(at('{capo: }\n[C]parole', 0, '3'), '{capo: 3}\n[C]parole')
+  })
+
+  /* Rebuilt from the name, so a brace or a colon typed into the value cannot make the line
+     mean something else. */
+  it('cannot be made into another directive by what is typed', () => {
+    assert.equal(at('{key: G}\nx', 0, 'G} {title: preso'), '{key: G} {title: preso}\nx')
+  })
+
+  it('names a section', () => {
+    assert.equal(at('{soc}\n[C]parole\n{eoc}', 0, 'Ritornello uno'), '{soc: Ritornello uno}\n[C]parole\n{eoc}')
+  })
+
+  it('edits the words after a hash', () => {
+    assert.equal(at('# vecchia nota\n[C]parole', 0, ' nuova nota'), '# nuova nota\n[C]parole')
+  })
+
+  /* The half that matters for a file this app did not write: editing one line leaves every
+     other exactly as it was, odd spacing and all. */
+  it('leaves every untouched line exactly as it was', () => {
+    const edited = at('{key:G}\n{capo:  3}\n[C]parole', 0, 'Sol')
+
+    assert.equal(edited, '{key: Sol}\n{capo:  3}\n[C]parole')
+  })
+})

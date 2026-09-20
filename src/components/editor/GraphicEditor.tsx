@@ -9,6 +9,7 @@ import {
   type SectionKind,
   type SongDocument,
   chordVocabulary,
+  directiveParts,
   fromSource,
   sectionsOf,
   toSource,
@@ -583,53 +584,84 @@ function BlockRow({
   }
 
   /**
-   * The lines that are not words and are not blank either: a section marker, a
-   * directive, a `#` source comment. None has text of its own a line-input could hold —
-   * a marker is a pair of boundaries, the other two are edited in Source — so, unlike a
-   * blank line, there is no promotion to a lyrics row here. Each still carries its own
-   * × ; the toolbar can delete the line the cursor is on and always could, but nobody
-   * found it there. Backspace (or Delete) does the same once the row is focused.
+   * The lines that are not words and are not blank either: a section marker, a directive, a
+   * `#` source comment. Each of the three carries something a person may want to change —
+   * the name a block gives itself, a directive's value, the words after the hash — so each
+   * of the three gets an input, and what is *fixed* about the row sits beside it as a label.
+   *
+   * They were dead chips until 2026-09-20, showing their raw line under a note saying to go
+   * and edit it in Source. That was a fine answer for a directive nobody reads and a poor one
+   * for the `{key: }` the «add a field» menu had just written, empty, one tap earlier: the
+   * menu offered to add a field and then the field could not be filled in.
+   *
+   * There is still no promotion to a lyrics row, unlike a blank line: what this row *is* was
+   * chosen by the directive on it, and typing into the value cannot change that.
    */
   if (block.kind === 'boundary' || block.kind === 'directive' || block.kind === 'source-comment') {
-    const section = block.kind === 'boundary' ? block.section : null
+    const parts = block.kind === 'directive' ? directiveParts(block.raw) : null
+    const value =
+      block.kind === 'boundary'
+        ? block.value
+        : block.kind === 'source-comment'
+          ? block.raw.slice(1)
+          : (parts?.value ?? '')
+
+    const label =
+      block.kind === 'boundary'
+        ? `${block.section} ${block.edge}`
+        : block.kind === 'source-comment'
+          ? '#'
+          : (parts?.name ?? block.raw.trim())
+
+    const placeholder =
+      block.kind === 'boundary' ? 'name this block' : block.kind === 'source-comment' ? 'note to yourself' : 'value'
 
     return (
       <div className={classes} data-line={index}>
-        <button
-          type="button"
-          className="editor-aside flex-1 text-start"
-          onClick={() => onCaret(0)}
-          onKeyDown={(event) => {
-            if (event.key === 'Backspace' || event.key === 'Delete') {
-              event.preventDefault()
-              onRemove()
-            }
+        <div className="line-scroll">
+          <div className="line-inner editor-directive-row">
+            {block.kind === 'boundary' ? (
+              <span className="badge">{label}</span>
+            ) : (
+              <code className="editor-hint editor-directive-name">{label}</code>
+            )}
 
-            // Neither a chorus/bridge marker nor a directive has text of its own to
-            // split, so `at` is never read for this row's kind — a new line simply
-            // opens after it, the same as pressing Enter at the end of any other
-            // line; Shift+Enter opens a break instead.
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              if (event.shiftKey) onBreak()
-              else onSplit(0)
-            }
-          }}
-        >
-          {block.kind === 'boundary' && (
-            <span className="badge">
-              {block.edge === 'start' ? `${section} start` : `${section} end`}
-            </span>
-          )}
+            <input
+              className="line-input editor-directive-value"
+              value={value}
+              placeholder={placeholder}
+              onChange={(event) => onText(event.target.value, event.target.selectionStart ?? 0)}
+              onFocus={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
+              onClick={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
+              onKeyUp={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
+              onSelect={(event) => onCaret(event.currentTarget.selectionStart ?? 0)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  if (event.shiftKey) onBreak()
+                  else onSplit(0)
+                  return
+                }
 
-          {/* Shown rather than hidden: it is in the file, so it is on the screen.
-              Its text is edited in Source, where either of these is just a line. A `#`
-              comment is shown for the same reason and not because a reader will ever
-              see it — the editor's job is that nothing in the file is invisible here. */}
-          {(block.kind === 'directive' || block.kind === 'source-comment') && (
-            <code className="editor-hint">{block.raw.trim()}</code>
-          )}
-        </button>
+                /*
+                 * Backspace only takes the row away from an *empty* value, the same trigger
+                 * the comment row uses: while there is something typed, Backspace has
+                 * letters to delete and taking the whole line would be the one edit nobody
+                 * can undo by typing it back.
+                 */
+                if (
+                  (event.key === 'Backspace' || event.key === 'Delete') &&
+                  value === '' &&
+                  (event.currentTarget.selectionStart ?? 0) === 0
+                ) {
+                  event.preventDefault()
+                  onRemove()
+                }
+              }}
+              aria-label={`${label} value, line ${index + 1}`}
+            />
+          </div>
+        </div>
 
         <button
           type="button"

@@ -11,6 +11,8 @@ import {
   type ChordAt,
   type LyricsBlock,
   type SongDocument,
+  directiveLine,
+  directiveParts,
   fromSource,
   sectionsOf,
   shiftChords,
@@ -35,6 +37,32 @@ export function setLineText(document: SongDocument, index: number, text: string)
   if (block === undefined) return document
 
   if (block.kind === 'comment') return replace(document, index, { ...block, text })
+
+  /*
+   * The three kinds that show something a person may want to change, and could not until
+   * 2026-09-20: a directive's value, the name a section gives itself, and the words after a
+   * `#`. Each was drawn as a dead chip with its raw line inside and a note saying to go and
+   * edit it in Source — which is a fine answer for a directive nobody reads and a poor one
+   * for the `{key: }` the «add a field» menu had just written, empty, one tap earlier.
+   *
+   * A directive is rebuilt from its name rather than patched in place, so a value with a
+   * brace or a colon in it cannot make the line mean something else. That normalises the
+   * spacing of a line somebody edits — `{key:G}` comes back `{key: G}` — and leaves every
+   * line nobody touched exactly as it was, which is the half that matters for a file this
+   * app did not write.
+   */
+  if (block.kind === 'boundary') return replace(document, index, { ...block, value: text })
+
+  if (block.kind === 'source-comment') {
+    return replace(document, index, { ...block, raw: `#${text}` })
+  }
+
+  if (block.kind === 'directive') {
+    const parts = directiveParts(block.raw)
+    if (parts === null) return document
+
+    return replace(document, index, { ...block, raw: directiveLine(parts.name, text) })
+  }
 
   /**
    * A blank line is what a source file already looks like when there is nothing on
@@ -370,6 +398,20 @@ export function addField(document: SongDocument, index: number, line: string): S
   lines.splice(Math.min(index + 1, lines.length), 0, line)
 
   return { ...fromSource(lines.join(document.eol)), eol: document.eol }
+}
+
+/** Inserts an empty chord grid after `index`, the toolbar's "Grid" command. */
+export function insertGrid(document: SongDocument, index: number): SongDocument {
+  return insertLineAfter(document, index, {
+    kind: 'tab',
+    startDirective: 'start_of_grid',
+    startValue: '',
+    endDirective: 'end_of_grid',
+    // One bar of four, which is the shape somebody is about to fill in rather than a guess
+    // at their song: a grid with no rows at all reads as a mistake.
+    rows: ['| . . . . |'],
+    variant: 'grid',
+  })
 }
 
 /** Inserts a blank tab after `index`, the toolbar's "Tab" command. */
