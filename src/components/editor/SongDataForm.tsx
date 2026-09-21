@@ -72,6 +72,38 @@ export function SongDataForm({
   const data = readSongData(document)
   const write = (next: SongDocument) => onSource(toSource(next))
 
+  /**
+   * A field added is a field to type into, so the caret goes there.
+   *
+   * Without this the menu wrote the line and left the focus where it was — and since the
+   * new field is up in its own group, usually off the top of the screen, what somebody
+   * typed next went somewhere else entirely. The gesture the menu exists for needed a
+   * scroll and a click in between.
+   *
+   * The block index is the id, and the row only exists after the next render, so the
+   * focus waits for it: `addField` records what it is waiting for, the effect below finds
+   * it once the source has come back through the props.
+   */
+  const awaiting = useRef<number | null>(null)
+
+  useEffect(() => {
+    const block = awaiting.current
+    if (block === null) return
+    awaiting.current = null
+
+    const input = window.document.getElementById(`field-${block}`)
+    if (input instanceof HTMLInputElement) {
+      input.focus()
+      input.scrollIntoView({ block: 'nearest' })
+    }
+  }, [source])
+
+  const addField = (name: string) => {
+    const added = addSongField(document, name)
+    awaiting.current = added.block
+    write(added.document)
+  }
+
   const divisions = sections
     .filter((section) => section.songbookSlug === songbookSlug)
     .sort((one, other) => one.position - other.position)
@@ -177,6 +209,7 @@ export function SongDataForm({
                 {group.rows.map((row) => (
                   <div className="song-data-repeat" key={row.block}>
                     <DraftInput
+                      id={`field-${row.block}`}
                       value={row.value}
                       onChange={(next) => write(setSongField(document, row.block, row.name, next))}
                       className={`form-field song-data-input ${row.mono ? 'is-mono' : ''}`}
@@ -196,7 +229,7 @@ export function SongDataForm({
                 <button
                   type="button"
                   className="song-data-add"
-                  onClick={() => write(addSongField(document, group.name).document)}
+                  onClick={() => addField(group.name)}
                 >
                   <IconPlus size={14} />
                   {`Add ${group.label.toLowerCase()}`}
@@ -217,6 +250,7 @@ export function SongDataForm({
               <div className="song-data-repeat" key={row.block}>
                 <code className="song-data-other">{row.name}</code>
                 <DraftInput
+                  id={`field-${row.block}`}
                   value={row.value}
                   onChange={(next) => write(setSongField(document, row.block, row.name, next))}
                   className="form-field song-data-input is-mono"
@@ -238,10 +272,7 @@ export function SongDataForm({
 
       <AddField
         missing={data.missing.filter((field) => !COLUMNS.has(field.name))}
-        onAdd={(name) => {
-          const added = addSongField(document, name)
-          onSource(toSource(added.document))
-        }}
+        onAdd={addField}
       />
     </div>
   )
