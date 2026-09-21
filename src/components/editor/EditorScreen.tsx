@@ -1031,18 +1031,35 @@ export function EditorScreen({ song }: { song: Song }) {
           songBeatsPerBar={parsed.beatsPerBar}
         >
           {/*
-            * The reader's own controls, not a copy of them: the point of this mode is to
-            * see the song the way it will be read, transposition included — which is why
-            * the row that sets it comes along with the sheet rather than only the bar.
+            * On paper, because that is what the reader sees.
+            *
+            * The controls and the sheet sit inside `.song-card` on the reading screen, and
+            * here they used to be mounted straight onto the page — so the one mode whose
+            * whole job is «the song as it will be read» showed it on the warm grey of the
+            * editor instead of on white. `.editor-sheet` is the same three values as
+            * `.song-card` (its own comment says so), which is what the graphic mode already
+            * draws on: all three modes now show the words on the paper they will live on.
+            *
+            * Not `.song-card` itself: that one is the page's main column — full width of the
+            * viewport, square across the bottom and nearly a screen tall whatever it holds,
+            * because on the reader it runs to the foot of the page. Inside the editor it
+            * would be a white slab with a hard edge under a short song.
             */}
-          <SongControls
-            songSlug={song.slug}
-            chords={chordTokens(parsed)}
-            songCapo={parsed.capo}
-            songKey={parsed.key}
-            songTranspose={parsed.transpose}
-          />
-          <SongSheet song={parsed} values={metadataValues(parsed, fields.title, fields.artist)} />
+          <div className="editor-sheet">
+            {/*
+              * The reader's own controls, not a copy of them: the point of this mode is to
+              * see the song the way it will be read, transposition included — which is why
+              * the row that sets it comes along with the sheet rather than only the bar.
+              */}
+            <SongControls
+              songSlug={song.slug}
+              chords={chordTokens(parsed)}
+              songCapo={parsed.capo}
+              songKey={parsed.key}
+              songTranspose={parsed.transpose}
+            />
+            <SongSheet song={parsed} values={metadataValues(parsed, fields.title, fields.artist)} />
+          </div>
           <div className="bar-spacer" />
           <ControlBar songSlug={song.slug} songTranspose={parsed.transpose} />
         </MetronomeProvider>
