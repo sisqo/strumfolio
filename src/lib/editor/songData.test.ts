@@ -370,19 +370,28 @@ describe('isFieldName', () => {
  * invariant like this is the file nobody thought of.
  */
 describe('the corpus survives being read as a form', () => {
+  /*
+   * `content/` is the repertoire this repo carries and is always there — the path was
+   * `content/songs` for a day, which does not exist, so this walked only the Parallels
+   * share and failed outright the morning it was unmounted. The share is the extra, not
+   * the corpus.
+   */
   const files: string[] = []
-  for (const dir of ['content/songs', '/media/psf/Download/songs']) {
-    try {
-      for (const name of readdirSync(dir)) {
-        if (/\.(cho|chopro|pro|crd)$/.test(name)) files.push(`${dir}/${name}`)
-      }
-    } catch {
-      /* The shared folder is not mounted everywhere; `content/` always is. */
-    }
+  for (const name of readdirSync('content', { recursive: true, encoding: 'utf8' })) {
+    if (/\.(cho|chopro|pro|crd)$/.test(name)) files.push(`content/${name}`)
   }
 
-  it('found something to read', () => {
-    assert.ok(files.length > 0, 'no corpus')
+  const shared = '/media/psf/Download/songs'
+  try {
+    for (const name of readdirSync(shared)) {
+      if (/\.(cho|chopro|pro|crd)$/.test(name)) files.push(`${shared}/${name}`)
+    }
+  } catch {
+    /* The Mac's shared folder is not mounted everywhere, and nothing here needs it. */
+  }
+
+  it('found the repertoire this repo carries', () => {
+    assert.ok(files.length > 0, 'nothing readable in content/')
   })
 
   for (const path of files) {

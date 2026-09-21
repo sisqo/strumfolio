@@ -208,11 +208,10 @@ export function SongDataForm({
 
       {data.others.length > 0 && (
         <>
+          {/* The sentence that explains these lives once, in the foot beside the button
+              that writes them — printing it here too put it twice on one screen, a few
+              dozen pixels apart, which reads as a mistake. */}
           <Heading title="Anything else" />
-          <p className="song-data-note">
-            A field this app has no name for keeps its own, and is handed back exactly as it
-            arrived.
-          </p>
           <div className="song-data-list">
             {data.others.map((row) => (
               <div className="song-data-repeat" key={row.block}>
