@@ -195,9 +195,16 @@ export interface DataRow {
   label: string
   mono: boolean
   span: 1 | 2 | 'full'
-  /** The block this value lives on, or null when the song does not carry the field at all. */
-  block: number | null
+  /** The block this value lives on. A row exists only because a line does. */
+  block: number
   value: string
+}
+
+/** A field the form knows and this song does not carry — what the «add a field» menu offers. */
+export interface MissingField {
+  group: string
+  name: string
+  label: string
 }
 
 export interface DataGroupView {
@@ -211,7 +218,17 @@ export interface DataGroupView {
 }
 
 export interface SongData {
+  /** Only the groups with something in them; an empty one is not drawn at all. */
   groups: DataGroupView[]
+  /**
+   * Every field the form knows that this song does not carry, in the groups' own order —
+   * the menu behind «Add a field», and the exact complement of what is on screen.
+   *
+   * A repeat group counts as missing only while it holds nothing: once a song has one tag
+   * the group is drawn and has an «add» of its own, so offering «Tag» in both places would
+   * be two buttons for one act.
+   */
+  missing: MissingField[]
   /**
    * Directives in the head the form has no name for — kept with their own spelling, which
    * is the promise: a field this app never heard of is not lost and not renamed.
@@ -247,46 +264,60 @@ export function readSongData(document: SongDocument): SongData {
     else list.push(index)
   })
 
-  const groups: DataGroupView[] = DATA_GROUPS.map((group) => {
+  /*
+   * **A row exists because a line does.** The form used to draw every field it knows,
+   * valued or not, which put nineteen inputs in front of somebody on an ordinary song and
+   * fifteen of them empty — the opposite of what the handoff draws, where every field on
+   * screen has something in it and the rest live behind «Add a field».
+   *
+   * The test of «is it there» is the *line*, never the value. A field whose value is empty
+   * but whose line exists stays on screen: otherwise clearing a value to retype it would
+   * take the field away under the caret, and with `DraftInput` holding the typed draft the
+   * rule would have to become «has a value, or has the focus» — an «or» in the one sentence
+   * that has to be simple.
+   */
+  const groups: DataGroupView[] = []
+  const missing: MissingField[] = []
+
+  for (const group of DATA_GROUPS) {
     const first = group.fields[0]!
 
-    if (group.kind === 'repeat') {
-      const rows = (found.get(first.name) ?? []).map((index) => ({
-        name: first.name,
-        label: first.label,
-        mono: first.mono === true,
-        span: first.span ?? (1 as const),
+    const rows: DataRow[] = group.fields.flatMap((field) =>
+      // Every line for a repeat group; the first for a single one, which is the line a
+      // reader's parser takes too, so the form edits what is actually in force.
+      (found.get(field.name) ?? (group.kind === 'repeat' ? [] : [])).map((index) => ({
+        name: field.name,
+        label: field.label,
+        mono: field.mono === true,
+        span: field.span ?? (1 as const),
         block: index,
         value: valueOf(document.blocks[index]!),
-      }))
+      })),
+    )
 
-      return {
+    if (rows.length > 0) {
+      groups.push({
         title: group.title,
         kind: group.kind,
         name: first.name,
         label: first.label,
         mono: first.mono === true,
         rows,
-      }
+      })
     }
 
-    const rows = group.fields.map((field) => {
-      // The first one wins where a file says the same thing twice: it is the one a reader's
-      // parser takes too, so the form edits the line that is actually in force.
-      const block = found.get(field.name)?.[0] ?? null
-
-      return {
-        name: field.name,
-        label: field.label,
-        mono: field.mono === true,
-        span: field.span ?? (1 as const),
-        block,
-        value: block === null ? '' : valueOf(document.blocks[block]!),
+    /*
+     * What the menu may offer. A repeat group is offered only while it is empty — once the
+     * song has one tag the group is on screen with an «add» of its own, and the menu
+     * offering «Tag» beside it would be two buttons for one act.
+     */
+    for (const field of group.fields) {
+      const present = (found.get(field.name) ?? []).length > 0
+      if (group.kind === 'repeat' ? rows.length === 0 : !present) {
+        missing.push({ group: group.title, name: field.name, label: field.label })
       }
-    })
-
-    return { title: group.title, kind: group.kind, name: first.name, label: first.label, mono: false, rows }
-  })
+    }
+  }
 
   const others: DataRow[] = []
   for (let index = 0; index < end; index += 1) {
@@ -306,41 +337,57 @@ export function readSongData(document: SongDocument): SongData {
     })
   }
 
-  return { groups, others, headEnd: end }
+  return { groups, missing, others, headEnd: end }
 }
 
 /**
- * A field's value changed.
+ * A field's value changed — one field, one line, in place.
  *
- * Three cases, and the third is the one worth naming: a field the song does not carry yet
- * has no block to write to, so typing into it *creates* the line — at the end of the head,
- * the only place a new directive can go without claiming to know where its writer would
- * have put it. An empty value creates nothing, so tabbing through the form leaves no trail
- * of `{album}` lines behind.
+ * **It never creates a line.** Every row on screen exists because a line does, so there is
+ * always a block to write to; `addSongField` is the only door in, and going through the
+ * menu is what makes a field appear. This used to create on a first keystroke into an
+ * always-drawn empty field, which is the shape the form no longer has.
  */
 export function setSongField(
   document: SongDocument,
-  block: number | null,
+  block: number,
   name: string,
   value: string,
 ): SongDocument {
-  if (block !== null) {
-    const existing = document.blocks[block]
-    if (existing === undefined || existing.kind !== 'directive') return document
+  const existing = document.blocks[block]
+  if (existing === undefined || existing.kind !== 'directive') return document
 
-    const blocks = [...document.blocks]
-    blocks[block] = { kind: 'directive', raw: directiveLine(name, value) }
-    return { ...document, blocks }
-  }
-
-  if (value.trim() === '') return document
-
-  return addFieldAt(document, fieldInsertAfter(document.blocks), directiveLine(name, value)).document
+  const blocks = [...document.blocks]
+  blocks[block] = { kind: 'directive', raw: directiveLine(name, value) }
+  return { ...document, blocks }
 }
 
-/** A row of a repeat group added — an empty line of that directive, at the end of the head. */
-export function addSongField(document: SongDocument, name: string): { document: SongDocument; block: number } {
+/**
+ * A field added: an empty line of that directive at the end of the head, and the block it
+ * landed in so the caret can go there.
+ *
+ * Empty and not absent, because the line *is* the field — writing `{album}` is what puts
+ * Album on screen, and the value is typed into it afterwards like any other. The name is
+ * whatever the caller passes, which is how «Anything else» gets a field the app has never
+ * heard of: nothing here checks the name against a list.
+ */
+export function addSongField(
+  document: SongDocument,
+  name: string,
+): { document: SongDocument; block: number } {
   return addFieldAt(document, fieldInsertAfter(document.blocks), directiveLine(name, ''))
+}
+
+/**
+ * Whether a typed name may be added as a field of its own.
+ *
+ * The same shape a directive name has everywhere else in this repo, minus the conditional's
+ * dash-and-selector — a field is a field for the whole song, so `{album-guitar}` from this
+ * box would be asking for something the form cannot show. Rejected rather than corrected,
+ * because guessing what somebody meant by a name is how `{albm}` becomes a permanent row.
+ */
+export function isFieldName(name: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name.trim())
 }
 
 /**

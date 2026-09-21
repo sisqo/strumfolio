@@ -1,14 +1,19 @@
 /**
- * The fields the graphic editor offers to add, and the line each one writes.
+ * The directives the toolbar offers to drop where the caret is.
  *
- * **Only what lives in the body.** Title and artist are not here and must not be: a column
- * holds each of them, the form has an input for each of them, and a `{title: …}` line typed
- * into the body is stripped the next time the song is saved. A menu entry that quietly
- * disappears is the kind of surprise that costs somebody their trust in an editor, which is
- * worth more than the completeness of a list. `{tag:}` and the three `{link…}` directives used
- * to be excluded for the same reason and no longer are: their columns were dropped on
- * 2026-09-20, so a tag now lives in the body like everything else here — which is why the
- * guard is `fields.test.ts` against `METADATA_DIRECTIVE` rather than a list written out twice.
+ * **Only the ones whose position is their meaning**, since 2026-09-21. A `{start_of_verse}`
+ * says where a verse begins and a `{column_break}` says where a column ends: put either
+ * somewhere else and it means something else, so the place to add them is the line somebody
+ * is looking at. Everything about the song *itself* — subtitle, key, capo, tempo, tag,
+ * fingering and the rest — left this menu the day `SongDataForm` grew an «Add a field» of
+ * its own, because a `{key: …}` dropped between two verses is the same field the form shows
+ * at the top and there is no reason to offer it twice, in two places, one of which writes it
+ * somewhere nobody would look for it.
+ *
+ * What stays out for a different reason: title and artist. A column holds each of them, and
+ * a `{title: …}` typed into the body is stripped at the next save — a menu entry that
+ * quietly disappears costs somebody their trust in an editor. The guard is
+ * `fields.test.ts` against `METADATA_DIRECTIVE` rather than a list written out twice.
  *
  * Nor is it the whole format — the raw editor takes any directive at all, and the reader
  * keeps every one it does not act on. This is the short list worth a tap.
@@ -32,42 +37,10 @@ const value = (name: string, label: string): FieldOption => ({ name, label, take
 const bare = (name: string, label: string): FieldOption => ({ name, label, takesValue: false })
 
 /**
- * Grouped the way somebody reaching for one would look: what the song *is*, how it is
- * *played*, how it is *built*, and — last, because it is the least often wanted — how it
- * would be *printed* by a program that prints.
+ * Two groups: how the song is *built*, and — last, because it is the least often wanted —
+ * how it would be *printed* by a program that prints. Both are about a place in the file.
  */
 export const FIELD_GROUPS: FieldGroup[] = [
-  {
-    title: 'About the song',
-    options: [
-      value('subtitle', 'Subtitle'),
-      /* Singular and repeatable, which is the format's own shape: one line per tag. It
-         belongs here since the column was dropped (2026-09-20) — the body is the only home
-         a tag has now, so leaving it out would mean the graphic editor could not tag a song
-         at all. `METADATA_DIRECTIVE` does not strip it, which is what `fields.test.ts` checks. */
-      value('tag', 'Tag'),
-      value('composer', 'Composer'),
-      value('lyricist', 'Lyricist'),
-      value('album', 'Album'),
-      value('year', 'Year'),
-      value('copyright', 'Copyright'),
-      value('duration', 'Duration'),
-      value('ccli', 'CCLI number'),
-      value('sorttitle', 'Sorts as'),
-      value('sortartist', 'Artist sorts as'),
-    ],
-  },
-  {
-    title: 'Playing it',
-    options: [
-      value('key', 'Key'),
-      value('capo', 'Capo'),
-      value('tempo', 'Tempo'),
-      value('time', 'Time signature'),
-      value('transpose', 'Transpose'),
-      value('define', 'Chord fingering'),
-    ],
-  },
   {
     title: 'Structure',
     options: [

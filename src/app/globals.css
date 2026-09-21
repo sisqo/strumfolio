@@ -14663,6 +14663,85 @@
     color: var(--ink);
   }
 
+  /*
+   * An input and the × that takes its line away, side by side.
+   *
+   * The × removes the *line*, which is what takes a field off the form — a field is drawn
+   * because its line exists. Clearing the value leaves the row where it is, so a value can
+   * be deleted and retyped without the field vanishing from under the caret.
+   */
+  .song-data-held {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .song-data-held > .song-data-input {
+    min-width: 0;
+  }
+
+  /* The foot of the form: the sentence about unknown fields, and the way to add one. */
+  .song-data-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-block-start: 1.25rem;
+    padding-block-start: 0.875rem;
+    border-block-start: 1px solid var(--surface-3);
+  }
+
+  .song-data-foot > .song-data-note {
+    flex: 1;
+    min-width: 12rem;
+    margin: 0;
+  }
+
+  .song-data-add-wrap {
+    position: relative;
+    flex: none;
+  }
+
+  /*
+   * The menu of fields this song does not carry.
+   *
+   * Opens upward — it hangs off the last thing in a long form, and downward would put it
+   * under the fold on every song with more than a few fields. `max-height` with a scroll
+   * because a bare song offers every field there is.
+   */
+  .song-data-menu {
+    position: absolute;
+    z-index: 30;
+    inset-block-end: calc(100% + 0.375rem);
+    inset-inline-end: 0;
+    min-width: 15rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
+  }
+
+  /* The last row of the menu: a name the app has never heard of. */
+  .song-data-custom {
+    margin-block-start: 0.375rem;
+    padding-block-start: 0.625rem;
+    padding-inline: 0.5rem;
+    border-block-start: 1px solid var(--surface-3);
+  }
+
+  .song-data-custom .control-name-label {
+    display: block;
+    margin-block-end: 0.375rem;
+  }
+
+  .song-data-custom .song-data-input {
+    min-width: 0;
+  }
+
   .song-data-note {
     margin-block: -0.25rem 0.625rem;
     color: var(--faint);

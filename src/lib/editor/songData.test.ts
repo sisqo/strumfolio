@@ -8,6 +8,7 @@ import {
   addSongField,
   fieldNameOf,
   headEnd,
+  isFieldName,
   readSongData,
   removeSongField,
   setSongField,
@@ -79,10 +80,10 @@ describe('readSongData', () => {
     assert.equal(title?.value, 'Prova')
   })
 
-  it('leaves a field the song does not carry with no block and no value', () => {
-    const album = row(SONG, 'Identity', 'album')
-    assert.equal(album?.block, null)
-    assert.equal(album?.value, '')
+  /* It used to answer a row with `block: null`, drawn empty. See «a field is drawn because
+     a line exists» below for why there is no row at all now. */
+  it('has no row for a field the song does not carry', () => {
+    assert.equal(row(SONG, 'Identity', 'album'), undefined)
   })
 
   /*
@@ -134,6 +135,97 @@ describe('readSongData', () => {
 
   it('takes the first of two lines that say the same thing, as a reader does', () => {
     assert.equal(row('{key: G}\n{key: D}\nparole', 'Music', 'key')?.block, 0)
+  })
+})
+
+/**
+ * The rule the whole form hangs off, and the one sentence it has to be possible to say
+ * about it: **a field is on screen because its line is in the file.**
+ *
+ * Not because it has a value. The two come apart exactly where it matters — clearing a
+ * value to retype it — and the value reading would take the field away under the caret.
+ * With `DraftInput` holding the typed draft the rule would have had to become «has a value,
+ * or has the focus», an «or» in the sentence that most needs not to have one.
+ */
+describe('a field is drawn because a line exists', () => {
+  const named = (source: string) =>
+    readSongData(fromSource(source)).groups.flatMap((group) =>
+      group.rows.map((one) => one.name),
+    )
+
+  it('leaves out every field the song does not carry', () => {
+    const shown = named(SONG)
+
+    assert.ok(shown.includes('key'), 'the song declares a key')
+    assert.ok(!shown.includes('album'), 'album is nowhere in the file')
+    assert.ok(!shown.includes('ccli'))
+    assert.ok(!shown.includes('sorttitle'))
+  })
+
+  /* The half that makes clearing a value safe: the line is still there, so the row is too. */
+  it('keeps a field whose line is there and whose value is empty', () => {
+    assert.ok(named('{album}\nparole').includes('album'))
+    assert.ok(named('{album: }\nparole').includes('album'))
+  })
+
+  it('draws no group at all when nothing in it is carried', () => {
+    const titles = readSongData(fromSource(SONG)).groups.map((one) => one.title)
+
+    assert.ok(titles.includes('Music'), 'the song has a key and a capo')
+    assert.ok(!titles.includes('Rights'), 'no copyright, no CCLI, no heading')
+    assert.ok(!titles.includes('Sorting'))
+  })
+
+  it('draws a repeat group only once the song has one of them', () => {
+    assert.ok(readSongData(fromSource(SONG)).groups.some((one) => one.title === 'Finding it'))
+    assert.ok(!readSongData(fromSource('{title: T}\nparole')).groups.some((one) => one.title === 'Finding it'))
+  })
+})
+
+/** What «Add a field» may offer: the exact complement of what is on screen. */
+describe('the fields that are missing', () => {
+  const missing = (source: string) => readSongData(fromSource(source)).missing.map((one) => one.name)
+
+  it('offers what the song does not carry and nothing it does', () => {
+    const offered = missing(SONG)
+
+    assert.ok(offered.includes('album'))
+    assert.ok(offered.includes('ccli'))
+    assert.ok(!offered.includes('key'), 'the key is already on screen')
+    assert.ok(!offered.includes('capo'))
+  })
+
+  /*
+   * A repeat group is offered while it is empty and not after: once the song has one tag
+   * the group is drawn with an «add» of its own, and the menu offering «Tag» beside it
+   * would be two buttons for one act.
+   */
+  it('stops offering a repeat group once it has a row', () => {
+    assert.ok(!missing(SONG).includes('tag'), 'this song has two tags')
+    assert.ok(missing('{title: T}\nparole').includes('tag'))
+    assert.ok(missing('{title: T}\nparole').includes('define'))
+  })
+
+  it('carries the group each field belongs to, so the menu can head them', () => {
+    const data = readSongData(fromSource(SONG))
+    const album = data.missing.find((one) => one.name === 'album')
+
+    assert.equal(album?.group, 'Identity')
+    assert.equal(album?.label, 'Album')
+  })
+
+  /* Every field is either drawn or offered, never both and never neither. */
+  it('is the exact complement of what is on screen', () => {
+    for (const source of [SONG, '{title: T}\nparole', '{album}\n{tag: uno}\nparole']) {
+      const data = readSongData(fromSource(source))
+      const shown = new Set(data.groups.flatMap((group) => group.rows.map((one) => one.name)))
+      const offered = new Set(data.missing.map((one) => one.name))
+      const all = DATA_GROUPS.flatMap((group) => group.fields.map((field) => field.name))
+
+      for (const name of all) {
+        assert.equal(shown.has(name) !== offered.has(name), true, `${name} in ${source}`)
+      }
+    }
   })
 })
 
@@ -196,22 +288,31 @@ describe('one field, one line', () => {
 })
 
 describe('adding and removing', () => {
-  it('writes a field the song did not carry at the end of the head', () => {
-    const after = toSource(setSongField(fromSource(SONG), null, 'album', 'Un disco'))
-    const lines = after.split('\n')
+  it('writes the new field at the end of the head, empty, and says which block', () => {
+    const added = addSongField(fromSource(SONG), 'album')
+    const lines = toSource(added.document).split('\n')
+    const block = added.document.blocks[added.block]
 
     // After `{x_qualcosa}`, the last directive of the head — not under the blank line that
     // closes it, which is where «the end of the head» literally taken had put it.
-    assert.equal(lines[7], '{album: Un disco}')
+    assert.equal(lines[7], '{album}')
+    assert.equal(block?.kind === 'directive' && block.raw, '{album}')
     // The words are untouched and still in order.
-    assert.ok(after.includes('{start_of_chorus: Finale}\n[G]parole'))
+    assert.ok(toSource(added.document).includes('{start_of_chorus: Finale}\n[G]parole'))
   })
 
-  it('writes nothing for an empty value, so tabbing through the form leaves no trail', () => {
-    assert.equal(toSource(setSongField(fromSource(SONG), null, 'album', '   ')), SONG)
+  /* One field, one line, on the way in as well as on the way through. */
+  it('adds exactly one line and moves nothing else', () => {
+    const after = toSource(addSongField(fromSource(SONG), 'album').document)
+    const one = SONG.split('\n')
+    const other = after.split('\n')
+
+    assert.equal(other.length, one.length + 1)
+    assert.deepEqual(other.slice(0, 7), one.slice(0, 7))
+    assert.deepEqual(other.slice(8), one.slice(7))
   })
 
-  it('opens an empty row for a repeat group and says which block it is', () => {
+  it('opens an empty row for a repeat group too', () => {
     const added = addSongField(fromSource(SONG), 'tag')
     const block = added.document.blocks[added.block]
 
@@ -219,9 +320,18 @@ describe('adding and removing', () => {
     assert.equal(block?.kind === 'directive' && block.raw, '{tag}')
   })
 
+  /* A name nothing here knows is written as it was typed — that is the whole of «Anything
+     else», and the reason `addSongField` checks no list. */
+  it('takes a name the app has never heard of', () => {
+    const added = addSongField(fromSource(SONG), 'x_inventato')
+    const data = readSongData(added.document)
+
+    assert.ok(data.others.some((one) => one.name === 'x_inventato'))
+  })
+
   it('takes the whole line away rather than leaving an empty directive', () => {
     const tags = readSongData(fromSource(SONG)).groups.find((one) => one.title === 'Finding it')!
-    const after = toSource(removeSongField(fromSource(SONG), tags.rows[0]!.block!))
+    const after = toSource(removeSongField(fromSource(SONG), tags.rows[0]!.block))
 
     assert.ok(!after.includes('{tag: rock}'))
     assert.ok(after.includes('{tag: live}'))
@@ -229,8 +339,28 @@ describe('adding and removing', () => {
   })
 
   it('writes into a song with no head at all, at the very top', () => {
-    const after = toSource(setSongField(fromSource('parole\naltre'), null, 'title', 'T'))
-    assert.equal(after, '{title: T}\nparole\naltre')
+    const after = toSource(addSongField(fromSource('parole\naltre'), 'title').document)
+    assert.equal(after, '{title}\nparole\naltre')
+  })
+})
+
+describe('isFieldName', () => {
+  it('takes an ordinary directive name', () => {
+    for (const name of ['album', 'x_inventato', 'Capo', 'a1']) {
+      assert.equal(isFieldName(name), true, name)
+    }
+  })
+
+  /*
+   * A conditional is refused rather than corrected. `{album-guitar}` is a legal directive
+   * and an impossible *field*: the form shows one row for the whole song and could not say
+   * which reader that row was for. Guessing what somebody meant is how `{albm}` becomes a
+   * permanent row in «Anything else».
+   */
+  it('refuses a conditional, a blank, and anything that is not a name', () => {
+    for (const name of ['album-guitar', 'comment-!guitar', '', '   ', '1album', 'a b', '{album}']) {
+      assert.equal(isFieldName(name), false, JSON.stringify(name))
+    }
   })
 })
 
@@ -291,28 +421,26 @@ describe('the corpus survives being read as a form', () => {
  * tree — so the component itself cannot be tested, but the fact that forced it can.
  */
 describe('a value does not survive the round trip byte for byte', () => {
-  it('loses a trailing space, which is what stopped anybody typing one', () => {
-    const written = setSongField(fromSource('{title: T}\nparole'), null, 'album', 'Disco ')
-    const back = readSongData(written).groups
+  const album = (source: string) =>
+    readSongData(fromSource(source)).groups
       .find((one) => one.title === 'Identity')
       ?.rows.find((one) => one.name === 'album')
+
+  it('loses a trailing space, which is what stopped anybody typing one', () => {
+    const written = toSource(setSongField(fromSource('{album}\nparole'), 0, 'album', 'Disco '))
 
     // Written with the space, read back without it — so a controlled input fed from the
     // document dropped every space the moment it was typed, and «Disco di prova» arrived
     // as «Discodiprova». The input keeps its own draft while it has the focus.
-    assert.ok(toSource(written).includes('{album: Disco }'))
-    assert.equal(back?.value, 'Disco')
+    assert.ok(written.includes('{album: Disco }'))
+    assert.equal(album(written)?.value, 'Disco')
   })
 
   /* The other half: once the value is a word again the two agree, which is the condition
      the draft is kept under — disagree and the document wins, so Undo is not fought. */
   it('is unchanged for a value with nothing hanging off the end', () => {
-    const written = setSongField(fromSource('{title: T}\nparole'), null, 'album', 'Disco di prova')
-    const back = readSongData(written).groups
-      .find((one) => one.title === 'Identity')
-      ?.rows.find((one) => one.name === 'album')
-
-    assert.equal(back?.value, 'Disco di prova')
+    const written = toSource(setSongField(fromSource('{album}\nparole'), 0, 'album', 'Disco di prova'))
+    assert.equal(album(written)?.value, 'Disco di prova')
   })
 })
 
