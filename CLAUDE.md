@@ -155,6 +155,35 @@ verse. Three things about that form are load-bearing and none is obvious from lo
 - **`tag` and `define` are repeat groups**, with N rows and their own add and remove. Both
   directives are singular and repeatable and a single input would have kept the first and
   destroyed the rest — the bug the reader had until `{tag:}` was fixed the same week.
+- **A field is drawn because its line exists, not because it has a value** (2026-09-21). The
+  form used to draw every field it knows, which put nineteen inputs on an ordinary song with
+  fifteen of them empty; now the empty ones live behind «Add a field» in the foot, and an
+  ordinary song shows five or six. The test is the *line* and never the value, and that is
+  the whole of it: a field whose value is empty but whose line exists stays on screen, or
+  clearing a value to retype it would take the field away under the caret — and with
+  `DraftInput` holding the typed draft the rule would have had to become «has a value, or
+  has the focus», an «or» in the one sentence that has to be simple. A group with no rows is
+  not drawn at all, heading included. Consequences worth knowing:
+  - **`addSongField` is the only door in**, and `setSongField` no longer creates anything:
+    every row has a block because every row is a line.
+  - **Adding focuses what it added.** The block index is the row's id and the row exists
+    only after the next render, so the focus waits on the source coming back through the
+    props. Forget it and the menu writes a field somebody then has to scroll to find — the
+    same gap the toolbar's own menu had the day before.
+  - **Songbook, section, title and artist are exempt and are not in the menu** (`COLUMNS`,
+    `SongDataForm`). They are columns rather than directives and the first three always hold
+    a value, so offering to add one would be offering something already there.
+  - **The menu takes a name nobody here knows**, which is what makes «a field this app has no
+    name for keeps its own» true: until then a private directive could only arrive by
+    importing a file. `isFieldName` refuses a conditional and anything that is not a name
+    rather than correcting it — `{album-guitar}` is a legal directive and an impossible
+    *field*, since the form draws one row for the whole song.
+- **The toolbar's own «Field» menu keeps only structure and printing** (2026-09-21). Those
+  directives have a *place* in the song, which is why they are dropped where the caret is; a
+  `{key: …}` between two verses is the same field the form shows at the top, so offering it
+  in both was offering one act in two places, one of which wrote it where nobody would look.
+  `FIELD_GROUPS` divided exactly on that line already, so the menu shortened without being
+  reorganised.
 
 One trap that cost a round trip to find: **a value round-trips through `{name: value}` and the
 parse trims**, so a controlled input fed from the document loses a trailing space and «Disco di
