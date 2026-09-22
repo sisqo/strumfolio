@@ -371,9 +371,10 @@ export default function PrivacyPolicyPage() {
         <strong>Discounts.</strong> The discount cookie lasts at most 30 days and the copy of the code
         in your browser&apos;s local storage until you clear your site data. The record that your
         account was shown an offer, and the record of a redemption, <strong>keep the email address
-        they were made with after the account is deleted</strong>, so that deleting an account and
-        registering again does not hand out the same offer twice; a redemption is also part of the
-        payment records above. To have either removed, write to us at{' '}
+        they were made with after the account is deleted</strong>. For a redemption that is so that
+        deleting an account and registering again does not hand out the same offer twice, and it is
+        also part of the payment records above; the record of an offer being shown is kept as a
+        count of how far each offer reached. To have either removed, write to us at{' '}
         <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
       </p>
       <p>

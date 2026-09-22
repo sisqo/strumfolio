@@ -26,7 +26,7 @@
 
 import { randomUUID } from 'crypto'
 
-import { and, count, eq, ne } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 
 import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
@@ -46,6 +46,7 @@ import {
   isNewPurchase,
   isSecondSubscription,
   mayWritePlan,
+  stampCredible,
   subscriptionEffect,
   transactionEffect,
   transactionPeriodEnd,
@@ -299,15 +300,18 @@ async function recordCouponRedemption(
     const [held] = await tx
       .select({ n: count() })
       .from(couponRedemptions)
+      /* Counted exactly as `redeemability` counts it, or this would fire later than the checkout
+         refuses: the Lifetime ceiling over Lifetime rows alone, the subscription ceiling over
+         every row the campaign has (`redeemedCount`). */
       .where(
         line.plan === 'lifetime'
           ? and(eq(couponRedemptions.campaignId, campaignId), eq(couponRedemptions.plan, 'lifetime'))
-          : and(eq(couponRedemptions.campaignId, campaignId), ne(couponRedemptions.plan, 'lifetime')),
+          : eq(couponRedemptions.campaignId, campaignId),
       )
     const n = held?.n ?? 0
     if (n > limit) {
       alerts.push(
-        `⚠️ Coupon ${campaign.code} oltre il tetto: ${n} riscatti ${line.plan === 'lifetime' ? 'Lifetime' : 'di abbonamento'} ` +
+        `⚠️ Coupon ${campaign.code} oltre il tetto: ${n} riscatti${line.plan === 'lifetime' ? ' Lifetime' : ''} ` +
           `su ${limit} (account ${account.id}, evento ${event.eventId}). Erano checkout aperti prima che il tetto si chiudesse.`,
       )
     }
@@ -496,16 +500,31 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
 }
 
 export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: string): Promise<ApplyOutcome> {
-  const effect = effectOf(event)
+  let effect = effectOf(event)
   const account = effect ? await findAccount(effect.account) : null
+
+  /* What an operator has to hear about this event, sent after the commit — see below. */
+  const alerts: string[] = []
+
+  /*
+   * **A downgrade stamp is believed only from somebody who held the plan it names** —
+   * `stampCredible`. Otherwise the event is read again as if it carried none, so the items
+   * Paddle is actually billing decide the plan, and the operator is told: a stamp this app did
+   * not write is somebody trying something.
+   */
+  if (effect?.stampedFrom !== undefined && account && !stampCredible(readPlan(account.plan), effect.stampedFrom)) {
+    alerts.push(
+      `⚠️ Timbro di downgrade non credibile sull'account ${account.id} (evento ${event.eventId}): dice ` +
+        `${PLAN_LABEL[effect.stampedFrom]} ma l'account era su ${PLAN_LABEL[readPlan(account.plan)]}. Ignorato; ` +
+        'controlla su Paddle da dove viene il custom_data di quella subscription.',
+    )
+    effect = subscriptionEffect(event.data as never, false)
+  }
 
   /* Carried out of the transaction so the confirmation email can name the coupon. Assigned
      inside it, and only when the insert took a row — a rollback throws before anything reads
      this, and a retry finds `duplicate` and never reaches the insert at all. */
   let coupon: CouponWrite = UNTOUCHED
-
-  /* What an operator has to hear about this event, sent after the commit — see below. */
-  const alerts: string[] = []
 
   const outcome: ApplyOutcome = await db().transaction(async (tx) => {
     const recorded = await tx

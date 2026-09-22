@@ -8,6 +8,7 @@ import {
   isNewPurchase,
   isSecondSubscription,
   mayWritePlan,
+  stampCredible,
   planOfPrice,
   readDowngradeStamp,
   statusOf,
@@ -214,15 +215,29 @@ describe('the downgrade stamp', () => {
     assert.equal(columns?.pendingPlan, 'standard')
   })
 
-  /* This app writes the stamp from the paid period's own end, so one dated past it came from
-     somewhere else — a checkout opened with a hand-written `customData` — and granting the
-     higher plan until whatever date it names would sell Premium for a Standard price. */
-  it('is not believed past the period Paddle says is paid for', () => {
-    const at = new Date('2099-01-01T00:00:00Z')
-    const custom = { downgrade: downgradeStamp({ plan: 'premium', cycle: 'year' }, at) }
+  /* A stamp names the plan somebody is leaving, so it is only true of somebody who held it: a
+     Standard bought from free carrying «Premium until 2099» was written by somebody else. */
+  it('is believed only from somebody who already held the plan it names', () => {
+    assert.equal(stampCredible('premium', 'premium'), true)
+    assert.equal(stampCredible('premium', 'plus'), true)
+    assert.equal(stampCredible('free', 'premium'), false)
+    assert.equal(stampCredible('standard', 'premium'), false)
+  })
 
-    assert.equal(readDowngradeStamp(custom, '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z'), null)
-    assert.notEqual(readDowngradeStamp(custom, '2026-09-01T00:00:00Z', '2099-01-01T00:00:00Z'), null)
+  /* A change of cycle restarts Paddle's period, so a legitimate stamp can be later than the
+     period Paddle reports until the second call pins the date back — which is why the check is
+     on the stored plan and never a bound on the date. */
+  it('stands when it is later than the period Paddle reports', () => {
+    const { columns } = subscriptionEffect(
+      stamped({ current_billing_period: { starts_at: '2026-09-22T00:00:00Z', ends_at: '2026-10-22T00:00:00Z' } }),
+    )
+    assert.equal(columns?.plan, 'premium')
+  })
+
+  it('is ignored entirely when the caller says not to trust it', () => {
+    const { columns, stampedFrom } = subscriptionEffect(stamped({}), false)
+    assert.equal(columns?.pendingPlan, null)
+    assert.equal(stampedFrom, undefined)
   })
 })
 
@@ -496,6 +511,13 @@ describe('isSecondSubscription', () => {
     assert.equal(isSecondSubscription({ ...running, paddleSubscriptionId: null }, 'subscription.created', 'sub_new'), false)
     assert.equal(isSecondSubscription(running, 'subscription.created', 'sub_old'), false)
     assert.equal(isSecondSubscription(running, 'subscription.updated', 'sub_new'), false)
+  })
+
+  /* The new subscription's first transaction also moves the pointer and may arrive first. */
+  it('flags it from the transaction too, since either event can land first', () => {
+    assert.equal(isSecondSubscription(running, 'transaction.completed', 'sub_new'), true)
+    assert.equal(isSecondSubscription(running, 'transaction.completed', 'sub_old'), false)
+    assert.equal(isSecondSubscription(running, 'transaction.completed', null), false)
   })
 
   /* A Lifetime buyer's old subscription is ended by the webhook itself; a free account has none. */

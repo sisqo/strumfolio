@@ -32,7 +32,7 @@
 
 import type { SubscriptionColumns } from './entitlements'
 import { readPendingCycle, type BillingPeriod } from './prices'
-import { PLAN_VALUES, type Plan, type PlanStatus } from './types'
+import { PLAN_RANK, PLAN_VALUES, type Plan, type PlanStatus } from './types'
 
 /** The price as it rides inside an event, snapshotted when it joined the subscription. */
 export interface PaddlePriceRef {
@@ -124,6 +124,11 @@ export interface PaddleEventEffect {
    * whatever the cancellation wrote, instead of on the Lifetime they paid for.
    */
   restoresLifetime?: boolean
+  /**
+   * The plan a downgrade stamp kept this account on, when one did. `stampCredible` decides
+   * whether the webhook believes it.
+   */
+  stampedFrom?: Plan
 }
 
 /**
@@ -247,13 +252,9 @@ export function downgradeStamp(from: { plan: Plan; cycle: BillingPeriod | null }
  * purpose. This app writes these itself, so an unreadable one is its own bug; and the
  * alternative, holding somebody on a plan with no date attached, is a plan that never ends.
  */
-/** How far past the paid period a stamp's date may fall before it is not believed. */
-const STAMP_SLACK_MS = 24 * 60 * 60 * 1000
-
 export function readDowngradeStamp(
   custom: { downgrade?: unknown } | null | undefined,
   periodStartsAt: string | null | undefined,
-  periodEndsAt?: string | null,
 ): DowngradeStamp | null {
   const stamp = custom?.downgrade
   if (stamp === null || typeof stamp !== 'object') return null
@@ -271,16 +272,6 @@ export function readDowngradeStamp(
   const started = asDate(periodStartsAt)
   if (started !== null && started.getTime() >= on.getTime()) return null
 
-  /*
-   * **Never later than the period Paddle says is paid for** (a day's slack for rounding). This
-   * app writes the stamp *from* `current_billing_period.ends_at`, so a legitimate one is never
-   * past it; one that is was not written here. The concern is `custom_data` reaching Paddle from
-   * somewhere other than `startPaddleCheckout` — a browser holding the public client token — and
-   * without this bound a stamp saying «Premium until 2099» on a €3.49 Standard would be honoured
-   * for as long as it said. Bounded, the most any stamp can hold is the period already paid.
-   */
-  const ends = asDate(periodEndsAt ?? null)
-  if (ends !== null && on.getTime() > ends.getTime() + STAMP_SLACK_MS) return null
 
   return { fromPlan: fromPlan as Plan, fromCycle: readPendingCycle(fromCycle), at: on }
 }
@@ -305,7 +296,7 @@ export function readDowngradeStamp(
  * written from that very field — and where they ever differ the stamp is the promise that was
  * made to the customer, which is the one this app has to keep.
  */
-export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEffect {
+export function subscriptionEffect(data: PaddleSubscriptionData, trustStamp = true): PaddleEventEffect {
   const account: AccountRef = {
     accountId: readAccountId(data.custom_data),
     paddleSubscriptionId: data.id,
@@ -316,11 +307,7 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
   if (!read) return { account, columns: null }
 
   const cancelling = data.scheduled_change?.action === 'cancel'
-  const scheduled = readDowngradeStamp(
-    data.custom_data,
-    data.current_billing_period?.starts_at,
-    data.current_billing_period?.ends_at,
-  )
+  const scheduled = trustStamp ? readDowngradeStamp(data.custom_data, data.current_billing_period?.starts_at) : null
 
   if (scheduled !== null) {
     return {
@@ -332,6 +319,7 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
         pendingPlan: cancelling ? 'free' : read.plan,
         pendingCycle: cancelling ? null : read.cycle,
       },
+      stampedFrom: scheduled.fromPlan,
     }
   }
 
@@ -569,15 +557,41 @@ export function transactionPeriodEnd(data: PaddleTransactionData): Date | null {
  * «Running» is read from the stored row, before this event: a paid recurring plan whose status
  * is not `expired`, with a different subscription id. A reader subscribing again after their
  * last one ended is `expired` and is not a second anything.
+ *
+ * **Both events that open one are asked, because either can land first.** A new subscription's
+ * `transaction.completed` carries its `subscription_id` and moves the stored pointer too, and
+ * Paddle does not promise the order — asked of `subscription.created` alone, a transaction
+ * arriving first would leave the created event finding its own id already stored, and nothing
+ * would ever be said. Whichever arrives first moves the pointer, so the alert fires once.
  */
 export function isSecondSubscription(
   stored: { plan: Plan; planStatus: string; paddleSubscriptionId: string | null },
   eventType: string,
   incomingSubscriptionId: string | null,
 ): boolean {
-  if (eventType !== 'subscription.created') return false
+  if (eventType !== 'subscription.created' && eventType !== 'transaction.completed') return false
   if (stored.paddleSubscriptionId === null || incomingSubscriptionId === null) return false
   if (stored.paddleSubscriptionId === incomingSubscriptionId) return false
   if (stored.plan === 'free' || stored.plan === 'lifetime') return false
   return stored.planStatus !== 'expired'
+}
+
+/**
+ * Whether a downgrade stamp may be believed, given the plan the account held **before** this
+ * event.
+ *
+ * A stamp says «keep them on the plan they are leaving until this date», so it is only ever
+ * true of somebody who already held at least that plan. `custom_data` can reach Paddle from
+ * somewhere other than this app — a checkout opened in a browser with the public client token
+ * and a hand-written `customData` — and a stamp there claiming «Premium until 2099» on a €3.49
+ * Standard would otherwise be honoured for as long as it said. That buyer arrives from free, or
+ * from a lower plan, and is refused here.
+ *
+ * **Not a bound on the date**, which was tried the same day and reverted: a change of *cycle*
+ * restarts Paddle's billing period, so between the items change and the second call that pins
+ * the date back, a legitimate year→month stamp is later than the period Paddle reports, and a
+ * date bound would drop that reader to the lower plan early — B4 and B7 in `CASES.md`.
+ */
+export function stampCredible(storedPlan: Plan, stampedFrom: Plan): boolean {
+  return PLAN_RANK[storedPlan] >= PLAN_RANK[stampedFrom]
 }

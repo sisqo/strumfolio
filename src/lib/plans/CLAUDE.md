@@ -517,6 +517,14 @@ watched working by anybody.
     has landed. No clock is read on either side, which is what keeps the webhook and the screen
     from disagreeing about the day. The renewal is the case nobody exercises by hand for a
     month, so it is the test that matters most in `webhook.test.ts`.
+  - **A stamp is believed only from somebody who already held the plan it names**
+    (`stampCredible`, 2026-09-22). `custom_data` can reach Paddle from a browser holding the
+    public client token, and a Standard bought from free carrying «Premium until 2099» would
+    otherwise be honoured; the webhook re-reads such an event as unstamped and alerts. **It is
+    deliberately not a bound on the date**: a change of cycle restarts the period, so until the
+    second call pins it back a legitimate B4/B7 stamp is *later* than the period Paddle reports.
+    A date bound was shipped and reverted within the hour for exactly that. Whether Paddle
+    accepts a client-written `customData` at all has not been measured in the sandbox.
   - **`custom_data` is replaced wholesale by an update, never merged**, so every write goes
     through `customDataFor` (`paddleAccount.ts`): `account_id` rides in the same object and is
     the only way a *first* event finds its account. Dropping it produces `unmatched` events, not
