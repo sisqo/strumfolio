@@ -411,9 +411,16 @@ export function adjustmentEffect(data: PaddleAdjustmentData): PaddleEventEffect 
  * It reads the plan **stored before this event**, so the order the two purchases land in is not
  * a problem: a subscription event arriving *before* the Lifetime writes normally and is then
  * overwritten by the Lifetime, which is the right way round.
+ *
+ * **Only a Lifetime still in force is protected.** A refund or a chargeback leaves `plan` at
+ * `lifetime` and moves only the status to `expired` (`adjustmentEffect`), and the guard used to
+ * read the plan alone — so after a refunded Lifetime every later subscription the same reader
+ * bought was stripped of its columns: charged every period, and left on the free plan for as
+ * long as they paid. Nothing that has been taken back is worth protecting from anything.
  */
-export function mayWritePlan(storedPlan: Plan, eventType: string): boolean {
-  return !(storedPlan === 'lifetime' && eventType.startsWith('subscription.'))
+export function mayWritePlan(storedPlan: Plan, storedStatus: string, eventType: string): boolean {
+  const liveLifetime = storedPlan === 'lifetime' && storedStatus !== 'expired'
+  return !(liveLifetime && eventType.startsWith('subscription.'))
 }
 
 /**

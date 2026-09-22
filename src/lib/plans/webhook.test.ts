@@ -342,20 +342,35 @@ describe('mayWritePlan', () => {
       'subscription.created',
       'subscription.past_due',
     ]) {
-      assert.equal(mayWritePlan('lifetime', eventType), false, eventType)
+      assert.equal(mayWritePlan('lifetime', 'active', eventType), false, eventType)
     }
   })
 
   /* The Lifetime's own transaction has to be able to write it in the first place. */
   it('lets a transaction write one', () => {
-    assert.equal(mayWritePlan('lifetime', 'transaction.completed'), true)
+    assert.equal(mayWritePlan('lifetime', 'active', 'transaction.completed'), true)
   })
 
   /* Every other plan is ordinary: a subscription event is exactly what maintains it. */
   it('leaves every other plan alone', () => {
     for (const plan of ['free', 'standard', 'plus', 'premium'] as const) {
-      assert.equal(mayWritePlan(plan, 'subscription.updated'), true, plan)
+      assert.equal(mayWritePlan(plan, 'active', 'subscription.updated'), true, plan)
     }
+  })
+
+  /*
+   * A refunded or charged-back Lifetime keeps `plan = 'lifetime'` with an `expired` status.
+   * Protecting that from subscription events meant a reader who then bought Standard paid every
+   * month and stayed on the free plan.
+   */
+  it('lets a subscription write over a Lifetime that was taken back', () => {
+    for (const eventType of ['subscription.created', 'subscription.updated', 'subscription.canceled']) {
+      assert.equal(mayWritePlan('lifetime', 'expired', eventType), true, eventType)
+    }
+  })
+
+  it('still protects a Lifetime that is merely in grace', () => {
+    assert.equal(mayWritePlan('lifetime', 'grace', 'subscription.canceled'), false)
   })
 })
 

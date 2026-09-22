@@ -95,6 +95,7 @@ async function findAccount(ref: AccountRef) {
     id: accounts.id,
     ownerEmail: accounts.ownerEmail,
     plan: accounts.plan,
+    planStatus: accounts.planStatus,
     paddleSubscriptionId: accounts.paddleSubscriptionId,
   }
 
@@ -486,7 +487,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * the Lifetime is granted, and carries that subscription's own plan and an `expired`
      * status. Writing it would take away the plan they just bought for ever.
      */
-    const columns = mayWritePlan(readPlan(account.plan), event.eventType) ? effect.columns : null
+    const columns = mayWritePlan(readPlan(account.plan), account.planStatus, event.eventType) ? effect.columns : null
 
     /*
      * **Neither id column is ever nulled once it has a value**, and that is a fix rather than a
