@@ -15,11 +15,11 @@ import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
-import { checkoutMode } from '@/lib/plans/planChange'
+import { checkoutMode, lifetimeRefusal } from '@/lib/plans/planChange'
 import { couponRefusalFor } from '@/lib/plans/redeemable'
 import { isCheckoutPlan, LIFETIME, periodEnd, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
-import { paddleCheckoutEnabled } from '@/lib/plans/resolve'
+import { holdsLifetime, paddleCheckoutEnabled } from '@/lib/plans/resolve'
 import { changeNames, formatPlanDate, planWithCycle } from '@/lib/plans/subscriptionCopy'
 import { PLAN_LABEL } from '@/lib/plans/types'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
@@ -103,6 +103,13 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   /* Buy, switch, or say nothing doing — `checkoutMode` holds the rule and the argument for it,
      pure and tested, because the version of it that is wrong charges somebody twice. */
   const mode = checkoutMode(live)
+
+  /* Whether a Lifetime may be sold here at all — the same rule `startPaddleCheckout` applies at
+     the press, asked here so the payment form is never drawn for a sale that will be refused. */
+  const lifetimeRefused =
+    plan === 'lifetime'
+      ? lifetimeRefusal(lifetimeOnSale, user !== null && (await holdsLifetime(user.accountOwnerEmail)))
+      : null
 
   /* What to call the plan they are on, built here because the component knows `PLAN_LABEL` but
      not how a cycle reads in a sentence. */
@@ -310,7 +317,25 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             is nothing to fill in.
           </p>
         ) : (
-          plan === 'lifetime' ? (
+          plan === 'lifetime' && lifetimeRefused !== null ? (
+            <div className="mt-6">
+              <div className="card p-[1.375rem]" role="status">
+                <span className={`state-badge ${lifetimeRefused === 'already-lifetime' ? 'state-badge-ok' : 'state-badge-alert'}`}>
+                  {lifetimeRefused === 'already-lifetime' ? 'Yours already' : 'Not on sale'}
+                </span>
+                <p className="section-title mt-3">
+                  {lifetimeRefused === 'already-lifetime'
+                    ? 'You already have Lifetime, so there is nothing left to buy.'
+                    : 'Lifetime is not on sale at the moment.'}
+                </p>
+                <p className="mt-2 text-sm leading-[1.5] text-muted">Nothing on this page will charge you.</p>
+              </div>
+              <Link href={lifetimeRefused === 'already-lifetime' ? '/billing' : '/pricing'} className="btn btn-primary mt-4 w-full">
+                {lifetimeRefused === 'already-lifetime' ? 'Go to Plan & billing' : 'See the other plans'}
+                <IconArrowRight size={17} />
+              </Link>
+            </div>
+          ) : plan === 'lifetime' ? (
             /*
              * **Lifetime sells in every mode, `stalled` included**, and that is deliberate
              * rather than an oversight in the branch below. `stalled` exists to stop a *second

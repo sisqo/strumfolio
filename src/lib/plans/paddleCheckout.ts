@@ -59,10 +59,13 @@ import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 
 import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
-import { wouldBeSecondSubscription } from './planChange'
+import { lifetimeRefusal, wouldBeSecondSubscription } from './planChange'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
+import { holdsLifetime } from './resolve'
+
+import { loadLifetimeOnSale } from '@/lib/settings/read'
 
 export type PaddleCheckoutFailure =
   | 'not-configured'
@@ -73,6 +76,10 @@ export type PaddleCheckoutFailure =
   | 'coupon-unsupported'
   /** A subscription is already running on this account, so this press would open a second. */
   | 'already-subscribed'
+  /** The owner has taken the Lifetime off sale (`lifetime.on_sale`). */
+  | 'lifetime-not-on-sale'
+  /** This account already holds a Lifetime, so there is nothing left to buy. */
+  | 'already-lifetime'
   | 'failed'
 
 export type PaddleCheckoutResult =
@@ -119,6 +126,14 @@ export async function startPaddleCheckout(
    * Lifetime**, which the rule exempts — reading Paddle there only to discard the answer would
    * put a round trip and a failure surface in front of the one sale that must never wait on it.
    */
+  /* The screen asks the same question (`lifetimeRefusal`); this is the press, which must not
+     trust a render that may be hours old. */
+  if (plan === 'lifetime') {
+    const [onSale, holds] = await Promise.all([loadLifetimeOnSale(), holdsLifetime(user.accountOwnerEmail)])
+    const refused = lifetimeRefusal(onSale, holds)
+    if (refused !== null) return { ok: false, reason: refused }
+  }
+
   const live = plan === 'lifetime' ? null : await livePaddleSubscription()
   if (live !== null && wouldBeSecondSubscription(plan, live)) {
     return { ok: false, reason: 'already-subscribed' }

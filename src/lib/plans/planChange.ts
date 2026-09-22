@@ -356,3 +356,25 @@ export function checkoutMode(live: LivePaddleSubscription): CheckoutMode {
 export function wouldBeSecondSubscription(plan: CheckoutPlan, live: LivePaddleSubscription): boolean {
   return plan !== 'lifetime' && live.ok
 }
+
+export type LifetimeRefusal = 'lifetime-not-on-sale' | 'already-lifetime'
+
+/**
+ * Whether a Lifetime may be sold to this reader right now — asked by the screen and again by
+ * the press, like every other rule in this file.
+ *
+ * Neither question was asked anywhere. `/checkout/lifetime` read `lifetime.on_sale` only to word
+ * the coupon bar, and nothing read the account's own plan, so an owner who switched the Lifetime
+ * off went on selling it to anybody with the link — and somebody who already held one could be
+ * charged €199.99 again by following an old bookmark. `loadLifetimeOnSale`'s own comment says a
+ * withdrawn plan must stop taking money; this is what makes that true.
+ *
+ * **Holding one wins over the switch**, because it is the more useful sentence: somebody who
+ * already has Lifetime needs to hear that, not that it is off sale. A Lifetime taken back by a
+ * refund or a chargeback is not «held», so that reader may buy again — `mayWritePlan`'s reading.
+ */
+export function lifetimeRefusal(onSale: boolean, holdsLifetime: boolean): LifetimeRefusal | null {
+  if (holdsLifetime) return 'already-lifetime'
+  if (!onSale) return 'lifetime-not-on-sale'
+  return null
+}

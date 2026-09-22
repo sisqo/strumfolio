@@ -90,6 +90,8 @@ const REFUSALS: Record<PaddleCheckoutFailure, string> = {
   'already-subscribed':
     'You already have a subscription running, so this would start a second one beside it. ' +
     'Change the plan you have from Plan & billing instead.',
+  'lifetime-not-on-sale': 'Lifetime is not on sale at the moment, so nothing will be charged.',
+  'already-lifetime': 'You already have Lifetime, so there is nothing left to buy.',
   failed: 'Something went wrong starting your checkout. Please try again.',
 }
 

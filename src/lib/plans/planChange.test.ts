@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import type { LivePaddleSubscription, NoLiveSubscription } from './paddleAccount'
-import { checkoutMode, planChangeEffect, wouldBeSecondSubscription } from './planChange'
+import { checkoutMode, lifetimeRefusal, planChangeEffect, wouldBeSecondSubscription } from './planChange'
 import { PAID_PLANS } from './prices'
 import { PLAN_RANK } from './types'
 
@@ -473,5 +473,22 @@ describe('wouldBeSecondSubscription', () => {
      exemption `/checkout/[plan]` already makes against `stalled`. */
   it('never stands between a subscriber and the Lifetime', () => {
     assert.equal(wouldBeSecondSubscription('lifetime', liveSubscription()), false)
+  })
+})
+
+describe('lifetimeRefusal', () => {
+  it('sells a Lifetime that is on sale to somebody who does not hold one', () => {
+    assert.equal(lifetimeRefusal(true, false), null)
+  })
+
+  /* The owner's switch is what stops the money, which is the promise `loadLifetimeOnSale` makes. */
+  it('refuses while the Lifetime is off sale', () => {
+    assert.equal(lifetimeRefusal(false, false), 'lifetime-not-on-sale')
+  })
+
+  /* An old bookmark to /checkout/lifetime must not charge somebody €199.99 a second time. */
+  it('refuses somebody who already holds one, and says so before the switch', () => {
+    assert.equal(lifetimeRefusal(true, true), 'already-lifetime')
+    assert.equal(lifetimeRefusal(false, true), 'already-lifetime')
   })
 })

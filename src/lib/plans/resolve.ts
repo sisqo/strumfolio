@@ -439,3 +439,24 @@ export async function hasChosenPlan(accountOwnerEmail: string): Promise<boolean>
  * object literals a later edit can touch three of.
  */
 const UNENFORCED_CAP = { max: UNGATED.limits.devices, enforced: false } as const
+
+/**
+ * Whether this account holds a Lifetime it paid for and still has — `lifetimeRefusal`'s second
+ * input. A refunded or charged-back one is `expired` and does not count, and a *granted* plan is
+ * not a purchase, so it is not read here.
+ *
+ * Fails towards «no», because the question only ever stops a sale: a read that cannot be made
+ * is not evidence somebody already paid, and the transaction the caller is about to create
+ * reads the same database anyway.
+ */
+export async function holdsLifetime(accountOwnerEmail: string): Promise<boolean> {
+  if (!hasDatabase) return false
+
+  try {
+    const stored = await storedPlanOf(accountOwnerEmail)
+    return stored !== null && stored.plan === 'lifetime' && stored.status !== 'expired'
+  } catch (error) {
+    console.error('holdsLifetime failed', error)
+    return false
+  }
+}
