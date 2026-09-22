@@ -506,6 +506,8 @@ describe('familyOf never contradicts the chord', () => {
       ['mMaj7', 'm'],
       ['m(maj7)', 'm'],
       ['m(maj9)', 'm'],
+      ['mM7', 'm'],
+      ['mM9', 'm'],
       ['+7', 'aug'],
       ['7aug', 'aug'],
       ['7M', 'maj7'],

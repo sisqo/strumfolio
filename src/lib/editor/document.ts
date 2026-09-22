@@ -200,7 +200,11 @@ export function writeLyricLine(text: string, chords: ChordAt[]): string {
   let cursor = 0
 
   for (const chord of ordered) {
-    const at = Math.max(0, Math.min(text.length, chord.at))
+    let at = Math.max(0, Math.min(text.length, chord.at))
+    /* Never between a backslash and the character it escapes: `\[D]#foo` is the literal text
+       «[D]#foo» to the reader, so the chord would vanish and the escape with it. A drag is
+       letter-precise and can land there; the chord goes after the pair. */
+    if (at > 0 && at < text.length && text[at - 1] === '\\' && ESCAPABLE.includes(text[at])) at += 1
     out += text.slice(cursor, at) + `[${chord.name}]`
     cursor = at
   }

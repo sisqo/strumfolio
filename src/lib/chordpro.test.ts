@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { buildAnchorMap } from './comments/anchorMap'
 import {
   type Line,
   chordTokens,
@@ -12,7 +11,8 @@ import {
   selectorMatches,
   visibleSections,
 } from './chordpro'
-import { fromSource, readLyricLine, toSource } from './editor/document'
+import { blockStartLines, fromSource, readLyricLine, toSource, writeLyricLine } from './editor/document'
+import { deduce } from './import/deduce'
 import { setLineText } from './editor/edits'
 
 /** Compact view of a parsed line: one string per word, chords in brackets. */
@@ -818,19 +818,11 @@ describe('ChordPro format compliance', () => {
  * The rule `CLAUDE.md` states in words, as something that fails the suite.
  *
  * A song has two parsers: this one, which the sheet renders, and `editor/document.ts`,
- * whose blocks every comment is anchored into. `buildAnchorMap` produces one entry per
- * lyrics *block* and `SongSheet` consumes it one per lyrics *Line*, so the two counts
- * must match exactly — and when they do not, nothing is missing and nothing throws:
- * every note below the first disagreement simply renders against the wrong line.
- *
- * That is what a line continuation did, which is why the reader does not read one.
+ * whose blocks every comment is anchored into. A line one of them draws as words and the other
+ * keeps as something else is a note anchored to nothing, or words the editor offers that the
+ * sheet never shows — and nothing is missing and nothing throws when it happens.
  */
 describe('the reader and the editor agree on how many lyric lines a song has', () => {
-  const lyricLineCount = (source: string): number =>
-    parseChordPro(source)
-      .sections.flatMap((section) => section.lines)
-      .filter((line) => line.kind === 'lyrics').length
-
   const cases: Record<string, string> = {
     'a hash comment': '{title: T}\n# note\nfirst\nsecond',
     'a trailing backslash': '{title: T}\nfirst \\\nsecond\nthird',
@@ -851,11 +843,46 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'an escaped bracket': '{title: T}\nsay \\[this\\]\nsecond',
   }
 
-  for (const [name, source] of Object.entries(cases)) {
-    it(`counts the same with ${name}`, () => {
-      assert.equal(lyricLineCount(source), buildAnchorMap(parseChordPro(source).sections, source).size)
+  /*
+   * **Compared line by line, not by count.** This used to compare the reader's count with
+   * `buildAnchorMap(...).size`, which has one entry per reader line whatever the editor did —
+   * so it could not fail (`buildAnchorMap(sections, 'totally unrelated').size` was the same
+   * number). Now every source line the reader drew words from must be an editor lyrics block,
+   * and every editor lyrics block with words in it must be drawn by some reader line.
+   */
+  const disagreement = (source: string): string | null => {
+    const { blocks } = fromSource(source)
+    const starts = blockStartLines(blocks)
+    const editorLyrics = new Set<number>()
+    blocks.forEach((block, index) => {
+      if (block.kind === 'lyrics' && block.text.trim() !== '') editorLyrics.add(starts[index])
+    })
+
+    const drawn = new Set<number>()
+    for (const line of parseChordPro(source).sections.flatMap((section) => section.lines)) {
+      if (line.kind !== 'lyrics') continue
+      for (const sourceLine of line.sourceLines) {
+        const block = blocks[starts.indexOf(sourceLine)]
+        if (block === undefined || block.kind !== 'lyrics') return `reader drew line ${sourceLine}, editor has no lyrics there`
+        drawn.add(sourceLine)
+      }
+    }
+    for (const sourceLine of editorLyrics) {
+      if (!drawn.has(sourceLine)) return `editor lyrics at line ${sourceLine} that the reader never draws`
+    }
+    return null
+  }
+
+  for (const [name, source] of Object.entries({
+    ...cases,
+    'a continuation into a blank line': '{title: T}\nverse \\\n\nnext',
+    'a continuation into a directive': '{title: T}\nverse \\\n{c: hi}\nnext',
+  })) {
+    it(`agrees line by line with ${name}`, () => {
+      assert.equal(disagreement(source), null)
     })
   }
+
 })
 
 /*
@@ -987,6 +1014,19 @@ describe('readDefinition', () => {
 })
 
 describe('edge cases the reader and the editor must agree on (2026-09-22)', () => {
+  /* A chord dragged between a backslash and the character it escapes would turn `\#` into
+     `\[D]#` — literal text to the reader, chord and escape both gone. */
+  it('never writes a chord inside an escape pair', () => {
+    assert.equal(writeLyricLine('\\#foo bar', [{ at: 1, name: 'D' }]), '\\#[D]foo bar')
+    assert.equal(writeLyricLine('a \\', [{ at: 3, name: 'D' }]), 'a \\[D]')
+  })
+
+  /* `{meta:title Old}` is the title to the reader, colon with no space included. */
+  it('strips every spelling of a column the reader takes', () => {
+    const result = deduce('{title: New}\n{meta:title Old}\n{meta:artist OldA}\n[C]word')
+    assert.equal(result.body, '[C]word')
+  })
+
   /* The editor keeps a `#` note, a directive and a tab as blocks whatever precedes them. */
   it('does not continue a line into a note, a directive or a tab', () => {
     const lyrics = (source: string) =>

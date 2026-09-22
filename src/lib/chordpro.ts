@@ -591,7 +591,7 @@ export function parseChordPro(source: string): ParsedSong {
      * lyrics, and followed by `{start_of_tab}` never opened the tab at all.
      */
     const continuesInto = (next: string | undefined) =>
-      next !== undefined && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null && META_DIRECTIVE.exec(next.trim()) === null
+      next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null && META_DIRECTIVE.exec(next.trim()) === null
 
     const sourceLines = [index]
     let joined = rawLine
@@ -779,8 +779,9 @@ export function parseChordPro(source: string): ParsedSong {
             break
           }
 
-          // The repeat's own selector if it has one (`{chorus-guitar}`), else the chorus's.
-          const repeat = openSection('chorus', selector ?? wanted.selector)
+          // The chorus's own selector, so a `{soc-piano}` repeats for piano players only. (A
+          // conditional `{chorus-…}` never reaches here: it is refused as a directive above.)
+          const repeat = openSection('chorus', wanted.selector)
           repeat.lines.push(...wanted.lines.map(repeated))
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null

@@ -288,9 +288,10 @@ What is deliberately **not** followed, each argued where it lives rather than he
   to printing the word where a file references a chorus it never opened. Until 2026-09-19 it
   printed the reference, and the reason was exactly this anchoring problem.
 - **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
-  stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the
-  editor agree on how many lyric lines a song has» is still the cheapest check that a new
-  construct is safe.
+  stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
+  construct is safe — compared line by line since 2026-09-23: it used to compare a count taken
+  from `buildAnchorMap`, which has one entry per reader line whatever the editor did, so it could
+  not fail.
 
 - **`{capo}` and `{transpose}` seed the controls, and the reader overrides them** — settled by
   `0048`, which made `user_song_prefs.capo` and `.semitones` nullable so `null` can mean «I take

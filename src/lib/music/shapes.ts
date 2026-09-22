@@ -222,7 +222,7 @@ export function familyOf(rawSuffix: string): { family: string; simplified: boole
      * be omitted.
      */
     if (has('+')) return null
-    if (has('maj') || has('Maj') || has('b6')) return near('m')
+    if (has('maj') || has('Maj') || /M\d/.test(spelt) || has('b6')) return near('m')
     if (has('6') && has('9')) return near('m6')
     if (has('b9') || has('#9')) return near('m7')
     if (has('9')) return near('m9')
