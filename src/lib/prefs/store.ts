@@ -157,8 +157,14 @@ export function readCachedFavorites(): Record<string, boolean> {
       const key = window.localStorage.key(index)
       if (key === null || !key.startsWith(prefix)) continue
 
-      const raw = window.localStorage.getItem(key)
-      const cached = (raw === null ? null : JSON.parse(raw)) as Partial<SongPrefs> | null
+      let cached: Partial<SongPrefs> | null = null
+      try {
+        const raw = window.localStorage.getItem(key)
+        cached = raw === null ? null : (JSON.parse(raw) as Partial<SongPrefs>)
+      } catch {
+        // One unreadable entry is one song this device has no opinion about, not all of them.
+        continue
+      }
       if (cached === null || typeof cached !== 'object') continue
 
       found[key.slice(prefix.length)] = cached.favorite === true

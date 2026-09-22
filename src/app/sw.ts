@@ -243,6 +243,9 @@ const serwist = new Serwist({
         sameOrigin &&
         request.method === 'GET' &&
         request.headers.get('RSC') !== '1' &&
+        /* Reading pages only: `/songbooks/x/add` is a form, and a form kept without expiry
+           would open offline stale. (`/edit` never gets here — its own rule comes first.) */
+        !url.pathname.endsWith('/add') &&
         (url.pathname.startsWith('/songs/') || url.pathname.startsWith('/songbooks/')),
       handler: new NetworkFirst({
         cacheName: 'repertoire',

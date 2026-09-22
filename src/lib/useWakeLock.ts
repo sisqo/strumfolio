@@ -52,7 +52,11 @@ export function useWakeLock(active: boolean): void {
        * screen stayed on until the app was backgrounded. A lock nobody wants any more is
        * dropped the moment it arrives.
        */
-      if (!activeRef.current) {
+      /* …and so is a second lock arriving while one is already held — play, pause, play within
+         a request's latency, or the visibility handler asking while a request is pending. The
+         one kept is the one `release` knows about; any other would never be let go. */
+      const held = sentinelRef.current
+      if (!activeRef.current || (held !== null && !held.released)) {
         void sentinel.release().catch(() => {})
         return
       }
@@ -69,7 +73,11 @@ export function useWakeLock(active: boolean): void {
     }
 
     void request()
-    return release
+    return () => {
+      /* Unmounting mid-request: the sentinel that arrives afterwards must find `active` false. */
+      activeRef.current = false
+      release()
+    }
   }, [active, release, request])
 
   /** Wake locks are dropped when the page is hidden, so take it back on return. */
