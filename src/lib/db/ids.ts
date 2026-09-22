@@ -46,3 +46,32 @@ export function songIdOf(slug: string): SQL<number> {
 export function songbookIdOf(slug: string): SQL<number> {
   return sql<number>`(select ${songbooks.id} from ${songbooks} where ${songbooks.slug} = ${slug})`
 }
+
+/**
+ * Whether a write failed because one of these lookups found nothing — the `NOT NULL` refusal the
+ * header above describes, on the column a subquery filled.
+ *
+ * **A caller retrying such a write is retrying for ever.** The outbox and the preferences queue
+ * both stop at their first failure and keep the entry first in line, so one note queued offline
+ * for a song deleted meanwhile blocked every note after it on that device, on every song, until
+ * sign-out cleared the lot. A song that no longer exists is not a write that might yet succeed;
+ * the callers answer `no-destination` for it, which both queues already treat as done.
+ *
+ * Reads Postgres' own code and column (`23502`, `not_null_violation`), through drizzle's wrapper
+ * when there is one.
+ */
+export function isMissingReference(error: unknown, columns: readonly string[]): boolean {
+  for (let current: unknown = error, depth = 0; current !== null && typeof current === 'object' && depth < 4; depth += 1) {
+    /* `column_name` is what the Neon driver sets, measured against dev; `column` is `pg`'s. */
+    const { code, column, column_name: columnName, cause } = current as {
+      code?: unknown
+      column?: unknown
+      column_name?: unknown
+      cause?: unknown
+    }
+    const named = typeof columnName === 'string' ? columnName : column
+    if (code === '23502' && typeof named === 'string' && columns.includes(named)) return true
+    current = cause
+  }
+  return false
+}

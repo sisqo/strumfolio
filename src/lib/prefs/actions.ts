@@ -10,7 +10,7 @@ import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
-import { accountIdOf, songIdOf } from '@/lib/db/ids'
+import { accountIdOf, isMissingReference, songIdOf } from '@/lib/db/ids'
 import { songbooks, songs, userPrefs, userSongPrefs } from '@/lib/db/schema'
 import type { Instrument } from '@/lib/music/shapes'
 import { entitlementsOf } from '@/lib/plans/resolve'
@@ -246,6 +246,8 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
       })
     return 'saved'
   } catch (error) {
+    // The song, or the account, is gone: nothing to retry — `isMissingReference`.
+    if (isMissingReference(error, ['song_id', 'account_id'])) return 'no-destination'
     console.error('saveSongPrefs failed', error)
     return 'failed'
   }
@@ -295,6 +297,8 @@ export async function saveFavorite(songSlug: string, favorite: boolean): Promise
       })
     return 'saved'
   } catch (error) {
+    // The song, or the account, is gone: nothing to retry — `isMissingReference`.
+    if (isMissingReference(error, ['song_id', 'account_id'])) return 'no-destination'
     console.error('saveFavorite failed', error)
     return 'failed'
   }
@@ -329,6 +333,8 @@ export async function saveTabsExpanded(songSlug: string, tabsExpanded: boolean):
       })
     return 'saved'
   } catch (error) {
+    // The song, or the account, is gone: nothing to retry — `isMissingReference`.
+    if (isMissingReference(error, ['song_id', 'account_id'])) return 'no-destination'
     console.error('saveTabsExpanded failed', error)
     return 'failed'
   }

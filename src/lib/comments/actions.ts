@@ -18,7 +18,7 @@ import { and, eq } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db/client'
-import { accountIdOf, songIdOf } from '@/lib/db/ids'
+import { accountIdOf, isMissingReference, songIdOf } from '@/lib/db/ids'
 import { userSongComments } from '@/lib/db/schema'
 
 import { type SongComment, commentFromRow } from './types'
@@ -95,6 +95,8 @@ export async function saveComment(songSlug: string, comment: SongComment): Promi
       .onConflictDoUpdate({ target: userSongComments.id, set: values })
     return 'saved'
   } catch (error) {
+    // The song, or the account, is gone: not a write that can ever succeed — `isMissingReference`.
+    if (isMissingReference(error, ['song_id', 'account_id'])) return 'no-destination'
     console.error('saveComment failed', error)
     return 'failed'
   }
