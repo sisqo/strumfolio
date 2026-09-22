@@ -156,11 +156,24 @@ const TAB_END_NAMES = new Set(['eot', 'end_of_tab', 'eog', 'end_of_grid'])
  * A `[` with no closing bracket is literal text, exactly as the reader treats it,
  * so a line of prose containing a bracket survives a visit to the editor.
  */
+/** The characters a backslash makes literal — the same set `chordpro.ts` un-escapes. */
+const ESCAPABLE = '[]{}#\\'
+
 export function readLyricLine(line: string): { text: string; chords: ChordAt[] } {
   const chords: ChordAt[] = []
   let text = ''
 
   for (let i = 0; i < line.length; i++) {
+    /*
+     * An escape is literal to the reader (`chordpro.ts`' `ESCAPABLE`), so it is literal here:
+     * `\[C]` is the text «[C]» and not a chord, and deleting that «chord» in the editor used to
+     * corrupt the line. Both characters stay in the text, so the line writes back as it came.
+     */
+    if (line[i] === '\\' && i + 1 < line.length && ESCAPABLE.includes(line[i + 1])) {
+      text += line[i] + line[i + 1]
+      i += 1
+      continue
+    }
     if (line[i] === '[') {
       const close = line.indexOf(']', i)
       if (close !== -1) {
@@ -187,7 +200,11 @@ export function writeLyricLine(text: string, chords: ChordAt[]): string {
     cursor = at
   }
 
-  return out + text.slice(cursor)
+  const written = out + text.slice(cursor)
+  /* A line of words that begins with `#` would come back as a source comment, which the reader
+     never draws — typed words vanishing from the sheet with no warning. Escaped, it stays a
+     line of words for both parsers. */
+  return written.startsWith('#') ? `\\${written}` : written
 }
 
 export function fromSource(source: string): SongDocument {

@@ -12,6 +12,8 @@ import {
   selectorMatches,
   visibleSections,
 } from './chordpro'
+import { fromSource, readLyricLine, toSource } from './editor/document'
+import { setLineText } from './editor/edits'
 
 /** Compact view of a parsed line: one string per word, chords in brackets. */
 function shape(line: Line): string[] {
@@ -981,5 +983,40 @@ describe('readDefinition', () => {
   it('keeps a definition out of the words', () => {
     const song = parseChordPro('{title: T}\n{define: C frets 0 3 2 0 1 0}\nword')
     assert.deepEqual(song.sections[0].lines.map(shape), [['word']])
+  })
+})
+
+describe('edge cases the reader and the editor must agree on (2026-09-22)', () => {
+  /* The editor keeps a `#` note, a directive and a tab as blocks whatever precedes them. */
+  it('does not continue a line into a note, a directive or a tab', () => {
+    const lyrics = (source: string) =>
+      parseChordPro(source).sections.flatMap((section) =>
+        section.lines.map((line) => (line.kind === 'lyrics' ? line.words.map((word) => word.parts.map((part) => part.text).join('')).join(' ') : line.kind)),
+      )
+    assert.deepEqual(lyrics('la \\\n# note'), ['la'])
+    assert.deepEqual(lyrics('verse \\\n{c: hi}'), ['verse', 'comment'])
+    assert.deepEqual(lyrics('verse \\\n{start_of_tab}\ne|--0--\n{end_of_tab}'), ['verse', 'tab'])
+    assert.deepEqual(lyrics('uno \\\ndue'), ['uno due'])
+  })
+
+  /* A repeat of a chorus only piano players see must not be drawn for everybody else. */
+  it('repeats a conditional chorus under its own selector', () => {
+    const parsed = parseChordPro('{soc-piano}\npiano chorus\n{eoc}\n{chorus}')
+    assert.equal(visibleSections(parsed.sections, 'guitar').length, 0)
+    assert.equal(visibleSections(parsed.sections, 'piano').length, 2)
+  })
+
+  /* `\[C]` is the text «[C]» to the reader, so the editor must not offer it as a chord. */
+  it('keeps an escaped bracket literal in the editor', () => {
+    const { chords, text } = readLyricLine('\\[C] not a chord')
+    assert.deepEqual(chords, [])
+    assert.equal(text, '\\[C] not a chord')
+  })
+
+  /* Words typed at the start of a line with a `#` would otherwise become a note nobody sees. */
+  it('escapes a line of words that begins with a hash', () => {
+    const source = toSource(setLineText(fromSource('la la'), 0, '# hi'))
+    assert.equal(source, '\\# hi')
+    assert.equal(parseChordPro(source).sections.length, 1)
   })
 })

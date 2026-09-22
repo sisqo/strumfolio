@@ -521,8 +521,10 @@ export function parseChordPro(source: string): ParsedSong {
    * out by name. The most recent unlabelled chorus is the default, which is what a file
    * writing `{soc}` once and `{chorus}` three times means.
    */
-  let lastChorus: Line[] | null = null
-  const chorusByLabel = new Map<string, Line[]>()
+  /* The whole section, not only its lines: a conditional chorus (`{soc-piano}`) carries a
+     selector, and a repeat of it has to carry the same one or it is drawn for every reader. */
+  let lastChorus: Section | null = null
+  const chorusByLabel = new Map<string, Section>()
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
   let verbatimRows: string[] | null = null
   let verbatimVariant: 'tab' | 'grid' = 'tab'
@@ -582,13 +584,25 @@ export function parseChordPro(source: string): ParsedSong {
      * the drawn line covers two source lines and its parts must resolve into whichever of
      * the two each one really sits in.
      */
+    /*
+     * **Never into a line that is not words.** The editor keeps a `#` note, a directive and a
+     * tab as blocks of their own whatever precedes them, so a continuation that swallowed one
+     * made the two parsers disagree: `verse \` followed by `{c: hi}` drew `{c:` and `hi}` as
+     * lyrics, and followed by `{start_of_tab}` never opened the tab at all.
+     */
+    const continuesInto = (next: string | undefined) =>
+      next !== undefined && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null && META_DIRECTIVE.exec(next.trim()) === null
+
     const sourceLines = [index]
     let joined = rawLine
-    while (/(^|[^\\])(\\\\)*\\$/.test(joined) && index + 1 < rawLines.length) {
+    while (/(^|[^\\])(\\\\)*\\$/.test(joined) && index + 1 < rawLines.length && continuesInto(rawLines[index + 1])) {
       index += 1
       sourceLines.push(index)
       joined = joined.slice(0, -1) + rawLines[index]
     }
+    /* A continuation with nothing it may continue into is only a mark: drawn, it would be a
+       stray `\` at the end of the words. */
+    if (/(^|[^\\])(\\\\)*\\$/.test(joined)) joined = joined.slice(0, -1)
 
     const line = joined.trimEnd()
 
@@ -759,14 +773,15 @@ export function parseChordPro(source: string): ParsedSong {
         case 'chorus': {
           const wanted = value === '' ? lastChorus : (chorusByLabel.get(value.toLowerCase()) ?? null)
 
-          if (wanted === null || wanted.length === 0) {
+          if (wanted === null || wanted.lines.length === 0) {
             section ??= openSection(forcedKind ?? 'verse')
             section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain', selector: null })
             break
           }
 
-          const repeat = openSection('chorus')
-          repeat.lines.push(...wanted.map(repeated))
+          // The repeat's own selector if it has one (`{chorus-guitar}`), else the chorus's.
+          const repeat = openSection('chorus', selector ?? wanted.selector)
+          repeat.lines.push(...wanted.lines.map(repeated))
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null
           break
@@ -780,8 +795,8 @@ export function parseChordPro(source: string): ParsedSong {
           // Remembered by reference: the block is still being filled, and a `{chorus}`
           // further down wants it as it finally stands.
           if (forcedKind === 'chorus') {
-            lastChorus = section.lines
-            if (value !== '') chorusByLabel.set(value.toLowerCase(), section.lines)
+            lastChorus = section
+            if (value !== '') chorusByLabel.set(value.toLowerCase(), section)
           }
           break
         case 'start_of_tab':

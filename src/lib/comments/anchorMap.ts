@@ -57,6 +57,9 @@ export interface PartAnchor {
 export type AnchorMap = Map<Line, PartAnchor[][]>
 
 /** One stretch of source text a drawn line was built from, and the block it belongs to. */
+/** What a backslash makes literal — `chordpro.ts`' own set. */
+const ESCAPABLE = '[]{}#\\'
+
 interface Segment {
   blockIndex: number
   text: string
@@ -184,17 +187,22 @@ function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]
       // A part can straddle two segments only where the reader joined two source lines
       // with no space between them; then it anchors where it starts, and the cursor walks
       // on into whichever segment it ends in.
-      let remaining = part.text.length
-      while (remaining > 0 && index < segments.length) {
-        const room = segments[index].text.length - cursor
-        if (remaining < room) {
-          cursor += remaining
-          remaining = 0
-        } else {
-          remaining -= room
+      //
+      // Walked a character at a time rather than by length, because the source spells an
+      // escaped character with two: `a\#b` is three characters drawn and four written, and
+      // charging only three left every later word on the line one character short.
+      for (const drawn of part.text) {
+        while (index < segments.length && cursor >= segments[index].text.length) {
           index += 1
           cursor = 0
         }
+        if (index >= segments.length) break
+        const text = segments[index].text
+        cursor += text[cursor] === '\\' && text[cursor + 1] === drawn && ESCAPABLE.includes(drawn) ? 2 : 1
+      }
+      if (index < segments.length && cursor >= segments[index].text.length) {
+        index += 1
+        cursor = 0
       }
 
       return anchor
