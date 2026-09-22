@@ -4,14 +4,12 @@
  * recovery and login, keyed by whatever the caller is throttling: an email for an
  * action tied to an address, an IP for one that is not.
  *
- * Read-then-write, not one atomic statement: there is a window between the `select` and
- * the `insert`/`update` where two requests racing on the same key could both read "room
- * left" and both be let through, one attempt over the limit. Acceptable for a deterrent
- * against abuse — the cost of a false negative is one extra email, not a broken
- * guarantee — not something a security boundary could tolerate.
+ * One atomic upsert per attempt (see `checkRateLimit`), because login is behind it and a
+ * login limit is a security boundary. It used to be read-then-write, described here as «one
+ * attempt over the limit» at worst — which was true of two racing requests and false of fifty.
  */
 
-import { eq, lt } from 'drizzle-orm'
+import { lt, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 
 import { db, hasDatabase } from '@/lib/db/client'
@@ -90,35 +88,34 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
     const now = new Date()
     await purgeStaleHits(now)
 
+    /*
+     * One statement: the window reset, the increment and the answer happen together under the
+     * row's lock, so N requests racing on one key get N different counts back. The first
+     * version read the count, decided, and then wrote `count + 1` as a *value* — so a batch of
+     * fifty parallel sign-in attempts all read the same count, all passed, and all wrote the
+     * same next number: the limit of ten became roughly five hundred.
+     *
+     * A refused attempt still increments. That changes nothing about when the window ends —
+     * `window_start` only moves when it has expired — and a counter that stopped at the limit
+     * is what made the read-then-write shape necessary in the first place.
+     */
+    const windowStart = sql`${now.toISOString()}::timestamptz`
+    const expired = sql`${rateLimitHits.windowStart} <= ${windowStart} - make_interval(secs => ${windowMs / 1000})`
+
     const rows = await db()
-      .select({ windowStart: rateLimitHits.windowStart, count: rateLimitHits.count })
-      .from(rateLimitHits)
-      .where(eq(rateLimitHits.key, key))
-      .limit(1)
+      .insert(rateLimitHits)
+      .values({ key, windowStart: now, count: 1 })
+      .onConflictDoUpdate({
+        target: rateLimitHits.key,
+        set: {
+          windowStart: sql`case when ${expired} then ${windowStart} else ${rateLimitHits.windowStart} end`,
+          count: sql`case when ${expired} then 1 else ${rateLimitHits.count} + 1 end`,
+        },
+      })
+      .returning({ count: rateLimitHits.count })
 
-    const existing = rows[0]
-    const windowExpired = existing !== undefined && now.getTime() - existing.windowStart.getTime() >= windowMs
-
-    if (existing === undefined || windowExpired) {
-      await db()
-        .insert(rateLimitHits)
-        .values({ key, windowStart: now, count: 1 })
-        .onConflictDoUpdate({
-          target: rateLimitHits.key,
-          set: { windowStart: now, count: 1 },
-        })
-      return true
-    }
-
-    if (existing.count < limit) {
-      await db()
-        .update(rateLimitHits)
-        .set({ count: existing.count + 1 })
-        .where(eq(rateLimitHits.key, key))
-      return true
-    }
-
-    return false
+    const count = rows[0]?.count
+    return count === undefined || count <= limit
   } catch (error) {
     // Fails open, like the rest of this feature without a database: a query that cannot
     // be read must not turn a deterrent into an outage for every legitimate request behind it.
