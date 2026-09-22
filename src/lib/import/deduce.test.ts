@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 
 import { convert } from './convert'
 import { parseChordPro } from '../chordpro'
-import { deduce } from './deduce'
+import { METADATA_DIRECTIVE, deduce } from './deduce'
 
 describe('deduce', () => {
   it('prefers the directives when they are there', () => {
@@ -194,5 +194,30 @@ describe('deduce', () => {
     assert.equal(result.title, 'Certe notti')
     assert.equal(result.artist, 'Ligabue')
     assert.ok(result.body.startsWith('[Am]'))
+  })
+})
+
+/*
+ * The reader takes `{title Old}` and `{meta: title Old}` as the title, so the importer has to
+ * strip them too. Left in the body, the export wrote `{title: New}` above the stale line and the
+ * next restore read the last one: a renamed song came back with its old name and songbook.
+ */
+describe('METADATA_DIRECTIVE', () => {
+  it('matches every spelling the reader takes as a column', () => {
+    for (const line of ['{title: X}', '{title X}', '{ t  Old }', '{meta: title X}', '{meta title X}', '{songbook Old Book}']) {
+      assert.equal(METADATA_DIRECTIVE.test(line), true, line)
+    }
+  })
+
+  it('leaves everything else in the body', () => {
+    for (const line of ['{title}', '{titles: X}', '{tempo: 90}', '{meta: album X}', '{subtitle: X}']) {
+      assert.equal(METADATA_DIRECTIVE.test(line), false, line)
+    }
+  })
+
+  it('strips the space form on import', () => {
+    const result = deduce('{title Old Name}\n{songbook Old Book}\n[C]la')
+    assert.equal(result.title, 'Old Name')
+    assert.equal(result.body, '[C]la')
   })
 })
