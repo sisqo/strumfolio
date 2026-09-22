@@ -137,6 +137,20 @@ const serwist = new Serwist({
      * answered by `cacheKeyWillBeUsed` on the home rule instead.
      */
   },
+  /*
+   * **What a navigation gets when it misses every cache with no network**: a page of this app
+   * that says so, instead of the browser's own error — which in an installed app on iOS is a
+   * screen with no way back. `public/offline.html` is precached with the rest of `public/` and
+   * is static on purpose: see its own header, and `isPublicAsset` in `middleware.ts`, without
+   * which the precache fetch of it would be a redirect and fail every install.
+   *
+   * Documents only. An RSC fetch or an image that misses offline fails the way it always did,
+   * and a client-side navigation whose RSC fetch fails is retried by Next as a full navigation,
+   * which is what lands here.
+   */
+  fallbacks: {
+    entries: [{ url: '/offline.html', matcher: ({ request }) => request.destination === 'document' }],
+  },
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,

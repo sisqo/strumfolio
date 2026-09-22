@@ -74,6 +74,13 @@ function isPublicAsset(pathname: string): boolean {
     pathname.startsWith('/swe-worker-') ||
     pathname === '/manifest.webmanifest' ||
     /*
+     * The service worker's offline page (`public/offline.html`, `sw.ts`' `fallbacks`). It is
+     * precached, so the install fetches it for whoever is installing — signed out included —
+     * and without this line that fetch is a redirect to `/login`, which fails the whole install
+     * (root `CLAUDE.md`, «Every precached URL must be fetchable by a stranger»).
+     */
+    pathname === '/offline.html' ||
+    /*
      * The two files a crawler asks for before it asks for anything else. They fall under
      * this middleware's matcher like any page — it excludes only `_next/static`,
      * `_next/image` and `favicon.ico` — so without these two lines both would answer a
