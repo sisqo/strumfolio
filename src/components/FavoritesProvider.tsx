@@ -66,9 +66,13 @@ export function FavoritesProvider({
   const [live, setLive] = useState<string[] | null>(null)
   const [writes, setWrites] = useState<Record<string, boolean>>({})
   const [only, setOnlyState] = useState(false)
+  /* This device's own answer, read once after hydration: in render it would differ from the
+     server's (which has no storage) and be a hydration mismatch the day it found anything. */
+  const [cached, setCached] = useState<Record<string, boolean>>({})
 
   useLayoutEffect(() => {
     setOnlyState(readFavoritesOnly())
+    setCached(readCachedFavorites())
   }, [])
 
   const setOnly = useCallback((next: boolean) => {
@@ -127,12 +131,11 @@ export function FavoritesProvider({
       resolveFavorites({
         baked: initial,
         live,
-        // Read lazily, and only in the one state that consults it: walking every cached
-        // song is not work to do on a page whose server has answered.
-        cached: live === null ? readCachedFavorites() : {},
+        // Consulted only while the server has not answered.
+        cached: live === null ? cached : {},
         writes,
       }),
-    [initial, live, writes],
+    [initial, live, cached, writes],
   )
 
   const value = useMemo<FavoritesContextValue>(

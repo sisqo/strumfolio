@@ -141,16 +141,27 @@ export function writeSongPrefs(slug: string, prefs: SongPrefs): void {
 export function readCachedFavorites(): Record<string, boolean> {
   if (typeof window === 'undefined') return {}
 
+  /*
+   * The keys on disk are *scoped* (`songs:<tag>:song:<slug>`), so the prefix to match is the
+   * scoped one, and each is read with `getItem` directly rather than through `read`, which would
+   * scope the already-scoped key a second time. Until 2026-09-22 this matched the bare prefix,
+   * found nothing on any device, and offline «favourites only» fell back to the page as it was
+   * last rendered — stars added since then on this device missing on stage.
+   */
+  const prefix = keyFor(SONG_KEY_PREFIX)
+  if (prefix === null) return {}
+
   const found: Record<string, boolean> = {}
   try {
     for (let index = 0; index < window.localStorage.length; index += 1) {
       const key = window.localStorage.key(index)
-      if (key === null || !key.startsWith(SONG_KEY_PREFIX)) continue
+      if (key === null || !key.startsWith(prefix)) continue
 
-      const cached = read(key) as Partial<SongPrefs> | null
+      const raw = window.localStorage.getItem(key)
+      const cached = (raw === null ? null : JSON.parse(raw)) as Partial<SongPrefs> | null
       if (cached === null || typeof cached !== 'object') continue
 
-      found[key.slice(SONG_KEY_PREFIX.length)] = cached.favorite === true
+      found[key.slice(prefix.length)] = cached.favorite === true
     }
   } catch {
     // Same as `read` above: a browser refusing storage is not an error here, it just
