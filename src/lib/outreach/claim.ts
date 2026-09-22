@@ -19,7 +19,7 @@
  * owns its own directive and its own owner check.
  */
 
-import { and, eq, ne, or, sql } from 'drizzle-orm'
+import { and, eq, isNull, lt, ne, or, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db/client'
 import { outreachActions } from '@/lib/db/schema'
@@ -185,11 +185,15 @@ export async function claimOccurrence(
     if ('reason' in verdict) return { ok: false, reason: verdict.reason }
 
     /*
-     * A compare-and-swap, not a plain update: `status <> 'done'` in the WHERE is what makes
-     * the takeover safe against a run that completed between the verdict and this statement.
-     * An empty result means exactly that happened, and the honest answer is the one the
-     * winner wrote.
+     * A compare-and-swap, not a plain update, and **`claimVerdict`'s whole rule is in the
+     * WHERE**, not only `status <> 'done'`. Two retries pressed together both read `failed`
+     * and both reach this statement; the second blocks on the row lock and, under READ
+     * COMMITTED, re-checks the WHERE against the row the first has just made `pending`. With
+     * only `<> 'done'` that still matched, so both got the row back and both sent — one
+     * reader, two identical emails. Now a young `pending` row matches nothing, exactly as the
+     * verdict would have said had it been read a moment later.
      */
+    const staleBefore = new Date(now.getTime() - STALE_ATTEMPT_MS)
     const taken = await db()
       .update(outreachActions)
       .set({
@@ -199,11 +203,29 @@ export async function claimOccurrence(
         reason: null,
         triggeredBy,
       })
-      .where(and(eq(outreachActions.id, verdict.takeOver), ne(outreachActions.status, 'done')))
+      .where(
+        and(
+          eq(outreachActions.id, verdict.takeOver),
+          ne(outreachActions.status, 'done'),
+          or(
+            ne(outreachActions.status, 'pending'),
+            isNull(outreachActions.lastAttemptAt),
+            lt(outreachActions.lastAttemptAt, staleBefore),
+          ),
+        ),
+      )
       .returning({ id: outreachActions.id })
 
     const retried = taken[0]
-    return retried === undefined ? { ok: false, reason: 'already-done' } : { ok: true, id: retried.id }
+    if (retried !== undefined) return { ok: true, id: retried.id }
+
+    /* Empty: somebody else got there first. Which of the two it was is the row's own answer. */
+    const [current] = await db()
+      .select({ status: outreachActions.status })
+      .from(outreachActions)
+      .where(eq(outreachActions.id, verdict.takeOver))
+      .limit(1)
+    return { ok: false, reason: current?.status === 'done' ? 'already-done' : 'in-flight' }
   } catch (error) {
     console.error('claimOccurrence failed', error)
     return { ok: false, reason: 'failed' }
@@ -227,7 +249,9 @@ export async function settle(id: number, delivery: OutreachDelivery, now: Date):
           ? { status: 'done', detail: clamp(delivery.detail, MAX_OUTREACH_DETAIL), reason: null, lastAttemptAt: now }
           : { status: 'failed', reason: clamp(delivery.reason, MAX_OUTREACH_DETAIL), lastAttemptAt: now },
       )
-      .where(eq(outreachActions.id, id))
+      /* Never over a `done`: nothing undoes a row that was delivered, and a late failure from a
+         second attempt writing `failed` over it would reopen the occurrence to a third send. */
+      .where(and(eq(outreachActions.id, id), ne(outreachActions.status, 'done')))
   } catch (error) {
     console.error('settle failed', error)
   }
