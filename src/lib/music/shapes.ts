@@ -188,21 +188,43 @@ export function familyOf(rawSuffix: string): { family: string; simplified: boole
   const suffix = normalizeSuffix(rawSuffix)
   if (suffix in FAMILIES) return { family: suffix, simplified: false }
 
-  const has = (text: string) => suffix.includes(text)
+  /*
+   * The older and Italian spellings of an alteration, read as what they mean before anything
+   * below looks for `b`: `7-9` is `7b9` and `9-5` is `9b5` (a dash between two numbers is a
+   * flat, as `m7-5` already is), so none of them is drawn as the natural note it lowers.
+   */
+  const spelt = suffix.replace(/(\d)-(\d)/g, '$1b$2')
+  const has = (text: string) => spelt.includes(text)
   const near = (family: string) => ({ family, simplified: true })
 
-  if (suffix.startsWith('m7b5')) return near('m7b5')
-  if (suffix.startsWith('dim')) return near(has('7') ? 'dim7' : 'dim')
-  if (suffix.startsWith('aug')) return near('aug')
+  if (spelt.startsWith('m7b5')) return near('m7b5')
+  if (spelt.startsWith('dim')) return near(has('7') ? 'dim7' : 'dim')
+  /* `C+7` and `C7aug` are an augmented seventh; the augmented triad omits the seventh and
+     contradicts nothing, where a plain `7` would sound the natural fifth. */
+  if (spelt.startsWith('aug') || spelt.startsWith('+') || (has('aug') && !spelt.startsWith('m'))) return near('aug')
+  /* `7M` is the Latin spelling of a major seventh — a plain `7` would flatten it. */
+  if (spelt.startsWith('7M')) return near(has('9') ? 'maj9' : 'maj7')
 
   // An altered fifth cannot be omitted: the shape would sound the natural one.
   if (has('b5') || has('#5') || has('+5')) return null
 
-  if (suffix.startsWith('maj')) return near(has('9') && !has('add') ? 'maj9' : 'maj7')
+  if (spelt.startsWith('maj')) return near(has('9') && !has('add') ? 'maj9' : 'maj7')
 
-  if (suffix.startsWith('m')) {
+  if (spelt.startsWith('m')) {
     // `madd9` has no seventh, so the minor triad is the honest subset.
     if (has('add')) return near('m')
+    /*
+     * Every minor chord the table cannot draw without contradicting it falls back to what it
+     * can: a minor-major seventh (`mMaj7`, `m(maj7)`) is not an `m7`, whose seventh is flat,
+     * so it gets the triad; a flat sixth is not the `m6`'s natural one; `m6/9` is not an
+     * `m9`, which adds a seventh it does not have; and an altered ninth keeps the `m7` under
+     * it, the rule the dominant branch below follows. A `+` is an altered fifth, which cannot
+     * be omitted.
+     */
+    if (has('+')) return null
+    if (has('maj') || has('Maj') || has('b6')) return near('m')
+    if (has('6') && has('9')) return near('m6')
+    if (has('b9') || has('#9')) return near('m7')
     if (has('9')) return near('m9')
     if (has('7') || has('11') || has('13')) return near('m7')
     if (has('6')) return near('m6')

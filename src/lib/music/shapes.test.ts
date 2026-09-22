@@ -491,3 +491,33 @@ describe('a fingering the song drew itself', () => {
     assert.deepEqual(pickShape(chord, 'guitar', {}, {})?.shape, pickShape(chord, 'guitar', {})?.shape)
   })
 })
+
+/*
+ * A simplification may only omit a note, and each of these used to contradict one: `Cm6/9` drawn
+ * as an `m9` added a flat seventh, `CmMaj7` as an `m7` flattened its major seventh, `C+7` as a `7`
+ * sounded the natural fifth, and `C7-9` as a `9` the natural ninth.
+ */
+describe('familyOf never contradicts the chord', () => {
+  it('falls back to what can be drawn without a wrong note', () => {
+    for (const [suffix, family] of [
+      ['m6/9', 'm6'],
+      ['mb6', 'm'],
+      ['m7b9', 'm7'],
+      ['mMaj7', 'm'],
+      ['m(maj7)', 'm'],
+      ['m(maj9)', 'm'],
+      ['+7', 'aug'],
+      ['7aug', 'aug'],
+      ['7M', 'maj7'],
+      ['7-9', '7'],
+    ] as const) {
+      assert.equal(familyOf(suffix)?.family, family, suffix)
+    }
+  })
+
+  /* An altered fifth cannot be omitted, whichever way it is spelt. */
+  it('gives up on an altered fifth it cannot draw', () => {
+    assert.equal(familyOf('9-5'), null)
+    assert.equal(familyOf('m+7'), null)
+  })
+})
