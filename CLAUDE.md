@@ -177,7 +177,14 @@ verse. Three things about that form are load-bearing and none is obvious from lo
     name for keeps its own» true: until then a private directive could only arrive by
     importing a file. `isFieldName` refuses a conditional and anything that is not a name
     rather than correcting it — `{album-guitar}` is a legal directive and an impossible
-    *field*, since the form draws one row for the whole song.
+    *field*, since the form draws one row for the whole song. **The shape is not enough, and
+    `typedField` is the whole answer** (2026-09-22): a column (`title`, `t`, `songbook`…) or
+    anything with a place in the song (`comment`, `start_of_chorus`, the toolbar's own list)
+    is refused, because it would be written, drawn nowhere and — for a column — stripped at
+    save; a name the song already carries goes to its line instead of writing a second one.
+  - **A single field written twice is one row, the first** — the line the reader takes. The
+    refactor that made rows depend on lines drew every occurrence for a day, so a file with
+    two `{key}` lines showed two Key inputs, one of them editing a line nobody reads.
 - **The toolbar's own «Field» menu keeps only structure and printing** (2026-09-21). Those
   directives have a *place* in the song, which is why they are dropped where the caret is; a
   `{key: …}` between two verses is the same field the form shows at the top, so offering it

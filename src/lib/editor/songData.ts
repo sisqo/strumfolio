@@ -30,6 +30,7 @@ import {
   toSource,
 } from './document'
 import { addFieldAt } from './edits'
+import { FIELD_OPTIONS } from './fields'
 
 /** A directive the app reads under more than one spelling; the value is what the form calls it. */
 const ALIAS: Record<string, string> = {
@@ -285,7 +286,10 @@ export function readSongData(document: SongDocument): SongData {
     const rows: DataRow[] = group.fields.flatMap((field) =>
       // Every line for a repeat group; the first for a single one, which is the line a
       // reader's parser takes too, so the form edits what is actually in force.
-      (found.get(field.name) ?? (group.kind === 'repeat' ? [] : [])).map((index) => ({
+      (group.kind === 'repeat'
+        ? (found.get(field.name) ?? [])
+        : (found.get(field.name) ?? []).slice(0, 1)
+      ).map((index) => ({
         name: field.name,
         label: field.label,
         mono: field.mono === true,
@@ -389,6 +393,66 @@ export function addSongField(
 export function isFieldName(name: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name.trim())
 }
+
+/**
+ * What typing a name into «Another field» does to this song: add a line, go to the line
+ * that is already there, or nothing.
+ *
+ * The shape is not enough, because the box is one door into the same form and every name
+ * that comes through it has to end up as a row somebody can see and type into:
+ *
+ * - **A column is refused** — `title`, `t`, `artist`, `songbook`, `division` and their other
+ *   spellings. The form draws those from the songs table and never from a line, and the save
+ *   strips the line anyway: the field would be written, stay invisible, and then vanish.
+ * - **Anything with a place in the song is refused** — a comment, a section, a tab, and the
+ *   toolbar's structure and printing directives. Those are not fields; the toolbar drops them
+ *   where the caret is, and written into the head they would draw nothing here.
+ * - **A name the form knows is that field**, under the spelling the form uses (`st` is
+ *   Subtitle). If the song already carries it, the answer is the line it has — a second
+ *   `{key}` would be a line the reader ignores. A repeat group always takes another row.
+ * - **Anything else is added as typed**, or found where it already sits in the head.
+ */
+export type TypedField = { add: string } | { focus: number }
+
+export function typedField(document: SongDocument, typed: string): TypedField | null {
+  if (!isFieldName(typed)) return null
+
+  const written = typed.trim()
+  const name = fieldNameOf(`{${written}}`)
+  if (name === null) return null
+
+  if (METADATA_COLUMNS.has(name)) return null
+  if (POSITIONAL.has(name)) return null
+  if (fromSource(`{${written}: x}`).blocks[0]?.kind !== 'directive') return null
+
+  const data = readSongData(document)
+  const group = DATA_GROUPS.find((one) => one.fields.some((field) => field.name === name))
+
+  if (group !== undefined) {
+    if (group.kind === 'repeat') return { add: name }
+
+    const drawn = data.groups.flatMap((one) => one.rows).find((row) => row.name === name)
+    return drawn === undefined ? { add: name } : { focus: drawn.block }
+  }
+
+  const other = data.others.find((row) => row.name === name)
+  return other === undefined ? { add: written } : { focus: other.block }
+}
+
+/** The directives a column takes, under every spelling the importer strips (`METADATA_DIRECTIVE`). */
+const METADATA_COLUMNS = new Set([
+  'title',
+  'artist',
+  'songbook',
+  'canzoniere',
+  'x_songbook',
+  'division',
+  'sezione',
+  'x_division',
+])
+
+/** What the toolbar offers: directives whose position in the song is their meaning. */
+const POSITIONAL = new Set(FIELD_OPTIONS.map((option) => option.name))
 
 /**
  * A field removed: the line goes, rather than being left as `{tag}` with nothing in it.

@@ -10,10 +10,10 @@ import {
   type DataRow,
   type MissingField,
   addSongField,
-  isFieldName,
   readSongData,
   removeSongField,
   setSongField,
+  typedField,
 } from '@/lib/editor/songData'
 
 /**
@@ -102,6 +102,19 @@ export function SongDataForm({
     const added = addSongField(document, name)
     awaiting.current = added.block
     write(added.document)
+  }
+
+  /** A name typed into the menu: a new line, or the one the song already has for it. */
+  const addTyped = (typed: string) => {
+    const answer = typedField(document, typed)
+    if (answer === null) return
+    if ('add' in answer) return addField(answer.add)
+
+    const input = window.document.getElementById(`field-${answer.focus}`)
+    if (input instanceof HTMLInputElement) {
+      input.focus()
+      input.scrollIntoView({ block: 'nearest' })
+    }
   }
 
   const divisions = sections
@@ -273,6 +286,8 @@ export function SongDataForm({
       <AddField
         missing={data.missing.filter((field) => !COLUMNS.has(field.name))}
         onAdd={addField}
+        onAddTyped={addTyped}
+        accepts={(typed) => typedField(document, typed) !== null}
       />
     </div>
   )
@@ -288,16 +303,21 @@ export function SongDataForm({
  *
  * **The last row takes a name nobody here knows**, which is what makes the sentence beside
  * the button true: until this existed, a private directive could only arrive by importing a
- * file, because the graphic editor had no way to write one. `isFieldName` refuses a
- * conditional and anything that is not a name, rather than correcting it — guessing what
- * somebody meant is how `{albm}` becomes a permanent row in «Anything else».
+ * file, because the graphic editor had no way to write one. `typedField` refuses a
+ * conditional, a column, anything with a place in the song and anything that is not a name,
+ * rather than correcting it — guessing what somebody meant is how `{albm}` becomes a
+ * permanent row in «Anything else». A name the song already carries goes to the line it has.
  */
 function AddField({
   missing,
   onAdd,
+  onAddTyped,
+  accepts,
 }: {
   missing: MissingField[]
   onAdd: (name: string) => void
+  onAddTyped: (typed: string) => void
+  accepts: (typed: string) => boolean
 }) {
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
@@ -329,7 +349,10 @@ function AddField({
   }
 
   const addCustom = () => {
-    if (isFieldName(custom)) choose(custom.trim())
+    if (!accepts(custom)) return
+    onAddTyped(custom)
+    setOpen(false)
+    setCustom('')
   }
 
   const groups = [...new Set(missing.map((field) => field.group))]
@@ -397,7 +420,7 @@ function AddField({
                 <button
                   type="button"
                   className="btn btn-sm"
-                  disabled={!isFieldName(custom)}
+                  disabled={!accepts(custom)}
                   onClick={addCustom}
                 >
                   Add

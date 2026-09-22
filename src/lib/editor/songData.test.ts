@@ -9,6 +9,7 @@ import {
   fieldNameOf,
   headEnd,
   isFieldName,
+  typedField,
   readSongData,
   removeSongField,
   setSongField,
@@ -135,6 +136,20 @@ describe('readSongData', () => {
 
   it('takes the first of two lines that say the same thing, as a reader does', () => {
     assert.equal(row('{key: G}\n{key: D}\nparole', 'Music', 'key')?.block, 0)
+  })
+
+  /*
+   * And only the first: the row counted, not just found. Drawing both put two «Key» inputs
+   * on screen, one of them editing a line the reader never uses.
+   */
+  it('draws one row for a single field written twice', () => {
+    const music = readSongData(fromSource('{key: G}\n{key: D}\nparole')).groups.find(
+      (group) => group.title === 'Music',
+    )
+    assert.deepEqual(
+      music?.rows.map((one) => [one.name, one.block]),
+      [['key', 0]],
+    )
   })
 })
 
@@ -483,6 +498,52 @@ describe('the fieldset table', () => {
           `${field.name} is stripped on import`,
         )
       }
+    }
+  })
+})
+
+describe('typedField', () => {
+  const song = fromSource('{key: G}\n{tag: folk}\n{x_mio: uno}\n\nparole')
+
+  it('adds a name nobody here knows, spelled as typed', () => {
+    assert.deepEqual(typedField(song, ' x_Nuovo '), { add: 'x_Nuovo' })
+  })
+
+  it('adds a known field the song does not carry, under the form\'s own spelling', () => {
+    assert.deepEqual(typedField(song, 'album'), { add: 'album' })
+    assert.deepEqual(typedField(song, 'st'), { add: 'subtitle' })
+  })
+
+  /* A second `{key}` would be a line the reader ignores; the answer is the one already there. */
+  it('goes to the line a single field already has, known or not', () => {
+    assert.deepEqual(typedField(song, 'KEY'), { focus: 0 })
+    assert.deepEqual(typedField(song, 'x_mio'), { focus: 2 })
+  })
+
+  it('always takes another row of a repeat group', () => {
+    assert.deepEqual(typedField(song, 'tag'), { add: 'tag' })
+    assert.deepEqual(typedField(song, 'tags'), { add: 'tag' })
+  })
+
+  /*
+   * A column is drawn from the table and stripped from the body on save, so the line would be
+   * written, never shown, and then lost.
+   */
+  it('refuses a column under every spelling', () => {
+    for (const name of ['title', 't', 'artist', 'songbook', 'canzoniere', 'division', 'sezione']) {
+      assert.equal(typedField(song, name), null, name)
+    }
+  })
+
+  it('refuses anything with a place in the song', () => {
+    for (const name of ['comment', 'c', 'start_of_chorus', 'soc', 'start_of_tab', 'chorus', 'column_break', 'new_page']) {
+      assert.equal(typedField(song, name), null, name)
+    }
+  })
+
+  it('refuses what is not a name at all', () => {
+    for (const name of ['', 'album-guitar', 'a b']) {
+      assert.equal(typedField(song, name), null, JSON.stringify(name))
     }
   })
 })
