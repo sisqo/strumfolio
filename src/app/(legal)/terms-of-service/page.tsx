@@ -168,11 +168,12 @@ export default function TermsOfServicePage() {
       </p>
       <p>
         <strong>Changing plan.</strong> A change that costs more — a higher plan on the same
-        billing cycle, or moving from monthly to yearly billing — takes effect immediately, and the
+        billing cycle, or moving from monthly to yearly billing on the same plan or a higher one —
+        takes effect immediately, and the
         amount charged is shown before you confirm; moving to yearly billing starts a new yearly
         period from that day. A change that would otherwise hand back part of what you have already
-        paid — a lower plan, a cancellation, or moving from a paid year to monthly billing, even onto
-        a higher plan — takes effect at the end of the period already paid for, and nothing is
+        paid — a lower plan (whichever billing cycle it is on), a cancellation, or moving from a paid
+        year to monthly billing, even onto a higher plan — takes effect at the end of the period already paid for, and nothing is
         charged for it today; until then you keep the plan you paid for, and you can undo a scheduled
         change from the Plan &amp; billing page at any time before it lands.
       </p>
