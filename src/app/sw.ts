@@ -70,6 +70,21 @@ const rejectUnauthenticated = {
  * names are copied verbatim from `defaultCache`'s own source so these four shadow it —
  * first match wins — without changing what anything else in `defaultCache` does.
  */
+/**
+ * How long a page waits for the network before the stored copy is shown instead.
+ *
+ * **Without it `NetworkFirst` falls back only when the fetch *fails*,** and on a stage's wifi —
+ * connected, handing out addresses, passing nothing — it does not fail, it hangs, for as long
+ * as the browser's own timeout, which is tens of seconds. The song the reader needs sat behind
+ * that wait while a perfectly good copy was on the device. Serwist's `defaultCache` sets 10 on
+ * the rules it thinks of as APIs and nothing on the page rules this file copied.
+ *
+ * Four seconds, and the cost is small by construction: a timeout serves the stored copy only
+ * where there *is* one, the request carries on in the background and refreshes it, and a page
+ * with no stored copy still waits for the network as before.
+ */
+const NETWORK_TIMEOUT_SECONDS = 4
+
 const authenticatedPageCaching = (
   [
     [
@@ -102,6 +117,7 @@ const authenticatedPageCaching = (
   matcher,
   handler: new NetworkFirst({
     cacheName,
+    networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
     plugins: [new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 1440 * 60 }), rejectUnauthenticated],
   }),
 }))
@@ -187,6 +203,7 @@ const serwist = new Serwist({
         sameOrigin && url.pathname === '/' && request.mode === 'navigate',
       handler: new NetworkFirst({
         cacheName: 'home',
+        networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
         plugins: [{ cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href }, rejectUnauthenticated],
       }),
     },
