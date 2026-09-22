@@ -272,7 +272,6 @@ export function readDowngradeStamp(
   const started = asDate(periodStartsAt)
   if (started !== null && started.getTime() >= on.getTime()) return null
 
-
   return { fromPlan: fromPlan as Plan, fromCycle: readPendingCycle(fromCycle), at: on }
 }
 
@@ -543,37 +542,41 @@ export function transactionPeriodEnd(data: PaddleTransactionData): Date | null {
 }
 
 /**
- * Whether a `subscription.created` is a **second** subscription on an account that already has
- * one running — the case the checkout cannot close by itself.
+ * How an event's subscription relates to the one the account already has.
  *
- * The transaction behind a checkout is created when the page *loads*, and paying inside
- * Paddle's frame never calls back into this app: two tabs open on two checkouts, paid one after
- * the other, open two subscriptions, and both bill. `wouldBeSecondSubscription` refuses a press
- * made once the first has been recorded; a form that was already on screen is past that check.
- * So the webhook is the last place that sees it, and what it can do is tell somebody —
- * cancelling either one automatically would take money for a plan it then removed, and the key
- * this app holds cannot refund.
+ * - `own` — the ordinary case: no subscription stored, the same one, or a stored one that is over
+ *   (`expired`), or an account on free or Lifetime (Lifetime has its own guard, `mayWritePlan`).
+ * - `new` — a `subscription.created` for a *different* subscription while the stored one is still
+ *   running: two checkouts open and both paid. The transaction behind a payment form is created
+ *   when the page loads and paying never calls back here, so no check at the checkout can stop it;
+ *   this is where it is seen. The new one becomes the account's, and the operator is told.
+ * - `foreign` — any other event for a subscription that is not the stored one while that one is
+ *   running: the *old* subscription of a `new` pair renewing, updating or being cancelled. It is
+ *   recorded and writes nothing — no plan columns and no pointer.
  *
- * «Running» is read from the stored row, before this event: a paid recurring plan whose status
- * is not `expired`, with a different subscription id. A reader subscribing again after their
- * last one ended is `expired` and is not a second anything.
+ * **`foreign` is what makes the operator's remedy safe.** Without it, cancelling the old
+ * subscription as the alert asks delivered its `subscription.canceled`, found the account by
+ * `account_id`, and wrote that subscription's plan as `expired` over the account — the reader
+ * dropped to nothing while the other subscription kept charging them. And each renewal of either
+ * moved the pointer to itself, so the pair flipped the account back and forth for ever.
  *
- * **Both events that open one are asked, because either can land first.** A new subscription's
- * `transaction.completed` carries its `subscription_id` and moves the stored pointer too, and
- * Paddle does not promise the order — asked of `subscription.created` alone, a transaction
- * arriving first would leave the created event finding its own id already stored, and nothing
- * would ever be said. Whichever arrives first moves the pointer, so the alert fires once.
+ * Only `subscription.created` may move the pointer to a different running subscription: a new
+ * subscription's first `transaction.completed` can land before it, and letting the transaction
+ * move it would make `created` find its own id already stored and say nothing. Whichever arrives
+ * first, the alert fires once, on `created`.
  */
-export function isSecondSubscription(
+export type SubscriptionRelation = 'own' | 'new' | 'foreign'
+
+export function subscriptionRelation(
   stored: { plan: Plan; planStatus: string; paddleSubscriptionId: string | null },
   eventType: string,
   incomingSubscriptionId: string | null,
-): boolean {
-  if (eventType !== 'subscription.created' && eventType !== 'transaction.completed') return false
-  if (stored.paddleSubscriptionId === null || incomingSubscriptionId === null) return false
-  if (stored.paddleSubscriptionId === incomingSubscriptionId) return false
-  if (stored.plan === 'free' || stored.plan === 'lifetime') return false
-  return stored.planStatus !== 'expired'
+): SubscriptionRelation {
+  if (incomingSubscriptionId === null || stored.paddleSubscriptionId === null) return 'own'
+  if (stored.paddleSubscriptionId === incomingSubscriptionId) return 'own'
+  if (stored.planStatus === 'expired') return 'own'
+  if (stored.plan === 'free' || stored.plan === 'lifetime') return 'own'
+  return eventType === 'subscription.created' ? 'new' : 'foreign'
 }
 
 /**

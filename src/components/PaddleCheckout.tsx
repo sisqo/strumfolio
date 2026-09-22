@@ -485,15 +485,18 @@ export function PaddleCheckout(props: Props) {
    * **A purchase in another tab closes this one's form.** The transaction behind a payment form
    * is created when the page loads, and paying inside Paddle's frame never calls back into this
    * app — so two tabs holding two open forms were two subscriptions waiting to happen, past every
-   * check the server can make (`isSecondSubscription` in `webhook.ts` is the alarm for the rest).
+   * check the server can make (`subscriptionRelation` in `webhook.ts` is the alarm for the rest).
    * One reader, one browser, two tabs is the realistic shape of it, and this closes exactly that.
    */
   const autoOpened = useRef(false)
+  const isChange = live !== null
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return
     const channel = new BroadcastChannel(PAID_CHANNEL)
     channel.onmessage = () => {
-      if (paidHere.current) return
+      /* Only a first purchase has a payment form to close; a plan change has none, and telling
+         that reader «this form has been closed» would describe nothing on their screen. */
+      if (paidHere.current || isChange) return
       paddle.current?.Checkout.close()
       opened.current = null
       autoOpened.current = true
@@ -501,7 +504,7 @@ export function PaddleCheckout(props: Props) {
       setMessage('A purchase was just completed in another tab, so this form has been closed and nothing here was charged.')
     }
     return () => channel.close()
-  }, [])
+  }, [isChange])
 
   const chosenAlready = live === null && (props.plan === 'lifetime' || props.initialCycle !== null)
   useEffect(() => {

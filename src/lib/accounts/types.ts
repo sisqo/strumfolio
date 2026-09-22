@@ -280,7 +280,7 @@ export const EMAIL_CHANGE_MESSAGE: Record<EmailChangeFailure, string> = {
  * bypassing the verification link entirely — see the action's own comment on the risk
  * this accepts.
  */
-export type ConfirmPendingFailure = 'not-allowed' | 'no-database' | 'not-found' | 'failed'
+export type ConfirmPendingFailure = 'not-allowed' | 'no-database' | 'not-found' | 'account-exists' | 'failed'
 
 export type ConfirmPendingResult = { ok: true } | { ok: false; reason: ConfirmPendingFailure }
 
@@ -288,6 +288,8 @@ export const CONFIRM_PENDING_MESSAGE: Record<ConfirmPendingFailure, string> = {
   'not-allowed': 'Only a global owner may confirm a pending registration.',
   'no-database': 'No database configured: nothing to confirm.',
   'not-found': 'No pending registration for this address. It may already be confirmed.',
+  'account-exists':
+    'This address already has an account, so the pending registration was removed rather than confirmed: its password could belong to somebody else.',
   failed: 'Confirm failed. Please try again.',
 }
 

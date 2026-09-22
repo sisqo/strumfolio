@@ -44,7 +44,7 @@ import {
   adjustmentEffect,
   couponCampaignOf,
   isNewPurchase,
-  isSecondSubscription,
+  subscriptionRelation,
   mayWritePlan,
   stampCredible,
   subscriptionEffect,
@@ -521,6 +521,16 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     effect = subscriptionEffect(event.data as never, false)
   }
 
+  /* Read before this event, like everything `findAccount` returns — see `subscriptionRelation`. */
+  const relation =
+    effect && account
+      ? subscriptionRelation(
+          { plan: readPlan(account.plan), planStatus: account.planStatus, paddleSubscriptionId: account.paddleSubscriptionId },
+          event.eventType,
+          effect.account.paddleSubscriptionId,
+        )
+      : 'own'
+
   /* Carried out of the transaction so the confirmation email can name the coupon. Assigned
      inside it, and only when the insert took a row — a rollback throws before anything reads
      this, and a retry finds `duplicate` and never reaches the insert at all. */
@@ -554,7 +564,14 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * the Lifetime is granted, and carries that subscription's own plan and an `expired`
      * status. Writing it would take away the plan they just bought for ever.
      */
-    const columns = mayWritePlan(readPlan(account.plan), account.planStatus, event.eventType) ? effect.columns : null
+    /*
+     * And never from a subscription that is not the account's while the account's is running —
+     * `subscriptionRelation`'s `foreign`: the old half of two subscriptions paid side by side.
+     */
+    const foreign = relation === 'foreign'
+    const columns =
+      !foreign && mayWritePlan(readPlan(account.plan), account.planStatus, event.eventType) ? effect.columns : null
+    const movesPointer = !foreign && effect.account.paddleSubscriptionId !== null
 
     /*
      * **Neither id column is ever nulled once it has a value**, and that is a fix rather than a
@@ -588,7 +605,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
       statusOnly ||
       coupon.kind !== 'untouched' ||
       effect.account.paddleCustomerId ||
-      effect.account.paddleSubscriptionId
+      movesPointer
     ) {
       await tx
         .update(accounts)
@@ -607,9 +624,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
             ? { plan: 'lifetime', planExpiresAt: null, pendingPlan: null, pendingCycle: null }
             : {}),
           ...(effect.account.paddleCustomerId ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
-          ...(effect.account.paddleSubscriptionId
-            ? { paddleSubscriptionId: effect.account.paddleSubscriptionId }
-            : {}),
+          ...(movesPointer ? { paddleSubscriptionId: effect.account.paddleSubscriptionId } : {}),
           ...(coupon.kind === 'redeemed'
             ? {
                 couponCode: coupon.redemption.code,
@@ -653,18 +668,28 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
 
     /* The stored pointer is the one read *before* this event, which is what makes the old
        subscription nameable here even though the write above has just moved it. */
-    if (
-      isSecondSubscription(
-        { plan: readPlan(account.plan), planStatus: account.planStatus, paddleSubscriptionId: account.paddleSubscriptionId },
-        event.eventType,
-        effect?.account.paddleSubscriptionId ?? null,
-      )
-    ) {
+    if (relation === 'new') {
       alerts.push(
         `⚠️ Seconda subscription sull'account ${account.id}: la nuova ${effect?.account.paddleSubscriptionId} si ` +
-          `aggiunge a ${account.paddleSubscriptionId}, che risultava ancora viva. Probabilmente due checkout aperti ` +
-          'e pagati entrambi: controlla su Paddle, disdici e rimborsa quella che non serve. L\'app ora gestisce la nuova.',
+          `aggiunge a ${account.paddleSubscriptionId}, che risultava ancora viva — probabilmente due checkout aperti e ` +
+          `pagati entrambi. L'app ora gestisce la nuova e ignora gli eventi della vecchia: disdici e rimborsa ` +
+          `${account.paddleSubscriptionId} su Paddle. Non disdire la nuova, o l'account resta senza piano.`,
       )
+    }
+
+    /*
+     * **A won chargeback puts the Lifetime back, so whatever was bought meanwhile must stop.**
+     * While the Lifetime was `expired` a subscription could be recorded (`mayWritePlan`), and once
+     * the Lifetime is live again every event of that subscription is withheld — it would bill
+     * beside the Lifetime for ever with nobody told. The same remedy as a Lifetime bought over a
+     * running subscription, and the same function.
+     */
+    if (effect?.restoresLifetime && readPlan(account.plan) !== 'lifetime' && account.paddleSubscriptionId !== null) {
+      alerts.push(
+        `⚠️ Chargeback vinto sul Lifetime dell'account ${account.id}: il Lifetime è di nuovo attivo, e la subscription ` +
+          `${account.paddleSubscriptionId} comprata nel frattempo viene disdetta a fine periodo. Valuta un rimborso.`,
+      )
+      await endSubscriptionBoughtOut(account)
     }
 
     for (const alert of alerts) await notifyTelegram('purchase', alert)

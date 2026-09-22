@@ -6,7 +6,7 @@ import {
   couponCampaignOf,
   downgradeStamp,
   isNewPurchase,
-  isSecondSubscription,
+  subscriptionRelation,
   mayWritePlan,
   stampCredible,
   planOfPrice,
@@ -493,36 +493,32 @@ describe('adjustmentEffect', () => {
   })
 })
 
-describe('isSecondSubscription', () => {
+describe('subscriptionRelation', () => {
   const running = { plan: 'standard' as const, planStatus: 'active', paddleSubscriptionId: 'sub_old' }
 
-  /* Two checkouts open, both paid: the second `subscription.created` names a new id while the
-     account still records a live one. */
-  it('flags a new subscription beside one that is still running', () => {
-    assert.equal(isSecondSubscription(running, 'subscription.created', 'sub_new'), true)
-    assert.equal(isSecondSubscription({ ...running, planStatus: 'grace' }, 'subscription.created', 'sub_new'), true)
+  /* Two checkouts open, both paid: the new subscription's `created` while the old one runs. */
+  it('names a new subscription beside a running one, only on its created event', () => {
+    assert.equal(subscriptionRelation(running, 'subscription.created', 'sub_new'), 'new')
+    assert.equal(subscriptionRelation({ ...running, planStatus: 'grace' }, 'subscription.created', 'sub_new'), 'new')
   })
 
-  it('does not flag a subscription that replaces one already over', () => {
-    assert.equal(isSecondSubscription({ ...running, planStatus: 'expired' }, 'subscription.created', 'sub_new'), false)
+  /*
+   * Everything else from a subscription that is not the account's while the account's runs:
+   * the old one renewing or being cancelled by the operator, or the new one's first transaction
+   * arriving before `created`. None of it may write the plan or move the pointer.
+   */
+  it('treats every other event from a different running subscription as foreign', () => {
+    for (const eventType of ['subscription.updated', 'subscription.canceled', 'transaction.completed']) {
+      assert.equal(subscriptionRelation(running, eventType, 'sub_other'), 'foreign', eventType)
+    }
   })
 
-  it('does not flag the first subscription, the same one again, or any other event', () => {
-    assert.equal(isSecondSubscription({ ...running, paddleSubscriptionId: null }, 'subscription.created', 'sub_new'), false)
-    assert.equal(isSecondSubscription(running, 'subscription.created', 'sub_old'), false)
-    assert.equal(isSecondSubscription(running, 'subscription.updated', 'sub_new'), false)
-  })
-
-  /* The new subscription's first transaction also moves the pointer and may arrive first. */
-  it('flags it from the transaction too, since either event can land first', () => {
-    assert.equal(isSecondSubscription(running, 'transaction.completed', 'sub_new'), true)
-    assert.equal(isSecondSubscription(running, 'transaction.completed', 'sub_old'), false)
-    assert.equal(isSecondSubscription(running, 'transaction.completed', null), false)
-  })
-
-  /* A Lifetime buyer's old subscription is ended by the webhook itself; a free account has none. */
-  it('ignores an account on free or on Lifetime', () => {
-    assert.equal(isSecondSubscription({ ...running, plan: 'lifetime' }, 'subscription.created', 'sub_new'), false)
-    assert.equal(isSecondSubscription({ ...running, plan: 'free' }, 'subscription.created', 'sub_new'), false)
+  it('leaves the ordinary cases ordinary', () => {
+    assert.equal(subscriptionRelation({ ...running, paddleSubscriptionId: null }, 'transaction.completed', 'sub_new'), 'own')
+    assert.equal(subscriptionRelation(running, 'subscription.updated', 'sub_old'), 'own')
+    assert.equal(subscriptionRelation(running, 'transaction.completed', null), 'own')
+    assert.equal(subscriptionRelation({ ...running, planStatus: 'expired' }, 'subscription.created', 'sub_new'), 'own')
+    assert.equal(subscriptionRelation({ ...running, plan: 'free' }, 'subscription.created', 'sub_new'), 'own')
+    assert.equal(subscriptionRelation({ ...running, plan: 'lifetime' }, 'subscription.canceled', 'sub_new'), 'own')
   })
 })

@@ -888,7 +888,7 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
 
   let result:
     | { ok: true; firstName: string | null; lastName: string | null; newsletterOptIn: boolean }
-    | { ok: false }
+    | { ok: false; shadowed?: boolean }
   try {
     result = await db().transaction(async (tx) => {
       const rows = await tx
@@ -909,7 +909,7 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
         .limit(1)
       if (existing.length > 0) {
         await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
-        return { ok: false }
+        return { ok: false, shadowed: true }
       }
 
       await tx
@@ -929,7 +929,14 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
     return { ok: false, reason: 'failed' }
   }
 
-  if (!result.ok) return { ok: false, reason: 'not-found' }
+  if (!result.ok) {
+    if (result.shadowed) {
+      /* The row is gone, so the list the operator is looking at must not keep showing it. */
+      revalidatePath('/accounts')
+      return { ok: false, reason: 'account-exists' }
+    }
+    return { ok: false, reason: 'not-found' }
+  }
 
   /* One expression, two readers: `provisionAccount` fills the account row from it and the
      notice names the person with it. Written out twice, a change to either would quietly make

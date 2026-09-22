@@ -778,8 +778,13 @@ watched working by anybody.
     paid** — paying inside Paddle's frame never calls back here, and `/pay?_ptxn=` reopens an
     unpaid transaction with no session. So a form already on screen is past every check. Since
     2026-09-22 the webhook is the alarm for what gets through: a `subscription.created` beside a
-    live one (`isSecondSubscription`), a coupon's second use on one account, and a campaign
-    ceiling overshot are each a Telegram message to the operator. **Nothing is cancelled or
+    live one (`subscriptionRelation` → `new`), a coupon's second use on one account, and a
+    campaign ceiling overshot are each a Telegram message to the operator. **The new
+    subscription becomes the account's and the old one's events write nothing** (`foreign`):
+    otherwise cancelling the old one, as the alert asks, wrote its plan as `expired` over the
+    account while the new one went on charging, and each renewal flipped the pointer between the
+    two. The alert names which one to cancel. A won Lifetime chargeback likewise ends a
+    subscription bought while the Lifetime was `expired`, through `endSubscriptionBoughtOut`. **Nothing is cancelled or
     refunded automatically**: the live key has no Adjustments permission by design, and
     cancelling a charge just taken without refunding it is worse than the bug. A completed
     purchase also closes the payment forms open in the reader's other tabs (`BroadcastChannel`).

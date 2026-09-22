@@ -249,9 +249,14 @@ export async function settle(id: number, delivery: OutreachDelivery, now: Date):
           ? { status: 'done', detail: clamp(delivery.detail, MAX_OUTREACH_DETAIL), reason: null, lastAttemptAt: now }
           : { status: 'failed', reason: clamp(delivery.reason, MAX_OUTREACH_DETAIL), lastAttemptAt: now },
       )
-      /* Never over a `done`: nothing undoes a row that was delivered, and a late failure from a
-         second attempt writing `failed` over it would reopen the occurrence to a third send. */
-      .where(and(eq(outreachActions.id, id), ne(outreachActions.status, 'done')))
+      /*
+       * Only the attempt that owns the claim may settle it, and never over a `done`. The claim
+       * wrote `last_attempt_at = now` and every caller hands this the same `now`, so a stale
+       * attempt that was taken over (after `STALE_ATTEMPT_MS`) and fails late no longer writes
+       * `failed` over the newer attempt's `pending` — which reopened the occurrence to a third
+       * send while the second was still running. And a late failure never undoes a delivery.
+       */
+      .where(and(eq(outreachActions.id, id), ne(outreachActions.status, 'done'), eq(outreachActions.lastAttemptAt, now)))
   } catch (error) {
     console.error('settle failed', error)
   }
