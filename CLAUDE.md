@@ -1597,6 +1597,12 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   signed-in reader's rendered screens are stored under plain URL keys. `sw.ts` recorded «nothing
   evicts it when a session ends» as understood-and-accepted; that reasoning covered offline and
   not the case where a second account signs in on the device.
+- **Songs and songbooks have a cache of their own, `repertoire`, with no expiry** (2026-09-22).
+  They used to fall through to `others` — 32 entries for 24 hours, shared with images — so once
+  `OfflineSync` walked a whole repertoire the last pages fetched evicted the ones a reader had
+  opened, and a day without signal emptied it. **Any new page cache goes into `PAGE_CACHES`**
+  (`lib/storage/scope.ts`) in the same commit, or sign-out and a change of account stop clearing
+  that account's songs off the device.
 
 Verified before/after in a real browser on 2026-09-11 with a planted foreign cache: the other
 account's songbook name was visible with the unscoped store and absent at all forty samples

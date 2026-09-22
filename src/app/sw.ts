@@ -207,6 +207,35 @@ const serwist = new Serwist({
         plugins: [{ cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href }, rejectUnauthenticated],
       }),
     },
+    /**
+     * **The repertoire: every song and songbook page, in a cache of its own that does not
+     * expire.** Until 2026-09-22 these fell through to the `others` catch-all below — 32 entries
+     * shared with images and chunks, gone after 24 hours — because a navigation carries no
+     * `Content-Type` and so never matched the HTML rule. With `OfflineSync` actually walking the
+     * whole repertoire, the last 32 pages fetched pushed out the ones a reader had opened, and a
+     * day without signal took the rest. On a stage that is the entire product failing.
+     *
+     * HTML only (no `RSC` header): a client-side navigation's RSC fetch keeps falling through to
+     * the rules below, and when it fails offline Next retries as a full navigation, which is what
+     * lands here. `OfflineSync`'s plain `fetch()` and a real visit share one key, the URL.
+     *
+     * No `maxAgeSeconds`, for the home rule's reason: this is what has to open after a week
+     * away from any network. `maxEntries` is a ceiling against runaway storage rather than a
+     * working limit — far above any repertoire measured here. The name is in `PAGE_CACHES`
+     * (`lib/storage/scope.ts`), so sign-out and a change of account empty it like the others.
+     */
+    {
+      matcher: ({ request, url, sameOrigin }) =>
+        sameOrigin &&
+        request.method === 'GET' &&
+        request.headers.get('RSC') !== '1' &&
+        (url.pathname.startsWith('/songs/') || url.pathname.startsWith('/songbooks/')),
+      handler: new NetworkFirst({
+        cacheName: 'repertoire',
+        networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
+        plugins: [new ExpirationPlugin({ maxEntries: 1500 }), rejectUnauthenticated],
+      }),
+    },
     ...authenticatedPageCaching,
     ...defaultCache,
   ],
