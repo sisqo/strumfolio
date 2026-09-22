@@ -116,6 +116,14 @@ export interface PaddleEventEffect {
    * writing `active` back over it.
    */
   statusOnly?: PlanStatus | null
+  /**
+   * A contested Lifetime chargeback that was won: write the Lifetime back whole, not only its
+   * status. `mayWritePlan` lets subscription events through while a Lifetime is `expired`, so an
+   * old subscription's cancellation landing inside a chargeback window may have rewritten `plan`
+   * in the meantime — and a reverse that restored only `active` would leave that reader on
+   * whatever the cancellation wrote, instead of on the Lifetime they paid for.
+   */
+  restoresLifetime?: boolean
 }
 
 /**
@@ -239,9 +247,13 @@ export function downgradeStamp(from: { plan: Plan; cycle: BillingPeriod | null }
  * purpose. This app writes these itself, so an unreadable one is its own bug; and the
  * alternative, holding somebody on a plan with no date attached, is a plan that never ends.
  */
+/** How far past the paid period a stamp's date may fall before it is not believed. */
+const STAMP_SLACK_MS = 24 * 60 * 60 * 1000
+
 export function readDowngradeStamp(
   custom: { downgrade?: unknown } | null | undefined,
   periodStartsAt: string | null | undefined,
+  periodEndsAt?: string | null,
 ): DowngradeStamp | null {
   const stamp = custom?.downgrade
   if (stamp === null || typeof stamp !== 'object') return null
@@ -258,6 +270,17 @@ export function readDowngradeStamp(
 
   const started = asDate(periodStartsAt)
   if (started !== null && started.getTime() >= on.getTime()) return null
+
+  /*
+   * **Never later than the period Paddle says is paid for** (a day's slack for rounding). This
+   * app writes the stamp *from* `current_billing_period.ends_at`, so a legitimate one is never
+   * past it; one that is was not written here. The concern is `custom_data` reaching Paddle from
+   * somewhere other than `startPaddleCheckout` — a browser holding the public client token — and
+   * without this bound a stamp saying «Premium until 2099» on a €3.49 Standard would be honoured
+   * for as long as it said. Bounded, the most any stamp can hold is the period already paid.
+   */
+  const ends = asDate(periodEndsAt ?? null)
+  if (ends !== null && on.getTime() > ends.getTime() + STAMP_SLACK_MS) return null
 
   return { fromPlan: fromPlan as Plan, fromCycle: readPendingCycle(fromCycle), at: on }
 }
@@ -293,7 +316,11 @@ export function subscriptionEffect(data: PaddleSubscriptionData): PaddleEventEff
   if (!read) return { account, columns: null }
 
   const cancelling = data.scheduled_change?.action === 'cancel'
-  const scheduled = readDowngradeStamp(data.custom_data, data.current_billing_period?.starts_at)
+  const scheduled = readDowngradeStamp(
+    data.custom_data,
+    data.current_billing_period?.starts_at,
+    data.current_billing_period?.ends_at,
+  )
 
   if (scheduled !== null) {
     return {
@@ -377,7 +404,7 @@ export function adjustmentEffect(data: PaddleAdjustmentData): PaddleEventEffect 
      cleared, which is what makes this one column wide — the same reversibility that decided
      `next_billing_period` for the Lifetime's own cancellation. */
   if (action === 'chargeback_reverse' || action === 'chargeback_warning_reverse') {
-    return { account, columns: null, statusOnly: 'active' }
+    return { account, columns: null, statusOnly: 'active', restoresLifetime: true }
   }
 
   const takesTheMoneyBack =

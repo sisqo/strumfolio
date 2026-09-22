@@ -75,7 +75,7 @@ sono quella frase applicata, non cinque decisioni separate.
 
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
-| D1 | Lifetime → downgrade o cancellazione | Non offerto. `expiresAt` nullo non dà una data su cui far scattare niente, e `mayWritePlan` impedisce anche a un evento in ritardo di toglierlo | `planChange.test.ts › refuses Lifetime on both sides, and says which side` | `n/d` |
+| D1 | Lifetime → downgrade o cancellazione | Non offerto. `expiresAt` nullo non dà una data su cui far scattare niente, e `mayWritePlan` impedisce anche a un evento in ritardo di toglierlo, finché il Lifetime è in vigore: uno rimborsato (`expired`) non è più protetto, o bloccherebbe ogni abbonamento comprato dopo | `planChange.test.ts › refuses Lifetime on both sides, and says which side` | `n/d` |
 | D2 | Lifetime → upgrade | Non esiste nulla sopra | `types.test.ts › ranks lifetime strictly above premium` | `n/d` |
 | D3 | Rimborso su Lifetime | **La buca che nient'altro copriva**: niente subscription da disdire, quindi l'account teneva il Lifetime per sempre. Ora un rimborso pieno o un chargeback scrivono `expired`, e un `chargeback_reverse` lo ridà se Paddle vince la contestazione — `plan` non viene mai cancellato, ed è questo a rendere la revoca reversibile | `entitlements.test.ts › lets it revoke a lifetime too, because refunds exist` · `webhook.test.ts › gives the plan back when Paddle wins the dispute` | `mai` |
 

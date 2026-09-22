@@ -43,8 +43,8 @@ export type PasswordSource =
 
 /**
  * A real account always wins over a pending row for the same address, and the order is
- * load-bearing rather than tidy: a pending registration is never purged when an account is
- * born some other way (a Google sign-in on the same address leaves one behind), so reading
+ * load-bearing rather than tidy: a pending registration may outlive an account born some other
+ * way (`provisionAccount` purges it only since 2026-09-22, so older ones remain), so reading
  * the pending hash first would judge a verified reader against a password they may have
  * abandoned, and then tell them to go and confirm an address that is already confirmed.
  */

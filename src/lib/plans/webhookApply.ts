@@ -536,6 +536,9 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
               }
             : {}),
           ...(statusOnly && !columns ? { planStatus: statusOnly } : {}),
+          ...(statusOnly && !columns && effect.restoresLifetime
+            ? { plan: 'lifetime', planExpiresAt: null, pendingPlan: null, pendingCycle: null }
+            : {}),
           ...(effect.account.paddleCustomerId ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
           ...(effect.account.paddleSubscriptionId
             ? { paddleSubscriptionId: effect.account.paddleSubscriptionId }

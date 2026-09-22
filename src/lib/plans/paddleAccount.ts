@@ -179,7 +179,11 @@ export async function livePaddleSubscription(): Promise<LivePaddleSubscription> 
      * in, so the items are simply the truth again. No clock is consulted on either side, which
      * is what keeps the screen and the account row from disagreeing about the day.
      */
-    const stamp = readDowngradeStamp(customData, subscription.currentBillingPeriod?.startsAt)
+    const stamp = readDowngradeStamp(
+      customData,
+      subscription.currentBillingPeriod?.startsAt,
+      subscription.currentBillingPeriod?.endsAt,
+    )
 
     return {
       ok: true,

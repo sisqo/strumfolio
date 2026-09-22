@@ -761,6 +761,14 @@ watched working by anybody.
     `expired`. Without the guard the largest single payment this app takes would be wiped by an
     event that arrives a month later. It matches the whole `subscription.` family rather than
     the two names known to arrive today.
+    **Only a Lifetime still in force** (2026-09-22): a refunded or charged-back one is `expired`
+    with `plan` still `lifetime`, and guarding that blocked every subscription the reader bought
+    afterwards — charged, and left on free. Since a subscription event may therefore write while
+    a Lifetime is `expired`, a won chargeback (`restoresLifetime`) writes `plan: 'lifetime'` back
+    whole rather than only `active`.
+  - **The Lifetime is refused at checkout while `lifetime.on_sale` is off or the account holds
+    one** (`lifetimeRefusal`, screen and press). Like every other rule here it runs when the
+    transaction is created, not when it is paid: a tab opened before the switch still pays.
   - **The Lifetime checkout sells in every mode, `stalled` included.** That branch exists to
     stop a *second subscription*; Lifetime is not one. A reader whose card is failing is, if
     anything, the one most helped by buying their way out.

@@ -212,6 +212,17 @@ describe('the downgrade stamp', () => {
     assert.equal(columns?.plan, 'premium')
     assert.equal(columns?.pendingPlan, 'standard')
   })
+
+  /* This app writes the stamp from the paid period's own end, so one dated past it came from
+     somewhere else — a checkout opened with a hand-written `customData` — and granting the
+     higher plan until whatever date it names would sell Premium for a Standard price. */
+  it('is not believed past the period Paddle says is paid for', () => {
+    const at = new Date('2099-01-01T00:00:00Z')
+    const custom = { downgrade: downgradeStamp({ plan: 'premium', cycle: 'year' }, at) }
+
+    assert.equal(readDowngradeStamp(custom, '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z'), null)
+    assert.notEqual(readDowngradeStamp(custom, '2026-09-01T00:00:00Z', '2099-01-01T00:00:00Z'), null)
+  })
 })
 
 describe('transactionEffect', () => {
@@ -442,6 +453,13 @@ describe('adjustmentEffect', () => {
     for (const action of ['chargeback_reverse', 'chargeback_warning_reverse']) {
       assert.equal(adjustmentEffect(adjustment({ action })).statusOnly, 'active', action)
     }
+  })
+
+  /* While the Lifetime was `expired` a subscription event may have written its own plan, so the
+     reverse writes the Lifetime back rather than only its status. */
+  it('writes the Lifetime itself back, not only the status', () => {
+    assert.equal(adjustmentEffect(adjustment({ action: 'chargeback_reverse' })).restoresLifetime, true)
+    assert.equal(adjustmentEffect(adjustment({ action: 'refund', status: 'approved' })).restoresLifetime, undefined)
   })
 
   /* Explicit no-ops rather than omissions: a credit adjusts an invoice instead of returning
