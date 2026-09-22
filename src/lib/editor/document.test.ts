@@ -404,3 +404,18 @@ describe('the constructs the editor learned with the format', () => {
     assert.equal(toSource(fromSource(source)), source)
   })
 })
+
+/* The closing line of a tab was the one line of the block rewritten on the first save. */
+describe('a tab block, byte for byte', () => {
+  it('writes the closing line back as the file wrote it', () => {
+    for (const source of ['{sot}\ne|--0--\n{ eot }', '{sot}\ne|--0--\n{eot:}\n', '{sot}\ne|\n  {end_of_tab}']) {
+      assert.equal(toSource(fromSource(source)), source)
+    }
+  })
+
+  /* Closing an unclosed block is deliberate; eating the file's final newline into a blank row
+     of tablature was not. */
+  it('closes an unclosed block without a phantom row, and keeps the final newline', () => {
+    assert.equal(toSource(fromSource('{sot}\n--0--\n')), '{sot}\n--0--\n{end_of_tab}\n')
+  })
+})

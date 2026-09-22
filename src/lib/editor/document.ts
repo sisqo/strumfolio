@@ -93,6 +93,11 @@ export type Block =
       /** The opening line as written — see the `comment` block above for why. */
       startRaw?: string
       endDirective: string | null
+      /**
+       * The closing line as written. `{ eot }`, `{eot:}` and an indented `{end_of_tab}` all came
+       * back as `{eot}` on the first save — the one line of the block that did not survive.
+       */
+      endRaw?: string
       rows: string[]
       /**
        * Which of the two verbatim blocks this is — tablature or a chord grid. It decides
@@ -235,16 +240,27 @@ export function fromSource(source: string): SongDocument {
       if (TAB_START_NAMES.has(name) || GRID_START_NAMES.has(name)) {
         const rows: string[] = []
         let endDirective: string | null = null
+        let endRaw: string | undefined
 
         for (i += 1; i < rawLines.length; i += 1) {
           const inner = rawLines[i]
           const innerDirective = DIRECTIVE.exec(inner.trim())
           if (innerDirective && TAB_END_NAMES.has(innerDirective[1].toLowerCase())) {
             endDirective = innerDirective[1]
+            endRaw = inner
             break
           }
           rows.push(inner)
         }
+
+        /*
+         * An unclosed block runs to the end of the file, and a file ending in a newline gives
+         * it one empty last row that is not a row: kept, it became a blank line of tablature
+         * above the closing directive the editor adds, and the file lost its final newline.
+         * It goes back where it was, as the blank line after the block.
+         */
+        const trailingBlank = endDirective === null && rows.length > 0 && rows[rows.length - 1] === ''
+        if (trailingBlank) rows.pop()
 
         blocks.push({
           kind: 'tab',
@@ -252,9 +268,11 @@ export function fromSource(source: string): SongDocument {
           startValue: directive[2] ?? '',
           startRaw: line,
           endDirective,
+          ...(endRaw === undefined ? {} : { endRaw }),
           rows,
           variant: GRID_START_NAMES.has(name) ? 'grid' : 'tab',
         })
+        if (trailingBlank) blocks.push({ kind: 'blank', raw: '' })
         continue
       }
 
@@ -365,7 +383,7 @@ function lineOf(block: Block, eol: string): string {
             ? `{${block.startDirective}}`
             : `{${block.startDirective}: ${block.startValue}}`),
         ...block.rows,
-        `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
+        block.endRaw ?? `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
       ].join(eol)
   }
 }
