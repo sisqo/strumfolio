@@ -149,3 +149,35 @@ test('a repeated chorus carries no anchors, so no note can land on it', () => {
   assert.ok((map.get(drawn[0]) ?? []).every((parts) => parts.length > 0))
   assert.deepEqual(map.get(drawn[2]), [[], []])
 })
+
+/*
+ * A line of chords with no words under them. The text walk had nothing to walk — three spaces —
+ * and every chord after the first anchored at offset 0, so a note on one showed on all of them.
+ * Two files in `content/` have such a line, and 422 lines of the songs on dev did.
+ */
+test('anchors each chord of a wordless line where the editor puts it', () => {
+  for (const [source, expected] of [
+    ['[C] [F] [G]', [0, 1, 2]],
+    ['x [C] [G]', [0, 2, 3]],
+    ['[C]la [G]  [D]', [0, 3, 5]],
+  ] as const) {
+    const parsed = parseChordPro(source)
+    const line = parsed.sections.flatMap((section) => section.lines).find((one) => one.kind === 'lyrics')!
+    const anchors = buildAnchorMap(parsed.sections, source).get(line)!
+    assert.deepEqual(
+      anchors.flat().map((anchor) => anchor?.charOffset),
+      expected,
+      source,
+    )
+  }
+})
+
+/* A chord over words keeps the word's position — the reader moves `del[sol] grande`'s chord onto
+   «grande», and notes already stored on such lines are anchored there. */
+test('keeps a chord over words at the start of its words', () => {
+  const source = 'del[sol] grande'
+  const parsed = parseChordPro(source)
+  const line = parsed.sections.flatMap((section) => section.lines).find((one) => one.kind === 'lyrics')!
+  const anchors = buildAnchorMap(parsed.sections, source).get(line)!
+  assert.deepEqual(anchors.flat().map((anchor) => anchor?.charOffset), [0, 4])
+})

@@ -60,6 +60,8 @@ export type AnchorMap = Map<Line, PartAnchor[][]>
 interface Segment {
   blockIndex: number
   text: string
+  /** Where each `[chord]` of the source line sits in `text`, in order. */
+  chords: number[]
 }
 
 export function buildAnchorMap(sections: Section[], source: string): AnchorMap {
@@ -93,7 +95,7 @@ export function buildAnchorMap(sections: Section[], source: string): AnchorMap {
             ? found.block.text.slice(0, -1)
             : found.block.text
 
-        segments.push({ blockIndex: found.blockIndex, text })
+        segments.push({ blockIndex: found.blockIndex, text, chords: found.block.chords.map((chord) => chord.at) })
       })
 
       map.set(line, anchorsFor(line, segments))
@@ -119,6 +121,28 @@ function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]
   let index = 0
   let cursor = 0
 
+  /*
+   * **A chord with no words under it is anchored where the editor puts that chord**, taken in
+   * order. Walking the text alone cannot place a chord that has no words under it: on a line
+   * like `[D] [F#dim] [G] [A]` the source text is three spaces, the walker skipped them all and
+   * fell off the end, and every chord after the first anchored at offset 0 — so a note on the
+   * G showed on all four, on screen and in the booklet.
+   */
+  let chordSegment = 0
+  let chordIndex = 0
+  const nextChord = (): { segment: number; at: number } | null => {
+    while (chordSegment < segments.length) {
+      const at = segments[chordSegment].chords[chordIndex]
+      if (at !== undefined) {
+        chordIndex += 1
+        return { segment: chordSegment, at }
+      }
+      chordSegment += 1
+      chordIndex = 0
+    }
+    return null
+  }
+
   /** Moves past the whitespace between words, and off the end of a segment that is spent. */
   const settle = () => {
     while (index < segments.length) {
@@ -137,7 +161,23 @@ function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]
     settle()
 
     return word.parts.map((part) => {
-      settle()
+      const chord = part.chord === null ? null : nextChord()
+      /*
+       * Only for a chord with **no words under it** — the case the text walk cannot place. A
+       * chord over words keeps the walker's answer, which is where the words start: the reader
+       * moves `del[sol] grande`'s chord onto «grande», one character past the bracket, and the
+       * notes already stored on such lines (eleven of them across the 223 songs on dev) are
+       * anchored to the word. Every chord is still taken from the list, so the order holds.
+       *
+       * The word-level settle above may already have walked off the end of a line whose text
+       * is only spaces, which is why the chord's position wins over the cursor here.
+       */
+      if (chord !== null && part.text === '') {
+        index = chord.segment
+        cursor = chord.at
+      } else {
+        settle()
+      }
       const segment = segments[Math.min(index, segments.length - 1)]
       const anchor = { blockIndex: segment.blockIndex, charOffset: cursor }
 
