@@ -117,6 +117,11 @@ export async function loadSettingAuthor(key: string): Promise<{ by: string | nul
   const known = [LIFETIME_ON_SALE_KEY, ...NOTIFY_EVENTS.map(notifyKey)]
   if (!hasDatabase || !known.includes(key)) return null
 
+  /* The author is an owner's email address, and this is an action any browser can call by id:
+     the key check above stops it reading other rows, and only this stops it reading these. */
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
   try {
     const rows = await db()
       .select({ updatedBy: appSettings.updatedBy, updatedAt: appSettings.updatedAt })

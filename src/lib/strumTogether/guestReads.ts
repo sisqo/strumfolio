@@ -22,7 +22,7 @@ import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } 
 import type { Song } from '@/lib/data/types'
 import { type Series, seriesOf } from '@/lib/songbooks/series'
 
-import { broadcastAccountForToken } from './session'
+import { broadcastAccountForToken } from './guestToken'
 
 export interface GuestSongbook {
   slug: string

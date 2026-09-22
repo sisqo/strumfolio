@@ -38,19 +38,15 @@ import { deviceCapOf } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 import type { LimitReason } from '@/lib/plans/types'
 import { readNotation } from '@/lib/prefs/types'
+
+import { IDLE_HOURS } from './guestToken'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { DEVICE_COOKIE, admits, holdsSlot, needsHeartbeat, staleBefore } from './devices'
 import { FOREIGN_KEY_VIOLATION, hasPostgresCode } from './pgError'
 
-/**
- * How long a broadcast survives with nobody at the wheel.
- *
- * Long enough to outlast a set's intermission, short enough that a link shared once
- * and forgotten does not stay a standing, unauthenticated way to read the whole
- * repertoire for weeks.
- */
-const IDLE_HOURS = 8
+/* How long a broadcast survives with nobody at the wheel — `./guestToken`, where it lives so the
+   guest-side check and this file can never disagree about it. */
 
 /**
  * The largest live count that is ever written into `accounts.sing_along_peak_devices`.
@@ -181,38 +177,6 @@ async function activeRowByOwner(email: string) {
 
   if (rows.length === 0 || !isFresh(rows[0].lastActiveAt)) return null
   return rows[0]
-}
-
-/** Same question, asked with the guest's token instead of the owner's address. */
-async function activeRowByToken(token: string) {
-  if (!hasDatabase) return null
-
-  const rows = await db()
-    .select(broadcastColumns)
-    .from(singAlongSessions)
-    .innerJoin(broadcastAccount, eq(singAlongSessions.broadcastAccountId, broadcastAccount.id))
-    .leftJoin(songs, eq(singAlongSessions.currentSongId, songs.id))
-    .where(eq(singAlongSessions.token, token))
-    .limit(1)
-
-  if (rows.length === 0 || !isFresh(rows[0].lastActiveAt)) return null
-  return rows[0]
-}
-
-/** Whether a guest's token still resolves to a live broadcast. Used by `./guestReads`. */
-export async function isTokenActive(token: string): Promise<boolean> {
-  return (await activeRowByToken(token)) !== null
-}
-
-/**
- * Which account's repertoire a guest's token grants a read of, or null if the token does
- * not resolve to a live broadcast. Every guest read in `./guestReads` is scoped to this
- * and nothing wider — a token proves the broadcaster started a broadcast, not that a
- * stranger may browse every account in the installation.
- */
-export async function broadcastAccountForToken(token: string): Promise<string | null> {
-  const row = await activeRowByToken(token)
-  return row?.broadcastAccountEmail ?? null
 }
 
 /** The signed-in reader's own broadcast, so the menu can redraw the QR/link it already made. */
@@ -431,7 +395,7 @@ export async function broadcastTranspose(songSlug: string, semitones: number): P
  * the token resolves to nothing.
  *
  * One round trip, because this is what every guest pays fifteen times a minute forever. It
- * replaces `activeRowByToken` on the poll path only; `isFresh(lastActiveAt)` still decides
+ * replaces a per-token lookup on the poll path only; `isFresh(lastActiveAt)` still decides
  * expiry, in JavaScript, on the row this returns. A `.limit(1)` is correct here precisely
  * because the join is narrowed to **this** device — the row asked for is one row. (A join
  * that fetched the whole audience would be a different query, and `.limit(1)` on that one
@@ -883,7 +847,7 @@ export async function pollBroadcast(
 > {
   /*
    * No database means the file repository, which has no broadcasts to follow — the same
-   * answer `activeRowByToken`'s null gave on this path before, and the reason there is no
+   * answer a null token lookup gave on this path before, and the reason there is no
    * second no-database branch anywhere in this feature.
    */
   if (!hasDatabase) return { ok: false, reason: 'expired' }

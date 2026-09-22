@@ -92,7 +92,14 @@ export async function saveComment(songSlug: string, comment: SongComment): Promi
         songId: songIdOf(songSlug),
         ...values,
       })
-      .onConflictDoUpdate({ target: userSongComments.id, set: values })
+      /* Only ever over this reader's own note: the id comes from the browser, and an upsert on it
+         alone would rewrite whoever's note carried that id. `setWhere` makes a foreign id a
+         no-op rather than an edit. */
+      .onConflictDoUpdate({
+        target: userSongComments.id,
+        set: values,
+        setWhere: eq(userSongComments.accountId, accountIdOf(email)),
+      })
     return 'saved'
   } catch (error) {
     // The song, or the account, is gone: not a write that can ever succeed — `isMissingReference`.
