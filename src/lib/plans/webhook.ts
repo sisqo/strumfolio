@@ -553,3 +553,31 @@ export function isNewPurchase(data: PaddleTransactionData): boolean {
 export function transactionPeriodEnd(data: PaddleTransactionData): Date | null {
   return asDate(data.billing_period?.ends_at)
 }
+
+/**
+ * Whether a `subscription.created` is a **second** subscription on an account that already has
+ * one running — the case the checkout cannot close by itself.
+ *
+ * The transaction behind a checkout is created when the page *loads*, and paying inside
+ * Paddle's frame never calls back into this app: two tabs open on two checkouts, paid one after
+ * the other, open two subscriptions, and both bill. `wouldBeSecondSubscription` refuses a press
+ * made once the first has been recorded; a form that was already on screen is past that check.
+ * So the webhook is the last place that sees it, and what it can do is tell somebody —
+ * cancelling either one automatically would take money for a plan it then removed, and the key
+ * this app holds cannot refund.
+ *
+ * «Running» is read from the stored row, before this event: a paid recurring plan whose status
+ * is not `expired`, with a different subscription id. A reader subscribing again after their
+ * last one ended is `expired` and is not a second anything.
+ */
+export function isSecondSubscription(
+  stored: { plan: Plan; planStatus: string; paddleSubscriptionId: string | null },
+  eventType: string,
+  incomingSubscriptionId: string | null,
+): boolean {
+  if (eventType !== 'subscription.created') return false
+  if (stored.paddleSubscriptionId === null || incomingSubscriptionId === null) return false
+  if (stored.paddleSubscriptionId === incomingSubscriptionId) return false
+  if (stored.plan === 'free' || stored.plan === 'lifetime') return false
+  return stored.planStatus !== 'expired'
+}

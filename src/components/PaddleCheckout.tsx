@@ -73,6 +73,9 @@ import { PLAN_LABEL, type Plan } from '@/lib/plans/types'
  * coupon: the discount is real and this path cannot honour it yet, so the honest thing is to
  * ask them to wait rather than to sell them the plan at full price.
  */
+/** The channel a completed purchase is announced on, so every other checkout tab can close. */
+const PAID_CHANNEL = 'strumfolio-checkout-paid'
+
 const REFUSALS: Record<PaddleCheckoutFailure, string> = {
   'not-configured': 'Payments are not switched on here yet.',
   'no-database': 'We could not reach your account. Please try again in a moment.',
@@ -225,6 +228,15 @@ export function PaddleCheckout(props: Props) {
    * is closed on this screen either way.
    */
   const [paid, setPaid] = useState(false)
+  /* Set by this tab's own completion, so its announcement to the others never closes itself. */
+  const paidHere = useRef(false)
+  const announcePaid = () => {
+    paidHere.current = true
+    if (typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel(PAID_CHANNEL)
+    channel.postMessage('paid')
+    channel.close()
+  }
   /**
    * The transaction whose payment form is on the page, or `null` when none is.
    *
@@ -330,6 +342,7 @@ export function PaddleCheckout(props: Props) {
         if (event.name === 'checkout.completed') {
           setPaid(true)
           setMessage('Payment received — we are finishing up. Your plan will appear in a moment.')
+          announcePaid()
         }
       },
     })
@@ -468,8 +481,29 @@ export function PaddleCheckout(props: Props) {
    * thing being backed out of. A refusal (`already-subscribed`, a coupon in play) leaves
    * `openTransaction` null, so the button and the message appear exactly as they would have.
    */
-  const chosenAlready = live === null && (props.plan === 'lifetime' || props.initialCycle !== null)
+  /*
+   * **A purchase in another tab closes this one's form.** The transaction behind a payment form
+   * is created when the page loads, and paying inside Paddle's frame never calls back into this
+   * app — so two tabs holding two open forms were two subscriptions waiting to happen, past every
+   * check the server can make (`isSecondSubscription` in `webhook.ts` is the alarm for the rest).
+   * One reader, one browser, two tabs is the realistic shape of it, and this closes exactly that.
+   */
   const autoOpened = useRef(false)
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel(PAID_CHANNEL)
+    channel.onmessage = () => {
+      if (paidHere.current) return
+      paddle.current?.Checkout.close()
+      opened.current = null
+      autoOpened.current = true
+      setOpenTransaction(null)
+      setMessage('A purchase was just completed in another tab, so this form has been closed and nothing here was charged.')
+    }
+    return () => channel.close()
+  }, [])
+
+  const chosenAlready = live === null && (props.plan === 'lifetime' || props.initialCycle !== null)
   useEffect(() => {
     if (!ready || !chosenAlready || autoOpened.current) return
     autoOpened.current = true

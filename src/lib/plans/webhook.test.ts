@@ -6,6 +6,7 @@ import {
   couponCampaignOf,
   downgradeStamp,
   isNewPurchase,
+  isSecondSubscription,
   mayWritePlan,
   planOfPrice,
   readDowngradeStamp,
@@ -474,5 +475,32 @@ describe('adjustmentEffect', () => {
     for (const action of ['refund', 'chargeback_reverse', 'credit']) {
       assert.equal(adjustmentEffect(adjustment({ action })).columns, null, action)
     }
+  })
+})
+
+describe('isSecondSubscription', () => {
+  const running = { plan: 'standard' as const, planStatus: 'active', paddleSubscriptionId: 'sub_old' }
+
+  /* Two checkouts open, both paid: the second `subscription.created` names a new id while the
+     account still records a live one. */
+  it('flags a new subscription beside one that is still running', () => {
+    assert.equal(isSecondSubscription(running, 'subscription.created', 'sub_new'), true)
+    assert.equal(isSecondSubscription({ ...running, planStatus: 'grace' }, 'subscription.created', 'sub_new'), true)
+  })
+
+  it('does not flag a subscription that replaces one already over', () => {
+    assert.equal(isSecondSubscription({ ...running, planStatus: 'expired' }, 'subscription.created', 'sub_new'), false)
+  })
+
+  it('does not flag the first subscription, the same one again, or any other event', () => {
+    assert.equal(isSecondSubscription({ ...running, paddleSubscriptionId: null }, 'subscription.created', 'sub_new'), false)
+    assert.equal(isSecondSubscription(running, 'subscription.created', 'sub_old'), false)
+    assert.equal(isSecondSubscription(running, 'subscription.updated', 'sub_new'), false)
+  })
+
+  /* A Lifetime buyer's old subscription is ended by the webhook itself; a free account has none. */
+  it('ignores an account on free or on Lifetime', () => {
+    assert.equal(isSecondSubscription({ ...running, plan: 'lifetime' }, 'subscription.created', 'sub_new'), false)
+    assert.equal(isSecondSubscription({ ...running, plan: 'free' }, 'subscription.created', 'sub_new'), false)
   })
 })

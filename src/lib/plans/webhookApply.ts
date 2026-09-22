@@ -26,7 +26,7 @@
 
 import { randomUUID } from 'crypto'
 
-import { eq } from 'drizzle-orm'
+import { and, count, eq, ne } from 'drizzle-orm'
 
 import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
@@ -44,6 +44,7 @@ import {
   adjustmentEffect,
   couponCampaignOf,
   isNewPurchase,
+  isSecondSubscription,
   mayWritePlan,
   subscriptionEffect,
   transactionEffect,
@@ -199,6 +200,7 @@ async function recordCouponRedemption(
   event: IncomingPaddleEvent,
   rawBody: string,
   account: { id: number; ownerEmail: string },
+  alerts: string[],
 ): Promise<CouponWrite> {
   if (event.eventType !== 'transaction.completed') return UNTOUCHED
 
@@ -214,6 +216,8 @@ async function recordCouponRedemption(
       code: couponCampaigns.code,
       discountPercent: couponCampaigns.discountPercent,
       discountMonths: couponCampaigns.discountMonths,
+      usageLimitSubscription: couponCampaigns.usageLimitSubscription,
+      usageLimitLifetime: couponCampaigns.usageLimitLifetime,
     })
     .from(couponCampaigns)
     .where(eq(couponCampaigns.id, campaignId))
@@ -265,7 +269,49 @@ async function recordCouponRedemption(
    * retry Paddle sent again, or the second half of a race. Nothing is written and nothing is
    * cleared — whatever the first delivery decided stands.
    */
-  if (recorded.length === 0) return UNTOUCHED
+  if (recorded.length === 0) {
+    /*
+     * **A purchase whose insert took nothing is a coupon used twice**, and Paddle has already
+     * applied the discount. The once-per-account rule is checked when the transaction is
+     * created, never when it is paid, so one account holding two discounted checkouts open and
+     * paying both gets the discount on both. Nothing here can take the money back; somebody has
+     * to know. A renewal takes nothing too, and is not a purchase — `isNewPurchase` is the line.
+     */
+    if (purchase) {
+      alerts.push(
+        `⚠️ Coupon ${campaign.code} applicato una seconda volta all'account ${account.id} ` +
+          `(${line.plan}${cycle === null ? '' : ` ${cycle}`}, evento ${event.eventId}): il limite di un uso per account ` +
+          'è controllato solo all\'apertura del checkout. Valuta un rimborso parziale su Paddle.',
+      )
+    }
+    return UNTOUCHED
+  }
+
+  /*
+   * **The ceiling, counted again now that the row exists.** `redeemability` counts it when a
+   * checkout opens, and every checkout opened before the ceiling was reached stays payable
+   * after it — so a campaign can close over the limit by as many transactions as were open.
+   * The row is kept (the sale happened, and `coupon_redemptions` is the ledger of what did);
+   * the operator is told.
+   */
+  const limit = line.plan === 'lifetime' ? campaign.usageLimitLifetime : campaign.usageLimitSubscription
+  if (limit !== null) {
+    const [held] = await tx
+      .select({ n: count() })
+      .from(couponRedemptions)
+      .where(
+        line.plan === 'lifetime'
+          ? and(eq(couponRedemptions.campaignId, campaignId), eq(couponRedemptions.plan, 'lifetime'))
+          : and(eq(couponRedemptions.campaignId, campaignId), ne(couponRedemptions.plan, 'lifetime')),
+      )
+    const n = held?.n ?? 0
+    if (n > limit) {
+      alerts.push(
+        `⚠️ Coupon ${campaign.code} oltre il tetto: ${n} riscatti ${line.plan === 'lifetime' ? 'Lifetime' : 'di abbonamento'} ` +
+          `su ${limit} (account ${account.id}, evento ${event.eventId}). Erano checkout aperti prima che il tetto si chiudesse.`,
+      )
+    }
+  }
 
   return {
     kind: 'redeemed',
@@ -459,6 +505,9 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      this, and a retry finds `duplicate` and never reaches the insert at all. */
   let coupon: CouponWrite = UNTOUCHED
 
+  /* What an operator has to hear about this event, sent after the commit — see below. */
+  const alerts: string[] = []
+
   const outcome: ApplyOutcome = await db().transaction(async (tx) => {
     const recorded = await tx
       .insert(paddleEvents)
@@ -514,7 +563,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * the same transaction as the ledger row, so an account can never be told it holds a
      * discount that `coupon_redemptions` has no record of granting.
      */
-    coupon = await recordCouponRedemption(tx, event, rawBody, account)
+    coupon = await recordCouponRedemption(tx, event, rawBody, account, alerts)
 
     if (
       columns ||
@@ -583,6 +632,24 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     if (event.eventType === 'transaction.completed' && effect?.columns?.plan === 'lifetime') {
       await endSubscriptionBoughtOut(account)
     }
+
+    /* The stored pointer is the one read *before* this event, which is what makes the old
+       subscription nameable here even though the write above has just moved it. */
+    if (
+      isSecondSubscription(
+        { plan: readPlan(account.plan), planStatus: account.planStatus, paddleSubscriptionId: account.paddleSubscriptionId },
+        event.eventType,
+        effect?.account.paddleSubscriptionId ?? null,
+      )
+    ) {
+      alerts.push(
+        `⚠️ Seconda subscription sull'account ${account.id}: la nuova ${effect?.account.paddleSubscriptionId} si ` +
+          `aggiunge a ${account.paddleSubscriptionId}, che risultava ancora viva. Probabilmente due checkout aperti ` +
+          'e pagati entrambi: controlla su Paddle, disdici e rimborsa quella che non serve. L\'app ora gestisce la nuova.',
+      )
+    }
+
+    for (const alert of alerts) await notifyTelegram('purchase', alert)
   }
 
   return outcome

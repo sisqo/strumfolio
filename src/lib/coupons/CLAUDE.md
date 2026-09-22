@@ -111,6 +111,13 @@ load-bearing parts:
   reading it. Select the row and look at it.
 - `coupon_redemptions_once` (unique on campaign + account) makes `usage_limit` a ceiling that
   can be *verified*: `times_used` is a `COUNT(*)`, not a mirrored number.
+  **Verified, not enforced at payment** (2026-09-22): the ceiling and «once per account» are
+  checked when a checkout opens, and every transaction opened before either closes stays
+  payable — two discounted tabs on one account, or N readers who opened before the cap, all
+  pay at the discount. The webhook counts again once the row exists and tells the operator on
+  Telegram (a purchase whose insert conflicts, or a count past the limit). Paddle's own
+  `usage_limit` is not the fix: it is per Discount entity while a campaign has two or three
+  sharing one ceiling, and whether it refuses an already-created transaction was not measured.
   `coupon_campaigns_one_default` is a **partial** unique index — confirm the `WHERE
   (is_default AND archived_at IS NULL)` predicate survives any regeneration, because without
   it that index forbids a second *non-default* campaign.

@@ -766,6 +766,15 @@ watched working by anybody.
     afterwards — charged, and left on free. Since a subscription event may therefore write while
     a Lifetime is `expired`, a won chargeback (`restoresLifetime`) writes `plan: 'lifetime'` back
     whole rather than only `active`.
+  - **Every rule enforced at checkout runs when the transaction is created, not when it is
+    paid** — paying inside Paddle's frame never calls back here, and `/pay?_ptxn=` reopens an
+    unpaid transaction with no session. So a form already on screen is past every check. Since
+    2026-09-22 the webhook is the alarm for what gets through: a `subscription.created` beside a
+    live one (`isSecondSubscription`), a coupon's second use on one account, and a campaign
+    ceiling overshot are each a Telegram message to the operator. **Nothing is cancelled or
+    refunded automatically**: the live key has no Adjustments permission by design, and
+    cancelling a charge just taken without refunding it is worse than the bug. A completed
+    purchase also closes the payment forms open in the reader's other tabs (`BroadcastChannel`).
   - **The Lifetime is refused at checkout while `lifetime.on_sale` is off or the account holds
     one** (`lifetimeRefusal`, screen and press). Like every other rule here it runs when the
     transaction is created, not when it is paid: a tab opened before the switch still pays.
