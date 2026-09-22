@@ -128,7 +128,8 @@ describe('what a fired scheduled change leaves behind', () => {
 
 describe('a billing period', () => {
   it('counts calendar months and calendar years, not fixed day counts', () => {
-    assert.equal(periodEnd('month', new Date('2026-01-31T00:00:00Z')).toISOString().slice(0, 10), '2026-03-03')
+    // Clamped to the last day of February rather than overflowing into March (`addMonths`).
+    assert.equal(periodEnd('month', new Date('2026-01-31T12:00:00Z')).toISOString().slice(0, 10), '2026-02-28')
     assert.equal(periodEnd('year', new Date('2026-08-23T00:00:00Z')).toISOString().slice(0, 10), '2027-08-23')
   })
 

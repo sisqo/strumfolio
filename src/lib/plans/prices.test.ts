@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { bookletBrandLine, entitlementsFor } from './entitlements'
-import { euro, LIFETIME, PAID_PLANS, PRICES, yearlyTotalOfMonthly } from './prices'
+import { addMonths, euro, LIFETIME, PAID_PLANS, PRICES, yearlyTotalOfMonthly } from './prices'
 import { PLAN_VALUES, PLANS } from './types'
 import type { Plan } from './types'
 
@@ -146,5 +146,18 @@ describe('the booklet the pricing page promises', () => {
       ['booklet', 'devices', 'featureRequests'],
       'premium and plus differ on the device ceiling, on a booklet tier, and on how a feature request is answered — each has a row on /pricing, and a fourth field would be one the page does not fill in',
     )
+  })
+})
+
+/* `setMonth` overflows into the next month when the day does not exist in the target one. */
+describe('addMonths', () => {
+  it('clamps to the last day of a shorter month', () => {
+    const at = (iso: string) => new Date(`${iso}T12:00:00`)
+    const day = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+    assert.equal(day(addMonths(at('2027-01-31'), 1)), '2027-2-28')
+    assert.equal(day(addMonths(at('2028-01-31'), 1)), '2028-2-29')
+    assert.equal(day(addMonths(at('2028-02-29'), 12)), '2029-2-28')
+    assert.equal(day(addMonths(at('2026-08-31'), 3)), '2026-11-30')
+    assert.equal(day(addMonths(at('2026-09-15'), 1)), '2026-10-15')
   })
 })

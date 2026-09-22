@@ -14,7 +14,7 @@
  * hazard with more decimals.
  */
 
-import { euro } from '@/lib/plans/prices'
+import { addMonths, euro } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
 
 import { isRedeemable, readPercent } from './types'
@@ -107,9 +107,7 @@ export function discountedMonths(months: number | null, cycle: BillingPeriod): n
 export function discountEnd(months: number | null, cycle: BillingPeriod, from: Date): Date | null {
   const total = discountedMonths(months, cycle)
   if (total === null) return null
-  const until = new Date(from)
-  until.setMonth(until.getMonth() + total)
-  return until
+  return addMonths(from, total)
 }
 
 /**

@@ -198,9 +198,24 @@ export const TAX_NOTE = 'Tax incl.'
  * a checkout; this module is where the rest of the billing-period vocabulary already is.
  */
 export function periodEnd(cycle: BillingPeriod, from: Date): Date {
+  return addMonths(from, cycle === 'year' ? 12 : 1)
+}
+
+/**
+ * `from` plus whole months, **clamped to the last day of the month it lands in.**
+ *
+ * `setMonth` alone overflows: 31 January plus one month is 3 March, because February has no 31st,
+ * so a purchase made on the 29th–31st printed «renews on 3 March» and a coupon's end date ran a
+ * few days long. A monthly renewal from the 31st falls on the last day of the shorter month, and
+ * 29 February plus a year is 28 February.
+ */
+export function addMonths(from: Date, months: number): Date {
   const until = new Date(from)
-  if (cycle === 'year') until.setFullYear(until.getFullYear() + 1)
-  else until.setMonth(until.getMonth() + 1)
+  const day = until.getDate()
+  until.setDate(1)
+  until.setMonth(until.getMonth() + months)
+  const last = new Date(until.getFullYear(), until.getMonth() + 1, 0).getDate()
+  until.setDate(Math.min(day, last))
   return until
 }
 

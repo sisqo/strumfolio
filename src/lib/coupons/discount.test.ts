@@ -171,15 +171,14 @@ describe('discountEnd', () => {
   })
 
   /*
-   * `setMonth` overflows rather than clamping: 31 January plus three months is 1 May, not 30
-   * April, because 31 April does not exist. Pinned rather than corrected, because `periodEnd`
-   * (`prices.ts`) computes `planExpiresAt` with exactly the same idiom — a discount that
-   * clamped while the renewal it sits on overflowed would be the two dates disagreeing by a
-   * day on the one account unlucky enough to buy on a 31st. The day goes to the customer.
+   * Clamped, like `periodEnd` (`prices.ts`): 31 January plus three months is 30 April, not the
+   * 1 May `setMonth` alone gave. Both moved together on 2026-09-22 through `addMonths`, which is
+   * what this test used to pin the overflow for — a discount that clamped while the renewal it
+   * sits on overflowed would be the two dates disagreeing by a day on one account.
    */
-  it('overflows a short month the same way periodEnd does, not clamping', () => {
+  it('clamps a short month the same way periodEnd does', () => {
     const end = discountEnd(3, 'month', new Date('2026-01-31T10:00:00Z'))
-    assert.equal(end?.toISOString().slice(0, 10), '2026-05-01')
+    assert.equal(end?.toISOString().slice(0, 10), '2026-04-30')
   })
 
   it('never ends when the campaign never does', () => {
