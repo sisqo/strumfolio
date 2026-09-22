@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: 8 September 2026</p>
+      <p className="legal-updated">Last updated: 22 September 2026</p>
 
       <p>
         This Privacy Policy explains how Strumfolio (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and
@@ -65,6 +65,15 @@ export default function PrivacyPolicyPage() {
         Paddle is the confirmation of the payment, the plan, amount and status, and the identifiers
         Paddle assigns to the transaction and the subscription, so that we can match them to your
         account.
+      </p>
+      <p>
+        <strong>Discounts.</strong> If you arrive through a link carrying one of our discount codes,
+        the code is kept on your device as described in our{' '}
+        <Link href="/cookie-policy">Cookie Policy</Link>. When you are signed in, we record that your
+        account was shown that offer — which offer, and when you first and last saw it. If you buy
+        with it, we record the redemption: the offer, the plan and billing cycle, the full and the
+        discounted amount, and until when the discount runs. That record is what lets us apply each
+        offer once per account and honour the limit on how many people can use it.
       </p>
       <p>
         <strong>Newsletter preference.</strong> Whether you asked to receive our newsletter and how
@@ -143,14 +152,18 @@ export default function PrivacyPolicyPage() {
         <strong>Notifications to us.</strong> A few events send a short message to the developer,
         through a private Telegram chat, so that the Service can be run without watching a
         dashboard: that an account was created, that a plan was bought (which plan, and the amount),
-        scheduled for a downgrade or cancelled, and that a piece of feedback arrived.
+        that a piece of feedback arrived, and that a payment needs a person to look at it — for
+        example two subscriptions billing on one account, or a discount applied more often than it
+        should have been.
       </p>
       <p>
         The message sent when an account is created names the <strong>email address</strong> that
         registered and, where we have it, the <strong>first and last name</strong> given at
-        registration. Every other message of this kind carries no personal data — no name, no email
-        address, none of your words — only the kind of event, and for a purchase the plan and the
-        amount. See section 5 on where this message travels.
+        registration. Every other message of this kind carries no name, no email address and none of
+        your words: only the kind of event, for a purchase the plan and the amount, and for a payment
+        that needs looking at the internal number of the account and the identifiers Paddle gave the
+        payment or the subscription, so that we can find it. See section 5 on where these messages
+        travel.
       </p>
       <p>
         For details on cookies, local storage and the offline cache, see our{' '}
@@ -220,6 +233,16 @@ export default function PrivacyPolicyPage() {
             <td>Legitimate interest in maintaining and improving the service — Art. 6(1)(f)</td>
           </tr>
           <tr>
+            <td>
+              Remember a discount you followed, apply it once per account within its limit, and
+              measure which offers are seen and used
+            </td>
+            <td>
+              Legitimate interest in running our own offers fairly and measuring how well they work —
+              Art. 6(1)(f). You can object at any time — see section 7
+            </td>
+          </tr>
+          <tr>
             <td>Understand which channels and campaigns bring people to Strumfolio</td>
             <td>
               Legitimate interest in measuring and improving how we reach musicians — Art. 6(1)(f).
@@ -268,7 +291,9 @@ export default function PrivacyPolicyPage() {
         <li>
           <strong>Telegram FZ-LLC</strong> — delivery of the private notification described in
           section 2. For the message sent when an account is created this is your email address and,
-          where we have it, your name; the other messages of that kind contain no personal data.
+          where we have it, your name; a message about a payment that needs looking at contains the
+          internal number of the account and Paddle&apos;s identifiers for it; the others contain no
+          personal data.
         </li>
       </ul>
       <p>Two providers are different, because they are independent data controllers for their part:</p>
@@ -310,11 +335,12 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Telegram FZ-LLC is the exception, and we say so plainly.</strong> It is established
         in the United Arab Emirates, which is not covered by an adequacy decision, and it is not
-        certified under the EU-U.S. Data Privacy Framework. The only personal data that reaches it is
-        the message described in section 2 announcing that an account was created: an email address
-        and, where we have it, a name. It is sent once, at the moment the account is created, and is
-        not repeated. You can ask us to delete it from that chat by writing to the contact address
-        above.
+        certified under the EU-U.S. Data Privacy Framework. Two of the messages described in section 2
+        reach it with personal data: the one announcing that an account was created, with an email
+        address and, where we have it, a name, sent once at that moment; and the rare one about a
+        payment that needs looking at, with the internal number of the account and Paddle&apos;s
+        identifiers for the payment, which name nobody on their own. You can ask us to delete either
+        from that chat by writing to the contact address above.
       </p>
 
       <h2>6. How long we keep your data</h2>
@@ -340,6 +366,15 @@ export default function PrivacyPolicyPage() {
         point of keeping it; it is deleted together with the account, at the same moment and by the
         same action. If you would rather we did not keep it while keeping your account, write to us
         at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
+      </p>
+      <p>
+        <strong>Discounts.</strong> The discount cookie lasts at most 30 days and the copy of the code
+        in your browser&apos;s local storage until you clear your site data. The record that your
+        account was shown an offer, and the record of a redemption, <strong>keep the email address
+        they were made with after the account is deleted</strong>, so that deleting an account and
+        registering again does not hand out the same offer twice; a redemption is also part of the
+        payment records above. To have either removed, write to us at{' '}
+        <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
       </p>
       <p>
         <strong>Short-lived data.</strong> The one-time link in a verification email stops working
@@ -379,7 +414,8 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Your right to object.</strong> Where we process your data on the basis of our
         legitimate interest — namely to keep the Service secure, to measure aggregate traffic and
-        performance, to understand which channels bring people to Strumfolio, and to send you the
+        performance, to understand which channels bring people to Strumfolio, to run and measure our
+        discount offers, and to send you the
         one or two personal emails described in section 2 — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate

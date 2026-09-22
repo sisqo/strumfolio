@@ -9,7 +9,7 @@ export default function CookiePolicyPage() {
   return (
     <>
       <h1>Cookie Policy</h1>
-      <p className="legal-updated">Last updated: 8 September 2026</p>
+      <p className="legal-updated">Last updated: 22 September 2026</p>
 
       <p>
         This Cookie Policy explains how Strumfolio uses cookies and similar technologies — local
@@ -33,9 +33,12 @@ export default function CookiePolicyPage() {
         follow a Strum Together link, a cookie holding a random identifier, valid for one year, lets
         your browser count as one device towards the leader&apos;s plan limit — it identifies the
         browser, not you, and is set whether or not you have an account. Administrators of the
-        installation have one more cookie, remembering which account they are viewing. All of these
-        are necessary for the Service to work and cannot be disabled without affecting core
-        functionality.
+        installation have one more cookie, remembering which account they are viewing. Once you are
+        signed in, a further cookie, valid for one year and readable by the page itself, holds a
+        short code derived from your account, so that the settings this device keeps (below) are
+        kept apart for each account that signs in on it and are cleared when another one does; it
+        grants no access to anything. All of these are necessary for the Service to work and cannot
+        be disabled without affecting core functionality.
       </p>
       <p>
         <strong>Local storage — your settings, on your device.</strong> We store the theme you chose,
@@ -78,6 +81,18 @@ export default function CookiePolicyPage() {
         policies, not by us.
       </p>
       <p>
+        <strong>A discount you followed — one first-party cookie and one stored value.</strong> If
+        you reach Strumfolio from a link that carries one of our discount codes, we keep that code
+        in a cookie of our own for up to 30 days, or until the offer ends if that is sooner, so that
+        the discount is still there when you reach the checkout and so that we can count which
+        offer led to a purchase. The same code is kept in your browser&apos;s local storage, with no
+        expiry, so that the offer can be shown again on a later visit while it is still running. Both
+        hold the code and nothing else. If you close the offer bar, a cookie remembers that you did
+        for 14 days, so the bar stays closed. When you are signed in, we also record on our side
+        that your account was shown the offer, and — if you buy with it — the redemption: see
+        section 2 of our <Link href="/privacy-policy">Privacy Policy</Link>.
+      </p>
+      <p>
         <strong>Where you came from — one first-party cookie.</strong> If you reach Strumfolio from a
         link that carries campaign parameters — the <code>utm_…</code> values a newsletter, a social
         post or an advertisement adds to a URL — or from another website, we keep that information in
@@ -102,19 +117,19 @@ export default function CookiePolicyPage() {
       <p>
         <strong>No advertising or third-party tracking.</strong> Strumfolio sets no third-party
         cookies, loads no advertising or profiling scripts, and shares no data with advertising
-        networks. The attribution cookie described above is our own and stays on our own domain: we
-        use it to measure how well our own announcements work, never to target you, and it follows
-        you to no other website.
+        networks. The attribution and discount cookies described above are our own and stay on our own
+        domain: we use them to measure how well our own announcements and offers work, never to
+        target you, and they follow you to no other website.
       </p>
 
       <h2>3. Managing cookies and stored data</h2>
       <p>
         Everything described above is either strictly necessary to provide the Service you
-        requested or, in the case of the attribution cookie, used only to measure how people find
-        Strumfolio in the first place. We place no advertising, profiling or third-party cookies,
-        and we would ask for your consent before ever doing so. Because the attribution cookie
-        rests on our legitimate interest rather than on your consent, you have the right to object
-        to it: see section 7 of our <Link href="/privacy-policy">Privacy Policy</Link>, or simply
+        requested or, in the case of the attribution and discount cookies, used only to measure how
+        people find Strumfolio and which offers they use. We place no advertising, profiling or
+        third-party cookies, and we would ask for your consent before ever doing so. Because the
+        attribution and discount cookies rest on our legitimate interest rather than on your
+        consent, you have the right to object to them: see section 7 of our <Link href="/privacy-policy">Privacy Policy</Link>, or simply
         clear your site data.
       </p>
       <p>

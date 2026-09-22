@@ -438,13 +438,12 @@ async function announcePayment(
  * ids in the message: the remedy is one click in Paddle's own dashboard, and the cost of nobody
  * knowing is a subscription that renews for ever beside a Lifetime.
  *
- * **Both messages name the account by its number and never by its address**, and that is a
- * published promise rather than a preference: outside the one line sent when an account is
- * created, the Privacy Policy states in two places that these notifications carry no personal
- * data, which is what lets it describe Telegram — established outside the EEA, under no
- * adequacy decision — as receiving none. The root `CLAUDE.md` settles which half gives way if
- * the two ever disagree: stop sending the field, do not soften the sentence. Nothing is lost
- * operationally, since the actionable handle is the subscription id beside it.
+ * **Both messages name the account by its number and never by its address.** A number and
+ * Paddle's ids name nobody on their own, but under the GDPR a pseudonymous identifier is still
+ * personal data, so since 2026-09-22 the Privacy Policy says so in all three places it describes
+ * Telegram (§2, the processors list, §5) instead of claiming these carry none. Adding a field to
+ * an alert — an address above all — is a change to those three sentences, the rule the root
+ * `CLAUDE.md` states for the registration notice.
  */
 async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptionId: string | null; plan: string }) {
   const subscriptionId = account.paddleSubscriptionId

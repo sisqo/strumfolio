@@ -78,6 +78,12 @@ four facts whose absence is expensive are repeated here rather than left behind 
   exists, and `/checkout/[plan]` sells through Paddle or says it cannot sell. `SONGBOOK_PLANS`
   gates enforcement and is not a security boundary; whether money can be taken is not a flag at
   all but whether `PADDLE_API_KEY` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are both configured.
+- **`songbook-coupon` is the second, and lives under the same rule** (disclosed 2026-09-22, on
+  legitimate interest by decision): its thirty days are Google Ads' attribution window, not the
+  offer's. With it the Cookie Policy §2 names `songs:coupon` and `songbook-offer-collapsed`, the
+  Privacy Policy §2 names `coupon_views` and `coupon_redemptions`, §3's table has its own row, §6
+  says both of those keep the address after the account is deleted, and §7's object list names
+  the offers. `songbook-scope` is among the essential cookies in the same commit.
 - **`songbook-attribution` is the first cookie here that is not strictly necessary**, and the
   Cookie Policy had to be rewritten for it: §2 gained a paragraph, «No advertising or third-party
   tracking» and §3's «everything above is strictly necessary… we will ask for your consent» were
@@ -1432,6 +1438,11 @@ address, plus their name when one is known**, to a private Telegram chat, and ca
 Between 2026-09-03 and 2026-09-11 it took no parameters and named nobody, precisely so no caller
 could hand it an address; that was reversed on request, because the notice is read on a phone away
 from a signed-in browser and «something happened, go and look» is not worth a notification.
+
+**The payment alerts are the second kind of message, since 2026-09-22.** `webhookApply.ts` tells
+the operator about a second subscription on one account, a coupon used twice and a ceiling
+overshot, naming the account by its number and Paddle's ids — pseudonymous, and therefore
+personal data, so the same three places say so rather than «no personal data».
 
 **It is personal data leaving the EEA, so the Privacy Policy carries it in three places and all
 three move together**: §2 says what the message contains, the processors list names Telegram
