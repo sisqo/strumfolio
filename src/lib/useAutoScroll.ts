@@ -134,7 +134,13 @@ export function useAutoScroll(speedStep: number) {
     remainderRef.current = 0
 
     const step = (now: number) => {
-      const elapsed = (now - lastTimeRef.current) / 1000
+      /*
+       * Capped at a tenth of a second. Frames stop while the page is hidden but `running` does
+       * not, so the first frame back used to scroll the whole hidden interval at once — a minute
+       * in another app at the top speed was some five thousand pixels, straight to the end of
+       * the song. A long gap now costs one frame's worth of movement and scrolling resumes.
+       */
+      const elapsed = Math.min(0.1, (now - lastTimeRef.current) / 1000)
       lastTimeRef.current = now
 
       const wanted = SCROLL_SPEEDS[speedRef.current] * elapsed + remainderRef.current

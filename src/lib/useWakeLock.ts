@@ -31,6 +31,9 @@ interface WakeLockNavigator {
  */
 export function useWakeLock(active: boolean): void {
   const sentinelRef = useRef<WakeLockSentinel | null>(null)
+  /* What `active` is *now*, for a request that resolves after it has changed. */
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   const release = useCallback(() => {
     const sentinel = sentinelRef.current
@@ -42,7 +45,18 @@ export function useWakeLock(active: boolean): void {
     const wakeLock = (navigator as Navigator & WakeLockNavigator).wakeLock
     if (!wakeLock) return
     try {
-      sentinelRef.current = await wakeLock.request('screen')
+      const sentinel = await wakeLock.request('screen')
+      /*
+       * Play then pause, quickly: `release` ran while this was still waiting, found nothing to
+       * let go of, and the sentinel arrived afterwards with nobody left to release it — the
+       * screen stayed on until the app was backgrounded. A lock nobody wants any more is
+       * dropped the moment it arrives.
+       */
+      if (!activeRef.current) {
+        void sentinel.release().catch(() => {})
+        return
+      }
+      sentinelRef.current = sentinel
     } catch {
       // Denied, or unsupported in this context. Whatever asked for it still works.
     }
