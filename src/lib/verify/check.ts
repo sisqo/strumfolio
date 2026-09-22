@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm'
 import { normalizeEmail } from '@/lib/allowlist'
 import { hashToken } from '@/lib/auth/tokens'
 import { db, hasDatabase } from '@/lib/db/client'
-import { pendingRegistrations } from '@/lib/db/schema'
+import { accounts, pendingRegistrations } from '@/lib/db/schema'
 
 export type PendingRegistrationCheck =
   | { status: 'no-database' }
@@ -46,6 +46,16 @@ export async function checkPendingRegistration(
 
     const row = rows[0]
     if (row === undefined) return { status: 'invalid', canResend: false }
+
+    // An address that already has an account has nothing to verify — `verifyEmail` refuses
+    // it, so offering the button, or a resend, would only be a dead end. Read-only here: the
+    // row itself is dropped by the action, never by a page load.
+    const owned = await db()
+      .select({ ownerEmail: accounts.ownerEmail })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, normalizeEmail(email)))
+      .limit(1)
+    if (owned.length > 0) return { status: 'invalid', canResend: false }
 
     const matches = hashToken(token) === row.verificationTokenHash
     const expired = row.expiresAt.getTime() <= Date.now()

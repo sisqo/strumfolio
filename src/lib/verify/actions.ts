@@ -20,7 +20,7 @@ import { issueSessionCookie } from '@/lib/auth/session'
 import { hashToken } from '@/lib/auth/tokens'
 import { attachCouponViewFromCookie } from '@/lib/coupons/views'
 import { db, hasDatabase } from '@/lib/db/client'
-import { credentials, pendingRegistrations } from '@/lib/db/schema'
+import { accounts, credentials, pendingRegistrations } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { welcomeEmail } from '@/lib/email/templates'
 import { notifyTelegram } from '@/lib/telegram/notify'
@@ -63,6 +63,26 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
       if (row === undefined) return { ok: false }
       if (hashToken(token) !== row.verificationTokenHash) return { ok: false }
       if (row.expiresAt.getTime() <= Date.now()) return { ok: false }
+
+      /*
+       * **A pending registration never lands on an account that already exists.** The row
+       * outlives its token — `resendVerification` renews only the token — so a stranger who
+       * registered somebody's address before its owner ever did could wait for the real
+       * account to appear (through Google, or an operator), press «resend», and have a genuine
+       * Strumfolio email ask the owner to confirm. One click wrote the stranger's password
+       * into `credentials` for the real account. So the account wins: the row is dropped and
+       * nothing is written. The owner who did register twice loses nothing — they have an
+       * account, and «forgot password» sets one.
+       */
+      const existing = await tx
+        .select({ ownerEmail: accounts.ownerEmail })
+        .from(accounts)
+        .where(eq(accounts.ownerEmail, normalized))
+        .limit(1)
+      if (existing.length > 0) {
+        await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
+        return { ok: false }
+      }
 
       /*
        * Not `writePasswordHash` (`lib/auth/credentials.ts`): it calls `db()` on its own,

@@ -900,6 +900,18 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
       const row = rows[0]
       if (row === undefined) return { ok: false }
 
+      // `verifyEmail`'s rule: a pending password never lands on an account that already
+      // exists — that is somebody else's account, and the row may be a stranger's.
+      const existing = await tx
+        .select({ ownerEmail: accounts.ownerEmail })
+        .from(accounts)
+        .where(eq(accounts.ownerEmail, normalized))
+        .limit(1)
+      if (existing.length > 0) {
+        await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
+        return { ok: false }
+      }
+
       await tx
         .insert(credentials)
         .values({ email: normalized, passwordHash: row.passwordHash })

@@ -165,6 +165,23 @@ export async function resendVerification(formData: FormData): Promise<ResendResu
     // fresh password, not here with one that no longer exists anywhere to reuse.
     if (rows.length === 0) return { ok: false, reason: 'not-pending' }
 
+    /*
+     * Nor when the address already has an account. A pending row outlives its token, so this
+     * button is exactly how a stranger who registered somebody's address first would get a
+     * genuine verification email sent to its owner once the real account exists — and
+     * `verifyEmail` refuses that click now, so the email could only ever be a dead end. The
+     * row goes, so the account's owner is never asked to confirm somebody else's password.
+     */
+    const owned = await db()
+      .select({ ownerEmail: accounts.ownerEmail })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, email))
+      .limit(1)
+    if (owned.length > 0) {
+      await db().delete(pendingRegistrations).where(eq(pendingRegistrations.email, email))
+      return { ok: false, reason: 'not-pending' }
+    }
+
     const { raw, hash } = generateToken()
     const expiresAt = new Date(Date.now() + EXPIRES_IN_MS)
 

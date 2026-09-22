@@ -24,7 +24,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { normalizeEmail } from '@/lib/allowlist'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
-import { accounts, newsletterPrefs } from '@/lib/db/schema'
+import { accounts, newsletterPrefs, pendingRegistrations } from '@/lib/db/schema'
 import { PLANS } from '@/lib/plans/types'
 import { insertSampleSongbook } from '@/lib/songbooks/seed'
 
@@ -97,6 +97,14 @@ export async function provisionAccount(
         ownerEmail,
         ...(name !== undefined ? { firstName: name.firstName, lastName: name.lastName } : {}),
       })
+
+      /*
+       * Any registration still pending for this address is now somebody else's claim on an
+       * account that exists, so it goes in the same transaction. A Google sign-in used to leave
+       * it behind for ever, which is what let a stranger's planted password be confirmed onto
+       * the real account later (`verifyEmail` refuses that too — this is the tidy half).
+       */
+      await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, ownerEmail))
       return true
     })
   } catch (error) {
