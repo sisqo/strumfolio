@@ -58,7 +58,7 @@ export default async function HelpPage() {
           <p>How many songbooks you can keep depends on your plan — see <Link href="/pricing">Pricing</Link> — and you can rename or reorder them at any time.</p>
 
           <h2 id="add-songs">2. Add your songs</h2>
-          <p>Open a songbook and add songs one of two ways:</p>
+          <p>Open a songbook and add songs one of three ways:</p>
           <ul>
             <li>
               <strong>Paste text.</strong> The fastest way in. Paste lyrics with chords, and the app
@@ -69,6 +69,11 @@ export default async function HelpPage() {
               <code>---</code>. Nothing is saved until you&apos;ve reviewed it: one song shows a full
               editable preview, several show a list where you can fix a wrong title or artist, exclude
               one, or edit the words before saving.
+            </li>
+            <li>
+              <strong>Import a file.</strong> Drop a file on the add-song screen, or browse for one —
+              ChordPro, plain text, OnSong, PDF, Word, a zip of several and more. The same review
+              as a paste comes before anything is saved.
             </li>
             <li>
               <strong>Write one by hand.</strong> Use <strong>New song</strong> and type directly in
@@ -166,7 +171,7 @@ export default async function HelpPage() {
           <p>
             To give it its own icon, open the menu and tap <strong>Add to home screen</strong>. On
             Android most browsers do it in one tap; on an iPhone or iPad the same entry spells out
-            the two taps Safari needs, since iOS gives no button anyone else can press. Either way
+            the three steps Safari needs, since iOS gives no button anyone else can press. Either way
             it then opens full screen, with no browser bars around the song.
           </p>
 

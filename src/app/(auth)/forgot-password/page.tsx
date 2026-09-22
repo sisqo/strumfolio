@@ -5,7 +5,8 @@ import { AuthLockup } from '@/components/AuthLockup'
 import { Footer } from '@/components/Footer'
 import { ForgotPasswordForm } from '@/components/ForgotPasswordForm'
 
-export const metadata: Metadata = { title: 'Forgot password' }
+/* Out of the sitemap already; `noindex` stops a pasted link putting it in front of a search. */
+export const metadata: Metadata = { title: 'Forgot password', robots: { index: false, follow: false } }
 
 /**
  * Requesting a password reset link (v3.2) — same shell as `/login` and

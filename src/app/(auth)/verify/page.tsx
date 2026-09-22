@@ -11,7 +11,8 @@ import { verifyEmail } from '@/lib/verify/actions'
 import { checkPendingRegistration } from '@/lib/verify/check'
 import type { PendingRegistrationCheck } from '@/lib/verify/check'
 
-export const metadata: Metadata = { title: 'Verify your email' }
+/* Reached only through a link carrying an address and a token: nothing here belongs in an index. */
+export const metadata: Metadata = { title: 'Verify your email', robots: { index: false, follow: false } }
 
 interface Props {
   searchParams: Promise<{ email?: string; token?: string; preview?: string }>

@@ -531,7 +531,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to install an app, or does it work in the browser?',
-        a: 'Neither an app store nor an install step is required — just open Strumfolio on your phone like any regular app, straight from the browser. If you want it to have its own icon, the menu has an Add to home screen entry: one tap on Android, and on an iPhone it shows the two taps Safari needs.',
+        a: 'Neither an app store nor an install step is required — just open Strumfolio on your phone like any regular app, straight from the browser. If you want it to have its own icon, the menu has an Add to home screen entry: one tap on Android, and on an iPhone it shows the three steps Safari needs.',
       },
       {
         q: 'What happens if I lose internet connection while playing?',
@@ -587,7 +587,7 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Does the printed booklet use my own key and capo, or the song as written?',
-        a: "The song as written, by default — a booklet is meant to be printed and handed to other people, so it's typeset in each song's own key, not whatever transposition or capo you personally have set for reading, which wouldn't mean anything on somebody else's copy. You can choose your own key and capo instead, one download at a time, for a personal copy — every song printed that way says so on its own page.",
+        a: "The song as written, by default — a booklet is meant to be printed and handed to other people, so it's typeset in each song's own key (with the capo or transposition the song file itself sets, if it sets one), not whatever transposition or capo you personally have set for reading, which wouldn't mean anything on somebody else's copy. You can choose your own key and capo instead, one download at a time, for a personal copy — every song printed that way says so on its own page.",
       },
       {
         q: 'Can I print more than one songbook at a time?',
