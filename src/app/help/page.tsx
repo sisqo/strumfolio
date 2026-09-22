@@ -55,7 +55,7 @@ export default async function HelpPage() {
             makes sense to you. From the home screen, tap <strong>New songbook</strong>, give it a
             name, and it&apos;s ready — already holding one section for songs to go into.
           </p>
-          <p>You can create as many songbooks as you like, and rename or reorder them at any time.</p>
+          <p>How many songbooks you can keep depends on your plan — see <Link href="/pricing">Pricing</Link> — and you can rename or reorder them at any time.</p>
 
           <h2 id="add-songs">2. Add your songs</h2>
           <p>Open a songbook and add songs one of two ways:</p>

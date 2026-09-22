@@ -591,7 +591,7 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'Can I print more than one songbook at a time?',
-        a: "One PDF per songbook — pick which one from the Export screen and download it. If you keep separate songbooks for separate sets or bands, each one becomes its own booklet, complete with its own cover and index.",
+        a: "One PDF per songbook — pick which one from the Printable booklet screen in the menu and download it. If you keep separate songbooks for separate sets or bands, each one becomes its own booklet, complete with its own cover and index.",
       },
     ],
   },
@@ -634,7 +634,7 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'How does a paid plan renew, and how do I stop it?',
-        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Plan & billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. An upgrade takes effect immediately, while a downgrade or a cancellation waits for the end of the period already paid for — and you can undo a scheduled change any time before it lands.',
+        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Plan & billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. A change that costs more — a higher plan, or moving to yearly billing — takes effect immediately; one that would hand back part of what you have paid — a lower plan, a cancellation, or moving from a paid year to monthly — waits for the end of the period already paid for, and you can undo a scheduled change any time before it lands.',
       },
       {
         q: 'What if I change my mind after paying?',

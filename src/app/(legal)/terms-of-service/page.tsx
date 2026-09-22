@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <h1>Terms of Service</h1>
-      <p className="legal-updated">Last updated: 4 September 2026</p>
+      <p className="legal-updated">Last updated: 22 September 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Strumfolio (&ldquo;the
@@ -167,14 +167,14 @@ export default function TermsOfServicePage() {
         for, and the account then returns to the free plan.
       </p>
       <p>
-        <strong>Changing plan.</strong> An upgrade to a higher plan takes effect immediately. A
-        downgrade to a lower paid plan, or a cancellation, takes effect at the end of the period
-        already paid for, and nothing is charged for it today; until then you keep the plan you paid
-        for, and you can undo a scheduled change from the Plan &amp; billing page at any time before it
-        lands.
-        Changing the billing cycle of the plan you hold starts a new period from the day you confirm.
-        Whenever a change would replace a period you have already paid for with a shorter one, the
-        checkout says so before you confirm.
+        <strong>Changing plan.</strong> A change that costs more — a higher plan on the same
+        billing cycle, or moving from monthly to yearly billing — takes effect immediately, and the
+        amount charged is shown before you confirm; moving to yearly billing starts a new yearly
+        period from that day. A change that would otherwise hand back part of what you have already
+        paid — a lower plan, a cancellation, or moving from a paid year to monthly billing, even onto
+        a higher plan — takes effect at the end of the period already paid for, and nothing is
+        charged for it today; until then you keep the plan you paid for, and you can undo a scheduled
+        change from the Plan &amp; billing page at any time before it lands.
       </p>
       <p>
         <strong>If a payment fails.</strong> When a renewal cannot be charged, Paddle retries the
