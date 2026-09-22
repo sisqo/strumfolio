@@ -102,6 +102,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Pricing',
     description,
+    /* Campaign links arrive as `/pricing?coupon=…`; the canonical keeps them one page. */
+    alternates: { canonical: '/pricing' },
     openGraph: {
       title: SHARE_TITLE,
       description,

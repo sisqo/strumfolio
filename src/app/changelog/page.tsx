@@ -22,6 +22,7 @@ const DESCRIPTION = `What has shipped in ${APP_NAME}, release by release — the
 export const metadata: Metadata = {
   title: 'Changelog',
   description: DESCRIPTION,
+  alternates: { canonical: '/changelog' },
   openGraph: {
     title: `${APP_NAME} — Changelog`,
     description: DESCRIPTION,

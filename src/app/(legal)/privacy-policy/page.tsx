@@ -1,7 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Privacy Policy' }
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'What personal data Strumfolio collects, on what legal basis, who processes it and for how long.',
+  alternates: { canonical: '/privacy-policy' },
+}
 
 const CONTACT = 'info@strumfolio.com'
 

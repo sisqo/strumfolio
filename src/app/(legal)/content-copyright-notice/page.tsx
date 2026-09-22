@@ -1,7 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Content & Copyright Notice' }
+export const metadata: Metadata = {
+  title: 'Content & Copyright Notice',
+  description: 'Whose songs are on Strumfolio, and how a copyright holder reaches us.',
+  alternates: { canonical: '/content-copyright-notice' },
+}
 
 const CONTACT = 'info@strumfolio.com'
 

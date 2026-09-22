@@ -7,7 +7,11 @@ import { Footer } from '@/components/Footer'
 import { RegisterForm } from '@/components/RegisterForm'
 import { IconGoogle } from '@/components/icons'
 
-export const metadata: Metadata = { title: 'Register' }
+export const metadata: Metadata = {
+  title: 'Register',
+  description: 'Create a free Strumfolio account: your own lyrics and chords, readable on stage, offline.',
+  alternates: { canonical: '/register' },
+}
 
 /**
  * Creating an account with email and password (v3.2) — the second of

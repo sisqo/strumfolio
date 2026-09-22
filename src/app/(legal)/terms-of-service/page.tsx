@@ -1,7 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Terms of Service' }
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'The terms for using Strumfolio, its plans, payments, refunds and cancellation.',
+  alternates: { canonical: '/terms-of-service' },
+}
 
 const CONTACT = 'info@strumfolio.com'
 

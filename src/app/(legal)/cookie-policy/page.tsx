@@ -1,7 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Cookie Policy' }
+export const metadata: Metadata = {
+  title: 'Cookie Policy',
+  description: 'Which cookies and local storage Strumfolio uses, why, and how to clear them.',
+  alternates: { canonical: '/cookie-policy' },
+}
 
 const CONTACT = 'info@strumfolio.com'
 
