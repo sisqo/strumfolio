@@ -291,9 +291,15 @@ export interface Metatag {
  * would — which is the same problem `deduce.ts` already solves for headings, and is
  * solved the same way.
  */
-export function readOnSongMetatags(text: string): { tags: Metatag[]; consumed: number } {
+export function readOnSongMetatags(text: string): {
+  tags: Metatag[]
+  /** Every line of the block as written, name lowercased — what `deduce` re-emits as directives. */
+  raw: { name: string; value: string }[]
+  consumed: number
+} {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const tags: Metatag[] = []
+  const raw: { name: string; value: string }[] = []
   let consumed = 0
 
   for (const line of lines) {
@@ -303,7 +309,9 @@ export function readOnSongMetatags(text: string): { tags: Metatag[]; consumed: n
     const match = METATAG_LINE.exec(line)
     if (match === null) continue
 
-    const field = ONSONG_METATAGS[match[1].trim().toLowerCase()]
+    const name = match[1].trim().toLowerCase()
+    raw.push({ name, value: match[2].trim() })
+    const field = ONSONG_METATAGS[name]
     if (field != null) tags.push({ field, value: match[2].trim() })
   }
 
@@ -313,5 +321,5 @@ export function readOnSongMetatags(text: string): { tags: Metatag[]; consumed: n
     .slice(0, consumed)
     .every((line) => METATAG_LINE.test(line) && Object.hasOwn(ONSONG_METATAGS, (METATAG_LINE.exec(line) as RegExpExecArray)[1].trim().toLowerCase()))
 
-  return everyLineIsATag ? { tags, consumed } : { tags: [], consumed: 0 }
+  return everyLineIsATag ? { tags, raw, consumed } : { tags: [], raw: [], consumed: 0 }
 }

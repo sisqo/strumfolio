@@ -126,6 +126,39 @@ function readDialectDirectives(lines: string[], dialect: Dialect): Partial<Recor
   return found
 }
 
+/**
+ * The directive lines an OnSong metatag becomes once its block is removed — none for a tag a
+ * column takes (title, artist, book) or one this app has no spelling for.
+ */
+const METATAG_DIRECTIVE: Record<string, string> = {
+  key: 'key',
+  capo: 'capo',
+  tempo: 'tempo',
+  time: 'time',
+  duration: 'duration',
+  copyright: 'copyright',
+  ccli: 'ccli',
+  album: 'album',
+  composer: 'composer',
+  lyricist: 'lyricist',
+  year: 'year',
+}
+
+function metatagDirectives(name: string, value: string): string[] {
+  if (value === '') return []
+  /* One `{tag}` per keyword: the directive is singular and repeatable, and the reader and the
+     form both read one tag per line. */
+  if (name === 'keywords' || name === 'topic') {
+    return value
+      .split(/[,;]/)
+      .map((one) => one.trim())
+      .filter((one) => one !== '')
+      .map((one) => `{tag: ${one}}`)
+  }
+  const directive = METATAG_DIRECTIVE[name]
+  return directive === undefined ? [] : [`{${directive}: ${value}}`]
+}
+
 export function deduce(body: string): Deduced {
   const dialect = sniffDialect(body)
 
@@ -138,16 +171,30 @@ export function deduce(body: string): Deduced {
   const metatags = readOnSongMetatags(body)
   const afterMetatags = body.split('\n').slice(metatags.consumed).join('\n').replace(/^\n+/, '')
 
+  /*
+   * **The block is removed, and what it said that no column takes is written back as
+   * directives** — understood must never mean deleted. Until 2026-09-22 only the four fields a
+   * column holds survived the block; `Key`, `Capo`, `Tempo`, `Time`, `Copyright`, `CCLI` and
+   * `Keywords` were read and dropped with it, the copyright line included. They go back at the
+   * top of the body in the order the file gave them, spelled the way this app reads them.
+   *
+   * Only what has a directive here: `Number`, `Flow`, `MIDI` and the rest are OnSong's own
+   * mechanics, with no ChordPro spelling to put them in, and a `{midi-index: …}` would be read
+   * as a conditional. Those still go, as they always did.
+   */
+  const restored = metatags.raw.flatMap(({ name, value }) => metatagDirectives(name, value))
+
   const parsed = parseChordPro(afterMetatags)
   const lines = afterMetatags.split('\n')
 
   const consumed = parsed.title === null ? headingLines(lines) : 0
   const heading = lines.slice(0, consumed).map((line) => line.trim())
-  const rest = lines
+  const kept = lines
     .slice(consumed)
     .filter((line) => !METADATA_DIRECTIVE.test(line) && !isDroppedDialectDirective(line, dialect))
     .join('\n')
     .replace(/^\n+/, '')
+  const rest = restored.length === 0 ? kept : `${restored.join('\n')}\n\n${kept}`
 
   /*
    * Three sources, and the order between them is the whole point. The metatag block

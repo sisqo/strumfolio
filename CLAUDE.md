@@ -138,6 +138,12 @@ and fixed on 2026-09-20; zero stored songs carried either directive, so nothing 
 The general rule: **`db:migrate` dropping a column and `KEPT_IN_BODY` gaining its field are
 one change**, and the second half has no compiler behind it.
 
+**OnSong's `Name: Value` block is the same rule from a third door** (2026-09-22). `deduce`
+removes the block whole, so until then only the four fields a column takes survived it — `Key`,
+`Capo`, `Tempo`, `Time`, `Copyright`, `CCLI` and `Keywords` were read and deleted with it. They
+are written back at the top of the body as directives (`METATAG_DIRECTIVE`, one `{tag}` per
+keyword); OnSong's own mechanics (`Number`, `Flow`, `MIDI`…) have no spelling here and still go.
+
 **Where each field lives**, since «handled» means four different things here:
 
 **All of it is edited in one form since 2026-09-20** — `SongDataForm`, in the editor's «Song

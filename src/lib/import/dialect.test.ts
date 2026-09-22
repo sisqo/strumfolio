@@ -144,17 +144,18 @@ describe('OnSong’s metatag block', () => {
   it('takes nothing when the opening block is not entirely metatags', () => {
     // One `Name: Value` line among lyrics is a lyric line with a colon in it.
     const source = 'Amazing grace how sweet the sound\nAnd then she said: come home\n\n[G]That saved'
-    assert.deepEqual(readOnSongMetatags(source), { tags: [], consumed: 0 })
+    assert.deepEqual(readOnSongMetatags(source), { tags: [], raw: [], consumed: 0 })
   })
 
   it('takes nothing from a plain ChordPro file', () => {
     assert.deepEqual(readOnSongMetatags('{title: Grace}\n{artist: Newton}\n\n[G]Amazing'), {
       tags: [],
+      raw: [],
       consumed: 0,
     })
   })
 
   it('takes nothing from an empty file', () => {
-    assert.deepEqual(readOnSongMetatags(''), { tags: [], consumed: 0 })
+    assert.deepEqual(readOnSongMetatags(''), { tags: [], raw: [], consumed: 0 })
   })
 })

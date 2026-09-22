@@ -96,7 +96,22 @@ describe('deduce', () => {
     assert.equal(result.dialect, 'onsong')
     assert.equal(result.title, 'Amazing Grace')
     assert.equal(result.artist, 'John Newton')
-    assert.equal(result.body, '[G]Amazing [C]grace')
+    // The key has no column, so it goes back into the body as a directive rather than away.
+    assert.equal(result.body, '{key: G}\n\n[G]Amazing [C]grace')
+  })
+
+  /* Understood must never mean deleted: everything the block said that no column takes comes
+     back as the directive this app reads, copyright above all. */
+  it('keeps what the metatag block said that no column takes', () => {
+    const result = deduce(
+      'Title: Amazing Grace\nArtist: John Newton\nKey: G\nCapo: 2\nTempo: 72\nTime: 3/4\n' +
+        'Copyright: Public Domain\nCCLI: 22025\nKeywords: hymn, gospel\nNumber: 12\n\n[G]Amazing [C]grace',
+    )
+    assert.equal(
+      result.body,
+      '{key: G}\n{capo: 2}\n{tempo: 72}\n{time: 3/4}\n{copyright: Public Domain}\n{ccli: 22025}\n' +
+        '{tag: hymn}\n{tag: gospel}\n\n[G]Amazing [C]grace',
+    )
   })
 
   it('reads {a:} as the artist in an OnSong file and leaves it alone in an unplaced one', () => {
