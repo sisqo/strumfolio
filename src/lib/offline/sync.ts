@@ -20,12 +20,13 @@ import { normalizeEmail } from '@/lib/allowlist'
 import { listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { hasDatabase } from '@/lib/db/client'
 
-export async function listOfflineRoutes(): Promise<string[]> {
+/** `null` when nobody is signed in, which `OfflineSync` must tell apart from an empty repertoire. */
+export async function listOfflineRoutes(): Promise<string[] | null> {
   if (!hasDatabase) return []
 
   const session = await auth()
   const email = session?.user?.email
-  if (!email) return []
+  if (!email) return null
   const normalized = normalizeEmail(email)
 
   const raw = process.env.ALLOWED_EMAILS
