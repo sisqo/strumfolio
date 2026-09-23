@@ -113,6 +113,18 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
     gift card head's «Send the notice», and `sendGiftNotice` refuses `nothing-to-announce` on
     the same answer. The head deliberately does **not** say whether the notice went out; a
     second press is answered by the unique index, through `already-sent`.
+- **A test account is hidden from `/accounts` and nothing else** (`accounts.is_test`, `0051`,
+  decided 2026-09-23). The list leaves them out before counting, so the tab numbers describe the
+  rows on screen; «Show test accounts» in the toolbar is a link to `?test=1`, carried by every
+  tab, sort and page link through `hrefFor`, and gone on the next visit. A search that finds only
+  hidden accounts says so under the list rather than answering «no account matches». **Coupons,
+  courtesy emails, the Telegram notice, `/leads` and campaign ceilings never read the flag**: a
+  test account behaves as a real one, which is what testing needs, and a ceiling counted without
+  them could really be overshot. The flag is set on the Identity tab (`TestAccountRow`) or by the
+  box in «New account»; `/qa` sets it by itself through `markTestAccount`, a second write after
+  `provisionAccount` that never throws. **`listTestAccounts` failing hides nothing**
+  (`splitTestAccounts`), the rule above about reads that failed: «could not tell» must not become
+  «accounts missing».
 - **Suspending an account blocks future sign-ins only** — sessions already issued stay valid.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`ViewingAsPill` (`TopBar.tsx`) is the real exit control** for impersonation, not a label;

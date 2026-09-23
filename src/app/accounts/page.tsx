@@ -9,12 +9,13 @@ import { CreateAccountForm } from '@/components/CreateAccountForm'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
-import { IconChevronDown, IconChevronRight, IconChevronUp, IconGift, IconInfo, IconSearch } from '@/components/icons'
+import { IconCheck, IconChevronDown, IconChevronRight, IconChevronUp, IconGift, IconInfo, IconSearch } from '@/components/icons'
 import { auth } from '@/auth'
-import { listAccountPlans, listAllAccounts, listPendingRegistrations } from '@/lib/accounts/read'
+import { listAccountPlans, listAllAccounts, listPendingRegistrations, listTestAccounts } from '@/lib/accounts/read'
 import type { AccountPlanLine, AccountSummary } from '@/lib/accounts/read'
 import { giftActive, isPaying, planBadge, rowStatus } from '@/lib/accounts/planText'
 import type { RowStatus } from '@/lib/accounts/planText'
+import { countTestAccounts, readShowTest, splitTestAccounts } from '@/lib/accounts/testFilter'
 import { isOwner } from '@/lib/allowlist'
 import { avatarInitials } from '@/lib/avatar'
 import { listCourtesyStatus } from '@/lib/courtesy/read'
@@ -80,6 +81,8 @@ interface Query {
   view: View
   sort: Order
   page: number
+  /** `?test=1`: test accounts are listed too. Absent, they are hidden — every visit starts there. */
+  test: boolean
 }
 
 interface RawQuery {
@@ -87,15 +90,17 @@ interface RawQuery {
   view?: string
   sort?: string
   page?: string
+  test?: string
 }
 
-/** Reads the four URL params into a typed, defaulted shape — an unrecognised or absent value always falls back to the least surprising default, never to an error. */
+/** Reads the five URL params into a typed, defaulted shape — an unrecognised or absent value always falls back to the least surprising default, never to an error. */
 function readQuery(raw: RawQuery): Query {
   return {
     q: (raw.q ?? '').trim(),
     view: VIEWS.includes(raw.view as View) ? (raw.view as View) : 'all',
     sort: ORDERS.includes(raw.sort as Order) ? (raw.sort as Order) : 'az',
     page: Math.max(1, Number.parseInt(raw.page ?? '1', 10) || 1),
+    test: readShowTest(raw.test),
   }
 }
 
@@ -107,6 +112,7 @@ function hrefFor(query: Query, overrides: Partial<Query>): string {
   if (merged.view !== 'all') params.set('view', merged.view)
   if (merged.sort !== 'az') params.set('sort', merged.sort)
   if (merged.page !== 1) params.set('page', String(merged.page))
+  if (merged.test) params.set('test', '1')
 
   const search = params.toString()
   return search === '' ? '/accounts' : `/accounts?${search}`
@@ -184,11 +190,12 @@ export default async function AccountsPage({ searchParams }: Props) {
    * costing only what it reads. Widening `listAllAccounts` to carry either would put the whole
    * screen behind those same migrations.
    */
-  const [all, plans, pending, courtesy] = await Promise.all([
+  const [all, plans, pending, courtesy, tests] = await Promise.all([
     listAllAccounts(),
     listAccountPlans(),
     listPendingRegistrations(),
     listCourtesyStatus(),
+    listTestAccounts(),
   ])
 
   /*
@@ -204,8 +211,16 @@ export default async function AccountsPage({ searchParams }: Props) {
    * list of three is an answer, where the installation's totals beside those same three rows
    * would be a puzzle.
    */
-  const searched: Row[] = (all ?? [])
-    .filter((account) => needle === '' || account.ownerEmail.toLowerCase().includes(needle))
+  const matching = (all ?? []).filter((account) => needle === '' || account.ownerEmail.toLowerCase().includes(needle))
+  /*
+   * Test accounts leave before anything is counted, for the search's own reason: «All 9» has
+   * to describe the nine rows on screen. A `tests` read that failed hides nothing
+   * (`splitTestAccounts`), and the toggle then does not draw, since it would count nothing.
+   */
+  const emailOf = (account: AccountSummary) => account.ownerEmail
+  const { shown, hidden: hiddenTests } = splitTestAccounts(matching, emailOf, tests, query.test)
+  const matchingTests = query.test ? countTestAccounts(matching, emailOf, tests) : hiddenTests
+  const searched: Row[] = shown
     .map((account) => {
       const line = plans?.get(account.ownerEmail) ?? null
       return {
@@ -306,6 +321,7 @@ export default async function AccountsPage({ searchParams }: Props) {
             {/* The form owns only the two controls it draws; the tab travels as a hidden
                 field so a new search stays under the tab the operator was already on. */}
             {query.view !== 'all' && <input type="hidden" name="view" value={query.view} />}
+            {query.test && <input type="hidden" name="test" value="1" />}
             <label className="accounts-search">
               <IconSearch size={14} />
               <input type="search" name="q" defaultValue={query.q} placeholder="Search an address" aria-label="Search an address" />
@@ -320,6 +336,24 @@ export default async function AccountsPage({ searchParams }: Props) {
               </AutoSubmitSelect>
               <IconChevronDown size={12} />
             </span>
+            {/* A link and not a checkbox: the state is the URL's, like the tabs', and a link
+                keeps the page a server component. Drawn whenever the installation has a test
+                account at all, so a search that matches none does not take the control away;
+                the number is how many this search would add. */}
+            {tests !== null && tests.size > 0 && (
+              <Link
+                href={hrefFor(query, { test: !query.test, page: 1 })}
+                className={`accounts-test-toggle${query.test ? ' is-on' : ''}`}
+                role="switch"
+                aria-checked={query.test}
+              >
+                <span className="accounts-test-box" aria-hidden>
+                  {query.test && <IconCheck size={11} />}
+                </span>
+                Show test accounts
+                <span className="accounts-tab-count">{matchingTests}</span>
+              </Link>
+            )}
           </form>
         </div>
 
@@ -368,6 +402,7 @@ export default async function AccountsPage({ searchParams }: Props) {
                         {avatarInitials(account.ownerEmail)}
                       </span>
                       <span className="accounts-email">{account.ownerEmail}</span>
+                      {query.test && tests?.has(account.ownerEmail) === true && <span className="accounts-test-badge">Test</span>}
                     </span>
                     <span className="accounts-count" aria-label={signIns}>
                       {account.signInCount}
@@ -409,6 +444,15 @@ export default async function AccountsPage({ searchParams }: Props) {
             {pageRows.length === 0 && (
               <p className="mt-3.5 text-sm text-muted">
                 {query.view === 'all' ? 'No account matches this search.' : `No account under “${VIEW_LABEL[query.view]}” matches.`}
+              </p>
+            )}
+
+            {/* A search is answered even when what it found is hidden: «no account matches»
+                over an account that exists would send an operator looking for a bug. */}
+            {needle !== '' && hiddenTests > 0 && (
+              <p className="mt-2 text-sm text-muted">
+                {hiddenTests} test {hiddenTests === 1 ? 'account matches' : 'accounts match'} ·{' '}
+                <Link href={hrefFor(query, { test: true, page: 1 })}>Show</Link>
               </p>
             )}
 

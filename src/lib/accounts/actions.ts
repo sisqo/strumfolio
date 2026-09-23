@@ -48,6 +48,7 @@ import { validateGrant } from './grant'
 import { MAX_GIFT_PERSONAL_LINE, MAX_GIFT_SUBJECT, defaultGiftSubject, giftOccurrenceKey } from './giftNotice'
 import { freezeLeadAttribution } from '@/lib/attribution/write'
 
+import { markTestAccount } from './markTest'
 import { provisionAccount } from './provision'
 import type {
   AccountResult,
@@ -751,6 +752,33 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
 }
 
 /**
+ * Marks or unmarks a test account (`0051`). The flag changes only what `/accounts` lists —
+ * nothing else in the app reads it — so, like suspending, it is a plain toggle with no confirm
+ * step: one more click undoes it.
+ */
+export async function setAccountTest(ownerEmail: string, isTest: boolean): Promise<AdminActionResult> {
+  if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
+  try {
+    await db()
+      .update(accounts)
+      .set({ isTest })
+      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+
+    revalidatePath('/accounts')
+    return { ok: true }
+  } catch (error) {
+    console.error('setAccountTest failed', error)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
  * Renames an account's address — a support request
  * that will come ("I typo'd my email", "switch me to my work address"), which today has
  * no answer short of deleting and recreating the account and losing everything in it.
@@ -1073,6 +1101,10 @@ export async function createAccount(input: CreateAccountInput): Promise<CreateAc
      the same race, and either way there is nothing to send an email about. A retry then reads
      `already-exists`, which is the truth by that point. */
   if (!created) return { ok: false, reason: 'failed' }
+
+  /* After the insert and never instead of it: `markTestAccount` does not throw, and a flag that
+     failed to land is a toggle on the page this form navigates to. */
+  if (input.isTest === true) await markTestAccount(email)
 
   /*
    * Past this line the account exists, and nothing below may answer `failed`: that would send

@@ -312,6 +312,15 @@ export const accounts = pgTable(
      * nothing about the other — see `lib/outreach/CLAUDE.md`'s courtesy section.
      */
     courtesyOptedOutAt: timestamp('courtesy_opted_out_at', { withTimezone: true }),
+    /**
+     * A test account, marked by an operator (or by `/qa`, whose addresses can belong to
+     * nobody). **It changes only what `/accounts` lists** — hidden until the operator asks to
+     * see test accounts — and nothing else reads it: coupons, courtesy emails, notices and
+     * campaign ceilings treat a test account as a real one, which is what testing needs
+     * (`0051`, decided 2026-09-23). A boolean and not a timestamp: when it was marked answers
+     * nothing anybody asks.
+     */
+    isTest: boolean('is_test').notNull().default(false),
   },
   (table) => [
     unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId),

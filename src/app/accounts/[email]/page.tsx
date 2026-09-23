@@ -19,6 +19,7 @@ import { PrefsProvider } from '@/components/PrefsProvider'
 import { SendResetEmailRow } from '@/components/SendResetEmailRow'
 import { SuspendAccountRow } from '@/components/SuspendAccountRow'
 import { SwitchAccountButton } from '@/components/SwitchAccountButton'
+import { TestAccountRow } from '@/components/TestAccountRow'
 import { TopBar } from '@/components/TopBar'
 import { loadAccountHistory } from '@/lib/accounts/actions'
 import { paymentSummary } from '@/lib/accounts/paymentSummary'
@@ -469,6 +470,8 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
               lastName={detail.lastName}
             />
             <ChangeEmailForm ownerEmail={detail.ownerEmail} />
+            {/* Absent when `0051`'s column cannot be read, for `SuspendAccountRow`'s reason. */}
+            {detail.isTest !== null && <TestAccountRow ownerEmail={detail.ownerEmail} isTest={detail.isTest} />}
             {/* Identity is where "who is this person" is answered, so where they came from
                 belongs here rather than beside the money on Payments. Read-only, like
                 everything else on this tab that is not one of the two forms above. */}

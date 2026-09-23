@@ -224,6 +224,12 @@ export const SUSPEND_MESSAGE: Record<AdminActionFailure, string> = {
   failed: 'Save failed. Please try again.',
 }
 
+export const TEST_ACCOUNT_MESSAGE: Record<AdminActionFailure, string> = {
+  'not-allowed': 'Only a global owner may mark a test account.',
+  'no-database': 'No database configured: the account cannot be marked.',
+  failed: 'Save failed. Please try again.',
+}
+
 export const RATE_LIMIT_MESSAGE: Record<AdminActionFailure, string> = {
   'not-allowed': 'Only a global owner may clear a rate limit.',
   'no-database': 'No database configured: nothing to clear.',
@@ -355,4 +361,6 @@ export interface CreateAccountInput {
   lastName: string
   /** Empty when the operator would rather the account chose its own — see the action. */
   password: string
+  /** Marks it a test account, hidden from `/accounts` until asked (`markTestAccount`). */
+  isTest?: boolean
 }

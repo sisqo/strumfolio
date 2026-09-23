@@ -44,6 +44,7 @@ export function CreateAccountForm() {
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [password, setPassword] = useState('')
+  const [isTest, setIsTest] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /* The account exists and its password does not — the one outcome that is neither a failure
@@ -55,7 +56,7 @@ export function CreateAccountForm() {
     setError(null)
     setHalfDone(null)
     try {
-      const result = await createAccount({ email, firstName: first, lastName: last, password })
+      const result = await createAccount({ email, firstName: first, lastName: last, password, isTest })
       if (!result.ok) {
         setError(CREATE_ACCOUNT_MESSAGE[result.reason])
         return
@@ -165,6 +166,22 @@ export function CreateAccountForm() {
           instead, or to let it sign in with Google.
         </p>
       </div>
+
+      <label className="row mt-3.5 cursor-pointer items-center">
+        <input
+          type="checkbox"
+          role="switch"
+          className="toggle-switch"
+          checked={isTest}
+          onChange={(event) => setIsTest(event.target.checked)}
+        />
+        <span className="min-w-0">
+          <span className="block text-[0.9375rem] text-ink">Test account</span>
+          <span className="mt-0.5 block text-[0.8125rem] leading-[1.45] text-muted">
+            Hidden from this list unless you ask to see test accounts. Everything else treats it as a real account.
+          </span>
+        </span>
+      </label>
 
       <div className="acct-actions">
         <span className="acct-hint">The account gets the welcome email, with its example songbook already in it.</span>

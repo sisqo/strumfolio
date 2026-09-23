@@ -11035,6 +11035,53 @@
     pointer-events: none;
   }
 
+  /* «Show test accounts»: a link that draws as a checkbox, since its state lives in the URL. */
+  .accounts-test-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.6875rem;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.84375rem;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .accounts-test-toggle:hover,
+  .accounts-test-toggle:focus-visible {
+    border-color: var(--accent);
+  }
+
+  .accounts-test-box {
+    display: inline-grid;
+    place-items: center;
+    width: 0.9375rem;
+    height: 0.9375rem;
+    border: 1px solid var(--line);
+    border-radius: 0.25rem;
+    background: var(--surface);
+  }
+
+  .accounts-test-toggle.is-on .accounts-test-box {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .accounts-test-badge {
+    flex: none;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    color: var(--muted);
+    font-size: 0.71875rem;
+    font-weight: 600;
+  }
+
   /*
    * The table. Scrolls sideways inside its own rounded edge on a phone rather than
    * collapsing columns: an operator's list is a desktop screen first, and the mock's six
@@ -11352,6 +11399,7 @@
     }
 
     .accounts-tools {
+      flex-wrap: wrap;
       width: 100%;
       margin-left: 0;
       padding-top: 0.625rem;

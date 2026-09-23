@@ -28,6 +28,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { ACCOUNT_COOKIE, SCOPE_COOKIE } from '@/lib/accounts/scope'
+import { markTestAccount } from '@/lib/accounts/markTest'
 import { provisionAccount } from '@/lib/accounts/provision'
 import { normalizeEmail } from '@/lib/allowlist'
 import { writePasswordHash } from '@/lib/auth/credentials'
@@ -73,6 +74,8 @@ async function enter(email: string, name: string): Promise<void> {
     const named = split.firstName !== '' && split.lastName !== '' ? split : splitName(DEFAULT_NAME)
 
     await provisionAccount(normalized, named)
+    /* Always a test account: `isQaEmail` has just said the address belongs to nobody. */
+    await markTestAccount(normalized)
     await writePasswordHash(normalized, await hashPassword(QA_PASSWORD))
   } catch (error) {
     console.error('QA entry failed', error)

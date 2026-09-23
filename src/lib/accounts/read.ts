@@ -267,6 +267,28 @@ export async function listAccountPlans(): Promise<Map<string, AccountPlanLine> |
   }
 }
 
+/**
+ * The addresses marked as test accounts, which `/accounts` hides until asked (`0051`).
+ *
+ * A read of its own rather than a third column on `listAllAccounts`, which names two on
+ * purpose: a deploy landing before the migration must still list every account. Null on any
+ * failure, and `splitTestAccounts` reads null as «hide nothing».
+ */
+export async function listTestAccounts(): Promise<Set<string> | null> {
+  if (!hasDatabase) return null
+
+  const session = await auth()
+  if (!isOwner(session?.user?.email, process.env.ALLOWED_EMAILS)) return null
+
+  try {
+    const rows = await db().select({ ownerEmail: accounts.ownerEmail }).from(accounts).where(eq(accounts.isTest, true))
+    return new Set(rows.map((row) => row.ownerEmail))
+  } catch (error) {
+    console.error('listTestAccounts failed', error)
+    return null
+  }
+}
+
 /** Everything `/accounts/[email]` shows about one account — `AccountSummary`'s three facts plus its resolved `AccountPlanLine`, in one row. */
 export interface AccountDetail {
   ownerEmail: string
@@ -295,6 +317,8 @@ export interface AccountDetail {
    * suspend/reactivate control entirely on the outer null, rather than guess.
    */
   admin: { suspendedAt: string | null; internalNote: string | null } | null
+  /** Null when `0051`'s column cannot be read; the page then draws no toggle rather than a guessed one. */
+  isTest: boolean | null
 }
 
 /**
@@ -381,6 +405,19 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
     console.error('getAccountDetail (admin columns) failed', error)
   }
 
+  // Same shape again, for `0051`'s column.
+  let isTest: boolean | null = null
+  try {
+    const testRows = await db()
+      .select({ isTest: accounts.isTest })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, target))
+      .limit(1)
+    isTest = testRows[0]?.isTest ?? null
+  } catch (error) {
+    console.error('getAccountDetail (is_test) failed', error)
+  }
+
   return {
     ownerEmail: row.ownerEmail,
     createdAt: row.createdAt.toISOString(),
@@ -390,6 +427,7 @@ export async function getAccountDetail(ownerEmail: string): Promise<AccountDetai
     lastName: name.lastName,
     plan,
     admin,
+    isTest,
   }
 }
 
