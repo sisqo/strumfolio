@@ -32,6 +32,8 @@ import { SCOPE_COOKIE, isScopeTag } from '@/lib/accounts/scope'
    exemption list and the module that writes the key to be able to disagree about its name. */
 import { COUPON_MEMORY_KEY } from '@/lib/coupons/types'
 
+import { PAGE_CACHES, SCOPE_ENDED_MESSAGE } from './pageCaches'
+
 /** Where the tag of whatever is currently stored is remembered, so a change can be noticed. */
 const STORED_SCOPE_KEY = 'songs:scope'
 
@@ -128,34 +130,31 @@ function purgeIfForeign(scope: string): void {
 }
 
 /**
- * The Cache Storage entries that hold rendered, account-scoped screens: `sw.ts`'s own `home` and
- * `repertoire`, and Serwist's `others` and three page caches. Everything else Cache Storage holds is
- * account-agnostic — the Serwist **precache** (the whole app shell: every JS/CSS chunk, the
- * webmanifest, the brand assets) and the `next-*`/`static-*`/font/image caches — so none of it
- * carries one account's data into another's session, and none of it may be wiped here.
- *
- * **Wiping all of it was the bug this list ends.** `clearPageCaches` ran on every signed-out
- * `/login` visit (`StorageCleanup`) and on every foreign-account detection (`purgeIfForeign`),
- * and `caches.delete` took the precache with the rest. The precache is written once, at the
- * worker's `install`, and never again until the next deploy — so a single anonymous `/login`
- * (the bounce `StandaloneRedirect` itself causes among them) stripped the installed app's whole
- * offline shell until a deploy rebuilt the worker. These names are used verbatim by the
- * worker (Serwist does not prefix an explicit `cacheName`), confirmed against the built `sw.js`.
+ * The Cache Storage entries that hold rendered, account-scoped screens are `PAGE_CACHES`
+ * (`pageCaches.ts`): `sw.ts`'s own `home` and `repertoire`, and Serwist's `others` and three page
+ * caches. Everything else Cache Storage holds is account-agnostic — the Serwist **precache** (the
+ * whole app shell: every JS/CSS chunk, the webmanifest, the brand assets) and the
+ * `next-*`/`static-*`/font/image caches — so none of it carries one account's data into another's
+ * session, and none of it may be wiped here.
  */
-const PAGE_CACHES: ReadonlySet<string> = new Set([
-  'home',
-  /* Every song and songbook page, kept without expiry for the stage — `sw.ts`. */
-  'repertoire',
-  'others',
-  'pages',
-  'pages-rsc',
-  'pages-rsc-prefetch',
-])
 
 /** Drop every Cache Storage entry that can hold another account's rendered screens, and only
  *  those — see `PAGE_CACHES`. Best effort: an old browser or a denied permission simply leaves
  *  the service worker's own `rejectUnauthenticated` and `NetworkFirst` as they were. */
 export async function clearPageCaches(): Promise<void> {
+  /*
+   * **And tell the worker, which is the half that makes the emptying stick.** A request that left
+   * under the old session is still the worker's to store: `fetch()` resolves on the headers while
+   * the worker writes the body afterwards, and with `NetworkFirst`'s timeout the page is handed the
+   * stored copy while the real response lands seconds later. Emptying the caches from here, however
+   * late, races that write; the worker refusing every response to a request older than this
+   * message does not (`sw.ts`).
+   */
+  try {
+    navigator.serviceWorker?.controller?.postMessage({ type: SCOPE_ENDED_MESSAGE })
+  } catch {
+    // No worker, or no permission: the emptying below still runs.
+  }
   try {
     if (typeof caches === 'undefined') return
     const names = await caches.keys()

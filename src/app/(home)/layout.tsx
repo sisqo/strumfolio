@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
    also the truer statement — it is this segment's other half, not a component from elsewhere. */
 import { Landing, LANDING_DESCRIPTION, LANDING_TITLE } from './Landing'
 import { StandaloneRedirect } from '@/components/StandaloneRedirect'
+import { StorageCleanup } from '@/components/StorageCleanup'
 import { currentUser } from '@/lib/auth/session'
 import type { CurrentUser } from '@/lib/auth/session'
 import { hasDatabase } from '@/lib/db/client'
@@ -104,11 +105,18 @@ export default async function HomeLayout({ children }: { children: ReactNode }) 
    * `/home` to anybody who asks for it, and that reader has asked for the marketing page on
    * purpose; bouncing them to `/login` because they happen to be in the installed app would
    * break the one promise that URL makes.
+   *
+   * `StorageCleanup` is here for `deleteMyAccount`, which ends on `/` because there is no account
+   * left to sign in to — and so never reached `/login`, where the cleanup had lived alone. Since
+   * the repertoire got a cache that never expires, that meant a deleted account's songs stayed
+   * on the device for good. It acts only when the scope cookie is gone, which is exactly a
+   * sign-out or a deletion; a visitor has nothing to clear.
    */
   if (landing) {
     return (
       <>
         <StandaloneRedirect />
+        <StorageCleanup />
         {/* `signedIn={false}` is not a guess: reaching this branch *is* `currentUser()` having
             answered null. Handing it over is what stops `Landing` asking the same question a
             second time in the same render — see the prop's own comment there. */}

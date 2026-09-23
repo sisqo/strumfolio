@@ -4,6 +4,7 @@ import { type ReactNode, useState } from 'react'
 
 import { useRole } from '@/components/RoleProvider'
 import { switchAccount } from '@/lib/accounts/actions'
+import { clearPageCaches } from '@/lib/storage/scope'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -62,6 +63,10 @@ export function SwitchAccountButton({
       // navigation would reload this provider from scratch either way, but not
       // necessarily *after* the cookie write without this in between.
       await refresh()
+      // Before the navigation, not after it: `/` goes through the worker's `NetworkFirst`, which
+      // after four seconds on a slow network serves whatever `home` holds — the account being
+      // left — and `purgeIfForeign` only runs once the new page's script does.
+      await clearPageCaches()
       window.location.assign('/')
       // No `finally` resetting `busy`: the assignment above tears this page down:
       // only a failed request before it ever leaves needs the button clickable again.

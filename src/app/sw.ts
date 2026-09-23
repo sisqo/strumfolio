@@ -44,6 +44,8 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
+import { PAGE_CACHES, SCOPE_ENDED_MESSAGE } from '../lib/storage/pageCaches'
+
 /** Set by the middleware on any response served to someone not signed in. */
 const ANONYMOUS_HEADER = 'x-songs-anonymous'
 
@@ -55,6 +57,55 @@ const rejectUnauthenticated = {
     return response
   },
 }
+
+/**
+ * **A response to a request that left before the last sign-out is never stored.**
+ *
+ * The page empties the page caches when an account stops being the one on this device
+ * (`clearPageCaches`: `StorageCleanup` on `/login`, `purgeIfForeign` on a change of account),
+ * and that alone loses a race it cannot see. `OfflineSync` walks the whole repertoire, so at
+ * sign-out one request is usually in flight under the old session; `fetch()` resolves on the
+ * headers while this worker writes the body afterwards, and with `NETWORK_TIMEOUT_SECONDS` the
+ * page may have been handed the stored copy while the real response is still on its way. Either
+ * way the write lands *after* the emptying, into `repertoire`, which never expires — another
+ * person's songs left on a shared device until somebody else happened to sign in.
+ *
+ * So the page also posts `SCOPE_ENDED_MESSAGE`, and every request is stamped with the epoch it
+ * started in: a response from an older epoch is refused in `cacheWillUpdate`, and one that was
+ * already past that check when the message arrived is deleted again in `cacheDidUpdate`. The
+ * epoch lives in this worker's memory and resets when it is stopped — harmless, since a worker
+ * with a request in flight is not stopped.
+ */
+let scopeEpoch = 0
+
+const refuseEndedScope = {
+  handlerWillStart: async ({ state }: { state?: Record<string, unknown> }) => {
+    if (state) state.scopeEpoch = scopeEpoch
+  },
+  cacheWillUpdate: async ({ response, state }: { response: Response; state?: Record<string, unknown> }) =>
+    state?.scopeEpoch === scopeEpoch ? response : null,
+  cacheDidUpdate: async ({
+    cacheName,
+    request,
+    state,
+  }: {
+    cacheName: string
+    request: Request
+    state?: Record<string, unknown>
+  }) => {
+    if (state?.scopeEpoch !== scopeEpoch) await (await caches.open(cacheName)).delete(request)
+  },
+}
+
+self.addEventListener('message', (event) => {
+  if ((event.data as { type?: unknown } | null)?.type !== SCOPE_ENDED_MESSAGE) return
+  scopeEpoch += 1
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((name) => PAGE_CACHES.has(name)).map((name) => caches.delete(name)))),
+  )
+})
 
 /**
  * Every page-navigation entry `defaultCache` runs on its own — RSC prefetches, plain RSC
@@ -118,7 +169,11 @@ const authenticatedPageCaching = (
   handler: new NetworkFirst({
     cacheName,
     networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
-    plugins: [new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 1440 * 60 }), rejectUnauthenticated],
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 1440 * 60 }),
+      rejectUnauthenticated,
+      refuseEndedScope,
+    ],
   }),
 }))
 
@@ -206,11 +261,9 @@ const serwist = new Serwist({
      * off an old bookmark are the home page, so they are read and written as the one entry
      * rather than as a fresh copy each.
      *
-     * What this does **not** fix: offline and signed out, the copy served is still the last
-     * signed-in home, because nothing evicts it when a session ends. Nobody can sign in
-     * without a network either, so it misleads about nothing that could be acted on — but it
-     * is the residue of this bug, and clearing this device's copies on sign-out is what
-     * would take it away.
+     * Offline and signed out, nothing is served from here any more: sign-out empties the page
+     * caches (`StorageCleanup` on `/login`, and on the landing page after an account is
+     * deleted), and `refuseEndedScope` stops a request still in flight writing it back.
      */
     {
       matcher: ({ request, url, sameOrigin }) =>
@@ -218,7 +271,11 @@ const serwist = new Serwist({
       handler: new NetworkFirst({
         cacheName: 'home',
         networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
-        plugins: [{ cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href }, rejectUnauthenticated],
+        plugins: [
+          { cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href },
+          rejectUnauthenticated,
+          refuseEndedScope,
+        ],
       }),
     },
     /**
@@ -250,7 +307,7 @@ const serwist = new Serwist({
       handler: new NetworkFirst({
         cacheName: 'repertoire',
         networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
-        plugins: [new ExpirationPlugin({ maxEntries: 1500 }), rejectUnauthenticated],
+        plugins: [new ExpirationPlugin({ maxEntries: 1500 }), rejectUnauthenticated, refuseEndedScope],
       }),
     },
     ...authenticatedPageCaching,

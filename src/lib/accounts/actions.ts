@@ -584,12 +584,10 @@ export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteR
    * path left it behind. Two things follow: no signed-in provider will read this deleted
    * account's `localStorage` caches again (`keyFor` refuses a null scope), and the next account
    * to sign in on this browser purges them (`purgeIfForeign` sees the changed tag). This does
-   * not itself empty `localStorage` on the spot — `StorageCleanup` does that, and it is mounted
-   * on `/login`, whereas this redirects to `/` (there is no account left to sign in to). So a
-   * borrowed device still shows the deleted account's words in devtools until the next sign-in
-   * or `/login` visit; closing that last gap means either sending this to `/login` or rendering
-   * `StorageCleanup` on the landing page, both of which trade against a documented decision and
-   * are left for a deliberate call rather than folded in here.
+   * not itself empty anything — `StorageCleanup` does, on the landing page this redirects to
+   * (there is no account left to sign in to), as it does on `/login` after a sign-out. It was on
+   * `/login` alone until 2026-09-23, which left a deleted account's words in `localStorage` and,
+   * once the repertoire had a cache with no expiry, its songs on the device for good.
    */
   ;(await cookies()).delete(SCOPE_COOKIE)
   await signOut({ redirectTo: '/' })

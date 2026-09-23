@@ -1654,8 +1654,9 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   another account's cache cannot be *read*; and the whole area plus every Cache Storage entry is
   emptied when the tag changes (`purgeIfForeign`, called from `keyFor` itself so there is no
   mount to forget) and again at sign-out (`StorageCleanup` on `/login`, armed by the sign-out
-  action deleting the scope cookie), so another account's words do not *linger* in devtools on a
-  shared machine.
+  action deleting the scope cookie — and on the landing page, since 2026-09-23, because
+  `deleteMyAccount` ends on `/` and never reached `/login`), so another account's words do not
+  *linger* in devtools on a shared machine.
 - **The service worker's page caches have the same shape and are handled by clearing, not
   scoping**: `rejectUnauthenticated` only refuses anonymous and redirected responses, so a
   signed-in reader's rendered screens are stored under plain URL keys. `sw.ts` recorded «nothing
@@ -1665,8 +1666,16 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   They used to fall through to `others` — 32 entries for 24 hours, shared with images — so once
   `OfflineSync` walked a whole repertoire the last pages fetched evicted the ones a reader had
   opened, and a day without signal emptied it. **Any new page cache goes into `PAGE_CACHES`**
-  (`lib/storage/scope.ts`) in the same commit, or sign-out and a change of account stop clearing
-  that account's songs off the device.
+  (`lib/storage/pageCaches.ts`, shared by the page and the worker) in the same commit, or
+  sign-out and a change of account stop clearing that account's songs off the device.
+- **Emptying from the page loses a race, so the worker refuses late writes** (2026-09-23).
+  `fetch()` resolves on the headers and the worker stores the body afterwards, and with the
+  four-second `NetworkFirst` timeout the page may already hold the stored copy while the real
+  response is still arriving — so a request `OfflineSync` had in flight at sign-out landed
+  *after* the emptying, into `repertoire`, for good. `clearPageCaches` now also posts
+  `SCOPE_ENDED_MESSAGE`; `sw.ts`'s `refuseEndedScope` stamps every page request with an epoch
+  and drops any response from an older one. A change of account (`SwitchAccountButton`) clears
+  before navigating, or the timeout serves `/` from the account being left.
 
 Verified before/after in a real browser on 2026-09-11 with a planted foreign cache: the other
 account's songbook name was visible with the unscoped store and absent at all forty samples
