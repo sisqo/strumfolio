@@ -565,6 +565,14 @@
   .markup-sup,
   .markup-sub { font-size: 0.75em; line-height: 0; }
 
+  /* Where the song modulates: the one comment this app writes that is about the music, so it
+     takes the accent rather than the muted grey of an aside, and stands upright. */
+  .sheet-comment.is-key-change {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+  }
+
   .sheet-comment.is-box,
   .sheet-comment.is-highlight {
     display: inline-block;

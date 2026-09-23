@@ -172,6 +172,15 @@ export const DATA_GROUPS: GroupSpec[] = [
  */
 export const MULTI_FIELDS = new Set(['composer', 'lyricist', 'arranger'])
 
+/**
+ * Fields whose *position* decides what they mean, so the form owns only the one in the head.
+ * A `{transpose}` before the first words is the song's starting transposition; one partway
+ * through is a modulation from that point on (decided 2026-09-23, `chordpro.ts`), which the
+ * toolbar drops at the caret as «Key change». The form showing it would present a key change
+ * in the last chorus as the transposition of the whole song.
+ */
+const HEAD_ONLY = new Set(['transpose'])
+
 /** Every name the groups claim, so «anything else» knows what is left. */
 const CLAIMED = new Set(DATA_GROUPS.flatMap((group) => group.fields.map((field) => field.name)))
 
@@ -283,6 +292,9 @@ export function readSongData(document: SongDocument): SongData {
     if (block.kind !== 'directive') return
     const name = fieldNameOf(block.raw)
     if (name === null) return
+    /* A `{transpose}` below the head is a modulation, not the song's transposition — see
+       `HEAD_ONLY` — so it stays a row in the song where it stands. */
+    if (HEAD_ONLY.has(name) && index >= end) return
 
     const list = found.get(name)
     if (list === undefined) found.set(name, [index])
@@ -483,7 +495,7 @@ const METADATA_COLUMNS = new Set([
 ])
 
 /** What the toolbar offers: directives whose position in the song is their meaning. */
-const POSITIONAL = new Set(FIELD_OPTIONS.map((option) => option.name))
+const POSITIONAL = new Set(FIELD_OPTIONS.map((option) => option.name).filter((name) => !CLAIMED.has(name)))
 
 /**
  * A field removed: the line goes, rather than being left as `{tag}` with nothing in it.

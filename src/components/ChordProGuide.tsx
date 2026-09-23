@@ -164,8 +164,7 @@ Was [Em]blind, but [D]now I [G]see.
           <code>{'{composer: Paul McCartney}'}</code>. Everything else is one value per song, and
           where a file says one twice the first is the song&apos;s — a second{' '}
           <code>{'{key}'}</code>, <code>{'{time}'}</code> or <code>{'{tempo}'}</code> is a change
-          partway through, and the song is labelled with the one it opens with. (What a second{' '}
-          <code>{'{transpose}'}</code> does is still being worked out.) A{' '}
+          partway through, and the song is labelled with the one it opens with. A{' '}
           <code>{'{meta: name value}'}</code> with a name nobody here knows is kept in the file,
           and when it sits in the song&apos;s opening lines the song-data form shows it under its
           own name, in &quot;Anything else&quot;.
@@ -185,6 +184,22 @@ Was [Em]blind, but [D]now I [G]see.
           or transpose from the reading bar and your answer is kept for you, on your device,
           without touching the file. The song&apos;s own value is still there to go back to, and
           the control says so.
+        </p>
+        <p>
+          <strong>A <code>{'{transpose}'}</code> after the first words is a key change</strong>,
+          from that line down, as the format says — the usual last chorus a tone up is{' '}
+          <code>{'{transpose: 2}'}</code> just before it. The sheet prints a line where it
+          happens, naming the new key when the song declares one, and a{' '}
+          <code>{'{chorus}'}</code> after it repeats the chorus at the new pitch. Values add up
+          (<code>{'{transpose: 2}'}</code> then <code>{'{transpose: 1}'}</code> is three), and an
+          empty <code>{'{transpose}'}</code> undoes the last one. Your own transposition replaces
+          only where the song starts: the key changes inside it stay, so the song keeps its
+          shape in whatever key you read it. Nashville numbers follow the change, so a chorus
+          stepped up still reads 1-4-5, and the song&apos;s chord list includes the chords
+          after it. A trailing <code>s</code> or <code>f</code> (<code>{'{transpose: 2f}'}</code>)
+          is read for its number; whether chords are spelt with sharps or flats is your own
+          setting. In the editor, the song-data form&apos;s Transpose is the starting one, and{' '}
+          <strong>Key change</strong> in the toolbar&apos;s field menu drops one at the caret.
         </p>
         <p>
           <strong><code>{'{define: ...}'}</code></strong> (or{' '}

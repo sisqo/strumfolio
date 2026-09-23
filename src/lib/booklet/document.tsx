@@ -132,6 +132,7 @@ import { type Line, type Section, chordTokens, parseChordPro, visibleSections } 
 import { type PartAnchor, buildAnchorMap, notesAt } from '../comments/anchorMap'
 import { type SongComment, inReadingOrder } from '../comments/types'
 import { type Accidentals, type Notation, formatChord, parseChord, readChord } from '../music/chord'
+import { mod12 } from '../music/notes'
 import type { Instrument } from '../music/shapes'
 import { readShift, transposeNoteText } from '../music/capo'
 import { type MetadataValues, metadataValues, substituteMetadata } from '../chordproMeta'
@@ -443,6 +444,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: MUTED,
     marginBottom: 4,
+  },
+  /* A modulation's line: upright, like the screen's, since it is about the music. */
+  keyChange: {
+    fontStyle: 'normal',
+    color: INK,
   },
   /* A box the file asked for, in the printed sheet's own muted palette. */
   commentBox: {
@@ -785,12 +791,17 @@ function prepare(
    * `bookletToBlob` for that reason — the notation is the reader's and travels the whole
    * document, the tonic belongs to whichever song is being laid out.
    */
-  const spelling = spellingFor(notation, () => chordTokens(parsed), shift, parsed.key)
+  const spelling = spellingFor(notation, () => chordTokens(parsed, false), shift, parsed.key)
 
-  const chordLabel = (raw: string | null): string | null => {
+  /* `extra` is a modulated line's own step beyond the song (`Line.shift`), and moves the
+     Nashville tonic with it so a stepped-up chorus still reads 1-4-5 — the screen's rule. */
+  const chordLabel = (raw: string | null, extra = 0): string | null => {
     if (raw === null) return null
     const chord = parseChord(raw)
     if (chord === null) return raw
+    if (extra !== 0) {
+      return formatChord(readChord(chord, shift + extra, accidentals), { ...spelling, tonic: mod12(spelling.tonic + extra) })
+    }
     /*
      * Print follows screen: `accidentals` is a preference about the reader rather than about
      * a song (`GlobalPrefs`), the same as `notation` beside it, so a booklet printed by
@@ -832,7 +843,7 @@ function BookletLine({
   line: Line
   /** What a `%{…}` in this line may name — see `prepare`, which builds it from the row. */
   values: MetadataValues
-  chordLabel: (raw: string | null) => string | null
+  chordLabel: (raw: string | null, extra?: number) => string | null
   roomForChords: boolean
   /** Null when the reader printed with no comments — see `BookletNotes`'s own comment. */
   notes: BookletNotes | null
@@ -842,6 +853,16 @@ function BookletLine({
     // comment on why `plain` and `italic` coincide here too.
     const framed =
       line.style === 'box' ? styles.commentBox : line.style === 'highlight' ? styles.commentHighlight : null
+
+    /* Where the song modulates, the same sentence the screen prints (`keyChangeText` there):
+       the step, and the key it arrives in when the file declared one. A Nashville booklet
+       gets the step alone — a number is not a key. */
+    if (line.keyChange !== undefined) {
+      const step = `${line.keyChange.by > 0 ? 'up' : 'down'} ${Math.abs(line.keyChange.by)}`
+      const key = values.key === undefined || values.key === '' ? null : chordLabel(values.key, line.keyChange.offset)
+      const named = key !== null && !/^[0-9♭♯b#]/.test(key) ? ` · to ${key}` : ''
+      return <Text style={[styles.comment, styles.keyChange]}>{`Key change · ${step}${named}`}</Text>
+    }
 
     return (
       <Text style={framed === null ? styles.comment : [styles.comment, framed]}>
@@ -872,7 +893,7 @@ function BookletLine({
           {word.parts.map((part, partIndex) => {
             /* `chordLabel` transposes and respells; an annotation must reach the page
                as the words somebody typed. Same rule as the reading screen. */
-            const label = part.annotation === true ? part.chord : chordLabel(part.chord)
+            const label = part.annotation === true ? part.chord : chordLabel(part.chord, line.shift ?? 0)
             const anchor = anchorsForLine?.[wordIndex]?.[partIndex]
             const lyricNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'lyric') : null
             const chordNote = notes !== null && anchor !== undefined ? notesAt(notes.comments, anchor, 'chord') : null
@@ -914,7 +935,7 @@ function Stanzas({
   sections: Section[]
   /** What a `%{…}` in these stanzas may name — built once per song in `prepare`. */
   values: MetadataValues
-  chordLabel: (raw: string | null) => string | null
+  chordLabel: (raw: string | null, extra?: number) => string | null
   roomForChords: boolean
   notes: BookletNotes | null
 }) {
@@ -996,7 +1017,7 @@ function BookletSongPage({
   sectionName: string
   left: Section[]
   right: Section[] | null
-  chordLabel: (raw: string | null) => string | null
+  chordLabel: (raw: string | null, extra?: number) => string | null
   roomForChords: boolean
   /** `transposeNoteText`'s sentence for this song, or null when printed in the written key. */
   transposeNote: string | null
@@ -1222,7 +1243,7 @@ async function paginateSong(
   footerText: string,
 ): Promise<{
   pages: SongPage[]
-  chordLabel: (raw: string | null) => string | null
+  chordLabel: (raw: string | null, extra?: number) => string | null
   roomForChords: boolean
   transposeNote: string | null
   notes: BookletNotes | null

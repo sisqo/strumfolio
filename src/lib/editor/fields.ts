@@ -44,6 +44,9 @@ export const FIELD_GROUPS: FieldGroup[] = [
   {
     title: 'Structure',
     options: [
+      /* A modulation: `{transpose: 2}` here moves every chord below it (`chordpro.ts`). The
+         song's own starting transposition is the song-data form's Transpose field instead. */
+      value('transpose', 'Key change'),
       value('start_of_verse', 'Verse start'),
       bare('end_of_verse', 'Verse end'),
       value('start_of_grid', 'Grid start'),

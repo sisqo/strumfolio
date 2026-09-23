@@ -52,6 +52,8 @@
 import { metadataValues, placeholderAt, substituteMetadata } from './chordproMeta'
 import { MarkupState, type Run, isStyled, markupRuns, markupTagAt, sameStyle, stripMarkup } from './markup'
 import { MAX_CAPO } from './music/capo'
+import { parseChord } from './music/chord'
+import { spellPitchClass } from './music/notes'
 import { parseTimeSignature, readBpm } from './metronome/tempo'
 
 export interface Part {
@@ -121,6 +123,14 @@ export type Line =
        * is: the note stays on the stanza where somebody put it, and the repeat carries none.
        */
       sourceLines: number[]
+      /**
+       * Semitones this line moves **beyond the song's starting transposition** — a modulation
+       * written as `{transpose: 2}` partway through, which the specification says applies
+       * «from where it appears». Absent is 0. The reader's own transposition replaces the
+       * starting one and never this: a song that steps up for its last chorus keeps the step
+       * whatever key somebody reads it in. Decided with the owner on 2026-09-23.
+       */
+      shift?: number
     }
   | {
       kind: 'comment'
@@ -128,6 +138,12 @@ export type Line =
       text: string
       /** The text as styled runs, present only when markup touches it (`markup.ts`). */
       runs?: Run[]
+      /**
+       * Set on the line this parser writes where a song modulates: `by` is the step at this
+       * point, `offset` where it leaves the song relative to its start. `text` carries a plain
+       * fallback («Key change +2»); a renderer that knows the key names the new one.
+       */
+      keyChange?: { by: number; offset: number }
       style: CommentStyle
       /**
        * The instrument this line is for, when the file said — `{comment-guitar: …}`. Null is
@@ -563,6 +579,20 @@ export function parseChordPro(source: string): ParsedSong {
    */
   /* The whole section, not only its lines: a conditional chorus (`{soc-piano}`) carries a
      selector, and a repeat of it has to carry the same one or it is drawn for every reader. */
+  /*
+   * `{transpose}`, as the reference implementation keeps it (`Song.pm`'s `dir_transpose`):
+   * values add up, and an empty one restores the one before. What is in force when the first
+   * line of words is drawn is the song's starting transposition — `song.transpose`, the one a
+   * reader's own choice replaces — and every change after that is a modulation, carried on
+   * the lines it applies to (`Line.shift`).
+   */
+  let transposeTotal = 0
+  const transposeStack: number[] = []
+  /* Whether the file set a starting transposition at all: a song that only modulates has none. */
+  let transposeBeforeWords = false
+  let startingTranspose: number | null = null
+  const modulation = () => transposeTotal - (startingTranspose ?? transposeTotal)
+
   let lastChorus: Section | null = null
   const chorusByLabel = new Map<string, Section>()
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
@@ -801,9 +831,38 @@ export function parseChordPro(source: string): ParsedSong {
           break
         /* Narrowed like the rest: an octave either way is the most anybody transposes, and a
            directive nobody can play leaves the song saying nothing. */
+        /*
+         * A number, optionally followed by `s` or `f` — the reference's request for sharps or
+         * flats. The letter is read and set aside: which accidentals a chord is spelt with is
+         * the reader's own preference in this app (`GlobalPrefs.accidentals`), decided on
+         * 2026-09-23 to stay that way. An octave either way is the most anybody transposes.
+         */
         case 'transpose': {
-          const moved = /^[+-]?\d{1,2}$/.test(value.trim()) ? Number(value.trim()) : null
-          song.transpose = moved !== null && Math.abs(moved) <= 12 ? moved : null
+          const before = transposeTotal
+          if (value.trim() === '') {
+            transposeTotal = transposeStack.pop() ?? 0
+          } else {
+            const match = /^([+-]?\d{1,2})\s*[sf]?$/i.exec(value.trim())
+            const moved = match === null ? null : Number(match[1])
+            if (moved === null || Math.abs(moved) > 12) break
+            transposeStack.push(transposeTotal)
+            transposeTotal += moved
+          }
+          if (startingTranspose === null) transposeBeforeWords = true
+
+          /* After the first words, a change is a modulation, and the sheet says so where it
+             happens rather than letting the chords jump without warning. */
+          if (startingTranspose !== null && transposeTotal !== before) {
+            section ??= openSection(forcedKind ?? 'verse')
+            const by = transposeTotal - before
+            section.lines.push({
+              kind: 'comment',
+              text: `Key change ${by > 0 ? '+' : '−'}${Math.abs(by)}`,
+              style: 'plain',
+              selector: null,
+              keyChange: { by, offset: modulation() },
+            })
+          }
           break
         }
         case 'define': {
@@ -854,7 +913,9 @@ export function parseChordPro(source: string): ParsedSong {
           // conditional `{chorus-…}` never reaches here: it is refused as a directive above.)
           const repeat = openSection('chorus', wanted.selector)
           if (label !== '' && named === undefined) repeat.lines.push(commentLine(label, 'plain', null))
-          repeat.lines.push(...wanted.lines.map(repeated))
+          /* At the pitch in force where `{chorus}` stands — the last chorus a tone up, written
+             once — and not at the pitch it was first written at. */
+          repeat.lines.push(...wanted.lines.map((line) => repeated(line, modulation())))
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null
           break
@@ -927,7 +988,10 @@ export function parseChordPro(source: string): ParsedSong {
     }
 
     section ??= openSection(forcedKind ?? 'verse')
-    section.lines.push(parseLyricLine(line, sourceLines))
+    if (startingTranspose === null) startingTranspose = transposeTotal
+    const lyric = parseLyricLine(line, sourceLines)
+    const offset = modulation()
+    section.lines.push(offset !== 0 && lyric.kind === 'lyrics' ? { ...lyric, shift: offset } : lyric)
   }
 
   // A tab or grid with no closing directive — malformed, but its rows are real content
@@ -937,6 +1001,10 @@ export function parseChordPro(source: string): ParsedSong {
     if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', null))
     section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate))
   }
+
+  /* The starting transposition, when the file set one. A song whose `{transpose}` lines all
+     come before any words — or that has no words at all — starts at their total. */
+  if (transposeBeforeWords) song.transpose = Math.max(-12, Math.min(12, startingTranspose ?? transposeTotal))
 
   return song
 }
@@ -961,8 +1029,11 @@ function readCapo(value: string): number | null {
  * Emptying `sourceLines` is the whole of it: a repeat draws the same words and owns none of
  * the notes, which stay where somebody put them.
  */
-function repeated(line: Line): Line {
-  return line.kind === 'lyrics' ? { ...line, sourceLines: [] } : line
+function repeated(line: Line, offset: number): Line {
+  if (line.kind !== 'lyrics') return line
+  const rest: Line = { ...line, sourceLines: [] }
+  delete rest.shift
+  return offset === 0 ? rest : { ...rest, shift: offset }
 }
 
 /**
@@ -1274,18 +1345,40 @@ export function plainLyrics(song: ParsedSong): string {
  * Annotations are not chords and never appear here — this list is what the summary panel
  * draws fingerings for and what the transposer moves, and `[*Capo 3]` belongs in neither.
  */
-export function chordTokens(song: ParsedSong): string[] {
+export function chordTokens(song: ParsedSong, played = true): string[] {
   const seen = new Set<string>()
 
   for (const section of song.sections) {
     for (const line of section.lines) {
       if (line.kind !== 'lyrics') continue
+      /*
+       * A line past a modulation plays its chords `shift` semitones higher than they are
+       * written, so the song's chord list — the diagrams somebody learns before they start —
+       * names the ones actually played there, as if the file had written them out. `played`
+       * false asks for the chords as written, which is what estimating the song's opening key
+       * wants: a last chorus a tone up is not evidence about where the song starts.
+       */
+      const shift = played ? (line.shift ?? 0) : 0
       for (const word of line.words) {
         for (const part of word.parts) {
-          if (part.chord !== null && part.annotation !== true) seen.add(part.chord)
+          if (part.chord === null || part.annotation === true) continue
+          if (shift === 0) seen.add(part.chord)
+          else if (line.shift !== undefined) {
+            const moved = shiftToken(part.chord, shift)
+            if (moved !== null) seen.add(moved)
+          }
         }
       }
     }
   }
   return [...seen]
+}
+
+/** A chord token moved by semitones, written back in international notation; null for a non-chord. */
+function shiftToken(token: string, semitones: number): string | null {
+  const chord = parseChord(token)
+  if (chord === null) return null
+  const root = spellPitchClass(chord.root + semitones, false)
+  const bass = chord.bass === null ? '' : `/${spellPitchClass(chord.bass + semitones, false)}`
+  return `${root}${chord.suffix}${bass}`
 }

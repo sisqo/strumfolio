@@ -574,3 +574,14 @@ describe('meta directives in the form', () => {
     assert.equal(toSource(edited).split('\n')[0], '{meta: mood sad}')
   })
 })
+
+/* Below the head a `{transpose}` is a modulation: a line in the song, not the form's field. */
+describe('transpose in the form', () => {
+  it('owns the starting transpose only, never a modulation', () => {
+    const inHead = readSongData(fromSource('{transpose: 2}\n\nparole'))
+    assert.ok(inHead.groups.some((group) => group.rows.some((row) => row.name === 'transpose')))
+    const midSong = readSongData(fromSource('{title: T}\n\nparole\n{transpose: 2}\naltre'))
+    assert.ok(!midSong.groups.some((group) => group.rows.some((row) => row.name === 'transpose')))
+    assert.ok(midSong.missing.some((field) => field.name === 'transpose'))
+  })
+})

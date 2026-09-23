@@ -290,8 +290,31 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
   (`MULTI_VALUED`); the song-data form draws each line (`MULTI_FIELDS`). **Every other
   single-valued item takes the first occurrence**, `key`/`time`/`tempo`/`capo` included — the
   spec says each «applies from where it was specified», so the song's own is the one it opens
-  with. **`{transpose}` was deliberately left out**: what a mid-song one means is an open
-  decision, to be settled in a session of its own.
+  with. **`{transpose}` has its own rule**, below.
+- **`{transpose}` modulates from where it appears** — decided with the owner on 2026-09-23 after
+  the conformance pass, question by question, and every answer is a decision, not a default:
+  - **values add up and an empty one restores the one before**, the reference's stack
+    (`Song.pm`'s `dir_transpose`);
+  - **the total in force at the first line of words is the starting transposition**
+    (`song.transpose`), the value a reader's own choice *replaces* (`resolvedSemitones`,
+    unchanged); a song whose `{transpose}` only comes later has none;
+  - **every later change is a modulation, carried on the lines below it** (`Line.shift`), and
+    **the reader's choice never removes one** — a last chorus a tone up stays a tone up in
+    whatever key it is read;
+  - **the sheet announces it** with a line the parser writes (`keyChange` on a comment),
+    naming the arrival key when `{key}` is declared, on screen and in the booklet;
+  - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`);
+  - **the song's key shown at the top is the opening one**; Nashville numbers follow the
+    modulation (the line's tonic moves by `shift` too), so a stepped-up chorus reads 1-4-5;
+  - **`chordTokens` lists the chords played** past a modulation, shifted; `chordTokens(song,
+    false)` gives the written ones, which is what estimating the opening key uses;
+  - **`2s`/`2f` are read for the number and the letter is dropped**: sharps or flats stay the
+    reader's own preference (`GlobalPrefs.accidentals`, v4.1), the owner's answer;
+  - **the song-data form owns only a head `{transpose}`** (`HEAD_ONLY`), and the toolbar's
+    Structure menu offers «Key change» at the caret.
+  Strum Together needs nothing of its own: it broadcasts the starting transposition and renders
+  through `SongSheet`. Measured before deciding: one production song of 225 uses `{transpose}`,
+  never twice.
 - **The delegated environments** (`abc`, `ly`, `svg`, `textblock`, `strum`) are verbatim
   blocks closed only by their own `{end_of_…}` — `variant: 'delegate'` in both parsers — folded
   on screen under the language's name, and left out of the printed booklet except `textblock`
@@ -331,7 +354,9 @@ What is deliberately **not** followed, each argued where it lives rather than he
   from `buildAnchorMap`, which has one entry per reader line whatever the editor did, so it could
   not fail.
 
-- **`{capo}` and `{transpose}` seed the controls, and the reader overrides them** — settled by
+- **`{capo}` and `{transpose}` seed the controls, and the reader overrides them** (for
+  `{transpose}`, only the starting one since 2026-09-23 — a later one is a modulation the reader
+  never overrides; see the `{transpose}` rule above) — settled by
   `0048`, which made `user_song_prefs.capo` and `.semitones` nullable so `null` can mean «I take
   the song's», exactly as `SongPrefs.bpm` already worked. That distinction is the whole
   mechanism and the reason a migration was unavoidable: under `NOT NULL DEFAULT 0` the column

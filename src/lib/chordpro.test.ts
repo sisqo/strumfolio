@@ -1158,3 +1158,47 @@ describe('ChordPro conformance (2026-09-23)', () => {
     }
   })
 })
+
+/*
+ * `{transpose}`, as decided with the owner on 2026-09-23: from where it appears; values add up
+ * and an empty one restores the one before (the reference's stack); the one in force at the
+ * first words is the song's starting transposition, which a reader's own choice replaces;
+ * every later change is a modulation carried on the lines below it and announced where it
+ * happens; a {chorus} repeats at the pitch in force where it stands; `s`/`f` are read and set
+ * aside, since accidentals are the reader's preference.
+ */
+describe('{transpose}', () => {
+  const shifts = (source: string) =>
+    parseChordPro(source).sections.flatMap((section) =>
+      section.lines.map((line) =>
+        line.kind === 'lyrics' ? line.shift ?? 0 : line.kind === 'comment' && line.keyChange ? `key ${line.keyChange.by}/${line.keyChange.offset}` : line.kind,
+      ),
+    )
+
+  it('sets the starting transposition when it comes before the words', () => {
+    const song = parseChordPro('{transpose: 2}\n[C]a\n[G]b')
+    assert.equal(song.transpose, 2)
+    assert.deepEqual(shifts('{transpose: 2}\n[C]a\n[G]b'), [0, 0])
+  })
+
+  it('modulates from where it appears, adds up, and an empty one restores the one before', () => {
+    const source = '[C]a\n{transpose: 2}\n[C]b\n{transpose: 1}\n[C]c\n{transpose}\n[C]d'
+    assert.equal(parseChordPro(source).transpose, null)
+    assert.deepEqual(shifts(source), [0, 'key 2/2', 2, 'key 1/3', 3, 'key -1/2', 2])
+  })
+
+  it('adds starting values up, and reads a trailing s or f for its number alone', () => {
+    assert.equal(parseChordPro('{transpose: 2}\n{transpose: 3f}\n[C]x').transpose, 5)
+    assert.deepEqual(shifts('[C]a\n{transpose: -2s}\n[C]b'), [0, 'key -2/-2', -2])
+  })
+
+  it('repeats a chorus at the pitch in force where {chorus} stands', () => {
+    assert.deepEqual(shifts('{soc}\n[C]sung\n{eoc}\n{transpose: 2}\n{chorus}'), [0, 'key 2/2', 2])
+  })
+
+  it('lists the chords actually played past a modulation, and the written ones for the key estimate', () => {
+    const song = parseChordPro('[C]a [G]b\n{transpose: 2}\n[C]c [G]d')
+    assert.deepEqual(chordTokens(song), ['C', 'G', 'D', 'A'])
+    assert.deepEqual(chordTokens(song, false), ['C', 'G'])
+  })
+})

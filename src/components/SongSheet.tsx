@@ -18,6 +18,7 @@ import {
   readChord,
 } from '@/lib/music/chord'
 import { readShift } from '@/lib/music/capo'
+import { mod12 } from '@/lib/music/notes'
 import type { MetadataValues } from '@/lib/chordproMeta'
 import { substituteMetadata } from '@/lib/chordproMeta'
 import type { Run } from '@/lib/markup'
@@ -140,7 +141,7 @@ export function SongSheet({
    * one thing the notation promises never to do.
    */
   const spelling = useMemo(
-    () => spellingFor(global.notation, () => chordTokens(song), shift, song.key),
+    () => spellingFor(global.notation, () => chordTokens(song, false), shift, song.key),
     [global.notation, song, shift],
   )
 
@@ -229,13 +230,19 @@ export function SongSheet({
         {sections.map((section, sectionIndex) => (
           <section key={sectionIndex} className={`sheet-section is-${section.kind}`}>
             {section.lines.map((line, lineIndex) => {
+              /*
+               * A line past a modulation moves further than the song — `Line.shift` — and its
+               * Nashville tonic moves with it, so a chorus stepped up a tone still reads 1-4-5.
+               */
+              const extra = line.kind === 'lyrics' ? (line.shift ?? 0) : 0
               return (
                 <SheetLine
                   key={lineIndex}
                   line={line}
                   values={values}
-                  shift={shift}
-                  spelling={spelling}
+                  shift={shift + extra}
+                  spelling={extra === 0 ? spelling : { ...spelling, tonic: mod12(spelling.tonic + extra) }}
+                  keyChange={line.kind === 'comment' && line.keyChange !== undefined ? keyChangeText(line.keyChange, song.key, shift, global.accidentals, spelling) : undefined}
                   accidentals={global.accidentals}
                   chordDisplay={global.chordDisplay}
                   instrument={global.instrument}
@@ -448,6 +455,7 @@ function OverrideDot() {
 
 function SheetLine({
   line,
+  keyChange,
   values,
   shift,
   spelling,
@@ -466,6 +474,8 @@ function SheetLine({
 }: {
   line: Line
   /** What a `%{…}` in this line may name — see `SongSheet`'s own prop of this name. */
+  /** The sentence a modulation's line says, when this line is one (`keyChangeText`). */
+  keyChange?: string
   values: MetadataValues
   /** Transposition and capo together: how far the written chords move to reach the page. */
   shift: number
@@ -504,6 +514,8 @@ function SheetLine({
    */
   if (line.kind === 'comment') {
     const framed = line.style === 'box' || line.style === 'highlight'
+
+    if (keyChange !== undefined) return <p className="sheet-comment is-key-change">{keyChange}</p>
 
     return (
       <p className={framed ? `sheet-comment is-${line.style}` : 'sheet-comment'}>
@@ -649,6 +661,26 @@ function SheetLine({
       ))}
     </p>
   )
+}
+
+/**
+ * What the line at a modulation says: the step, and the key the song arrives in when the file
+ * declared one — «Key change · up 2 · to E». The key is the declared `{key}` moved by everything
+ * in force at this point (the reader's transposition and capo included), spelt the way this
+ * reader spells chords, in letters even on a Nashville sheet, where a number would say nothing.
+ */
+function keyChangeText(
+  change: { by: number; offset: number },
+  declaredKey: string | null,
+  shift: number,
+  accidentals: Accidentals,
+  spelling: Spelling,
+): string {
+  const step = `${change.by > 0 ? 'up' : 'down'} ${Math.abs(change.by)}`
+  const parsed = declaredKey === null ? null : parseChord(declaredKey)
+  if (parsed === null) return `Key change · ${step}`
+  const letters: Spelling = spelling.notation === 'nash' ? { notation: 'int', tonic: 0 } : spelling
+  return `Key change · ${step} · to ${formatChord(readChord(parsed, shift + change.offset, accidentals), letters)}`
 }
 
 /**
