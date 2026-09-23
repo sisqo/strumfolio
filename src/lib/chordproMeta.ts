@@ -80,6 +80,7 @@ export function metadataValues(
   set('album', song.metadata.album)
   set('composer', song.metadata.composer)
   set('lyricist', song.metadata.lyricist)
+  set('arranger', song.metadata.arranger)
   set('year', song.metadata.year)
   set('copyright', song.metadata.copyright)
   set('duration', song.metadata.duration)

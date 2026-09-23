@@ -840,6 +840,9 @@ export function parseChordPro(source: string): ParsedSong {
         case 'transpose': {
           const before = transposeTotal
           if (value.trim() === '') {
+            /* Nothing to restore is nothing said: a bare `{transpose}` at the top of a file must
+               not become «this song declares 0», which the reader treats as a choice. */
+            if (transposeStack.length === 0) break
             transposeTotal = transposeStack.pop() ?? 0
           } else {
             const match = /^([+-]?\d{1,2})\s*[sf]?$/i.exec(value.trim())
@@ -915,7 +918,7 @@ export function parseChordPro(source: string): ParsedSong {
           if (label !== '' && named === undefined) repeat.lines.push(commentLine(label, 'plain', null))
           /* At the pitch in force where `{chorus}` stands — the last chorus a tone up, written
              once — and not at the pitch it was first written at. */
-          repeat.lines.push(...wanted.lines.map((line) => repeated(line, modulation())))
+          repeat.lines.push(...repeatedLines(wanted.lines, modulation()))
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null
           break
@@ -1004,7 +1007,13 @@ export function parseChordPro(source: string): ParsedSong {
 
   /* The starting transposition, when the file set one. A song whose `{transpose}` lines all
      come before any words — or that has no words at all — starts at their total. */
-  if (transposeBeforeWords) song.transpose = Math.max(-12, Math.min(12, startingTranspose ?? transposeTotal))
+  /* Folded into an octave rather than clamped: `{transpose: 10}` then `{transpose: 5}` is +15,
+     which names the same chords as +3, and clamping it to +12 while every later modulation is
+     measured from 15 would bend each of them by three semitones. */
+  if (transposeBeforeWords) {
+    const start = startingTranspose ?? transposeTotal
+    song.transpose = Math.abs(start) <= 12 ? start : start % 12
+  }
 
   return song
 }
@@ -1034,6 +1043,27 @@ function repeated(line: Line, offset: number): Line {
   const rest: Line = { ...line, sourceLines: [] }
   delete rest.shift
   return offset === 0 ? rest : { ...rest, shift: offset }
+}
+
+/**
+ * A chorus's lines again, starting from the modulation in force where `{chorus}` stands.
+ *
+ * **A `{transpose}` written inside the chorus moves the repeat too.** Its «Key change» line is
+ * part of the chorus and is repeated with it, so the lines after it have to move by the same
+ * step — until 2026-09-23 every repeated line took the one offset in force at `{chorus}`, and the
+ * sheet announced a key change and then played the second half as written. Walking the
+ * announcements rather than re-reading each line's stored `shift` is what keeps the step
+ * relative: the stored shifts are measured from where the chorus was first written.
+ */
+function repeatedLines(lines: readonly Line[], offset: number): Line[] {
+  let running = offset
+  return lines.map((line) => {
+    if (line.kind === 'comment' && line.keyChange !== undefined) {
+      running += line.keyChange.by
+      return { ...line, keyChange: { ...line.keyChange, offset: running } }
+    }
+    return repeated(line, running)
+  })
 }
 
 /**

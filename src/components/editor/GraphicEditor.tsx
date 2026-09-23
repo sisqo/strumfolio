@@ -627,6 +627,10 @@ function BlockRow({
         : block.kind === 'source-comment'
           ? block.raw.slice(1)
           : (parts?.value ?? '')
+    /* Empty means the *line* holds nothing, not that nothing is drawn: an attribute list with no
+       `label` (`{start_of_verse: foo="x"}`) reads as an empty name, and Backspace on it took the
+       whole boundary away. */
+    const empty = block.kind === 'boundary' ? block.value.trim() === '' : value === ''
 
     const label =
       block.kind === 'boundary'
@@ -700,7 +704,7 @@ function BlockRow({
                  */
                 if (
                   (event.key === 'Backspace' || event.key === 'Delete') &&
-                  value === '' &&
+                  empty &&
                   (event.currentTarget.selectionStart ?? 0) === 0
                 ) {
                   event.preventDefault()

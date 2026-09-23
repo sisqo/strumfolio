@@ -577,6 +577,23 @@ describe('meta directives in the form', () => {
 
 /* Below the head a `{transpose}` is a modulation: a line in the song, not the form's field. */
 describe('transpose in the form', () => {
+  const transposeRows = (source: string) =>
+    readSongData(fromSource(source))
+      .groups.flatMap((group) => group.rows)
+      .filter((row) => row.name === 'transpose')
+      .map((row) => row.value)
+
+  /* The reader takes it as the starting one up to the first words, so the form has to as well —
+     or «Add a field» writes a second one and the song starts at the sum. */
+  it('finds a starting transpose written after a comment or a section opening', () => {
+    assert.deepEqual(transposeRows('{title: T}\n{c: Intro}\n{transpose: 2}\n[C]parole'), ['2'])
+    assert.deepEqual(transposeRows('{soc}\n{transpose: 2}\n[C]parole\n{eoc}'), ['2'])
+  })
+
+  it('draws every starting transpose, since the reader adds them up', () => {
+    assert.deepEqual(transposeRows('{transpose: 2}\n{transpose: 3}\n\nparole'), ['2', '3'])
+  })
+
   it('owns the starting transpose only, never a modulation', () => {
     const inHead = readSongData(fromSource('{transpose: 2}\n\nparole'))
     assert.ok(inHead.groups.some((group) => group.rows.some((row) => row.name === 'transpose')))

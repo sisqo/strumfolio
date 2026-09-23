@@ -102,7 +102,10 @@ export function SongSheet({
   notes?: SheetNotes
 }) {
   const { global, song: songPrefs, setChordShape, toggleTabsExpanded } = usePrefs()
-  const [shown, setShown] = useState<Chord | null>(null)
+  /* The chord tapped, with the spelling of the line it was tapped on: past a modulation the
+     Nashville tonic has moved, and a popup reading the song's would number the chord
+     differently from the sheet under it. */
+  const [shown, setShown] = useState<{ chord: Chord; spelling: Spelling } | null>(null)
 
   /*
    * Transposition and capo together: how far the written chords move to reach the page.
@@ -218,7 +221,7 @@ export function SongSheet({
           chords={summary}
           as={global.chordDisplay === 'diagrams' ? 'diagrams' : 'fingerings'}
           capo={capo}
-          onPick={setShown}
+          onPick={(chord) => setShown({ chord, spelling })}
         />
       )}
 
@@ -235,13 +238,14 @@ export function SongSheet({
                * Nashville tonic moves with it, so a chorus stepped up a tone still reads 1-4-5.
                */
               const extra = line.kind === 'lyrics' ? (line.shift ?? 0) : 0
+              const lineSpelling = extra === 0 ? spelling : { ...spelling, tonic: mod12(spelling.tonic + extra) }
               return (
                 <SheetLine
                   key={lineIndex}
                   line={line}
                   values={values}
                   shift={shift + extra}
-                  spelling={extra === 0 ? spelling : { ...spelling, tonic: mod12(spelling.tonic + extra) }}
+                  spelling={lineSpelling}
                   keyChange={line.kind === 'comment' && line.keyChange !== undefined ? keyChangeText(line.keyChange, song.key, shift, global.accidentals, spelling) : undefined}
                   accidentals={global.accidentals}
                   chordDisplay={global.chordDisplay}
@@ -252,7 +256,7 @@ export function SongSheet({
                   roomForChords={roomForChords}
                   tabsExpanded={songPrefs.tabsExpanded}
                   onToggleTabs={toggleTabsExpanded}
-                  onPick={setShown}
+                  onPick={(chord) => setShown({ chord, spelling: lineSpelling })}
                   notes={showNotes ? notes : undefined}
                   anchors={showNotes ? notes.anchors.get(line) : undefined}
                 />
@@ -292,8 +296,8 @@ export function SongSheet({
 
       {shown !== null && (
         <ChordPopup
-          chord={shown}
-          spelling={spelling}
+          chord={shown.chord}
+          spelling={shown.spelling}
           instrument={global.instrument}
           capo={capo}
           chordShapes={songPrefs.chordShapes}

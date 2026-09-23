@@ -102,6 +102,13 @@ describe('metadataValues', () => {
     assert.equal(values.artist, 'Dal corpo')
   })
 
+  /* Added to the reader, the info panel and the form on the same day and forgotten here, so
+     `arr. %{arranger}` printed «arr. ». */
+  it('offers every metadata field the reader keeps, arranger included', () => {
+    const values = metadataValues(parseChordPro('{arranger: Qualcuno}\nword'), null, null)
+    assert.equal(values.arranger, 'Qualcuno')
+  })
+
   it('turns a number into the text a placeholder can print', () => {
     assert.equal(metadataValues(song, null, null).capo, '3')
   })

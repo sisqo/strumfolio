@@ -181,6 +181,18 @@ export const MULTI_FIELDS = new Set(['composer', 'lyricist', 'arranger'])
  */
 const HEAD_ONLY = new Set(['transpose'])
 
+/**
+ * Where the head ends *for `HEAD_ONLY`*, which is not `headEnd`: the reader takes a
+ * `{transpose}` as the starting one up to the first line of words (`chordpro.ts`), so one written
+ * after `{c: Intro}` or `{soc}` still transposes the whole song. Stopping at the comment, as
+ * `headEnd` does, hid that line from the form, and «Add a field» then wrote a second one into
+ * the head — the song starting at the sum of both.
+ */
+function wordsStart(blocks: Block[]): number {
+  const at = blocks.findIndex((block) => block.kind === 'lyrics')
+  return at === -1 ? blocks.length : at
+}
+
 /** Every name the groups claim, so «anything else» knows what is left. */
 const CLAIMED = new Set(DATA_GROUPS.flatMap((group) => group.fields.map((field) => field.name)))
 
@@ -285,6 +297,7 @@ function valueOf(block: Block): string {
 /** Reads the whole form off one document. */
 export function readSongData(document: SongDocument): SongData {
   const end = headEnd(document.blocks)
+  const words = wordsStart(document.blocks)
 
   /** Every directive block in the song, by the name it answers to. */
   const found = new Map<string, number[]>()
@@ -294,7 +307,7 @@ export function readSongData(document: SongDocument): SongData {
     if (name === null) return
     /* A `{transpose}` below the head is a modulation, not the song's transposition — see
        `HEAD_ONLY` — so it stays a row in the song where it stands. */
-    if (HEAD_ONLY.has(name) && index >= end) return
+    if (HEAD_ONLY.has(name) && index >= words) return
 
     const list = found.get(name)
     if (list === undefined) found.set(name, [index])
@@ -323,7 +336,9 @@ export function readSongData(document: SongDocument): SongData {
       // Every line for a repeat group and for a field the format lets a song hold more than
       // one of; the first for any other, which is the line a reader's parser takes too, so
       // the form edits what is actually in force.
-      (group.kind === 'repeat' || MULTI_FIELDS.has(field.name)
+      // A `HEAD_ONLY` field draws every line too: the reader adds starting `{transpose}` lines
+      // up, so a form showing the first alone showed +2 on a song starting at +5.
+      (group.kind === 'repeat' || MULTI_FIELDS.has(field.name) || HEAD_ONLY.has(field.name)
         ? (found.get(field.name) ?? [])
         : (found.get(field.name) ?? []).slice(0, 1)
       ).map((index) => ({

@@ -1196,6 +1196,38 @@ describe('{transpose}', () => {
     assert.deepEqual(shifts('{soc}\n[C]sung\n{eoc}\n{transpose: 2}\n{chorus}'), [0, 'key 2/2', 2])
   })
 
+  /* The «Key change» line is part of the chorus and is repeated with it, so the lines after it
+     have to move by the same step — they used to take the one offset in force at {chorus}. */
+  it('repeats a modulation written inside the chorus, relative to where {chorus} stands', () => {
+    assert.deepEqual(shifts('{soc}\n[C]a\n{transpose: 2}\n[C]b\n{eoc}\n{transpose}\n{chorus}'), [
+      0,
+      'key 2/2',
+      2,
+      'key -2/0',
+      0,
+      'key 2/2',
+      2,
+    ])
+    assert.deepEqual(shifts('[C]x\n{transpose: 1}\n{soc}\n[C]a\n{transpose: 2}\n[C]b\n{eoc}\n{chorus}').slice(-3), [
+      3,
+      'key 2/5',
+      5,
+    ])
+  })
+
+  /* +15 names the chords +3 does; clamping it to +12 while later modulations were measured
+     from 15 bent every one of them by three semitones. */
+  it('folds a starting total past an octave instead of clamping it', () => {
+    assert.equal(parseChordPro('{transpose: 10}\n{transpose: 5}\n[C]a').transpose, 3)
+    assert.equal(parseChordPro('{transpose: -10}\n{transpose: -5}\n[C]a').transpose, -3)
+    assert.equal(parseChordPro('{transpose: 12}\n[C]a').transpose, 12)
+  })
+
+  it('reads a bare {transpose} with nothing to restore as saying nothing', () => {
+    assert.equal(parseChordPro('{transpose}\n[C]a').transpose, null)
+    assert.deepEqual(shifts('[C]a\n{transpose}\n[C]b'), [0, 0])
+  })
+
   it('lists the chords actually played past a modulation, and the written ones for the key estimate', () => {
     const song = parseChordPro('[C]a [G]b\n{transpose: 2}\n[C]c [G]d')
     assert.deepEqual(chordTokens(song), ['C', 'G', 'D', 'A'])

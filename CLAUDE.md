@@ -303,15 +303,23 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
     whatever key it is read;
   - **the sheet announces it** with a line the parser writes (`keyChange` on a comment),
     naming the arrival key when `{key}` is declared, on screen and in the booklet;
-  - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`);
+  - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`), and a
+    modulation written *inside* the chorus repeats with it, relative to that pitch
+    (`repeatedLines`, 2026-09-23 — the «Key change» line was repeated and the chords after it
+    were not);
+  - **a starting total past an octave is folded, not clamped** (+15 is +3): clamping it while
+    later modulations were measured from 15 bent each of them; and a bare `{transpose}` with
+    nothing to restore says nothing (`null`, not 0);
   - **the song's key shown at the top is the opening one**; Nashville numbers follow the
     modulation (the line's tonic moves by `shift` too), so a stepped-up chorus reads 1-4-5;
   - **`chordTokens` lists the chords played** past a modulation, shifted; `chordTokens(song,
     false)` gives the written ones, which is what estimating the opening key uses;
   - **`2s`/`2f` are read for the number and the letter is dropped**: sharps or flats stay the
     reader's own preference (`GlobalPrefs.accidentals`, v4.1), the owner's answer;
-  - **the song-data form owns only a head `{transpose}`** (`HEAD_ONLY`), and the toolbar's
-    Structure menu offers «Key change» at the caret.
+  - **the song-data form owns only a starting `{transpose}`** (`HEAD_ONLY`) — «starting» by
+    the reader's rule, up to the first line of words, and not `headEnd`'s, which stops at a
+    comment or a `{soc}` — and draws every one, since they add up; the toolbar's Structure menu
+    offers «Key change» at the caret.
   Strum Together needs nothing of its own: it broadcasts the starting transposition and renders
   through `SongSheet`. Measured before deciding: one production song of 225 uses `{transpose}`,
   never twice.
