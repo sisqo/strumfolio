@@ -72,6 +72,10 @@ export function useWakeLock(active: boolean): void {
       return
     }
 
+    /* Set again here and not only during render: StrictMode and Fast Refresh run the cleanup
+       below and then this effect again with no render in between, so the `false` the cleanup
+       left would make the new lock release itself the moment it arrived. */
+    activeRef.current = true
     void request()
     return () => {
       /* Unmounting mid-request: the sentinel that arrives afterwards must find `active` false. */

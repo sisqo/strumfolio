@@ -75,6 +75,18 @@ export function FavoritesProvider({
     setCached(readCachedFavorites())
   }, [])
 
+  /*
+   * Read again when the network goes, which is the only moment the cache decides anything.
+   * Right after a password sign-in the page is rendered by the sign-in action's own response,
+   * before any request has set the scope cookie, so the read above finds no key and answers
+   * nothing; by the time the reader is offline some later request has set it.
+   */
+  useEffect(() => {
+    const onOffline = () => setCached(readCachedFavorites())
+    window.addEventListener('offline', onOffline)
+    return () => window.removeEventListener('offline', onOffline)
+  }, [])
+
   const setOnly = useCallback((next: boolean) => {
     setOnlyState(next)
     writeFavoritesOnly(next)
