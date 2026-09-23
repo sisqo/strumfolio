@@ -547,3 +547,30 @@ describe('typedField', () => {
     }
   })
 })
+
+/* Several composers, lyricists and arrangers are legal and the reader joins them; the form
+   shows every line and a typed name adds another rather than going to the first. */
+describe('multi-valued fields in the form', () => {
+  it('draws every composer line, and adds rather than focuses', () => {
+    const document = fromSource('{composer: A}\n{composer: B}\n\nparole')
+    const identity = readSongData(document).groups.find((group) => group.title === 'Identity')
+    assert.deepEqual(identity?.rows.filter((row) => row.name === 'composer').map((row) => row.value), ['A', 'B'])
+    assert.deepEqual(typedField(document, 'composer'), { add: 'composer' })
+    assert.deepEqual(typedField(document, 'arranger'), { add: 'arranger' })
+  })
+})
+
+/* `{meta: composer X}` is the format's generic spelling of `{composer: X}` (`Directives-meta.md`). */
+describe('meta directives in the form', () => {
+  it('shows {meta: composer X} in the Composer field and an unknown one under its own name', () => {
+    const data = readSongData(fromSource('{meta: composer X}\n{meta mood happy}\n\nparole'))
+    const identity = data.groups.find((group) => group.title === 'Identity')
+    assert.deepEqual(identity?.rows.map((row) => [row.name, row.value]), [['composer', 'X']])
+    assert.deepEqual(data.others.map((row) => [row.name, row.value]), [['mood', 'happy']])
+  })
+
+  it('keeps a meta line a meta line when its value is edited', () => {
+    const edited = setSongField(fromSource('{meta: mood happy}\n\nparole'), 0, 'mood', 'sad')
+    assert.equal(toSource(edited).split('\n')[0], '{meta: mood sad}')
+  })
+})

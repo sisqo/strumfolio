@@ -105,7 +105,7 @@ export type Block =
        * else: everything either one needs from an editor is «leave every column where it
        * is», which is the same need twice.
        */
-      variant: 'tab' | 'grid'
+      variant: 'tab' | 'grid' | 'delegate'
     }
 
 /** `Block` narrowed to the one kind that has words and chords of its own. */
@@ -129,9 +129,10 @@ const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-!?[a-zA-Z0-9_-]*)?)\s*(?:[:\
  * frames them, which this editor does not do and this app does not draw — so they are
  * one row here, keeping whichever name the file used (`lineOf` writes `directive` back).
  *
- * Not `cb`: that is `{column_break}` in the specification, and `comment_box` has no short
- * form at all. It stays an opaque directive, kept verbatim like the rest of the layout
- * ones. `chordpro.ts` carries the long version of this.
+ * `cb` joins them only when it has words: the reference implementation reads it as
+ * `comment_box`, the documentation also gives it to `column_break`, and a bare `{cb}` can
+ * only be the break — so it stays an opaque directive. `chordpro.ts` makes the same cut and
+ * carries the long version of this.
  */
 const COMMENT_NAMES = new Set(['c', 'comment', 'ci', 'comment_italic', 'comment_box', 'highlight'])
 
@@ -152,8 +153,15 @@ const BOUNDARIES: Record<string, { edge: 'start' | 'end'; section: SectionKind }
 
 /** The two verbatim blocks, and the end directives that close either of them. */
 const TAB_START_NAMES = new Set(['sot', 'start_of_tab'])
-const GRID_START_NAMES = new Set(['sog', 'start_of_grid'])
-const TAB_END_NAMES = new Set(['eot', 'end_of_tab', 'eog', 'end_of_grid'])
+/* `grille` is the reference implementation's older name for a grid. */
+const GRID_START_NAMES = new Set(['sog', 'start_of_grid', 'start_of_grille'])
+const TAB_END_NAMES = new Set(['eot', 'end_of_tab', 'eog', 'end_of_grid', 'end_of_grille'])
+/**
+ * The delegated environments (`{start_of_abc}` and the rest): verbatim like a tab, closed only
+ * by their own `{end_of_…}`. The reader draws them the same way (`chordpro.ts`' `DELEGATES`);
+ * read as lyrics, an ABC tune's `[CDE]` was a chord offered for editing.
+ */
+const DELEGATE_START = /^start_of_(abc|ly|svg|textblock|strum)$/
 
 /**
  * Splits one lyric line into plain text and the chords above it.
@@ -241,15 +249,18 @@ export function fromSource(source: string): SongDocument {
     if (directive) {
       const name = directive[1].toLowerCase()
 
-      if (TAB_START_NAMES.has(name) || GRID_START_NAMES.has(name)) {
+      const delegate = DELEGATE_START.exec(name)?.[1]
+      if (TAB_START_NAMES.has(name) || GRID_START_NAMES.has(name) || delegate !== undefined) {
         const rows: string[] = []
         let endDirective: string | null = null
         let endRaw: string | undefined
+        const closes = (innerName: string) =>
+          delegate !== undefined ? innerName === `end_of_${delegate}` : TAB_END_NAMES.has(innerName)
 
         for (i += 1; i < rawLines.length; i += 1) {
           const inner = rawLines[i]
           const innerDirective = DIRECTIVE.exec(inner.trim())
-          if (innerDirective && TAB_END_NAMES.has(innerDirective[1].toLowerCase())) {
+          if (innerDirective && closes(innerDirective[1].toLowerCase())) {
             endDirective = innerDirective[1]
             endRaw = inner
             break
@@ -274,13 +285,13 @@ export function fromSource(source: string): SongDocument {
           endDirective,
           ...(endRaw === undefined ? {} : { endRaw }),
           rows,
-          variant: GRID_START_NAMES.has(name) ? 'grid' : 'tab',
+          variant: delegate !== undefined ? 'delegate' : GRID_START_NAMES.has(name) ? 'grid' : 'tab',
         })
         if (trailingBlank) blocks.push({ kind: 'blank', raw: '' })
         continue
       }
 
-      if (COMMENT_NAMES.has(name)) {
+      if (COMMENT_NAMES.has(name) || (name === 'cb' && (directive[2] ?? '').trim() !== '')) {
         blocks.push({ kind: 'comment', directive: directive[1], text: directive[2] ?? '', raw: line })
         continue
       }
@@ -387,7 +398,15 @@ function lineOf(block: Block, eol: string): string {
             ? `{${block.startDirective}}`
             : `{${block.startDirective}: ${block.startValue}}`),
         ...block.rows,
-        block.endRaw ?? `{${block.endDirective ?? (block.variant === 'grid' ? 'end_of_grid' : 'end_of_tab')}}`,
+        block.endRaw ??
+          `{${
+            block.endDirective ??
+            (block.variant === 'grid'
+              ? 'end_of_grid'
+              : block.variant === 'delegate'
+                ? block.startDirective.replace(/^start_of_/i, 'end_of_')
+                : 'end_of_tab')
+          }}`,
       ].join(eol)
   }
 }

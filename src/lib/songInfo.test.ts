@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { parseChordPro } from './chordpro'
-import { songInfoRows } from './songInfo'
+import { readableDuration, songInfoRows } from './songInfo'
 
 const rowsFor = (body: string, artist: string | null = null) =>
   songInfoRows(parseChordPro(body), artist)
@@ -62,5 +62,19 @@ describe('songInfoRows', () => {
 
   it('spells the key exactly as the file does', () => {
     assert.deepEqual(rowsFor('{title: T}\n{key: Sib}\nword'), [{ label: 'Key', value: 'Sib' }])
+  })
+})
+
+describe('the info panel and the specification (2026-09-23)', () => {
+  it('shows a duration in seconds in readable form, as the specification asks', () => {
+    assert.equal(readableDuration('268'), '4:28')
+    assert.equal(readableDuration('3725'), '1:02:05')
+    assert.equal(readableDuration('4:28'), '4:28')
+    assert.equal(readableDuration('about four minutes'), 'about four minutes')
+  })
+
+  it('prints the arranger', () => {
+    const rows = songInfoRows(parseChordPro('{arranger: Rogier van Otterloo}\nx'), null)
+    assert.deepEqual(rows.find((row) => row.label === 'Arranger')?.value, 'Rogier van Otterloo')
   })
 })

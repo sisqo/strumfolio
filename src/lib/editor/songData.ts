@@ -44,9 +44,24 @@ const ALIAS: Record<string, string> = {
   tags: 'tag',
 }
 
+/**
+ * A directive's name and value, with `{meta: composer X}` read as `{composer: X}` — the
+ * format's generic spelling of every metadata item (`Directives-meta.md`), and the reader's
+ * reading of it. Until 2026-09-23 the form showed such a line as a field called «meta»
+ * holding «composer X», while the Composer field beside it stayed empty.
+ */
+function fieldParts(raw: string): { name: string; value: string } | null {
+  const parts = directiveParts(raw)
+  if (parts === null) return null
+  if (parts.name.toLowerCase() !== 'meta') return parts
+
+  const inner = /^([a-zA-Z_][a-zA-Z0-9_]*)\s+(.*)$/.exec(parts.value.trim())
+  return inner === null ? parts : { name: inner[1], value: inner[2] }
+}
+
 /** The name a written directive answers to here — its own, unless it is a known spelling of another. */
 export function fieldNameOf(raw: string): string | null {
-  const parts = directiveParts(raw)
+  const parts = fieldParts(raw)
   if (parts === null) return null
 
   const name = parts.name.toLowerCase()
@@ -105,6 +120,7 @@ export const DATA_GROUPS: GroupSpec[] = [
       { name: 'album', label: 'Album' },
       { name: 'composer', label: 'Composer' },
       { name: 'lyricist', label: 'Lyricist' },
+      { name: 'arranger', label: 'Arranger' },
       { name: 'year', label: 'Year' },
     ],
   },
@@ -147,6 +163,14 @@ export const DATA_GROUPS: GroupSpec[] = [
     ],
   },
 ]
+
+/**
+ * Fields a song may hold several of — «Multiple arrangers can be specified using multiple
+ * directives» (`Directives-arranger.md`), and the same for composers and lyricists. The reader
+ * joins them (`chordpro.ts`' `MULTI_VALUED`), so the form draws every line rather than only
+ * the first, and typing the name again adds one instead of going to the line already there.
+ */
+export const MULTI_FIELDS = new Set(['composer', 'lyricist', 'arranger'])
 
 /** Every name the groups claim, so «anything else» knows what is left. */
 const CLAIMED = new Set(DATA_GROUPS.flatMap((group) => group.fields.map((field) => field.name)))
@@ -246,7 +270,7 @@ export interface SongData {
 
 function valueOf(block: Block): string {
   if (block.kind !== 'directive') return ''
-  return directiveParts(block.raw)?.value ?? ''
+  return fieldParts(block.raw)?.value ?? ''
 }
 
 /** Reads the whole form off one document. */
@@ -284,9 +308,10 @@ export function readSongData(document: SongDocument): SongData {
     const first = group.fields[0]!
 
     const rows: DataRow[] = group.fields.flatMap((field) =>
-      // Every line for a repeat group; the first for a single one, which is the line a
-      // reader's parser takes too, so the form edits what is actually in force.
-      (group.kind === 'repeat'
+      // Every line for a repeat group and for a field the format lets a song hold more than
+      // one of; the first for any other, which is the line a reader's parser takes too, so
+      // the form edits what is actually in force.
+      (group.kind === 'repeat' || MULTI_FIELDS.has(field.name)
         ? (found.get(field.name) ?? [])
         : (found.get(field.name) ?? []).slice(0, 1)
       ).map((index) => ({
@@ -361,8 +386,14 @@ export function setSongField(
   const existing = document.blocks[block]
   if (existing === undefined || existing.kind !== 'directive') return document
 
+  /* A `{meta: …}` line stays one when its value is edited: `{meta: mood happy}` rewritten as
+     `{mood: …}` would turn a metadata item into a directive nobody defines. */
+  const isMeta = directiveParts(existing.raw)?.name.toLowerCase() === 'meta'
   const blocks = [...document.blocks]
-  blocks[block] = { kind: 'directive', raw: directiveLine(name, value) }
+  blocks[block] = {
+    kind: 'directive',
+    raw: isMeta ? directiveLine('meta', value.trim() === '' ? name : `${name} ${value}`) : directiveLine(name, value),
+  }
   return { ...document, blocks }
 }
 
@@ -429,7 +460,7 @@ export function typedField(document: SongDocument, typed: string): TypedField | 
   const group = DATA_GROUPS.find((one) => one.fields.some((field) => field.name === name))
 
   if (group !== undefined) {
-    if (group.kind === 'repeat') return { add: name }
+    if (group.kind === 'repeat' || MULTI_FIELDS.has(name)) return { add: name }
 
     const drawn = data.groups.flatMap((one) => one.rows).find((row) => row.name === name)
     return drawn === undefined ? { add: name } : { focus: drawn.block }

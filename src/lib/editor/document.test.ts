@@ -419,3 +419,28 @@ describe('a tab block, byte for byte', () => {
     assert.equal(toSource(fromSource('{sot}\n--0--\n')), '{sot}\n--0--\n{end_of_tab}\n')
   })
 })
+
+describe('ChordPro conformance in the editor (2026-09-23)', () => {
+  /* The reader's cut, made the same way: with words `cb` is a boxed comment. */
+  it('reads {cb: …} as a comment and a bare {cb} as a directive', () => {
+    assert.equal(fromSource('{cb: Palm mute}').blocks[0].kind, 'comment')
+    assert.equal(fromSource('{cb}').blocks[0].kind, 'directive')
+  })
+
+  it('keeps a delegated environment verbatim, closed only by its own end', () => {
+    const source = '{start_of_abc}\nX:1\n[CDE]\n{end_of_tab}\n{end_of_abc}'
+    const { blocks } = fromSource(source)
+    assert.deepEqual(blocks.map((block) => block.kind), ['tab'])
+    assert.equal(toSource(fromSource(source)), source)
+  })
+
+  it('closes an unclosed delegated environment with its own name', () => {
+    assert.equal(toSource(fromSource('{start_of_ly}\n\\relative c')), '{start_of_ly}\n\\relative c\n{end_of_ly}')
+  })
+
+  it('reads grille as a grid', () => {
+    const source = '{start_of_grille}\n| C . |\n{end_of_grille}'
+    assert.equal(fromSource(source).blocks[0].kind, 'tab')
+    assert.equal(toSource(fromSource(source)), source)
+  })
+})

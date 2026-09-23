@@ -122,9 +122,10 @@ const OVERRIDES: Record<Dialect, Record<string, Field | null>> = {
     f: null,
     gc: null,
     /*
-     * A column break, which is what the specification says and what a plain ChordPro file
-     * means by it — not a comment. Read as one it was matched to a field nothing stores and
-     * deleted from the body; `chordpro.ts` carries the long version of this collision.
+     * Kept in the body, never matched to a field. The reference implementation reads `cb` as
+     * `comment_box` and the documentation also gives it to `column_break`; the reader draws
+     * `{cb: …}` with words as a boxed comment and ignores a bare `{cb}` (`chordpro.ts`). Either
+     * way the line is the only copy, so it stays.
      */
     cb: null,
     book: null,

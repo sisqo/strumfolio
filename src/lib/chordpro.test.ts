@@ -9,8 +9,10 @@ import {
   plainLyrics,
   readDefinition,
   selectorMatches,
+  readLabel,
   visibleSections,
 } from './chordpro'
+import { buildAnchorMap as buildAnchorMapFor } from './comments/anchorMap'
 import { blockStartLines, fromSource, readLyricLine, toSource, writeLyricLine } from './editor/document'
 import { deduce } from './import/deduce'
 import { setLineText } from './editor/edits'
@@ -841,6 +843,13 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'an annotation': '{title: T}\n[*Solo] [Am]word\nsecond',
     'a verse marked by hand': '{title: T}\n{sov}\none\n\ntwo\n{eov}',
     'an escaped bracket': '{title: T}\nsay \\[this\\]\nsecond',
+    'a boxed comment spelt cb': '{title: T}\n{cb: Palm mute}\nword\n{cb}\nsecond',
+    'markup across words': '{title: T}\na <b>bold [C]words</b> end\nsecond',
+    'a unicode escape': '{title: T}\ncaf\\u00e9 [C]bar\nsecond',
+    'a grille': '{title: T}\n{start_of_grille}\n| C . |\n{end_of_grille}\nword',
+    'a delegated environment': '{title: T}\n{start_of_abc}\nX:1\n[CDE]\n{end_of_abc}\nword',
+    'an unclosed delegated environment': '{title: T}\nword\n{start_of_ly}\n\\relative c',
+    'a labelled chorus recall': '{title: T}\n{soc}\nsung\n{eoc}\n{chorus: label="Final"}',
   }
 
   /*
@@ -922,6 +931,7 @@ describe('metadata the app shows and does not act on', () => {
       copyright: '(c) 1979 Qualcuno',
       duration: '3:40',
       ccli: '22025',
+      arranger: null,
       sortTitle: 'T, La',
       sortArtist: 'Suona, Chi',
     })
@@ -1058,5 +1068,93 @@ describe('edge cases the reader and the editor must agree on (2026-09-22)', () =
     const source = toSource(setLineText(fromSource('la la'), 0, '# hi'))
     assert.equal(source, '\\# hi')
     assert.equal(parseChordPro(source).sections.length, 1)
+  })
+})
+
+/*
+ * Conformance with the ChordPro specification, checked against the reference implementation
+ * (`Song.pm`) and its documentation on 2026-09-23. Each of these was wrong before that day.
+ */
+describe('ChordPro conformance (2026-09-23)', () => {
+  const drawn = (source: string, instrument = 'guitar') =>
+    visibleSections(parseChordPro(source).sections, instrument).flatMap((section) =>
+      section.lines.map((line) =>
+        line.kind === 'lyrics'
+          ? line.words.map((word) => word.parts.map((part) => part.text).join('')).join(' ')
+          : line.kind === 'comment'
+            ? `(${line.style}) ${line.text}`
+            : `${line.kind}:${line.variant ?? 'tab'}${line.delegate ? `:${line.delegate}` : ''}`,
+      ),
+    )
+
+  /* `cb` is comment_box in the reference; bare, it can only be the column break. */
+  it('reads {cb: …} as a boxed comment and a bare {cb} as nothing', () => {
+    assert.deepEqual(drawn('{cb: Palm mute}\nword'), ['(box) Palm mute', 'word'])
+    assert.deepEqual(drawn('{cb}\nword'), ['word'])
+  })
+
+  it('reads a label in the attribute spelling, with its line breaks', () => {
+    assert.deepEqual(drawn('{start_of_verse: label="Verse 1"}\nx\n{end_of_verse}'), ['(plain) Verse 1', 'x'])
+    assert.deepEqual(drawn("{start_of_solo: label='Solo'}\nx\n{end_of_solo}"), ['(plain) Solo', 'x'])
+    assert.deepEqual(drawn('{start_of_verse: label="Verse 1\\nAll"}\nx\n{end_of_verse}'), ['(plain) Verse 1\nAll', 'x'])
+    assert.equal(readLabel('Verse 1'), 'Verse 1')
+    assert.equal(readLabel('other="x"'), '')
+  })
+
+  /* The argument of {chorus} is a label for the recall, per `Directives-chorus.md`. */
+  it('repeats the last chorus under the label {chorus: …} gives it', () => {
+    assert.deepEqual(drawn('{soc}\nsung\n{eoc}\n{chorus: Final}'), ['sung', '(plain) Final', 'sung'])
+    assert.deepEqual(drawn('{soc}\nsung\n{eoc}\n{chorus: label="Final"}'), ['sung', '(plain) Final', 'sung'])
+    // A chorus this app named itself is still picked by name.
+    assert.deepEqual(drawn('{soc: A}\none\n{eoc}\n{soc}\ntwo\n{eoc}\n{chorus: A}'), ['(plain) A', 'one', 'two', '(plain) A', 'one'])
+  })
+
+  it('reads grille as a grid and the delegated environments verbatim', () => {
+    assert.deepEqual(drawn('{start_of_grille}\n| C . |\n{end_of_grille}'), ['tab:grid'])
+    assert.deepEqual(drawn('{start_of_abc}\nX:1\n[CDE]\n{end_of_tab}\n{end_of_abc}\nword'), ['tab:delegate:abc', 'word'])
+    for (const delegate of ['ly', 'svg', 'textblock', 'strum']) {
+      assert.deepEqual(drawn(`{start_of_${delegate}}\n[x] y\n{end_of_${delegate}}`), [`tab:delegate:${delegate}`], delegate)
+    }
+  })
+
+  it('reads arranger, and keeps every composer, lyricist and arranger', () => {
+    const song = parseChordPro('{composer: A}\n{meta: composer B}\n{arranger: C}\n{arranger: D}\n{composer: A}\nx')
+    assert.equal(song.metadata.composer, 'A; B')
+    assert.equal(song.metadata.arranger, 'C; D')
+  })
+
+  /* A key, time or tempo «applies from where it was specified»: the song's is the first. */
+  it('takes the first key, time, tempo and capo as the song own', () => {
+    const song = parseChordPro('{key: G}\n{time: 3/4}\n{tempo: 80}\n{capo: 1}\nx\n{key: A}\n{time: 4/4}\n{tempo: 120}\n{capo: 3}\ny')
+    assert.equal(song.key, 'G')
+    assert.equal(song.beatsPerBar, 3)
+    assert.equal(song.tempo, 80)
+    assert.equal(song.capo, 1)
+  })
+
+  it('draws markup rather than printing its tags, and keeps the plain words for everything else', () => {
+    const line = parseChordPro('a <b>bold words</b> [<i>C</i>]end').sections[0].lines[0]
+    assert.ok(line.kind === 'lyrics')
+    assert.deepEqual(line.words.map((word) => word.parts.map((part) => part.text).join('')), ['a', 'bold', 'words', 'end'])
+    assert.deepEqual(line.words[1].parts[0].runs, [{ text: 'bold', style: { bold: true } }])
+    assert.equal(line.words[3].parts[0].chord, 'C')
+  })
+
+  it('reads \\uXXXX as the character it names, in words and in directives', () => {
+    assert.deepEqual(drawn('caf\\u00e9 bar\n{c: \\u00e8 qui}'), ['café bar', '(plain) è qui'])
+    assert.deepEqual(drawn('not \\u00zz'), ['not \\u00zz'])
+  })
+
+  /* Tags and escapes are source the reader does not draw: notes must still land on the word. */
+  it('anchors words past markup and escapes where the editor puts them', () => {
+    for (const [source, expected] of [
+      ['<b>uno</b> due', [3, 11]],
+      ['caf\\u00e9 [C]due', [0, 10]],
+    ] as const) {
+      const parsed = parseChordPro(source)
+      const line = parsed.sections[0].lines[0]
+      const anchors = buildAnchorMapFor(parsed.sections, source).get(line)!
+      assert.deepEqual(anchors.flat().map((anchor) => anchor?.charOffset), expected, source)
+    }
   })
 })

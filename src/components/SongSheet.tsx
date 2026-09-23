@@ -20,6 +20,7 @@ import {
 import { readShift } from '@/lib/music/capo'
 import type { MetadataValues } from '@/lib/chordproMeta'
 import { substituteMetadata } from '@/lib/chordproMeta'
+import type { Run } from '@/lib/markup'
 import { resolvedCapo, resolvedSemitones } from '@/lib/prefs/resolve'
 import { spellingFor } from '@/lib/music/key'
 import { type ChordShape, type Instrument, fingeringText, pickShape } from '@/lib/music/shapes'
@@ -506,7 +507,7 @@ function SheetLine({
 
     return (
       <p className={framed ? `sheet-comment is-${line.style}` : 'sheet-comment'}>
-        {substituteMetadata(line.text, values)}
+        <Styled runs={line.runs} text={substituteMetadata(line.text, values)} values={values} />
       </p>
     )
   }
@@ -530,14 +531,10 @@ function SheetLine({
           className="sheet-tab-toggle"
           onClick={onToggleTabs}
           aria-expanded={tabsExpanded}
-          title={
-            tabsExpanded
-              ? `Hide the ${line.variant === 'grid' ? 'grid' : 'tab'}`
-              : `Show the ${line.variant === 'grid' ? 'grid' : 'tab'}`
-          }
+          title={tabsExpanded ? `Hide the ${verbatimName(line).toLowerCase()}` : `Show the ${verbatimName(line).toLowerCase()}`}
         >
           <IconTab size={14} />
-          {line.variant === 'grid' ? 'Grid' : 'Tab'}
+          {verbatimName(line)}
           {tabsExpanded ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
         </button>
         {tabsExpanded && <pre className="sheet-tab">{line.rows.join('\n')}</pre>}
@@ -635,12 +632,12 @@ function SheetLine({
                       }
                       aria-label={`Add a note on ${text}`}
                     >
-                      {text === '' ? BLANK : text}
+                      {text === '' ? BLANK : <Styled runs={part.runs} text={text} values={values} />}
                       {badges}
                     </button>
                   ) : (
                     <span className={lyric !== null && lyric.ids.length > 0 ? 'sheet-lyric is-noted' : 'sheet-lyric'}>
-                      {text === '' ? BLANK : text}
+                      {text === '' && part.runs === undefined ? BLANK : <Styled runs={part.runs} text={text} values={values} />}
                       {badges}
                     </span>
                   )}
@@ -651,6 +648,48 @@ function SheetLine({
         </Fragment>
       ))}
     </p>
+  )
+}
+
+/**
+ * What a verbatim block is called on its toggle. A delegated environment is named for the
+ * language its source is in, since that is what somebody opening it will find.
+ */
+const DELEGATE_NAMES: Record<string, string> = {
+  abc: 'ABC notation',
+  ly: 'LilyPond',
+  svg: 'SVG',
+  textblock: 'Text',
+  strum: 'Strum pattern',
+}
+
+function verbatimName(line: Extract<Line, { kind: 'tab' }>): string {
+  if (line.variant === 'delegate') return DELEGATE_NAMES[line.delegate ?? ''] ?? 'Block'
+  return line.variant === 'grid' ? 'Grid' : 'Tab'
+}
+
+/**
+ * Text with the file's markup drawn — bold, italic and the rest (`lib/markup.ts`). Without
+ * runs it is the plain text; with them, each run in its own style, and `%{…}` resolved inside
+ * each run exactly as it is in plain text.
+ */
+function Styled({ runs, text, values }: { runs?: Run[]; text: string; values: MetadataValues }) {
+  if (runs === undefined) return <>{text}</>
+  return (
+    <>
+      {runs.map((run, index) => {
+        if (run.symbol !== undefined) return <span key={index} className="markup-sym">{run.symbol}</span>
+        const content = substituteMetadata(run.text, values)
+        const classes = Object.keys(run.style).map((name) => `markup-${name}`)
+        if (classes.length === 0) return <Fragment key={index}>{content}</Fragment>
+        const Tag = run.style.sup ? 'sup' : run.style.sub ? 'sub' : 'span'
+        return (
+          <Tag key={index} className={classes.join(' ')}>
+            {content}
+          </Tag>
+        )
+      })}
+    </>
   )
 }
 

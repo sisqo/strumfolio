@@ -548,7 +548,22 @@
     font-size: 0.8em;
     font-style: italic;
     margin: 0.6em 0 0.3em;
+    /* A label may carry `\n` for a line break (`{start_of_verse: label="Verse 1\nAll"}`). */
+    white-space: pre-line;
   }
+
+  /* ChordPro markup in lyrics and comments (`lib/markup.ts`). Sizes are relative, so a run
+     keeps following the reader's zoom. */
+  .markup-bold { font-weight: 700; }
+  .markup-italic { font-style: italic; }
+  .markup-underline { text-decoration: underline; }
+  .markup-strike { text-decoration: line-through; }
+  .markup-underline.markup-strike { text-decoration: underline line-through; }
+  .markup-big { font-size: 1.2em; }
+  .markup-small { font-size: 0.85em; }
+  .markup-mono { font-family: var(--font-mono); }
+  .markup-sup,
+  .markup-sub { font-size: 0.75em; line-height: 0; }
 
   .sheet-comment.is-box,
   .sheet-comment.is-highlight {

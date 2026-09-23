@@ -53,9 +53,10 @@ export function songInfoRows(song: ParsedSong, artist: string | null): InfoRow[]
 
   add('Composer', song.metadata.composer)
   add('Lyricist', song.metadata.lyricist)
+  add('Arranger', song.metadata.arranger)
   add('Album', song.metadata.album)
   add('Year', song.metadata.year)
-  add('Duration', song.metadata.duration)
+  add('Duration', readableDuration(song.metadata.duration))
   add('CCLI', song.metadata.ccli)
   add('Copyright', song.metadata.copyright)
 
@@ -68,4 +69,18 @@ export function songInfoRows(song: ParsedSong, artist: string | null): InfoRow[]
   add('Artist sorts as', song.metadata.sortArtist)
 
   return rows
+}
+
+/**
+ * A duration as the specification says it is shown — «always … in readable format»
+ * (`Directives-duration.md`): `268` seconds is `4:28`. A value already written as a time, or
+ * one that is not a number at all, is printed as the file spells it.
+ */
+export function readableDuration(value: string | null): string | null {
+  if (value === null || !/^\d+$/.test(value.trim())) return value
+  const seconds = Number(value.trim())
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const rest = String(seconds % 60).padStart(2, '0')
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${rest}` : `${minutes}:${rest}`
 }

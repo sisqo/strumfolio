@@ -33,7 +33,7 @@ import type { Line, Section } from '../chordpro'
  * its neighbour.
  */
 export function lineWeight(line: Line, roomForChords: boolean): number {
-  if (line.kind === 'tab') return Math.max(1, line.rows.length) * 10.5
+  if (line.kind === 'tab') return printsVerbatim(line) ? Math.max(1, line.rows.length) * 10.5 : 0
   if (line.kind === 'comment') return 16
   return roomForChords ? 29 : 17
 }
@@ -236,4 +236,14 @@ export function splitRowsForColumns<T>(rows: FlatRow<T>[]): [FlatRow<T>[], FlatR
   let cut = balancedCut(rows.map(() => 1))
   if (cut < rows.length && rows[cut - 1]?.kind === 'header') cut += 1
   return [rows.slice(0, cut), rows.slice(cut)]
+}
+
+/**
+ * Whether a verbatim block is printed. A tab, a grid and a `{start_of_textblock}` are text a
+ * musician reads; ABC, LilyPond, SVG and strum sources are code for another program, which
+ * this booklet does not run, and a page of it helps nobody at a music stand. They stay on the
+ * screen (folded) and in the file.
+ */
+export function printsVerbatim(line: { variant?: string; delegate?: string }): boolean {
+  return line.variant !== 'delegate' || line.delegate === 'textblock'
 }

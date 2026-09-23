@@ -152,10 +152,22 @@ Was [Em]blind, but [D]now I [G]see.
           <strong>Everything else the format defines is kept and shown</strong> in the
           &quot;About this song&quot; panel, behind a tap beside the artist:{' '}
           <code>{'{album}'}</code>, <code>{'{composer}'}</code>, <code>{'{lyricist}'}</code>,{' '}
-          <code>{'{year}'}</code>, <code>{'{copyright}'}</code>, <code>{'{duration}'}</code>,{' '}
-          <code>{'{ccli}'}</code>, <code>{'{subtitle}'}</code> and the two sorting keys{' '}
-          <code>{'{sorttitle}'}</code> and <code>{'{sortartist}'}</code>. Behind a tap because
-          none of them is wanted mid-song, and the words need the room.
+          <code>{'{arranger}'}</code>, <code>{'{year}'}</code>, <code>{'{copyright}'}</code>,{' '}
+          <code>{'{duration}'}</code>, <code>{'{ccli}'}</code>, <code>{'{subtitle}'}</code> and
+          the two sorting keys <code>{'{sorttitle}'}</code> and <code>{'{sortartist}'}</code>.
+          Behind a tap because none of them is wanted mid-song, and the words need the room. A
+          duration in seconds is shown as minutes — <code>{'{duration: 268}'}</code> reads 4:28.
+        </p>
+        <p>
+          <strong>Composers, lyricists and arrangers may repeat</strong>, one per line, and every
+          one is kept: <code>{'{composer: John Lennon}'}</code> then{' '}
+          <code>{'{composer: Paul McCartney}'}</code>. Everything else is one value per song, and
+          where a file says one twice the first is the song&apos;s — a second{' '}
+          <code>{'{key}'}</code>, <code>{'{time}'}</code> or <code>{'{tempo}'}</code> is a change
+          partway through, and the song is labelled with the one it opens with. (What a second{' '}
+          <code>{'{transpose}'}</code> does is still being worked out.) A{' '}
+          <code>{'{meta: name value}'}</code> with a name nobody here knows is kept in the file
+          under its own name, and the song-data form shows it under &quot;Anything else&quot;.
         </p>
         <p>
           <strong><code>{'{key: ...}'}</code></strong> is the one that also does something: it
@@ -186,12 +198,48 @@ Was [Em]blind, but [D]now I [G]see.
           was drawn for the chord it used to be.
         </p>
         <p>
-          Everything that is left is the typesetting a printed songbook needs —{' '}
-          <code>{'{textfont}'}</code>, <code>{'{columns}'}</code>, <code>{'{new_page}'}</code>,{' '}
-          <code>{'{column_break}'}</code>, <code>{'{image}'}</code> and the rest. Strumfolio lays
-          a song out for a phone on a stand and has no page to break, so it reads them and draws
+          Everything that is left is the typesetting a printed songbook needs. Strumfolio lays a
+          song out for a phone on a stand and has no page to break, so it reads these and draws
           nothing. <strong>Ignored is not lost</strong>: the editor keeps every one of them
-          verbatim, so a file that arrives carrying them leaves carrying them.
+          verbatim, so a file that arrives carrying them leaves carrying them. The whole list:
+        </p>
+        <ul>
+          <li>
+            Fonts, sizes and colours, for text, chords, the chorus, the title, tabs, grids,
+            labels, the footer and the table of contents —{' '}
+            <code>{'{textfont}'}</code> (<code>{'{tf}'}</code>), <code>{'{textsize}'}</code>{' '}
+            (<code>{'{ts}'}</code>), <code>{'{textcolour}'}</code>, <code>{'{chordfont}'}</code>{' '}
+            (<code>{'{cf}'}</code>), <code>{'{chordsize}'}</code> (<code>{'{cs}'}</code>),{' '}
+            <code>{'{chordcolour}'}</code>, and the same three for <code>chorus</code>,{' '}
+            <code>title</code>, <code>tab</code>, <code>grid</code>, <code>label</code>,{' '}
+            <code>footer</code> and <code>toc</code> (<code>{'{titlefont}'}</code>,{' '}
+            <code>{'{tabsize}'}</code>, <code>{'{toccolour}'}</code>…), in either spelling of
+            colour.
+          </li>
+          <li>
+            Pages and columns — <code>{'{new_page}'}</code> (<code>{'{np}'}</code>),{' '}
+            <code>{'{new_physical_page}'}</code> (<code>{'{npp}'}</code>),{' '}
+            <code>{'{column_break}'}</code> (<code>{'{colb}'}</code>, and a bare{' '}
+            <code>{'{cb}'}</code>), <code>{'{columns}'}</code> (<code>{'{col}'}</code>) and{' '}
+            <code>{'{pagetype}'}</code>.
+          </li>
+          <li>
+            Diagrams and titles — <code>{'{diagrams}'}</code>, <code>{'{grid}'}</code>{' '}
+            (<code>{'{g}'}</code>), <code>{'{no_grid}'}</code> (<code>{'{ng}'}</code>) and{' '}
+            <code>{'{titles}'}</code>.
+          </li>
+          <li>
+            <code>{'{image: src=...}'}</code> — there is nowhere here for the picture to come
+            from, so the line is kept and nothing is drawn.
+          </li>
+          <li>
+            <code>{'{x_...}'}</code> — any directive starting <code>x_</code> belongs to some
+            program&apos;s own extensions, which the format asks everybody else to leave alone.
+          </li>
+        </ul>
+        <p>
+          And <code>{'{new_song}'}</code> (<code>{'{ns}'}</code>) is what separates songs in a
+          file that holds several — see the end of this page.
         </p>
 
         <h2>Chords</h2>
@@ -226,8 +274,10 @@ Was [Em]blind, but [D]now I [G]see.
             between the lines. Good for &quot;intro&quot;, &quot;x2&quot;, stage directions.{' '}
             <code>{'{comment_italic}'}</code> and <code>{'{ci}'}</code> read the same way, since
             an aside here is already set in italics. <code>{'{comment_box}'}</code> draws a box
-            around it and <code>{'{highlight}'}</code> picks it out in colour. Not{' '}
-            <code>{'{cb}'}</code>, which is a column break and not a comment at all.
+            around it and <code>{'{highlight}'}</code> picks it out in colour.{' '}
+            <code>{'{cb: ...}'}</code> is the short form of <code>{'{comment_box}'}</code>; a bare{' '}
+            <code>{'{cb}'}</code>, with nothing to say, is read as a column break, since the
+            format&apos;s own documentation gives the abbreviation to both.
           </li>
           <li>
             <code>{'{start_of_chorus}'}</code> … <code>{'{end_of_chorus}'}</code> (or{' '}
@@ -248,15 +298,19 @@ Was [Em]blind, but [D]now I [G]see.
             don&apos;t know by heart is worth more than the word &quot;Chorus&quot;. Name one to
             repeat a particular chorus — <code>{'{start_of_chorus: Final}'}</code> further up,
             then <code>{'{chorus: Final}'}</code> — and with no name it repeats the last chorus
-            seen. A <code>{'{chorus}'}</code> in a file that never opened one prints the word,
-            since that is all there is to say.
+            seen. Give it a label — <code>{'{chorus: Last time}'}</code>, or{' '}
+            <code>{'{chorus: label="Last time"}'}</code> — and the last chorus is repeated under
+            that label, as the format says. A <code>{'{chorus}'}</code> in a file that never
+            opened one prints the word, since that is all there is to say.
           </li>
           <li>
             Any other <code>{'{start_of_...}'}</code> … <code>{'{end_of_...}'}</code> pair —{' '}
             <code>{'{start_of_solo}'}</code>, <code>{'{start_of_intro}'}</code> — is kept, and the
             block prints its own name above it. It reads as a verse, since those three are the only
-            kinds Strumfolio draws differently. Naming one — <code>{'{start_of_chorus: Chorus 2}'}</code>{' '}
-            — prints that name instead.
+            kinds Strumfolio draws differently. Naming one — <code>{'{start_of_chorus: Chorus 2}'}</code>,
+            or the spelling the format recommends, <code>{'{start_of_chorus: label="Chorus 2"}'}</code>{' '}
+            — prints that name instead, and a <code>\n</code> inside a label breaks it onto a
+            second line.
           </li>
           <li>
             <code>{'{start_of_tab}'}</code> … <code>{'{end_of_tab}'}</code> (or <code>{'{sot}'}</code>{' '}
@@ -267,7 +321,18 @@ Was [Em]blind, but [D]now I [G]see.
             <code>{'{start_of_grid}'}</code> … <code>{'{end_of_grid}'}</code> (or{' '}
             <code>{'{sog}'}</code> … <code>{'{eog}'}</code>) — a chord grid,{' '}
             <code>| Am . . . | F . . . |</code>. Treated exactly like a tab, because what both need
-            is the same: every column left where it was put.
+            is the same: every column left where it was put. <code>{'{start_of_grille}'}</code>,
+            an older name for the same thing, is read as one.
+          </li>
+          <li>
+            <code>{'{start_of_abc}'}</code>, <code>{'{start_of_ly}'}</code>,{' '}
+            <code>{'{start_of_svg}'}</code>, <code>{'{start_of_textblock}'}</code> and{' '}
+            <code>{'{start_of_strum}'}</code>, each closed by its own <code>{'{end_of_...}'}</code>{' '}
+            — blocks the format hands to another program: ABC notation, LilyPond, an SVG drawing,
+            a block of text, a strumming pattern. Strumfolio doesn&apos;t render those languages,
+            so it keeps the source verbatim, folded like a tab under the name of what it is, and
+            never reads it for chords. The printed booklet leaves the code out and prints only a
+            text block.
           </li>
         </ul>
 
@@ -308,7 +373,20 @@ Was [Em]blind, but [D]now I [G]see.
             A backslash makes the next character literal, for the five that mean something:{' '}
             <code>\[</code>, <code>\]</code>, <code>\{'{'}</code>, <code>\{'}'}</code>,{' '}
             <code>\#</code> and <code>\\</code> itself. A backslash in front of anything else
-            stays a backslash.
+            stays a backslash. <code>\u00e9</code> — a backslash, a <code>u</code> and four hex
+            digits — is the character it names, for one a keyboard can&apos;t type.
+          </li>
+          <li>
+            The format&apos;s markup works in the words, in chords and in comments:{' '}
+            <code>{'<b>'}</code> bold, <code>{'<i>'}</code> italic, <code>{'<u>'}</code>{' '}
+            underlined, <code>{'<s>'}</code> struck through, <code>{'<sup>'}</code> and{' '}
+            <code>{'<sub>'}</code>, <code>{'<big>'}</code> and <code>{'<small>'}</code>,{' '}
+            <code>{'<tt>'}</code> for monospace, a <code>{'<span>'}</code> for the same things
+            by attribute (<code>{'<span weight="bold">'}</code>), and{' '}
+            <code>{'<sym name="sharp"/>'}</code> for a symbol. Colours and fonts in a span are
+            left to a typesetter, but the words inside are never lost. Only those tags are
+            markup: a <code>{'<'}</code> that starts anything else — <code>a {'<'} b</code> — is
+            an ordinary character.
           </li>
           <li>
             A backslash at the <em>end</em> of a line continues that line onto the next one, so a

@@ -124,6 +124,7 @@ import {
   fragmentSections,
   lastPageCut,
   regroupRows,
+  printsVerbatim,
   sectionWeight,
   splitRowsForColumns,
 } from './layout'
@@ -850,6 +851,7 @@ function BookletLine({
   }
 
   if (line.kind === 'tab') {
+    if (!printsVerbatim(line)) return null
     return (
       <>
         {line.rows.map((row, index) => (

@@ -214,7 +214,7 @@ used by the form *and* by the editor's directive rows, which had the same bug.
 |---|---|---|
 | Column, stripped from the body, rewritten on export | `title` `artist` `songbook` `division` | `songs.*` |
 | Body, reread every time the song opens | `tempo` `time` `capo` `transpose` `key` `tag` `define` | no column, by decision |
-| Body, shown and never acted on | `album` `composer` `lyricist` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
+| Body, shown and never acted on | `album` `composer` `lyricist` `arranger` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
 | Body, kept and never shown to a reader | the ~30 typesetting directives | editor only, graphic and raw |
 
 - **`{key}` beats `estimateKey`**, reversing what `import/CLAUDE.md` calls «archival only».
@@ -268,6 +268,43 @@ used by the form *and* by the editor's directive rows, which had the same bug.
   `highlight` asked for a frame and now get one. Every comment this app generates — a section
   label, `{chorus}`, a tab's name — is `plain`.
 
+**Conformance was checked against the reference implementation on 2026-09-23**, not against
+the website alone: the ChordPro repository (`lib/ChordPro/Song.pm`'s directive and abbreviation
+tables, `res/config/chordpro.json`'s metadata keys and delegates, `docs/content/*.md`) was read
+and every directive and syntax form in it probed through the reader, the editor round trip, the
+importer and this guide. The documentation contradicts itself in places and the code decides.
+What that changed, each held by a test in `chordpro.test.ts` («ChordPro conformance»):
+
+- **`cb` is `comment_box` when it has words, and a column break when bare.** `Song.pm` maps
+  `cb` → `comment_box` and `colb` → `column_break`; `Directives-column_break.md` also claims
+  `cb`. This app had taken the column-break reading, so `{cb: Palm mute}` vanished from the
+  screen. Both parsers make the same cut (`COMMENT_STYLE`, `COMMENT_NAMES`).
+- **Labels take the attribute spelling** the spec recommends — `{start_of_verse:
+  label="Verse 1"}`, `{chorus: label="Final"}` — and `\n` inside one breaks the line
+  (`readLabel`). The attribute form used to be printed as it stood.
+- **`{chorus: Final}` repeats the last chorus under that label** (`Directives-chorus.md`). A
+  label naming a chorus this app has seen still picks that one; one that names none used to
+  print the word and repeat nothing.
+- **`arranger` is standard metadata** (in the reference's `metadata.keys`), and `composer`,
+  `lyricist`, `arranger` keep every value, joined with `; ` as the reference does
+  (`MULTI_VALUED`); the song-data form draws each line (`MULTI_FIELDS`). **Every other
+  single-valued item takes the first occurrence**, `key`/`time`/`tempo`/`capo` included — the
+  spec says each «applies from where it was specified», so the song's own is the one it opens
+  with. **`{transpose}` was deliberately left out**: what a mid-song one means is an open
+  decision, to be settled in a session of its own.
+- **The delegated environments** (`abc`, `ly`, `svg`, `textblock`, `strum`) are verbatim
+  blocks closed only by their own `{end_of_…}` — `variant: 'delegate'` in both parsers — folded
+  on screen under the language's name, and left out of the printed booklet except `textblock`
+  (`printsVerbatim`). `{start_of_grille}` is a grid.
+- **Markup is drawn, never printed as tags** (`lib/markup.ts`): the part's `text` is plain
+  and its style rides in `runs`, so width, search, the booklet and the anchors see no tags; the
+  anchor walker skips tags and counts `\uXXXX` as one drawn character. Only the tags the format
+  defines are markup — `a < b` stays text.
+- **`\uXXXX`** is the character it names, in lyrics and directive values.
+- **`{duration: 268}` is shown as `4:28`** (`readableDuration`), as the spec requires.
+- **The song-data form reads `{meta: composer X}` as the Composer field** and keeps a meta line
+  a meta line when edited (`fieldParts`).
+
 What is deliberately **not** followed, each argued where it lives rather than here:
 
 - **`{st}`/`{subtitle}` is the artist**, which is OnSong's convention and not the
@@ -284,8 +321,9 @@ What is deliberately **not** followed, each argued where it lives rather than he
 - **`{chorus}` replays the stanza, and the repeated lines carry no `sourceLines`.** That is
   what made it safe: a line with no source resolves to no anchors, so a reader's note stays on
   the stanza they put it on instead of being duplicated onto the repeat. It reads the last
-  chorus seen, or a named one (`{start_of_chorus: Final}` … `{chorus: Final}`), and falls back
-  to printing the word where a file references a chorus it never opened. Until 2026-09-19 it
+  chorus seen, or a named one (`{start_of_chorus: Final}` … `{chorus: Final}`), repeats the last
+  one under the label when the name matches none, and falls back to printing the word where a
+  file references a chorus it never opened. Until 2026-09-19 it
   printed the reference, and the reason was exactly this anchoring problem.
 - **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
   stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new

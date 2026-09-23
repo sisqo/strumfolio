@@ -50,10 +50,18 @@
  */
 
 import { metadataValues, placeholderAt, substituteMetadata } from './chordproMeta'
+import { MarkupState, type Run, isStyled, markupRuns, markupTagAt, sameStyle, stripMarkup } from './markup'
 import { MAX_CAPO } from './music/capo'
 import { parseTimeSignature, readBpm } from './metronome/tempo'
 
 export interface Part {
+  /**
+   * The part's text as styled runs, present only when markup (`<b>`, `<i>`, `<sym/>`…)
+   * touches it — `markup.ts`. `text` is always the plain words with every tag taken out, so
+   * width, search, the booklet and the note anchors never see a tag; a renderer that can
+   * draw styles reads this instead.
+   */
+  runs?: Run[]
   /**
    * Raw chord token from the source, still in international notation — or, when
    * `annotation` is true, the annotation's text with its leading `*` already removed.
@@ -116,7 +124,10 @@ export type Line =
     }
   | {
       kind: 'comment'
+      /** Plain text, every markup tag taken out — see `Part.text`. */
       text: string
+      /** The text as styled runs, present only when markup touches it (`markup.ts`). */
+      runs?: Run[]
       style: CommentStyle
       /**
        * The instrument this line is for, when the file said — `{comment-guitar: …}`. Null is
@@ -141,7 +152,21 @@ export type Line =
    * untouched, its columns load-bearing. `variant` exists only so the two can be *named*
    * correctly on screen; nothing downstream treats them differently.
    */
-  | { kind: 'tab'; rows: string[]; variant?: 'tab' | 'grid' }
+  | {
+      kind: 'tab'
+      rows: string[]
+      /**
+       * `delegate` is the third verbatim block, and arrived on 2026-09-23: the environments the
+       * format hands to another program — `{start_of_abc}`, `_ly`, `_svg`, `_textblock`,
+       * `_strum` (`Directives-delegates.md`). Their content is ABC or LilyPond or SVG source,
+       * not lyrics, and reading it as lyrics turned `[CDE]` in a tune into a chord. This app
+       * renders none of those languages, so it keeps the source visible, verbatim and folded
+       * like a tab, under the name of what it is.
+       */
+      variant?: 'tab' | 'grid' | 'delegate'
+      /** For a `delegate`, which one — `abc`, `ly`, `svg`, `textblock`, `strum`. */
+      delegate?: string
+    }
 
 export type SectionKind = 'verse' | 'chorus' | 'bridge'
 
@@ -192,6 +217,8 @@ export interface SongMetadata {
   copyright: string | null
   duration: string | null
   ccli: string | null
+  /** Standard metadata in the reference implementation (`Directives-arranger.md`). */
+  arranger: string | null
   /** Sorting keys, for a list this app does not build — shown so nothing in the file is invisible. */
   sortTitle: string | null
   sortArtist: string | null
@@ -205,6 +232,7 @@ const EMPTY_METADATA: SongMetadata = {
   copyright: null,
   duration: null,
   ccli: null,
+  arranger: null,
   sortTitle: null,
   sortArtist: null,
 }
@@ -223,7 +251,17 @@ const METADATA_FIELD: Record<string, keyof SongMetadata> = {
   ccli_number: 'ccli',
   sorttitle: 'sortTitle',
   sortartist: 'sortArtist',
+  arranger: 'arranger',
 }
+
+/**
+ * The metadata the specification lets a song hold more than one of — «Multiple arrangers can
+ * be specified using multiple directives» (`Directives-arranger.md`, `Directives-meta.md`).
+ * Joined with the reference implementation's own separator rather than kept as the last one
+ * seen, which threw every earlier composer away. Everything else here is one value per song,
+ * and the first one wins.
+ */
+const MULTI_VALUED = new Set<keyof SongMetadata>(['composer', 'lyricist', 'arranger'])
 
 /**
  * A fingering the file drew itself, from `{define: …}` or `{chord: …}`.
@@ -422,15 +460,13 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
      name. Losing the distinction costs nothing a reader can see — but they must not fall
      through to the `default:` branch, which would drop the sentence itself.
 
-     **`cb` is not among them**, and it is the one abbreviation here that looks like it
-     should be. In the specification `cb` is `{column_break}`, a layout directive; only
-     `comment_italic` has a short form (`ci`), and `comment_box` has none. Reading `cb` as
-     a comment turns a column break into an empty comment line — a blank gap in the middle
-     of a song, where ignoring it leaves nothing at all, which is right for an app with no
-     page to break. `import/dialect.ts` *does* map it to a comment and that is not a
-     contradiction: that table is a survey of what other apps mean by it (OnSong's
-     `comment_bold`, MobileSheets' `comment_box`) and governs reading their files, where
-     this one governs reading the format. */
+     **`cb` is `comment_box`, and only when it has something to say.** The reference
+     implementation maps `cb` to `comment_box` and `colb` to `column_break` (`Song.pm`'s
+     abbreviation table); its own documentation contradicts itself, giving `cb` to both. This
+     app used to take the column-break reading, so `{cb: Palm mute}` vanished from the screen
+     — words somebody wrote, drawn nowhere. Now `{cb: …}` with a value is a boxed comment and a
+     bare `{cb}`, which can only be a break, is ignored like every other break: both readings
+     are honoured, and the editor draws the same line (`editor/document.ts`). */
   c: 'comment',
   comment: 'comment',
   ci: 'comment',
@@ -457,6 +493,9 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
   end_of_tab: 'end_of_tab',
   sog: 'start_of_grid',
   start_of_grid: 'start_of_grid',
+  /* The reference implementation's older name for a grid (`Song.pm`'s directive table). */
+  start_of_grille: 'start_of_grid',
+  end_of_grille: 'end_of_grid',
   eog: 'end_of_grid',
   end_of_grid: 'end_of_grid',
   chorus: 'chorus',
@@ -465,6 +504,7 @@ const DIRECTIVE_ALIAS: Record<string, string> = {
 /** Which frame each spelling of a comment asks for; anything else is `plain`. */
 const COMMENT_STYLE: Record<string, CommentStyle> = {
   comment_box: 'box',
+  cb: 'box',
   ci: 'italic',
   comment_italic: 'italic',
   highlight: 'highlight',
@@ -527,7 +567,9 @@ export function parseChordPro(source: string): ParsedSong {
   const chorusByLabel = new Map<string, Section>()
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
   let verbatimRows: string[] | null = null
-  let verbatimVariant: 'tab' | 'grid' = 'tab'
+  let verbatimVariant: 'tab' | 'grid' | 'delegate' = 'tab'
+  /** Which delegated environment is open, whose own `{end_of_…}` is the only thing that closes it. */
+  let verbatimDelegate = ''
   /** `{start_of_tab: Solo}`'s label, printed above the block exactly as a section's is. */
   let verbatimLabel = ''
 
@@ -544,16 +586,22 @@ export function parseChordPro(source: string): ParsedSong {
 
     if (verbatimRows !== null) {
       const closing = DIRECTIVE.exec(rawLine.trim())
-      const closingName = closing === null ? undefined : DIRECTIVE_ALIAS[closing[1].toLowerCase()]
+      const closingRaw = closing === null ? undefined : closing[1].toLowerCase()
+      const closingName = closingRaw === undefined ? undefined : DIRECTIVE_ALIAS[closingRaw]
 
       // Either end directive closes either block. A `{start_of_grid}` shut with
       // `{end_of_tab}` is malformed, and honouring it loses one block; refusing it
       // swallows the whole rest of the song into a grid nobody can see past.
-      if (closingName === 'end_of_tab' || closingName === 'end_of_grid') {
+      // A delegated block closes only on its own name: `{end_of_tab}` inside a LilyPond
+      // source is not the end of it.
+      const closes =
+        verbatimVariant === 'delegate'
+          ? closingRaw === `end_of_${verbatimDelegate}`
+          : closingName === 'end_of_tab' || closingName === 'end_of_grid'
+      if (closes) {
         section ??= openSection(forcedKind ?? 'verse')
-        if (verbatimLabel !== '')
-          section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain', selector: null })
-        section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
+        if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', null))
+        section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate))
         verbatimRows = null
         verbatimLabel = ''
       } else {
@@ -622,6 +670,10 @@ export function parseChordPro(source: string): ParsedSong {
         value = inner[2].trim()
       }
 
+      value = decodeUnicodeEscapes(value)
+      /* A section's or a chorus recall's label, in either of the format's spellings. */
+      const label = readLabel(value)
+
       /*
        * A conditional directive — `{comment-guitar: …}`, `{start_of_chorus-piano}` — runs
        * only for a reader whose instrument the selector names.
@@ -655,7 +707,9 @@ export function parseChordPro(source: string): ParsedSong {
         }
       }
 
-      const name = DIRECTIVE_ALIAS[rawName]
+      /* `cb` is two directives in the documentation — see the alias table. With words it is
+         a boxed comment; bare it is a column break, which there is no page here to take. */
+      const name = rawName === 'cb' ? (value !== '' ? 'comment' : undefined) : DIRECTIVE_ALIAS[rawName]
 
       /**
        * A section's own label, printed above it as a comment so it reaches the screen,
@@ -670,27 +724,40 @@ export function parseChordPro(source: string): ParsedSong {
        * nothing at all about a block that is there.
        */
       const labelLine = (fallback: string | null): void => {
-        const label = value || fallback
-        if (label === null || label === '') return
-        section?.lines.push({ kind: 'comment', text: label, style: 'plain', selector: null })
+        const text = label || fallback
+        if (text === null || text === '') return
+        section?.lines.push(commentLine(text, 'plain', null))
       }
 
       switch (name) {
+        /*
+         * **The first of each wins**, where it used to be the last. The specification says a
+         * `{key}`, a `{time}` or a `{tempo}` «applies from where it was specified» — a second
+         * one is a change partway through, and the song's own value is the one it opens with.
+         * Taking the last labelled a song that modulates at the bridge with the bridge's key.
+         * (`{transpose}` is deliberately left out of this: what a mid-song one means is an
+         * open decision.)
+         */
         case 'title':
-          song.title = value || null
+          song.title ??= value || null
           break
         case 'artist':
-          song.artist = value || null
+          song.artist ??= value || null
           break
         case 'subtitle':
-          song.subtitle = value || null
+          song.subtitle ??= value || null
           break
         case 'key':
-          song.key = value || null
+          song.key ??= value || null
           break
-        case 'metadata':
-          song.metadata[METADATA_FIELD[rawName]] = value || null
+        case 'metadata': {
+          const field = METADATA_FIELD[rawName]
+          if (value === '') break
+          const held = song.metadata[field]
+          if (held === null) song.metadata[field] = value
+          else if (MULTI_VALUED.has(field) && !held.split('; ').includes(value)) song.metadata[field] = `${held}; ${value}`
           break
+        }
         /*
          * **`{tag:}` accumulates, because the specification says it repeats.** One tag per
          * line is the format's primary form — «Multiple tags are possible» — and this used
@@ -721,16 +788,16 @@ export function parseChordPro(source: string): ParsedSong {
            everything that is not a number this can beat, so a directive nobody can play
            leaves the song saying nothing rather than handing the audio clock a `NaN`. */
         case 'tempo':
-          song.tempo = readBpm(value)
+          song.tempo ??= readBpm(value)
           break
         case 'timeSignature':
-          song.beatsPerBar = parseTimeSignature(value)
+          song.beatsPerBar ??= parseTimeSignature(value)
           break
         /* Narrowed like the two above: a fret this app could not draw — a word, a
            negative, something past the end of the neck — leaves the song saying nothing
            rather than putting an impossible number in front of a reader. */
         case 'capo':
-          song.capo = readCapo(value)
+          song.capo ??= readCapo(value)
           break
         /* Narrowed like the rest: an octave either way is the most anybody transposes, and a
            directive nobody can play leaves the song saying nothing. */
@@ -746,12 +813,7 @@ export function parseChordPro(source: string): ParsedSong {
         }
         case 'comment':
           section ??= openSection(forcedKind ?? 'verse')
-          section.lines.push({
-            kind: 'comment',
-            text: value,
-            style: COMMENT_STYLE[rawName] ?? 'plain',
-            selector,
-          })
+          section.lines.push(commentLine(value, COMMENT_STYLE[rawName] ?? 'plain', selector))
           break
         /*
          * `{chorus}` repeats the chorus without writing it out again, and now it really
@@ -771,17 +833,27 @@ export function parseChordPro(source: string): ParsedSong {
          * saying nothing at all would lose the one thing the directive marks.
          */
         case 'chorus': {
-          const wanted = value === '' ? lastChorus : (chorusByLabel.get(value.toLowerCase()) ?? null)
+          /*
+           * **`{chorus: Final}` is the last chorus again, labelled «Final»** — that is what the
+           * specification means by the argument (`Directives-chorus.md`, «the argument is used
+           * as a label for the chorus»), spelt `{chorus: label="Final"}` too. This app also
+           * lets the argument *name* a chorus it has seen (`{start_of_chorus: Final}` …
+           * `{chorus: Final}`); where it names none, it used to print the word and repeat
+           * nothing, which is the spec's own example producing no chorus at all.
+           */
+          const named = label === '' ? undefined : chorusByLabel.get(label.toLowerCase())
+          const wanted = named ?? lastChorus
 
           if (wanted === null || wanted.lines.length === 0) {
             section ??= openSection(forcedKind ?? 'verse')
-            section.lines.push({ kind: 'comment', text: value || 'Chorus', style: 'plain', selector: null })
+            section.lines.push(commentLine(label || 'Chorus', 'plain', null))
             break
           }
 
           // The chorus's own selector, so a `{soc-piano}` repeats for piano players only. (A
           // conditional `{chorus-…}` never reaches here: it is refused as a directive above.)
           const repeat = openSection('chorus', wanted.selector)
+          if (label !== '' && named === undefined) repeat.lines.push(commentLine(label, 'plain', null))
           repeat.lines.push(...wanted.lines.map(repeated))
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null
@@ -797,18 +869,18 @@ export function parseChordPro(source: string): ParsedSong {
           // further down wants it as it finally stands.
           if (forcedKind === 'chorus') {
             lastChorus = section
-            if (value !== '') chorusByLabel.set(value.toLowerCase(), section)
+            if (label !== '') chorusByLabel.set(label.toLowerCase(), section)
           }
           break
         case 'start_of_tab':
           verbatimRows = []
           verbatimVariant = 'tab'
-          verbatimLabel = value
+          verbatimLabel = label
           break
         case 'start_of_grid':
           verbatimRows = []
           verbatimVariant = 'grid'
-          verbatimLabel = value
+          verbatimLabel = label
           break
         case 'end_of_verse':
         case 'end_of_chorus':
@@ -827,7 +899,14 @@ export function parseChordPro(source: string): ParsedSong {
            * claims, a directive invented after this was written — is ignored rather than
            * shown as lyrics.
            */
-          if (name === undefined && /^start_of_./.test(rawName)) {
+          const delegate = /^start_of_(.+)$/.exec(rawName)?.[1]
+          if (name === undefined && delegate !== undefined && DELEGATES.has(delegate)) {
+            /* A delegated environment: verbatim to its own `{end_of_…}` — see `Line`'s `tab`. */
+            verbatimRows = []
+            verbatimVariant = 'delegate'
+            verbatimDelegate = delegate
+            verbatimLabel = label
+          } else if (name === undefined && /^start_of_./.test(rawName)) {
             forcedKind = 'verse'
             section = openSection('verse')
             labelLine(impliedLabel(rawName))
@@ -855,9 +934,8 @@ export function parseChordPro(source: string): ParsedSong {
   // typed by someone, not something to drop silently for want of an `{end_of_tab}`.
   if (verbatimRows !== null) {
     section ??= openSection(forcedKind ?? 'verse')
-    if (verbatimLabel !== '')
-      section.lines.push({ kind: 'comment', text: verbatimLabel, style: 'plain', selector: null })
-    section.lines.push({ kind: 'tab', rows: verbatimRows, variant: verbatimVariant })
+    if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', null))
+    section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate))
   }
 
   return song
@@ -926,6 +1004,58 @@ export function readDefinition(value: string): ChordDefinition | null {
 /** What a backslash may escape, per the format: the characters that otherwise mean something. */
 const ESCAPABLE = '[]{}#\\'
 
+/** The character a `\uXXXX` at `index` names, or null when what is there is not one. */
+export function unicodeEscapeAt(text: string, index: number): string | null {
+  if (text[index] !== '\\' || text[index + 1] !== 'u') return null
+  const hex = text.slice(index + 2, index + 6)
+  return /^[0-9a-fA-F]{4}$/.test(hex) ? String.fromCharCode(parseInt(hex, 16)) : null
+}
+
+/** Every `\uXXXX` in a directive's value, as the character it names. */
+function decodeUnicodeEscapes(value: string): string {
+  if (!value.includes('\\u')) return value
+  let out = ''
+  for (let i = 0; i < value.length; i += 1) {
+    const char = unicodeEscapeAt(value, i)
+    if (char !== null) {
+      out += char
+      i += 5
+    } else out += value[i]
+  }
+  return out
+}
+
+/**
+ * A section's label in either spelling the format allows: positional (`{start_of_verse:
+ * Verse 1}`, the legacy form) or as an attribute (`{start_of_verse: label="Verse 1"}`, the one
+ * `Directives-env.md` recommends). Until 2026-09-23 the second was printed as it stood —
+ * `label="Verse 1"` on the screen. A `\n` in a label is a line break (`Directives-env.md`),
+ * and an attribute list with no `label` in it names no label at all.
+ */
+export function readLabel(value: string): string {
+  const trimmed = value.trim()
+  if (/^[a-zA-Z_-]+\s*=\s*["']/.test(trimmed)) {
+    const match = /(?:^|\s)label\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(trimmed)
+    return match === null ? '' : (match[1] ?? match[2] ?? '').replace(/\\n/g, '\n')
+  }
+  return trimmed.replace(/\\n/g, '\n')
+}
+
+/** The environments the format delegates to another program (`Directives-delegates.md`). */
+const DELEGATES = new Set(['abc', 'ly', 'svg', 'textblock', 'strum'])
+
+function verbatimLine(rows: string[], variant: 'tab' | 'grid' | 'delegate', delegate: string): Line {
+  return variant === 'delegate' ? { kind: 'tab', rows, variant, delegate } : { kind: 'tab', rows, variant }
+}
+
+/** A comment line, its markup read into runs and taken out of its plain text. */
+function commentLine(text: string, style: CommentStyle, selector: string | null): Line {
+  if (!text.includes('<')) return { kind: 'comment', text, style, selector }
+  const runs = markupRuns(text)
+  const plain = runs.map((run) => run.text).join('')
+  return isStyled(runs) ? { kind: 'comment', text: plain, runs, style, selector } : { kind: 'comment', text: plain, style, selector }
+}
+
 /**
  * Splits one line into words and chord/text parts.
  *
@@ -943,13 +1073,19 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
   /** A chord held back from the word it closed, waiting for the word that follows it. */
   let deferred: { chord: string; annotation: boolean } | null = null
   let hasChords = false
+  /* Markup in force across the whole line — a `<b>` may open in one word and close three
+     words later — and the current part's text as runs of one style each. */
+  const markup = new MarkupState()
+  let runs: Run[] = []
 
   const flushPart = () => {
-    if (chord !== null || text !== '') {
-      parts.push(annotation ? { chord, text, annotation: true } : { chord, text })
+    if (chord !== null || text !== '' || runs.length > 0) {
+      const styled = isStyled(runs) ? { runs } : {}
+      parts.push(annotation ? { chord, text, annotation: true, ...styled } : { chord, text, ...styled })
       chord = null
       annotation = false
       text = ''
+      runs = []
     }
   }
 
@@ -972,6 +1108,10 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
       deferred = null
     }
     text += char
+    const style = markup.style()
+    const last = runs[runs.length - 1]
+    if (last !== undefined && last.symbol === undefined && sameStyle(last.style, style)) last.text += char
+    else runs.push({ text: char, style })
   }
 
   for (let i = 0; i < line.length; i++) {
@@ -986,6 +1126,25 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
     if (char === '\\' && i + 1 < line.length && ESCAPABLE.includes(line[i + 1])) {
       appendText(line[i + 1])
       i += 1
+      continue
+    }
+
+    /* `\u00e9` is the character it names — the format's own escape for one a keyboard
+       cannot type (`ChordPro-Cheat_Sheet.md`). Exactly four hex digits, or it is text. */
+    const unicode = char === '\\' ? unicodeEscapeAt(line, i) : null
+    if (unicode !== null) {
+      appendText(unicode)
+      i += 5
+      continue
+    }
+
+    /* Markup: the tag itself is never text. It changes the style of what follows, and a
+       `<sym/>` adds a symbol that is drawn without being part of the words. */
+    const tag = char === '<' ? markupTagAt(line, i) : null
+    if (tag !== null) {
+      if (tag.kind === 'symbol') runs.push({ text: '', style: markup.style(), symbol: tag.symbol })
+      markup.apply(tag)
+      i += tag.length - 1
       continue
     }
 
@@ -1027,7 +1186,9 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
       // `[*…]` is an annotation: a word for the player, sharing the chord's slot and
       // none of its meaning. The `*` is the marker and is not part of the text.
       annotation = token.startsWith('*')
-      chord = annotation ? token.slice(1) : token
+      /* Markup on a chord (`[<b>C</b>]`) styles how a typesetter draws it; the name under it
+         is what transposes, so the tags are taken out of it here. */
+      chord = stripMarkup(annotation ? token.slice(1) : token)
       // True for an annotation too: the flag asks whether this line needs the row above
       // the words, and an annotation is drawn in exactly that row.
       hasChords = true

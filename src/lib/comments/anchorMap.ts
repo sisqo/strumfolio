@@ -35,7 +35,8 @@
  * Built on the server, once, beside the parse that is already happening there.
  */
 
-import type { Line, Section } from '../chordpro'
+import { type Line, type Section, unicodeEscapeAt } from '../chordpro'
+import { markupTagAt } from '../markup'
 import { type Block, blockStartLines, fromSource } from '../editor/document'
 
 import type { CommentTarget, SongComment } from './types'
@@ -155,6 +156,12 @@ function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]
         cursor = 0
         continue
       }
+      /* A markup tag is source and never text (`markup.ts`), so it is walked past like space. */
+      const tag = markupTagAt(text, cursor)
+      if (tag !== null) {
+        cursor += tag.length
+        continue
+      }
       if (!/\s/.test(text[cursor])) return
       cursor += 1
     }
@@ -191,14 +198,27 @@ function anchorsFor(line: Extract<Line, { kind: 'lyrics' }>, segments: Segment[]
       // Walked a character at a time rather than by length, because the source spells an
       // escaped character with two: `a\#b` is three characters drawn and four written, and
       // charging only three left every later word on the line one character short.
-      for (const drawn of part.text) {
-        while (index < segments.length && cursor >= segments[index].text.length) {
-          index += 1
-          cursor = 0
+      //
+      // By UTF-16 unit, as the source is indexed, and skipping what the source spells without
+      // drawing: markup tags between the letters, and the extra characters of an escape
+      // (`\#` is one drawn character in two, `\u00e9` one in six).
+      for (let at = 0; at < part.text.length; at += 1) {
+        const drawn = part.text[at]
+        for (;;) {
+          while (index < segments.length && cursor >= segments[index].text.length) {
+            index += 1
+            cursor = 0
+          }
+          if (index >= segments.length) break
+          const tag = markupTagAt(segments[index].text, cursor)
+          if (tag === null) break
+          cursor += tag.length
         }
         if (index >= segments.length) break
         const text = segments[index].text
-        cursor += text[cursor] === '\\' && text[cursor + 1] === drawn && ESCAPABLE.includes(drawn) ? 2 : 1
+        if (text[cursor] === '\\' && text[cursor + 1] === drawn && ESCAPABLE.includes(drawn)) cursor += 2
+        else if (unicodeEscapeAt(text, cursor) === drawn) cursor += 6
+        else cursor += 1
       }
       if (index < segments.length && cursor >= segments[index].text.length) {
         index += 1
