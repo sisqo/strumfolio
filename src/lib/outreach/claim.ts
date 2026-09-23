@@ -250,13 +250,22 @@ export async function settle(id: number, delivery: OutreachDelivery, now: Date):
           : { status: 'failed', reason: clamp(delivery.reason, MAX_OUTREACH_DETAIL), lastAttemptAt: now },
       )
       /*
-       * Only the attempt that owns the claim may settle it, and never over a `done`. The claim
+       * Never over a `done`, and a *failure* only from the attempt that owns the claim. The claim
        * wrote `last_attempt_at = now` and every caller hands this the same `now`, so a stale
        * attempt that was taken over (after `STALE_ATTEMPT_MS`) and fails late no longer writes
        * `failed` over the newer attempt's `pending` — which reopened the occurrence to a third
        * send while the second was still running. And a late failure never undoes a delivery.
+       *
+       * **A success is written whoever owns the claim.** The thing has been delivered; guarding
+       * `done` by ownership too meant a taken-over attempt that did get through recorded nothing,
+       * and if the newer attempt then failed the row read `failed` — open to a third send of
+       * something the reader had already received.
        */
-      .where(and(eq(outreachActions.id, id), ne(outreachActions.status, 'done'), eq(outreachActions.lastAttemptAt, now)))
+      .where(
+        delivery.ok
+          ? and(eq(outreachActions.id, id), ne(outreachActions.status, 'done'))
+          : and(eq(outreachActions.id, id), ne(outreachActions.status, 'done'), eq(outreachActions.lastAttemptAt, now)),
+      )
   } catch (error) {
     console.error('settle failed', error)
   }
