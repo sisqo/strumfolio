@@ -4,6 +4,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { DraftInput } from '@/components/editor/DraftInput'
 import { IconCheck } from '@/components/icons'
+import { readLabel } from '@/lib/chordpro'
 import type { LineRange } from '@/lib/editor/clipboard'
 import {
   type Block,
@@ -618,9 +619,11 @@ function BlockRow({
    */
   if (block.kind === 'boundary' || block.kind === 'directive' || block.kind === 'source-comment') {
     const parts = block.kind === 'directive' ? directiveParts(block.raw) : null
+    /* A label in the attribute spelling (`label="Verse 1"`) is shown as the name it is, the way
+       the reader prints it; typing into it writes the plain form, which the format also reads. */
     const value =
       block.kind === 'boundary'
-        ? block.value
+        ? readLabel(block.value).replace(/\n/g, '\\n')
         : block.kind === 'source-comment'
           ? block.raw.slice(1)
           : (parts?.value ?? '')
@@ -749,12 +752,12 @@ function BlockRow({
               onChange={(event) => onTabText(event.target.value)}
               onFocus={() => onCaret(0)}
               onClick={() => onCaret(0)}
-              aria-label={`Tab, line ${index + 1}`}
+              aria-label={`${verbatimLabel(block)}, line ${index + 1}`}
             />
           </div>
         </div>
 
-        <button type="button" className="line-remove" onClick={onRemove} aria-label="Delete this tab">
+        <button type="button" className="line-remove" onClick={onRemove} aria-label={`Delete this ${verbatimLabel(block).toLowerCase()}`}>
           ×
         </button>
       </div>
@@ -1560,4 +1563,12 @@ function ChordField({
       />
     </span>
   )
+}
+
+/** What a verbatim block is, for the labels a screen reader hears: a tab, a grid, or the delegated language. */
+function verbatimLabel(block: { variant: 'tab' | 'grid' | 'delegate'; startDirective: string }): string {
+  if (block.variant === 'grid') return 'Grid'
+  if (block.variant === 'tab') return 'Tab'
+  const name = block.startDirective.toLowerCase().replace(/^start_of_/, '')
+  return ({ abc: 'ABC notation', ly: 'LilyPond', svg: 'SVG', textblock: 'Text block', strum: 'Strum pattern' } as Record<string, string>)[name] ?? 'Block'
 }

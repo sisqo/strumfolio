@@ -166,8 +166,9 @@ Was [Em]blind, but [D]now I [G]see.
           <code>{'{key}'}</code>, <code>{'{time}'}</code> or <code>{'{tempo}'}</code> is a change
           partway through, and the song is labelled with the one it opens with. (What a second{' '}
           <code>{'{transpose}'}</code> does is still being worked out.) A{' '}
-          <code>{'{meta: name value}'}</code> with a name nobody here knows is kept in the file
-          under its own name, and the song-data form shows it under &quot;Anything else&quot;.
+          <code>{'{meta: name value}'}</code> with a name nobody here knows is kept in the file,
+          and when it sits in the song&apos;s opening lines the song-data form shows it under its
+          own name, in &quot;Anything else&quot;.
         </p>
         <p>
           <strong><code>{'{key: ...}'}</code></strong> is the one that also does something: it
