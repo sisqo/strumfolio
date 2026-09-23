@@ -26,7 +26,7 @@
 
 import { randomUUID } from 'crypto'
 
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, gt, like, ne } from 'drizzle-orm'
 
 import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
@@ -53,6 +53,7 @@ import {
   transactionPeriodEnd,
   type AccountRef,
   type PaddleEventEffect,
+  type SubscriptionRelation,
 } from './webhook'
 
 /** What the route hands over, already verified and deserialised. */
@@ -84,6 +85,49 @@ function effectOf(event: IncomingPaddleEvent): PaddleEventEffect | null {
   return null
 }
 
+const ACCOUNT_COLUMNS = {
+  id: accounts.id,
+  ownerEmail: accounts.ownerEmail,
+  plan: accounts.plan,
+  planStatus: accounts.planStatus,
+  paddleSubscriptionId: accounts.paddleSubscriptionId,
+}
+
+type AccountRow = NonNullable<Awaited<ReturnType<typeof findAccount>>>
+
+/**
+ * Whether an adjustment recorded for this account *occurred* after this one and itself moves
+ * the plan's status — in which case this one arrived late and is already answered.
+ *
+ * Reads Paddle's own `occurred_at`, never `received_at`: the gap between the two is exactly a
+ * retry. An event with no `occurred_at` cannot be ordered and is applied as before. A stored
+ * payload that no longer parses says nothing, rather than blocking the event in hand.
+ */
+async function laterAdjustmentDecides(tx: Tx, accountId: number, event: IncomingPaddleEvent): Promise<boolean> {
+  if (event.occurredAt === null) return false
+
+  const later = await tx
+    .select({ payload: paddleEvents.payload })
+    .from(paddleEvents)
+    .where(
+      and(
+        eq(paddleEvents.accountId, accountId),
+        like(paddleEvents.eventType, 'adjustment.%'),
+        gt(paddleEvents.occurredAt, event.occurredAt),
+        ne(paddleEvents.eventId, event.eventId),
+      ),
+    )
+
+  return later.some(({ payload }) => {
+    try {
+      const data = (JSON.parse(payload) as { data?: unknown }).data
+      return data !== undefined && adjustmentEffect(data as never).statusOnly != null
+    } catch {
+      return false
+    }
+  })
+}
+
 /**
  * The account this event belongs to, tried in the order of what a *first* purchase can
  * possibly carry: the stamp the checkout put on the transaction, then either id column a
@@ -94,13 +138,7 @@ async function findAccount(ref: AccountRef) {
      decide what this event is allowed to do: a Lifetime account refuses a subscription event's
      columns (`mayWritePlan`), and a Lifetime *purchase* has to know which subscription is still
      running so it can end it. Both are read as they stood **before** this event. */
-  const columns = {
-    id: accounts.id,
-    ownerEmail: accounts.ownerEmail,
-    plan: accounts.plan,
-    planStatus: accounts.planStatus,
-    paddleSubscriptionId: accounts.paddleSubscriptionId,
-  }
+  const columns = ACCOUNT_COLUMNS
 
   if (ref.accountId !== null) {
     const [row] = await db().select(columns).from(accounts).where(eq(accounts.id, ref.accountId)).limit(1)
@@ -502,35 +540,19 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
 
 export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: string): Promise<ApplyOutcome> {
   let effect = effectOf(event)
-  const account = effect ? await findAccount(effect.account) : null
+  /* Which account, and nothing more: every decision is taken on the row as re-read *inside* the
+     transaction, locked — see below. */
+  const found = effect ? await findAccount(effect.account) : null
 
   /* What an operator has to hear about this event, sent after the commit — see below. */
   const alerts: string[] = []
 
-  /*
-   * **A downgrade stamp is believed only from somebody who held the plan it names** —
-   * `stampCredible`. Otherwise the event is read again as if it carried none, so the items
-   * Paddle is actually billing decide the plan, and the operator is told: a stamp this app did
-   * not write is somebody trying something.
-   */
-  if (effect?.stampedFrom !== undefined && account && !stampCredible(readPlan(account.plan), account.planStatus, effect.stampedFrom)) {
-    alerts.push(
-      `⚠️ Timbro di downgrade non credibile sull'account ${account.id} (evento ${event.eventId}): dice ` +
-        `${PLAN_LABEL[effect.stampedFrom]} ma l'account era su ${PLAN_LABEL[readPlan(account.plan)]}. Ignorato; ` +
-        'controlla su Paddle da dove viene il custom_data di quella subscription.',
-    )
-    effect = subscriptionEffect(event.data as never, false)
-  }
-
-  /* Read before this event, like everything `findAccount` returns — see `subscriptionRelation`. */
-  const relation =
-    effect && account
-      ? subscriptionRelation(
-          { plan: readPlan(account.plan), planStatus: account.planStatus, paddleSubscriptionId: account.paddleSubscriptionId },
-          event.eventType,
-          effect.account.paddleSubscriptionId,
-        )
-      : 'own'
+  /* The account as it stood before this event, and how the event's subscription relates to it —
+     both decided inside the transaction and carried out for the alerts after the commit. */
+  /* Asserted rather than annotated: assigned only inside the callback, which TypeScript does
+     not follow, so an annotation would leave both narrowed to their initial value below. */
+  let account = null as AccountRow | null
+  let relation = 'own' as SubscriptionRelation
 
   /* Carried out of the transaction so the confirmation email can name the coupon. Assigned
      inside it, and only when the insert took a row — a rollback throws before anything reads
@@ -538,6 +560,38 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
   let coupon: CouponWrite = UNTOUCHED
 
   const outcome: ApplyOutcome = await db().transaction(async (tx) => {
+    /*
+     * **The row every decision reads is locked, and read here rather than before the
+     * transaction.** Paddle sends `subscription.created`, `.activated` and
+     * `transaction.completed` for one checkout within milliseconds of each other, and each
+     * decision below — whose subscription this is, whether a stamp is credible, whether a
+     * Lifetime may be written over — reads the pointer and the plan. Read outside the
+     * transaction, two deliveries both saw the state before either: the second subscription's
+     * `.activated` could find the *first* one stored, come out `foreign`, be dropped and be
+     * recorded — so its retry answered `duplicate` and it was lost for good. With `.created` and
+     * `.activated` carrying the same state that loss is invisible (five two-process runs against
+     * the dev database, 2026-09-23, ended identically before and after this change); it costs
+     * something only when the dropped event says what the other does not, and the lock makes
+     * that impossible rather than unlikely.
+     *
+     * **Before the ledger insert, and `NO KEY UPDATE`, and both are load-bearing.** That insert
+     * references `accounts.id`, so it takes `FOR KEY SHARE` on this same row; taking the lock
+     * after it, with `FOR UPDATE`, had two deliveries each holding the share the other's update
+     * waited on — a deadlock, measured the same day, which Postgres answers by failing one of
+     * them. `NO KEY UPDATE` is what the `UPDATE accounts` below takes anyway, does not conflict
+     * with a key share, and still queues a second delivery behind the first.
+     */
+    const locked = found
+      ? ((
+          await tx
+            .select(ACCOUNT_COLUMNS)
+            .from(accounts)
+            .where(eq(accounts.id, found.id))
+            .for('no key update')
+            .limit(1)
+        )[0] ?? null)
+      : null
+
     const recorded = await tx
       .insert(paddleEvents)
       .values({
@@ -546,8 +600,8 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
         occurredAt: event.occurredAt,
         /* Both columns, and not redundant: the address is the historical fact of who this
            arrived for, the id is the pointer every read uses. */
-        accountOwnerEmail: account?.ownerEmail ?? null,
-        accountId: account?.id ?? null,
+        accountOwnerEmail: locked?.ownerEmail ?? null,
+        accountId: locked?.id ?? null,
         paddleSubscriptionId: effect?.account.paddleSubscriptionId ?? null,
         /* Paddle's own bytes, not a re-serialisation: the payload is evidence, and the day a
            mapping turns out to be wrong this is what the correction is replayed from. */
@@ -557,7 +611,44 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
       .returning({ eventId: paddleEvents.eventId })
 
     if (recorded.length === 0) return 'duplicate'
-    if (!effect || !account) return effect && !account ? 'unmatched' : 'applied'
+    /* No account, or one deleted between the two reads: the ledger row stays either way. */
+    if (!effect || !locked) return effect && !locked ? 'unmatched' : 'applied'
+    account = locked
+
+
+    /*
+     * **A downgrade stamp is believed only from somebody who held the plan it names** —
+     * `stampCredible`. Otherwise the event is read again as if it carried none, so the items
+     * Paddle is actually billing decide the plan, and the operator is told: a stamp this app did
+     * not write is somebody trying something.
+     */
+    if (effect.stampedFrom !== undefined && !stampCredible(readPlan(locked.plan), locked.planStatus, effect.stampedFrom)) {
+      alerts.push(
+        `⚠️ Timbro di downgrade non credibile sull'account ${locked.id} (evento ${event.eventId}): dice ` +
+          `${PLAN_LABEL[effect.stampedFrom]} ma l'account era su ${PLAN_LABEL[readPlan(locked.plan)]}. Ignorato; ` +
+          'controlla su Paddle da dove viene il custom_data di quella subscription.',
+      )
+      effect = subscriptionEffect(event.data as never, false)
+    }
+
+    /* Read before this event's write, which the lock guarantees is the last one committed. */
+    relation = subscriptionRelation(
+      { plan: readPlan(locked.plan), planStatus: locked.planStatus, paddleSubscriptionId: locked.paddleSubscriptionId },
+      event.eventType,
+      effect.account.paddleSubscriptionId,
+    )
+
+    /*
+     * **An adjustment that a later one has already answered changes nothing.** Revoking and
+     * restoring a Lifetime are both one status column, so whichever is *applied* last wins —
+     * and Paddle retries a failed delivery for three days, so a `chargeback_warning` can land
+     * after the `chargeback_warning_reverse` that settled it, and leave a won dispute revoked
+     * for good. What decides is Paddle's `occurred_at`, read off the ledger this transaction
+     * has just written into; the account lock above is what makes that read complete.
+     */
+    if (effect.statusOnly != null && (await laterAdjustmentDecides(tx, locked.id, event))) {
+      effect = { ...effect, statusOnly: null, restoresLifetime: undefined }
+    }
 
     /*
      * **A subscription event may not write over a Lifetime.** See `mayWritePlan`: the
@@ -571,7 +662,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      */
     const foreign = relation === 'foreign'
     const columns =
-      !foreign && mayWritePlan(readPlan(account.plan), account.planStatus, event.eventType) ? effect.columns : null
+      !foreign && mayWritePlan(readPlan(locked.plan), locked.planStatus, event.eventType) ? effect.columns : null
     const movesPointer = !foreign && effect.account.paddleSubscriptionId !== null
 
     /*
@@ -590,7 +681,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * here means allowed: `mayWritePlan` withholds only `subscription.` events, and revoking a
      * refunded Lifetime is the entire point of this branch.
      */
-    const statusOnly = adjustmentStatusFor(readPlan(account.plan), effect.statusOnly ?? null)
+    const statusOnly = adjustmentStatusFor(readPlan(locked.plan), effect.statusOnly ?? null)
 
     /*
      * **The three `accounts.coupon*` columns get their writer back here, and only here.** They
@@ -599,7 +690,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * the same transaction as the ledger row, so an account can never be told it holds a
      * discount that `coupon_redemptions` has no record of granting.
      */
-    coupon = await recordCouponRedemption(tx, event, rawBody, account, alerts)
+    coupon = await recordCouponRedemption(tx, event, rawBody, locked, alerts)
 
     if (
       columns ||
@@ -637,7 +728,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
             ? { couponCode: null, couponPercent: null, discountEndsAt: null }
             : {}),
         })
-        .where(eq(accounts.id, account.id))
+        .where(eq(accounts.id, locked.id))
     }
 
     return 'applied'

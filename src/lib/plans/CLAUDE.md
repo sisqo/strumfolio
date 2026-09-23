@@ -274,6 +274,15 @@ break from a distance:
   Lifetime, a reader may buy a subscription in between, and the second used to write `expired`
   over that live Premium — charged every period, no plan. A revocation whose stored plan is not
   `lifetime` now writes nothing. `restoresLifetime` is unaffected.
+- **An adjustment a later one has answered changes nothing** (`laterAdjustmentDecides`,
+  2026-09-23). Revoke and restore are the same column, so whichever is *applied* last used to win,
+  and a `chargeback_warning` retried after its own `_reverse` left a won dispute revoked. Paddle's
+  `occurred_at` decides, read off the ledger under the account lock. Exercised against dev in both
+  orders.
+- **Every webhook takes the account row `FOR NO KEY UPDATE` before writing the ledger row**
+  (2026-09-23), so two deliveries for one account run one after the other and each reads what the
+  previous committed. `FOR UPDATE`, or the lock taken after the insert, deadlocks: the insert's
+  foreign key already holds `FOR KEY SHARE` on the same row. Measured with two processes on dev.
 - **Two of its assumptions were driven live on 2026-09-14 and held.** A `type: 'full'` refund
   created through the API comes back with `items: [{ type: 'full', … }]` — the per-item shape
   `adjustmentEffect` reads, which until then was inferred from the reference rather than seen —
