@@ -119,11 +119,12 @@ the alignment that is the entire content of a tablature row.
 It is a lyric-and-chord format, and being honest about the edges is the fastest way to know
 whether it fits your repertoire:
 
-- **It does not carry rhythm.** There is no way to say that the <Chord>F</Chord> lasts two
-  bars and the <Chord>C</Chord> lasts one. You get the order and the placement, not the
-  duration.
-- **It does not carry a melody.** If you need notes on a stave, ChordPro is the wrong file
-  and you want notation software.
+- **Rhythm is an add-on, not the core.** A lyric line gives you the order and the placement,
+  not the duration: nothing in it says that the <Chord>F</Chord> lasts two bars and the
+  <Chord>C</Chord> lasts one. The format has a chord-grid block for bar-by-bar charts, but most
+  files never use it.
+- **It does not carry a melody itself.** A file may embed ABC or LilyPond notation for another
+  program to engrave, but if notes on a stave are the point, you want notation software.
 - **It does not carry audio.** Backing tracks, click tracks and recordings live outside it,
   and apps that support them do it with their own extensions.
 - **Apps disagree about the rarer directives.** `{a: …}` is the artist in one program and the
@@ -148,7 +149,7 @@ The last release of the original `Chord` was version 3.6.2, in July 1995.
 That should have been the end of it. Instead a user named Johan Vromans, who had picked the
 tool up in 1992 and quietly kept improving it for himself, was persuaded in 2007 by another
 user, Adam Monsen, that the work should not be lost. He published his version — first as
-`Chordie`, renamed `Chord_ii_` to stop it being confused with a website — and maintained it
+`Chordie`, renamed `Chordii` to stop it being confused with a website — and maintained it
 for another decade. In 2016 he started again from nothing, in Perl, and the result is the
 program now called **ChordPro**, named after the format rather than the other way round. Its
 first alpha was released on 4 June 2016.

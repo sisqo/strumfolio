@@ -87,7 +87,7 @@ The failure has a signature. A misaligned source produces brackets inside words 
 at its start:
 
 ```
-Am                  F
+Am                 F
 The last bus home is late
 ```
 
@@ -110,14 +110,15 @@ A few kinds of file look close enough to confuse a converter and are worth knowi
   which is the right answer rather than an error.
 - **Something already in ChordPro.** Also nothing to do. The converter says so instead of
   bracketing the brackets.
-- **A chord chart with bar lines**, `| Am | F | C |`. The names convert; the bars are not
-  lyrics, so what you get back is the chords with nothing underneath them, which is what that
-  chart always was.
+- **A chord chart with bar lines**, `| Am | F | C |`. The bars are not chord names, so the
+  converter does not read the line as chords at all: it comes back exactly as you pasted it,
+  which is the honest answer — there was never a syllable under those chords to attach them to.
 
 ## More than one song in the paste
 
-ChordPro marks a song's start with a `{title: …}` directive, which means a file holding a
-whole songbook can be split on those boundaries without guessing. If you paste several songs
+ChordPro separates songs with a `{new_song}` directive, or simply a second `{title: …}`, and a
+line of `---` between pasted songs counts too — which means a file holding a whole songbook can
+be split on those boundaries without guessing. If you paste several songs
 at once, the converter will say how many it found, and importing the same paste into
 Strumfolio splits them into separate songs rather than one very long one.
 
@@ -183,7 +184,7 @@ changed hands or names or gone. That argument is worth its own article, and it h
     {
       question: 'Can I convert a whole songbook at once?',
       answer:
-        'Yes, if the songs are separated by ChordPro title directives, which is how a multi-song file marks where one song ends. The converter reports how many songs it found in the paste, and importing that same paste into Strumfolio splits them into separate songs rather than one very long one. A file with no such markers converts as a single song.',
+        'Yes, if the songs are separated by a `{new_song}` directive, a second title directive or a line of `---`, which is how a multi-song file marks where one song ends. The converter reports how many songs it found in the paste, and importing that same paste into Strumfolio splits them into separate songs rather than one very long one. A paste with none of those converts as a single song.',
     },
   ]}
 />
