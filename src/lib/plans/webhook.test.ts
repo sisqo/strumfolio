@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   adjustmentEffect,
+  adjustmentStatusFor,
   couponCampaignOf,
   downgradeStamp,
   isNewPurchase,
@@ -218,10 +219,17 @@ describe('the downgrade stamp', () => {
   /* A stamp names the plan somebody is leaving, so it is only true of somebody who held it: a
      Standard bought from free carrying «Premium until 2099» was written by somebody else. */
   it('is believed only from somebody who already held the plan it names', () => {
-    assert.equal(stampCredible('premium', 'premium'), true)
-    assert.equal(stampCredible('premium', 'plus'), true)
-    assert.equal(stampCredible('free', 'premium'), false)
-    assert.equal(stampCredible('standard', 'premium'), false)
+    assert.equal(stampCredible('premium', 'active', 'premium'), true)
+    assert.equal(stampCredible('premium', 'grace', 'plus'), true)
+    assert.equal(stampCredible('free', 'active', 'premium'), false)
+    assert.equal(stampCredible('standard', 'active', 'premium'), false)
+  })
+
+  /* An expired account kept its `plan` column, so the rank alone believed a lapsed Premium or a
+     refunded Lifetime buying Standard with «from Premium until 2099». */
+  it('is not believed from an account whose plan has expired', () => {
+    assert.equal(stampCredible('premium', 'expired', 'premium'), false)
+    assert.equal(stampCredible('lifetime', 'expired', 'premium'), false)
   })
 
   /* A change of cycle restarts Paddle's period, so a legitimate stamp can be later than the
@@ -490,6 +498,22 @@ describe('adjustmentEffect', () => {
     for (const action of ['refund', 'chargeback_reverse', 'credit']) {
       assert.equal(adjustmentEffect(adjustment({ action })).columns, null, action)
     }
+  })
+})
+
+describe('adjustmentStatusFor', () => {
+  /* `chargeback_warning` expires the Lifetime, the reader buys Premium, the final `chargeback`
+     arrives: it must not expire the Premium that Paddle goes on charging for. */
+  it('revokes only a Lifetime', () => {
+    assert.equal(adjustmentStatusFor('lifetime', 'expired'), 'expired')
+    for (const plan of ['free', 'standard', 'plus', 'premium'] as const) {
+      assert.equal(adjustmentStatusFor(plan, 'expired'), null, plan)
+    }
+  })
+
+  it('leaves a restoration and a no-op alone', () => {
+    assert.equal(adjustmentStatusFor('premium', 'active'), 'active')
+    assert.equal(adjustmentStatusFor('lifetime', null), null)
   })
 })
 

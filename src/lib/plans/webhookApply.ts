@@ -42,6 +42,7 @@ import { paddleClient } from './paddleClient'
 import { PLAN_LABEL, readPlan } from './types'
 import {
   adjustmentEffect,
+  adjustmentStatusFor,
   couponCampaignOf,
   isNewPurchase,
   subscriptionRelation,
@@ -512,7 +513,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
    * Paddle is actually billing decide the plan, and the operator is told: a stamp this app did
    * not write is somebody trying something.
    */
-  if (effect?.stampedFrom !== undefined && account && !stampCredible(readPlan(account.plan), effect.stampedFrom)) {
+  if (effect?.stampedFrom !== undefined && account && !stampCredible(readPlan(account.plan), account.planStatus, effect.stampedFrom)) {
     alerts.push(
       `⚠️ Timbro di downgrade non credibile sull'account ${account.id} (evento ${event.eventId}): dice ` +
         `${PLAN_LABEL[effect.stampedFrom]} ma l'account era su ${PLAN_LABEL[readPlan(account.plan)]}. Ignorato; ` +
@@ -589,7 +590,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * here means allowed: `mayWritePlan` withholds only `subscription.` events, and revoking a
      * refunded Lifetime is the entire point of this branch.
      */
-    const statusOnly = effect.statusOnly ?? null
+    const statusOnly = adjustmentStatusFor(readPlan(account.plan), effect.statusOnly ?? null)
 
     /*
      * **The three `accounts.coupon*` columns get their writer back here, and only here.** They

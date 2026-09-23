@@ -269,6 +269,11 @@ break from a distance:
   somebody bought is a fact about the past, the other columns describe a subscription an
   adjustment says nothing about, and `plan` surviving is exactly what lets `chargeback_reverse`
   give it back by writing `active` over the top. The same reversibility argument as B9.
+- **And only over a Lifetime** (`adjustmentStatusFor`, 2026-09-23). Paddle sends
+  `chargeback_warning` and the final `chargeback` days apart; the first already expires the
+  Lifetime, a reader may buy a subscription in between, and the second used to write `expired`
+  over that live Premium — charged every period, no plan. A revocation whose stored plan is not
+  `lifetime` now writes nothing. `restoresLifetime` is unaffected.
 - **Two of its assumptions were driven live on 2026-09-14 and held.** A `type: 'full'` refund
   created through the API comes back with `items: [{ type: 'full', … }]` — the per-item shape
   `adjustmentEffect` reads, which until then was inferred from the reference rather than seen —
@@ -520,7 +525,9 @@ watched working by anybody.
   - **A stamp is believed only from somebody who already held the plan it names**
     (`stampCredible`, 2026-09-22). `custom_data` can reach Paddle from a browser holding the
     public client token, and a Standard bought from free carrying «Premium until 2099» would
-    otherwise be honoured; the webhook re-reads such an event as unstamped and alerts. **It is
+    otherwise be honoured; the webhook re-reads such an event as unstamped and alerts. **An
+    `expired` account is refused too** (2026-09-23): it keeps its `plan` column, so a lapsed
+    Premium or a refunded Lifetime passed the rank test with the same forged stamp. **It is
     deliberately not a bound on the date**: a change of cycle restarts the period, so until the
     second call pins it back a legitimate B4/B7 stamp is *later* than the period Paddle reports.
     A date bound was shipped and reverted within the hour for exactly that. Whether Paddle

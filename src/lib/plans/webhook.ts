@@ -438,6 +438,22 @@ export function mayWritePlan(storedPlan: Plan, storedStatus: string, eventType: 
 }
 
 /**
+ * The status an adjustment may write, given the plan stored before it.
+ *
+ * **A revocation only ever lands on the Lifetime it is about.** An adjustment with no
+ * subscription id is a Lifetime's (`adjustmentEffect`), but the account may hold something else
+ * by the time it arrives: Paddle sends `chargeback_warning` and the final `chargeback` days apart,
+ * the first already expires the Lifetime, and in between the reader may buy a subscription. The
+ * second then used to write `expired` over that live Premium — charged every period and left
+ * with no plan. A restoration keeps its own rule (`restoresLifetime` puts the Lifetime back
+ * whatever is stored, and the subscription bought meanwhile is ended after the commit).
+ */
+export function adjustmentStatusFor(storedPlan: Plan, statusOnly: PlanStatus | null): PlanStatus | null {
+  if (statusOnly === 'expired' && storedPlan !== 'lifetime') return null
+  return statusOnly
+}
+
+/**
  * A completed transaction as columns — which for all but one case means *no* columns.
  *
  * `transaction.completed` fires for every renewal too, and those carry a `subscription_id`
@@ -594,7 +610,13 @@ export function subscriptionRelation(
  * restarts Paddle's billing period, so between the items change and the second call that pins
  * the date back, a legitimate year→month stamp is later than the period Paddle reports, and a
  * date bound would drop that reader to the lower plan early — B4 and B7 in `CASES.md`.
+ *
+ * **And only while that plan is still held.** An `expired` account kept its `plan` column —
+ * a lapsed Premium, a refunded Lifetime — so the rank alone let either buy Standard with a stamp
+ * reading «from Premium until 2099» and be believed. A real downgrade is made on a live
+ * subscription, so an expired account never writes one.
  */
-export function stampCredible(storedPlan: Plan, stampedFrom: Plan): boolean {
+export function stampCredible(storedPlan: Plan, storedStatus: string, stampedFrom: Plan): boolean {
+  if (storedStatus === 'expired') return false
   return PLAN_RANK[storedPlan] >= PLAN_RANK[stampedFrom]
 }
