@@ -261,6 +261,11 @@ async function recordCouponRedemption(
     })
     .from(couponCampaigns)
     .where(eq(couponCampaigns.id, campaignId))
+    /* Locked so two redemptions of one campaign count one after the other: read unlocked, the
+       last two seats taken at once each counted without the other's row, neither crossed the
+       ceiling, and nobody was told. `NO KEY UPDATE` for the account lock's reason — the insert
+       below references this row. */
+    .for('no key update')
     .limit(1)
 
   /* A stamp naming no campaign is a campaign deleted — which cannot happen, since archiving is
@@ -488,7 +493,7 @@ async function announcePayment(
  * an alert — an address above all — is a change to those three sentences, the rule the root
  * `CLAUDE.md` states for the registration notice.
  */
-async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptionId: string | null; plan: string }) {
+async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptionId: string | null; plan: string }): Promise<boolean> {
   const subscriptionId = account.paddleSubscriptionId
 
   /*
@@ -507,18 +512,18 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
           'subscription id: controlla su Paddle se ne ha una viva da disdire.',
       )
     }
-    return
+    return false
   }
 
   const paddle = paddleClient()
-  if (paddle === null) return
+  if (paddle === null) return false
 
   try {
     const subscription = await paddle.subscriptions.get(subscriptionId)
 
     /* Already over, or already on its way out: nothing to do and nothing to report. */
-    if (subscription.status === 'canceled') return
-    if (subscription.scheduledChange?.action === 'cancel') return
+    if (subscription.status === 'canceled') return false
+    if (subscription.scheduledChange?.action === 'cancel') return false
 
     /*
      * **Every status that is not `canceled` gets cancelled, `paused` included**, and that one is
@@ -528,6 +533,7 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
      * argument — dunning that succeeds is a charge.
      */
     await paddle.subscriptions.cancel(subscriptionId, { effectiveFrom: 'next_billing_period' })
+    return true
   } catch (error) {
     console.error('endSubscriptionBoughtOut failed', subscriptionId, error)
     await notifyTelegram(
@@ -535,6 +541,7 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
       `⚠️ Lifetime comprato dall'account ${account.id} ma la subscription ${subscriptionId} non si è riusciti a ` +
         'disdirla: va disdetta a mano su Paddle, altrimenti rinnova accanto al Lifetime.',
     )
+    return false
   }
 }
 
@@ -741,7 +748,24 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
    * retry answers `duplicate` above and says nothing to anybody.
    */
   if (outcome === 'applied' && account) {
-    await announcePayment(event, rawBody, account.ownerEmail, coupon.kind === 'redeemed' ? coupon.redemption : null)
+    const before = account
+    /*
+     * **Nothing after the commit may fail the delivery, and nothing may skip the steps after it.**
+     * The event is recorded, so a thrown error here would answer 500, Paddle would retry, and the
+     * retry would find `duplicate` and send nothing — the alerts below lost for good, which is a
+     * 2xx-on-failure one delivery late. Each step is therefore run on its own and logged.
+     */
+    const step = async (what: string, run: () => Promise<unknown>) => {
+      try {
+        await run()
+      } catch (error) {
+        console.error(`paddle webhook: ${what} failed after commit`, event.eventId, error)
+      }
+    }
+
+    await step('announcePayment', () =>
+      announcePayment(event, rawBody, before.ownerEmail, coupon.kind === 'redeemed' ? coupon.redemption : null),
+    )
 
     /*
      * The Lifetime is the one purchase that ends something else — see `endSubscriptionBoughtOut`.
@@ -755,17 +779,17 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * stopped nulling it.
      */
     if (event.eventType === 'transaction.completed' && effect?.columns?.plan === 'lifetime') {
-      await endSubscriptionBoughtOut(account)
+      await step('endSubscriptionBoughtOut', () => endSubscriptionBoughtOut(before))
     }
 
     /* The stored pointer is the one read *before* this event, which is what makes the old
        subscription nameable here even though the write above has just moved it. */
     if (relation === 'new') {
       alerts.push(
-        `⚠️ Seconda subscription sull'account ${account.id}: la nuova ${effect?.account.paddleSubscriptionId} si ` +
-          `aggiunge a ${account.paddleSubscriptionId}, che risultava ancora viva — probabilmente due checkout aperti e ` +
+        `⚠️ Seconda subscription sull'account ${before.id}: la nuova ${effect?.account.paddleSubscriptionId} si ` +
+          `aggiunge a ${before.paddleSubscriptionId}, che risultava ancora viva — probabilmente due checkout aperti e ` +
           `pagati entrambi. L'app ora gestisce la nuova e ignora gli eventi della vecchia: disdici e rimborsa ` +
-          `${account.paddleSubscriptionId} su Paddle. Non disdire la nuova, o l'account resta senza piano.`,
+          `${before.paddleSubscriptionId} su Paddle. Non disdire la nuova, o l'account resta senza piano.`,
       )
     }
 
@@ -775,16 +799,22 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * the Lifetime is live again every event of that subscription is withheld — it would bill
      * beside the Lifetime for ever with nobody told. The same remedy as a Lifetime bought over a
      * running subscription, and the same function.
+     *
+     * **Told only when something was actually cancelled.** The stored pointer can be the
+     * subscription the reader had *before* the Lifetime, already cancelled — and the alert used to
+     * say «bought meanwhile, consider a refund» about it all the same.
      */
-    if (effect?.restoresLifetime && readPlan(account.plan) !== 'lifetime' && account.paddleSubscriptionId !== null) {
-      alerts.push(
-        `⚠️ Chargeback vinto sul Lifetime dell'account ${account.id}: il Lifetime è di nuovo attivo, e la subscription ` +
-          `${account.paddleSubscriptionId} comprata nel frattempo viene disdetta a fine periodo. Valuta un rimborso.`,
-      )
-      await endSubscriptionBoughtOut(account)
+    if (effect?.restoresLifetime && readPlan(before.plan) !== 'lifetime' && before.paddleSubscriptionId !== null) {
+      await step('endSubscriptionBoughtOut', async () => {
+        if (!(await endSubscriptionBoughtOut(before))) return
+        alerts.push(
+          `⚠️ Chargeback vinto sul Lifetime dell'account ${before.id}: il Lifetime è di nuovo attivo, e la subscription ` +
+            `${before.paddleSubscriptionId} comprata nel frattempo viene disdetta a fine periodo. Valuta un rimborso.`,
+        )
+      })
     }
 
-    for (const alert of alerts) await notifyTelegram('purchase', alert)
+    for (const alert of alerts) await step('alert', () => notifyTelegram('purchase', alert))
   }
 
   return outcome

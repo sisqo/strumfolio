@@ -283,6 +283,13 @@ break from a distance:
   (2026-09-23), so two deliveries for one account run one after the other and each reads what the
   previous committed. `FOR UPDATE`, or the lock taken after the insert, deadlocks: the insert's
   foreign key already holds `FOR KEY SHARE` on the same row. Measured with two processes on dev.
+  A redemption locks its campaign row the same way, so two last seats taken at once are counted
+  one after the other and the ceiling alert fires; the order is always account then campaign.
+- **Nothing after the commit can fail the delivery** (2026-09-23): the event is recorded, so a
+  500 there would only earn a retry that answers `duplicate` and sends nothing. Each post-commit
+  step is run and logged on its own. The won-chargeback alert is sent only when
+  `endSubscriptionBoughtOut` actually cancelled something — the stored pointer can be the
+  subscription from before the Lifetime, already over.
 - **Two of its assumptions were driven live on 2026-09-14 and held.** A `type: 'full'` refund
   created through the API comes back with `items: [{ type: 'full', … }]` — the per-item shape
   `adjustmentEffect` reads, which until then was inferred from the reference rather than seen —
