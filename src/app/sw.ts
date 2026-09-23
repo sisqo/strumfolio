@@ -78,12 +78,18 @@ const rejectUnauthenticated = {
  */
 let scopeEpoch = 0
 
+/* **Fails open**: a request with no stamp is stored. Serwist hands each plugin one state object
+   per request today (`StrategyHandler._pluginStateMap`); if a future version stopped doing so, a
+   strict comparison would refuse every page write and silently end offline reading. */
+const endedBefore = (state: Record<string, unknown> | undefined) =>
+  typeof state?.scopeEpoch === 'number' && state.scopeEpoch !== scopeEpoch
+
 const refuseEndedScope = {
   handlerWillStart: async ({ state }: { state?: Record<string, unknown> }) => {
     if (state) state.scopeEpoch = scopeEpoch
   },
   cacheWillUpdate: async ({ response, state }: { response: Response; state?: Record<string, unknown> }) =>
-    state?.scopeEpoch === scopeEpoch ? response : null,
+    endedBefore(state) ? null : response,
   cacheDidUpdate: async ({
     cacheName,
     request,
@@ -93,7 +99,7 @@ const refuseEndedScope = {
     request: Request
     state?: Record<string, unknown>
   }) => {
-    if (state?.scopeEpoch !== scopeEpoch) await (await caches.open(cacheName)).delete(request)
+    if (endedBefore(state)) await (await caches.open(cacheName)).delete(request)
   },
 }
 
