@@ -25,6 +25,7 @@ import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { couponCampaigns } from '@/lib/db/schema'
+import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { campaignStatus, cookieMaxAge } from './discount'
 import { archiveCampaignDiscounts, syncCampaignDiscounts } from './paddleDiscountSync'
@@ -63,6 +64,16 @@ export async function applyCoupon(
      a wrong shape is `'unknown-code'`, the same sentence as a code that does not exist. */
   if (!isCodeShape(code)) return { ok: false, reason: 'unknown-code' }
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
+
+  /* **Capped per address, and answered as a wrong code.** This needs no session, and its
+     distinct refusals say whether a code exists, so without a ceiling a script could walk the
+     code space and find the ones meant for one channel. Twenty tries in ten minutes is far past
+     anybody mistyping; `'unknown-code'` rather than a new reason, so hitting the cap tells a
+     script nothing either. */
+  const ip = await requestIp()
+  if (ip !== null && !(await checkRateLimit(`coupon:ip:${ip}`, 20, 10 * 60 * 1000))) {
+    return { ok: false, reason: 'unknown-code' }
+  }
 
   const user = await currentUser()
   const resolved = await resolveTypedCode(code, user?.accountOwnerEmail ?? null)
