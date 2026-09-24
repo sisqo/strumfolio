@@ -251,16 +251,21 @@ used by the form *and* by the editor's directive rows, which had the same bug.
   and the file has to keep what its writer typed for the export to hand it back.
   `parseLyricLine` therefore keeps a placeholder *whole* through word splitting — the
   conditional form contains a space, and a split one could never be put together again.
-- **A conditional's `!` lives in the directive-name regex, and that regex exists twice.** The
+- **A conditional's `!` lives in the directive-name matcher, which used to exist twice.** The
   negated form (`{comment-!guitar}`, «everybody except») was unreachable until 2026-09-20:
   `selectorMatches` had implemented and tested negation from the start, but neither parser's
   name charset admitted `!`, so the line matched no directive and was drawn as **lyrics** —
   the `{comment Repeat ad lib}` failure again, from the other end. Both halves were correct
   in isolation, which is why no unit test found it and why the check that did was parsing a
   file that used every construct the guide documents. `!` is admitted only *after* a dash, so
-  a bare `{!foo}` is still words. **The two copies must not drift** (`chordpro.ts` and
-  `editor/document.ts`): a name only one accepts is a line the reader draws as a directive
-  and the editor offers as lyrics with its `[` live. The editor keeps a conditional whole as
+  a bare `{!foo}` is still words. **There is one copy since 2026-09-24** —
+  `matchDirective` (`lib/directiveLine.ts`), read by both parsers — because a name only one
+  accepts is a line the reader draws as a directive and the editor offers as lyrics with its
+  `[` live. It is a scan and not a regular expression: the old one had four whitespace
+  quantifiers over the same spaces, so a line opening `{` with a long run of spaces and no
+  closing brace took 5 s at 400 spaces and 83 s at 800, hanging the server's home screen
+  (which parses every song) and freezing reader, editor and import preview.
+  `directiveLine.test.ts` checks it against the old expression on short random lines. The editor keeps a conditional whole as
   an opaque `directive` block rather than as `comment`/`boundary`, which is deliberate — it
   never takes the selector apart, so it cannot lose it.
 - **The four comment spellings are four values in the parse and three looks on screen.**

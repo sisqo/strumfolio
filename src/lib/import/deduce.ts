@@ -88,8 +88,32 @@ function headingLines(lines: string[]): number {
   return count
 }
 
-/** A directive line, split into its name and its value. */
-const NAMED_DIRECTIVE = /^\s*\{\s*([a-zA-Z_][a-zA-Z0-9_ -]*?)\s*(?::\s*(.*?)\s*)?\}\s*$/
+/**
+ * A directive line, split into its name and its value: `{name}` or `{name: value}`, the name
+ * allowed to carry spaces and dashes (`{ccli number: …}` in the dialects that write one).
+ *
+ * A scan rather than the expression it replaces, `/^\s*\{\s*([a-zA-Z_][a-zA-Z0-9_ -]*?)\s*
+ * (?::\s*(.*?)\s*)?\}\s*$/`, whose lazy name and the whitespace around it could each take the
+ * same spaces: a pasted line opening `{a:` and running on with spaces cost 290 ms at 800 of
+ * them in the import preview, and grew with the square. Same answers, one pass.
+ */
+const DIRECTIVE_NAME = /^[a-zA-Z_][a-zA-Z0-9_ -]*$/
+const LINE_TERMINATOR = /[\n\r\u2028\u2029]/
+
+export function namedDirective(line: string): [string, string, string | undefined] | null {
+  const trimmed = line.trim()
+  if (trimmed.length < 2 || trimmed[0] !== '{' || trimmed[trimmed.length - 1] !== '}') return null
+  const inner = trimmed.slice(1, -1)
+  const colon = inner.indexOf(':')
+  const name = (colon === -1 ? inner : inner.slice(0, colon)).trim()
+  if (!DIRECTIVE_NAME.test(name)) return null
+  if (colon === -1) return [line, name, undefined]
+  const value = inner.slice(colon + 1).trim()
+  if (LINE_TERMINATOR.test(value)) return null
+  return [line, name, value]
+}
+
+const NAMED_DIRECTIVE = { exec: namedDirective }
 
 /**
  * Reads the directives whose meaning depends on which app wrote the file.

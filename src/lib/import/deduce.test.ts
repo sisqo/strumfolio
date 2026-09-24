@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 
 import { convert } from './convert'
 import { parseChordPro } from '../chordpro'
-import { METADATA_DIRECTIVE, deduce } from './deduce'
+import { METADATA_DIRECTIVE, deduce, namedDirective } from './deduce'
 
 describe('deduce', () => {
   it('prefers the directives when they are there', () => {
@@ -229,5 +229,34 @@ describe('METADATA_DIRECTIVE and a value with a brace in it', () => {
     for (const line of ['{title: Song {Live}}', '{songbook: Serate {2026}}', '{division: Lato {A}}']) {
       assert.ok(METADATA_DIRECTIVE.test(line), line)
     }
+  })
+})
+
+describe('namedDirective', () => {
+  // The expression it replaced, as the oracle on lines short enough for it to finish.
+  const OLD = /^\s*\{\s*([a-zA-Z_][a-zA-Z0-9_ -]*?)\s*(?::\s*(.*?)\s*)?\}\s*$/
+  const oracle = (line: string) => {
+    const m = OLD.exec(line)
+    return m === null ? null : [m[0], m[1], m[2]]
+  }
+
+  it('answers what the old expression answered', () => {
+    const alphabet = ['{', '}', ':', ' ', ' ', '\t', 'a', 'Z', '_', '1', '-', '.', 'x', '\r']
+    let seed = 11
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648)
+    for (let n = 0; n < 20000; n++) {
+      let line = next() % 3 === 0 ? ' ' : ''
+      line += next() % 5 === 0 ? '' : '{'
+      const length = next() % 12
+      for (let k = 0; k < length; k++) line += alphabet[next() % alphabet.length]
+      if (next() % 3 !== 0) line += '}'
+      assert.deepEqual(namedDirective(line), oracle(line), JSON.stringify(line))
+    }
+  })
+
+  it('takes linear time on a pasted line that never closes', () => {
+    const started = performance.now()
+    deduce('{title: T}\n{a:' + ' '.repeat(5000) + '\nword [C]x')
+    assert.ok(performance.now() - started < 50)
   })
 })

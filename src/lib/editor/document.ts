@@ -16,6 +16,8 @@
  * can never drift apart.
  */
 
+import { matchDirective } from '../directiveLine'
+
 export type SectionKind = 'verse' | 'chorus' | 'bridge'
 
 /** A chord and the position in the line's text it sits above. */
@@ -117,12 +119,9 @@ export interface SongDocument {
   eol: '\n' | '\r\n'
 }
 
-// Kept identical to `chordpro.ts`'s own copy, which carries the argument for every piece
-// of it: digits so a name may end in one, `-` for hyphenated spellings and a conditional's
-// selector, and `!` after a dash for a negated one. **The two must not drift** — a name
-// this one rejects becomes an editable lyrics line offering its `[` as a chord, while the
-// reader draws it as a directive.
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-!?[a-zA-Z0-9_-]*)?)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
+// The reader's own matcher, not a copy of it: a name one parser accepts and the other does not
+// is an editable lyrics line offering its `[` as a chord while the reader draws a directive.
+const DIRECTIVE = { exec: matchDirective }
 
 /**
  * Every spelling of a comment the format has. They differ only in how a PDF typesetter

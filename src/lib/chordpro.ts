@@ -50,6 +50,7 @@
  */
 
 import { metadataValues, placeholderAt, substituteMetadata } from './chordproMeta'
+import { matchDirective } from './directiveLine'
 import { MarkupState, type Run, isStyled, markupRuns, markupTagAt, sameStyle, stripMarkup } from './markup'
 import { MAX_CAPO } from './music/capo'
 import { parseChord } from './music/chord'
@@ -424,8 +425,12 @@ export interface ParsedSong {
  * was dead code for every real file. Only after a dash, so a bare `{!foo}` is still not a
  * directive. Found on 2026-09-20 by parsing a file that used every construct the guide
  * documents, which is the kind of bug no unit test finds because each half is correct.
+ *
+ * Read by `matchDirective` (`directiveLine.ts`), which the editor shares — it was a regular
+ * expression here and a copy of it there until 2026-09-24, when it turned out to hang on a
+ * line that opens a brace and never closes it.
  */
-const DIRECTIVE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-!?[a-zA-Z0-9_-]*)?)\s*(?:[:\s]\s*(.*?)\s*)?\}$/
+const DIRECTIVE = { exec: matchDirective }
 
 /**
  * `{meta artist Foo}` — the space-separated form, which the regex above cannot match
