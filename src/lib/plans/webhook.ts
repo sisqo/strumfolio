@@ -87,6 +87,8 @@ export interface PaddleTransactionData {
   /** `web`, `api`, `subscription_recurring`, `subscription_update`… — see `isNewPurchase`. */
   origin?: string | null
   custom_data?: { account_id?: unknown; coupon_campaign_id?: unknown } | null
+  /** The Discount Paddle actually applied — see `couponCampaignOf`. */
+  discount_id?: string | null
   items?: PaddleItemRef[] | null
   /** The period this particular payment bought. Absent on a one-time purchase. */
   billing_period?: { ends_at?: string | null } | null
@@ -511,6 +513,18 @@ export function transactionEffect(data: PaddleTransactionData): PaddleEventEffec
  */
 export function couponCampaignOf(data: PaddleTransactionData): string | null {
   return readString(data.custom_data?.coupon_campaign_id)
+}
+
+/**
+ * The `dsc_…` Paddle applied to this transaction, or `null`. **This, not the stamp above, is
+ * what says a coupon was used**: `custom_data` can be written or replaced from the browser with
+ * the public client token, while a Discount cannot be attached that way (`enabled_for_checkout`
+ * is off). So a redemption is recorded only when the stamped campaign owns the applied
+ * discount, and an applied discount with its stamp stripped is traced back to its campaign.
+ */
+export function appliedDiscountOf(data: PaddleTransactionData): string | null {
+  const id = readString(data.discount_id)
+  return id !== null && id.startsWith('dsc_') ? id : null
 }
 
 /**

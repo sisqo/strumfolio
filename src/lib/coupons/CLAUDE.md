@@ -76,6 +76,13 @@ load-bearing parts:
   through this checkout is `api`, a change of plan is `subscription_update` — and that one's
   `custom_data` carried `downgrade` beside `account_id`, i.e. the *subscription's* object, which
   is the travel this whole arrangement is built against.
+- **What decides that a coupon was used is the transaction's `discount_id`, not the stamp**
+  (2026-09-24, `appliedDiscountOf`). `custom_data` can be set or replaced from the browser with
+  the public client token (`Checkout.open({items, customData})`, `updateCheckout`), a Discount
+  cannot (`enabled_for_checkout` is off). So the campaign is found by the applied `dsc_…` when
+  there is one — a stamp stripped at the checkout still costs its seat — and a purchase carrying
+  a stamp but no discount records nothing, clears the columns and alerts. Measured on sandbox
+  transactions the same day: `discount_id` is top-level on the raw payload, beside the stamp.
 - **Every campaign that existed before 2026-09-14 has no discounts and refuses every sale until
   somebody presses «Sync».** That is by design and looks exactly like a bug: nothing errors,
   nothing overcharges, the code simply never applies. `/coupons` marks each such row, and

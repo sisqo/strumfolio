@@ -43,6 +43,7 @@ import { PLAN_LABEL, readPlan } from './types'
 import {
   adjustmentEffect,
   adjustmentStatusFor,
+  appliedDiscountOf,
   couponCampaignOf,
   isNewPurchase,
   subscriptionRelation,
@@ -303,22 +304,37 @@ async function recordCouponRedemption(
   if (event.eventType !== 'transaction.completed') return UNTOUCHED
 
   const purchase = isNewPurchase(event.data as never)
-  const campaignId = couponCampaignOf(event.data as never)
+  const stamped = couponCampaignOf(event.data as never)
+  const applied = appliedDiscountOf(event.data as never)
 
   /* A purchase carrying no campaign at all is what has to *clear* the columns — see
      `isNewPurchase`. A renewal carrying none leaves them exactly as they are. */
-  if (campaignId === null) return purchase ? { kind: 'cleared' } : UNTOUCHED
+  if (stamped === null && applied === null) return purchase ? { kind: 'cleared' } : UNTOUCHED
 
   const [campaign] = await tx
     .select({
+      id: couponCampaigns.id,
       code: couponCampaigns.code,
       discountPercent: couponCampaigns.discountPercent,
       discountMonths: couponCampaigns.discountMonths,
       usageLimitSubscription: couponCampaigns.usageLimitSubscription,
       usageLimitLifetime: couponCampaigns.usageLimitLifetime,
+      paddleDiscountIdMonthly: couponCampaigns.paddleDiscountIdMonthly,
+      paddleDiscountIdAnnual: couponCampaigns.paddleDiscountIdAnnual,
+      paddleDiscountIdLifetime: couponCampaigns.paddleDiscountIdLifetime,
     })
     .from(couponCampaigns)
-    .where(eq(couponCampaigns.id, campaignId))
+    .where(
+      /* By the discount Paddle applied when there is one, so a stamp stripped from the checkout
+         still finds the campaign whose seat was used; by the stamp only when nothing was. */
+      applied !== null
+        ? or(
+            eq(couponCampaigns.paddleDiscountIdMonthly, applied),
+            eq(couponCampaigns.paddleDiscountIdAnnual, applied),
+            eq(couponCampaigns.paddleDiscountIdLifetime, applied),
+          )
+        : eq(couponCampaigns.id, stamped as string),
+    )
     /* Locked so two redemptions of one campaign count one after the other: read unlocked, the
        last two seats taken at once each counted without the other's row, neither crossed the
        ceiling, and nobody was told. `NO KEY UPDATE` for the account lock's reason — the insert
@@ -330,6 +346,23 @@ async function recordCouponRedemption(
      the only retirement — or an id from another installation. Either way there is nothing to
      record and nothing to promise. */
   if (campaign === undefined) return purchase ? { kind: 'cleared' } : UNTOUCHED
+
+  /* **A purchase is a redemption only if the discount was actually applied.** A stamp on a
+     full-price transaction is either a campaign whose discount Paddle has stopped applying — a
+     renewal after the months ran out, which changes nothing — or a `custom_data` written by
+     hand, which would take a seat from the campaign and print a coupon over a charge that had
+     none. */
+  if (applied === null) {
+    if (purchase) {
+      alerts.push(
+        `⚠️ Transazione ${(event.data as { id?: string }).id} dell'account ${account.id} con il timbro della campagna ${campaign.code} ` +
+          'ma senza lo sconto applicato: nessun riscatto registrato. Il custom_data non viene da questo server.',
+      )
+      return { kind: 'cleared' }
+    }
+    return UNTOUCHED
+  }
+  const campaignId = campaign.id
 
   /* The same reader the payment history and the confirmation email use, so a redemption row and
      the line beside it in `/billing` can never name different amounts for one event. */

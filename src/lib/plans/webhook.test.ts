@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 import {
   adjustmentEffect,
   adjustmentStatusFor,
+  appliedDiscountOf,
   couponCampaignOf,
   downgradeStamp,
   isNewPurchase,
@@ -555,5 +556,14 @@ describe('subscriptionRelation', () => {
     assert.equal(subscriptionRelation({ ...running, planStatus: 'expired' }, 'subscription.created', 'sub_new'), 'own')
     assert.equal(subscriptionRelation({ ...running, plan: 'free' }, 'subscription.created', 'sub_new'), 'own')
     assert.equal(subscriptionRelation({ ...running, plan: 'lifetime' }, 'subscription.canceled', 'sub_new'), 'own')
+  })
+})
+
+describe('appliedDiscountOf', () => {
+  it('reads the discount Paddle applied, and nothing that is not one', () => {
+    assert.equal(appliedDiscountOf({ id: 'txn_1', discount_id: 'dsc_1' }), 'dsc_1')
+    assert.equal(appliedDiscountOf({ id: 'txn_1', discount_id: null }), null)
+    assert.equal(appliedDiscountOf({ id: 'txn_1', discount_id: 'COUPON30' }), null)
+    assert.equal(appliedDiscountOf({ id: 'txn_1' }), null)
   })
 })
