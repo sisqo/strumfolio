@@ -286,7 +286,9 @@ export default function TermsOfServicePage() {
         You may stop using Strumfolio at any time and delete your account, together with all of Your
         Content, directly from within the app. If you have a paid subscription that will renew, cancel it
         first in Plan &amp; billing — it then runs to the end of the period you have paid for — so that
-        nothing is charged for an account that no longer exists. Deletion is immediate on the live
+        nothing is charged for an account that no longer exists. A subscription that is paused or has a
+        payment overdue cannot be cancelled there: write to{' '}
+        <a href={`mailto:${CONTACT}`}>{CONTACT}</a> and we will cancel it for you. Deletion is immediate on the live
         service; see the{' '}
         <Link href="/privacy-policy">Privacy Policy</Link> for how residual copies in backups and
         logs are handled.

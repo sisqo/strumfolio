@@ -1592,7 +1592,9 @@ browser signed in for the rest of the ninety-day cookie, with every write still 
 else's* account — cannot reach that browser at all. Reproduced and fixed 2026-09-11.
 
 - **Two halves, and only one of them is automatic.** `currentUser()` answering `null` closes the
-  writes everywhere at once, because every write funnels through `permit()`. Getting the reader
+  writes everywhere at once, because every write funnels through `permit()` or, for one reached
+  by a slug, `accessTo()` — which asked nothing until 2026-09-24, so a suspended reader could
+  still save and delete songs by posting to the action ids. Getting the reader
   off the screen is `requireAccount()` (`lib/auth/session.ts`), and that has to be *called* — the
   pages read `currentUser` to scope their data, not as a gate.
 - **`middleware.ts` cannot do this**, which is why it is not there: it runs on the edge, where

@@ -102,7 +102,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
  * an app with nothing in it.
  *
  * `currentUser` answering `null` is the half that protects: every write goes through `permit`,
- * which refuses on `no-session`, so a removed account can change nothing from the moment the row
+ * which refuses on `no-session`, or through `accessTo`, which asks the same question, so a removed account can change nothing from the moment the row
  * goes. What it does *not* do is get anybody off the screen — the pages read `currentUser` to
  * scope their data, not as a gate, and `middleware.ts` cannot ask this question at all, since it
  * runs on the edge where this app's Postgres driver does not reach. So the redirect is here, and
