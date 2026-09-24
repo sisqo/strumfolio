@@ -36,7 +36,7 @@ import { type Dialect, type Field, fieldFor, readOnSongMetatags, sniffDialect } 
  * behind it to explain. Stripped here for the same reason `export.ts` strips it there.
  */
 export const METADATA_DIRECTIVE =
-  /^\s*\{\s*(?:meta\s*(?::\s*|\s+))?(?:title|t|artist|canzoniere|songbook|x_songbook|division|sezione|x_division)(?:\s*:|\s)[^}]*\}\s*$/i
+  /^\s*\{\s*(?:meta\s*(?::\s*|\s+))?(?:title|t|artist|canzoniere|songbook|x_songbook|division|sezione|x_division)(?:\s*:|\s).*\}\s*$/i
 
 export interface Deduced {
   title: string

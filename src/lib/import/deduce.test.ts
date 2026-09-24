@@ -221,3 +221,13 @@ describe('METADATA_DIRECTIVE', () => {
     assert.equal(result.body, '[C]la')
   })
 })
+
+describe('METADATA_DIRECTIVE and a value with a brace in it', () => {
+  /* `export.ts` writes `{title: Song {Live}}`, which the reader reads; the strip has to match it
+     too, or every export and import leaves one more stale title line in the body. */
+  it('matches a title, songbook or division holding a brace', () => {
+    for (const line of ['{title: Song {Live}}', '{songbook: Serate {2026}}', '{division: Lato {A}}']) {
+      assert.ok(METADATA_DIRECTIVE.test(line), line)
+    }
+  })
+})

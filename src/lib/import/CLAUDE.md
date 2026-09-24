@@ -35,3 +35,9 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   archival only.
 - **`sniffDialect` (`src/lib/import/dialect.ts`) reads the content, not the extension**, and
   genuinely ambiguous files are skipped rather than guessed.
+- **A rule (`---`, `===`…) cuts songs only in text with no ChordPro song marks** (2026-09-24).
+  It is what people type between two pasted songs; a file with `{title}` or `{new_song}` already
+  says where each song starts, and this app's export — the restore path — is such a file, so a
+  `---` in a body used to split a restored song in two. A chunk with a title is a song even with
+  no words, verbatim blocks are skipped labelled or not (`{start_of_tab: Intro}`, `{sot-guitar}`,
+  grids, delegated environments), and `METADATA_DIRECTIVE`/`TITLE` match a value holding a brace.

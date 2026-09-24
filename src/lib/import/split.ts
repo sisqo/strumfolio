@@ -21,7 +21,8 @@
  * A form feed counts as a rule: text extracted from a PDF songbook carries one at
  * every page break, and those pages are songs.
  *
- * None of the three marks are read inside a `{start_of_tab}` … `{end_of_tab}` block.
+ * None of the three marks are read inside a `{start_of_tab}` … `{end_of_tab}` block, nor any
+ * other verbatim block (grid, grille, the delegated environments), labelled or not.
  * A silent string across a whole bar is a run of dashes with nothing else on the
  * line — indistinguishable from the rule someone types between two pasted songs —
  * and a tab is exactly the material `RULE` was never meant to fire on. `document.ts`
@@ -35,8 +36,9 @@
 /** `{ns}` or `{new_song}`, with or without an argument. */
 const NEW_SONG = /^\{\s*(?:ns|new_song)\s*(?::[^}]*)?\}$/i
 
-/** `{t: …}` or `{title: …}`, which opens the song rather than separating it. */
-const TITLE = /^\{\s*(?:t|title)\s*:[^}]*\}$/i
+/** `{t: …}` or `{title: …}`, which opens the song rather than separating it. Greedy to the last
+    brace, since a title may hold one of its own: `{title: Song {Live}}`. */
+const TITLE = /^\{\s*(?:t|title)\s*:.*\}$/i
 
 /** Three or more of one rule character, and nothing else. */
 const RULE = /^(?:-{3,}|={3,}|\*{3,}|_{3,})$/
@@ -44,11 +46,25 @@ const RULE = /^(?:-{3,}|={3,}|\*{3,}|_{3,})$/
 /** A line that is nothing but a directive — part of a song's header, never of its words. */
 const DIRECTIVE_ONLY = /^\{[^}]*\}$/
 
-/** `{start_of_tab}` or `{sot}` — same aliases `document.ts` reads. */
-const START_OF_TAB = /^\{\s*(?:sot|start_of_tab)\s*\}$/i
+/**
+ * The opening of any block whose rows are verbatim — a tab, a grid, a delegated environment —
+ * with the label or selector the format allows on it: `{start_of_tab: Intro}`, `{sot-guitar}`.
+ * These used to match only bare, so a labelled tab's silent-string row of dashes read as a rule
+ * and cut the song in two.
+ */
+const START_OF_VERBATIM =
+  /^\{\s*(sot|sog|start_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?\s*(?:[:\s].*)?\}$/i
 
-/** `{end_of_tab}` or `{eot}`. */
-const END_OF_TAB = /^\{\s*(?:eot|end_of_tab)\s*\}$/i
+/** The matching close, with the selector the opening carried. */
+const END_OF_VERBATIM = /^\{\s*(eot|eog|end_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?\s*\}$/i
+
+/** `sot`/`eot` and `sog`/`eog` as the environment they name, so a block closes only on its own end. */
+function environmentOf(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower === 'sot' || lower === 'eot') return 'tab'
+  if (lower === 'sog' || lower === 'eog') return 'grid'
+  return lower.replace(/^(?:start|end)_of_/, '')
+}
 
 export function splitSongs(text: string): string[] {
   // A form feed is a page break, and a page break in a songbook is a new song.
@@ -56,7 +72,17 @@ export function splitSongs(text: string): string[] {
 
   const songs: string[][] = []
   let current: string[] = []
-  let inTab = false
+  /** The verbatim environment that is open, or null. */
+  let inBlock: string | null = null
+
+  /*
+   * **A rule is a separator only in text that has no ChordPro song marks of its own.** It exists
+   * for what people type between two pasted songs; a ChordPro file already says where each song
+   * starts, with `{title}` or `{new_song}`, and a line of `---` inside one is part of that song.
+   * This app's own export is such a file and is its restore path, so reading `---` as a cut there
+   * split a restored song in two, the second half with a title guessed from its words.
+   */
+  const marked = lines.some((line) => TITLE.test(line.trim()) || NEW_SONG.test(line.trim()))
   /**
    * Whether a *song* is underway — which means words, not merely a header.
    *
@@ -78,8 +104,10 @@ export function splitSongs(text: string): string[] {
         line.trim() !== '' && !line.startsWith('#') && !DIRECTIVE_ONLY.test(line.trim()),
     )
 
+  /* A chunk with a title is a song even with no words — a song whose body is empty, or only
+     directives, exported and restored, used to vanish here. */
   const cut = () => {
-    if (hasContent()) songs.push(current)
+    if (hasContent() || current.some((line) => TITLE.test(line.trim()))) songs.push(current)
     current = []
   }
 
@@ -88,19 +116,21 @@ export function splitSongs(text: string): string[] {
 
     // Verbatim while a tab is open: none of the three marks mean here what they
     // mean anywhere else, a silent-string rule of dashes least of all.
-    if (inTab) {
-      if (END_OF_TAB.test(trimmed)) inTab = false
+    if (inBlock !== null) {
+      const end = END_OF_VERBATIM.exec(trimmed)
+      if (end !== null && environmentOf(end[1]!) === inBlock) inBlock = null
       current.push(line)
       continue
     }
 
-    if (START_OF_TAB.test(trimmed)) {
-      inTab = true
+    const start = START_OF_VERBATIM.exec(trimmed)
+    if (start !== null) {
+      inBlock = environmentOf(start[1]!)
       current.push(line)
       continue
     }
 
-    if (RULE.test(trimmed) || NEW_SONG.test(trimmed)) {
+    if ((RULE.test(trimmed) && !marked) || NEW_SONG.test(trimmed)) {
       // The mark is not part of either song.
       cut()
       continue

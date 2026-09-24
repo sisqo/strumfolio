@@ -86,6 +86,38 @@ describe('splitting a paste into songs', () => {
     assert.deepEqual(splitSongs(pasted), [['{sot}', '---', '{eot}', 'Uno'].join('\n'), 'Due'])
   })
 
+  it('does not read a rule inside a labelled tab, a selected tab or a grid', () => {
+    for (const [open, close] of [
+      ['{start_of_tab: Intro}', '{end_of_tab}'],
+      ['{sot-guitar}', '{eot-guitar}'],
+      ['{start_of_grid}', '{end_of_grid}'],
+      ['{start_of_textblock}', '{end_of_textblock}'],
+    ]) {
+      const pasted = ['{title: Uno}', open, '---', close, '[la]uno'].join('\n')
+      assert.deepEqual(splitSongs(pasted), [pasted], open)
+    }
+  })
+
+  /* This app's export is a ChordPro file and its restore path: a `---` in a song's body is that
+     song's, and cutting there split one restored song into two. */
+  it('does not cut on a rule in a file that marks its songs itself', () => {
+    const exported = ['{title: Uno}', '', '[la]uno', '---', '[mi]ancora uno'].join('\n')
+    assert.deepEqual(splitSongs(exported), [exported])
+    const joined = ['{title: Uno}', '[la]uno', '***', 'uno', '{new_song}', '{title: Due}', 'due'].join('\n')
+    assert.deepEqual(splitSongs(joined), [['{title: Uno}', '[la]uno', '***', 'uno'].join('\n'), '{title: Due}\ndue'])
+  })
+
+  it('keeps a song that has a title and no words', () => {
+    assert.deepEqual(splitSongs('{title: Vuota}\n{key: C}\n{new_song}\n{title: Due}\ndue'), [
+      '{title: Vuota}\n{key: C}',
+      '{title: Due}\ndue',
+    ])
+  })
+
+  it('cuts before a second title that holds a brace of its own', () => {
+    assert.deepEqual(splitSongs('{title: Uno}\nuno\n{title: Due {Live}}\ndue'), ['{title: Uno}\nuno', '{title: Due {Live}}\ndue'])
+  })
+
   it('leaves the words of the songs untouched', () => {
     const first = ['Certe notti', 'Ligabue', '', 'Am        F', 'Certe notti la macchina'].join('\n')
     const second = ['Vasco', '', 'C         G', 'Albachiara'].join('\n')
