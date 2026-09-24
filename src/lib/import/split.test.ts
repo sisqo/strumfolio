@@ -225,3 +225,20 @@ describe('a header is not a song', () => {
     assert.equal(songs.length, 3)
   })
 })
+
+describe('the space form of a title', () => {
+  it('opens a song just as the colon form does, and keeps both titles', () => {
+    for (const name of ['title', 't']) {
+      const songs = prepareSongs(`{${name} Song A}\n[C]a\n\n{${name} Song B}\n[G]b`)
+      assert.deepEqual(
+        songs.map((song) => song.title),
+        ['Song A', 'Song B'],
+        name,
+      )
+    }
+  })
+
+  it('is not a title without a value', () => {
+    assert.equal(splitSongs('{t }\n[C]a\n---\n[G]b').length, 2)
+  })
+})

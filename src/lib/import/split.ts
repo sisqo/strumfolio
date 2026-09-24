@@ -37,8 +37,10 @@
 const NEW_SONG = /^\{\s*(?:ns|new_song)\s*(?::[^}]*)?\}$/i
 
 /** `{t: …}` or `{title: …}`, which opens the song rather than separating it. Greedy to the last
-    brace, since a title may hold one of its own: `{title: Song {Live}}`. */
-const TITLE = /^\{\s*(?:t|title)\s*:.*\}$/i
+    brace, since a title may hold one of its own: `{title: Song {Live}}`. The space form too —
+    `{title Song}`, `{t Song}` — which the reader and `METADATA_DIRECTIVE` accept: without it two
+    songs so titled were imported as one, and the second title was stripped with nothing left. */
+const TITLE = /^\{\s*(?:t|title)(?:\s*:.*|\s+\S.*)\}$/i
 
 /** Three or more of one rule character, and nothing else. */
 const RULE = /^(?:-{3,}|={3,}|\*{3,}|_{3,})$/
