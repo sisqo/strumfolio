@@ -29,6 +29,7 @@ import { useRowDrag } from '@/lib/songbooks/useRowDrag'
 import { writeMessage, type WriteFailure } from '@/lib/songbooks/types'
 import type { LimitFacts } from '@/lib/plans/types'
 import type { SongIndexRow } from '@/lib/search-index'
+import { NAME_MAX } from '@/lib/names'
 
 /** One key per drawn row, so a ref survives the rows moving under it. */
 function keyOf(row: ArrangeRow): string {
@@ -408,6 +409,7 @@ export function ArrangeSongbook({
                     <input
                       autoFocus
                       value={draft}
+                      maxLength={NAME_MAX}
                       onChange={(event) => setDraft(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Escape') setRenaming(null)
@@ -709,6 +711,7 @@ export function ArrangeSongbook({
           <span className="sr-only">New section name</span>
           <input
             value={newName}
+            maxLength={NAME_MAX}
             onChange={(event) => setNewName(event.target.value)}
             placeholder="New section"
             className="form-field"

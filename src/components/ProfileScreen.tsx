@@ -6,6 +6,7 @@ import { IconOffline } from '@/components/icons'
 import { loadOwnName, updateOwnName } from '@/lib/accounts/actions'
 import { NAME_MESSAGE } from '@/lib/accounts/types'
 import { useOnline } from '@/lib/useOnline'
+import { NAME_MAX } from '@/lib/names'
 
 /**
  * Your own first and last name, set by you (`/profile`)
@@ -95,6 +96,7 @@ export function ProfileScreen() {
             type="text"
             autoComplete="given-name"
             value={firstName}
+            maxLength={NAME_MAX}
             onChange={(event) => setFirstName(event.target.value)}
             className="form-field"
             required
@@ -107,6 +109,7 @@ export function ProfileScreen() {
             type="text"
             autoComplete="family-name"
             value={lastName}
+            maxLength={NAME_MAX}
             onChange={(event) => setLastName(event.target.value)}
             className="form-field"
             required

@@ -6,6 +6,7 @@ import { resetTurnstile, TurnstileWidget } from '@/components/TurnstileWidget'
 import { MIN_PASSWORD } from '@/lib/auth/types'
 import { register } from '@/lib/register/actions'
 import { REGISTER_MESSAGE } from '@/lib/register/types'
+import { NAME_MAX } from '@/lib/names'
 
 type Phase = 'form' | 'sent'
 
@@ -106,6 +107,7 @@ export function RegisterForm() {
                 autoComplete="given-name"
                 placeholder="First name"
                 value={firstName}
+                maxLength={NAME_MAX}
                 onChange={(event) => setFirstName(event.target.value)}
                 className="form-field"
               />
@@ -120,6 +122,7 @@ export function RegisterForm() {
                 autoComplete="family-name"
                 placeholder="Last name"
                 value={lastName}
+                maxLength={NAME_MAX}
                 onChange={(event) => setLastName(event.target.value)}
                 className="form-field"
               />

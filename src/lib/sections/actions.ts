@@ -18,6 +18,7 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { songbookIdOf } from '@/lib/db/ids'
 import { sections, songs } from '@/lib/db/schema'
 import { revalidateSongbook } from '@/lib/revalidate'
+import { cleanName } from '@/lib/names'
 
 /** Postgres' code for a unique violation, which on this table can only be the name. */
 const DUPLICATE = '23505'
@@ -57,8 +58,8 @@ export async function createSection(
 ): Promise<CreateSectionResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const trimmed = name.trim()
-  if (trimmed === '') return { ok: false, reason: 'invalid-name' }
+  const trimmed = cleanName(name)
+  if (trimmed === null) return { ok: false, reason: 'invalid-name' }
 
   const target = await editableSongbook(songbookSlug)
   if (!target.ok) return target
@@ -99,8 +100,8 @@ export async function createSection(
 export async function renameSection(id: number, name: string): Promise<WriteResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const trimmed = name.trim()
-  if (trimmed === '') return { ok: false, reason: 'invalid-name' }
+  const trimmed = cleanName(name)
+  if (trimmed === null) return { ok: false, reason: 'invalid-name' }
 
   const target = await editableSection(id)
   if (!target.ok) return target

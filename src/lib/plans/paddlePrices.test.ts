@@ -40,6 +40,12 @@ describe('paddlePriceId', () => {
    * either direction: one without a cycle and the others with one are both caller bugs, and
    * guessing which price was meant is how somebody gets charged for the wrong thing.
    */
+  it('refuses a cycle that is neither of the two, whatever the browser posted', () => {
+    for (const cycle of ['foo', '__proto__', 'constructor', '']) {
+      assert.equal(paddlePriceId('standard', cycle as never, IDS), null, cycle)
+    }
+  })
+
   it('refuses a cycle for Lifetime, and a missing cycle for everything else', () => {
     assert.equal(paddlePriceId('lifetime', 'year', IDS), null)
     assert.equal(paddlePriceId('premium', null, IDS), null)

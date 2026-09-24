@@ -65,6 +65,11 @@ export async function updateNewsletterPrefs(
   frequency: NewsletterFrequency,
 ): Promise<NewsletterResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
+  /* The schema promises the column holds one of the two, «enforced wherever it is written»; a
+     Server Action receives whatever was posted, so this is where that promise is kept. */
+  if (typeof subscribed !== 'boolean' || (frequency !== 'weekly' && frequency !== 'monthly')) {
+    return { ok: false, reason: 'failed' }
+  }
 
   const session = await auth()
   const email = session?.user?.email

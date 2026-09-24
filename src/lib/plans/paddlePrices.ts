@@ -74,6 +74,10 @@ export function paddlePriceId(
   /* Lifetime is bought once and has no cycle; every other plan must name one. Reading a
      cycle for Lifetime, or none for the rest, is a caller bug rather than a missing id. */
   if ((plan === 'lifetime') !== (cycle === null)) return null
+  /* The type says two literals and a Server Action receives whatever was posted: `'foo'` threw
+     inside `PRICES[plan][cycle]` as a 500, and `'__proto__'` got past the empty-id test. The
+     three actions that sell or change a plan all ask here first, so this is where it is closed. */
+  if (cycle !== null && cycle !== 'month' && cycle !== 'year') return null
 
   const committed = committedId(plan, cycle)
   if (committed !== '') return committed

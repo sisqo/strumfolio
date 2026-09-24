@@ -24,6 +24,7 @@ import { useLiveRows } from '@/lib/library/useLiveSongs'
 import type { SongIndexRow } from '@/lib/search-index'
 import { type Folds, readFolds, songFromHash, writeFolds } from '@/lib/sections/folds'
 import { writeMessage, type WriteResult } from '@/lib/songbooks/types'
+import { NAME_MAX } from '@/lib/names'
 
 /**
  * The songs of one songbook, under the section each belongs to.
@@ -362,6 +363,7 @@ export function SongbookSongs({
                           <input
                             autoFocus
                             value={draft}
+                            maxLength={NAME_MAX}
                             onChange={(event) => setDraft(event.target.value)}
                             onKeyDown={(event) => {
                               if (event.key === 'Escape') setRenaming(null)

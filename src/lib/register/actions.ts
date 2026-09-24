@@ -24,6 +24,7 @@ import { accounts, pendingRegistrations } from '@/lib/db/schema'
 import { sendEmail } from '@/lib/email/send'
 import { verificationEmail } from '@/lib/email/templates'
 import { checkRateLimit, requestIp, requestOrigin } from '@/lib/rateLimit'
+import { cleanName } from '@/lib/names'
 
 import type { RegisterResult, ResendResult } from './types'
 
@@ -40,8 +41,8 @@ export async function register(formData: FormData): Promise<RegisterResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
   const email = normalizeEmail(String(formData.get('email') ?? ''))
-  const firstName = String(formData.get('firstName') ?? '').trim()
-  const lastName = String(formData.get('lastName') ?? '').trim()
+  const firstName = cleanName(formData.get('firstName')) ?? ''
+  const lastName = cleanName(formData.get('lastName')) ?? ''
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirmPassword') ?? '')
   const captchaToken = String(formData.get('captchaToken') ?? '')

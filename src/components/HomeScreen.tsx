@@ -39,6 +39,7 @@ import { countBySlug, songbooksOf, writeMessage, type WriteResult } from '@/lib/
 import type { SongIndexEntry } from '@/lib/search-index'
 
 import { ArrangeSongbooks } from './ArrangeSongbooks'
+import { NAME_MAX } from '@/lib/names'
 
 /**
  * The first screen: the songbooks, and a way to search across all of them.
@@ -500,6 +501,7 @@ export function HomeScreen({
                 <input
                   autoFocus
                   value={newName}
+                  maxLength={NAME_MAX}
                   onChange={(event) => setNewName(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Escape') setCreating(false)
@@ -634,6 +636,7 @@ export function HomeScreen({
                             <input
                               autoFocus
                               value={draft}
+                              maxLength={NAME_MAX}
                               onChange={(event) => setDraft(event.target.value)}
                               onKeyDown={(event) => {
                                 if (event.key === 'Escape') setRenaming(null)

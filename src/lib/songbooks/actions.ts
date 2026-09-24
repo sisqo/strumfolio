@@ -33,6 +33,7 @@ import { limitFacts } from '@/lib/plans/types'
 import { revalidateSongbook } from '@/lib/revalidate'
 import { canEdit } from '@/lib/roles'
 import { uniqueSlug } from '@/lib/slug'
+import { cleanName } from '@/lib/names'
 
 import { editableSongbook } from './access'
 import { sameMembers } from './order'
@@ -113,8 +114,8 @@ export async function createSongbook(name: string): Promise<CreateResult> {
     return { ok: false, reason: refused, limit: limitFacts(editor.entitlements.limits, refused) }
   }
 
-  const trimmed = name.trim()
-  if (trimmed === '') return { ok: false, reason: 'invalid-name' }
+  const trimmed = cleanName(name)
+  if (trimmed === null) return { ok: false, reason: 'invalid-name' }
 
   try {
     return await db().transaction(async (tx) => {
@@ -217,8 +218,8 @@ export async function addSampleSongbook(): Promise<CreateResult> {
 export async function renameSongbook(slug: string, name: string): Promise<WriteResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const trimmed = name.trim()
-  if (trimmed === '') return { ok: false, reason: 'invalid-name' }
+  const trimmed = cleanName(name)
+  if (trimmed === null) return { ok: false, reason: 'invalid-name' }
 
   const target = await editableSongbook(slug)
   if (!target.ok) return target

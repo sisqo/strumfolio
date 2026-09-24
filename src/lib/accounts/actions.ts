@@ -48,6 +48,7 @@ import { SCOPE_COOKIE } from './scope'
 import { validateGrant } from './grant'
 import { MAX_GIFT_PERSONAL_LINE, MAX_GIFT_SUBJECT, defaultGiftSubject, giftOccurrenceKey } from './giftNotice'
 import { freezeLeadAttribution } from '@/lib/attribution/write'
+import { cleanName } from '@/lib/names'
 
 import { markTestAccount } from './markTest'
 import { provisionAccount } from './provision'
@@ -638,9 +639,9 @@ export async function updateOwnName(firstName: string, lastName: string): Promis
   const email = session?.user?.email
   if (!email) return { ok: false, reason: 'no-session' }
 
-  const trimmedFirst = firstName.trim()
-  const trimmedLast = lastName.trim()
-  if (trimmedFirst === '' || trimmedLast === '') return { ok: false, reason: 'invalid-name' }
+  const trimmedFirst = cleanName(firstName)
+  const trimmedLast = cleanName(lastName)
+  if (trimmedFirst === null || trimmedLast === null) return { ok: false, reason: 'invalid-name' }
 
   try {
     await db()
