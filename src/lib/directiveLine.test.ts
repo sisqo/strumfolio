@@ -64,4 +64,46 @@ describe('matchDirective', () => {
       assert.ok(performance.now() - started < 50, `editor, ${spaces}`)
     }
   })
+
+  it('reads every line the reader\'s old `{meta name value}` expression read, the same way', () => {
+    // `META_DIRECTIVE`, removed 2026-09-24: cubic on `{meta a` + spaces with no `}`.
+    const OLD_META = /^\{\s*meta\s*:?\s+([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*?)\s*\}$/i
+    const META_VALUE = /^([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*)$/
+    const alphabet = [' ', ' ', ':', 'a', 'b', '-', '_', '1', '}', 'x', '\t']
+    let seed = 11
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648)
+    for (let n = 0; n < 20000; n++) {
+      let line = '{' + (next() % 2 ? ' ' : '') + (next() % 2 ? 'meta' : 'Meta')
+      const length = next() % 10
+      for (let k = 0; k < length; k++) line += alphabet[next() % alphabet.length]
+      if (next() % 4 !== 0) line += '}'
+      const old = OLD_META.exec(line)
+      // `{meta x }` named a field and gave it nothing; the colon form `{meta: x }` was always
+      // dropped, and now the space form is too — an empty value sets nothing either way.
+      if (old === null || old[2].trim() === '') continue
+      const now = matchDirective(line)
+      assert.ok(now !== null && now[1].toLowerCase() === 'meta', JSON.stringify(line))
+      const inner = META_VALUE.exec(now[2] ?? '')
+      assert.ok(inner !== null, JSON.stringify(line))
+      assert.deepEqual([inner[1], inner[2].trim()], [old[1], old[2].trim()], JSON.stringify(line))
+    }
+  })
+
+  it('keeps the reader linear on the `{meta …}`, `%{…}` and import lines that were not', async () => {
+    const { METADATA_DIRECTIVE } = await import('./import/deduce')
+    const { substituteMetadata } = await import('./chordproMeta')
+    const nested = '%{album|'.repeat(5000) + 'x' + '}'.repeat(5000)
+    const cases: [string, () => unknown][] = [
+      ['meta', () => parseChordPro('{meta a' + ' '.repeat(4000) + 'x')],
+      ['unclosed %{', () => parseChordPro('%{'.repeat(20000))],
+      ['nested %{', () => parseChordPro('{album: A}\n' + nested)],
+      ['nested substitution', () => substituteMetadata(nested, { album: 'A' })],
+      ['import', () => METADATA_DIRECTIVE.test('{meta' + ' '.repeat(80000) + 'x')],
+    ]
+    for (const [label, run] of cases) {
+      const started = performance.now()
+      run()
+      assert.ok(performance.now() - started < 250, label)
+    }
+  })
 })

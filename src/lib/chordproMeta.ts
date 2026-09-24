@@ -23,7 +23,20 @@
 import type { ParsedSong } from './chordpro'
 
 /**
- * Where a `%{…}` starting at `index` ends, or null when it never closes.
+ * The longest `%{…}` this app reads as one, braces included. Anything longer is text.
+ *
+ * Without it the scan below ran to the end of the song for every `%{` that never closes, so a
+ * line of them was quadratic — `'%{'` written 16,000 times took 0.8 s to parse and 300 KB of
+ * them 78 s, on the server that parses every song to draw the home screen — and a placeholder
+ * nested five thousand deep sent `substituteMetadata` through the stack. A real one is a name
+ * and two short branches; 256 characters bounds the scan, and with it the nesting, which needs
+ * three characters a level.
+ */
+export const PLACEHOLDER_MAX = 256
+
+/**
+ * Where a `%{…}` starting at `index` ends, or null when it never closes within
+ * `PLACEHOLDER_MAX`.
  *
  * Brace-aware, because the conditional form nests: in `%{artist|by %{}}` the first `}` closes
  * the inner placeholder and not the outer one. Returns the index just past the closing brace,
@@ -33,8 +46,9 @@ export function placeholderAt(text: string, index: number): number | null {
   if (text[index] !== '%' || text[index + 1] !== '{') return null
 
   let depth = 0
+  const limit = Math.min(text.length, index + PLACEHOLDER_MAX)
 
-  for (let i = index + 1; i < text.length; i += 1) {
+  for (let i = index + 1; i < limit; i += 1) {
     if (text[i] === '{') depth += 1
     else if (text[i] === '}') {
       depth -= 1

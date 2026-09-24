@@ -440,17 +440,17 @@ export interface ParsedSong {
 const DIRECTIVE = { exec: matchDirective }
 
 /**
- * `{meta artist Foo}` — the space-separated form, which the regex above cannot match
- * because it has no colon and a space where a colon would go. `{meta: artist Foo}` is
- * the same directive written the other way and *does* match `DIRECTIVE`, so it is taken
- * apart separately once the name is known to be `meta`.
+ * `{meta: artist Foo}` and `{meta artist Foo}` once `DIRECTIVE` has split off the `meta` name —
+ * `matchDirective` takes both spellings, the colon and the space, so they meet here as one.
+ * The inner name is looked up in the same alias table as a bare directive, so `{meta tempo 96}`
+ * and `{tempo: 96}` are one thing said twice.
  *
- * Either way the inner name is looked up in the same alias table as a bare directive, so
- * `{meta tempo 96}` and `{tempo: 96}` are one thing said twice.
+ * There used to be a second expression for the space form, `META_DIRECTIVE`, from before
+ * `matchDirective` accepted a value after a space. It had become unreachable for every line
+ * it could match and stayed reachable for every line it could not: `{meta a` followed by a run
+ * of spaces and no closing brace took 0.9 s at 1,600 spaces and 13 s at 4,000 — the ReDoS
+ * `directiveLine.ts` removed, left behind on its sibling. Removed 2026-09-24.
  */
-const META_DIRECTIVE = /^\{\s*meta\s*:?\s+([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*?)\s*\}$/i
-
-/** `{meta: artist Foo}` once `DIRECTIVE` has already split off the `meta` name. */
 const META_VALUE = /^([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*)$/
 
 /** Directive aliases, mapped to the canonical name we act on. */
@@ -684,7 +684,7 @@ export function parseChordPro(source: string): ParsedSong {
      * lyrics, and followed by `{start_of_tab}` never opened the tab at all.
      */
     const continuesInto = (next: string | undefined) =>
-      next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null && META_DIRECTIVE.exec(next.trim()) === null
+      next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null
 
     const sourceLines = [index]
     let joined = rawLine
@@ -700,15 +700,14 @@ export function parseChordPro(source: string): ParsedSong {
     const line = joined.trimEnd()
 
     const directive = DIRECTIVE.exec(line.trim())
-    const meta = directive === null ? META_DIRECTIVE.exec(line.trim()) : null
 
-    if (directive || meta) {
-      let rawName = (directive ?? (meta as RegExpExecArray))[1].toLowerCase()
-      let value = (directive ?? (meta as RegExpExecArray))[2] ?? ''
+    if (directive) {
+      let rawName = directive[1].toLowerCase()
+      let value = directive[2] ?? ''
 
-      // `{meta: artist Foo}` — the colon form, whose name is `meta` and whose value is
-      // the real directive and its own value. Re-split so both forms meet here as one.
-      if (directive && rawName === 'meta') {
+      // `{meta: artist Foo}` / `{meta artist Foo}` — the name is `meta` and the value is the
+      // real directive and its own value. Re-split so both meet the alias table as one.
+      if (rawName === 'meta') {
         const inner = META_VALUE.exec(value)
         if (inner === null) continue
         rawName = inner[1].toLowerCase()
