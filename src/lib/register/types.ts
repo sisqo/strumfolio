@@ -1,12 +1,11 @@
 /**
- * What registering by email and password can answer (v3.2).
+ * What registering by email can answer (v3.2). The password is not among it since 2026-09-24:
+ * it is chosen on `/verify`, whose answers are `verify/types.ts`.
  *
  * Separate from `actions.ts` because that file carries `'use server'`, where every
  * export must be an async function — the same reason `accounts/types.ts` and
  * `auth/types.ts` are split from their own actions files.
  */
-
-import { MIN_PASSWORD } from '@/lib/auth/types'
 
 export type RegisterFailure =
   | 'no-database'
@@ -15,8 +14,6 @@ export type RegisterFailure =
   | 'invalid-email'
   /** First or last name missing, or only whitespace — checked after trimming both. */
   | 'invalid-name'
-  | 'weak-password'
-  | 'password-mismatch'
   /** A real account already exists for this address — never overwritten silently. */
   | 'account-exists'
   | 'failed'
@@ -29,8 +26,6 @@ export const REGISTER_MESSAGE: Record<RegisterFailure, string> = {
   'rate-limited': 'Too many attempts. Please try again later.',
   'invalid-email': 'Enter a valid email address.',
   'invalid-name': 'Enter your first and last name.',
-  'weak-password': `The password must be at least ${MIN_PASSWORD} characters.`,
-  'password-mismatch': 'The passwords do not match.',
   'account-exists': 'An account already exists for this address. Sign in, or reset your password.',
   failed: 'Something went wrong. Please try again.',
 }

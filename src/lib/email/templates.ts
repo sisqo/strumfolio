@@ -178,7 +178,7 @@ export function verificationEmail(url: string): EmailTemplate {
 
   const html = layout(`
     ${heading('Verify your address')}
-    ${paragraph("One step left: open the link below to confirm your address and finish creating your account. The link expires in 24 hours.")}
+    ${paragraph("One step left: open the link below to confirm your address, choose your password and finish creating your account. The link expires in 24 hours.")}
     ${button('Verify email', url)}
     ${fallbackLink(url)}
     ${paragraph("If you didn't sign up, you can ignore this email. Until it's confirmed, the address isn't used for anything.")}
@@ -186,7 +186,7 @@ export function verificationEmail(url: string): EmailTemplate {
 
   const text = `Verify your address
 
-One step left: open the link below to confirm your address and finish creating your account. The link expires in 24 hours.
+One step left: open the link below to confirm your address, choose your password and finish creating your account. The link expires in 24 hours.
 
 ${url}
 

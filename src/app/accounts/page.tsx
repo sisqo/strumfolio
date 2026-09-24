@@ -492,7 +492,8 @@ export default async function AccountsPage({ searchParams }: Props) {
           <section id="pending" className="mt-7">
             <h2 className="section-title">Pending registrations</h2>
             <p className="mt-1 text-sm text-muted">
-              Addresses that asked for an account and never followed the link. Confirming creates the account now.
+              Addresses that asked for an account and never followed the link. Confirming creates the account now,
+              with no password: they sign in with Google or set one through &ldquo;Forgot password&rdquo;.
             </p>
             <div className="accounts-table mt-3.5">
               <div className="accounts-grid is-pending accounts-table-head" role="row">

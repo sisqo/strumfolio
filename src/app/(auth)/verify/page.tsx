@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { AuthLockup } from '@/components/AuthLockup'
 import { Footer } from '@/components/Footer'
 import { ResendVerificationButton } from '@/components/ResendVerificationButton'
+import { VerifyForm } from '@/components/VerifyForm'
 import { auth } from '@/auth'
 import { isOwner } from '@/lib/allowlist'
 import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
@@ -22,11 +23,12 @@ interface Props {
  * The landing page for the link in the verification email (v3.2).
  *
  * Reads only, on this GET: it checks whether the token still matches and has not expired
- * (`verify/check.ts`), and shows a button rather than acting on its own. An email scanner
+ * (`verify/check.ts`), and shows a form rather than acting on its own. An email scanner
  * that "clicks" the link to see where it goes only ever exercises this render — the actual
- * write is `verifyEmail`, a real POST behind an explicit "Verify my email" tap that a
- * scanner never makes. Same shell as `/register`: the lockup, `.login-card`, nothing
- * else on screen to distract from the one thing this page is for.
+ * write is `verifyEmail`, a real POST behind the form's button that a scanner never presses.
+ * Since 2026-09-24 that form is where the password is chosen (`NO_PENDING_PASSWORD`). Same
+ * shell as `/register`: the lockup, `.login-card`, nothing else on screen to distract from
+ * the one thing this page is for.
  *
  * `?preview=1` (`/pages`) forces the one state `/emails`'s own sample link cannot reach: that
  * link's token is deliberately fake (`lib/email/preview.ts`), so it only ever shows "invalid or
@@ -35,7 +37,7 @@ interface Props {
  * `/thanks?preview=` is (`loadThanksPreview`): a stray `?preview=1` on a link somebody else
  * opens does nothing, because `isOwner` is checked against the *signed-in* session, not
  * trusted from the query string. Uses the same fixed fake address `/emails` already shows
- * (`SAMPLE_EMAIL`/`SAMPLE_TOKEN`) rather than a real pending row, so tapping "Verify my email"
+ * (`SAMPLE_EMAIL`/`SAMPLE_TOKEN`) rather than a real pending row, so tapping "Create my account"
  * here for real still writes nothing — `verifyEmail`'s own recheck finds no such row either.
  */
 export default async function VerifyPage({ searchParams }: Props) {
@@ -46,7 +48,9 @@ export default async function VerifyPage({ searchParams }: Props) {
 
   const email = preview ? SAMPLE_EMAIL : emailParam
   const token = preview ? SAMPLE_TOKEN : tokenParam
-  const check: PendingRegistrationCheck = preview ? { status: 'valid' } : await checkPendingRegistration(email, token)
+  const check: PendingRegistrationCheck = preview
+    ? { status: 'valid', newsletterOptIn: false }
+    : await checkPendingRegistration(email, token)
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center px-5 py-10 sm:py-16">
@@ -72,13 +76,13 @@ export default async function VerifyPage({ searchParams }: Props) {
           {check.status === 'valid' && email && token && (
             <>
               <p className="mb-4 text-sm leading-[1.45] text-muted">
-                Confirm <strong>{email}</strong> to finish setting up your account.
+                Choose a password for <strong>{email}</strong> to finish setting up your account.
               </p>
-              <form action={verifyEmail.bind(null, email, token)}>
-                <button type="submit" className="btn btn-primary w-full justify-center py-3">
-                  Verify my email
-                </button>
-              </form>
+              <VerifyForm
+                email={email}
+                action={verifyEmail.bind(null, email, token)}
+                newsletterOptIn={check.newsletterOptIn}
+              />
             </>
           )}
 

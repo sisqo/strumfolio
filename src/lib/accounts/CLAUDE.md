@@ -70,11 +70,12 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   registration form. `createAccount` mirrors `confirmPendingRegistration` **minus the Telegram
   notice** — nobody needs telling about the account they are creating with their own hands,
   which is why the root `CLAUDE.md`'s «three callers» of `registrationNotice` is still three —
-  and **plus a password**, which the confirmation path inherits from the pending row and this
-  one has nowhere to get. The password is optional, and empty is an answer: `PasswordForm` and
-  `SendResetEmailRow` on the detail page are the rest of it, and Google needs none. A pending
-  registration on the address is **refused, never absorbed** — `Confirm now` is a button below
-  on the same screen and keeps the password the person actually chose. **`already-exists` is
+  and **plus an optional password**, which the confirmation path does not write at all: since
+  2026-09-24 a registration carries none (it is chosen on `/verify`, root `CLAUDE.md`), and one
+  left on an older pending row was typed before anybody proved the inbox. Empty is an answer:
+  `PasswordForm` and `SendResetEmailRow` on the detail page are the rest of it, and Google needs
+  none. A pending registration on the address is **refused, never absorbed** — `Confirm now` is
+  a button below on the same screen. **`already-exists` is
   guarded on the `accounts` row alone**, and not on the three tables `changeAccountEmail` checks
   before a rename: `removeAccountAndContent` never deletes `signIns`, so guarding on that one
   would refuse the second half of «delete and recreate» for every account that ever signed in —

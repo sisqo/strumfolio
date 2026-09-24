@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
 import { pendingRegistrations } from '@/lib/db/schema'
+import { NO_PENDING_PASSWORD } from '@/lib/verify/types'
 
 import type { PendingCredential } from './loginAttempt'
 
@@ -34,7 +35,12 @@ export async function readPendingCredential(email: string): Promise<PendingCrede
       .where(eq(pendingRegistrations.email, email))
       .limit(1)
 
-    return rows[0] ?? null
+    /* A registration made since passwords moved to `/verify` carries none — see
+       `NO_PENDING_PASSWORD`. Treated as absent, so `/login` spends `verifyAgainstNothing` on it
+       and says what it says to a stranger: there is no password here to be right about. */
+    const row = rows[0]
+    if (row === undefined || row.passwordHash === NO_PENDING_PASSWORD) return null
+    return row
   } catch (error) {
     // Fails the way `readPasswordHash` does: unreadable is treated as absent, so a database
     // that is down refuses the sign-in rather than describing an address it could not read.

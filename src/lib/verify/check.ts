@@ -18,12 +18,13 @@ import { accounts, pendingRegistrations } from '@/lib/db/schema'
 
 export type PendingRegistrationCheck =
   | { status: 'no-database' }
-  | { status: 'valid' }
+  /** `newsletterOptIn`: what the registration asked for — only where `/verify`'s switch starts. */
+  | { status: 'valid'; newsletterOptIn: boolean }
   /**
    * `canResend` is true whenever a row still exists for this address, whatever made the
    * token itself fail — expired, or simply wrong. False only means there is nothing left
-   * to extend: the address belongs on `/register` to start over with a real password,
-   * not here with a link that no longer points at anything.
+   * to extend: the address belongs on `/register` to start over, not here with a link
+   * that no longer points at anything.
    */
   | { status: 'invalid'; canResend: boolean }
 
@@ -39,6 +40,7 @@ export async function checkPendingRegistration(
       .select({
         verificationTokenHash: pendingRegistrations.verificationTokenHash,
         expiresAt: pendingRegistrations.expiresAt,
+        newsletterOptIn: pendingRegistrations.newsletterOptIn,
       })
       .from(pendingRegistrations)
       .where(eq(pendingRegistrations.email, normalizeEmail(email)))
@@ -59,7 +61,7 @@ export async function checkPendingRegistration(
 
     const matches = hashToken(token) === row.verificationTokenHash
     const expired = row.expiresAt.getTime() <= Date.now()
-    if (matches && !expired) return { status: 'valid' }
+    if (matches && !expired) return { status: 'valid', newsletterOptIn: row.newsletterOptIn }
 
     return { status: 'invalid', canResend: true }
   } catch (error) {

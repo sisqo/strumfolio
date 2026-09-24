@@ -1559,6 +1559,27 @@ The three callers (`auth.ts`, `verify/actions.ts`, `accounts/actions.ts`) each p
 `{firstName, lastName} | undefined` they already build for `provisionAccount`, from one local
 `registeredName`, so the notification cannot describe a different person than the row it announces.
 
+## The password is chosen on `/verify`, never on `/register`
+
+**Since 2026-09-24 registering asks for a name, an address and nothing else; the password and
+the newsletter switch are answered on `/verify`, by whoever opened the link.** Until then the
+password was typed at registration and stored on the pending row, and registering again on a
+still-pending address replaced it — so a stranger who knew an address could register over its
+owner's attempt (or before it), the owner clicked a genuine Strumfolio link, and the account was
+born with the stranger's password. Every «don't overwrite» variant left the second case open;
+asking only after the inbox is proved closes both.
+
+- **No migration.** `pending_registrations.password_hash` stays `NOT NULL` and `register` writes
+  `NO_PENDING_PASSWORD` (`''`, `verify/types.ts`) into it — over an older row's real hash too.
+  `readPendingCredential` reads that as no pending password, so `/login` answers such an address
+  as it answers a stranger; rows from before the change keep their hash and still get the
+  «confirm your email» answer until they expire. Dropping the column is a later, separate step.
+- **`/verify`'s GET still writes nothing** — the form is `VerifyForm` over `verifyEmail`, a
+  POST. `verifyEmail` also calls `recordSignIn` now: it signs in with `issueSessionCookie`, so
+  `auth.ts`'s callback, where every other sign-in is counted, never ran for a registrant.
+- **`confirmPendingRegistration` creates the account with no password** — the pending one may be
+  a stranger's; the person comes in with Google or «Forgot password».
+
 ## A session no longer outlives its account
 
 **`currentUser()` now asks the database whether the account still exists**, and that reverses a

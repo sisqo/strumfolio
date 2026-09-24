@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 
 import { resetTurnstile, TurnstileWidget } from '@/components/TurnstileWidget'
-import { MIN_PASSWORD } from '@/lib/auth/types'
 import { register } from '@/lib/register/actions'
 import { REGISTER_MESSAGE } from '@/lib/register/types'
 import { NAME_MAX } from '@/lib/names'
@@ -11,7 +10,7 @@ import { NAME_MAX } from '@/lib/names'
 type Phase = 'form' | 'sent'
 
 /**
- * The email/password half of `/register` (v3.2) — the Google button
+ * The email half of `/register` (v3.2) — the Google button
  * next to it needs none of this, since a successful OAuth sign-in already redirects on
  * its own (see `page.tsx`).
  *
@@ -29,8 +28,6 @@ export function RegisterForm() {
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [newsletterOptIn, setNewsletterOptIn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +38,7 @@ export function RegisterForm() {
    * Turnstile-reset-on-failure dance above, none of which a plain form action
    * gives it. That trade means it has no native fallback: a tap that lands before
    * React attaches this handler falls through to the browser's own submit, a GET
-   * to this same URL with every field — password included — in the query string,
+   * to this same URL with every field — the address included — in the query string,
    * which reads as the button doing nothing and silently drops what was typed.
    * Starting the button disabled and enabling it once mounted closes that window
    * instead of leaving it to how fast the bundle happens to load.
@@ -143,34 +140,11 @@ export function RegisterForm() {
             />
           </label>
 
-          <label className="block">
-            <span className="sr-only">Password</span>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="new-password"
-              placeholder={`Password — at least ${MIN_PASSWORD} characters`}
-              minLength={MIN_PASSWORD}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="form-field"
-            />
-          </label>
-
-          <label className="block">
-            <span className="sr-only">Confirm password</span>
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              autoComplete="new-password"
-              placeholder="Confirm password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              className="form-field"
-            />
-          </label>
+          {/* No password here since 2026-09-24: it is chosen on `/verify`, once the link has
+              proved the inbox — see `NO_PENDING_PASSWORD` for the takeover that closed. */}
+          <p className="text-sm leading-[1.45] text-muted">
+            We will email you a link. You choose your password when you open it.
+          </p>
 
           {/* `.toggle-switch`, not a bare checkbox — same reasoning as `AppSettingsForm`'s
               own note: this is saved to the account, a real Toggle (DESIGN.md §5). */}
@@ -191,8 +165,6 @@ export function RegisterForm() {
           <input type="hidden" name="email" defaultValue={email} />
           <input type="hidden" name="firstName" defaultValue={firstName} />
           <input type="hidden" name="lastName" defaultValue={lastName} />
-          <input type="hidden" name="password" defaultValue={password} />
-          <input type="hidden" name="confirmPassword" defaultValue={confirmPassword} />
           <input type="hidden" name="newsletterOptIn" defaultValue={newsletterOptIn ? 'on' : ''} />
         </>
       )}

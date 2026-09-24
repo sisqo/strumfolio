@@ -7,6 +7,9 @@
  * the example songbook already in it (see `provisionAccount`): nothing exists until there
  * is a real reason for it, and following the link is that reason.
  *
+ * **Since 2026-09-24 this step asks for no password** — it is chosen on `/verify`, once the
+ * link has proved the inbox (`NO_PENDING_PASSWORD` has the takeover that closed).
+ *
  * Reads its fields straight off a raw `FormData`, the same style the inline form actions
  * in `login/page.tsx` already use, rather than typed parameters like `createAccount`'s:
  * this is meant to be handed directly to a `<form>`.
@@ -17,7 +20,6 @@ import { eq } from 'drizzle-orm'
 import { isEmailShape, normalizeEmail } from '@/lib/allowlist'
 import { recordLeadAttribution } from '@/lib/attribution/write'
 import { generateToken } from '@/lib/auth/tokens'
-import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
 import { verifyTurnstile } from '@/lib/captcha'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, pendingRegistrations } from '@/lib/db/schema'
@@ -25,6 +27,7 @@ import { sendEmail } from '@/lib/email/send'
 import { verificationEmail } from '@/lib/email/templates'
 import { checkRateLimit, requestIp, requestOrigin } from '@/lib/rateLimit'
 import { cleanName } from '@/lib/names'
+import { NO_PENDING_PASSWORD } from '@/lib/verify/types'
 
 import type { RegisterResult, ResendResult } from './types'
 
@@ -43,8 +46,6 @@ export async function register(formData: FormData): Promise<RegisterResult> {
   const email = normalizeEmail(String(formData.get('email') ?? ''))
   const firstName = cleanName(formData.get('firstName')) ?? ''
   const lastName = cleanName(formData.get('lastName')) ?? ''
-  const password = String(formData.get('password') ?? '')
-  const confirmPassword = String(formData.get('confirmPassword') ?? '')
   const captchaToken = String(formData.get('captchaToken') ?? '')
   // A checkbox sends nothing at all when unchecked, never a falsy value.
   const newsletterOptIn = formData.get('newsletterOptIn') === 'on'
@@ -66,8 +67,6 @@ export async function register(formData: FormData): Promise<RegisterResult> {
 
   if (!isEmailShape(email)) return { ok: false, reason: 'invalid-email' }
   if (firstName === '' || lastName === '') return { ok: false, reason: 'invalid-name' }
-  if (!isPasswordAcceptable(password)) return { ok: false, reason: 'weak-password' }
-  if (password !== confirmPassword) return { ok: false, reason: 'password-mismatch' }
 
   try {
     const existing = await db()
@@ -80,13 +79,17 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     if (existing.length > 0) return { ok: false, reason: 'account-exists' }
 
     const { raw, hash } = generateToken()
-    const passwordHash = await hashPassword(password)
+    /* No password: it is chosen on `/verify`, by whoever opened the link — `NO_PENDING_PASSWORD`
+       has the takeover this closes. Written over an older row's real hash too, so a stranger's
+       password left from before cannot survive a second registration either. */
+    const passwordHash = NO_PENDING_PASSWORD
     const expiresAt = new Date(Date.now() + EXPIRES_IN_MS)
 
     /*
      * Upsert on `email`, not insert: registering again on the same still-pending address
      * must renew the token and the expiry rather than fail, since that is how "the email
-     * never arrived" gets fixed, with no separate resend action.
+     * never arrived" gets fixed, with no separate resend action. It can only change the name
+     * and the newsletter default shown on `/verify`, never how the account is entered.
      */
     await db()
       .insert(pendingRegistrations)
@@ -126,12 +129,11 @@ export async function register(formData: FormData): Promise<RegisterResult> {
 /**
  * Resent from `/verify`'s own error state (v3.2) — a different case
  * from the "no separate resend action" this file's own top comment describes, which only
- * holds while `RegisterForm` is still on screen with the password sitting in its state.
+ * holds while `RegisterForm` is still on screen with the name sitting in its state.
  * By the time someone opens `/verify` from a stale or expired link, all that survives
- * from that first submission is the address in the URL: the password was hashed away at
- * `register` time, and `register` needs the plaintext back to rehash it. So this rotates
- * the token and the expiry in place instead, leaving `passwordHash` untouched — asking
- * again proved nothing new about the password, only that the address is still wanted.
+ * from that first submission is the address in the URL. So this rotates the token and the
+ * expiry in place and touches nothing else — asking again proves only that the address is
+ * still wanted, and the password is chosen when the new link is opened.
  *
  * No token to check here, on purpose: knowing the *old* token proves nothing about the
  * *new* email that would be sent, and requiring it would lock out the exact person this
@@ -162,8 +164,7 @@ export async function resendVerification(formData: FormData): Promise<ResendResu
       .from(pendingRegistrations)
       .where(eq(pendingRegistrations.email, email))
       .limit(1)
-    // Nothing left to extend — the address belongs on /register to start over with a
-    // fresh password, not here with one that no longer exists anywhere to reuse.
+    // Nothing left to extend — the address belongs on /register to start over.
     if (rows.length === 0) return { ok: false, reason: 'not-pending' }
 
     /*
@@ -171,7 +172,7 @@ export async function resendVerification(formData: FormData): Promise<ResendResu
      * button is exactly how a stranger who registered somebody's address first would get a
      * genuine verification email sent to its owner once the real account exists — and
      * `verifyEmail` refuses that click now, so the email could only ever be a dead end. The
-     * row goes, so the account's owner is never asked to confirm somebody else's password.
+     * row goes, so the account's owner is never sent a link that leads nowhere.
      */
     const owned = await db()
       .select({ ownerEmail: accounts.ownerEmail })

@@ -7,7 +7,7 @@
  * before a person ever sees it, to check where it goes; if that GET consumed the token,
  * the scanner would burn it and the real click would land on an error. So the page
  * (`app/(auth)/verify/page.tsx`) only ever reads — see `verify/check.ts` — and this, a real
- * POST behind an explicit "Verify my email" button, is the only thing that writes.
+ * POST behind an explicit button, is the only thing that writes.
  */
 
 import { eq } from 'drizzle-orm'
@@ -16,7 +16,9 @@ import { redirect } from 'next/navigation'
 import { provisionAccount } from '@/lib/accounts/provision'
 import { freezeLeadAttribution } from '@/lib/attribution/write'
 import { normalizeEmail } from '@/lib/allowlist'
+import { hashPassword } from '@/lib/auth/password'
 import { issueSessionCookie } from '@/lib/auth/session'
+import { recordSignIn } from '@/lib/auth/signIns'
 import { hashToken } from '@/lib/auth/tokens'
 import { attachCouponViewFromCookie } from '@/lib/coupons/views'
 import { db, hasDatabase } from '@/lib/db/client'
@@ -26,31 +28,50 @@ import { welcomeEmail } from '@/lib/email/templates'
 import { notifyTelegram } from '@/lib/telegram/notify'
 import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
+import { passwordProblem, type VerifyState } from './types'
+
 /**
- * Bound with `email` and `token` from the page's own searchParams (`action={verifyEmail
- * .bind(null, email, token)}`), so the `<form>` itself carries no fields of its own.
+ * Bound with `email` and `token` from the page's own searchParams (`verifyEmail.bind(null,
+ * email, token)`) and driven by `useActionState` in `VerifyForm`, so the form carries only
+ * what the person types: the password, twice, and the newsletter switch.
  *
- * Returns nothing on failure rather than a result the caller has to render: this writes
- * nothing before the recheck below fails, so the automatic re-render every Server Action
- * triggers on the form that called it runs the page's own read-only check again — which
- * reaches the exact same "invalid or expired" branch on its own, with no error state to
- * thread back by hand. A real result only exists on success, and it is a redirect, not a
- * value: `redirect()` throws, so it must never sit inside the `try` below, or a genuine
- * success would be logged and swallowed as a failure instead of navigating anywhere.
+ * **The password is chosen here, since 2026-09-24, and not at registration** — see
+ * `NO_PENDING_PASSWORD`. Whoever can open this link holds the inbox, so this is the first
+ * moment a password can be taken from them without handing the account to whoever typed one
+ * into `/register` first. The newsletter consent moved with it for the same reason: a
+ * stranger's checkbox is not the owner's consent, so the row's value is only the default the
+ * switch starts from.
+ *
+ * A failure is a state the form renders. Success is a redirect, not a value: `redirect()`
+ * throws, so it must never sit inside the `try` below, or a genuine success would be logged
+ * and swallowed as a failure instead of navigating anywhere.
  */
-export async function verifyEmail(email: string, token: string): Promise<void> {
-  if (!hasDatabase) return
+export async function verifyEmail(
+  email: string,
+  token: string,
+  _previous: VerifyState,
+  formData: FormData,
+): Promise<VerifyState> {
+  if (!hasDatabase) return { reason: 'failed' }
+
+  const password = formData.get('password')
+  const problem = passwordProblem(password, formData.get('confirmPassword'))
+  if (problem !== null) return { reason: problem }
+  // A checkbox sends nothing at all when unchecked, never a falsy value.
+  const newsletterOptIn = formData.get('newsletterOptIn') === 'on'
+
+  /* Hashed before the transaction opens: scrypt is tens of milliseconds, and the transaction
+     holds the pool's only connection (see below) for as long as it runs. */
+  const passwordHash = await hashPassword(password as string)
 
   const normalized = normalizeEmail(email)
 
   /*
-   * Carries `firstName`/`lastName`/`newsletterOptIn` back out alongside the plain
+   * Carries `firstName`/`lastName` back out alongside the plain
    * ok/not-ok this used to be — `provisionAccount` below needs them, and the row they
    * come from is deleted before this transaction ever returns.
    */
-  let result:
-    | { ok: true; firstName: string | null; lastName: string | null; newsletterOptIn: boolean }
-    | { ok: false }
+  let result: { ok: true; firstName: string | null; lastName: string | null } | { ok: false }
   try {
     result = await db().transaction(async (tx) => {
       const rows = await tx
@@ -72,7 +93,9 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
        * Strumfolio email ask the owner to confirm. One click wrote the stranger's password
        * into `credentials` for the real account. So the account wins: the row is dropped and
        * nothing is written. The owner who did register twice loses nothing — they have an
-       * account, and «forgot password» sets one.
+       * account, and «forgot password» sets one. (The password is typed here now, so that
+       * click could no longer hand over a stranger's; the rule stays because a second way into
+       * an account that already exists is still not this page's to create.)
        */
       const existing = await tx
         .select({ ownerEmail: accounts.ownerEmail })
@@ -96,22 +119,22 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
        */
       await tx
         .insert(credentials)
-        .values({ email: normalized, passwordHash: row.passwordHash })
+        .values({ email: normalized, passwordHash })
         .onConflictDoUpdate({
           target: credentials.email,
-          set: { passwordHash: row.passwordHash, updatedAt: new Date() },
+          set: { passwordHash, updatedAt: new Date() },
         })
 
       await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
 
-      return { ok: true, firstName: row.firstName, lastName: row.lastName, newsletterOptIn: row.newsletterOptIn }
+      return { ok: true, firstName: row.firstName, lastName: row.lastName }
     })
   } catch (error) {
     console.error('verifyEmail failed', error)
-    return
+    return { reason: 'failed' }
   }
 
-  if (!result.ok) return
+  if (!result.ok) return { reason: 'invalid-link' }
 
   /*
    * Sequential, not nested in the transaction above — same single-connection reason.
@@ -137,11 +160,7 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
       ? { firstName: result.firstName, lastName: result.lastName }
       : undefined
 
-  const created = await provisionAccount(
-    normalized,
-    registeredName,
-    result.newsletterOptIn,
-  )
+  const created = await provisionAccount(normalized, registeredName, newsletterOptIn)
 
   // Gated on provisionAccount's own true/false, not assumed from the transaction above:
   // that transaction only proves no `accounts` row existed a moment ago, not that this
@@ -187,8 +206,12 @@ export async function verifyEmail(email: string, token: string): Promise<void> {
   /*
    * Signs the person in immediately rather than sending them back to `/login` to retype
    * the password they just chose — see `issueSessionCookie`'s own comment for why that
-   * needs a hand-built cookie instead of `signIn('credentials', ...)`.
+   * needs a hand-built cookie instead of `signIn('credentials', ...)`. Which is also why the
+   * sign-in is counted by hand: `auth.ts`'s `signIn` callback, where every other one is
+   * recorded, never runs on this path, so a registrant showed zero sign-ins on `/accounts`
+   * until they next typed their password.
    */
+  await recordSignIn(normalized)
   await issueSessionCookie(normalized)
   redirect('/')
 }

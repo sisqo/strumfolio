@@ -901,8 +901,9 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
  * Confirms a pending registration by hand, creating the account immediately without the
  * verification link ever being clicked — for one
  * stuck behind an expired link, a spam filter, or an email that never arrived. Mirrors
- * `verifyEmail`'s transaction (`verify/actions.ts`: insert into `credentials`, delete
- * the pending row, `provisionAccount`, welcome email, Telegram notice) minus the
+ * `verifyEmail`'s transaction (`verify/actions.ts`: delete the pending row,
+ * `provisionAccount`, welcome email, Telegram notice) minus the password — nobody here can
+ * choose one for the person — and minus the
  * token-hash/expiry checks that only mean something for the self-service link — an
  * operator vouching for the address is what replaces them here. Kept as its own
  * implementation rather than a shared helper with `verifyEmail`: that function's
@@ -914,10 +915,11 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
  * own detail page is how an operator would act as it afterwards.
  *
  * Accepted risk, stated once here because no code path can check it: this creates a
- * real, immediately-usable account — login available at once, with the password chosen
- * at registration, not by the operator — for an address that never proved control of its
- * own inbox. The same kind of consciously-accepted exposure the newsletter's own
- * Google default opt-in once took.
+ * real account for an address that never proved control of its own inbox. **It has no
+ * password** (since 2026-09-24): the one a registration carried was typed before the inbox was
+ * proved and may be a stranger's, so the person comes in with Google or through «Forgot
+ * password» — both of which prove the inbox on their own. The same kind of
+ * consciously-accepted exposure the newsletter's own Google default opt-in once took.
  */
 export async function confirmPendingRegistration(email: string): Promise<ConfirmPendingResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
@@ -955,14 +957,10 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
         return { ok: false, shadowed: true }
       }
 
-      await tx
-        .insert(credentials)
-        .values({ email: normalized, passwordHash: row.passwordHash })
-        .onConflictDoUpdate({
-          target: credentials.email,
-          set: { passwordHash: row.passwordHash, updatedAt: new Date() },
-        })
-
+      /* No `credentials` row: a registration carries no password since 2026-09-24 — it is chosen
+         on `/verify` — and one left on an older row was typed before anybody proved the inbox,
+         so it may be a stranger's. The person comes in with Google, or sets one through
+         «Forgot password», which is itself a proof of the inbox. */
       await tx.delete(pendingRegistrations).where(eq(pendingRegistrations.email, normalized))
 
       return { ok: true, firstName: row.firstName, lastName: row.lastName, newsletterOptIn: row.newsletterOptIn }
