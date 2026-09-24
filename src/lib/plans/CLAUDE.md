@@ -489,8 +489,10 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   losing. Its `expiresAt` is `null`, meaning never.
 - **The account contract, which the checkout has to satisfy**: `custom_data.account_id` (the
   numeric `accounts.id`), then `accounts.paddle_subscription_id`, then — for an adjustment
-  only — the account of the ledger's `transaction.completed` it refunds, then
-  `accounts.paddle_customer_id`. **The customer id is not a handle on one account** (2026-09-24):
+  only — the account of the ledger's `transaction.completed` it refunds, **and never
+  `accounts.paddle_customer_id`** (removed as a fallback the same evening: Paddle reuses the
+  customer that has the typed email, so an unsigned checkout opened with somebody else's address
+  was matched to their account by it). **The customer id is not a handle on one account** (2026-09-24):
   a second email typed into Paddle's form is a second customer, and the cancellation of a
   subscription bought under the first wrote that id back over the Lifetime's, so the Lifetime's
   refund found nobody. It is now written only by events that are neither stale nor `foreign`,

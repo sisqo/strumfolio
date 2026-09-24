@@ -170,8 +170,8 @@ async function laterSubscriptionEvent(
 
 /**
  * The account this event belongs to, tried in the order of what a *first* purchase can
- * possibly carry: the stamp the checkout put on the transaction, then either id column a
- * previous event will have written.
+ * possibly carry: the stamp the checkout put on the transaction, then the subscription id a
+ * previous event will have written, then — for an adjustment — the purchase it refunds.
  */
 async function findAccount(ref: AccountRef) {
   /* `plan` and the subscription id are read here rather than in a second query because both
@@ -213,15 +213,18 @@ async function findAccount(ref: AccountRef) {
     }
   }
 
-  if (ref.paddleCustomerId !== null) {
-    const [row] = await db()
-      .select(columns)
-      .from(accounts)
-      .where(eq(accounts.paddleCustomerId, ref.paddleCustomerId))
-      .limit(1)
-    if (row) return row
-  }
-
+  /*
+   * **Never by customer id** (2026-09-24). It used to be the last resort, and it was the door the
+   * signature was meant to close: Paddle's checkout reuses the customer that already has the
+   * email typed into it, so a checkout opened by hand with the public client token, somebody
+   * else's address and no `custom_data` arrived here unsigned, on a new subscription, and was
+   * matched to *their* account by the customer id — their plan moved onto a subscription the
+   * buyer controlled, and a refund of that purchase fell through to the same column and revoked
+   * what they had. Every event this app sells is found above: a purchase by its signed stamp, a
+   * subscription event by its id, an adjustment by the purchase in the ledger. What finds
+   * nothing is recorded as `unmatched`, which is the safe direction. Measured before removing it:
+   * no production account had a `paddle_customer_id`.
+   */
   return null
 }
 
