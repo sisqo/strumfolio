@@ -479,6 +479,17 @@ describe('a fingering the song drew itself', () => {
     assert.equal(definedShape(moved, definition), null)
   })
 
+  /* A `{define}` names no instrument; six frets is a guitar's shape, not a ukulele's. */
+  it('is used only by the instrument with that many strings', () => {
+    assert.ok(chord !== null)
+    const ukulele = { c: { name: 'C', frets: [0, 0, 0, 3] } }
+
+    assert.deepEqual(pickShape(chord, 'ukulele', {}, ukulele)?.shape.frets, [0, 0, 0, 3])
+    assert.notDeepEqual(pickShape(chord, 'ukulele', {}, definition)?.shape.frets, [8, 10, 10, 9, 8, 8])
+    assert.deepEqual(pickShape(chord, 'ukulele', {}, definition), pickShape(chord, 'ukulele', {}))
+    assert.equal(definedShape(chord, ukulele, 'guitar'), null)
+  })
+
   it('ignores a definition for a different quality of the same root', () => {
     const minor = parseChord('Cm')
     assert.ok(minor !== null)

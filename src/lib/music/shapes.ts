@@ -615,18 +615,25 @@ export interface PickedShape {
  * transposes the song the drawn chord is a D and this correctly finds nothing — the table's
  * D is right and the file's C would be a lie.
  *
+ * **And matched on the instrument, by its number of strings** (2026-09-24). A `{define}` does not
+ * say which instrument it is for, and a guitar fingering handed to a ukulele reader was drawn as
+ * a six-string diagram and became their default. Six frets is a guitar shape and four a ukulele
+ * one, so a definition whose count is not this instrument's is somebody else's and the table
+ * answers instead. (`{define-ukulele: …}` is still skipped as a conditional nobody sees.)
+ *
  * Typed structurally rather than against `chordpro.ts`'s own `ChordDefinition`, so the music
  * modules go on depending on nothing above them.
  */
 export function definedShape(
   chord: Chord,
   definitions: Record<string, { name: string; frets: Fret[] }>,
+  instrument: Instrument = 'guitar',
 ): ChordShape | null {
   for (const definition of Object.values(definitions)) {
     const named = parseChord(definition.name)
     if (named === null || named.root !== chord.root) continue
     if (normalizeSuffix(named.suffix) !== normalizeSuffix(chord.suffix)) continue
-    if (definition.frets.length === 0) continue
+    if (definition.frets.length !== TUNING[instrument].length) continue
 
     return { frets: definition.frets, family: chord.suffix, simplified: false }
   }
@@ -650,7 +657,7 @@ export function pickShape(
    * voicings. A reader who prefers one of those can still choose it, and that choice is the
    * one thing that outranks the file — it is the most recent and the most theirs.
    */
-  const defined = definedShape(chord, definitions)
+  const defined = definedShape(chord, definitions, instrument)
   const shapes = defined === null ? fromTable : [defined, ...fromTable]
   if (shapes.length === 0) return null
 

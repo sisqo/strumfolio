@@ -242,7 +242,9 @@ used by the form *and* by the editor's directive rows, which had the same bug.
   the reader chose by hand. The file's fingering goes to the *front* of the candidate list
   rather than replacing it, so it is the default and still sits beside the table's voicings in
   the alternates picker. Matched on the chord as currently **shown**: a file's C fingering is
-  not a D, so transposing correctly stops using it.
+  not a D, so transposing correctly stops using it. And on the **instrument, by string count**
+  (2026-09-24): a `{define}` names none, so six frets is a guitar's and four a ukulele's —
+  before that a ukulele reader's default was a six-string diagram.
 - **The editor's «add field» menu offers only what lives in the body.** A `{title:}` typed
   into the body is stripped at the next save, so offering it would be offering something that
   quietly disappears; `fields.test.ts` checks every entry against `METADATA_DIRECTIVE`.
