@@ -4,17 +4,21 @@ import { Footer } from '@/components/Footer'
 import { PasswordScreen } from '@/components/PasswordScreen'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
+import { requireAccount } from '@/lib/auth/session'
 
 export const metadata: Metadata = { title: 'Password' }
 
 /**
  * Your own way in.
  *
- * A static shell like every other screen, precached like them, with nothing baked in:
- * whether you have a password is a fact about the server, and this page has no idea who
- * will open it.
+ * Nothing baked in: whether you have a password is a fact about the server, read by
+ * `PasswordScreen` itself. It used to be a static shell exempt from `requireAccount` as «the
+ * standalone tool», which it is not — it is the signed-in reader's own password screen, so a
+ * deleted account's session is sent off it like every other screen's.
  */
-export default function PasswordPage() {
+export default async function PasswordPage() {
+  await requireAccount()
+
   return (
     // The menu in the header holds a reader preference, so it needs this here too.
     <PrefsProvider songSlug={null}>

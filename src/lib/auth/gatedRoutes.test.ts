@@ -50,7 +50,8 @@ function pagesUnder(dir: string, base = ''): string[] {
  * The operator screens are exempt because a global owner is exempt from the check itself: their
  * admission comes from `ALLOWED_EMAILS` and not from a row, so there is no deleted account to
  * catch — and they may be standing inside a customer's account they have just removed from that
- * very screen. `/password` is the standalone tool, and `/design-system` a reference page.
+ * very screen. `/design-system` is a reference page. `/password` was exempt as «the standalone
+ * tool» until 2026-09-24, which it never was: it is the signed-in reader's own password screen.
  *
  * **`/` is the interesting one, and it is an exemption rather than an omission.** It is the only
  * dual-audience route: `(home)/layout.tsx` already resolves a deleted account to the public home,
@@ -60,7 +61,7 @@ function pagesUnder(dir: string, base = ''): string[] {
  * product's own front door. Nothing is weakened: `permit()` still refuses every write, and the
  * page rendered is the same marketing page a stranger gets.
  */
-const EXEMPT = new Set(['/', '/accounts', '/accounts/x', '/coupons', '/leads', '/pages', '/emails', '/design-system', '/password'])
+const EXEMPT = new Set(['/', '/accounts', '/accounts/x', '/coupons', '/leads', '/pages', '/emails', '/design-system'])
 
 describe('every route that needs a session throws out a deleted account', () => {
   it('calls requireAccount, in the page or in a layout above it', () => {

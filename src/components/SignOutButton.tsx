@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 
 import { signOut } from '@/auth'
 
-import { SCOPE_COOKIE } from '@/lib/accounts/scope'
+import { ACCOUNT_COOKIE, SCOPE_COOKIE } from '@/lib/accounts/scope'
 import { IconExit } from '@/components/icons'
 
 /**
@@ -34,7 +34,12 @@ export function SignOutButton() {
          * whose response deletes the session cookie, which is the part `middleware.ts` took
          * three wrong diagnoses to get right and which nothing here touches.
          */
-        ;(await cookies()).delete(SCOPE_COOKIE)
+        const jar = await cookies()
+        jar.delete(SCOPE_COOKIE)
+        /* And the account a global owner had switched into: it is `httpOnly`, lives a year and
+           outlived the session, so the next owner signing in on this browser landed inside the
+           previous customer's account with nothing looking wrong — `qa/actions.ts`'s reason. */
+        jar.delete(ACCOUNT_COOKIE)
         await signOut({ redirectTo: '/login' })
       }}
     >
