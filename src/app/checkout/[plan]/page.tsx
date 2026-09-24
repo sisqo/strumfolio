@@ -15,7 +15,7 @@ import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
 import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
-import { checkoutMode, lifetimeRefusal } from '@/lib/plans/planChange'
+import { checkoutMode, purchaseRefusal } from '@/lib/plans/planChange'
 import { couponRefusalFor } from '@/lib/plans/redeemable'
 import { isCheckoutPlan, LIFETIME, periodEnd, PRICES } from '@/lib/plans/prices'
 import type { BillingPeriod } from '@/lib/plans/prices'
@@ -104,12 +104,14 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
      pure and tested, because the version of it that is wrong charges somebody twice. */
   const mode = checkoutMode(live)
 
-  /* Whether a Lifetime may be sold here at all — the same rule `startPaddleCheckout` applies at
+  /* Whether anything may be sold here at all — a Lifetime off sale, or a reader who already
+     holds one, whatever plan this page is for. The same rule `startPaddleCheckout` applies at
      the press, asked here so the payment form is never drawn for a sale that will be refused. */
-  const lifetimeRefused =
-    plan === 'lifetime'
-      ? lifetimeRefusal(lifetimeOnSale, user !== null && (await holdsLifetime(user.accountOwnerEmail)))
-      : null
+  const lifetimeRefused = purchaseRefusal(
+    plan,
+    lifetimeOnSale,
+    user !== null && (await holdsLifetime(user.accountOwnerEmail)),
+  )
 
   /* What to call the plan they are on, built here because the component knows `PLAN_LABEL` but
      not how a cycle reads in a sentence. */
@@ -317,7 +319,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
             is nothing to fill in.
           </p>
         ) : (
-          plan === 'lifetime' && lifetimeRefused !== null ? (
+          lifetimeRefused !== null ? (
             <div className="mt-6">
               <div className="card p-[1.375rem]" role="status">
                 <span className={`state-badge ${lifetimeRefused === 'already-lifetime' ? 'state-badge-ok' : 'state-badge-alert'}`}>

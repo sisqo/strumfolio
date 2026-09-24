@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import type { LivePaddleSubscription, NoLiveSubscription } from './paddleAccount'
-import { checkoutMode, lifetimeRefusal, planChangeEffect, wouldBeSecondSubscription } from './planChange'
+import { checkoutMode, lifetimeRefusal, planChangeEffect, purchaseRefusal, wouldBeSecondSubscription } from './planChange'
 import { PAID_PLANS } from './prices'
 import { PLAN_RANK } from './types'
 
@@ -490,5 +490,20 @@ describe('lifetimeRefusal', () => {
   it('refuses somebody who already holds one, and says so before the switch', () => {
     assert.equal(lifetimeRefusal(true, true), 'already-lifetime')
     assert.equal(lifetimeRefusal(false, true), 'already-lifetime')
+  })
+})
+
+describe('purchaseRefusal', () => {
+  it('sells no subscription to somebody who holds Lifetime', () => {
+    for (const plan of ['standard', 'plus', 'premium'] as const) {
+      assert.equal(purchaseRefusal(plan, true, true), 'already-lifetime')
+      assert.equal(purchaseRefusal(plan, true, false), null)
+    }
+  })
+
+  it('leaves the on-sale switch to Lifetime alone', () => {
+    assert.equal(purchaseRefusal('standard', false, false), null)
+    assert.equal(purchaseRefusal('lifetime', false, false), 'lifetime-not-on-sale')
+    assert.equal(purchaseRefusal('lifetime', true, true), 'already-lifetime')
   })
 })

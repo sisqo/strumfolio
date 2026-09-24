@@ -378,3 +378,15 @@ export function lifetimeRefusal(onSale: boolean, holdsLifetime: boolean): Lifeti
   if (!onSale) return 'lifetime-not-on-sale'
   return null
 }
+
+/**
+ * The same question for any plan: **a Lifetime holder is sold nothing**, a subscription
+ * included. Only `/checkout/lifetime` used to ask it, so `/checkout/standard` followed from an
+ * old bookmark opened the payment form for somebody already holding Lifetime — and the webhook
+ * reads that subscription as `own` and `mayWritePlan` keeps the columns on Lifetime, so it went
+ * on billing every period for nothing, with no alert. The on-sale switch is Lifetime's alone.
+ */
+export function purchaseRefusal(plan: CheckoutPlan, onSale: boolean, holdsLifetime: boolean): LifetimeRefusal | null {
+  if (plan === 'lifetime') return lifetimeRefusal(onSale, holdsLifetime)
+  return holdsLifetime ? 'already-lifetime' : null
+}
