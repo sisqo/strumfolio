@@ -1684,6 +1684,10 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   `SCOPE_ENDED_MESSAGE`; `sw.ts`'s `refuseEndedScope` stamps every page request with an epoch
   and drops any response from an older one. A change of account (`SwitchAccountButton`) clears
   before navigating, or the timeout serves `/` from the account being left.
+- **Purge, then warm — `OfflineSync` calls `settleScope()` before its walk** (2026-09-24). The
+  foreign-account purge ran on the first `keyFor` read, and after a password sign-in the page is
+  rendered before the scope cookie exists, so that read could come *after* the walk: the next
+  song opened, or the `offline` event itself, emptied the freshly warmed `repertoire`.
 
 Verified before/after in a real browser on 2026-09-11 with a planted foreign cache: the other
 account's songbook name was visible with the unscoped store and absent at all forty samples

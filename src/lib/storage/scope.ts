@@ -97,6 +97,8 @@ export function currentScope(): string | null {
 
 /** Runs once per page load; see `keyFor`. */
 let purged = false
+/** The page-cache emptying the purge started, for `settleScope` to wait on. */
+let purging: Promise<void> = Promise.resolve()
 
 /**
  * Empty every cache on this device that belongs to a different account than the one signed in
@@ -126,7 +128,25 @@ function purgeIfForeign(scope: string): void {
      are keyed by URL alone, so they carry the same problem one layer down. Not awaited: this
      runs on the render path and the caches it clears are only ever consulted offline, where a
      few milliseconds later is soon enough. */
-  void clearPageCaches()
+  purging = clearPageCaches()
+}
+
+/**
+ * Settle whose device this is **before** filling any cache — the purge `keyFor` runs on the
+ * first read, done now and waited for.
+ *
+ * `OfflineSync` warms the page caches off the scope cookie alone and never calls `keyFor`, so
+ * after a password sign-in (whose page is rendered before the cookie exists, leaving every
+ * provider's read unscoped) the first scoped read could come *after* the whole repertoire had
+ * been walked — the next song opened, or the `offline` event itself — find the previous tag
+ * stored, and empty `repertoire` at the one moment it was needed. Calling this first makes the
+ * order the right one: purge, then warm.
+ */
+export async function settleScope(): Promise<void> {
+  const scope = currentScope()
+  if (scope === null) return
+  purgeIfForeign(scope)
+  await purging
 }
 
 /**

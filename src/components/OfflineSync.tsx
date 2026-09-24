@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import { listOfflineRoutes } from '@/lib/offline/sync'
-import { clearPageCaches, currentScope } from '@/lib/storage/scope'
+import { clearPageCaches, currentScope, settleScope } from '@/lib/storage/scope'
 import { useOnline } from '@/lib/useOnline'
 
 /**
@@ -116,6 +116,9 @@ export function OfflineSync() {
     run.current = current
 
     void (async () => {
+      /* Purge a previous account's caches *before* warming, never after — see `settleScope`. */
+      await settleScope()
+
       let routes: string[] | null
       try {
         routes = await listOfflineRoutes()
