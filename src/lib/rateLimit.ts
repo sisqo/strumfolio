@@ -14,6 +14,7 @@ import { headers } from 'next/headers'
 
 import { db, hasDatabase } from '@/lib/db/client'
 import { rateLimitHits } from '@/lib/db/schema'
+import { linkOrigin } from '@/lib/origin'
 
 /**
  * How long a row may outlive the window it measured before it is deleted. Every caller's
@@ -62,7 +63,11 @@ async function purgeStaleHits(now: Date): Promise<void> {
  * must be an async action, and this is a helper, not something a client should ever call.
  */
 export async function requestIp(): Promise<string | null> {
-  const forwardedFor = (await headers()).get('x-forwarded-for')
+  const h = await headers()
+  /* Vercel's own header first: it sets it itself and a client cannot, where `x-forwarded-for`
+     is trustworthy only because Vercel happens to overwrite it — true today, not a promise any
+     other host makes. */
+  const forwardedFor = h.get('x-vercel-forwarded-for') ?? h.get('x-forwarded-for')
   return forwardedFor?.split(',')[0]?.trim() || null
 }
 
@@ -75,9 +80,8 @@ export async function requestIp(): Promise<string | null> {
  */
 export async function requestOrigin(): Promise<string> {
   const h = await headers()
-  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000'
-  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
-  return `${proto}://${host}`
+  /* Checked against the hosts this installation answers on — `linkOrigin` has the reason. */
+  return linkOrigin(h.get('x-forwarded-host') ?? h.get('host'), h.get('x-forwarded-proto'))
 }
 
 /** True when the request is allowed to proceed; false once `limit` is reached within `windowMs`. */

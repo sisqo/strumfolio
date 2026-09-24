@@ -27,6 +27,8 @@ export type CourtesyFailure =
   /** This address has used the one-click link; sending would ignore it. */
   | 'opted-out'
   | 'suspended'
+  /** Outside production, a courtesy email only ever goes to a QA address — see `sendable.ts`. */
+  | 'not-production'
   /** `courtesy_checkin` only: no `done` row for `courtesy_thanks` on this address yet. */
   | 'send-thanks-first'
   /** A `done` row already exists for this occurrence. */
@@ -55,6 +57,7 @@ export const COURTESY_MESSAGE: Record<CourtesyFailure, string> = {
   'unknown-account': 'This account no longer exists. Reload the page.',
   'opted-out': 'This reader unsubscribed from courtesy emails.',
   suspended: 'This account is suspended.',
+  'not-production': 'Outside production, courtesy emails go only to @strumfolio.test addresses: this database holds real people’s.',
   'send-thanks-first': 'Send the thank-you email first.',
   'already-sent': 'This has already been sent to this account.',
   'in-flight': 'Another send for this account started a moment ago. Wait for it to finish.',

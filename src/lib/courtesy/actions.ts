@@ -30,6 +30,7 @@ import { requestOrigin } from '@/lib/rateLimit'
 
 import type { CourtesyFailure, CourtesyResult } from './types'
 import { COURTESY_FROM, COURTESY_REPLY_TO } from './types'
+import { courtesySendable } from './sendable'
 import { courtesyUnsubscribeToken } from './unsubscribe'
 
 interface CourtesyAccountRow {
@@ -116,6 +117,7 @@ async function preflight(ownerEmail: string): Promise<{ ok: true; account: Court
   if (account === null) return { ok: false, reason: 'unknown-account' }
   if (account.suspended) return { ok: false, reason: 'suspended' }
   if (account.optedOut) return { ok: false, reason: 'opted-out' }
+  if (!courtesySendable(process.env.VERCEL_ENV, account.ownerEmail)) return { ok: false, reason: 'not-production' }
 
   return { ok: true, account }
 }

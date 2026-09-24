@@ -1297,6 +1297,12 @@ Google sign-in started failing:
 the old domain and caused cross-domain login redirects). NextAuth v5 derives the origin from
 the request's `Host` header (`trustHost`, automatic on Vercel), which is what lets every
 attached domain work on its own. Re-add it only if the request host stops being trustworthy.
+The links this app emails (verify, reset, unsubscribe) take their origin from the same headers
+through `requestOrigin`, which since 2026-09-24 passes them through `linkOrigin`
+(`src/lib/origin.ts`): a host outside the product's own, this project's `*-sisqoz.vercel.app`
+and localhost is written as `https://strumfolio.com`. Harmless on Vercel, where the headers
+cannot be forged, and the one thing standing between a pass-through proxy and a reset link to a
+stranger's site. **A new domain goes into `OWN_HOSTS` there**, or its emails link to the old one.
 
 **`middleware.ts` strips NextAuth's own session-token `Set-Cookie` from every response, and
 signing out does not work without it.** `auth()` asks Auth.js for the session on each request,

@@ -60,6 +60,10 @@ same reason: the send is composed here, not run through `runOutreach`.
     stranger is meant to call — the token is the authorization, not a session — and keeping it
     apart from the owner-gated sends is what stops a future edit giving it an `isOwner` check by
     habit, which would lock every reader out of their own unsubscribe link.
+- **Outside production a courtesy email goes only to a QA address** (`sendable.ts`,
+  2026-09-24). The local database is a copy of production's real addresses and `.env.local` holds
+  a real Resend key, so trying the dialog on `npm run dev` emailed a customer — with an
+  unsubscribe link to `localhost`. Refused as `not-production`, before anything is claimed.
 - **`/courtesy-unsubscribe` reads on GET, writes only on an explicit tap**, the rule this repo
   states for `/verify` and `/reset-password`: a corporate mail scanner follows every link in a
   message before a person sees it, and a GET that wrote would opt out an account nobody but the
