@@ -47,11 +47,17 @@ export const accountExists = cache(async (ownerEmail: string): Promise<boolean> 
 
   try {
     const rows = await db()
-      .select({ ownerEmail: accounts.ownerEmail })
+      .select({ suspendedAt: accounts.suspendedAt })
       .from(accounts)
       .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
       .limit(1)
-    return rows.length > 0
+    /* **A suspended account counts as gone here** (2026-09-24), in the same lookup and at no
+       extra cost. Suspending used to stop only the *next* sign-in, on the grounds that a JWT
+       cannot be revoked — true of the cookie, and beside the point once this question is asked
+       on every request: a reader suspended for abuse kept writing, exporting and redeeming for
+       up to ninety days. The name stays because every reader of it means «may this session
+       still act on that account». */
+    return rows.length > 0 && rows[0].suspendedAt === null
   } catch (error) {
     console.error('accountExists failed', error)
     return true

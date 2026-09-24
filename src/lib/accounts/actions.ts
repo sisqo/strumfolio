@@ -722,12 +722,12 @@ export async function updateInternalNote(ownerEmail: string, note: string): Prom
 }
 
 /**
- * Suspends or reactivates an account — blocks only
- * **new** sign-ins, checked in `auth.ts`'s `signIn` callback via `isAccountSuspended`
- * (`accounts/read.ts`). Does not interrupt a session already issued: JWTs are not
- * revocable server-side in this app, so this stops the next attempt, not one already in
- * progress. "Enter as this account" never
- * checks this column, so a suspended account stays reachable to whoever suspended it.
+ * Suspends or reactivates an account. New sign-ins are refused in `auth.ts`'s `signIn` callback
+ * via `isAccountSuspended`, and **since 2026-09-24 a session already issued stops working too**:
+ * the cookie cannot be revoked, but `currentUser()` asks the database on every request anyway
+ * (`accountExists`, which now answers «gone» for a suspended row), so writes close at once and
+ * `requireAccount` sends the reader to `/login`. A global owner is exempt from that check, so
+ * «Enter as this account» still reaches a suspended account for whoever suspended it.
  *
  * No dedicated reason column: the context is expected to live in the internal note
  * beside it, not a second free-text field for the same kind of fact.
