@@ -358,7 +358,9 @@ Was [Em]blind, but [D]now I [G]see.
           <code>{'{comment-guitar: capo 3 here}'}</code> is shown to somebody reading the guitar
           shapes and to nobody else, and <code>{'{comment-!guitar: ...}'}</code> is shown to
           everybody <em>but</em> them. Whole blocks take one too —{' '}
-          <code>{'{start_of_chorus-ukulele}'}</code> … <code>{'{end_of_chorus}'}</code>.
+          <code>{'{start_of_chorus-ukulele}'}</code> … <code>{'{end_of_chorus}'}</code>, and a
+          tab, a grid or an <code>abc</code> block the same way:{' '}
+          <code>{'{sot-guitar}'}</code> … <code>{'{eot}'}</code>.
         </p>
         <p>
           Strumfolio knows two instruments, <code>guitar</code> and <code>ukulele</code>, and
@@ -366,7 +368,7 @@ Was [Em]blind, but [D]now I [G]see.
           people reading it at once, and the file is one file. A selector naming an instrument
           this app doesn&apos;t have — <code>piano</code>, <code>bass</code> — hides the line,
           which is the honest reading of a file that took the trouble to say &quot;piano&quot;.
-          Only things that are drawn can be conditional: a comment and a section, not{' '}
+          Only things that are drawn can be conditional: a comment, a section or a tab, not{' '}
           <code>{'{title-guitar}'}</code>.
         </p>
 

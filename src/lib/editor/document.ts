@@ -163,6 +163,17 @@ const TAB_END_NAMES = new Set(['eot', 'end_of_tab', 'eog', 'end_of_grid', 'end_o
 const DELEGATE_START = /^start_of_(abc|ly|svg|textblock|strum)$/
 
 /**
+ * `start_of_tab-guitar` → `start_of_tab`. A verbatim block may carry a conditional's selector on
+ * its opening and on its closing, and the reader reads it as the same block for that instrument
+ * (`chordpro.ts`' `withoutSelector`); taking it for an unknown directive offered its rows as
+ * lyrics, a tab's `[3]` as a chord. The line itself is kept whole in `startRaw`/`endRaw`.
+ */
+function verbatimName(name: string): string {
+  const cut = name.indexOf('-')
+  return cut === -1 ? name : name.slice(0, cut)
+}
+
+/**
  * Splits one lyric line into plain text and the chords above it.
  *
  * A `[` with no closing bracket is literal text, exactly as the reader treats it,
@@ -248,8 +259,9 @@ export function fromSource(source: string): SongDocument {
     if (directive) {
       const name = directive[1].toLowerCase()
 
-      const delegate = DELEGATE_START.exec(name)?.[1]
-      if (TAB_START_NAMES.has(name) || GRID_START_NAMES.has(name) || delegate !== undefined) {
+      const opening = verbatimName(name)
+      const delegate = DELEGATE_START.exec(opening)?.[1]
+      if (TAB_START_NAMES.has(opening) || GRID_START_NAMES.has(opening) || delegate !== undefined) {
         const rows: string[] = []
         let endDirective: string | null = null
         let endRaw: string | undefined
@@ -259,7 +271,7 @@ export function fromSource(source: string): SongDocument {
         for (i += 1; i < rawLines.length; i += 1) {
           const inner = rawLines[i]
           const innerDirective = DIRECTIVE.exec(inner.trim())
-          if (innerDirective && closes(innerDirective[1].toLowerCase())) {
+          if (innerDirective && closes(verbatimName(innerDirective[1].toLowerCase()))) {
             endDirective = innerDirective[1]
             endRaw = inner
             break
@@ -284,7 +296,7 @@ export function fromSource(source: string): SongDocument {
           endDirective,
           ...(endRaw === undefined ? {} : { endRaw }),
           rows,
-          variant: delegate !== undefined ? 'delegate' : GRID_START_NAMES.has(name) ? 'grid' : 'tab',
+          variant: delegate !== undefined ? 'delegate' : GRID_START_NAMES.has(opening) ? 'grid' : 'tab',
         })
         if (trailingBlank) blocks.push({ kind: 'blank', raw: '' })
         continue
@@ -403,7 +415,7 @@ function lineOf(block: Block, eol: string): string {
             (block.variant === 'grid'
               ? 'end_of_grid'
               : block.variant === 'delegate'
-                ? block.startDirective.replace(/^start_of_/i, 'end_of_')
+                ? verbatimName(block.startDirective).replace(/^start_of_/i, 'end_of_')
                 : 'end_of_tab')
           }}`,
       ].join(eol)

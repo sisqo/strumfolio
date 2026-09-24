@@ -850,6 +850,10 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a delegated environment': '{title: T}\n{start_of_abc}\nX:1\n[CDE]\n{end_of_abc}\nword',
     'an unclosed delegated environment': '{title: T}\nword\n{start_of_ly}\n\\relative c',
     'a labelled chorus recall': '{title: T}\n{soc}\nsung\n{eoc}\n{chorus: label="Final"}',
+    'a tab for one instrument': '{title: T}\n{sot-guitar}\ne|--[3]--\n{eot}\nword',
+    'a long-named tab for one instrument': '{title: T}\n{start_of_tab-!piano: Solo}\ne|--3--\n{end_of_tab-!piano}\nword',
+    'a grid for one instrument': '{title: T}\n{sog-guitar}\n| Am . |\n{eog}\nword',
+    'a delegate for one instrument': '{title: T}\n{start_of_abc-piano}\nX:1\n[CDE]\n{end_of_abc}\nword',
   }
 
   /*
@@ -1250,5 +1254,62 @@ describe('{transpose}', () => {
     const song = parseChordPro('[C]a [G]b\n{transpose: 2}\n[C]c [G]d')
     assert.deepEqual(chordTokens(song), ['C', 'G', 'D', 'A'])
     assert.deepEqual(chordTokens(song, false), ['C', 'G'])
+  })
+})
+
+/*
+ * A tab, a grid or a delegated environment written for one instrument. Until 2026-09-24 both
+ * parsers skipped these openings as conditionals nobody sees, so the rows were drawn as words —
+ * a tab's `[3]` a chord, an ABC tune's `[CDE]` one too.
+ */
+describe('verbatim blocks with a selector (2026-09-24)', () => {
+  const kinds = (source: string, instrument: string) =>
+    visibleSections(parseChordPro(source).sections, instrument).flatMap((section) =>
+      section.lines.map((line) => (line.kind === 'tab' ? `tab:${line.rows.join('/')}` : line.kind === 'comment' ? `#${line.text}` : 'lyrics')),
+    )
+
+  it('reads the block as a block, for the instrument it names', () => {
+    const source = '{sot-guitar}\ne|--[3]--\n{eot}\nword'
+    assert.deepEqual(kinds(source, 'guitar'), ['tab:e|--[3]--', 'lyrics'])
+    assert.deepEqual(kinds(source, 'ukulele'), ['lyrics'])
+  })
+
+  it('hides the label with the block, and closes on an end that repeats the selector', () => {
+    const source = '{start_of_tab-!guitar: Solo}\ne|--3--\n{end_of_tab-!guitar}\nword'
+    assert.deepEqual(kinds(source, 'ukulele'), ['#Solo', 'tab:e|--3--', 'lyrics'])
+    assert.deepEqual(kinds(source, 'guitar'), ['lyrics'])
+  })
+
+  it('reads a delegated environment for one instrument as that environment', () => {
+    const [line] = parseChordPro('{start_of_abc-piano}\nX:1\n[CDE]\n{end_of_abc}').sections[0].lines
+    assert.equal(line.kind, 'tab')
+    if (line.kind === 'tab') {
+      assert.equal(line.delegate, 'abc')
+      assert.equal(line.selector, 'piano')
+      assert.deepEqual(line.rows, ['X:1', '[CDE]'])
+    }
+  })
+
+  it('leaves a block with no selector exactly as it was', () => {
+    const [line] = parseChordPro('{sot}\ne|--3--\n{eot}').sections[0].lines
+    assert.deepEqual(line, { kind: 'tab', rows: ['e|--3--'], variant: 'tab' })
+  })
+
+  it('is one block in the editor, written back byte for byte', () => {
+    for (const source of [
+      '{sot-guitar}\ne|--[3]--\n{eot}\nword',
+      '{start_of_abc-piano}\nX:1\n[CDE]\n{end_of_abc-piano}',
+      '{sog-!uke: A}\n| Am . |\n{eog}',
+    ]) {
+      const { blocks } = fromSource(source)
+      assert.equal(blocks[0].kind, 'tab', source)
+      assert.equal(toSource(fromSource(source)), source)
+    }
+  })
+
+  /* An unclosed block gets its closing written, as every unclosed block does — named for the
+     environment, without the selector, so it closes whoever reads it. */
+  it('closes an unclosed delegate with a selector by its own name', () => {
+    assert.equal(toSource(fromSource('{start_of_abc-piano}\nX:1')), '{start_of_abc-piano}\nX:1\n{end_of_abc}')
   })
 })

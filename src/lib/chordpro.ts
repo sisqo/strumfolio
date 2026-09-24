@@ -183,6 +183,13 @@ export type Line =
       variant?: 'tab' | 'grid' | 'delegate'
       /** For a `delegate`, which one — `abc`, `ly`, `svg`, `textblock`, `strum`. */
       delegate?: string
+      /**
+       * The instrument the block is for — `{start_of_tab-guitar}`, `{sot-guitar}`,
+       * `{start_of_abc-piano}`. Absent is «everybody». Answered at the screen, like a comment's
+       * (`visibleSections`); until 2026-09-24 these openings were skipped as conditionals nobody
+       * sees, so their rows were drawn as words and a tab's `[3]` as a chord.
+       */
+      selector?: string
     }
 
 export type SectionKind = 'verse' | 'chorus' | 'bridge'
@@ -607,6 +614,8 @@ export function parseChordPro(source: string): ParsedSong {
   let verbatimDelegate = ''
   /** `{start_of_tab: Solo}`'s label, printed above the block exactly as a section's is. */
   let verbatimLabel = ''
+  /** `{start_of_tab-guitar}`'s selector, carried by the block and by its label. */
+  let verbatimSelector: string | null = null
 
   const openSection = (kind: SectionKind, selector: string | null = null): Section => {
     const created: Section = { kind, lines: [], selector }
@@ -621,7 +630,7 @@ export function parseChordPro(source: string): ParsedSong {
 
     if (verbatimRows !== null) {
       const closing = DIRECTIVE.exec(rawLine.trim())
-      const closingRaw = closing === null ? undefined : closing[1].toLowerCase()
+      const closingRaw = closing === null ? undefined : withoutSelector(closing[1].toLowerCase())
       const closingName = closingRaw === undefined ? undefined : DIRECTIVE_ALIAS[closingRaw]
 
       // Either end directive closes either block. A `{start_of_grid}` shut with
@@ -635,10 +644,11 @@ export function parseChordPro(source: string): ParsedSong {
           : closingName === 'end_of_tab' || closingName === 'end_of_grid'
       if (closes) {
         section ??= openSection(forcedKind ?? 'verse')
-        if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', null))
-        section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate))
+        if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', verbatimSelector))
+        section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate, verbatimSelector))
         verbatimRows = null
         verbatimLabel = ''
+        verbatimSelector = null
       } else {
         // Verbatim, not trimmed: trailing spaces inside one of these rows are as much a
         // part of its alignment as anything else in it.
@@ -719,10 +729,12 @@ export function parseChordPro(source: string): ParsedSong {
        * it are found by walking these very objects. `selectorMatches` is the question, and
        * `SongSheet` and the booklet are the ones who ask it.
        *
-       * **Only what a reader sees may be conditional.** A comment and a section are drawn or
-       * not drawn, so the answer can wait; a `{tempo-guitar: 96}` would have to change a
-       * number before anybody looks, which this parser is in no position to decide — those
-       * are skipped, exactly as every conditional was before.
+       * **Only what a reader sees may be conditional.** A comment, a section and a verbatim
+       * block — tab, grid, delegated environment — are drawn or not drawn, so the answer can
+       * wait; a `{tempo-guitar: 96}` would have to change a number before anybody looks, which
+       * this parser is in no position to decide — those are skipped, exactly as every
+       * conditional was before. Skipping an *opening* is not skipping one line: the block's
+       * rows then read as words, which is why the verbatim openings joined this list.
        *
        * A name this table already knows is never split, however many hyphens it has:
        * `{ccli-number: …}` is a directive whose own name contains one, and reading it as
@@ -733,12 +745,16 @@ export function parseChordPro(source: string): ParsedSong {
 
       if (DIRECTIVE_ALIAS[rawName] === undefined && rawName.includes('-')) {
         const cut = rawName.indexOf('-')
-        const base = DIRECTIVE_ALIAS[rawName.slice(0, cut)]
+        const head = rawName.slice(0, cut)
+        const base = DIRECTIVE_ALIAS[head]
+        const delegated = DELEGATES.has(head.replace(/^start_of_/, '')) && head.startsWith('start_of_')
 
-        if (base !== undefined) {
-          if (base !== 'comment' && SECTION_OF[base] === undefined) continue
+        if (base !== undefined || delegated) {
+          const drawn =
+            base === 'comment' || SECTION_OF[base] !== undefined || base === 'start_of_tab' || base === 'start_of_grid' || delegated
+          if (!drawn) continue
           selector = rawName.slice(cut + 1)
-          rawName = rawName.slice(0, cut)
+          rawName = head
         }
       }
 
@@ -962,11 +978,13 @@ export function parseChordPro(source: string): ParsedSong {
           verbatimRows = []
           verbatimVariant = 'tab'
           verbatimLabel = label
+          verbatimSelector = selector
           break
         case 'start_of_grid':
           verbatimRows = []
           verbatimVariant = 'grid'
           verbatimLabel = label
+          verbatimSelector = selector
           break
         case 'end_of_verse':
         case 'end_of_chorus':
@@ -992,6 +1010,7 @@ export function parseChordPro(source: string): ParsedSong {
             verbatimVariant = 'delegate'
             verbatimDelegate = delegate
             verbatimLabel = label
+            verbatimSelector = selector
           } else if (name === undefined && /^start_of_./.test(rawName)) {
             forcedKind = 'verse'
             section = openSection('verse')
@@ -1023,8 +1042,8 @@ export function parseChordPro(source: string): ParsedSong {
   // typed by someone, not something to drop silently for want of an `{end_of_tab}`.
   if (verbatimRows !== null) {
     section ??= openSection(forcedKind ?? 'verse')
-    if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', null))
-    section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate))
+    if (verbatimLabel !== '') section.lines.push(commentLine(verbatimLabel, 'plain', verbatimSelector))
+    section.lines.push(verbatimLine(verbatimRows, verbatimVariant, verbatimDelegate, verbatimSelector))
   }
 
   /* The starting transposition, when the file set one. A song whose `{transpose}` lines all
@@ -1167,8 +1186,24 @@ export function readLabel(value: string): string {
 /** The environments the format delegates to another program (`Directives-delegates.md`). */
 const DELEGATES = new Set(['abc', 'ly', 'svg', 'textblock', 'strum'])
 
-function verbatimLine(rows: string[], variant: 'tab' | 'grid' | 'delegate', delegate: string): Line {
-  return variant === 'delegate' ? { kind: 'tab', rows, variant, delegate } : { kind: 'tab', rows, variant }
+/**
+ * `end_of_tab-guitar` → `end_of_tab`: a closing directive may repeat its opening's selector,
+ * and closes the block either way. A name the alias table knows whole (`ccli-number`) is kept.
+ */
+function withoutSelector(name: string): string {
+  if (DIRECTIVE_ALIAS[name] !== undefined) return name
+  const cut = name.indexOf('-')
+  return cut === -1 ? name : name.slice(0, cut)
+}
+
+function verbatimLine(
+  rows: string[],
+  variant: 'tab' | 'grid' | 'delegate',
+  delegate: string,
+  selector: string | null,
+): Line {
+  const line: Line = variant === 'delegate' ? { kind: 'tab', rows, variant, delegate } : { kind: 'tab', rows, variant }
+  return selector === null ? line : { ...line, selector }
 }
 
 /** A comment line, its markup read into runs and taken out of its plain text. */
@@ -1357,8 +1392,10 @@ export function visibleSections(sections: Section[], instrument: string): Sectio
   return sections
     .filter((section) => selectorMatches(section.selector, instrument))
     .map((section) => {
-      const lines = section.lines.filter(
-        (line) => line.kind !== 'comment' || selectorMatches(line.selector, instrument),
+      const lines = section.lines.filter((line) =>
+        line.kind === 'comment'
+          ? selectorMatches(line.selector, instrument)
+          : line.kind !== 'tab' || selectorMatches(line.selector ?? null, instrument),
       )
 
       return lines.length === section.lines.length ? section : { ...section, lines }
