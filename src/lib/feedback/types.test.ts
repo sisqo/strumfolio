@@ -10,6 +10,8 @@ import {
   SCREENSHOT_MAX_BYTES,
   excerpt,
   feedbackProblem,
+  isFeedbackCategory,
+  screenshotAcceptable,
   screenshotTooLarge,
 } from './types'
 
@@ -73,5 +75,30 @@ describe('excerpt', () => {
     const cut = excerpt(long, 60)
     assert.equal(cut, `${'a'.repeat(60)}...`)
     assert.equal(excerpt('a'.repeat(60), 60), 'a'.repeat(60))
+  })
+})
+
+describe('screenshotAcceptable', () => {
+  const ok = { filename: 'shot.png', mimeType: 'image/png', base64: 'aGVsbG8=' }
+
+  it('takes an image of a size a request can carry', () => {
+    assert.equal(screenshotAcceptable(ok), true)
+  })
+
+  it('refuses anything that is not an image, or not the shape the sheet sends', () => {
+    assert.equal(screenshotAcceptable({ ...ok, mimeType: 'application/x-msdownload' }), false)
+    assert.equal(screenshotAcceptable({ ...ok, filename: '' }), false)
+    assert.equal(screenshotAcceptable({ ...ok, filename: 'a'.repeat(201) }), false)
+    assert.equal(screenshotAcceptable({ ...ok, base64: 42 }), false)
+    assert.equal(screenshotAcceptable(null), false)
+    assert.equal(screenshotAcceptable({ ...ok, base64: 'A'.repeat(Math.ceil((SCREENSHOT_MAX_BYTES + 1) / 0.75)) }), false)
+  })
+})
+
+describe('isFeedbackCategory', () => {
+  it('knows the four and nothing else', () => {
+    for (const category of FEEDBACK_CATEGORIES) assert.equal(isFeedbackCategory(category), true)
+    assert.equal(isFeedbackCategory('toString'), false)
+    assert.equal(isFeedbackCategory(undefined), false)
   })
 })

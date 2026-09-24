@@ -23,6 +23,7 @@ import {
   FEEDBACK_MESSAGE,
   MESSAGE_MAX,
   SCREENSHOT_MAX_BYTES,
+  SCREENSHOT_TYPES,
   feedbackProblem,
   screenshotTooLarge,
   type FeedbackCategory,
@@ -99,6 +100,10 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
 
   const pickFile = async (file: File) => {
     setAttachmentError(null)
+    if (!SCREENSHOT_TYPES.includes(file.type)) {
+      setAttachmentError('That is not an image we can attach — try a PNG or JPEG screenshot.')
+      return
+    }
     if (file.size > SCREENSHOT_MAX_BYTES) {
       setAttachmentError(`That image is larger than ${formatBytes(SCREENSHOT_MAX_BYTES)} — try a smaller screenshot.`)
       return
@@ -108,7 +113,7 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
       setAttachmentError(`That image is larger than ${formatBytes(SCREENSHOT_MAX_BYTES)} — try a smaller screenshot.`)
       return
     }
-    setScreenshot({ filename: file.name, mimeType: file.type, size: file.size, base64 })
+    setScreenshot({ filename: file.name.slice(-200), mimeType: file.type, size: file.size, base64 })
   }
 
   const send = async () => {
@@ -256,7 +261,7 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
                     Add a screenshot
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={SCREENSHOT_TYPES.join(',')}
                       className="sr-only"
                       onChange={(event) => {
                         const file = event.target.files?.[0]

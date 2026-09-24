@@ -44,9 +44,32 @@ export function feedbackProblem(message: string): FeedbackProblem | null {
   return null
 }
 
-/** ~4MB of source bytes, checked before base64 inflates it by a third — about keeping one
- *  email payload sane, not a Resend limit (theirs is far higher). */
-export const SCREENSHOT_MAX_BYTES = 4 * 1024 * 1024
+/** 2 MB of source bytes, checked before base64 inflates it by a third. Not a Resend limit but
+ *  the request's: `next.config.ts`'s `bodySizeLimit` is 3 MB, under Vercel's 4.5 MB, and a
+ *  4 MB image — the old cap — could never arrive whatever the sheet allowed. */
+export const SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024
+
+/** What may be attached: the image types a phone or a desktop screenshot actually produces. */
+export const SCREENSHOT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
+
+/** A Server Action receives whatever was posted, so the attachment is checked for shape here. */
+export function screenshotAcceptable(screenshot: unknown): screenshot is FeedbackScreenshot {
+  if (typeof screenshot !== 'object' || screenshot === null) return false
+  const { filename, mimeType, base64 } = screenshot as Record<string, unknown>
+  return (
+    typeof filename === 'string' &&
+    filename.length > 0 &&
+    filename.length <= 200 &&
+    typeof mimeType === 'string' &&
+    SCREENSHOT_TYPES.includes(mimeType) &&
+    typeof base64 === 'string' &&
+    !screenshotTooLarge(base64)
+  )
+}
+
+export function isFeedbackCategory(value: unknown): value is FeedbackCategory {
+  return (FEEDBACK_CATEGORIES as readonly unknown[]).includes(value)
+}
 
 /** Base64 length approximates the decoded byte count (6 bits/char) without decoding it. */
 export function screenshotTooLarge(base64: string): boolean {

@@ -25,6 +25,8 @@ import {
   FEEDBACK_CATEGORY_LABEL,
   MESSAGE_MAX,
   feedbackProblem,
+  isFeedbackCategory,
+  screenshotAcceptable,
   screenshotTooLarge,
   type FeedbackCategory,
   type FeedbackResult,
@@ -56,10 +58,18 @@ export async function submitFeedback(
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
 
+  /* An unknown category skipped the feature-request gate and printed «undefined» to Telegram. */
+  if (!isFeedbackCategory(category) || typeof message !== 'string') return { ok: false, reason: 'failed' }
+
   const problem = feedbackProblem(message)
   if (problem !== null) return { ok: false, reason: problem }
 
-  if (screenshot !== undefined && screenshotTooLarge(screenshot.base64)) return { ok: false, reason: 'too-long' }
+  /* The attachment goes out to info@ with the name and type it arrived with, so both are checked,
+     not only the size — otherwise any file of any type could be mailed from here. */
+  if (screenshot !== undefined && !screenshotAcceptable(screenshot)) {
+    const base64: unknown = (screenshot as { base64?: unknown } | null)?.base64
+    return { ok: false, reason: typeof base64 === 'string' && screenshotTooLarge(base64) ? 'too-long' : 'failed' }
+  }
 
   try {
     const entitlements = await entitlementsOf(user.accountOwnerEmail)

@@ -155,6 +155,14 @@ const nextConfig: NextConfig = {
    * The four defaults have to be spelled out because naming this replaces them wholesale.
    */
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'mdx'],
+  /**
+   * **A feedback screenshot is the only large thing a Server Action receives**, and Next's
+   * default of 1 MB refused anything over about 750 KB of image with a 413 the sheet could only
+   * call «something went wrong». 3 MB holds `SCREENSHOT_MAX_BYTES` once base64 has inflated it
+   * by a third, plus the message, and stays under Vercel's 4.5 MB request cap — which is why the
+   * screenshot cap came down to 2 MB rather than this going up to meet the old 4.
+   */
+  experimental: { serverActions: { bodySizeLimit: '3mb' } },
 
   /**
    * Inlined at build time wherever `process.env.COMMIT_HASH` is read, in server or
