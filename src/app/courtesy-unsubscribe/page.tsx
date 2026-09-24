@@ -4,7 +4,7 @@ import { AuthLockup } from '@/components/AuthLockup'
 import { Footer } from '@/components/Footer'
 import { confirmCourtesyUnsubscribe, courtesyUnsubscribeStatus } from '@/lib/courtesy/publicActions'
 
-export const metadata: Metadata = { title: 'Unsubscribe' }
+export const metadata: Metadata = { title: 'Unsubscribe', robots: { index: false, follow: false } }
 
 interface Props {
   searchParams: Promise<{ email?: string; token?: string }>

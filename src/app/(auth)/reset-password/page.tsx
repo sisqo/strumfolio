@@ -10,7 +10,7 @@ import { checkPasswordResetToken } from '@/lib/forgotPassword/check'
 import type { PasswordResetCheck } from '@/lib/forgotPassword/check'
 import { SAMPLE_EMAIL, SAMPLE_TOKEN } from '@/lib/previewSample'
 
-export const metadata: Metadata = { title: 'Reset password' }
+export const metadata: Metadata = { title: 'Reset password', robots: { index: false, follow: false } }
 
 interface Props {
   searchParams: Promise<{ email?: string; token?: string; preview?: string }>
