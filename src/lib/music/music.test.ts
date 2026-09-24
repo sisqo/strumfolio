@@ -474,3 +474,20 @@ describe('readChord', () => {
     )
   })
 })
+
+/* Typographic accidentals, as a phone or a typeset chart writes them (2026-09-24). */
+describe('the signs \u266d and \u266f', () => {
+  const international = { notation: 'int' as const, tonic: 0 }
+
+  it('read as b and #, in the root, the bass and the suffix', () => {
+    assert.deepEqual(parseChord('B\u266d'), parseChord('Bb'))
+    assert.deepEqual(parseChord('C\u266fm'), parseChord('C#m'))
+    assert.deepEqual(parseChord('E\u266d/B\u266d'), parseChord('Eb/Bb'))
+    assert.deepEqual(parseChord('C7\u266d9'), parseChord('C7b9'))
+    assert.deepEqual(parseChord('Si\u266d'), parseChord('Sib'))
+  })
+
+  it('transpose with the rest of the song instead of staying put', () => {
+    assert.equal(formatChord(readChord(parseChord('B\u266d')!, 2, 'sharp'), international), 'C')
+  })
+})

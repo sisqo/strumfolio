@@ -146,7 +146,8 @@ export interface RootRead {
  * is how the sources write them, which does let words in: see the guard in
  * `parseChord`.
  */
-export function readRoots(token: string): RootRead[] {
+export function readRoots(written: string): RootRead[] {
+  const token = asciiAccidentals(written)
   const reads: RootRead[] = []
 
   const italian = ITALIAN_ROOT.exec(token)
@@ -170,9 +171,21 @@ export function readRoots(token: string): RootRead[] {
   return reads
 }
 
-/** Parses a note name such as `C`, `F#`, `Bbb` into a pitch class. */
+/**
+ * `B♭` → `Bb`, `C♯m` → `C#m`: the typographic signs read as the two the rest of this module
+ * speaks. Files typed on a phone or copied from a typeset chart carry them, and until 2026-09-24
+ * such a chord parsed as nothing — printed as written and left behind when the rest of the song
+ * transposed, which is a wrong chord on screen with no sign that anything was skipped. Both are
+ * one UTF-16 unit, so every offset into the token stays where it was. Only the reading changes;
+ * the file keeps what its writer typed.
+ */
+export function asciiAccidentals(token: string): string {
+  return token.replace(/\u266d/g, 'b').replace(/\u266f/g, '#')
+}
+
+/** Parses a note name such as `C`, `F#`, `Bbb` — or `B♭` — into a pitch class. */
 export function noteToPitchClass(name: string): PitchClass | null {
-  const match = /^([A-Ga-g])([#b]*)$/.exec(name.trim())
+  const match = /^([A-Ga-g])([#b]*)$/.exec(asciiAccidentals(name.trim()))
   if (!match) return null
 
   const letter = match[1].toUpperCase()

@@ -190,3 +190,10 @@ describe('a key the song declares', () => {
     assert.equal(spellingFor('int', ambiguous, 0, 'F').tonic, 0)
   })
 })
+
+describe('a declared key written with a typographic flat', () => {
+  it('is read as the key it names, not left to the estimate', () => {
+    assert.equal(spellingFor('nash', () => ['C', 'F', 'G'], 0, 'B\u266d').tonic, 10)
+    assert.equal(spellingFor('nash', () => ['C', 'F', 'G'], 0, 'F\u266fm').tonic, 6)
+  })
+})
