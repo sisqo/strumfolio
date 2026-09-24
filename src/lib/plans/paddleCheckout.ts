@@ -64,7 +64,7 @@ import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
 import { redeemableCouponFor } from './redeemable'
 import { holdsLifetime } from './resolve'
-import { signAccountId } from './customDataSignature'
+import { checkoutCustomData } from './customDataSignature'
 
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 
@@ -166,13 +166,7 @@ export async function startPaddleCheckout(
     const transaction = await paddle.transactions.create({
       items: [{ priceId, quantity: 1 }],
       ...(discountId === null ? {} : { discountId }),
-      customData: {
-        account_id: account.id,
-        /* The id alone proves nothing — the browser can write one too; see
-           `customDataSignature.ts`. The webhook believes it only with this beside it. */
-        account_sig: signAccountId(account.id),
-        ...(coupon === null ? {} : { coupon_campaign_id: coupon.id }),
-      },
+      customData: checkoutCustomData(account.id, coupon === null ? null : coupon.id),
     })
 
     return { ok: true, transactionId: transaction.id }

@@ -81,3 +81,20 @@ export function stampSigned(
 ): boolean {
   return matches(mac(secret, stampMessage(accountId, stamp.from_plan, stamp.from_cycle, stamp.at)), stamp.sig)
 }
+
+/**
+ * The `custom_data` a checkout puts on the transaction it creates — the one place the account
+ * contract is written for a first purchase. A plain function so a test can feed exactly what
+ * `startPaddleCheckout` sends into the webhook's own reader: on a first purchase there is no
+ * subscription pointer and no customer id yet, so a signature the webhook cannot verify leaves
+ * the payment matched to nobody.
+ */
+export function checkoutCustomData(accountId: number, couponCampaignId: string | null): Record<string, unknown> {
+  return {
+    account_id: accountId,
+    /* The id alone proves nothing — the browser can write one too. The webhook believes it only
+       with this beside it. */
+    account_sig: signAccountId(accountId),
+    ...(couponCampaignId === null ? {} : { coupon_campaign_id: couponCampaignId }),
+  }
+}

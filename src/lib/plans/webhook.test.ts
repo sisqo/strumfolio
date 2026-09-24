@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { signAccountId, signStamp } from './customDataSignature'
+import { checkoutCustomData, signAccountId, signStamp } from './customDataSignature'
 
 import {
   adjustmentEffect,
@@ -619,5 +619,29 @@ describe('appliedDiscountOf', () => {
     assert.equal(appliedDiscountOf({ id: 'txn_1', discount_id: null }), null)
     assert.equal(appliedDiscountOf({ id: 'txn_1', discount_id: 'COUPON30' }), null)
     assert.equal(appliedDiscountOf({ id: 'txn_1' }), null)
+  })
+})
+
+/*
+ * The first purchase end to end, as far as pure code reaches: what `startPaddleCheckout` stamps
+ * on the transaction, carried by Paddle onto the subscription, read back by the webhook. On a
+ * first purchase this is the only handle — no pointer, no customer id yet — so a mismatch
+ * between writer and reader would leave a paid order matched to nobody.
+ */
+describe('the checkout stamp reaches the webhook', () => {
+  it('finds the account on the Lifetime transaction and on the new subscription', () => {
+    const custom = checkoutCustomData(42, null)
+    assert.equal(transactionEffect(transaction({ custom_data: custom as never })).account.accountId, 42)
+    assert.equal(subscriptionEffect(subscription({ custom_data: custom as never })).account.accountId, 42)
+  })
+
+  it('survives the JSON round trip Paddle puts it through, coupon included', () => {
+    const custom = JSON.parse(JSON.stringify(checkoutCustomData(7, 'campaign-uuid')))
+    assert.equal(transactionEffect(transaction({ custom_data: custom })).account.accountId, 7)
+  })
+
+  it('does not survive a browser changing the account it names', () => {
+    const custom = { ...checkoutCustomData(7, null), account_id: 8 }
+    assert.equal(transactionEffect(transaction({ custom_data: custom as never })).account.accountId, null)
   })
 })
