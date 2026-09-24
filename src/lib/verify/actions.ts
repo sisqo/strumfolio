@@ -60,11 +60,31 @@ export async function verifyEmail(
   // A checkbox sends nothing at all when unchecked, never a falsy value.
   const newsletterOptIn = formData.get('newsletterOptIn') === 'on'
 
+  if (typeof email !== 'string' || typeof token !== 'string') return { reason: 'failed' }
+  const normalized = normalizeEmail(email)
+
+  /*
+   * **The token is checked before anything is hashed.** This action needs no session, no
+   * captcha and has no rate limit, so hashing first let anybody holding its id spend ~34 ms of
+   * CPU and 16 MiB of scrypt per POST with an invented address and token. The same check runs
+   * again inside the transaction, which is the one that counts: this read only decides whether
+   * the work is worth doing.
+   */
+  try {
+    const pending = await db()
+      .select({ tokenHash: pendingRegistrations.verificationTokenHash })
+      .from(pendingRegistrations)
+      .where(eq(pendingRegistrations.email, normalized))
+      .limit(1)
+    if (pending[0] === undefined || hashToken(token) !== pending[0].tokenHash) return { reason: 'invalid-link' }
+  } catch (error) {
+    console.error('verifyEmail pre-check failed', error)
+    return { reason: 'failed' }
+  }
+
   /* Hashed before the transaction opens: scrypt is tens of milliseconds, and the transaction
      holds the pool's only connection (see below) for as long as it runs. */
   const passwordHash = await hashPassword(password as string)
-
-  const normalized = normalizeEmail(email)
 
   /*
    * Carries `firstName`/`lastName` back out alongside the plain
