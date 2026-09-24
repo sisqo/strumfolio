@@ -340,11 +340,30 @@ export function mergeTouch(existing: Attribution | null, read: TouchRead): Attri
   if (!read.overwrites) return null
 
   /* A repeat of the campaign somebody first arrived from is not a second touch worth storing;
-     dropping it keeps `last === null` meaning «one provenance, ever». */
-  if (sameProvenance(existing.first, read.touch)) return null
+     dropping it keeps `last === null` meaning «one provenance, ever». **But it is still the
+     latest arrival**, so after A → B → A the last is A again — which, being the first, is written
+     as no last at all. Answering `null` there left B standing, against rule 1. */
+  if (sameProvenance(existing.first, read.touch)) return existing.last === null ? null : { first: existing.first, last: null }
   if (existing.last !== null && sameProvenance(existing.last, read.touch)) return null
 
   return { first: existing.first, last: read.touch }
+}
+
+/**
+ * Whether a touch came from a tagged arrival (rule 1) rather than from a bare referer or an
+ * untagged Strum Together link (rule 2's kind, which may fill a missing first and nothing else).
+ * The untagged shapes are exactly the two `readTouch` builds: medium `referral`, no campaign,
+ * term, content or click id, and a source that is the referer host or `strum-together`.
+ */
+export function isTaggedTouch(touch: Touch): boolean {
+  const untagged =
+    touch.medium === 'referral' &&
+    touch.campaign === null &&
+    touch.term === null &&
+    touch.content === null &&
+    touch.clickId === null &&
+    (touch.source === 'strum-together' || touch.source === touch.refererHost)
+  return !untagged
 }
 
 /** The last touch when there is one, else the first — what «where did they come from, most recently» means. */

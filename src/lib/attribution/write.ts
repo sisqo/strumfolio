@@ -28,7 +28,7 @@ import { cookies } from 'next/headers'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, leadAttribution } from '@/lib/db/schema'
 
-import { ATTRIBUTION_COOKIE, decodeAttribution, effectiveLastTouch } from './touch'
+import { ATTRIBUTION_COOKIE, decodeAttribution, effectiveLastTouch, isTaggedTouch } from './touch'
 import type { Touch } from './touch'
 
 /** The `first_*` columns, as a touch fills them. */
@@ -126,8 +126,21 @@ export async function recordLeadAttribution(email: string): Promise<void> {
 
     const newest = effectiveLastTouch(attribution)
 
+    /* Rule 2 at the row: a cookie whose newest touch is a bare referer (a second device that only
+       ever arrived from Google, say) fills a first that is missing and replaces nothing — and this
+       row's first is not missing. */
+    if (!isTaggedTouch(newest)) return
+
+    /* The newest arrival is the one this row started from: the invariant is that `last_*` is
+       entirely null when it would repeat `first_*`, so a stored last is cleared, not overwritten
+       with a copy of the first. */
+    if (matchesStoredFirst(row, newest)) {
+      if (row.lastTouchAt === null) return
+      await db().update(leadAttribution).set(lastColumns(null)).where(eq(leadAttribution.id, row.id))
+      return
+    }
+
     /* Already the whole of what this row says: no write, so the row keeps its own dates. */
-    if (matchesStoredFirst(row, newest) && row.lastTouchAt === null) return
     if (row.lastSource === newest.source && row.lastCampaign === newest.campaign && row.lastTouchAt !== null) return
 
     await db()

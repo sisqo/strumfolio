@@ -56,6 +56,13 @@ scar `accounts/current.ts` carries).
    carry. Not «no email link counts» — a newsletter link is an email we sent, carries `utm_*`,
    and is meant to count.
 
+**The rules hold at the row too, not only in the cookie** (2026-09-24). A return to the first
+campaign is still rule 1's «replaces the last», written as *no* last because it would repeat the
+first — `mergeTouch` used to leave B standing after A → B → A. And `recordLeadAttribution`, seeing
+a second device's cookie, applies the same two rules to the stored row: an untagged newest touch
+(`isTaggedTouch`) replaces nothing, and one equal to the stored first clears `last_*` instead of
+copying the first into it.
+
 **Rule 2 is a designed-out bug, not caution.** After a Google sign-in the browser returns with
 `Referer: accounts.google.com`, and Paddle's checkout does the same. Were any external referer a
 touch, every Google sign-in would rewrite that reader's attribution to «google / referral» and

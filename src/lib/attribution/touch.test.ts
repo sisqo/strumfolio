@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  isTaggedTouch,
   ATTRIBUTION_COOKIE_MAX_DAYS,
   decodeAttribution,
   effectiveLastTouch,
@@ -212,6 +213,23 @@ describe('mergeTouch', () => {
     const first = mergeTouch(null, read('/?utm_source=instagram')!)
     const second = mergeTouch(first, read('/?utm_source=google', null, LATER)!)
     assert.equal(mergeTouch(second, read('/?utm_source=google', null, LATER)!), null)
+  })
+
+  /* Rule 1: a tagged arrival always replaces the last — including a return to the first one,
+     which is written as no last at all rather than left behind as B. */
+  it('clears the last when somebody comes back through the campaign they first arrived from', () => {
+    const first = mergeTouch(null, read('/?utm_source=instagram')!)
+    const second = mergeTouch(first, read('/?utm_source=google', null, LATER)!)
+    const back = mergeTouch(second, read('/?utm_source=instagram', null, LATER)!)
+    assert.equal(back?.first.source, 'instagram')
+    assert.equal(back?.last, null)
+  })
+
+  it('tells a tagged touch from the two untagged shapes rule 2 builds', () => {
+    assert.equal(isTaggedTouch(read('/?utm_source=instagram')!.touch), true)
+    assert.equal(isTaggedTouch(read('/?gclid=abc')!.touch), true)
+    assert.equal(isTaggedTouch(read('/pricing', 'https://www.google.com/')!.touch), false)
+    assert.equal(isTaggedTouch(read('/follow/8f3c1d9ab24e7f60')!.touch), false)
   })
 
   it('never lets a Strum Together arrival overwrite the campaign somebody really came from', () => {
