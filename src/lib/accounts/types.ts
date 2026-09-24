@@ -29,6 +29,8 @@ export type AccountFailure =
   | 'confirm-mismatch'
   /** Deleting: Paddle still has a subscription that will bill again — see `deletable.ts`. */
   | 'subscription-running'
+  /** Deleting: the subscription is `past_due` or `paused`, which the app cannot cancel. */
+  | 'subscription-stuck'
   /** Deleting: Paddle could not be asked, so there is no way to say it will not bill again. */
   | 'subscription-unreadable'
   | 'failed'
@@ -41,6 +43,8 @@ export const ACCOUNT_MESSAGE: Record<AccountFailure, string> = {
   'confirm-mismatch': 'Type the account’s email exactly to confirm.',
   'subscription-running':
     'This account has a subscription that will bill again. Cancel it on Paddle first, then delete the account.',
+  'subscription-stuck':
+    'This account has a subscription that is paused or past due, which the app cannot cancel. Cancel it in the Paddle dashboard first, then delete the account.',
   'subscription-unreadable':
     'Could not check this account’s subscription on Paddle, so it was not deleted. Try again in a moment.',
   failed: 'Save failed. Please try again.',
@@ -58,6 +62,7 @@ export type SelfDeleteFailure =
   | 'no-database'
   | 'confirm-mismatch'
   | 'subscription-running'
+  | 'subscription-stuck'
   | 'subscription-unreadable'
   | 'failed'
 
@@ -68,6 +73,8 @@ export const SELF_DELETE_MESSAGE: Record<SelfDeleteFailure, string> = {
   'confirm-mismatch': 'Type your email exactly to confirm.',
   'subscription-running':
     'You have a subscription running: cancel it in Plan & billing first, then delete your account. It stays yours until the end of the period you paid for.',
+  'subscription-stuck':
+    'Your subscription is paused or has a payment overdue, so it cannot be cancelled from here. Write to info@strumfolio.com and we will cancel it; then you can delete your account.',
   'subscription-unreadable':
     'We could not check your subscription just now, so nothing was deleted. Try again in a moment.',
   failed: 'Something went wrong. Please try again.',

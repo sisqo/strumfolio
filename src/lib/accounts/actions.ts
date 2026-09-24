@@ -190,6 +190,7 @@ export async function deleteAccount(accountOwnerEmail: string, confirmEmail: str
   /* Not while Paddle would go on charging somebody who has no account left — `deletable.ts`. */
   const block = await deletionBlockFor(target)
   if (block === 'running') return { ok: false, reason: 'subscription-running' }
+  if (block === 'stuck') return { ok: false, reason: 'subscription-stuck' }
   if (block === 'unreadable') return { ok: false, reason: 'subscription-unreadable' }
 
   try {
@@ -587,6 +588,7 @@ export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteR
      whose account no longer exists — `deletable.ts`. */
   const block = await deletionBlockFor(target)
   if (block === 'running') return { ok: false, reason: 'subscription-running' }
+  if (block === 'stuck') return { ok: false, reason: 'subscription-stuck' }
   if (block === 'unreadable') return { ok: false, reason: 'subscription-unreadable' }
 
   try {
