@@ -753,10 +753,22 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
   }
 
   try {
-    await db()
-      .update(accounts)
-      .set({ suspendedAt: suspended ? new Date() : null })
-      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
+    const target = normalizeEmail(ownerEmail)
+    await db().transaction(async (tx) => {
+      await tx
+        .update(accounts)
+        .set({ suspendedAt: suspended ? new Date() : null })
+        .where(eq(accounts.ownerEmail, target))
+
+      /* **A running Strum Together broadcast ends with the suspension** (2026-09-24). Its
+         guests read through the broadcast's token, not through anybody's session, so closing
+         the reader's sessions left the repertoire served to whoever held the link for up to
+         `IDLE_HOURS`. Deleting the row is what `deleteAccount` already does; starting another
+         needs a session, which a suspended account no longer has. */
+      if (suspended) {
+        await tx.delete(singAlongSessions).where(eq(singAlongSessions.broadcastAccountId, accountIdOf(target)))
+      }
+    })
 
     revalidatePath('/accounts')
     return { ok: true }
@@ -850,6 +862,7 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
 
   if (!isEmailShape(newEmail)) return { ok: false, reason: 'invalid-email' }
   if (newEmail === oldEmail) return { ok: false, reason: 'same-email' }
+  if (isOwner(newEmail, process.env.ALLOWED_EMAILS)) return { ok: false, reason: 'is-owner' }
 
   try {
     const oldRows = await db()

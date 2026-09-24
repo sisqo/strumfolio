@@ -190,7 +190,16 @@ export async function accessTo(accountOwnerEmail: string): Promise<CurrentUser |
   const target = normalizeEmail(accountOwnerEmail)
 
   const role = roleOf(normalized, raw, target)
-  return role === null ? null : { email: normalized, accountOwnerEmail: target, role }
+  if (role === null) return null
+
+  /* **The same question `currentUser` asks, and it was missing here** (2026-09-24). Suspending
+     an account closed every write that went through `permit` and none that went through this —
+     `saveSong` on an existing song, `deleteSong`, sections, the booklet, notes and preferences
+     are all reached by a slug — so a suspended reader could still change their songs by posting
+     to the action ids. A deleted account lost nothing that way only because its rows were gone. */
+  if (!isOwner(normalized, raw) && !(await accountExists(target))) return null
+
+  return { email: normalized, accountOwnerEmail: target, role }
 }
 
 /**

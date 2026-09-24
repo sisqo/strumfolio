@@ -285,6 +285,12 @@ export type EmailChangeFailure =
   | 'same-email'
   /** The new address already has an account, a password, or a sign-in row of its own. */
   | 'target-exists'
+  /**
+   * The new address is in `ALLOWED_EMAILS`. Renaming a customer onto it would hand them a global
+   * owner's powers with their own password — `authorize` looks the credential up by address —
+   * and an owner's address that has never signed in has no row for `target-exists` to find.
+   */
+  | 'is-owner'
   /** No row for the old address any more — another tab deleted or renamed it already. */
   | 'not-found'
   | 'failed'
@@ -297,6 +303,7 @@ export const EMAIL_CHANGE_MESSAGE: Record<EmailChangeFailure, string> = {
   'invalid-email': 'Enter a real email address.',
   'same-email': 'That is already this account’s address.',
   'target-exists': 'That address already belongs to another account.',
+  'is-owner': 'That address belongs to a global owner and cannot be given to an account.',
   'not-found': 'This account no longer exists. Reload the page.',
   failed: 'Save failed. Please try again.',
 }
