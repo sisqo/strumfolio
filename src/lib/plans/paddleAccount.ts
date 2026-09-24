@@ -18,8 +18,8 @@ import type { PaddleDiscountState } from '@/lib/coupons/discount'
 
 import { paddleClient } from './paddleClient'
 import type { BillingPeriod } from './prices'
-import type { Plan } from './types'
-import { planOfPrice, readDowngradeStamp } from './webhook'
+import { readPlan, type Plan } from './types'
+import { planOfPrice, readDowngradeStamp, stampCredible } from './webhook'
 
 /** A date Paddle sends as a string, or null — the SDK types it as `string` and sends none. */
 export function readDate(value: string | null | undefined): Date | null {
@@ -41,6 +41,9 @@ interface PaddleAccountRef {
    * exists to stop: it is a pointer to ask Paddle about, never an answer on its own.
    */
   subscriptionId: string | null
+  /** The plan columns as the webhook last wrote them — what `stampCredible` judges a stamp by. */
+  plan: string
+  planStatus: string
 }
 
 /**
@@ -55,7 +58,12 @@ async function paddleAccountRef(): Promise<PaddleAccountRef | null> {
   if (user === null) return null
 
   const [account] = await db()
-    .select({ id: accounts.id, subscriptionId: accounts.paddleSubscriptionId })
+    .select({
+      id: accounts.id,
+      subscriptionId: accounts.paddleSubscriptionId,
+      plan: accounts.plan,
+      planStatus: accounts.planStatus,
+    })
     .from(accounts)
     .where(eq(accounts.ownerEmail, user.accountOwnerEmail))
     .limit(1)
@@ -179,7 +187,19 @@ export async function livePaddleSubscription(): Promise<LivePaddleSubscription> 
      * in, so the items are simply the truth again. No clock is consulted on either side, which
      * is what keeps the screen and the account row from disagreeing about the day.
      */
-    const stamp = readDowngradeStamp(customData, subscription.currentBillingPeriod?.startsAt)
+    const readStamp = readDowngradeStamp(customData, subscription.currentBillingPeriod?.startsAt)
+    /*
+     * **Judged by the webhook's own rule before it is believed.** `custom_data` can be written
+     * from a browser with the public client token, so a Standard bought carrying «Premium until
+     * 2027» reached this screen as a Premium with a downgrade pending — and «Keep Premium», a
+     * `do_not_bill` revert, then handed Premium over for the price of Standard. The webhook had
+     * already refused that stamp and written Standard; this is the same subscription the row
+     * points at, so `sameSubscription` is true and only the rank test can fail.
+     */
+    const stamp =
+      readStamp !== null && stampCredible(readPlan(account.plan), account.planStatus, readStamp.fromPlan, true)
+        ? readStamp
+        : null
 
     return {
       ok: true,
