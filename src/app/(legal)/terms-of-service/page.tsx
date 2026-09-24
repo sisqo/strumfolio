@@ -27,7 +27,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <h1>Terms of Service</h1>
-      <p className="legal-updated">Last updated: 22 September 2026</p>
+      <p className="legal-updated">Last updated: 24 September 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Strumfolio (&ldquo;the
@@ -284,7 +284,10 @@ export default function TermsOfServicePage() {
       <h2>11. Suspension, termination and notices about content</h2>
       <p>
         You may stop using Strumfolio at any time and delete your account, together with all of Your
-        Content, directly from within the app. Deletion is immediate on the live service; see the{' '}
+        Content, directly from within the app. If you have a paid subscription that will renew, cancel it
+        first in Plan &amp; billing — it then runs to the end of the period you have paid for — so that
+        nothing is charged for an account that no longer exists. Deletion is immediate on the live
+        service; see the{' '}
         <Link href="/privacy-policy">Privacy Policy</Link> for how residual copies in backups and
         logs are handled.
       </p>

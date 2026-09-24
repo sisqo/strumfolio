@@ -44,6 +44,7 @@ import { notifyTelegram } from '@/lib/telegram/notify'
 import { registrationNotice } from '@/lib/telegram/registrationNotice'
 
 import { mayAccess, readAccountCookie, writeAccountCookie } from './current'
+import { deletionBlockFor } from './deletable'
 import { SCOPE_COOKIE } from './scope'
 import { validateGrant } from './grant'
 import { MAX_GIFT_PERSONAL_LINE, MAX_GIFT_SUBJECT, defaultGiftSubject, giftOccurrenceKey } from './giftNotice'
@@ -185,6 +186,11 @@ export async function deleteAccount(accountOwnerEmail: string, confirmEmail: str
   if (normalizeEmail(confirmEmail) !== target) {
     return { ok: false, reason: 'confirm-mismatch' }
   }
+
+  /* Not while Paddle would go on charging somebody who has no account left — `deletable.ts`. */
+  const block = await deletionBlockFor(target)
+  if (block === 'running') return { ok: false, reason: 'subscription-running' }
+  if (block === 'unreadable') return { ok: false, reason: 'subscription-unreadable' }
 
   try {
     await removeAccountAndContent(target)
@@ -576,6 +582,12 @@ export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteR
   if (normalizeEmail(confirmEmail) !== target) {
     return { ok: false, reason: 'confirm-mismatch' }
   }
+
+  /* A subscription that will bill again has to be cancelled first, or Paddle charges a card
+     whose account no longer exists — `deletable.ts`. */
+  const block = await deletionBlockFor(target)
+  if (block === 'running') return { ok: false, reason: 'subscription-running' }
+  if (block === 'unreadable') return { ok: false, reason: 'subscription-unreadable' }
 
   try {
     await removeAccountAndContent(target)

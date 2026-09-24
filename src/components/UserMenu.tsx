@@ -405,18 +405,24 @@ function DeleteMyAccountView({ email, onBack }: { email: string; onBack: () => v
   const [confirmEmail, setConfirmEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Kept beside the sentence so the refusal can carry its way out: a link, not only words.
+  const [blockedBySubscription, setBlockedBySubscription] = useState(false)
 
   const matches = confirmEmail.trim().toLowerCase() === email.toLowerCase()
 
   const confirm = async () => {
     setBusy(true)
     setError(null)
+    setBlockedBySubscription(false)
     try {
       const result = await deleteMyAccount(confirmEmail)
       // A failure comes back as a normal result; success never does — deleteMyAccount
       // ends in a redirect instead, which unwinds through this same call as a thrown
       // signal rather than a return, so there is nothing to do here on that path.
-      if (!result.ok) setError(SELF_DELETE_MESSAGE[result.reason])
+      if (!result.ok) {
+        setError(SELF_DELETE_MESSAGE[result.reason])
+        setBlockedBySubscription(result.reason === 'subscription-running')
+      }
     } catch (thrown) {
       // `deleteMyAccount`'s own redirect unwinds through this same call as a thrown
       // signal, same as `signIn`'s in `login/page.tsx` — it has to pass through
@@ -442,6 +448,13 @@ function DeleteMyAccountView({ email, onBack }: { email: string; onBack: () => v
           This permanently deletes your account and everything in it — every songbook,
           section and song — and signs you out. Type <strong>{email}</strong> to confirm.
         </p>
+        <p className="mt-2 text-sm text-muted">
+          A subscription still running has to be cancelled in{' '}
+          <Link href="/billing" className="text-accent hover:underline">
+            Plan &amp; billing
+          </Link>{' '}
+          first — it stays yours until the end of the period you paid for.
+        </p>
 
         <input
           autoFocus
@@ -455,6 +468,14 @@ function DeleteMyAccountView({ email, onBack }: { email: string; onBack: () => v
         {error !== null && (
           <p className="notice notice-error mt-2.5" role="alert">
             {error}
+            {blockedBySubscription && (
+              <>
+                {' '}
+                <Link href="/billing" className="underline underline-offset-2">
+                  Go to Plan &amp; billing
+                </Link>
+              </>
+            )}
           </p>
         )}
 

@@ -125,6 +125,15 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   `provisionAccount` that never throws. **`listTestAccounts` failing hides nothing**
   (`splitTestAccounts`), the rule above about reads that failed: «could not tell» must not become
   «accounts missing».
+- **An account is not deleted while Paddle would bill it again** (2026-09-24, decided with the
+  owner: block, not cancel on the reader's behalf). `deleteMyAccount` and `deleteAccount` both
+  ask `deletionBlockFor` (`deletable.ts`) first: no subscription pointer, Paddle unconfigured, a
+  `canceled` subscription or one with a scheduled `cancel` all delete; anything else answers
+  `subscription-running`, and a Paddle read that throws answers `subscription-unreadable` — a
+  deletion cannot be taken back, so «could not tell» refuses. Before this the rows went and the
+  subscription stayed: renewals landed as `unmatched` and the card went on being charged. **Terms
+  of Service §11 and the Privacy Policy's self-service sentence in §7 state the rule**, so they
+  move with it.
 - **Suspending an account ends its sessions too, since 2026-09-24** — reversed by decision. It
   used to block future sign-ins only, on the ground that the JWT cannot be revoked; but
   `currentUser()` already asks the database on every request (`accountExists`), and that lookup

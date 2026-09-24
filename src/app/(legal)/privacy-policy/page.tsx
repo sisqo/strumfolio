@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: 22 September 2026</p>
+      <p className="legal-updated">Last updated: 24 September 2026</p>
 
       <p>
         This Privacy Policy explains how Strumfolio (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and
@@ -432,7 +432,8 @@ export default function PrivacyPolicyPage() {
       <p>
         Strumfolio lets you <strong>export your full collection, change your newsletter preference and
         delete your account directly from within the app</strong>, at any time and without having to
-        ask us. For anything else, or if a self-service option is not working, contact us at{' '}
+        ask us — a paid subscription that will renew has to be cancelled first, as the Terms of Service
+        explain, so that nothing is charged after the account is gone. For anything else, or if a self-service option is not working, contact us at{' '}
         <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. We aim to respond within 30 days.
       </p>
 
