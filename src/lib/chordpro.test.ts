@@ -1207,11 +1207,29 @@ describe('{transpose}', () => {
       0,
       'key 2/2',
       2,
+      'key -2/0',
     ])
-    assert.deepEqual(shifts('[C]x\n{transpose: 1}\n{soc}\n[C]a\n{transpose: 2}\n[C]b\n{eoc}\n{chorus}').slice(-3), [
+    assert.deepEqual(shifts('[C]x\n{transpose: 1}\n{soc}\n[C]a\n{transpose: 2}\n[C]b\n{eoc}\n{chorus}').slice(-4), [
       3,
       'key 2/5',
       5,
+      'key -2/3',
+    ])
+  })
+
+  /* The song goes on at the pitch in force where {chorus} stood, so a key change inside the
+     repeat is taken back — out loud, or the next verse drops a tone without warning. */
+  it('announces the return after a repeated chorus that changed key', () => {
+    assert.deepEqual(shifts('{soc}\n[C]a\n{transpose: 2}\n[C]b\n{eoc}\n\n[C]v\n\n{chorus}\n\n[C]w'), [
+      0,
+      'key 2/2',
+      2,
+      2,
+      2,
+      'key 2/4',
+      4,
+      'key -2/2',
+      2,
     ])
   })
 

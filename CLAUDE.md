@@ -306,7 +306,8 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
   - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`), and a
     modulation written *inside* the chorus repeats with it, relative to that pitch
     (`repeatedLines`, 2026-09-23 — the «Key change» line was repeated and the chords after it
-    were not);
+    were not), and the return to the pitch in force when the repeat ends is announced too
+    (2026-09-24 — otherwise the next verse dropped a tone without warning);
   - **a starting total past an octave is folded, not clamped** (+15 is +3): clamping it while
     later modulations were measured from 15 bent each of them; and a bare `{transpose}` with
     nothing to restore says nothing (`null`, not 0);

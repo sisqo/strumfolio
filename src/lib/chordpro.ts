@@ -919,6 +919,23 @@ export function parseChordPro(source: string): ParsedSong {
           /* At the pitch in force where `{chorus}` stands — the last chorus a tone up, written
              once — and not at the pitch it was first written at. */
           repeat.lines.push(...repeatedLines(wanted.lines, modulation()))
+          /* A key change inside the chorus is undone when the repeat ends — the song goes on at
+             the pitch in force where `{chorus}` stood — and a return nobody announces is a tone
+             dropped without warning, so it is announced like any other change. */
+          const after = wanted.lines.reduce(
+            (at, line) => (line.kind === 'comment' && line.keyChange !== undefined ? at + line.keyChange.by : at),
+            modulation(),
+          )
+          if (after !== modulation()) {
+            const by = modulation() - after
+            repeat.lines.push({
+              kind: 'comment',
+              text: `Key change ${by > 0 ? '+' : '−'}${Math.abs(by)}`,
+              style: 'plain',
+              selector: null,
+              keyChange: { by, offset: modulation() },
+            })
+          }
           // The verse the reference sat in resumes; a repeat is not a section boundary.
           section = null
           break
