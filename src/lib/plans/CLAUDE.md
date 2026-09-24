@@ -279,6 +279,14 @@ break from a distance:
   and a `chargeback_warning` retried after its own `_reverse` left a won dispute revoked. Paddle's
   `occurred_at` decides, read off the ledger under the account lock. Exercised against dev in both
   orders.
+- **A subscription event older than one already applied writes nothing** (`laterSubscriptionEvent`,
+  2026-09-24): Paddle promises no order and retries for three days, so a late `.updated` wrote
+  its older state back, and a `.created` retried after the account had moved to a newer
+  subscription came back `new` and moved the pointer back. `occurred_at` decides, off the ledger,
+  under the lock; exercised on dev (late update, late created, real second subscription). **What
+  it cannot fix**: a downgrade stamp processed before the upgrade it follows has been applied is
+  still judged against the lower plan and refused with an alert — the safe direction, and never
+  seen; the late upgrade itself is now stale and no longer overwrites the downgrade.
 - **Every webhook takes the account row `FOR NO KEY UPDATE` before writing the ledger row**
   (2026-09-23), so two deliveries for one account run one after the other and each reads what the
   previous committed. `FOR UPDATE`, or the lock taken after the insert, deadlocks: the insert's

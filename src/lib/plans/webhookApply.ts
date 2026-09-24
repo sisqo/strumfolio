@@ -26,7 +26,7 @@
 
 import { randomUUID } from 'crypto'
 
-import { and, count, eq, gt, like, ne } from 'drizzle-orm'
+import { and, count, eq, gt, like, ne, or } from 'drizzle-orm'
 
 import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
@@ -126,6 +126,45 @@ async function laterAdjustmentDecides(tx: Tx, accountId: number, event: Incoming
       return false
     }
   })
+}
+
+/**
+ * Whether the ledger already holds a subscription event that *occurred* after this one and
+ * supersedes it: a later event of the same subscription, or — for a `subscription.created` that
+ * would count as a second subscription — the creation of the subscription the account holds now,
+ * which makes this one the older of the two rather than the newer.
+ *
+ * `occurred_at` and never `received_at`, for `laterAdjustmentDecides`' reason. An event without
+ * one cannot be ordered and is applied as before.
+ */
+async function laterSubscriptionEvent(
+  tx: Tx,
+  event: IncomingPaddleEvent,
+  subscriptionId: string | null,
+  storedSubscriptionId: string | null,
+): Promise<boolean> {
+  if (event.occurredAt === null || subscriptionId === null) return false
+
+  const sameSubscription = eq(paddleEvents.paddleSubscriptionId, subscriptionId)
+  const newerStored =
+    storedSubscriptionId === null
+      ? undefined
+      : and(eq(paddleEvents.paddleSubscriptionId, storedSubscriptionId), eq(paddleEvents.eventType, 'subscription.created'))
+
+  const [later] = await tx
+    .select({ eventId: paddleEvents.eventId })
+    .from(paddleEvents)
+    .where(
+      and(
+        like(paddleEvents.eventType, 'subscription.%'),
+        gt(paddleEvents.occurredAt, event.occurredAt),
+        ne(paddleEvents.eventId, event.eventId),
+        newerStored === undefined ? sameSubscription : or(sameSubscription, newerStored),
+      ),
+    )
+    .limit(1)
+
+  return later !== undefined
 }
 
 /**
@@ -622,6 +661,31 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     if (!effect || !locked) return effect && !locked ? 'unmatched' : 'applied'
     account = locked
 
+    /* Read before this event's write, which the lock guarantees is the last one committed. */
+    relation = subscriptionRelation(
+      { plan: readPlan(locked.plan), planStatus: locked.planStatus, paddleSubscriptionId: locked.paddleSubscriptionId },
+      event.eventType,
+      effect.account.paddleSubscriptionId,
+    )
+
+    /*
+     * **A subscription event older than one already applied changes nothing.** Paddle retries a
+     * failed delivery for three days and promises no order, so a `subscription.updated` can land
+     * after a later one of the same subscription and write its older state back — a plan, a
+     * status, a stamp — and a `subscription.created` retried for days can come back as `new`
+     * after the account has moved to a newer subscription, and move the pointer back to the
+     * older one. Paddle's `occurred_at` decides, read off the ledger under the account lock. The
+     * event stays recorded; it simply writes nothing and alerts nobody.
+     */
+    const stale =
+      event.eventType.startsWith('subscription.') &&
+      (await laterSubscriptionEvent(
+        tx,
+        event,
+        effect.account.paddleSubscriptionId,
+        relation === 'new' ? locked.paddleSubscriptionId : null,
+      ))
+    if (stale) relation = 'own'
 
     /*
      * **A downgrade stamp is believed only from somebody who held the plan it names** —
@@ -632,6 +696,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     const sameSubscription =
       locked.paddleSubscriptionId !== null && locked.paddleSubscriptionId === effect.account.paddleSubscriptionId
     if (
+      !stale &&
       effect.stampedFrom !== undefined &&
       !stampCredible(readPlan(locked.plan), locked.planStatus, effect.stampedFrom, sameSubscription)
     ) {
@@ -642,13 +707,6 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
       )
       effect = subscriptionEffect(event.data as never, false)
     }
-
-    /* Read before this event's write, which the lock guarantees is the last one committed. */
-    relation = subscriptionRelation(
-      { plan: readPlan(locked.plan), planStatus: locked.planStatus, paddleSubscriptionId: locked.paddleSubscriptionId },
-      event.eventType,
-      effect.account.paddleSubscriptionId,
-    )
 
     /*
      * **An adjustment that a later one has already answered changes nothing.** Revoking and
@@ -674,8 +732,8 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      */
     const foreign = relation === 'foreign'
     const columns =
-      !foreign && mayWritePlan(readPlan(locked.plan), locked.planStatus, event.eventType) ? effect.columns : null
-    const movesPointer = !foreign && effect.account.paddleSubscriptionId !== null
+      !stale && !foreign && mayWritePlan(readPlan(locked.plan), locked.planStatus, event.eventType) ? effect.columns : null
+    const movesPointer = !stale && !foreign && effect.account.paddleSubscriptionId !== null
 
     /*
      * **Neither id column is ever nulled once it has a value**, and that is a fix rather than a
