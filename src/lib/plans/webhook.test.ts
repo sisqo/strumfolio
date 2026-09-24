@@ -431,6 +431,11 @@ describe('adjustmentEffect', () => {
     ...over,
   })
 
+  it('names the purchase it refunds, which is how the account is found before the customer id', () => {
+    assert.equal(adjustmentEffect(adjustment()).account.transactionId, 'txn_1')
+    assert.equal(adjustmentEffect(adjustment({ transaction_id: null })).account.transactionId, null)
+  })
+
   it('revokes on a fully approved refund, and on a chargeback', () => {
     assert.equal(adjustmentEffect(adjustment()).statusOnly, 'expired')
     for (const action of ['chargeback', 'chargeback_warning']) {

@@ -26,7 +26,7 @@
 
 import { randomUUID } from 'crypto'
 
-import { and, count, eq, gt, like, ne, or } from 'drizzle-orm'
+import { and, count, eq, gt, like, ne, or, sql } from 'drizzle-orm'
 
 import { discountEnd, discountedAmount, durationCopy } from '@/lib/coupons/discount'
 import { db } from '@/lib/db/client'
@@ -191,6 +191,25 @@ async function findAccount(ref: AccountRef) {
       .where(eq(accounts.paddleSubscriptionId, ref.paddleSubscriptionId))
       .limit(1)
     if (row) return row
+  }
+
+  if (ref.transactionId) {
+    /* The ledger keeps the raw body, so the purchase is found by the id inside it. A small table
+       read once per adjustment, which is a handful a year. */
+    const [paid] = await db()
+      .select({ accountId: paddleEvents.accountId })
+      .from(paddleEvents)
+      .where(
+        and(
+          eq(paddleEvents.eventType, 'transaction.completed'),
+          sql`(${paddleEvents.payload})::jsonb -> 'data' ->> 'id' = ${ref.transactionId}`,
+        ),
+      )
+      .limit(1)
+    if (paid?.accountId != null) {
+      const [row] = await db().select(columns).from(accounts).where(eq(accounts.id, paid.accountId)).limit(1)
+      if (row) return row
+    }
   }
 
   if (ref.paddleCustomerId !== null) {
@@ -734,6 +753,9 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
     const columns =
       !stale && !foreign && mayWritePlan(readPlan(locked.plan), locked.planStatus, event.eventType) ? effect.columns : null
     const movesPointer = !stale && !foreign && effect.account.paddleSubscriptionId !== null
+    /* Guarded like the pointer: the cancellation of a subscription bought under another email
+       used to write that customer back over the Lifetime's own. */
+    const movesCustomer = !stale && !foreign && effect.account.paddleCustomerId !== null
 
     /*
      * **Neither id column is ever nulled once it has a value**, and that is a fix rather than a
@@ -766,7 +788,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
       columns ||
       statusOnly ||
       coupon.kind !== 'untouched' ||
-      effect.account.paddleCustomerId ||
+      movesCustomer ||
       movesPointer
     ) {
       await tx
@@ -785,7 +807,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
           ...(statusOnly && !columns && effect.restoresLifetime
             ? { plan: 'lifetime', planExpiresAt: null, pendingPlan: null, pendingCycle: null }
             : {}),
-          ...(effect.account.paddleCustomerId ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
+          ...(movesCustomer ? { paddleCustomerId: effect.account.paddleCustomerId } : {}),
           ...(movesPointer ? { paddleSubscriptionId: effect.account.paddleSubscriptionId } : {}),
           ...(coupon.kind === 'redeemed'
             ? {

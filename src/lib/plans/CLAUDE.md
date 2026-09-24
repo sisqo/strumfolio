@@ -488,8 +488,13 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   acting on both would have two writes racing over one row with the newer expiry possibly
   losing. Its `expiresAt` is `null`, meaning never.
 - **The account contract, which the checkout has to satisfy**: `custom_data.account_id` (the
-  numeric `accounts.id`), then `accounts.paddle_subscription_id`, then
-  `accounts.paddle_customer_id`. Only the first works on a *first* purchase, when neither
+  numeric `accounts.id`), then `accounts.paddle_subscription_id`, then — for an adjustment
+  only — the account of the ledger's `transaction.completed` it refunds, then
+  `accounts.paddle_customer_id`. **The customer id is not a handle on one account** (2026-09-24):
+  a second email typed into Paddle's form is a second customer, and the cancellation of a
+  subscription bought under the first wrote that id back over the Lifetime's, so the Lifetime's
+  refund found nobody. It is now written only by events that are neither stale nor `foreign`,
+  and an adjustment is matched by its `transaction_id` first. Only the first works on a *first* purchase, when neither
   column has been written — so **the checkout must stamp the account id onto the transaction**.
   Numeric and not the email, per `db/CLAUDE.md`, and because an address in Paddle's records
   goes stale the day somebody changes theirs.

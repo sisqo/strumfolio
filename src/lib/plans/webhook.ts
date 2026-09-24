@@ -98,6 +98,14 @@ export interface AccountRef {
   accountId: number | null
   paddleSubscriptionId: string | null
   paddleCustomerId: string | null
+  /**
+   * An adjustment's `transaction_id`: the purchase it takes money back from, matched against the
+   * ledger row that purchase left. Tried **before** the customer id, which is not a handle on
+   * one account — the reader types an email into Paddle's form, a second email is a second
+   * customer, and a later event of the other one wrote its id over the column, so a refunded
+   * Lifetime found nobody and was kept.
+   */
+  transactionId?: string | null
 }
 
 /**
@@ -376,6 +384,7 @@ export function adjustmentEffect(data: PaddleAdjustmentData): PaddleEventEffect 
     accountId: null,
     paddleSubscriptionId: readString(data.subscription_id),
     paddleCustomerId: readString(data.customer_id),
+    transactionId: readString(data.transaction_id),
   }
 
   const nothing: PaddleEventEffect = { account, columns: null, statusOnly: null }
