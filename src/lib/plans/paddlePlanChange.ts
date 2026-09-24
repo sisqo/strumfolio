@@ -305,7 +305,7 @@ export async function changePaddlePlan(
      */
     const stamp =
       effect.when === 'period-end' && periodEndsAt !== null
-        ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, periodEndsAt)
+        ? downgradeStamp({ plan: live.plan, cycle: live.cycle }, periodEndsAt, live.accountId)
         : null
 
     /*

@@ -30,6 +30,7 @@
  * already over.
  */
 
+import { accountIdSigned, signStamp, stampSigned } from './customDataSignature'
 import type { SubscriptionColumns } from './entitlements'
 import { readPendingCycle, type BillingPeriod } from './prices'
 import { PLAN_RANK, PLAN_VALUES, type Plan, type PlanStatus } from './types'
@@ -49,7 +50,7 @@ export interface PaddleSubscriptionData {
   id: string
   customer_id?: string | null
   status: string
-  custom_data?: { account_id?: unknown; downgrade?: unknown } | null
+  custom_data?: { account_id?: unknown; account_sig?: unknown; downgrade?: unknown } | null
   /**
    * `starts_at` is read for one thing only, and it is the thing that makes `readDowngradeStamp`
    * need no clock: at a renewal Paddle opens a period beginning exactly where the old one
@@ -86,7 +87,7 @@ export interface PaddleTransactionData {
   status?: string | null
   /** `web`, `api`, `subscription_recurring`, `subscription_update`… — see `isNewPurchase`. */
   origin?: string | null
-  custom_data?: { account_id?: unknown; coupon_campaign_id?: unknown } | null
+  custom_data?: { account_id?: unknown; account_sig?: unknown; coupon_campaign_id?: unknown } | null
   /** The Discount Paddle actually applied — see `couponCampaignOf`. */
   discount_id?: string | null
   items?: PaddleItemRef[] | null
@@ -108,6 +109,12 @@ export interface AccountRef {
    * Lifetime found nobody and was kept.
    */
   transactionId?: string | null
+  /**
+   * `custom_data` named an account without this server's signature beside it
+   * (`customDataSignature.ts`). The id is then not used at all — the event finds its account by
+   * the other ways or not at all — and the operator is told, because somebody wrote it by hand.
+   */
+  claimRefused?: boolean
 }
 
 /**
@@ -139,6 +146,8 @@ export interface PaddleEventEffect {
    * whether the webhook believes it.
    */
   stampedFrom?: Plan
+  /** A downgrade stamp was present and not signed for this account, so it was ignored. */
+  stampRefused?: boolean
 }
 
 /**
@@ -199,6 +208,33 @@ function readAccountId(custom: { account_id?: unknown } | null | undefined): num
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+/**
+ * `account_id`, **only when this server signed it** — `account_sig` beside it, see
+ * `customDataSignature.ts`. An id without a valid signature is somebody else's word and is read
+ * as absent; `refused` says one was there, so the operator can be told.
+ */
+export function signedAccountId(
+  custom: { account_id?: unknown; account_sig?: unknown } | null | undefined,
+): { id: number | null; refused: boolean } {
+  const id = readAccountId(custom)
+  if (id === null) return { id: null, refused: false }
+  return accountIdSigned(id, custom?.account_sig) ? { id, refused: false } : { id: null, refused: true }
+}
+
+function accountRefFrom(
+  custom: { account_id?: unknown; account_sig?: unknown } | null | undefined,
+  paddleSubscriptionId: string | null,
+  paddleCustomerId: string | null,
+): AccountRef {
+  const claim = signedAccountId(custom)
+  return {
+    accountId: claim.id,
+    paddleSubscriptionId,
+    paddleCustomerId,
+    ...(claim.refused ? { claimRefused: true } : {}),
+  }
+}
+
 /** A field that must be a non-empty string to mean anything — anything else reads as absent. */
 function readString(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
@@ -241,9 +277,29 @@ export interface DowngradeStamp {
   at: Date
 }
 
-/** The stamp as it is written. Snake_case, like everything else Paddle stores for us. */
-export function downgradeStamp(from: { plan: Plan; cycle: BillingPeriod | null }, at: Date): Record<string, unknown> {
-  return { from_plan: from.plan, from_cycle: from.cycle, at: at.toISOString() }
+/**
+ * The stamp as it is written. Snake_case, like everything else Paddle stores for us — and signed
+ * for the account it belongs to, since `custom_data` is otherwise writable from a browser.
+ */
+export function downgradeStamp(
+  from: { plan: Plan; cycle: BillingPeriod | null },
+  at: Date,
+  accountId: number,
+): Record<string, unknown> {
+  const stamp = { from_plan: from.plan, from_cycle: from.cycle, at: at.toISOString() }
+  return { ...stamp, sig: signStamp(accountId, stamp) }
+}
+
+/**
+ * Whether a stamp standing in this `custom_data` was written by this server for the account the
+ * same object names. **A stamp is only as good as the account id beside it**, which is itself
+ * checked: a signed stamp carried onto another account's subscription fails on the id.
+ */
+export function stampIsSigned(custom: { downgrade?: unknown; account_id?: unknown; account_sig?: unknown } | null | undefined): boolean {
+  const stamp = custom?.downgrade
+  if (stamp === null || typeof stamp !== 'object') return false
+  const account = signedAccountId(custom)
+  return account.id !== null && stampSigned(account.id, stamp as Record<string, unknown>)
 }
 
 /**
@@ -263,11 +319,13 @@ export function downgradeStamp(from: { plan: Plan; cycle: BillingPeriod | null }
  * alternative, holding somebody on a plan with no date attached, is a plan that never ends.
  */
 export function readDowngradeStamp(
-  custom: { downgrade?: unknown } | null | undefined,
+  custom: { downgrade?: unknown; account_id?: unknown; account_sig?: unknown } | null | undefined,
   periodStartsAt: string | null | undefined,
 ): DowngradeStamp | null {
   const stamp = custom?.downgrade
   if (stamp === null || typeof stamp !== 'object') return null
+  /* Not this server's stamp, not a stamp — see `customDataSignature.ts`. */
+  if (!stampIsSigned(custom)) return null
 
   const { from_plan: fromPlan, from_cycle: fromCycle, at } = stamp as Record<string, unknown>
 
@@ -306,14 +364,13 @@ export function readDowngradeStamp(
  * made to the customer, which is the one this app has to keep.
  */
 export function subscriptionEffect(data: PaddleSubscriptionData, trustStamp = true): PaddleEventEffect {
-  const account: AccountRef = {
-    accountId: readAccountId(data.custom_data),
-    paddleSubscriptionId: data.id,
-    paddleCustomerId: data.customer_id ?? null,
-  }
+  const account = accountRefFrom(data.custom_data, data.id, data.customer_id ?? null)
+  /* A stamp object standing there unsigned: ignored below by `readDowngradeStamp`, reported here. */
+  const rawStamp = data.custom_data?.downgrade
+  const stampRefused = rawStamp !== null && typeof rawStamp === 'object' && !stampIsSigned(data.custom_data)
 
   const read = planOfItems(data.items)
-  if (!read) return { account, columns: null }
+  if (!read) return { account, columns: null, ...(stampRefused ? { stampRefused } : {}) }
 
   const cancelling = data.scheduled_change?.action === 'cancel'
   const scheduled = trustStamp ? readDowngradeStamp(data.custom_data, data.current_billing_period?.starts_at) : null
@@ -341,6 +398,7 @@ export function subscriptionEffect(data: PaddleSubscriptionData, trustStamp = tr
       pendingPlan: cancelling ? 'free' : null,
       pendingCycle: null,
     },
+    ...(stampRefused ? { stampRefused } : {}),
   }
 }
 
@@ -478,11 +536,7 @@ export function adjustmentStatusFor(storedPlan: Plan, statusOnly: PlanStatus | n
  * expires every account in the installation.
  */
 export function transactionEffect(data: PaddleTransactionData): PaddleEventEffect {
-  const account: AccountRef = {
-    accountId: readAccountId(data.custom_data),
-    paddleSubscriptionId: data.subscription_id ?? null,
-    paddleCustomerId: data.customer_id ?? null,
-  }
+  const account = accountRefFrom(data.custom_data, data.subscription_id ?? null, data.customer_id ?? null)
 
   if (data.subscription_id) return { account, columns: null }
 

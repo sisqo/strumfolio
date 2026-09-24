@@ -16,6 +16,7 @@ import { accounts } from '@/lib/db/schema'
 
 import type { PaddleDiscountState } from '@/lib/coupons/discount'
 
+import { signAccountId, stampSigned } from './customDataSignature'
 import { paddleClient } from './paddleClient'
 import type { BillingPeriod } from './prices'
 import { readPlan, type Plan } from './types'
@@ -263,9 +264,18 @@ export function customDataFor(
   live: Extract<LivePaddleSubscription, { ok: true }>,
   stamp: Record<string, unknown> | null,
 ): Record<string, unknown> {
-  return {
+  /*
+   * **The account is always the session's, signed afresh** — `live.accountId` is read from the
+   * row the session owns, so it is the one id here nobody could have written from a browser.
+   * Carrying over whatever `account_id` Paddle held would re-sign, and so launder, one that was.
+   * A stamp travels only if it is already signed for this account: `stampBefore` is Paddle's raw
+   * object, and signing it here would do the same laundering for a forged downgrade.
+   */
+  const custom = {
     ...(live.customData ?? {}),
-    account_id: live.customData?.account_id ?? live.accountId,
-    downgrade: stamp,
+    account_id: live.accountId,
+    account_sig: signAccountId(live.accountId),
   }
+  const keptStamp = stamp !== null && stampSigned(live.accountId, stamp) ? stamp : null
+  return { ...custom, downgrade: keptStamp }
 }

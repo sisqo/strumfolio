@@ -498,6 +498,18 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   column has been written — so **the checkout must stamp the account id onto the transaction**.
   Numeric and not the email, per `db/CLAUDE.md`, and because an address in Paddle's records
   goes stale the day somebody changes theirs.
+  - **And sign it** (2026-09-24, `customDataSignature.ts`): `account_sig` beside `account_id`,
+    an HMAC keyed off `AUTH_SECRET`. Paddle.js opens a checkout with any items and any
+    `customData` using the public client token, and `updateCheckout` replaces it on one already
+    open, so an unsigned id was a purchase able to name somebody else's account — moving their
+    plan onto a subscription they do not control. An id without a valid signature is read as
+    absent (`signedAccountId`), the event falls back to the other ways, and the operator is told.
+    `customDataFor` always writes the *session's* account, signed afresh, and never re-signs
+    what Paddle held. **Rotating `AUTH_SECRET` invalidates every live subscription's
+    signatures**: their events still match by `paddle_subscription_id`, but a pending
+    downgrade's stamp stops being believed — re-sign them, or rotate when none carries one.
+    Sandbox subscriptions created before that day carry unsigned ids and find their account by
+    the pointer, which is what they did on every event after the first anyway.
 - **Idempotency is `paddle_events.event_id` being the primary key**, not a second ledger:
   Paddle re-sends the same id on every retry, so the insert is the dedup and a conflict means
   "already applied, answer 200". The insert and the account update share one transaction,
@@ -562,8 +574,12 @@ watched working by anybody.
     alerted «tampering» on every cancellation of a downgraded plan. **It is
     deliberately not a bound on the date**: a change of cycle restarts the period, so until the
     second call pins it back a legitimate B4/B7 stamp is *later* than the period Paddle reports.
-    A date bound was shipped and reverted within the hour for exactly that. Whether Paddle
-    accepts a client-written `customData` at all has not been measured in the sandbox.
+    A date bound was shipped and reverted within the hour for exactly that. **Since 2026-09-24
+    it is the second layer, not the first**: a stamp is read at all only when signed for the
+    account the same object names (`stampIsSigned`, the `sig` inside `downgrade`), by the
+    webhook and by `livePaddleSubscription` alike, so a hand-written one is ignored before rank
+    is ever asked. Paddle's own documentation settles what the sandbox never measured:
+    `Checkout.open({ customData })` and `updateCheckout` both write it from the browser.
   - **`custom_data` is replaced wholesale by an update, never merged**, so every write goes
     through `customDataFor` (`paddleAccount.ts`): `account_id` rides in the same object and is
     the only way a *first* event finds its account. Dropping it produces `unmatched` events, not

@@ -644,6 +644,22 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
 
   /* What an operator has to hear about this event, sent after the commit — see below. */
   const alerts: string[] = []
+  /* Somebody wrote `custom_data` by hand: an account id or a downgrade stamp this server never
+     signed (`customDataSignature.ts`). Both were already ignored by the readers; this is the
+     sentence that says so. */
+  const refusals: string[] = []
+  if (effect?.account.claimRefused) {
+    refusals.push(
+      `⚠️ Evento ${event.eventId} (${event.eventType}) con un account_id nel custom_data senza la firma di questo ` +
+        'server: ignorato, l\'account si cerca per subscription, transazione o cliente. Controlla su Paddle da dove viene.',
+    )
+  }
+  if (effect?.stampRefused) {
+    refusals.push(
+      `⚠️ Evento ${event.eventId} con un timbro di downgrade non firmato da questo server: ignorato, valgono gli ` +
+        'articoli che Paddle fattura. Controlla su Paddle da dove viene il custom_data di quella subscription.',
+    )
+  }
 
   /* The account as it stood before this event, and how the event's subscription relates to it —
      both decided inside the transaction and carried out for the alerts after the commit. */
@@ -865,6 +881,18 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
    * budget runs out of one. Only on `applied`, which is also only on the *first* delivery — a
    * retry answers `duplicate` above and says nothing to anybody.
    */
+  /* Told on the first delivery only, like every other alert, and whether or not an account was
+     found — a forged claim that matched nobody is the case most worth hearing about. */
+  if (outcome === 'applied' || outcome === 'unmatched') {
+    for (const refusal of refusals) {
+      try {
+        await notifyTelegram('purchase', refusal)
+      } catch (error) {
+        console.error('paddle webhook: refusal alert failed after commit', event.eventId, error)
+      }
+    }
+  }
+
   if (outcome === 'applied' && account) {
     const before = account
     /*

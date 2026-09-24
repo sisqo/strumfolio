@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
+import { signAccountId, signStamp } from './customDataSignature'
+
 import {
   adjustmentEffect,
   adjustmentStatusFor,
@@ -21,6 +23,9 @@ import {
   type PaddleSubscriptionData,
   type PaddleTransactionData,
 } from './webhook'
+
+/* Read at call time by `customDataSignature.ts`, so setting it here is before anything signs. */
+process.env.AUTH_SECRET = 'test-secret-for-webhook-tests'
 
 const priced = (plan: string, cycle?: string) => ({
   price: { id: 'pri_x', custom_data: cycle ? { plan, cycle } : { plan } },
@@ -124,9 +129,26 @@ describe('subscriptionEffect', () => {
     assert.equal(effect.account.paddleCustomerId, 'ctm_1')
   })
 
-  it('takes the account id out of custom_data, as a string or a number', () => {
-    assert.equal(subscriptionEffect(subscription({ custom_data: { account_id: '17' } })).account.accountId, 17)
-    assert.equal(subscriptionEffect(subscription({ custom_data: { account_id: 17 } })).account.accountId, 17)
+  it('takes the account id out of custom_data, as a string or a number, when this server signed it', () => {
+    const account_sig = signAccountId(17)
+    assert.equal(subscriptionEffect(subscription({ custom_data: { account_id: '17', account_sig } })).account.accountId, 17)
+    assert.equal(subscriptionEffect(subscription({ custom_data: { account_id: 17, account_sig } })).account.accountId, 17)
+  })
+
+  /* The browser can write `custom_data` with the public client token: an id is somebody's word
+     until the signature says it is ours. */
+  it('ignores an account id without a valid signature, and says one was there', () => {
+    for (const custom_data of [
+      { account_id: 17 },
+      { account_id: 17, account_sig: 'nope' },
+      { account_id: 18, account_sig: signAccountId(17) },
+      { account_id: 17, account_sig: signAccountId(17, 'another-secret') },
+    ]) {
+      const { account } = subscriptionEffect(subscription({ custom_data }))
+      assert.equal(account.accountId, null, JSON.stringify(custom_data))
+      assert.equal(account.claimRefused, true)
+    }
+    assert.equal(subscriptionEffect(subscription({ custom_data: null })).account.claimRefused, undefined)
   })
 
   it('refuses an account id that is not a positive integer', () => {
@@ -145,7 +167,11 @@ describe('the downgrade stamp', () => {
   const stamped = (over: Partial<PaddleSubscriptionData> = {}) =>
     subscription({
       items: [priced('standard', 'month')],
-      custom_data: { account_id: 7, downgrade: downgradeStamp({ plan: 'premium', cycle: 'month' }, new Date('2027-01-01T00:00:00Z')) },
+      custom_data: {
+        account_id: 7,
+        account_sig: signAccountId(7),
+        downgrade: downgradeStamp({ plan: 'premium', cycle: 'month' }, new Date('2027-01-01T00:00:00Z'), 7),
+      },
       ...over,
     })
 
@@ -190,7 +216,7 @@ describe('the downgrade stamp', () => {
 
   it('believes the items when the stamp cannot be read', () => {
     for (const downgrade of [null, 'tomorrow', {}, { from_plan: 'premium' }, { from_plan: 'free', at: '2027-01-01T00:00:00Z' }, { from_plan: 'premium', at: 'never' }]) {
-      const { columns } = subscriptionEffect(stamped({ custom_data: { account_id: 7, downgrade } }))
+      const { columns } = subscriptionEffect(stamped({ custom_data: { account_id: 7, account_sig: signAccountId(7), downgrade } }))
       assert.equal(columns?.plan, 'standard', JSON.stringify(downgrade))
       assert.equal(columns?.pendingPlan, null)
     }
@@ -201,9 +227,37 @@ describe('the downgrade stamp', () => {
      convention, `fromPlan` is this file's. */
   it('reads back exactly what it writes', () => {
     const at = new Date('2027-03-04T05:06:07.000Z')
-    const read = readDowngradeStamp({ downgrade: downgradeStamp({ plan: 'plus', cycle: 'year' }, at) }, null)
+    const read = readDowngradeStamp(
+      { account_id: 3, account_sig: signAccountId(3), downgrade: downgradeStamp({ plan: 'plus', cycle: 'year' }, at, 3) },
+      null,
+    )
 
     assert.deepEqual(read, { fromPlan: 'plus', fromCycle: 'year', at })
+  })
+
+  /* A Standard bought carrying «Premium until 2027» written by hand: the items decide. */
+  it('believes the items when the stamp is not signed by this server', () => {
+    const forged = { from_plan: 'premium', from_cycle: 'year', at: '2027-01-01T00:00:00.000Z' }
+    for (const downgrade of [forged, { ...forged, sig: 'nope' }, { ...forged, sig: signStamp(7, forged, 'another-secret') }]) {
+      const effect = subscriptionEffect(stamped({ custom_data: { account_id: 7, account_sig: signAccountId(7), downgrade } }))
+      assert.equal(effect.columns?.plan, 'standard')
+      assert.equal(effect.stampedFrom, undefined)
+      assert.equal(effect.stampRefused, true)
+    }
+  })
+
+  /* Signed for one account and carried onto another's subscription: the id it was signed for is
+     part of the signature. */
+  it('refuses a signed stamp moved to another account', () => {
+    const downgrade = downgradeStamp({ plan: 'premium', cycle: 'month' }, new Date('2027-01-01T00:00:00Z'), 7)
+    const effect = subscriptionEffect(stamped({ custom_data: { account_id: 8, account_sig: signAccountId(8), downgrade } }))
+    assert.equal(effect.columns?.plan, 'standard')
+    assert.equal(effect.stampRefused, true)
+  })
+
+  it('refuses a stamp whose own fields were edited after signing', () => {
+    const downgrade = { ...downgradeStamp({ plan: 'plus', cycle: 'month' }, new Date('2027-01-01T00:00:00Z'), 7), from_plan: 'premium' }
+    assert.equal(subscriptionEffect(stamped({ custom_data: { account_id: 7, account_sig: signAccountId(7), downgrade } })).columns?.plan, 'standard')
   })
 
   /* A period with no start at all cannot retire anything, so the stamp stands — and the row it

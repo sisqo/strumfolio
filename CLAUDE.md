@@ -1052,6 +1052,16 @@ account that does not exist is recorded as `unmatched`.
   notification destination. Sandbox and live have separate destinations with separate secrets;
   crossing them fails every delivery in exactly the way the `initialize()` trap does. It is
   **not** `PADDLE_API_KEY`, which this route deliberately does not hold.
+- **The signature proves who sent the event, not who wrote its `custom_data`** (2026-09-24).
+  Paddle.js opens a checkout with any items and any `customData` using the public client token,
+  and `updateCheckout` replaces it, so `account_id` and the downgrade stamp are believed only
+  when this server signed them — `account_sig` and `downgrade.sig`, an HMAC keyed off
+  `AUTH_SECRET` (`plans/customDataSignature.ts`; `plans/CLAUDE.md` has the contract). The
+  coupon stamp needs no signature: the applied `discount_id` decides (`appliedDiscountOf`).
+  **So `AUTH_SECRET` is now also a payment secret**: rotating it invalidates the signatures on
+  every live subscription — events still match by `paddle_subscription_id`, but a pending
+  downgrade's stamp stops being believed and the plan drops to the items. Re-sign first, or
+  rotate while no subscription carries a stamp.
 
 ### Changing plan: Paddle cannot schedule one, so the app makes it look as if it could
 
