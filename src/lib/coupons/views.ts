@@ -32,7 +32,7 @@ import { accounts, couponCampaigns, couponRedemptions, couponViews } from '@/lib
 
 import { campaignStatus, viewStanding } from './discount'
 import { campaignByCode, redemptionCounts } from './read'
-import { COUPON_COOKIE, isCodeShape, normalizeCode, readPercent } from './types'
+import { COUPON_COOKIE, entryAllowsUrl, isCodeShape, normalizeCode, readPercent } from './types'
 import type { CampaignStatus, ViewStanding } from './types'
 
 /**
@@ -65,7 +65,12 @@ import type { CampaignStatus, ViewStanding } from './types'
  * with no account row is now simply refused, which is the honest answer: there is nothing for
  * the sighting to be about yet.
  */
-export async function recordCouponView(rawCode: string, accountOwnerEmail: string): Promise<{ ok: boolean }> {
+export async function recordCouponView(
+  rawCode: string,
+  accountOwnerEmail: string,
+  /** Refuse a campaign whose code a URL may not carry — see `noteCouponView`. */
+  options: { urlEntryOnly?: boolean } = {},
+): Promise<{ ok: boolean }> {
   const code = normalizeCode(rawCode)
   if (!isCodeShape(code) || !hasDatabase) return { ok: false }
 
@@ -77,6 +82,7 @@ export async function recordCouponView(rawCode: string, accountOwnerEmail: strin
       db().select({ id: accounts.id }).from(accounts).where(eq(accounts.ownerEmail, accountOwnerEmail)).limit(1),
     ])
     if (campaign === null || campaign.status !== 'active') return { ok: false }
+    if (options.urlEntryOnly && !entryAllowsUrl(campaign.entry)) return { ok: false }
 
     const accountId = owner[0]?.id
     if (accountId === undefined) return { ok: false }

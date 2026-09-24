@@ -132,14 +132,20 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   `canceled` subscription or one with a scheduled `cancel` all delete; anything else answers
   `subscription-running`, and a Paddle read that throws answers `subscription-unreadable` — a
   deletion cannot be taken back, so «could not tell» refuses. Before this the rows went and the
-  subscription stayed: renewals landed as `unmatched` and the card went on being charged. **Terms
+  subscription stayed: renewals landed as `unmatched` and the card went on being charged.
+  **Every open subscription of the customer is asked, not only the pointer**, which a second
+  subscription moves; and `past_due`/`paused` answer `subscription-stuck`, because
+  `livePaddleSubscription` refuses to cancel either, so the reader is told to write to us rather
+  than sent to a button that says no (both the same evening). **Terms
   of Service §11 and the Privacy Policy's self-service sentence in §7 state the rule**, so they
   move with it.
 - **Suspending an account ends its sessions too, since 2026-09-24** — reversed by decision. It
   used to block future sign-ins only, on the ground that the JWT cannot be revoked; but
   `currentUser()` already asks the database on every request (`accountExists`), and that lookup
   now reads `suspended_at` as well, so a suspended account behaves exactly like a deleted one:
-  writes refused, `requireAccount` to `/login`. A global owner stays exempt, which is what keeps
+  writes refused, `requireAccount` to `/login` — through `accessTo` as well as `currentUser`, since
+  every action reached by a slug asks the first — and a running Strum Together broadcast is
+  deleted, since its guests read by token and not by session. A global owner stays exempt, which is what keeps
   «Enter as this account» working on the account they suspended.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`ViewingAsPill` (`TopBar.tsx`) is the real exit control** for impersonation, not a label;

@@ -236,7 +236,19 @@ export async function noteCouponView(raw: string): Promise<{ ok: boolean }> {
   const user = await currentUser()
   if (user === null) return { ok: false }
 
-  return recordCouponView(raw, user.accountOwnerEmail)
+  /*
+   * **Only a code this reader could already have been shown** (2026-09-24). It used to take any
+   * code, and its `{ ok: true }` for every active campaign made it a second, unthrottled door
+   * past the per-address ceiling `applyCoupon` sets — any free account could walk the code
+   * space and find the ones meant for a single channel, and every hit left a «seen» row on
+   * `/accounts/[email]` that nobody ever showed. What `/pricing` passes is always one of two
+   * things: the code in this reader's own cookie, or one a URL may carry (`entryAllowsUrl`) —
+   * and those are already public to anybody who types `?coupon=`.
+   */
+  const remembered = (await cookies()).get(COUPON_COOKIE)?.value ?? null
+  const fromCookie = remembered !== null && normalizeCode(remembered) === normalizeCode(raw)
+
+  return recordCouponView(raw, user.accountOwnerEmail, { urlEntryOnly: !fromCookie })
 }
 
 /** What the `/coupons` form submits. Every field a string, as a form gives them. */
