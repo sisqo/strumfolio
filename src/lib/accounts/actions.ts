@@ -29,6 +29,7 @@ import {
   songs,
 } from '@/lib/db/schema'
 import { postDate } from '@/lib/blog/date'
+import { courtesySendable } from '@/lib/courtesy/sendable'
 import { deliverEmail, sendEmail } from '@/lib/email/send'
 import { giftEmail, welcomeEmail } from '@/lib/email/templates'
 import { claimOccurrence, clamp, settle } from '@/lib/outreach/claim'
@@ -458,6 +459,9 @@ export async function sendGiftNotice(
     endsOn = untilOn === null ? null : postDate(untilOn)
     occurrenceKey = giftOccurrenceKey({ plan: gifted, untilOn })
     target = { accountId: row.id, ownerEmail: row.ownerEmail }
+    /* Before anything is claimed, for the courtesy emails' reason: the local database is a copy
+       of production, and a gift given there must not announce itself to a real customer. */
+    if (!courtesySendable(process.env.VERCEL_ENV, row.ownerEmail)) return { ok: false, reason: 'not-production' }
   } catch (error) {
     console.error('sendGiftNotice could not read the gift', error)
     return { ok: false, reason: 'failed' }
@@ -978,7 +982,9 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
     result.newsletterOptIn,
   )
 
-  if (created) {
+  /* The account is made either way; only telling anybody about it waits for production. A
+     pending row in the local copy is a stranger's from the 2026-08-29 snapshot. */
+  if (created && courtesySendable(process.env.VERCEL_ENV, normalized)) {
     await sendEmail({ to: normalized, ...welcomeEmail() })
     await notifyTelegram('registration', registrationNotice(normalized, registeredName))
   }
@@ -1124,7 +1130,7 @@ export async function createAccount(input: CreateAccountInput): Promise<CreateAc
 
   /* Never throws, by its own contract — the five callers before this one have no branch to
      take on a failed send either, for the same reason this one does not. */
-  await sendEmail({ to: email, ...welcomeEmail() })
+  if (courtesySendable(process.env.VERCEL_ENV, email)) await sendEmail({ to: email, ...welcomeEmail() })
 
   /*
    * Seam 5 of five, and the only one with nothing to find in the ordinary case: an account

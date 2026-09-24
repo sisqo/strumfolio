@@ -174,6 +174,8 @@ export type GiftNoticeFailure =
    * a message announcing a gift of nothing.
    */
   | 'unreadable-gift'
+  /** Outside production, only to a QA address — the courtesy emails' rule, `courtesy/sendable.ts`. */
+  | 'not-production'
   /** A gift that changes nothing right now: outranked by a live subscription, or already ended. */
   | 'nothing-to-announce'
   /** A `done` row already exists for this exact gift — see `giftOccurrenceKey`. */
@@ -192,6 +194,7 @@ export const GIFT_NOTICE_MESSAGE: Record<GiftNoticeFailure, string> = {
   'unknown-account': 'This account no longer exists. Reload the page.',
   'no-gift': 'There is no gift on this account to tell them about.',
   'unreadable-gift': 'This account’s gift names a plan that no longer exists, so nothing can be said about it.',
+  'not-production': 'Outside production, this email goes only to @strumfolio.test addresses: this database holds real people’s.',
   'nothing-to-announce':
     'This gift is not in force — a live subscription outranks it, or it has ended — so there is nothing to announce.',
   'already-sent': 'They have already been told about this gift. Change the plan or the end date to send again.',

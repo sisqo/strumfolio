@@ -64,6 +64,10 @@ same reason: the send is composed here, not run through `runOutreach`.
   2026-09-24). The local database is a copy of production's real addresses and `.env.local` holds
   a real Resend key, so trying the dialog on `npm run dev` emailed a customer — with an
   unsubscribe link to `localhost`. Refused as `not-production`, before anything is claimed.
+  **The same rule covers the gift notice and the welcome email an operator's hand triggers**
+  (`accounts/actions.ts`: `sendGiftNotice` refuses; `confirmPendingRegistration` and
+  `createAccount` make the account and stay silent) — any send an operator can start from
+  `/accounts` goes under it, or the local copy writes to a real customer again.
 - **`/courtesy-unsubscribe` reads on GET, writes only on an explicit tap**, the rule this repo
   states for `/verify` and `/reset-password`: a corporate mail scanner follows every link in a
   message before a person sees it, and a GET that wrote would opt out an account nobody but the
