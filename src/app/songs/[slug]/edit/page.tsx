@@ -32,8 +32,24 @@ interface Props {
  */
 export const dynamic = 'force-dynamic'
 
+/**
+ * Asked before anything about the song is read, exactly as the reading page does: slugs are
+ * unique across the whole installation and easy to guess, and a title in `<title>`, or a
+ * different answer for a song that exists elsewhere, told any signed-in reader what another
+ * account's repertoire holds.
+ */
+async function permitted(slug: string): Promise<boolean> {
+  if (!hasDatabase) return true
+
+  const owner = await songAccountOf(slug)
+  if (owner === null) return false
+  return (await accessTo(owner)) !== null
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
+  if (!(await permitted(slug))) return { title: 'Edit' }
+
   const song = await repository.getSong(slug)
 
   return { title: song === null ? 'Edit' : `Edit · ${song.title}` }
@@ -62,6 +78,9 @@ export default async function EditSongPage({ params }: Props) {
    * session check that guarded this page before v3.0 is the whole of it there too.
    */
   const access = hasDatabase ? await accessTo((await songAccountOf(slug)) ?? '') : null
+  /* A song in an account this reader cannot open does not exist for them — the reading page's
+     answer, and not the owner notice below, which would confirm that it does. */
+  if (hasDatabase && access === null) notFound()
   const role = hasDatabase ? (access?.role ?? null) : 'admin'
 
   const [songbooks, sections, songs] =

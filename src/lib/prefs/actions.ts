@@ -9,6 +9,7 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
+import { mayOpenSong } from '@/lib/auth/songAccess'
 import { db } from '@/lib/db/client'
 import { accountIdOf, isMissingReference, songIdOf } from '@/lib/db/ids'
 import { songbooks, songs, userPrefs, userSongPrefs } from '@/lib/db/schema'
@@ -223,6 +224,7 @@ export async function saveGlobalPrefs(prefs: GlobalPrefs): Promise<SaveResult> {
 export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise<SaveResult> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return 'no-destination'
+  if (!(await mayOpenSong(songSlug))) return 'no-destination'
 
   const values = {
     semitones: readSemitones(prefs.semitones),
@@ -286,6 +288,7 @@ export async function saveSongPrefs(songSlug: string, prefs: SongPrefs): Promise
 export async function saveFavorite(songSlug: string, favorite: boolean): Promise<SaveResult> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return 'no-destination'
+  if (!(await mayOpenSong(songSlug))) return 'no-destination'
 
   try {
     await db()
@@ -322,6 +325,7 @@ export async function saveFavorite(songSlug: string, favorite: boolean): Promise
 export async function saveTabsExpanded(songSlug: string, tabsExpanded: boolean): Promise<SaveResult> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return 'no-destination'
+  if (!(await mayOpenSong(songSlug))) return 'no-destination'
 
   try {
     await db()
@@ -353,6 +357,7 @@ export async function saveTabsExpanded(songSlug: string, tabsExpanded: boolean):
 export async function recordSongOpened(songSlug: string): Promise<void> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return
+  if (!(await mayOpenSong(songSlug))) return
 
   try {
     await db()

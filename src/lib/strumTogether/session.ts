@@ -332,6 +332,12 @@ export async function stopBroadcast(): Promise<{ ok: boolean }> {
  * their own account open (v3.1). The broadcast shows only what it was started on, never
  * whatever the reader's browser tab happens to have open.
  */
+/** A key shift as the browser sent it, narrowed to the octave either way the controls offer —
+    it reaches every follower's screen, so it is not taken on trust. */
+function broadcastSemitones(semitones: number): number {
+  return Number.isInteger(semitones) ? Math.max(-12, Math.min(12, semitones)) : 0
+}
+
 export async function broadcastPlay(songSlug: string, semitones: number): Promise<void> {
   const user = await currentUser()
   if (user === null || !hasDatabase) return
@@ -344,7 +350,7 @@ export async function broadcastPlay(songSlug: string, semitones: number): Promis
 
     await db()
       .update(singAlongSessions)
-      .set({ currentSongId: songIdOf(songSlug), currentSemitones: semitones, lastActiveAt: sql`now()` })
+      .set({ currentSongId: songIdOf(songSlug), currentSemitones: broadcastSemitones(semitones), lastActiveAt: sql`now()` })
       .where(eq(singAlongSessions.ownerEmail, user.email))
   } catch (error) {
     console.error('broadcastPlay failed', error)
@@ -378,7 +384,7 @@ export async function broadcastTranspose(songSlug: string, semitones: number): P
 
     await db()
       .update(singAlongSessions)
-      .set({ currentSemitones: semitones, lastActiveAt: sql`now()` })
+      .set({ currentSemitones: broadcastSemitones(semitones), lastActiveAt: sql`now()` })
       .where(
         and(
           eq(singAlongSessions.ownerEmail, user.email),

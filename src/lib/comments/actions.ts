@@ -17,6 +17,7 @@
 import { and, eq } from 'drizzle-orm'
 
 import { currentUser } from '@/lib/auth/session'
+import { mayOpenSong } from '@/lib/auth/songAccess'
 import { db } from '@/lib/db/client'
 import { accountIdOf, isMissingReference, songIdOf } from '@/lib/db/ids'
 import { userSongComments } from '@/lib/db/schema'
@@ -73,6 +74,7 @@ export async function loadComments(songSlug: string): Promise<SongComment[] | nu
 export async function saveComment(songSlug: string, comment: SongComment): Promise<CommentWriteResult> {
   const email = (await currentUser())?.email ?? null
   if (email === null) return 'no-destination'
+  if (!(await mayOpenSong(songSlug))) return 'no-destination'
 
   const values = {
     blockIndex: comment.anchor?.blockIndex ?? null,
