@@ -616,7 +616,17 @@ export function subscriptionRelation(
  * reading «from Premium until 2099» and be believed. A real downgrade is made on a live
  * subscription, so an expired account never writes one.
  */
-export function stampCredible(storedPlan: Plan, storedStatus: string, stampedFrom: Plan): boolean {
-  if (storedStatus === 'expired') return false
+export function stampCredible(
+  storedPlan: Plan,
+  storedStatus: string,
+  stampedFrom: Plan,
+  sameSubscription: boolean,
+): boolean {
+  /* **Except on the subscription the stamp was first believed on.** Its stamp stays in its
+     `custom_data` for good, so the `subscription.canceled` that follows the `.updated` which
+     already wrote `expired` carries it again — and refusing it there sent a tampering alert on
+     every ordinary cancellation of a downgraded plan. A stamp is suspect when it arrives on a
+     subscription this account was not already paying for. */
+  if (storedStatus === 'expired' && !sameSubscription) return false
   return PLAN_RANK[storedPlan] >= PLAN_RANK[stampedFrom]
 }

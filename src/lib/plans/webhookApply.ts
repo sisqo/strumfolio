@@ -629,7 +629,12 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
      * Paddle is actually billing decide the plan, and the operator is told: a stamp this app did
      * not write is somebody trying something.
      */
-    if (effect.stampedFrom !== undefined && !stampCredible(readPlan(locked.plan), locked.planStatus, effect.stampedFrom)) {
+    const sameSubscription =
+      locked.paddleSubscriptionId !== null && locked.paddleSubscriptionId === effect.account.paddleSubscriptionId
+    if (
+      effect.stampedFrom !== undefined &&
+      !stampCredible(readPlan(locked.plan), locked.planStatus, effect.stampedFrom, sameSubscription)
+    ) {
       alerts.push(
         `⚠️ Timbro di downgrade non credibile sull'account ${locked.id} (evento ${event.eventId}): dice ` +
           `${PLAN_LABEL[effect.stampedFrom]} ma l'account era su ${PLAN_LABEL[readPlan(locked.plan)]}. Ignorato; ` +

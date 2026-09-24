@@ -543,7 +543,10 @@ watched working by anybody.
     public client token, and a Standard bought from free carrying «Premium until 2099» would
     otherwise be honoured; the webhook re-reads such an event as unstamped and alerts. **An
     `expired` account is refused too** (2026-09-23): it keeps its `plan` column, so a lapsed
-    Premium or a refunded Lifetime passed the rank test with the same forged stamp. **It is
+    Premium or a refunded Lifetime passed the rank test with the same forged stamp — **but not on
+    the subscription already stored** (2026-09-24): the stamp stays in its `custom_data`, so the
+    `.canceled` after the `.updated` that wrote `expired` carries it again, and refusing it there
+    alerted «tampering» on every cancellation of a downgraded plan. **It is
     deliberately not a bound on the date**: a change of cycle restarts the period, so until the
     second call pins it back a legitimate B4/B7 stamp is *later* than the period Paddle reports.
     A date bound was shipped and reverted within the hour for exactly that. Whether Paddle
