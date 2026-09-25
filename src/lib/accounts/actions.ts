@@ -187,6 +187,11 @@ export async function deleteAccount(accountOwnerEmail: string, confirmEmail: str
   if (normalizeEmail(confirmEmail) !== target) {
     return { ok: false, reason: 'confirm-mismatch' }
   }
+  /* One global owner never removes another's account, the rule `setPasswordFor`,
+     `removePasswordFor` and `changeAccountEmail` already keep. */
+  if (target !== normalizeEmail(callerEmail ?? '') && isOwner(target, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
 
   /* Not while Paddle would go on charging somebody who has no account left — `deletable.ts`. */
   const block = await deletionBlockFor(target)
@@ -760,8 +765,14 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
     return { ok: false, reason: 'not-allowed' }
   }
 
+  const target = normalizeEmail(ownerEmail)
+  /* Nor suspends another's: the `signIn` callback refuses a suspended row with no owner
+     exemption, so this would lock a fellow owner out of signing in at all. */
+  if (target !== normalizeEmail(session?.user?.email ?? '') && isOwner(target, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'not-allowed' }
+  }
+
   try {
-    const target = normalizeEmail(ownerEmail)
     await db().transaction(async (tx) => {
       await tx
         .update(accounts)
