@@ -37,6 +37,7 @@ import { applyItemChange } from './paddleApply'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan } from './prices'
 import { paddleClient } from './paddleClient'
+import { paddleCallAllowed } from './paddleRate'
 import { planChangeNotice } from './subscriptionCopy'
 
 export type PaddleCancelFailure = 'not-configured' | 'no-database' | 'failed' | NoLiveSubscription
@@ -55,6 +56,7 @@ export async function cancelPaddleSubscription(): Promise<PaddleCancelResult> {
 
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
+  if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
 
   try {
     /*
@@ -129,6 +131,7 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
 
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
+  if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
 
   try {
     const live = await livePaddleSubscription()

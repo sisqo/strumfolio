@@ -48,6 +48,7 @@ import { planChangeEmail } from '@/lib/email/templates'
 import { livePaddleSubscription, readDate } from './paddleAccount'
 import { applyItemChange } from './paddleApply'
 import { paddleClient } from './paddleClient'
+import { paddleCallAllowed } from './paddleRate'
 import { paddlePriceId } from './paddlePrices'
 import { readSdkChangeCost, type ChangeCost } from './changePreview'
 import { nextChargeOf, type NextCharge } from './changeSummary'
@@ -132,6 +133,7 @@ export async function previewPaddlePlanChange(
 
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
+  if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
 
   const priceId = paddlePriceId(plan, plan === 'lifetime' ? null : cycle)
   if (priceId === null) return { ok: false, reason: 'no-price' }
@@ -205,6 +207,7 @@ export async function changePaddlePlan(
 
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
+  if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
 
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }

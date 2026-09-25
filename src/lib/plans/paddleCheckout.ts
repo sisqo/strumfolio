@@ -59,6 +59,7 @@ import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 
 import { livePaddleSubscription } from './paddleAccount'
 import { paddleClient } from './paddleClient'
+import { paddleCallAllowed } from './paddleRate'
 import { purchaseRefusal, wouldBeSecondSubscription } from './planChange'
 import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan, type BillingPeriod } from './prices'
@@ -101,6 +102,7 @@ export async function startPaddleCheckout(
 
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
+  if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
 
   const user = await currentUser()
   if (user === null) return { ok: false, reason: 'no-session' }
