@@ -16,7 +16,10 @@
  * can never drift apart.
  */
 
+import { unicodeEscapeAt } from '../chordpro'
+import { placeholderAt } from '../chordproMeta'
 import { matchDirective } from '../directiveLine'
+import { markupTagAt } from '../markup'
 
 export type SectionKind = 'verse' | 'chorus' | 'bridge'
 
@@ -173,42 +176,62 @@ function verbatimName(name: string): string {
   return cut === -1 ? name : name.slice(0, cut)
 }
 
+/** The characters a backslash makes literal — the same set `chordpro.ts` un-escapes. */
+const ESCAPABLE = '[]{}#\\'
+
+/**
+ * How many characters starting at `i` the reader takes as one, in the reader's own order
+ * (`parseLyricLine`): an escape pair, a `\uXXXX`, a markup tag, a `%{…}` placeholder — or 1.
+ *
+ * **Nothing inside one of these is a chord to the reader**, so nothing inside one may be a
+ * chord here. `a %{x[C]y} b` is a placeholder the reader keeps whole, and `<span
+ * foreground="[red]">` a tag it consumes; until 2026-09-25 the editor offered `[C]` and `[red]`
+ * as chords in them, and saving from the editor could put a chord inside one where neither
+ * parser would ever find it again.
+ */
+function atomLength(line: string, i: number): number {
+  if (line[i] === '\\') {
+    if (i + 1 < line.length && ESCAPABLE.includes(line[i + 1])) return 2
+    return unicodeEscapeAt(line, i) === null ? 1 : 6
+  }
+  if (line[i] === '<') return markupTagAt(line, i)?.length ?? 1
+  if (line[i] === '%') {
+    const end = placeholderAt(line, i)
+    return end === null ? 1 : end - i
+  }
+  return 1
+}
+
 /**
  * Splits one lyric line into plain text and the chords above it.
  *
  * A `[` with no closing bracket is literal text, exactly as the reader treats it,
  * so a line of prose containing a bracket survives a visit to the editor.
+ *
+ * An escape is literal to the reader (`chordpro.ts`' `ESCAPABLE`), so it is literal here:
+ * `\[C]` is the text «[C]» and not a chord, and deleting that «chord» in the editor used to
+ * corrupt the line. Every character of it, and of the other units `atomLength` names, stays
+ * in the text, so the line writes back as it came.
  */
-/** The characters a backslash makes literal — the same set `chordpro.ts` un-escapes. */
-const ESCAPABLE = '[]{}#\\'
-
 export function readLyricLine(line: string): { text: string; chords: ChordAt[] } {
   const chords: ChordAt[] = []
   let text = ''
   let unclosed = false
 
-  for (let i = 0; i < line.length; i++) {
-    /*
-     * An escape is literal to the reader (`chordpro.ts`' `ESCAPABLE`), so it is literal here:
-     * `\[C]` is the text «[C]» and not a chord, and deleting that «chord» in the editor used to
-     * corrupt the line. Both characters stay in the text, so the line writes back as it came.
-     */
-    if (line[i] === '\\' && i + 1 < line.length && ESCAPABLE.includes(line[i + 1])) {
-      text += line[i] + line[i + 1]
-      i += 1
-      continue
-    }
-    if (line[i] === '[' && !unclosed) {
+  for (let i = 0; i < line.length; ) {
+    const length = atomLength(line, i)
+    if (length === 1 && line[i] === '[' && !unclosed) {
       /* Remembered, as the reader does: after one `[` finds no `]`, none after it will. */
       const close = line.indexOf(']', i)
       unclosed = close === -1
       if (close !== -1) {
         chords.push({ at: text.length, name: line.slice(i + 1, close) })
-        i = close
+        i = close + 1
         continue
       }
     }
-    text += line[i]
+    text += line.slice(i, i + length)
+    i += length
   }
 
   return { text, chords }

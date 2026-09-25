@@ -1071,6 +1071,16 @@ describe('edge cases the reader and the editor must agree on (2026-09-22)', () =
     assert.equal(text, '\\[C] not a chord')
   })
 
+  /* The reader keeps a `%{…}` and a markup tag whole, so a bracket inside either is not a chord. */
+  it('offers no chord inside a placeholder or a markup tag', () => {
+    for (const line of ['a %{x[C]y} b', 'a %{artist|[C] %{}} b', 'a <span foreground="[red]">x</span> b']) {
+      assert.deepEqual(readLyricLine(line), { text: line, chords: [] }, line)
+      const drawn = parseChordPro(line).sections[0].lines[0]
+      assert.ok(drawn.kind === 'lyrics' && drawn.words.every((word) => word.parts.every((part) => part.chord === null)), line)
+    }
+    assert.deepEqual(readLyricLine('%{x} [C]y'), { text: '%{x} y', chords: [{ at: 5, name: 'C' }] })
+  })
+
   /* Words typed at the start of a line with a `#` would otherwise become a note nobody sees. */
   it('escapes a line of words that begins with a hash', () => {
     const source = toSource(setLineText(fromSource('la la'), 0, '# hi'))
