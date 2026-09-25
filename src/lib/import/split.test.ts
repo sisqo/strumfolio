@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { prepareSongs } from './prepare'
-import { splitSongs } from './split'
+import { START_OF_VERBATIM, splitSongs } from './split'
 
 describe('splitting a paste into songs', () => {
   it('leaves one song alone', () => {
@@ -240,5 +240,33 @@ describe('the space form of a title', () => {
 
   it('is not a title without a value', () => {
     assert.equal(splitSongs('{t }\n[C]a\n---\n[G]b').length, 2)
+  })
+})
+
+/*
+ * The opening of a verbatim block used to be matched by an expression whose `\s*` and `[:\s]`
+ * could share one run of spaces: `{sot` and thirty-two thousand spaces took 555 ms to refuse.
+ */
+describe('the verbatim opening', () => {
+  const OLD = /^\{\s*(sot|sog|start_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?\s*(?:[:\s].*)?\}$/i
+
+  it('agrees with the old expression on random short lines', () => {
+    const alphabet = [' ', ' ', '\t', ' ', ':', '}', '{', 'x', '-', '!', '_']
+    const heads = ['{sot', '{ sog', '{start_of_tab', '{START_OF_ABC', '{sot-guitar', '{eot', 'sot']
+    let seed = 11
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648)
+    for (let n = 0; n < 20000; n++) {
+      let line = heads[next() % heads.length]
+      const length = next() % 8
+      for (let k = 0; k < length; k++) line += alphabet[next() % alphabet.length]
+      if (next() % 3 !== 0) line += '}'
+      assert.deepEqual(START_OF_VERBATIM.exec(line)?.[1], OLD.exec(line)?.[1], JSON.stringify(line))
+    }
+  })
+
+  it('refuses a long unclosed opening in linear time', () => {
+    const started = performance.now()
+    splitSongs('{sot' + ' '.repeat(64000) + 'x\nword')
+    assert.ok(performance.now() - started < 100)
   })
 })

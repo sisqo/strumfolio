@@ -185,6 +185,7 @@ const ESCAPABLE = '[]{}#\\'
 export function readLyricLine(line: string): { text: string; chords: ChordAt[] } {
   const chords: ChordAt[] = []
   let text = ''
+  let unclosed = false
 
   for (let i = 0; i < line.length; i++) {
     /*
@@ -197,8 +198,10 @@ export function readLyricLine(line: string): { text: string; chords: ChordAt[] }
       i += 1
       continue
     }
-    if (line[i] === '[') {
+    if (line[i] === '[' && !unclosed) {
+      /* Remembered, as the reader does: after one `[` finds no `]`, none after it will. */
       const close = line.indexOf(']', i)
+      unclosed = close === -1
       if (close !== -1) {
         chords.push({ at: text.length, name: line.slice(i + 1, close) })
         i = close

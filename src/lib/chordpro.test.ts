@@ -1313,3 +1313,35 @@ describe('verbatim blocks with a selector (2026-09-24)', () => {
     assert.equal(toSource(fromSource('{start_of_abc-piano}\nX:1')), '{start_of_abc-piano}\nX:1\n{end_of_abc}')
   })
 })
+
+/*
+ * Every song is parsed on the server to draw the home screen, so a line shape that makes the
+ * reader quadratic is one song hanging an account. Each of these took seconds before 2026-09-25.
+ */
+describe('the reader stays linear', () => {
+  const cases: [string, () => unknown][] = [
+    ['many composers', () => parseChordPro(Array.from({ length: 20000 }, (_, i) => `{composer: c${i}}`).join('\n'))],
+    ['many tags on one line', () => parseChordPro(`{tags: ${Array.from({ length: 50000 }, (_, i) => `t${i}`).join(',')}}`)],
+    ['a long run of continued lines', () => parseChordPro(Array.from({ length: 50000 }, () => 'ab \\').join('\n'))],
+    ['continued lines of backslashes', () => parseChordPro(Array.from({ length: 20000 }, () => '\\\\\\').join('\n'))],
+    ['unclosed brackets, reader', () => parseChordPro('['.repeat(400000))],
+    ['unclosed brackets, editor', () => fromSource('['.repeat(400000))],
+  ]
+  for (const [label, run] of cases) {
+    it(`with ${label}`, () => {
+      const started = performance.now()
+      run()
+      assert.ok(performance.now() - started < 250, label)
+    })
+  }
+
+  it('still keeps every value once, and joins continued lines as before', () => {
+    const song = parseChordPro('{composer: A; B}\n{composer: B}\n{composer: C}\n{tags: x, y}\n{tag: x}\none \\\\\\\ntwo \\\nthree')
+    assert.equal(song.metadata.composer, 'A; B; C')
+    assert.deepEqual(song.tags, ['x', 'y'])
+    const [line, extra] = song.sections[0].lines
+    assert.ok(line.kind === 'lyrics')
+    assert.deepEqual(line.sourceLines, [5, 6, 7])
+    assert.equal(extra, undefined)
+  })
+})

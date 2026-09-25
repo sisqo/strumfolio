@@ -605,6 +605,11 @@ export function parseChordPro(source: string): ParsedSong {
   let startingTranspose: number | null = null
   const modulation = () => transposeTotal - (startingTranspose ?? transposeTotal)
 
+  /* Sets beside `song.metadata`'s multi-valued fields and `song.tags`, so deduplicating a value
+     is a lookup and not a scan of everything kept so far. */
+  const multiValues = new Map<keyof SongMetadata, Set<string>>()
+  const seenTags = new Set<string>()
+
   let lastChorus: Section | null = null
   const chorusByLabel = new Map<string, Section>()
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
@@ -686,16 +691,27 @@ export function parseChordPro(source: string): ParsedSong {
     const continuesInto = (next: string | undefined) =>
       next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null
 
+    /*
+     * **Pieces, joined once, and only the newest line's end is looked at.** This used to test
+     * an end-anchored expression against the whole joined string and rebuild that string for
+     * every line it swallowed, so a run of continued lines was quadratic. Only the newest line
+     * can decide: dropping the one `\` that continued leaves an even run behind it, so the
+     * parity of the joined string's trailing run is the parity of the newest line's own.
+     */
     const sourceLines = [index]
-    let joined = rawLine
-    while (/(^|[^\\])(\\\\)*\\$/.test(joined) && index + 1 < rawLines.length && continuesInto(rawLines[index + 1])) {
+    const pieces = [rawLine]
+    let continued = trailingBackslashes(rawLine) % 2 === 1
+    while (continued && index + 1 < rawLines.length && continuesInto(rawLines[index + 1])) {
       index += 1
       sourceLines.push(index)
-      joined = joined.slice(0, -1) + rawLines[index]
+      pieces[pieces.length - 1] = pieces[pieces.length - 1].slice(0, -1)
+      pieces.push(rawLines[index])
+      continued = trailingBackslashes(rawLines[index]) % 2 === 1
     }
     /* A continuation with nothing it may continue into is only a mark: drawn, it would be a
        stray `\` at the end of the words. */
-    if (/(^|[^\\])(\\\\)*\\$/.test(joined)) joined = joined.slice(0, -1)
+    if (continued) pieces[pieces.length - 1] = pieces[pieces.length - 1].slice(0, -1)
+    const joined = pieces.length === 1 ? pieces[0] : pieces.join('')
 
     const line = joined.trimEnd()
 
@@ -804,8 +820,17 @@ export function parseChordPro(source: string): ParsedSong {
           const field = METADATA_FIELD[rawName]
           if (value === '') break
           const held = song.metadata[field]
-          if (held === null) song.metadata[field] = value
-          else if (MULTI_VALUED.has(field) && !held.split('; ').includes(value)) song.metadata[field] = `${held}; ${value}`
+          /* A set per field rather than `held.split('; ').includes(value)`, which re-split the
+             growing string on every line: thirty thousand `{composer}` lines took 16 s. It holds
+             the pieces, not the values, because that is what the split compared against. */
+          const seen = multiValues.get(field)
+          if (held === null) {
+            song.metadata[field] = value
+            if (MULTI_VALUED.has(field)) multiValues.set(field, new Set(value.split('; ')))
+          } else if (seen !== undefined && !seen.has(value)) {
+            song.metadata[field] = `${held}; ${value}`
+            for (const piece of value.split('; ')) seen.add(piece)
+          }
           break
         }
         /*
@@ -825,7 +850,10 @@ export function parseChordPro(source: string): ParsedSong {
          */
         case 'tags':
           for (const tag of value.split(',').map((one) => one.trim())) {
-            if (tag !== '' && !song.tags.includes(tag)) song.tags.push(tag)
+            if (tag !== '' && !seenTags.has(tag)) {
+              seenTags.add(tag)
+              song.tags.push(tag)
+            }
           }
           break
         case 'songbookName':
@@ -1145,6 +1173,13 @@ export function readDefinition(value: string): ChordDefinition | null {
 /** What a backslash may escape, per the format: the characters that otherwise mean something. */
 const ESCAPABLE = '[]{}#\\'
 
+/** How many backslashes a line ends with — odd means its last one continues it. */
+function trailingBackslashes(line: string): number {
+  let count = 0
+  while (count < line.length && line[line.length - 1 - count] === '\\') count += 1
+  return count
+}
+
 /** The character a `\uXXXX` at `index` names, or null when what is there is not one. */
 export function unicodeEscapeAt(text: string, index: number): string | null {
   if (text[index] !== '\\' || text[index + 1] !== 'u') return null
@@ -1271,6 +1306,8 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
     else runs.push({ text: char, style })
   }
 
+  let unclosed = false
+
   for (let i = 0; i < line.length; i++) {
     const char = line[i]
 
@@ -1323,8 +1360,11 @@ export function parseLyricLine(line: string, sourceLines: number[] = []): Line {
     }
 
     if (char === '[') {
-      const close = line.indexOf(']', i)
+      /* Once a search for `]` has come back empty, no later `[` on this line can close either:
+         asking again for each one made a line of unclosed brackets quadratic. */
+      const close = unclosed ? -1 : line.indexOf(']', i)
       if (close === -1) {
+        unclosed = true
         // An unclosed bracket is literal text, not a broken chord.
         appendText(char)
         continue

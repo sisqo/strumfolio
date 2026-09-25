@@ -53,9 +53,16 @@ const DIRECTIVE_ONLY = /^\{[^}]*\}$/
  * with the label or selector the format allows on it: `{start_of_tab: Intro}`, `{sot-guitar}`.
  * These used to match only bare, so a labelled tab's silent-string row of dashes read as a rule
  * and cut the song in two.
+ *
+ * **The tail is three alternatives, each linear**, where it was `\s*(?:[:\s].*)?\}` — a `\s*`
+ * and a `[:\s]` that could share one run of spaces, so `{sot` followed by thirty thousand
+ * spaces and no brace took half a second to refuse. The three say the same thing: nothing but
+ * spaces before the brace, a colon after optional spaces, or one space and then anything.
+ * Spelt out rather than shortened to `[:\s].*`, because `\s` takes a line separator and `.`
+ * does not; `split.test.ts` checks it against the old expression.
  */
-const START_OF_VERBATIM =
-  /^\{\s*(sot|sog|start_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?\s*(?:[:\s].*)?\}$/i
+export const START_OF_VERBATIM =
+  /^\{\s*(sot|sog|start_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?(?:\s*\}|\s*:.*\}|\s.*\})$/i
 
 /** The matching close, with the selector the opening carried. */
 const END_OF_VERBATIM = /^\{\s*(eot|eog|end_of_(?:tab|grid|grille|abc|ly|svg|textblock|strum))(?:-!?[\w-]*)?\s*\}$/i
