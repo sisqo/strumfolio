@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, it } from 'node:test'
 
 import {
@@ -898,6 +899,27 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
   })) {
     it(`agrees line by line with ${name}`, () => {
       assert.equal(disagreement(source), null)
+    })
+  }
+
+  /* And on the files, not only on strings written for the test — CLAUDE.md's own rule. The
+     Mac's shared folder joins in when it is mounted. */
+  const files: string[] = []
+  for (const name of readdirSync('content', { recursive: true, encoding: 'utf8' })) {
+    if (/\.(cho|chopro|pro|crd)$/.test(name)) files.push(`content/${name}`)
+  }
+  try {
+    for (const name of readdirSync('/media/psf/Download/songs')) {
+      if (/\.(cho|chopro|pro|crd)$/.test(name)) files.push(`/media/psf/Download/songs/${name}`)
+    }
+  } catch {
+    /* Not mounted everywhere, and nothing here needs it. */
+  }
+  for (const path of files) {
+    it(`agrees line by line on ${path.split('/').pop()}, and writes it back byte for byte`, () => {
+      const source = readFileSync(path, 'utf8')
+      assert.equal(disagreement(source), null)
+      assert.equal(toSource(fromSource(source)), source)
     })
   }
 
