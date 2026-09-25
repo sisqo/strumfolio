@@ -95,8 +95,15 @@ export function currentScope(): string | null {
   return isScopeTag(value) ? value : null
 }
 
-/** Runs once per page load; see `keyFor`. */
-let purged = false
+/**
+ * The scope this page has already settled, so the purge runs once per account per page load
+ * rather than once per page load. **A boolean was the bug**: sign-out and a password sign-in are
+ * both soft navigations, so one tab can go from account A to account B without a new realm, and
+ * a latch that had fired for A skipped B entirely — the marker stayed A, B warmed its caches and
+ * wrote its unsynced edits under that marker, and the next cold launch saw A ≠ B and emptied all
+ * of B's, offline repertoire included.
+ */
+let settledFor: string | null = null
 /** The page-cache emptying the purge started, for `settleScope` to wait on. */
 let purging: Promise<void> = Promise.resolve()
 
@@ -109,8 +116,8 @@ let purging: Promise<void> = Promise.resolve()
  * component asked to do this in an effect is a component somebody can forget to render.
  */
 function purgeIfForeign(scope: string): void {
-  if (purged) return
-  purged = true
+  if (settledFor === scope) return
+  settledFor = scope
 
   try {
     if (window.localStorage.getItem(STORED_SCOPE_KEY) === scope) return
