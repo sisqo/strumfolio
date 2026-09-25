@@ -95,6 +95,10 @@ export async function provisionAccount(
 
       await tx.insert(accounts).values({
         ownerEmail,
+        /* A session left over from an earlier holder of this address — deleted, or moved away
+           by `changeAccountEmail` — carries it in its token and would otherwise wake up inside
+           this new account. Every session that belongs here is signed in after this line. */
+        sessionsValidAfter: new Date(),
         ...(name !== undefined ? { firstName: name.firstName, lastName: name.lastName } : {}),
       })
 

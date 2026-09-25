@@ -365,6 +365,13 @@
       "when": 1790184603928,
       "tag": "0051_account_is_test",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1790316324269,
+      "tag": "0052_sessions_valid_after",
+      "breakpoints": true
     }
   ]
 }

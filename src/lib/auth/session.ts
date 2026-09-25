@@ -282,7 +282,7 @@ export async function issueSessionCookie(email: string): Promise<void> {
     salt: cookieName,
     secret: process.env.AUTH_SECRET ?? '',
     maxAge: authConfig.session.maxAge,
-    token: { email: normalized, sub: normalized, name: normalized },
+    token: { email: normalized, sub: normalized, name: normalized, signedInAt: Date.now() },
   })
 
   const jar = await cookies()

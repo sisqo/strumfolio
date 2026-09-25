@@ -1616,6 +1616,24 @@ else's* account — cannot reach that browser at all. Reproduced and fixed 2026-
   "exists". Answering "gone" on a blip would sign out every reader of the app at once, which is
   far worse than a deleted account surviving a few more minutes. Memoized with React `cache()`,
   the first use of it here, so the several `currentUser()` calls one request makes cost one query.
+- **A session can be revoked since 2026-09-25, and `auth()` is where** — owner's decision. The
+  JWT carries `signedInAt`, stamped by the `jwt` callback on sign-in and by
+  `issueSessionCookie`; `accounts.sessions_valid_after` (`0052`) is the moment before which
+  none is believed (`sessionRevoked`, `lib/auth/revocation.ts`). It is written by
+  `writePasswordHash`/`deletePasswordHash` (every password change, reset and removal, the
+  operator's included), by `changeAccountEmail`, and by `provisionAccount` when the row is
+  born — the last so a session left from an earlier holder of the address cannot wake inside the
+  new account. `setOwnPassword` and `removeOwnPassword` re-issue the reader's own cookie, so
+  only the *other* sessions end. **The check wraps `auth()` in `src/auth.ts`, not
+  `currentUser`**: about thirty operator actions read `auth()` and `isOwner` directly, and a
+  narrower check would leave a stolen owner session working after a password change. The
+  middleware's own instance is untouched (edge, no database). Always a JavaScript `Date`, never
+  the database's `now()`: the claim and the column must come from the same clock, or a Neon clock
+  a second ahead refuses the cookie issued right after it. Tokens from before the claim count as
+  the oldest there are, and `null` revokes nothing, so the migration signed nobody out.
+- **Deleting yourself goes through `currentUser`**, so a suspended account cannot: deleting
+  clears the suspension with the row, and the address could register again (owner's decision,
+  2026-09-25). The same goes for the name and the newsletter preference.
 
 ## `/qa` signs somebody in without a password, and must never exist in production
 

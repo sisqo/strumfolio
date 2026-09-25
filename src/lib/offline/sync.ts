@@ -14,9 +14,7 @@
  * "offline support", it is downloading everyone else's repertoire without asking.
  */
 
-import { auth } from '@/auth'
-import { currentAccountFor, readAccountCookie } from '@/lib/accounts/current'
-import { normalizeEmail } from '@/lib/allowlist'
+import { currentUser } from '@/lib/auth/session'
 import { listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { hasDatabase } from '@/lib/db/client'
 
@@ -24,14 +22,11 @@ import { hasDatabase } from '@/lib/db/client'
 export async function listOfflineRoutes(): Promise<string[] | null> {
   if (!hasDatabase) return []
 
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) return null
-  const normalized = normalizeEmail(email)
-
-  const raw = process.env.ALLOWED_EMAILS
-  const requested = await readAccountCookie()
-  const account = currentAccountFor(normalized, raw, requested)
+  /* `currentUser` rather than reading the session by hand: it resolves the same account and also
+     answers `null` for one that is suspended or gone, which is what `OfflineSync` must hear. */
+  const user = await currentUser()
+  if (user === null) return null
+  const account = user.accountOwnerEmail
 
   const [songbooks, songs] = await Promise.all([
     listSongbooksForAccount(account),

@@ -43,26 +43,48 @@ import { accounts } from '@/lib/db/schema'
  * response, so a deletion takes effect on the very next request.
  */
 export const accountExists = cache(async (ownerEmail: string): Promise<boolean> => {
-  if (!hasDatabase) return true
-
-  try {
-    const rows = await db()
-      .select({ suspendedAt: accounts.suspendedAt })
-      .from(accounts)
-      .where(eq(accounts.ownerEmail, normalizeEmail(ownerEmail)))
-      .limit(1)
-    /* **A suspended account counts as gone here** (2026-09-24), in the same lookup and at no
-       extra cost. Suspending used to stop only the *next* sign-in, on the grounds that a JWT
-       cannot be revoked — true of the cookie, and beside the point once this question is asked
-       on every request: a reader suspended for abuse kept writing, exporting and redeeming for
-       up to ninety days. The name stays because every reader of it means «may this session
-       still act on that account». */
-    return rows.length > 0 && rows[0].suspendedAt === null
-  } catch (error) {
-    console.error('accountExists failed', error)
-    return true
-  }
+  const row = await accountRow(normalizeEmail(ownerEmail))
+  if (row === 'unreadable') return true
+  /* **A suspended account counts as gone here** (2026-09-24), in the same lookup and at no
+     extra cost. Suspending used to stop only the *next* sign-in, on the grounds that a JWT
+     cannot be revoked — true of the cookie, and beside the point once this question is asked
+     on every request: a reader suspended for abuse kept writing, exporting and redeeming for
+     up to ninety days. The name stays because every reader of it means «may this session
+     still act on that account». */
+  return row !== null && row.suspendedAt === null
 })
+
+/**
+ * The moment before which a session on this address is not believed, or `null` for none —
+ * `sessionRevoked` (`lib/auth/revocation.ts`) has the rule, `auth()` in `src/auth.ts` asks it.
+ * No row, no database and a failed read all answer `null`, open for `accountExists`'s reasons;
+ * a missing row is `accountExists`' question, not this one.
+ */
+export const sessionsValidAfterOf = cache(async (email: string): Promise<Date | null> => {
+  const row = await accountRow(normalizeEmail(email))
+  return row === 'unreadable' || row === null ? null : row.sessionsValidAfter
+})
+
+/** The one read both questions above share, so a request that asks both pays one query — the
+ *  common case, since a reader's session and the account they look at are the same address. */
+const accountRow = cache(
+  async (
+    ownerEmail: string,
+  ): Promise<{ suspendedAt: Date | null; sessionsValidAfter: Date | null } | null | 'unreadable'> => {
+    if (!hasDatabase) return 'unreadable'
+    try {
+      const rows = await db()
+        .select({ suspendedAt: accounts.suspendedAt, sessionsValidAfter: accounts.sessionsValidAfter })
+        .from(accounts)
+        .where(eq(accounts.ownerEmail, ownerEmail))
+        .limit(1)
+      return rows[0] ?? null
+    } catch (error) {
+      console.error('accountExists failed', error)
+      return 'unreadable'
+    }
+  },
+)
 
 /**
  * Whether this address is currently suspended — a system check run on **every** sign-in

@@ -16,6 +16,7 @@ import { auth, signOut } from '@/auth'
 import { isEmailShape, isOwner, normalizeEmail } from '@/lib/allowlist'
 import { deletePasswordHash, writePasswordHash } from '@/lib/auth/credentials'
 import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
+import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
 import {
@@ -575,8 +576,12 @@ export async function loadAccountHistory(
 export async function deleteMyAccount(confirmEmail: string): Promise<SelfDeleteResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const session = await auth()
-  const email = session?.user?.email
+  /* `currentUser` and not `auth()`: a suspended account answers `null` there, and suspension
+     blocks deleting yourself (owner's decision, 2026-09-25) — deleting clears the suspension
+     with the row, so the same address could simply register again. A suspended reader asks
+     us, as one with a stuck subscription does. */
+  const user = await currentUser()
+  const email = user?.email
   if (!email) return { ok: false, reason: 'failed' }
 
   const target = normalizeEmail(email)
@@ -649,8 +654,9 @@ export async function loadOwnName(): Promise<{ firstName: string; lastName: stri
 export async function updateOwnName(firstName: string, lastName: string): Promise<NameResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
 
-  const session = await auth()
-  const email = session?.user?.email
+  /* `currentUser` and not `auth()`, so a suspended account cannot write here either. */
+  const user = await currentUser()
+  const email = user?.email
   if (!email) return { ok: false, reason: 'no-session' }
 
   const trimmedFirst = cleanName(firstName)
@@ -891,7 +897,10 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
          without being told, because none of them ever held the address. */
       const renamed = await tx
         .update(accounts)
-        .set({ ownerEmail: newEmail })
+        /* The move closes every session: those on the old address would otherwise wake inside
+           whatever account that address gets next, and any left over on the new one would wake
+           inside this. */
+        .set({ ownerEmail: newEmail, sessionsValidAfter: new Date() })
         .where(eq(accounts.ownerEmail, oldEmail))
         .returning({ id: accounts.id })
       if (renamed.length === 0) {

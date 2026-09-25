@@ -20,7 +20,7 @@ import {
   writePasswordHash,
 } from '@/lib/auth/credentials'
 import { hashPassword, isPasswordAcceptable, verifyPassword } from '@/lib/auth/password'
-import { currentUser } from '@/lib/auth/session'
+import { currentUser, issueSessionCookie } from '@/lib/auth/session'
 import type { PasswordResult } from '@/lib/auth/types'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, rateLimitHits } from '@/lib/db/schema'
@@ -164,6 +164,9 @@ export async function setOwnPassword(
     }
 
     await writePasswordHash(user.email, await hashPassword(next))
+    /* Writing the hash closed every session on this address, this one included; the reader who
+       just proved the old password keeps theirs, and only the others end. */
+    await issueSessionCookie(user.email)
     return { ok: true }
   } catch (error) {
     console.error('setOwnPassword failed', error)
@@ -184,6 +187,7 @@ export async function removeOwnPassword(): Promise<PasswordResult> {
     }
 
     await deletePasswordHash(user.email)
+    await issueSessionCookie(user.email)
     return { ok: true }
   } catch (error) {
     console.error('removeOwnPassword failed', error)

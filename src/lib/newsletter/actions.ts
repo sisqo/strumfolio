@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm'
 
 import { auth } from '@/auth'
 import { isOwner, normalizeEmail } from '@/lib/allowlist'
+import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accountIdOf } from '@/lib/db/ids'
 import { newsletterPrefs } from '@/lib/db/schema'
@@ -35,8 +36,8 @@ const DEFAULT_PREFS: NewsletterPrefs = { subscribed: false, frequency: 'monthly'
 export async function loadNewsletterPrefs(): Promise<NewsletterPrefs | null> {
   if (!hasDatabase) return null
 
-  const session = await auth()
-  const email = session?.user?.email
+  /* `currentUser` and not `auth()`, so a suspended account neither reads nor writes this. */
+  const email = (await currentUser())?.email
   if (!email) return null
 
   const rows = await db()
@@ -71,8 +72,8 @@ export async function updateNewsletterPrefs(
     return { ok: false, reason: 'failed' }
   }
 
-  const session = await auth()
-  const email = session?.user?.email
+  /* `currentUser` and not `auth()`, so a suspended account neither reads nor writes this. */
+  const email = (await currentUser())?.email
   if (!email) return { ok: false, reason: 'no-session' }
 
   const ownerEmail = normalizeEmail(email)

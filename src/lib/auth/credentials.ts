@@ -11,7 +11,7 @@
 import { eq } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
-import { credentials } from '@/lib/db/schema'
+import { accounts, credentials } from '@/lib/db/schema'
 
 /** The stored hash for an address, or null when there is none — or none readable. */
 export async function readPasswordHash(email: string): Promise<string | null> {
@@ -31,7 +31,12 @@ export async function readPasswordHash(email: string): Promise<string | null> {
   }
 }
 
-/** Sets or replaces the hash for an address. */
+/**
+ * Sets or replaces the hash for an address — **and closes every session already open on it**
+ * (2026-09-25), which is what a password change is for when the reason is a stolen device or a
+ * leaked password. A caller acting on the reader's own session hands that reader a fresh cookie
+ * straight after (`setOwnPassword`), so only the *other* sessions end.
+ */
 export async function writePasswordHash(email: string, hash: string): Promise<void> {
   await db()
     .insert(credentials)
@@ -40,6 +45,18 @@ export async function writePasswordHash(email: string, hash: string): Promise<vo
       target: credentials.email,
       set: { passwordHash: hash, updatedAt: new Date() },
     })
+  await revokeSessions(email)
+}
+
+/**
+ * Every session on this address signed in before now stops being believed — `sessionRevoked`
+ * (`revocation.ts`) and `auth()` in `src/auth.ts`. A JavaScript `Date` and not the database's
+ * `now()`: the token's `signedInAt` is stamped by this same server's clock, and a Neon clock a
+ * second ahead would otherwise refuse the cookie issued right after. An address with no account
+ * row updates nothing, which is correct — it has no sessions to close.
+ */
+export async function revokeSessions(email: string): Promise<void> {
+  await db().update(accounts).set({ sessionsValidAfter: new Date() }).where(eq(accounts.ownerEmail, email))
 }
 
 /**
@@ -52,4 +69,5 @@ export async function writePasswordHash(email: string, hash: string): Promise<vo
  */
 export async function deletePasswordHash(email: string): Promise<void> {
   await db().delete(credentials).where(eq(credentials.email, email))
+  await revokeSessions(email)
 }

@@ -1,0 +1,15 @@
+-- Una sessione vale solo se è nata dopo questo istante.
+--
+-- Il cookie di sessione è un JWT di novanta giorni che porta solo l'indirizzo, quindi finora
+-- niente poteva revocarlo: cambiare o reimpostare la password lasciava dentro chi aveva già
+-- una sessione, e un indirizzo liberato da un cambio o da una cancellazione risvegliava le
+-- vecchie sessioni nel nuovo account di chi lo registrava dopo. Decisione del proprietario,
+-- 2026-09-25: le sessioni si chiudono.
+--
+-- Il codice scrive la colonna quando la password cambia, quando l'indirizzo cambia e quando
+-- l'account nasce; il token porta l'istante del proprio accesso e `currentUser` confronta i due.
+-- Nessun default e nessun riempimento: `null` vuol dire «nessuna sessione revocata», quindi
+-- nessuno viene disconnesso dalla migrazione. Niente `now()` del database, di proposito: un
+-- orologio di Neon avanti di qualche secondo rispetto a Vercel disconnetterebbe chi ha appena
+-- fatto l'accesso.
+ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS "sessions_valid_after" timestamp with time zone;

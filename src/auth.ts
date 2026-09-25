@@ -1,4 +1,4 @@
-import NextAuth from 'next-auth'
+import NextAuth, { type Session } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
 
@@ -6,12 +6,13 @@ import { authConfig } from './auth.config'
 import { normalizeEmail } from './lib/allowlist'
 import { provisionAccount } from './lib/accounts/provision'
 import { freezeLeadAttribution, recordLeadAttribution } from './lib/attribution/write'
-import { isAccountSuspended } from './lib/accounts/status'
+import { isAccountSuspended, sessionsValidAfterOf } from './lib/accounts/status'
 import { readPasswordHash } from './lib/auth/credentials'
 import { outcomeFor, passwordSourceFor } from './lib/auth/loginAttempt'
 import { splitName } from './lib/auth/nameSplit'
 import { verifyAgainstNothing, verifyPassword } from './lib/auth/password'
 import { readPendingCredential } from './lib/auth/pendingCredential'
+import { sessionRevoked } from './lib/auth/revocation'
 import { recordSignIn } from './lib/auth/signIns'
 import { UnverifiedEmail } from './lib/auth/unverifiedEmail'
 import { attachCouponViewFromCookie } from './lib/coupons/views'
@@ -24,7 +25,14 @@ import { registrationNotice } from './lib/telegram/registrationNotice'
 const LOGIN_RATE_LIMIT = 10
 const LOGIN_RATE_WINDOW_MS = 10 * 60 * 1000
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+declare module 'next-auth' {
+  interface Session {
+    /** When this session signed in, in milliseconds — `sessionRevoked` compares it. */
+    signedInAt?: number
+  }
+}
+
+const nextAuth = NextAuth({
   ...authConfig,
   providers: [
     Google,
@@ -141,9 +149,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
        * A suspended account gets no new session at all — checked before
        * `recordSignIn`, the same early-return shape as the
        * `email_verified` check above it, so a blocked attempt leaves no sign-in count
-       * behind either. Blocks only the *next* sign-in: a session already issued keeps
-       * working until it naturally expires, since JWTs are not revocable server-side by
-       * design in this app (`lib/auth/session.ts`).
+       * behind either. A session already issued is closed elsewhere, by `accountExists`
+       * answering «gone» for a suspended row on every request (2026-09-24).
        */
       if (await isAccountSuspended(email)) return false
 
@@ -227,5 +234,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return true
     },
+
+    /*
+     * **The moment of signing in rides in the token, and nothing else is added to it.** `user`
+     * is present only on the request that signs in; every later call re-signs the same token
+     * and carries the claim across unchanged, so it stays the sign-in time for the whole
+     * ninety days. `issueSessionCookie` writes the same claim for the two sign-ins that do not
+     * go through here (`/verify`, `/qa`).
+     */
+    jwt({ token, user }) {
+      if (user !== undefined) token.signedInAt = Date.now()
+      return token
+    },
+    session({ session, token }) {
+      if (typeof token.signedInAt === 'number') session.signedInAt = token.signedInAt
+      return session
+    },
   },
 })
+
+export const { handlers, signIn, signOut } = nextAuth
+
+/**
+ * The session, or `null` when there is none **or it has been revoked** (2026-09-25).
+ *
+ * Wrapped here rather than checked in `currentUser`, because about thirty actions — every
+ * operator screen among them — read `auth()` directly and gate on `isOwner`: a check anywhere
+ * narrower would leave a stolen owner session working after its owner changed the password.
+ * The middleware has its own NextAuth instance (`auth.config.ts`, edge runtime, no database)
+ * and is untouched; it only decides who reaches a page, and everything a page or action does
+ * asks this.
+ *
+ * One read, shared through `accountRow`'s per-request cache with `accountExists`, so a request
+ * that already asked whether the account exists pays nothing more. Fails open, as that does.
+ */
+export async function auth(): Promise<Session | null> {
+  const session = await nextAuth.auth()
+  const email = session?.user?.email
+  if (!email) return session
+  if (sessionRevoked(session.signedInAt, await sessionsValidAfterOf(email))) return null
+  return session
+}

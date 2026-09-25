@@ -247,12 +247,12 @@ export const accounts = pgTable(
      */
     bookletFooter: text('booklet_footer'),
     /**
-     * Blocks new sign-ins for this address without touching anything else
+     * Blocks sign-ins for this address without touching anything else
      * — null means not suspended, a timestamp is when an
      * operator flipped it on. Checked in `auth.ts`'s `signIn` callback, before
-     * `recordSignIn`, so a blocked attempt leaves no trace of having tried. Deliberately
-     * does not reach a session already issued: JWTs are not revocable server-side by
-     * design in this app, so this stops the *next* sign-in, not one already in progress.
+     * `recordSignIn`, so a blocked attempt leaves no trace of having tried, **and by
+     * `accountExists` on every request since 2026-09-24**, so a session already issued stops
+     * acting at once too — the JWT is not revoked, it is simply no longer believed.
      * "Enter as this account" never checks this column — it does not call `signIn()` at
      * all — so a suspended account stays reachable to the owner who suspended it.
      */
@@ -321,6 +321,14 @@ export const accounts = pgTable(
      * nothing anybody asks.
      */
     isTest: boolean('is_test').notNull().default(false),
+    /**
+     * A session whose sign-in is older than this is not believed (`0052`, 2026-09-25). Written
+     * when the password changes, when the address changes and when the account is created —
+     * the last one so a session left over from an earlier holder of the same address cannot
+     * wake up inside a new account. `null` revokes nothing. Read by `auth()` in `src/auth.ts`
+     * against the token's own `signedInAt`; the rule is `sessionRevoked` (`lib/auth/revocation.ts`).
+     */
+    sessionsValidAfter: timestamp('sessions_valid_after', { withTimezone: true }),
   },
   (table) => [
     unique('accounts_paddle_subscription_id').on(table.paddleSubscriptionId),
