@@ -692,6 +692,15 @@ export function parseChordPro(source: string): ParsedSong {
       next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null
 
     /*
+     * **Nor out of a line that opens a brace** (2026-09-25). The editor never joins, so
+     * `{c: hello \` followed by `world}` was two lines of words there and one comment here;
+     * and dropping the mark alone turned `{c: hi}\` into a directive the editor keeps as words.
+     * Only a line opening with `{` can become a directive that way, so such a line is neither
+     * joined nor stripped: its backslash is a character, which is what the editor sees too.
+     */
+    const opensBrace = rawLine.trimStart().startsWith('{')
+
+    /*
      * **Pieces, joined once, and only the newest line's end is looked at.** This used to test
      * an end-anchored expression against the whole joined string and rebuild that string for
      * every line it swallowed, so a run of continued lines was quadratic. Only the newest line
@@ -700,7 +709,7 @@ export function parseChordPro(source: string): ParsedSong {
      */
     const sourceLines = [index]
     const pieces = [rawLine]
-    let continued = trailingBackslashes(rawLine) % 2 === 1
+    let continued = !opensBrace && trailingBackslashes(rawLine) % 2 === 1
     while (continued && index + 1 < rawLines.length && continuesInto(rawLines[index + 1])) {
       index += 1
       sourceLines.push(index)

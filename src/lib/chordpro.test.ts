@@ -890,6 +890,8 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     ...cases,
     'a continuation into a blank line': '{title: T}\nverse \\\n\nnext',
     'a continuation into a directive': '{title: T}\nverse \\\n{c: hi}\nnext',
+    'a continuation out of a brace': '{title: T}\n{c: hello \\\nworld}\nnext',
+    'a directive with a backslash after it': '{title: T}\n{c: hi}\\\nnext',
   })) {
     it(`agrees line by line with ${name}`, () => {
       assert.equal(disagreement(source), null)

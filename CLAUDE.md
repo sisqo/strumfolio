@@ -365,7 +365,9 @@ What is deliberately **not** followed, each argued where it lives rather than he
   file references a chorus it never opened. Until 2026-09-19 it
   printed the reference, and the reason was exactly this anchoring problem.
 - **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
-  stopped counting — see the identity bullet above. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
+  stopped counting — see the identity bullet above. **A line opening with `{` never continues**
+  (2026-09-25): the editor never joins, so `{c: a \` + `b}` would be a comment to the reader and
+  two lines of words to the editor; its `\` stays a character. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
   construct is safe — compared line by line since 2026-09-23: it used to compare a count taken
   from `buildAnchorMap`, which has one entry per reader line whatever the editor did, so it could
   not fail.
