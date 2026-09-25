@@ -268,6 +268,15 @@ export const { handlers, signIn, signOut } = nextAuth
  * One read, shared through `accountRow`'s per-request cache with `accountExists`, so a request
  * that already asked whether the account exists pays nothing more. Fails open, as that does.
  */
+/**
+ * Whether the request carries a session cookie at all, revoked or not — for `requireAccount`
+ * alone, which must tell «nobody signed in» (the middleware's case) from «signed in, and no
+ * longer believed» (its own, a redirect to `/login`). Anything that *acts* asks `auth()`.
+ */
+export async function hasSessionCookie(): Promise<boolean> {
+  return Boolean((await nextAuth.auth())?.user?.email)
+}
+
 export async function auth(): Promise<Session | null> {
   const session = await nextAuth.auth()
   const email = session?.user?.email

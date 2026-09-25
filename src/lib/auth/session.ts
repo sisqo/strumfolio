@@ -25,7 +25,7 @@ import { encode } from 'next-auth/jwt'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { auth, hasSessionCookie } from '@/auth'
 import { authConfig } from '@/auth.config'
 import { accountExists } from '@/lib/accounts/status'
 import { currentAccountFor, readAccountCookie } from '@/lib/accounts/current'
@@ -118,8 +118,10 @@ export async function currentUser(): Promise<CurrentUser | null> {
  * written out in full in `(home)/layout.tsx`.
  */
 export async function requireAccount(): Promise<void> {
-  const session = await auth()
-  if (!session?.user?.email) return
+  /* The cookie, not `auth()`: a revoked session answers `null` there and would read as «nobody
+     signed in», leaving the page to render empty — the middleware sees a valid token and lets it
+     through. */
+  if (!(await hasSessionCookie())) return
 
   if ((await currentUser()) !== null) return
 
