@@ -26,6 +26,15 @@ export interface SongInput {
   body: string
 }
 
+/**
+ * The longest song text a save accepts (2026-09-25). The longest of 225 stored songs is 2,534
+ * characters, so this is forty times anything real — the point is not the page but the parser:
+ * the server's home screen parses every song, and without a cap the only bound on one was the
+ * 3 MB action body, enough for some ChordPro shapes to cost minutes of CPU on every visit.
+ */
+export const SONG_TEXT_MAX = 100_000
+export const SONG_TITLE_MAX = 300
+
 export interface DuplicateOf {
   slug: string
   title: string
@@ -39,6 +48,8 @@ export type SaveFailure =
   | 'no-database'
   | 'invalid-title'
   | 'empty-body'
+  /** Past `SONG_TEXT_MAX`, or a title past `SONG_TITLE_MAX`. */
+  | 'too-long'
   | 'not-found'
   /**
    * Refused by the plan: the song cap is reached, the songbook a paste would have to mint
@@ -131,6 +142,7 @@ export const SAVE_MESSAGE: Record<SaveFailure | 'duplicate', string> = {
   'no-database': 'No database configured: cannot save.',
   'invalid-title': 'A title is required.',
   'empty-body': 'The text is empty.',
+  'too-long': 'This song is longer than Strumfolio can keep.',
   'not-found': 'This song no longer exists.',
   duplicate: 'A song with this title and artist already exists.',
   failed: 'Save failed. Please try again.',

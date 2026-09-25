@@ -28,6 +28,7 @@ import type { Entitlements } from '@/lib/plans/entitlements'
 import { countRepertoire, entitlementsOf } from '@/lib/plans/resolve'
 import { limitFacts, type LimitFacts } from '@/lib/plans/types'
 import { revalidateSong } from '@/lib/revalidate'
+import { cleanName } from '@/lib/names'
 import { canEdit } from '@/lib/roles'
 import { uniqueSlug } from '@/lib/slug'
 
@@ -39,7 +40,7 @@ import {
   organizeExport,
   toChoproFile,
 } from './export'
-import type { Decision, DeleteResult, Headroom, SaveFailure, SaveResult, SongInput } from './types'
+import { SONG_TEXT_MAX, SONG_TITLE_MAX, type Decision, type DeleteResult, type Headroom, type SaveFailure, type SaveResult, type SongInput } from './types'
 
 /**
  * The export answers **null** when refused rather than an empty list, and the difference
@@ -237,8 +238,10 @@ async function resolveSection(
     }
   }
 
-  const declared = sectionName?.trim()
-  if (declared) {
+  /* `cleanName`, the rule `createSection` enforces for a section made by hand: a paste's own
+     `{division}` of any length used to become a section's name as it stood. */
+  const declared = cleanName(sectionName)
+  if (declared !== null) {
     return {
       ok: true,
       songbookSlug: book.slug,
@@ -380,9 +383,21 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
     return { ok: false, reason: entitlements.refused.editRepertoire }
   }
 
+  /* A Server Action receives whatever was posted: the shape is checked before any `.trim()`,
+     which would otherwise throw outside every `try` and answer a bare 500. */
+  if (
+    typeof input !== 'object' ||
+    input === null ||
+    typeof input.title !== 'string' ||
+    typeof input.body !== 'string' ||
+    (input.artist !== null && typeof input.artist !== 'string')
+  ) {
+    return { ok: false, reason: 'failed' }
+  }
   const title = input.title.trim()
   if (title === '') return { ok: false, reason: 'invalid-title' }
   if (input.body.trim() === '') return { ok: false, reason: 'empty-body' }
+  if (input.body.length > SONG_TEXT_MAX || title.length > SONG_TITLE_MAX) return { ok: false, reason: 'too-long' }
 
   /*
    * Normalised once, up here, because two things read it now: the twin lookup below and the
@@ -675,8 +690,10 @@ export async function createSong(
     return { ok: false, reason: refused, limit: limitFacts(entitlements.limits, refused) }
   }
 
+  if (typeof title !== 'string') return { ok: false, reason: 'failed' }
   const trimmed = title.trim()
   if (trimmed === '') return { ok: false, reason: 'invalid-title' }
+  if (trimmed.length > SONG_TITLE_MAX) return { ok: false, reason: 'too-long' }
 
   try {
     const database = db()
