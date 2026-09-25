@@ -27,6 +27,7 @@ import {
   feedbackProblem,
   isFeedbackCategory,
   screenshotAcceptable,
+  screenshotAttachment,
   screenshotTooLarge,
   type FeedbackCategory,
   type FeedbackResult,
@@ -92,14 +93,14 @@ export async function submitFeedback(
       attachments:
         screenshot === undefined
           ? undefined
-          : [{ filename: screenshot.filename, content: screenshot.base64 }],
+          : [screenshotAttachment(screenshot)],
       ...feedbackEmail({
         from: user.email,
         plan,
         category,
         priority,
         message: trimmedMessage,
-        screenshotFilename: screenshot?.filename ?? null,
+        screenshotFilename: screenshot === undefined ? null : screenshotAttachment(screenshot).filename,
       }),
     })
 

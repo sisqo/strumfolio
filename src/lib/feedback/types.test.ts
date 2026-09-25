@@ -12,6 +12,7 @@ import {
   feedbackProblem,
   isFeedbackCategory,
   screenshotAcceptable,
+  screenshotAttachment,
   screenshotTooLarge,
 } from './types'
 
@@ -79,10 +80,24 @@ describe('excerpt', () => {
 })
 
 describe('screenshotAcceptable', () => {
-  const ok = { filename: 'shot.png', mimeType: 'image/png', base64: 'aGVsbG8=' }
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]).toString('base64')
+  const ok = { filename: 'shot.png', mimeType: 'image/png', base64: png }
 
   it('takes an image of a size a request can carry', () => {
     assert.equal(screenshotAcceptable(ok), true)
+  })
+
+  it('refuses bytes that are not the image they claim to be', () => {
+    assert.equal(screenshotAcceptable({ ...ok, base64: Buffer.from('<html><script>').toString('base64') }), false)
+    assert.equal(screenshotAcceptable({ ...ok, mimeType: 'image/jpeg' }), false)
+    assert.equal(screenshotAcceptable({ ...ok, base64: `${png}<b>` }), false)
+  })
+
+  it('sends the checked type under its own extension, whatever the name said', () => {
+    const sent = screenshotAttachment({ ...ok, filename: 'invoice.exe' })
+    assert.deepEqual(sent, { filename: 'invoice.png', content: png, contentType: 'image/png' })
+    assert.equal(screenshotAttachment({ ...ok, filename: '../../<x>.html' }).filename, 'x.png')
+    assert.equal(screenshotAttachment({ ...ok, filename: '.png' }).filename, 'screenshot.png')
   })
 
   it('refuses anything that is not an image, or not the shape the sheet sends', () => {

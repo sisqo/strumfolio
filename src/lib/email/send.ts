@@ -59,7 +59,7 @@ export interface EmailMessage {
    * untouched: `content` is a base64 string, the shape `feedback/actions.ts` already has one
    * in from the browser's `FileReader`, never a `Buffer` this app would have to build.
    */
-  attachments?: { filename: string; content: string }[]
+  attachments?: { filename: string; content: string; contentType?: string }[]
 }
 
 /**

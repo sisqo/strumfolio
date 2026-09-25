@@ -52,7 +52,46 @@ export const SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024
 /** What may be attached: the image types a phone or a desktop screenshot actually produces. */
 export const SCREENSHOT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
 
-/** A Server Action receives whatever was posted, so the attachment is checked for shape here. */
+/** The extension each accepted type is sent under, whatever name the file arrived with. */
+const SCREENSHOT_EXTENSION: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+}
+
+/** The first bytes of each accepted type, read as Latin-1 so each character is one byte — `atob`
+ *  rather than `Buffer` because the sheet imports this module into the browser. HEIC and HEIF
+ *  share one container, so either brand list answers for both. */
+function looksLike(mimeType: string, head: string): boolean {
+  switch (mimeType) {
+    case 'image/png':
+      return head.startsWith('\x89PNG\r\n\x1a\n')
+    case 'image/jpeg':
+      return head.startsWith('\xff\xd8\xff')
+    case 'image/gif':
+      return head.startsWith('GIF87a') || head.startsWith('GIF89a')
+    case 'image/webp':
+      return head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP'
+    case 'image/heic':
+    case 'image/heif':
+      return head.slice(4, 8) === 'ftyp' && ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1', 'heif'].includes(head.slice(8, 12))
+    default:
+      return false
+  }
+}
+
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/
+
+/**
+ * A Server Action receives whatever was posted, so the attachment is checked for shape here —
+ * **and for content**, since the declared type is only a claim. Resend decides an attachment's
+ * type from its filename unless told otherwise, so checking `mimeType` alone let a posted
+ * `invoice.html` labelled `image/png` reach info@ as HTML. The bytes must now open like the
+ * declared image, and `screenshotAttachment` sends them under that type and its extension.
+ */
 export function screenshotAcceptable(screenshot: unknown): screenshot is FeedbackScreenshot {
   if (typeof screenshot !== 'object' || screenshot === null) return false
   const { filename, mimeType, base64 } = screenshot as Record<string, unknown>
@@ -63,8 +102,26 @@ export function screenshotAcceptable(screenshot: unknown): screenshot is Feedbac
     typeof mimeType === 'string' &&
     SCREENSHOT_TYPES.includes(mimeType) &&
     typeof base64 === 'string' &&
-    !screenshotTooLarge(base64)
+    !screenshotTooLarge(base64) &&
+    BASE64.test(base64) &&
+    looksLike(mimeType, atob(base64.slice(0, 24)))
   )
+}
+
+/** What goes to Resend: the same bytes, the checked type, and a name whose extension is that
+ *  type's — the reader's own name is kept only as far as it is plain letters and digits. */
+export function screenshotAttachment(screenshot: FeedbackScreenshot): {
+  filename: string
+  content: string
+  contentType: string
+} {
+  const extension = SCREENSHOT_EXTENSION[screenshot.mimeType]
+  const stem = screenshot.filename.replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 80)
+  return {
+    filename: `${stem === '' ? 'screenshot' : stem}.${extension}`,
+    content: screenshot.base64,
+    contentType: screenshot.mimeType,
+  }
 }
 
 export function isFeedbackCategory(value: unknown): value is FeedbackCategory {
