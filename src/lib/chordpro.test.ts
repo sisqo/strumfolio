@@ -15,7 +15,8 @@ import {
 import { buildAnchorMap as buildAnchorMapFor } from './comments/anchorMap'
 import { blockStartLines, fromSource, readLyricLine, toSource, writeLyricLine } from './editor/document'
 import { deduce } from './import/deduce'
-import { setLineText } from './editor/edits'
+import { setChord, setLineText } from './editor/edits'
+import { matchDirective } from './directiveLine'
 
 /** Compact view of a parsed line: one string per word, chords in brackets. */
 function shape(line: Line): string[] {
@@ -1036,7 +1037,81 @@ describe('edge cases the reader and the editor must agree on (2026-09-22)', () =
      `\[D]#` — literal text to the reader, chord and escape both gone. */
   it('never writes a chord inside an escape pair', () => {
     assert.equal(writeLyricLine('\\#foo bar', [{ at: 1, name: 'D' }]), '\\#[D]foo bar')
-    assert.equal(writeLyricLine('a \\', [{ at: 3, name: 'D' }]), 'a \\[D]')
+    /* An escaped backslash is a pair of its own: the `#` after it is not escaped by it. */
+    assert.equal(writeLyricLine('x\\\\#y', [{ at: 3, name: 'C' }]), 'x\\\\[C]#y')
+    assert.equal(toSource(fromSource('x\\\\[C]#y')), 'x\\\\[C]#y')
+    assert.equal(writeLyricLine('a %{x}', [{ at: 4, name: 'C' }]), 'a %{x}[C]')
+  })
+
+  /*
+   * A backslash that escapes nothing would pair with the chord's own `[`. At the end of the line
+   * it is a continuation the reader never draws, so the chord goes before it — this asserted
+   * `'a \\[D]'` until 2026-09-25, literal text to both parsers and the chord gone; mid-line it
+   * is drawn, so it is doubled and draws the same.
+   */
+  it('never writes a chord where a stray backslash would escape it', () => {
+    assert.equal(writeLyricLine('a \\', [{ at: 3, name: 'D' }]), 'a [D]\\')
+    assert.equal(writeLyricLine('ab\\', [{ at: 3, name: 'G' }, { at: 3, name: 'D' }]), 'ab[G][D]\\')
+    assert.equal(writeLyricLine('a\\b', [{ at: 2, name: 'G' }]), 'a\\\\[G]b')
+    const joined = parseChordPro('ab[G]\\\ncd').sections[0].lines
+    assert.equal(joined.length, 1)
+    assert.ok(joined[0].kind === 'lyrics' && joined[0].words.some((word) => word.parts.some((part) => part.chord === 'G')))
+  })
+
+  /* A typed `[` opened a chord that swallowed the words up to the next `]`. */
+  it('escapes a typed bracket only when something could close it', () => {
+    assert.equal(toSource(setLineText(fromSource('hello [G]world'), 0, 'hello [world')), 'hello \\[[G]world')
+    assert.equal(writeLyricLine('a [ b ] c', []), 'a \\[ b ] c')
+    assert.equal(writeLyricLine('a [ b', [{ at: 0, name: 'C' }]), '[C]a [ b')
+    assert.equal(writeLyricLine('a [ b', [{ at: 5, name: 'C' }]), 'a \\[ b[C]')
+    assert.equal(writeLyricLine('a ] b', [{ at: 0, name: 'C' }]), '[C]a ] b')
+  })
+
+  it('keeps square brackets out of a chord name', () => {
+    assert.equal(toSource(setChord(fromSource('[G]world'), 0, 0, 'A]')), '[A]world')
+    assert.equal(toSource(setChord(fromSource('[G]world'), 0, 0, '[]')), 'world')
+  })
+
+  /*
+   * The three writing rules meet in one function and can undo each other, so they are held
+   * together on random lines: what is read writes back byte for byte, and every chord written
+   * onto any text is a chord the reader draws, over the same words.
+   */
+  it('writes every chord where the reader finds it, on random lines', () => {
+    const alphabet = ['a', 'b', ' ', ' ', '\\', '\\', '[', ']', '#', '%', '{', '}', '<', '>', '/', 'u', '0']
+    let seed = 5
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648)
+    const random = () => {
+      let line = ''
+      const length = next() % 14
+      for (let k = 0; k < length; k++) line += alphabet[next() % alphabet.length]
+      return line
+    }
+    const drawn = (line: string) => {
+      const lines = parseChordPro(line).sections.flatMap((section) => section.lines)
+      const words = lines.flatMap((one) => (one.kind === 'lyrics' ? one.words : []))
+      return {
+        text: words.map((word) => word.parts.map((part) => part.text).join('')).join(' '),
+        chords: words.flatMap((word) => word.parts.flatMap((part) => (part.chord === null ? [] : [part.chord]))),
+      }
+    }
+
+    for (let n = 0; n < 20000; n++) {
+      const line = random()
+      if (!line.startsWith('#')) {
+        const { text, chords } = readLyricLine(line)
+        assert.equal(writeLyricLine(text, chords), line, JSON.stringify(line))
+      }
+
+      const text = random()
+      const chords = Array.from({ length: next() % 4 }, (_, k) => ({ at: next() % (text.length + 2), name: `C${k}` }))
+      const written = writeLyricLine(text, chords)
+      const bare = writeLyricLine(text, [])
+      if (matchDirective(written.trim()) !== null || matchDirective(bare.trim()) !== null) continue
+      const label = JSON.stringify({ text, chords, written })
+      assert.deepEqual(drawn(written).chords.sort(), chords.map((chord) => chord.name).sort(), label)
+      assert.equal(drawn(written).text, drawn(bare).text, label)
+    }
   })
 
   /* `{meta:title Old}` is the title to the reader, colon with no space included. */

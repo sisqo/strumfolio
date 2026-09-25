@@ -237,23 +237,78 @@ export function readLyricLine(line: string): { text: string; chords: ChordAt[] }
   return { text, chords }
 }
 
-/** Puts the chords back where they were. */
+/**
+ * Puts the chords back where they were — where the reader will find them again.
+ *
+ * `text` is the line as the file spells it with the chords taken out, escapes included, so
+ * writing is a matter of putting each `[name]` back at its offset. Three places would make a
+ * chord something the reader does not read as one, and each is moved rather than written:
+ *
+ * - **Inside a unit the reader takes whole** (`atomLength`): between `\` and the `#` it
+ *   escapes, inside a `%{…}` or a markup tag. The chord goes after the unit. A drag is
+ *   letter-precise and can land there.
+ * - **Right after a backslash that escapes nothing**, which would pair with the chord's own
+ *   `[` into the literal «[». Found on 2026-09-25 in two shapes: `x\\[C]#y` came back
+ *   `x\\#[C]y`, because the guard above asked whether the character before was a backslash
+ *   and not whether it was one *left over*; and `ab\` with a chord at the end was written
+ *   `ab\[G]`, the chord lost. At the end of the line that backslash is a continuation (or a
+ *   mark the reader drops) and never drawn, so the chord goes before it: `ab[G]\` keeps both
+ *   the chord and the continuation, and a chord at the end of a continued line is played where
+ *   the next line starts. Mid-line it is drawn as a backslash, so it is doubled: `a\\[G]b`
+ *   draws exactly what `a\b` drew, with the chord where it was put.
+ *
+ * And a `[` somebody typed is escaped when a `]` follows it, or it would open a chord that
+ * swallowed the words up to that bracket: `hello [world` over a chord used to be written
+ * `hello [[G]world`. Only then — a `[` read from a file is text precisely because no `]`
+ * follows it, and escaping every one would rewrite such a line on its first visit.
+ */
 export function writeLyricLine(text: string, chords: ChordAt[]): string {
-  const ordered = [...chords].sort((a, b) => a.at - b.at)
-  let out = ''
-  let cursor = 0
-
-  for (const chord of ordered) {
-    let at = Math.max(0, Math.min(text.length, chord.at))
-    /* Never between a backslash and the character it escapes: `\[D]#foo` is the literal text
-       «[D]#foo» to the reader, so the chord would vanish and the escape with it. A drag is
-       letter-precise and can land there; the chord goes after the pair. */
-    if (at > 0 && at < text.length && text[at - 1] === '\\' && ESCAPABLE.includes(text[at])) at += 1
-    out += text.slice(cursor, at) + `[${chord.name}]`
-    cursor = at
+  const length = text.length
+  /** Where a chord that lands at `j` goes: `j` itself, or the end of the unit `j` is inside. */
+  const settle = Array.from({ length: length + 1 }, (_, j) => j)
+  /** A `[` the reader reaches on its own, and a backslash that escapes nothing. */
+  const bareOpen: number[] = []
+  const lone = new Set<number>()
+  for (let i = 0; i < length; ) {
+    const size = atomLength(text, i)
+    for (let k = i + 1; k < i + size; k += 1) settle[k] = i + size
+    if (size === 1 && text[i] === '[') bareOpen.push(i)
+    if (size === 1 && text[i] === '\\') lone.add(i)
+    i += size
   }
 
-  const written = out + text.slice(cursor)
+  const placed = [...chords]
+    .sort((a, b) => a.at - b.at)
+    .map((chord) => {
+      let at = settle[Math.max(0, Math.min(length, chord.at))]
+      if (at === length && lone.has(at - 1)) at -= 1
+      return { at, name: chord.name }
+    })
+    .sort((a, b) => a.at - b.at)
+
+  const lastChord = placed.length > 0 ? placed[placed.length - 1].at : -1
+  const closesAfter = Math.max(text.lastIndexOf(']'), lastChord)
+  const escaped = new Set(bareOpen.filter((at) => at < closesAfter))
+  const slice = (from: number, to: number) => {
+    let piece = ''
+    for (let j = from; j < to; j += 1) piece += escaped.has(j) ? `\\${text[j]}` : text[j]
+    return piece
+  }
+
+  let out = ''
+  let cursor = 0
+  let doubled = -1
+  for (const chord of placed) {
+    out += slice(cursor, chord.at)
+    if (chord.at > 0 && lone.has(chord.at - 1) && doubled !== chord.at) {
+      out += '\\'
+      doubled = chord.at
+    }
+    out += `[${chord.name}]`
+    cursor = chord.at
+  }
+
+  const written = out + slice(cursor, length)
   /* A line of words that begins with `#` would come back as a source comment, which the reader
      never draws — typed words vanishing from the sheet with no warning. Escaped, it stays a
      line of words for both parsers. */

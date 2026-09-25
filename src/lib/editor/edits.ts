@@ -131,6 +131,16 @@ export function setTabRows(document: SongDocument, index: number, rows: string[]
  * The editor needs this to keep pointing at the chord it just made while the user
  * types its name.
  */
+/**
+ * A chord's name as it may be written: no square brackets, which the format has no way to put
+ * inside one. `A]` was written `[A]]` — the chord `A` and a stray bracket in the words — and a
+ * `[` can only confuse the next reader of the file. Taken out rather than refused, so a slip of
+ * the finger costs one character and not the whole name.
+ */
+function chordName(name: string): string {
+  return name.replace(/[[\]]/g, '').trim()
+}
+
 export function chordIndexAt(chords: ChordAt[], at: number): number {
   return chords.filter((chord) => chord.at <= at).length
 }
@@ -155,7 +165,7 @@ export function addChord(
   if (block === null) return document
 
   const clamped = Math.max(0, Math.min(block.text.length, at))
-  const chords = [...block.chords, { at: clamped, name }].sort((a, b) => a.at - b.at)
+  const chords = [...block.chords, { at: clamped, name: chordName(name) }].sort((a, b) => a.at - b.at)
 
   return replace(document, index, { ...block, chords })
 }
@@ -180,7 +190,7 @@ export function insertChordAmong(
 
   const chords = [...block.chords].sort((a, b) => a.at - b.at)
   const bounded = Math.max(0, Math.min(chords.length, order))
-  chords.splice(bounded, 0, { at: chords[bounded]?.at ?? block.text.length, name })
+  chords.splice(bounded, 0, { at: chords[bounded]?.at ?? block.text.length, name: chordName(name) })
 
   return replace(document, index, { ...block, chords })
 }
@@ -196,10 +206,11 @@ export function setChord(
 
   // An emptied chord is a removed chord: that is how you take one off a syllable
   // without hunting for a separate button.
-  if (name.trim() === '') return removeChord(document, index, chord)
+  const written = chordName(name)
+  if (written === '') return removeChord(document, index, chord)
 
   const chords = block.chords.map((entry, at) =>
-    at === chord ? { ...entry, name: name.trim() } : entry,
+    at === chord ? { ...entry, name: written } : entry,
   )
   return replace(document, index, { ...block, chords })
 }
