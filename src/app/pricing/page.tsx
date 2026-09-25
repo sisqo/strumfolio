@@ -20,6 +20,7 @@ import {
 import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
 import type { Campaign } from '@/lib/coupons/read'
+import { couponCookieCode } from '@/lib/coupons/cookieValue'
 import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { euro, LIFETIME, PRICES, TAX_NOTE } from '@/lib/plans/prices'
 import type { BillingPeriod, PaidPlan } from '@/lib/plans/prices'
@@ -848,12 +849,13 @@ export default async function PricingPage({
    * table on every request. See `lib/coupons/read.ts`' own header.
    */
   const jar = await cookies()
-  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
+  const cookieValue = jar.get(COUPON_COOKIE)?.value ?? null
+  const cookieCode = couponCookieCode(cookieValue)
   const [coupon, lifetimeIsOpen] = await Promise.all([
     activeCoupon({
       coupon: typeof couponParam === 'string' ? couponParam : undefined,
       promo: typeof promoParam === 'string' ? promoParam : undefined,
-      cookie: cookieCode,
+      cookie: cookieValue,
     }),
     loadLifetimeOnSale(),
   ])

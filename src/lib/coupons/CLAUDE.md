@@ -93,6 +93,13 @@ load-bearing parts:
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the
   database is unreachable, and not during a render, which Next.js forbids.
+- **The code in it is signed, since 2026-09-25** (`cookieValue.ts`), and only a signed value
+  skips the `entry` check. `httpOnly` stops a page's script, not `curl`: a request sending
+  `Cookie: songbook-coupon=GUESS` used to learn whether any code existed, code-only campaigns
+  included, with none of `applyCoupon`'s ceiling on guessing. An unsigned value — a cookie from
+  before the change, or one typed by hand — is still read for a campaign a URL may carry, which
+  is public anyway, so no cookie in circulation stopped working. Anything that shows or compares
+  the code reads it through `couponCookieCode`, never the raw value.
 - **`coupon_views` records what was *shown*, `coupon_redemptions` what was *given*** — two
   ledgers, and the first exists because a coupon somebody landed with and did not buy on used
   to leave no trace outside their own browser. `views.ts` owns both ends of it: one row per

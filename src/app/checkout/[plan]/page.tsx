@@ -13,6 +13,7 @@ import { currentUser, requireAccount } from '@/lib/auth/session'
 import { appliedCopy, discountedAmount } from '@/lib/coupons/discount'
 import { discountIdFor } from '@/lib/coupons/paddleDiscount'
 import { activeCoupon } from '@/lib/coupons/read'
+import { couponCookieCode } from '@/lib/coupons/cookieValue'
 import { COUPON_COOKIE, couponRefusedNotice, restorableCode } from '@/lib/coupons/types'
 import { livePaddleSubscription, type LivePaddleSubscription } from '@/lib/plans/paddleAccount'
 import { checkoutMode, purchaseRefusal } from '@/lib/plans/planChange'
@@ -71,9 +72,10 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
    * charged the right one.
    */
   const jar = await cookies()
-  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
+  const cookieValue = jar.get(COUPON_COOKIE)?.value ?? null
+  const cookieCode = couponCookieCode(cookieValue)
   const [campaign, lifetimeOnSale, user, live] = await Promise.all([
-    activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieCode }),
+    activeCoupon({ coupon: couponParam, promo: promoParam, cookie: cookieValue }),
     loadLifetimeOnSale(),
     /*
      * Read for one thing only: whether there is an account for `CouponBar` to record a sighting

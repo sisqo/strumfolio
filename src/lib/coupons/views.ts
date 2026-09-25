@@ -32,6 +32,7 @@ import { accounts, couponCampaigns, couponRedemptions, couponViews } from '@/lib
 
 import { campaignStatus, viewStanding } from './discount'
 import { campaignByCode, redemptionCounts } from './read'
+import { readCouponCookie } from './cookieValue'
 import { COUPON_COOKIE, entryAllowsUrl, isCodeShape, normalizeCode, readPercent } from './types'
 import type { CampaignStatus, ViewStanding } from './types'
 
@@ -144,9 +145,11 @@ export async function attachCouponViewFromCookie(accountOwnerEmail: string): Pro
   if (!hasDatabase) return
 
   try {
-    const code = (await cookies()).get(COUPON_COOKIE)?.value ?? null
-    if (code === null || code === '') return
-    await recordCouponView(code, accountOwnerEmail)
+    /* Only a code this server wrote into the cookie counts as shown to this reader; an unsigned
+       one is recorded only for a campaign a URL may carry, the same rule `noteCouponView` keeps. */
+    const carried = readCouponCookie((await cookies()).get(COUPON_COOKIE)?.value)
+    if (carried === null) return
+    await recordCouponView(carried.code, accountOwnerEmail, { urlEntryOnly: !carried.signed })
   } catch (error) {
     /* A sign-in must succeed even if this trips — `recordSignIn`'s and `provisionAccount`'s
        own rule, and this is the least load-bearing of the three. */

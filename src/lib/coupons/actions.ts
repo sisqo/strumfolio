@@ -30,6 +30,7 @@ import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 import { campaignStatus, cookieMaxAge } from './discount'
 import { archiveCampaignDiscounts, syncCampaignDiscounts } from './paddleDiscountSync'
 import { activeCoupon, allCampaigns, campaignById, redeemedCount, resolveTypedCode } from './read'
+import { couponCookieValue, readCouponCookie } from './cookieValue'
 import {
   COUPON_COOKIE,
   COUPON_COOKIE_MAX_DAYS,
@@ -85,7 +86,7 @@ export async function applyCoupon(
   if (maxAge === 0) return { ok: false, reason: 'expired' }
 
   const jar = await cookies()
-  jar.set(COUPON_COOKIE, resolved.campaign.code, {
+  jar.set(COUPON_COOKIE, couponCookieValue(resolved.campaign.code), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -190,7 +191,7 @@ export async function rememberUrlCoupon(raw: string): Promise<{ ok: boolean }> {
     if (maxAge === 0) return { ok: false }
 
     const jar = await cookies()
-    jar.set(COUPON_COOKIE, row.code, {
+    jar.set(COUPON_COOKIE, couponCookieValue(row.code), {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
@@ -245,8 +246,10 @@ export async function noteCouponView(raw: string): Promise<{ ok: boolean }> {
    * things: the code in this reader's own cookie, or one a URL may carry (`entryAllowsUrl`) —
    * and those are already public to anybody who types `?coupon=`.
    */
-  const remembered = (await cookies()).get(COUPON_COOKIE)?.value ?? null
-  const fromCookie = remembered !== null && normalizeCode(remembered) === normalizeCode(raw)
+  /* Signed, or it is not «this reader's own cookie»: an unsigned value is whatever the request
+     said, and a request that sends the code as both cookie and argument is still guessing. */
+  const remembered = readCouponCookie((await cookies()).get(COUPON_COOKIE)?.value)
+  const fromCookie = remembered !== null && remembered.signed && normalizeCode(remembered.code) === normalizeCode(raw)
 
   return recordCouponView(raw, user.accountOwnerEmail, { urlEntryOnly: !fromCookie })
 }

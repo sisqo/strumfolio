@@ -28,6 +28,7 @@ import {
 import { PublicHeader } from '@/components/PublicHeader'
 import { deadlineCopy, offerCopy } from '@/lib/coupons/discount'
 import { activeCoupon } from '@/lib/coupons/read'
+import { couponCookieCode } from '@/lib/coupons/cookieValue'
 import { COUPON_COOKIE, OFFER_COLLAPSED_COOKIE, restorableCode } from '@/lib/coupons/types'
 import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
@@ -894,8 +895,9 @@ export async function Landing({ signedIn }: { signedIn?: boolean } = {}) {
    * close the front door.
    */
   const jar = await cookies()
-  const cookieCode = jar.get(COUPON_COOKIE)?.value ?? null
-  const offer = await activeCoupon({ cookie: cookieCode })
+  const cookieValue = jar.get(COUPON_COOKIE)?.value ?? null
+  const cookieCode = couponCookieCode(cookieValue)
+  const offer = await activeCoupon({ cookie: cookieValue })
   const offerCollapsed = jar.get(OFFER_COLLAPSED_COOKIE)?.value === '1'
   const offerWords = offer === null ? null : offerCopy(offer.discountPercent, offer.discountMonths)
 

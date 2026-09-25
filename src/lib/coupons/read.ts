@@ -17,6 +17,7 @@
  * documents for a screen it must not take down.
  */
 
+import { readCouponCookie } from './cookieValue'
 import { and, count, desc, eq, isNull } from 'drizzle-orm'
 
 import { db, hasDatabase } from '@/lib/db/client'
@@ -419,16 +420,20 @@ export async function activeCoupon(input: {
       return null
     }
 
-    if (input.cookie !== null && input.cookie !== '') {
-      const remembered = await campaignByCode(input.cookie, now)
+    const carried = readCouponCookie(input.cookie)
+    if (carried !== null) {
+      const remembered = await campaignByCode(carried.code, now)
       /*
-       * No `entry` check on this branch, and that is not an oversight: the cookie is only ever
-       * written by a route that already checked it, so re-testing it would refuse a coupon a
-       * reader legitimately accepted from a campaign later narrowed to `url`-only. State,
-       * window and ceilings are re-checked, which is what the "never believe the cookie" rule
-       * is actually about.
+       * **No `entry` check for a cookie this server signed**, and that is not an oversight: only
+       * a route that had already checked the code writes one, so re-testing would refuse a
+       * coupon a reader legitimately accepted from a campaign later narrowed to `url`-only. An
+       * **unsigned** value is anybody's guess sent as a header (`cookieValue.ts`), so it is
+       * believed only for a campaign a URL could carry anyway. State, window and ceilings are
+       * re-checked either way, which is what the «never believe the cookie» rule is about.
        */
-      if (remembered !== null && isRedeemable(remembered.status)) return remembered
+      if (remembered !== null && isRedeemable(remembered.status) && (carried.signed || entryAllowsUrl(remembered.entry))) {
+        return remembered
+      }
     }
 
     return null
