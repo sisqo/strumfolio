@@ -453,6 +453,19 @@ const DIRECTIVE = { exec: matchDirective }
  */
 const META_VALUE = /^([a-zA-Z_][a-zA-Z0-9_-]*)\s+(.*)$/
 
+/**
+ * What a `{meta: name value}` may be, by canonical name: metadata, and the two song-wide values
+ * the song-data form also reads through `meta` (`fieldParts`). **Never structure** (2026-09-25):
+ * `{meta: soc x}` and `{meta: start_of_tab x}` opened a chorus and a tab here while the editor
+ * kept the line as one opaque directive and read the rows after it as words — and the reference
+ * treats `meta` as metadata only. A comment, a `{chorus}`, a section or a block is refused, and so
+ * is a name this table does not know, which nothing here reads anyway.
+ */
+const META_NAMES = new Set([
+  'title', 'subtitle', 'artist', 'key', 'metadata', 'tags', 'songbookName', 'sectionName',
+  'tempo', 'timeSignature', 'capo', 'transpose', 'define',
+])
+
 /** Directive aliases, mapped to the canonical name we act on. */
 const DIRECTIVE_ALIAS: Record<string, string> = {
   t: 'title',
@@ -737,6 +750,7 @@ export function parseChordPro(source: string): ParsedSong {
         if (inner === null) continue
         rawName = inner[1].toLowerCase()
         value = inner[2].trim()
+        if (!META_NAMES.has(DIRECTIVE_ALIAS[rawName])) continue
       }
 
       value = decodeUnicodeEscapes(value)

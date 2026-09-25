@@ -342,7 +342,10 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
 - **`\uXXXX`** is the character it names, in lyrics and directive values.
 - **`{duration: 268}` is shown as `4:28`** (`readableDuration`), as the spec requires.
 - **The song-data form reads `{meta: composer X}` as the Composer field** and keeps a meta line
-  a meta line when edited (`fieldParts`).
+  a meta line when edited (`fieldParts`). **`meta` carries metadata and never structure** (`META_NAMES`, 2026-09-25):
+  `{meta: soc x}` or `{meta: start_of_tab x}` opened a block in the reader only, since the editor
+  keeps any meta line as one directive; a comment, a section or a block through `meta` is ignored.
+  `transpose` and `define` still pass, because the form reads them through `meta` too.
 
 What is deliberately **not** followed, each argued where it lives rather than here:
 

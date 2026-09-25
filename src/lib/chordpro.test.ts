@@ -892,6 +892,8 @@ describe('the reader and the editor agree on how many lyric lines a song has', (
     'a continuation into a directive': '{title: T}\nverse \\\n{c: hi}\nnext',
     'a continuation out of a brace': '{title: T}\n{c: hello \\\nworld}\nnext',
     'a directive with a backslash after it': '{title: T}\n{c: hi}\\\nnext',
+    'a tab opened through meta': '{title: T}\n{meta: start_of_tab x}\nrow [x]\n{eot}\nword',
+    'a chorus opened through meta': '{title: T}\n{meta: soc x}\nword\n{eoc}',
   })) {
     it(`agrees line by line with ${name}`, () => {
       assert.equal(disagreement(source), null)
@@ -1320,6 +1322,25 @@ describe('verbatim blocks with a selector (2026-09-24)', () => {
  * Every song is parsed on the server to draw the home screen, so a line shape that makes the
  * reader quadratic is one song hanging an account. Each of these took seconds before 2026-09-25.
  */
+/* `{meta: …}` is the format's spelling of a metadata item, and nothing else: re-split into any
+   name, it opened a tab or a chorus the editor never saw. */
+describe('{meta: …} takes metadata and never structure', () => {
+  it('reads a metadata item through meta', () => {
+    const song = parseChordPro('{meta: composer Verdi}\n{meta: key G}\n{meta: tempo 96}\nword')
+    assert.equal(song.metadata.composer, 'Verdi')
+    assert.equal(song.key, 'G')
+    assert.equal(song.tempo, 96)
+  })
+
+  it('opens nothing and draws nothing through meta', () => {
+    for (const source of ['{meta: soc x}\nword\n{eoc}', '{meta: start_of_tab x}\nword', '{meta: start_of_solo x}\nword', '{meta: comment hi}\nword', '{meta: cb hi}\nword', '{meta: start_of_abc x}\nword']) {
+      const lines = parseChordPro(source).sections.flatMap((section) => section.lines)
+      assert.deepEqual(lines.map((line) => line.kind), ['lyrics'], source)
+      assert.equal(parseChordPro(source).sections[0].kind, 'verse', source)
+    }
+  })
+})
+
 describe('the reader stays linear', () => {
   const cases: [string, () => unknown][] = [
     ['many composers', () => parseChordPro(Array.from({ length: 20000 }, (_, i) => `{composer: c${i}}`).join('\n'))],
