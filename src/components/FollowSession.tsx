@@ -9,6 +9,7 @@ import { PrefsProvider, usePrefs } from '@/components/PrefsProvider'
 import { SheetEntrance } from '@/components/SheetEntrance'
 import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
+import { UpNext } from '@/components/UpNext'
 import { IconBroadcast, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { chordTokens, parseChordPro } from '@/lib/chordpro'
 import { metadataValues } from '@/lib/chordproMeta'
@@ -1058,6 +1059,9 @@ function FollowedSong({
       </header>
 
       <SongSheet song={parsed} values={metadataValues(parsed, song.data.title, song.data.artist)} />
+
+      {/* Only while the guest chooses for themselves — following, the leader does. */}
+      {steps?.next && !song.following && <UpNext step={steps.next} onStepTo={onStepTo} />}
       </SheetEntrance>
 
       <div className="bar-spacer" />

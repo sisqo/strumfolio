@@ -2886,12 +2886,46 @@
     font-weight: 500;
     line-height: 1.2;
     text-align: center;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      scale 0.12s ease-out;
   }
 
   .btn:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  /*
+   * The press, the same one the reading bar has: a phone has no hover, so without it a tap
+   * on any button answered with nothing until whatever it did had happened. `scale`, not
+   * `transform`, so it never fights a button that positions itself with one.
+   */
+  .btn:not(:disabled):active {
+    scale: 0.97;
+  }
+
+  /*
+   * The editor's Save button for a moment after a save lands: the answer in the place that
+   * was pressed. Disabled while it shows, and opaque despite that — it is a message, not a
+   * control that cannot be used.
+   */
+  .btn-saved,
+  .btn-saved:disabled {
+    border-color: transparent;
+    background: var(--success-soft);
+    color: var(--success);
+    box-shadow: none;
+    opacity: 1;
+    animation: savedIn 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+
+  @keyframes savedIn {
+    from {
+      scale: 0.9;
+    }
   }
 
   .btn-primary {
@@ -10413,6 +10447,12 @@
     }
   }
 
+  /* The hover's tint while a finger is down, which is the whole of it on a phone. */
+  a.row:active,
+  button.row:active {
+    background: var(--surface-3);
+  }
+
   /*
    * One card holding rows, where the rows belong to each other: the songs of a
    * canzoniere, the matches of a search, the canzonieri themselves. The card gives the
@@ -13047,8 +13087,8 @@
    * phone, so until this a tap on the bar answered with nothing at all until whatever it
    * did had happened. `scale` rather than `transform`, so nothing that already positions
    * one of these with a transform is fought; no size changes, so nothing around it moves.
-   * iOS applies `:active` only where a touch listener is registered, and `useAutoScroll`
-   * registers one on `window`.
+   * iOS applies `:active` only where a touch listener is registered, and React registers
+   * one on its root for every page.
    */
   .control-button,
   .control-play,
@@ -13077,8 +13117,11 @@
   /* The next song being fetched: a line under the arrow, answering the tap at once (see
      `StepPending`). Visible at rest and only pulsing, so under «reduce motion» it is simply
      a still line. */
+  /* Its own stacking context, so the beckon glow below can sit under the word and chevron
+     while still painting over the button's own fill. */
   .control-step {
     position: relative;
+    isolation: isolate;
   }
 
   .control-step-pending {
@@ -13103,6 +13146,71 @@
   @media (prefers-reduced-motion: reduce) {
     .control-step-pending {
       animation: none;
+    }
+  }
+
+  /*
+   * How far through the song the page is, along the top edge of the bar — only while it
+   * scrolls. Inset from the corners so the line never has to bend round the radius.
+   */
+  .control-progress {
+    position: absolute;
+    top: 0.1875rem;
+    inset-inline: 1.5rem;
+    height: 3px;
+    overflow: hidden;
+    border-radius: var(--r-pill);
+    background: var(--line-soft);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  .control-progress.is-on {
+    opacity: 1;
+  }
+
+  .control-progress-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--accent);
+    transform-origin: left center;
+    scale: var(--progress, 0) 1;
+  }
+
+  /*
+   * The song ran out: the Next arrow glows once, from the inside, so the eye lands on
+   * where the next song is. Brought in and faded by the animation only, so under «reduce
+   * motion» nothing is drawn — the «Up next» card under the words says the same thing still.
+   */
+  .control-step-beckon {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px var(--accent);
+    background: var(--accent-soft);
+    z-index: -1;
+    opacity: 0;
+    pointer-events: none;
+    animation: stepBeckon 1400ms ease-out 2;
+  }
+
+  @keyframes stepBeckon {
+    0% {
+      opacity: 0;
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .control-step-beckon {
+      display: none;
     }
   }
 
@@ -13385,8 +13493,70 @@
    * The song arriving from the side the reader stepped from (`SheetEntrance`): the next one
    * from the right, the previous from the left. Only in: the song being left is replaced by
    * the router, not animated away, so there is nothing to keep in step with a navigation.
-   * Nothing without a direction, so a hard load and the back button show the song as before.
+   * With no direction — opened from a list, the back button — it rises instead; a hard load
+   * does neither.
    */
+  /*
+   * The next song, where the words end (`UpNext`): a quiet row with the title in the song's
+   * own weight, rather than a second call to action competing with the chords above it.
+   */
+  .up-next {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin-block-start: 2rem;
+    padding: 0.875rem 1rem 0.875rem 1.125rem;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    background: var(--bg);
+    color: var(--muted);
+    text-align: start;
+    transition:
+      background-color 0.15s ease,
+      scale 0.12s ease-out;
+  }
+
+  .up-next > svg {
+    flex: none;
+    margin-inline-start: auto;
+  }
+
+  .up-next-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .up-next-label {
+    color: var(--faint);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .up-next-title {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .up-next:active {
+    scale: 0.98;
+    background: var(--surface-3);
+  }
+
+  @media (hover: hover) {
+    .up-next:hover {
+      background: var(--surface-3);
+    }
+  }
+
   .sheet-stage {
     transition: opacity 200ms ease 150ms;
   }
@@ -13417,6 +13587,17 @@
     from {
       opacity: 0;
       translate: -2.5rem 0;
+    }
+  }
+
+  .sheet-entrance[data-from='open'] {
+    animation: sheetRise 240ms cubic-bezier(0.2, 0.8, 0.25, 1);
+  }
+
+  @keyframes sheetRise {
+    from {
+      opacity: 0;
+      translate: 0 0.75rem;
     }
   }
 
@@ -14158,6 +14339,20 @@
       background: color-mix(in srgb, var(--surface) 88%, var(--accent));
       color: var(--accent);
     }
+  }
+
+  /* The hover's tint while a finger is down, plus the press every control here shares. */
+  .segment-button {
+    transition: scale 0.12s ease-out;
+  }
+
+  .segment-button:not(:disabled):active {
+    scale: 0.95;
+  }
+
+  .segment-button:not(:disabled):not(.is-on):active {
+    background: color-mix(in srgb, var(--surface) 88%, var(--accent));
+    color: var(--accent);
   }
 
   /*

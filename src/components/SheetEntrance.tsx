@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 
 import { clearStep, directionTo, type StepDirection } from '@/lib/stepDirection'
 
@@ -16,9 +16,11 @@ import { clearStep, directionTo, type StepDirection } from '@/lib/stepDirection'
  * follower's page shows a new song by swapping state in place, so without the key the
  * wrapper would stay mounted and nothing would move.
  *
- * Nothing slides when nobody stepped. A hard load, the browser's back button and a
- * broadcast moving a follower all arrive with no direction, and the song simply appears as
- * it did before. That also keeps the server's markup identical to the client's first render.
+ * Nothing slides when nobody stepped: a song opened from a list, the browser's back button
+ * and a broadcast moving a follower arrive with no direction, and rise into place instead —
+ * a few pixels and a fade, the same «this is new» without claiming a side. A hard load does
+ * neither, since the words are already on screen from the server's markup and animating
+ * them would make them blink.
  */
 export function SheetEntrance({ slug, children }: { slug: string; children: ReactNode }) {
   return (
@@ -28,10 +30,24 @@ export function SheetEntrance({ slug, children }: { slug: string; children: Reac
   )
 }
 
+/** What `useSyncExternalStore` answers during hydration (the server's snapshot) versus on a
+    mount the client made itself — the one way to tell a hard load from a client navigation
+    that keeps the server's markup and the first client render the same. */
+const subscribeNever = () => () => {}
+
 function Entrance({ slug, children }: { slug: string; children: ReactNode }) {
+  const mountedByClient = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  )
+
   /* Read once, at mount: a later render must not change `data-from`, since swapping the
-     animation's name mid-flight restarts it. */
-  const [from] = useState<StepDirection | null>(() => directionTo(slug))
+     animation's name mid-flight restarts it — and `mountedByClient` itself turns true right
+     after hydration, which must not start an animation over words already painted. */
+  const [from] = useState<StepDirection | 'open' | null>(
+    () => directionTo(slug) ?? (mountedByClient ? 'open' : null),
+  )
   const [entering, setEntering] = useState(from !== null)
 
   useEffect(() => clearStep(slug), [slug])

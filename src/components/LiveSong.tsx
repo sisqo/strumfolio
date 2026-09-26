@@ -21,6 +21,7 @@ import { SongControls } from '@/components/SongControls'
 import { SongInfoPanel } from '@/components/SongInfoPanel'
 import { SongSheet } from '@/components/SongSheet'
 import { useSong } from '@/components/SongProvider'
+import { UpNext } from '@/components/UpNext'
 import { IconInfo } from '@/components/icons'
 import { chordTokens } from '@/lib/chordpro'
 import { metadataValues } from '@/lib/chordproMeta'
@@ -259,6 +260,13 @@ export function LiveMetronome({ children }: { children: ReactNode }) {
  * does that through the same hook the title's own count uses so the two can never
  * disagree. `NavSteps` and `Series` are the same four fields, so there is nothing to map.
  */
+/** The next song's card under the words, from the same sequence the bar's arrows step
+    through — so a favorites-only reader is offered their next favorite, not the next song. */
+export function LiveUpNext({ sequence }: { sequence: Sequence }) {
+  const steps = useSequence(sequence)
+  return steps?.next ? <UpNext step={steps.next} /> : null
+}
+
 export function LiveControlBar({ sequence }: { sequence: Sequence }) {
   const { song, parsed } = useSong()
   const steps = useSequence(sequence)

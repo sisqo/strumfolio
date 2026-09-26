@@ -1766,8 +1766,8 @@ across the flash window with the scoped one.
 ## The reading bar's motion
 
 Added 2026-09-26: a press on every control, play and pause turning into each other, the panels
-rising out of the bar, and a song stepped to arriving from the side of the arrow. Four things
-about it are not visible from the result:
+rising out of the bar, a song stepped to arriving from the side of the arrow, a progress line
+while it scrolls and a cue for the next song when it ends. What is not visible from the result:
 
 - **The next and previous songs are prefetched in full** (`prefetch` on `Step`'s `Link`). The
   route is `force-dynamic`, so the default prefetch fetched nothing and every step waited a whole
@@ -1782,11 +1782,20 @@ about it are not visible from the result:
   `requirePlanChoice` moved into a layout (see *A session no longer outlives its account*).
 - **The direction crosses the navigation in a module variable** (`lib/stepDirection.ts`), and
   `SheetEntrance` is keyed on the slug, which is the only reason a follower's in-place swap
-  animates at all. With no direction nothing moves: a hard load, the back button and a broadcast
-  keep appearing as before, and the server's markup matches the client's.
-- **`:active` works on iOS only because `useAutoScroll` listens for `touchstart` on `window`.**
-  Safari applies the state only where a touch listener exists, so removing that listener would
-  silently remove every press on the bar. The press uses the `scale` property, and the panels
+  animates at all. With no direction the song rises instead (opened from a list, the back
+  button, a broadcast), and **a hard load does not animate at all**: `useSyncExternalStore`'s
+  server snapshot is what tells hydration from a client mount, so the server's markup and the
+  first client render agree and words already painted never blink.
+- **The end of a song is a count, not a flag** (`useAutoScroll`'s `endings`): the Next arrow's
+  glow is keyed on it, and `PrevNext` marks a shown one as seen when it remounts the arrows for
+  the prefetch, or the glow would replay every minute. «Up next» under the words (`UpNext`) takes
+  the same step, direction included. `tapFeedback` buzzes on Android and does nothing on an
+  iPhone, which has no `navigator.vibrate`.
+- **`:active` works on iOS because React listens for `touchstart` on its root.** Safari applies
+  the state only where a touch listener exists, and React 19 registers one (passive) for every
+  event it supports on the container it renders into — so every page has it, songbook lists and
+  editor included, with nothing of ours to keep. Checked in `react-dom-client.production.js`
+  (`listenToAllSupportedEvents`), not on a phone. The press uses the `scale` property, and the panels
   use `transform`, so neither collides with `.speed-popover`'s own `translate`.
 
 ## Adding the app to the home screen

@@ -102,6 +102,9 @@ const MODES: { mode: Mode; label: string; icon: typeof IconPencil }[] = [
 /** Where the toolbar's own open/closed choice is remembered — scoped by `keyFor`. */
 const TOOLS_OPEN_KEY = 'songs:editor-tools'
 
+/** How long the Save button says «Saved» before going back to its resting state. */
+const SAVED_FOR_MS = 1800
+
 const COMMAND_GROUPS: {
   title: string
   commands: {
@@ -186,6 +189,14 @@ export function EditorScreen({ song }: { song: Song }) {
   const [focus, setFocus] = useState<Caret | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  /* The Save button's own answer, for a moment after a save lands — see the button. */
+  const [justSaved, setJustSaved] = useState(false)
+
+  useEffect(() => {
+    if (!justSaved) return
+    const timer = window.setTimeout(() => setJustSaved(false), SAVED_FOR_MS)
+    return () => window.clearTimeout(timer)
+  }, [justSaved])
   /** Whether the «add a field» menu is open — one menu, so a boolean is the whole of it. */
   const [fieldsOpen, setFieldsOpen] = useState(false)
 
@@ -617,6 +628,7 @@ export function EditorScreen({ song }: { song: Song }) {
       writeEdit(result.song)
       saved.current = { source, fields }
       setNotice('Saved. It shows in the song right away; publish it to have it offline too.')
+      setJustSaved(true)
       await refreshSongbooks()
     } catch {
       setError(saveMessage({ reason: 'failed' }))
@@ -678,16 +690,28 @@ export function EditorScreen({ song }: { song: Song }) {
             Undo
           </button>
 
-          {/* Enabled means there is something unsaved: no second label for it. */}
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={busy || !dirty || fields.title.trim() === ''}
-            onClick={() => void save()}
-          >
-            <IconCheck size={14} />
-            Save
-          </button>
+          {/*
+            * Enabled means there is something unsaved: no second label for it. For a moment
+            * after a save it says «Saved» in green, the answer where the thumb that pressed it
+            * still is — the sentence under the head says the same thing further away. The next
+            * edit ends it at once, since `dirty` wins.
+            */}
+          {justSaved && !dirty ? (
+            <button type="button" className="btn btn-sm btn-saved" disabled>
+              <IconCheck size={14} />
+              Saved
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={busy || !dirty || fields.title.trim() === ''}
+              onClick={() => void save()}
+            >
+              <IconCheck size={14} />
+              Save
+            </button>
+          )}
         </div>
 
         {/*

@@ -1,7 +1,7 @@
 'use client'
 
 import Link, { useLinkStatus } from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
 import { useMetronomeControls } from '@/components/MetronomeProvider'
@@ -29,6 +29,7 @@ import { PLANS } from '@/lib/plans/types'
 import { SCROLL_SPEEDS, ZOOM_STEPS } from '@/lib/prefs/types'
 import type { SongStep } from '@/lib/songbooks/series'
 import { markStep } from '@/lib/stepDirection'
+import { tapFeedback } from '@/lib/haptics'
 import { broadcastPlay } from '@/lib/strumTogether/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
@@ -119,7 +120,7 @@ export function ControlBar({
   onStepTo?: (slug: string) => void
 }) {
   const { global, song, pending, setZoomStep, setInstrument, setScrollSpeed } = usePrefs()
-  const { running, toggle } = useAutoScroll(song.scrollSpeed)
+  const { running, endings, toggle } = useAutoScroll(song.scrollSpeed)
   const { broadcast } = useStrumTogether()
   const [panel, setPanel] = useState<Panel>(null)
   const [broadcastPulse, setBroadcastPulse] = useState(0)
@@ -166,6 +167,8 @@ export function ControlBar({
       {panel !== null && <div className="menu-overlay" onClick={() => setPanel(null)} aria-hidden />}
 
       <div className={steps === null ? 'control-strip' : 'control-strip has-nav'}>
+        <ScrollProgress running={running} />
+
         {/*
          * Both panels below are siblings of `.control-dock`/`.control-nav` here, not
          * children of the button that opens them: `.control-strip` is what still spans
@@ -225,6 +228,7 @@ export function ControlBar({
                * risk is accepted: a network failure, or a session gone idle server-side
                * that this reader's own `broadcast` state hasn't caught up with yet.
                */
+              tapFeedback()
               if (!running && broadcastEnabled) {
                 void broadcastPlay(songSlug, resolvedSemitones(song.semitones, songTranspose)).catch(() => {})
                 if (isLive) setBroadcastPulse((count) => count + 1)
@@ -345,9 +349,47 @@ export function ControlBar({
           </div>
         </div>
 
-        {steps !== null && <PrevNext steps={steps} locked={stepsLocked} onStepTo={onStepTo} />}
+        {steps !== null && <PrevNext steps={steps} locked={stepsLocked} beckon={endings} onStepTo={onStepTo} />}
       </div>
     </nav>
+  )
+}
+
+/**
+ * How far through the song the page is, as a line along the top of the bar — shown only
+ * while the song is scrolling, which is when a reader has their hands on the instrument
+ * and no other way to tell how much is left.
+ *
+ * Written straight to a custom property on scroll rather than through state: a scroll
+ * event per frame would otherwise re-render the whole bar per frame.
+ */
+function ScrollProgress({ running }: { running: boolean }) {
+  const line = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const element = line.current
+    if (element === null) return
+
+    const measure = () => {
+      const page = document.documentElement
+      const room = page.scrollHeight - page.clientHeight
+      const done = room <= 0 ? 1 : Math.min(1, Math.max(0, window.scrollY / room))
+      element.style.setProperty('--progress', String(done))
+    }
+
+    measure()
+    window.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      window.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
+
+  return (
+    <span ref={line} className={running ? 'control-progress is-on' : 'control-progress'} aria-hidden>
+      <span className="control-progress-fill" />
+    </span>
   )
 }
 
@@ -376,10 +418,13 @@ export function ControlBar({
 function PrevNext({
   steps,
   locked,
+  beckon,
   onStepTo,
 }: {
   steps: NavSteps
   locked: boolean
+  /** How many times the scroll has run off the end of this song — see `Step`'s `beckon`. */
+  beckon: number
   onStepTo?: (slug: string) => void
 }) {
   /*
@@ -396,6 +441,15 @@ function PrevNext({
     return () => window.clearInterval(timer)
   }, [])
 
+  /* The remount above would replay the «next song» cue every minute after a song ended, so a
+     cue already shown is marked as seen whenever the arrows are rebuilt. */
+  const [seenRound, setSeenRound] = useState(round)
+  const [seenBeckon, setSeenBeckon] = useState(0)
+  if (seenRound !== round) {
+    setSeenRound(round)
+    setSeenBeckon(beckon)
+  }
+
   return (
     <div className="control-nav" key={round}>
       <Step
@@ -408,7 +462,14 @@ function PrevNext({
       <span className="control-nav-count">
         {steps.position} of {steps.total}
       </span>
-      <Step step={steps.next} label="Next song" direction="next" locked={locked} onStepTo={onStepTo} />
+      <Step
+        step={steps.next}
+        label="Next song"
+        direction="next"
+        locked={locked}
+        beckon={beckon > seenBeckon ? beckon : 0}
+        onStepTo={onStepTo}
+      />
     </div>
   )
 }
@@ -421,12 +482,19 @@ function Step({
   label,
   direction,
   locked,
+  beckon = 0,
   onStepTo,
 }: {
   step: SongStep | null
   label: string
   direction: 'previous' | 'next'
   locked: boolean
+  /**
+   * The scroll reached the end of the song this many times: the arrow pulses once each
+   * time, keyed on the count the way the play button's broadcast rings are. The song is
+   * over, and this is where the next one is.
+   */
+  beckon?: number
   onStepTo?: (slug: string) => void
 }) {
   /*
@@ -460,6 +528,8 @@ function Step({
     )
 
   const classes = `control-button control-step is-${direction}`
+
+  const cue = beckon > 0 && <span key={beckon} className="control-step-beckon" aria-hidden />
 
   // Nowhere to go, said to nobody: an arrow that holds its place needs no name.
   if (step === null) {
@@ -502,11 +572,13 @@ function Step({
         title={label}
         aria-label={named}
         onClick={() => {
+          tapFeedback()
           markStep(step.slug, direction)
           onStepTo(step.slug)
         }}
       >
         {face}
+        {cue}
       </button>
     )
   }
@@ -524,9 +596,13 @@ function Step({
       className={classes}
       title={label}
       aria-label={named}
-      onClick={() => markStep(step.slug, direction)}
+      onClick={() => {
+        tapFeedback()
+        markStep(step.slug, direction)
+      }}
     >
       {face}
+      {cue}
       <StepPending />
     </Link>
   )

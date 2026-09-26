@@ -42,6 +42,11 @@ export function useAutoScroll(speedStep: number) {
    * neither may flicker because somebody moved the page an inch.
    */
   const [suspended, setSuspended] = useState(false)
+  /**
+   * How many times the scroll has reached the end of the song on its own — a count and not
+   * a flag, so the bar can key the «next song» cue on it and replay it every time.
+   */
+  const [endings, setEndings] = useState(0)
   const speedRef = useRef(speedStep)
   const frameRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
@@ -162,6 +167,7 @@ export function useAutoScroll(speedStep: number) {
         const page = document.documentElement
         if (atScrollEnd(window.scrollY, page.scrollHeight, page.clientHeight)) {
           setRunning(false)
+          setEndings((count) => count + 1)
           return
         }
       }
@@ -264,5 +270,5 @@ export function useAutoScroll(speedStep: number) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [running, suspended, settle])
 
-  return { running, start, stop, toggle }
+  return { running, endings, start, stop, toggle }
 }
