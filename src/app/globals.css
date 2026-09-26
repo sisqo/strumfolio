@@ -15115,6 +15115,13 @@
     gap: 0.35rem 1rem;
   }
 
+  /* «Tools» closes the groups with the `hidden` attribute, and the `display: flex` above
+     outranks the browser's own `[hidden] { display: none }` — so until this the chevron
+     turned and every command stayed on screen, at every width. */
+  .editor-tool-groups[hidden] {
+    display: none;
+  }
+
   .editor-tool-group {
     display: flex;
     flex-direction: column;
