@@ -13182,7 +13182,7 @@
   /*
    * The song ran out: the Next arrow glows once, from the inside, so the eye lands on
    * where the next song is. Brought in and faded by the animation only, so under «reduce
-   * motion» nothing is drawn — the «Up next» card under the words says the same thing still.
+   * motion» nothing is drawn; the arrow itself is still there to be pressed.
    */
   .control-step-beckon {
     position: absolute;
@@ -13496,67 +13496,6 @@
    * With no direction — opened from a list, the back button — it rises instead; a hard load
    * does neither.
    */
-  /*
-   * The next song, where the words end (`UpNext`): a quiet row with the title in the song's
-   * own weight, rather than a second call to action competing with the chords above it.
-   */
-  .up-next {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    margin-block-start: 2rem;
-    padding: 0.875rem 1rem 0.875rem 1.125rem;
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-lg);
-    background: var(--bg);
-    color: var(--muted);
-    text-align: start;
-    transition:
-      background-color 0.15s ease,
-      scale 0.12s ease-out;
-  }
-
-  .up-next > svg {
-    flex: none;
-    margin-inline-start: auto;
-  }
-
-  .up-next-text {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  .up-next-label {
-    color: var(--faint);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .up-next-title {
-    overflow: hidden;
-    color: var(--ink);
-    font-size: 1.0625rem;
-    font-weight: 500;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .up-next:active {
-    scale: 0.98;
-    background: var(--surface-3);
-  }
-
-  @media (hover: hover) {
-    .up-next:hover {
-      background: var(--surface-3);
-    }
-  }
-
   .sheet-stage {
     transition: opacity 200ms ease 150ms;
   }

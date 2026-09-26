@@ -2,7 +2,7 @@ import { CommentsProvider } from '@/components/CommentsProvider'
 import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { LiveComments } from '@/components/LiveComments'
 import { Footer } from '@/components/Footer'
-import { LiveControlBar, LiveMetronome, LiveSheet, LiveUpNext, SongHeading } from '@/components/LiveSong'
+import { LiveControlBar, LiveMetronome, LiveSheet, SongHeading } from '@/components/LiveSong'
 import { SongActions } from '@/components/SongActions'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SheetEntrance } from '@/components/SheetEntrance'
@@ -216,8 +216,6 @@ export async function SongReader({ song }: { song: Song }) {
             <SongHeading within={section} sequence={sequence} />
 
             <LiveSheet />
-
-            <LiveUpNext sequence={sequence} />
           </SheetEntrance>
 
           {/*

@@ -1788,8 +1788,9 @@ while it scrolls and a cue for the next song when it ends. What is not visible f
   first client render agree and words already painted never blink.
 - **The end of a song is a count, not a flag** (`useAutoScroll`'s `endings`): the Next arrow's
   glow is keyed on it, and `PrevNext` marks a shown one as seen when it remounts the arrows for
-  the prefetch, or the glow would replay every minute. «Up next» under the words (`UpNext`) takes
-  the same step, direction included. `tapFeedback` buzzes on Android and does nothing on an
+  the prefetch, or the glow would replay every minute. An «Up next» card under the words was
+  built the same day and removed on the owner's request: the arrow's glow is the whole cue, by
+  decision. `tapFeedback` buzzes on Android and does nothing on an
   iPhone, which has no `navigator.vibrate`.
 - **`:active` works on iOS because React listens for `touchstart` on its root.** Safari applies
   the state only where a touch listener exists, and React 19 registers one (passive) for every
