@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: 24 September 2026</p>
+      <p className="legal-updated">Last updated: 26 September 2026</p>
 
       <p>
         This Privacy Policy explains how Strumfolio (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and
@@ -62,7 +62,8 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Plan and billing status.</strong> Which plan your account is on, including any paid
         plan, its renewal or expiry date, any upgrade, downgrade or cancellation you have scheduled,
-        and a history of your purchases and plan changes (date, plan, amount, billing cycle). When
+        and a history of your purchases and plan changes (date, plan, amount, billing cycle), and any
+        plan we have given you, with a short note of why. When
         you buy a plan, the payment itself is handled by Paddle, our merchant of record: Paddle
         collects your payment details, billing address and the tax information it needs, and{' '}
         <strong>Strumfolio never receives your full card number</strong>. What we receive back from
@@ -72,7 +73,7 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Discounts.</strong> If you arrive through a link carrying one of our discount codes,
-        the code is kept on your device as described in our{' '}
+        or type one in, the code is kept on your device as described in our{' '}
         <Link href="/cookie-policy">Cookie Policy</Link>. When you are signed in, we record that your
         account was shown that offer — which offer, and when you first and last saw it. If you buy
         with it, we record the redemption: the offer, the plan and billing cycle, the full and the
@@ -91,20 +92,23 @@ export default function PrivacyPolicyPage() {
         Strumfolio may send you one or two personal emails — not marketing, and not part of the
         newsletter above — asking about your instrument and repertoire, or whether there is
         something you are looking for and cannot find. They contain your first name when we have
-        one on file, and nothing else personal. Each carries its own one-click link to stop
-        receiving them, independent of your newsletter setting, and at most one further such email
+        one on file, and nothing else personal. Each carries its own link that stops them with
+        one tap, independent of your newsletter setting, and at most one further such email
         is ever sent after the first.
       </p>
       <p>
         <strong>Preferences.</strong> Display and reading settings you choose — theme, zoom, scroll
-        speed, notation, instrument — and, per song, the key, capo and chord display you last used.
+        speed, notation, instrument — and, per song, the key, capo, tempo and chord shapes you last
+        used, whether you starred it, and when you last opened it, so that your recent and favourite
+        songs can be listed.
         They are stored with your account, and on your device so that the app behaves the way you left
         it even offline.
       </p>
       <p>
         <strong>Content you create.</strong> The songs, lyrics, chords, songbooks, sections and
         private comments you personally import or create. Apart from the Example songbook — a small,
-        fixed set of public-domain songs that a new account starts with, described in our{' '}
+        fixed set of songs — one written for Strumfolio, the rest in the public domain — that a new
+        account starts with, described in our{' '}
         <Link href="/content-copyright-notice">Content &amp; Copyright Notice</Link> — Strumfolio
         does not host or provide any pre-existing lyrics, chords, or song library: all content in
         your collection comes from you, entered manually or imported from files on your own device.
@@ -112,14 +116,17 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Feedback and feature requests.</strong> If you send us feedback from within the app,
         we receive your message, the category you chose, an optional screenshot you attach, your
-        email address and your plan. It arrives in our inbox as an email we can reply to.
+        email address and your plan. It arrives in our inbox as an email we can reply to, and stays
+        there until we delete it — ask and we will.
       </p>
       <p>
         <strong>Usage and technical data.</strong> Basic technical information needed to run and
         secure the service: log data, device and browser type, and IP address as processed by our
-        hosting provider. To limit abuse, we count sign-in, registration, password-reset and feedback
-        attempts per IP address and per email address over ten-minute windows. On registration and
-        password recovery, a Cloudflare Turnstile challenge tells humans from automated scripts; it
+        hosting provider. To limit abuse, we count attempts to sign in, register, resend a verification
+        email, reset a password, send feedback, try a discount code, join a Strum Together session
+        and reach our payment provider — by IP address, by email address or both — over ten-minute
+        windows. On registration, when a verification email is sent again, and on password
+        recovery, a Cloudflare Turnstile challenge tells humans from automated scripts; it
         processes your IP address and technical signals from your browser, and we receive from it only
         a pass or fail.
       </p>
@@ -155,7 +162,8 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Notifications to us.</strong> A few events send a short message to the developer,
         through a private Telegram chat, so that the Service can be run without watching a
-        dashboard: that an account was created, that a plan was bought (which plan, and the amount),
+        dashboard: that an account was created, that a plan was bought or renewed (which plan, and the
+        amount),
         that a piece of feedback arrived, and that a payment needs a person to look at it — for
         example two subscriptions billing on one account, or a discount applied more often than it
         should have been.
@@ -206,7 +214,10 @@ export default function PrivacyPolicyPage() {
             </td>
           </tr>
           <tr>
-            <td>Send service emails (email verification, password reset, purchase and plan-change notices)</td>
+            <td>
+              Send service emails (email verification, a welcome message, password reset, purchase
+              and plan-change notices, and notice of a plan we give you)
+            </td>
             <td>Performance of a contract — Art. 6(1)(b)</td>
           </tr>
           <tr>
@@ -230,6 +241,16 @@ export default function PrivacyPolicyPage() {
             <td>
               Legitimate interest in preventing abuse, diagnosing faults and protecting the service and
               its users — Art. 6(1)(f)
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Tell the developer, through a private chat, about new accounts, purchases, feedback and
+              payments that need attention
+            </td>
+            <td>
+              Legitimate interest in running the Service without watching a dashboard — Art. 6(1)(f).
+              You can object at any time — see section 7
             </td>
           </tr>
           <tr>
@@ -283,23 +304,25 @@ export default function PrivacyPolicyPage() {
           provisioned through Vercel.
         </li>
         <li>
-          <strong>Resend</strong> — delivery of the emails we send you (email verification, password
-          reset, purchase and plan-change notices, the newsletter once it exists, and the two
-          courtesy emails a new account may receive).
+          <strong>Resend</strong> — delivery of the emails we send you (email verification, the
+          welcome email, password reset, purchase and plan-change notices, notice of a plan we give
+          you, the newsletter once it exists, and the two courtesy emails a new account may receive),
+          and of the feedback you send from the app, which it delivers to our own inbox.
         </li>
         <li>
-          <strong>Cloudflare, Inc.</strong> — the Turnstile challenge on registration and password
-          recovery, which processes your IP address and browser signals to tell a person from a
+          <strong>Cloudflare, Inc.</strong> — the Turnstile challenge on registration, on sending a
+          verification email again and on password recovery, which processes your IP address and browser signals to tell a person from a
           script.
         </li>
-        <li>
-          <strong>Telegram FZ-LLC</strong> — delivery of the private notification described in
-          section 2. For the message sent when an account is created this is your email address and,
-          where we have it, your name; a message about a payment that needs looking at contains the
-          internal number of the account and Paddle&apos;s identifiers for it; the others contain no
-          personal data.
-        </li>
       </ul>
+      <p>
+        <strong>Telegram FZ-LLC</strong> receives the private notifications described in section 2,
+        under Telegram&apos;s own terms for bots; it offers no data processing agreement, and section 5
+        explains what that means for the transfer. For the message sent when an account is created
+        this is your email address and, where we have it, your name; a message about a payment that
+        needs looking at contains the internal number of the account and Paddle&apos;s identifiers for
+        it; the others contain no personal data.
+      </p>
       <p>Two providers are different, because they are independent data controllers for their part:</p>
       <ul>
         <li>
@@ -316,8 +339,12 @@ export default function PrivacyPolicyPage() {
           <a href="https://www.paddle.com/legal/privacy" rel="noopener noreferrer" target="_blank">
             privacy policy
           </a>
-          . We share with Paddle the email address of your account, so that the purchase can be
-          matched to it, and receive back what section 2 describes.
+          . We do not give Paddle your email address: you type the one you want on the receipt into
+          Paddle&apos;s own form. To match the payment to your account we pass Paddle the internal
+          number of your account, with a signature from our server so that it cannot be altered,
+          and — where one applies — which of our offers you are using or which plan you are moving
+          from. That happens each time you open the checkout page, whether or not you complete the
+          purchase. We receive back what section 2 describes.
         </li>
       </ul>
       <p>
@@ -327,7 +354,9 @@ export default function PrivacyPolicyPage() {
 
       <h2>5. International transfers</h2>
       <p>
-        Some of these providers are established in the United States or may process data outside the
+        Our database and hosting run in the United States (Neon and Vercel, on Amazon Web Services
+        in the us-east-1 region), so your account and your songs are stored there, and some of the
+        other providers are established in the United States or may process data outside the
         European Economic Area. Where that happens, transfers are covered by appropriate safeguards
         under Chapter V GDPR: the EU-U.S. Data Privacy Framework where the provider is certified
         (Vercel, Google and Cloudflare are), and the European Commission&apos;s Standard Contractual
@@ -364,11 +393,20 @@ export default function PrivacyPolicyPage() {
         merchant of record, under its own policy.
       </p>
       <p>
+        <strong>What stays after an account is deleted.</strong> Besides the payment and discount
+        records below, we keep the address with the number of times it signed in and the date of the
+        last time, and a record of which of the personal emails in section 2 were sent to it, so that
+        none is sent twice. The record of an unused password-reset link stays until that address asks
+        for another. Emails and feedback you sent us stay in our inbox, and the notifications in
+        section 2 in that private chat, until we delete them. To have any of these removed, write to
+        us at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
+      </p>
+      <p>
         <strong>Where you came from.</strong> The attribution cookie in your browser lasts 90 days
         from your most recent qualifying arrival. Once recorded with a registration or an account it
         has no fixed expiry, because comparing one year&apos;s campaigns with the next is the whole
         point of keeping it; it is deleted together with the account, at the same moment and by the
-        same action. If you would rather we did not keep it while keeping your account, write to us
+        same action — or, for a registration never confirmed, when we remove it. If you would rather we did not keep it while keeping your account, write to us
         at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
       </p>
       <p>
@@ -420,27 +458,28 @@ export default function PrivacyPolicyPage() {
         <strong>Your right to object.</strong> Where we process your data on the basis of our
         legitimate interest — namely to keep the Service secure, to measure aggregate traffic and
         performance, to understand which channels bring people to Strumfolio, to run and measure our
-        discount offers, and to send you the
+        discount offers, to tell the developer about new accounts and payments, and to send you the
         one or two personal emails described in section 2 — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate
         compelling legitimate grounds that override your interests, rights and freedoms. To object,
         write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. For the two personal emails
-        specifically, the one-click link each of them carries does the same thing without writing
+        specifically, the link each of them carries does the same thing without writing
         to us at all.
       </p>
       <p>
         Strumfolio lets you <strong>export your full collection, change your newsletter preference and
         delete your account directly from within the app</strong>, at any time and without having to
-        ask us — a paid subscription that will renew has to be cancelled first, as the Terms of Service
+        ask us — a paid subscription that will renew has to be cancelled first, and one that is paused or
+        has a payment overdue is cancelled by us when you write to us, as the Terms of Service
         explain, so that nothing is charged after the account is gone. For anything else, or if a self-service option is not working, contact us at{' '}
         <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. We aim to respond within 30 days.
       </p>
 
       <h2>8. Data security</h2>
       <p>
-        We take reasonable technical and organizational measures to protect your data against
-        unauthorized access, loss, or misuse, including encrypted connections, hashed passwords and
+        We take reasonable technical and organisational measures to protect your data against
+        unauthorised access, loss, or misuse, including encrypted connections, hashed passwords and
         one-time links, and access limited to what is needed to run the service. No system is 100%
         secure, and we encourage you to keep your account credentials confidential.
       </p>

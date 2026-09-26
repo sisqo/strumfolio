@@ -27,7 +27,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <h1>Terms of Service</h1>
-      <p className="legal-updated">Last updated: 24 September 2026</p>
+      <p className="legal-updated">Last updated: 26 September 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Strumfolio (&ldquo;the
@@ -44,14 +44,16 @@ export default function TermsOfServicePage() {
         Strumfolio lets you import, organize, edit and export your own collection of lyrics and
         chords, and offers features such as key/capo transposition, chord diagrams, a printable
         booklet and Strum Together, a feature that syncs a song across multiple devices in real
-        time. The Service is a web app that also works offline once installed on your device.
+        time. The Service is a web app; once you have signed in on a device, your songs stay readable there
+        with no connection, while Strum Together needs one.
       </p>
       <p>
         <strong>Strumfolio is not a song library.</strong> There is no catalog to browse or search,
         and the Service does not search, fetch, or download content from third-party websites on your
         behalf. Every song in your collection is content that you personally type in or import from
         a file on your own device, with one exception: the &ldquo;Example songbook&rdquo;, a small,
-        fixed set of traditional, public-domain songs that a new account is created with, and that
+        fixed set of songs — one written for Strumfolio, the rest traditional and in the public
+        domain — that a new account is created with, and that
         you can rename, edit or delete like any other songbook. Our{' '}
         <Link href="/content-copyright-notice">Content &amp; Copyright Notice</Link> describes it in
         full. Apart from that one set, the Service is only a tool for organizing and displaying
@@ -60,8 +62,8 @@ export default function TermsOfServicePage() {
 
       <h2>2. Accounts and access</h2>
       <p>
-        Registration is open: you can create an account using your name, an email address and a
-        password, or by signing in with Google. You are responsible for maintaining the
+        Registration is open: you can create an account with your name and email address, choosing
+        a password once you open the confirmation link we send, or by signing in with Google. You are responsible for maintaining the
         confidentiality of your account and for all activity that occurs under it. Notify us
         promptly if you believe your account has been accessed without your authorisation.
       </p>
@@ -107,10 +109,11 @@ export default function TermsOfServicePage() {
 
       <h2>4. Strum Together</h2>
       <p>
-        When you start a Strum Together session, you act as the session leader and control what is
-        displayed on the devices of participants who join via your shared link.{' '}
-        <strong>Anyone holding the link can join without an account</strong> and can view the shared
-        content for the duration of the session. A session is a private performance among people you
+        When you start a Strum Together session, you act as the session leader: the song you play appears
+        on the devices of participants who join via your shared link.{' '}
+        <strong>Anyone holding the link can join without an account</strong>, and while the session
+        is live they can also open any song in your collection, not only the one you are playing. The
+        link stops working when you end the session, or after eight hours without activity. A session is a private performance among people you
         invited, not a broadcast: how many devices your plan allows changes how many people can be in
         the room, not what the room is. You are responsible for who you share that link with, and for
         keeping the session inside the personal use described in section 3.
@@ -193,7 +196,8 @@ export default function TermsOfServicePage() {
         <strong>&ldquo;Lifetime&rdquo; means the lifetime of the Service</strong>, for as long as
         Strumfolio is operated — not a fixed number of years, and not the lifetime of a person. It is
         tied to the account that bought it and cannot be transferred, and it ends only if you delete
-        your account or if we terminate it under section 11.
+        your account, if its price is refunded to you — including a withdrawal under section 8 — or
+        charged back, or if we terminate it under section 11.
       </p>
       <p>
         A Lifetime plan follows Premium upwards and never downwards: you get every feature and every
@@ -209,7 +213,8 @@ export default function TermsOfServicePage() {
         <strong>When a paid plan ends.</strong> Nothing you have put in is deleted. Your songs stay
         readable and exportable on the free plan, the features reserved to paid plans stop being
         available, and if the collection is over a free-plan limit you can only delete until you are
-        back under it — you cannot add until then. A Lifetime plan does not expire.
+        back under it — you cannot add until then. A Lifetime plan does not expire unless its price is
+        refunded.
       </p>
 
       <h2>8. Right of withdrawal and refunds</h2>
@@ -236,9 +241,10 @@ export default function TermsOfServicePage() {
       </p>
       <p>
         <strong>Renewals.</strong> The way to avoid a renewal charge is to cancel before the renewal
-        date, which you can do at any time from the Plan &amp; billing page. If a renewal goes through that you
-        did not mean to keep, write to us within 14 days of the charge and we refund it, in which case
-        the plan ends at once. Outside these cases, refunds are at our discretion, except where the
+        date, which you can do at any time from the Plan &amp; billing page (if a payment is overdue or the
+        subscription is paused, write to us and we cancel it). If a renewal goes through that you
+        did not mean to keep, write to us within 14 days of the charge and we refund it and end the
+        subscription at once. Outside these cases, refunds are at our discretion, except where the
         law of your country entitles you to one — for example because the Service failed to work as
         described and we could not fix it.
       </p>
@@ -295,6 +301,9 @@ export default function TermsOfServicePage() {
       </p>
       <p>
         We may suspend or terminate access to the Service for accounts that violate these Terms.
+        While an account is suspended you cannot sign in, and it cannot be deleted from the app:
+        write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a> and we will delete it, or cancel a paid
+        subscription for you.
         Because Strumfolio stores content on your behalf, it is a hosting service in the sense of
         the EU Digital Services Act (Regulation (EU) 2022/2065). Our{' '}
         <Link href="/content-copyright-notice">Content &amp; Copyright Notice</Link> describes how

@@ -665,7 +665,7 @@ const FAQ: FaqGroup[] = [
       },
       {
         q: 'Is my collection private, or can others see it?',
-        a: "Your collection is private by default, visible only to you — nobody else has access to an account that isn't theirs.",
+        a: "Your collection is private by default, visible only to you — nobody else has access to an account that isn't theirs. The one exception is a Strum Together session you start: while it is live, whoever holds its link can open your songs.",
       },
       {
         q: 'If I stop using Strumfolio, can I take my songs with me?',

@@ -13,7 +13,7 @@ export default function ContentCopyrightNoticePage() {
   return (
     <>
       <h1>Content &amp; Copyright Notice</h1>
-      <p className="legal-updated">Last updated: 3 September 2026</p>
+      <p className="legal-updated">Last updated: 26 September 2026</p>
 
       <p>
         Strumfolio (strumfolio.com) is a tool for managing your own personal song collection, run by an
@@ -33,9 +33,9 @@ export default function ContentCopyrightNoticePage() {
         <strong>The one exception</strong> is the “Example songbook”, and it is the only thing this
         app ever puts into an account by itself: a new account is created with it already in place,
         and an account that no longer has any songbook can add it again from the home screen. It
-        brings in a small, fixed set of traditional songs — hymns and folk ballads with no living
-        author and no active copyright anywhere, kept in this app the same way any public-domain text
-        is kept in any other. It is an ordinary songbook once it is there: rename it, edit it, or
+        brings in one short song written for Strumfolio itself and a small, fixed set of traditional
+        songs — hymns and folk ballads old enough to be in the public domain in the EU, the UK and the
+        US, kept in this app the same way any public-domain text is kept in any other. It is an ordinary songbook once it is there: rename it, edit it, or
         delete it outright, and nothing puts it back unless you ask.
       </p>
       <p>
@@ -64,7 +64,8 @@ export default function ContentCopyrightNoticePage() {
       </p>
       <p>
         Strumfolio does not review, verify, index, or endorse the content you import, and does not make
-        any user&apos;s content publicly searchable or browsable by other users.
+        any user&apos;s content publicly searchable or browsable by other users — the one exception is
+        the people you let into a Strum Together session, described below.
       </p>
 
       <h2>3. Where personal use ends</h2>
@@ -73,9 +74,10 @@ export default function ContentCopyrightNoticePage() {
         Here is where each of them falls.
       </p>
       <p>
-        <strong>Strum Together</strong> shows a song, live, on the screens of people who opened your
-        link. That is a private performance among people you invited: nobody reaches a session without
-        the link you handed them, and what is shown ends when the session does. It is not a broadcast,
+        <strong>Strum Together</strong> shows the song you play, live, on the screens of people who
+        opened your link, and while the session lasts they can open the rest of your collection too.
+        That is a private performance among people you invited: nobody reaches a session without the
+        link you handed them, and what is shown ends when the session does. It is not a broadcast,
         and it is not a publishing or distribution feature — it grants no rights over the underlying
         work to Strumfolio or to anyone in the session, and participants should not record or
         redistribute what they were shown. How many devices your plan allows changes how many people
@@ -108,7 +110,7 @@ export default function ContentCopyrightNoticePage() {
       <p>
         Content on Strumfolio lives inside private, individual accounts that we do not routinely access
         or review — see our <Link href="/privacy-policy">Privacy Policy</Link>. Because of that, we
-        cannot verify the substance of a claim ourselves. What we do instead: within a few business
+        do not inspect its content to verify a claim ourselves. What we do instead: within a few business
         days, we forward a complete notice to the account holder and ask them to remove the content or
         explain why it does not infringe; if the notice is clear-cut or they do not respond, we
         restrict or disable access to the account rather than inspect its private content ourselves.
