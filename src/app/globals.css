@@ -13351,6 +13351,19 @@
     transform-origin: bottom center;
   }
 
+  /*
+   * Above the arrows. `.control-step` is positioned (for its pending line) and comes after
+   * the dock in the markup, so with no z-index it painted over whatever panel reached its
+   * row — the speed slider, standing on end over «Next» on a phone, was half under it.
+   * 2 clears the play circle's 1 too.
+   */
+  .control-panel,
+  .strum-panel,
+  .metronome-panel,
+  .speed-popover {
+    z-index: 2;
+  }
+
   @keyframes panelRise {
     from {
       opacity: 0;
