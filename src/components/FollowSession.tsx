@@ -6,6 +6,7 @@ import { ControlBar, type NavSteps } from '@/components/ControlBar'
 import { GuestSettingsMenu } from '@/components/GuestSettingsMenu'
 import { MetronomeProvider } from '@/components/MetronomeProvider'
 import { PrefsProvider, usePrefs } from '@/components/PrefsProvider'
+import { SheetEntrance } from '@/components/SheetEntrance'
 import { SongControls } from '@/components/SongControls'
 import { SongSheet } from '@/components/SongSheet'
 import { IconBroadcast, IconChevronDown, IconChevronLeft, IconChevronRight } from '@/components/icons'
@@ -1010,6 +1011,7 @@ function FollowedSong({
         </div>
       )}
 
+      <SheetEntrance slug={song.data.slug}>
       <header className="mb-4">
         <h1 className="text-[1.6875rem] font-medium leading-[1.12] tracking-[-0.03em]">
           {song.data.title}
@@ -1056,6 +1058,7 @@ function FollowedSong({
       </header>
 
       <SongSheet song={parsed} values={metadataValues(parsed, song.data.title, song.data.artist)} />
+      </SheetEntrance>
 
       <div className="bar-spacer" />
 

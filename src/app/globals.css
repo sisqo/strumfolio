@@ -13002,7 +13002,7 @@
    * element becomes a pause icon while scrolling, which would be visibly off centre if it
    * were shifted.
    */
-  .control-play > svg {
+  .control-play-icon > svg {
     width: 1.875rem;
     height: 1.875rem;
   }
@@ -13020,6 +13020,92 @@
    * intended rather than an oversight: the rings are decorative and
    * `pointer-events: none`, so nothing they cross becomes unreachable.
    */
+  /*
+   * The icon's own box, so the one arriving can turn in: play and pause are keyed on the
+   * state and this is the element that changes. Only after a first swap (`is-swapped`),
+   * or every song opened would spin its play icon on arrival. The animation only brings
+   * the icon in, so under «reduce motion» it is simply there.
+   */
+  .control-play-icon {
+    display: inline-flex;
+  }
+
+  .control-play-icon.is-swapped {
+    animation: playIconIn 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  @keyframes playIconIn {
+    from {
+      opacity: 0;
+      scale: 0.55;
+      rotate: -60deg;
+    }
+  }
+
+  /*
+   * A press you can feel on glass. The hover tints behind `(hover: hover)` never reach a
+   * phone, so until this a tap on the bar answered with nothing at all until whatever it
+   * did had happened. `scale` rather than `transform`, so nothing that already positions
+   * one of these with a transform is fought; no size changes, so nothing around it moves.
+   * iOS applies `:active` only where a touch listener is registered, and `useAutoScroll`
+   * registers one on `window`.
+   */
+  .control-button,
+  .control-play,
+  .control-strum.is-live {
+    transition:
+      scale 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  /* The play circle is a `.control-button` too, and keeps its own darker fill below. */
+  .control-button:not(.is-off, .control-play):active {
+    scale: 0.94;
+    background-color: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
+  }
+
+  /* The live Strum Together pill is not a `.control-button`, and presses the same way. */
+  .control-strum.is-live:active {
+    scale: 0.94;
+  }
+
+  .control-play:active {
+    scale: 0.92;
+    background-color: color-mix(in srgb, var(--accent) 88%, var(--ink));
+  }
+
+  /* The next song being fetched: a line under the arrow, answering the tap at once (see
+     `StepPending`). Visible at rest and only pulsing, so under «reduce motion» it is simply
+     a still line. */
+  .control-step {
+    position: relative;
+  }
+
+  .control-step-pending {
+    position: absolute;
+    inset-inline: 30%;
+    bottom: 0.4375rem;
+    height: 2px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    animation: stepPending 800ms ease-in-out infinite alternate;
+  }
+
+  @keyframes stepPending {
+    from {
+      opacity: 0.35;
+      scale: 0.4 1;
+    }
+  }
+
+  /* An endless animation cut to 0.01ms samples a random point of its cycle on every frame,
+     which is flicker rather than stillness — the reason `.skeleton` does the same. */
+  @media (prefers-reduced-motion: reduce) {
+    .control-step-pending {
+      animation: none;
+    }
+  }
+
   .play-broadcast-rings {
     position: absolute;
     inset: -100%;
@@ -13251,6 +13337,82 @@
    * anything ever rendered it, it would have been positioned against whatever happened
    * to be above it. Deleted rather than renamed: nothing referenced it.
    */
+  /*
+   * The four panels over the bar rise out of it rather than appearing: 6px and a fade,
+   * in only. Closing stays instant, so a dismissed panel is never left half over the words.
+   * `transform` and not `translate`, because `.speed-popover` centres itself with the
+   * `translate` property and the two compose instead of fighting.
+   */
+  .control-panel,
+  .strum-panel,
+  .metronome-panel,
+  .speed-popover {
+    animation: panelRise 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    transform-origin: bottom center;
+  }
+
+  @keyframes panelRise {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+  }
+
+  .control-bar .menu-overlay {
+    animation: veilIn 180ms ease-out;
+  }
+
+  @keyframes veilIn {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /*
+   * The song arriving from the side the reader stepped from (`SheetEntrance`): the next one
+   * from the right, the previous from the left. Only in: the song being left is replaced by
+   * the router, not animated away, so there is nothing to keep in step with a navigation.
+   * Nothing without a direction, so a hard load and the back button show the song as before.
+   */
+  .sheet-stage {
+    transition: opacity 200ms ease 150ms;
+  }
+
+  /* Clipped at the element holding the stage — the reading card, or the follower's column —
+     and not at the stage itself, whose edge is inside the card's padding and would slice
+     the letters off in mid-air rather than let them slide out from under the card's edge. */
+  :has(> .sheet-stage.is-entering) {
+    overflow-x: clip;
+  }
+
+  .sheet-entrance[data-from='next'] {
+    animation: sheetFromNext 260ms cubic-bezier(0.2, 0.8, 0.25, 1);
+  }
+
+  .sheet-entrance[data-from='previous'] {
+    animation: sheetFromPrevious 260ms cubic-bezier(0.2, 0.8, 0.25, 1);
+  }
+
+  @keyframes sheetFromNext {
+    from {
+      opacity: 0;
+      translate: 2.5rem 0;
+    }
+  }
+
+  @keyframes sheetFromPrevious {
+    from {
+      opacity: 0;
+      translate: -2.5rem 0;
+    }
+  }
+
+  /* While a step is still fetching, the song being left fades back after a beat — the
+     delay keeps a step that arrives at once from flickering. */
+  body:has(.control-step-pending) .sheet-stage {
+    opacity: 0.45;
+  }
+
   .pending-dot {
     position: absolute;
     top: 0.4375rem;
@@ -14054,7 +14216,7 @@
       margin-top: -1.0625rem;
     }
 
-    .control-play > svg {
+    .control-play-icon > svg {
       width: 1.5rem;
       height: 1.5rem;
     }

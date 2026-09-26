@@ -1763,6 +1763,32 @@ Verified before/after in a real browser on 2026-09-11 with a planted foreign cac
 account's songbook name was visible with the unscoped store and absent at all forty samples
 across the flash window with the scoped one.
 
+## The reading bar's motion
+
+Added 2026-09-26: a press on every control, play and pause turning into each other, the panels
+rising out of the bar, and a song stepped to arriving from the side of the arrow. Four things
+about it are not visible from the result:
+
+- **The next and previous songs are prefetched in full** (`prefetch` on `Step`'s `Link`). The
+  route is `force-dynamic`, so the default prefetch fetched nothing and every step waited a whole
+  server render with no answer on screen. That is two extra renders per song opened; measured
+  locally, a step went from ~6 s to under 100 ms once they had landed. A step taken before they
+  land shows `StepPending`'s line and fades the song being left (`body:has(…)`, after 150 ms).
+  A full prefetch expires after five minutes (`staleTimes.static`) and the bar never leaves the
+  viewport to trigger another, so `PrevNext` remounts the arrows every minute: the router
+  refetches only an expired entry, so the remount is cheap.
+- **There is deliberately no `loading.tsx` under `songs/[slug]`.** A skeleton would have replaced
+  the reading bar the reader's thumb is on, and it would have needed `requireAccount` and
+  `requirePlanChoice` moved into a layout (see *A session no longer outlives its account*).
+- **The direction crosses the navigation in a module variable** (`lib/stepDirection.ts`), and
+  `SheetEntrance` is keyed on the slug, which is the only reason a follower's in-place swap
+  animates at all. With no direction nothing moves: a hard load, the back button and a broadcast
+  keep appearing as before, and the server's markup matches the client's.
+- **`:active` works on iOS only because `useAutoScroll` listens for `touchstart` on `window`.**
+  Safari applies the state only where a touch listener exists, so removing that listener would
+  silently remove every press on the bar. The press uses the `scale` property, and the panels
+  use `transform`, so neither collides with `.speed-popover`'s own `translate`.
+
 ## Adding the app to the home screen
 
 The hamburger's "Add to home screen" row (`src/lib/install/`, `InstallPanel.tsx`) is one row

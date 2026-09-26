@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer'
 import { LiveControlBar, LiveMetronome, LiveSheet, SongHeading } from '@/components/LiveSong'
 import { SongActions } from '@/components/SongActions'
 import { PrefsProvider } from '@/components/PrefsProvider'
+import { SheetEntrance } from '@/components/SheetEntrance'
 import { SongProvider } from '@/components/SongProvider'
 import { SongReaderSearch } from '@/components/SongReaderSearch'
 import { TopBar } from '@/components/TopBar'
@@ -211,9 +212,11 @@ export async function SongReader({ song }: { song: Song }) {
             * reason it exists: a number counting one thing while the arrow led through
             * another would be two stories on one line.
             */}
-          <SongHeading within={section} sequence={sequence} />
+          <SheetEntrance slug={song.slug}>
+            <SongHeading within={section} sequence={sequence} />
 
-          <LiveSheet />
+            <LiveSheet />
+          </SheetEntrance>
 
           {/*
             * Edit is a link, not a form: the editor is a page of its own, and two ways

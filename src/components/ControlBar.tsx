@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { FeaturePaywallModal } from '@/components/FeaturePaywallModal'
@@ -28,6 +28,7 @@ import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
 import { PLANS } from '@/lib/plans/types'
 import { SCROLL_SPEEDS, ZOOM_STEPS } from '@/lib/prefs/types'
 import type { SongStep } from '@/lib/songbooks/series'
+import { markStep } from '@/lib/stepDirection'
 import { broadcastPlay } from '@/lib/strumTogether/session'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
@@ -123,6 +124,19 @@ export function ControlBar({
   const [panel, setPanel] = useState<Panel>(null)
   const [broadcastPulse, setBroadcastPulse] = useState(0)
   const isLive = broadcast !== null && broadcast !== undefined
+
+  /*
+   * Whether play and pause have swapped at least once since this bar mounted, adjusted
+   * during render rather than in an effect so the class is there on the very frame the
+   * new icon is. Without it the icon would turn in on every song opened, since the bar
+   * mounts with each one.
+   */
+  const [shownRunning, setShownRunning] = useState(running)
+  const [iconSwapped, setIconSwapped] = useState(false)
+  if (shownRunning !== running) {
+    setShownRunning(running)
+    setIconSwapped(true)
+  }
 
   useEffect(() => {
     if (panel === null) return
@@ -227,7 +241,10 @@ export function ControlBar({
                 <span className="play-broadcast-ring" />
               </span>
             )}
-            {running ? <IconPause size={16} /> : <IconPlay size={16} />}
+            {/* Keyed on the state, so the icon arriving is a new element and turns in. */}
+            <span key={running ? 'pause' : 'play'} className={iconSwapped ? 'control-play-icon is-swapped' : 'control-play-icon'}>
+              {running ? <IconPause size={16} /> : <IconPlay size={16} />}
+            </span>
           </button>
 
           {/*
@@ -365,8 +382,22 @@ function PrevNext({
   locked: boolean
   onStepTo?: (slug: string) => void
 }) {
+  /*
+   * A full prefetch is kept for five minutes (`staleTimes.static`), and a reader on a stage
+   * stays on one song for its whole length while this bar never leaves the viewport, so
+   * nothing would fetch the neighbours again: after a long song the step would be cold.
+   * Remounting both arrows makes each `Link` ask again, and the router fetches only once the
+   * entry has actually expired — so the remount is frequent and the request is not, and a
+   * step is cold for at most a minute after the fifth.
+   */
+  const [round, setRound] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setRound((count) => count + 1), PREFETCH_REFRESH_MS)
+    return () => window.clearInterval(timer)
+  }, [])
+
   return (
-    <div className="control-nav">
+    <div className="control-nav" key={round}>
       <Step
         step={steps.previous}
         label="Previous song"
@@ -381,6 +412,9 @@ function PrevNext({
     </div>
   )
 }
+
+/** How often the arrows ask for their songs again — see `PrevNext`. */
+const PREFETCH_REFRESH_MS = 60 * 1000
 
 function Step({
   step,
@@ -467,7 +501,10 @@ function Step({
         className={classes}
         title={label}
         aria-label={named}
-        onClick={() => onStepTo(step.slug)}
+        onClick={() => {
+          markStep(step.slug, direction)
+          onStepTo(step.slug)
+        }}
       >
         {face}
       </button>
@@ -475,10 +512,35 @@ function Step({
   }
 
   return (
-    <Link href={`/songs/${step.slug}`} className={classes} title={label} aria-label={named}>
+    /*
+     * `prefetch` in full, because the route is rendered per request and the default would
+     * fetch nothing ahead of the tap: the next and the previous song are the two pages a
+     * reader on a stage is most likely to open next, and with them already here the step
+     * is instant. Two extra renders per song opened, which is the price of it.
+     */
+    <Link
+      href={`/songs/${step.slug}`}
+      prefetch
+      className={classes}
+      title={label}
+      aria-label={named}
+      onClick={() => markStep(step.slug, direction)}
+    >
       {face}
+      <StepPending />
     </Link>
   )
+}
+
+/**
+ * A line under the arrow while the song it leads to is still on its way — only when it was
+ * not already prefetched, since `useLinkStatus` skips the pending state for one that was.
+ * It answers the tap at once, so a slow network does not read as a press that did not take;
+ * and the song being left fades back beside it (`.sheet-stage` under `:has()`, in the CSS).
+ */
+function StepPending() {
+  const { pending } = useLinkStatus()
+  return pending ? <span className="control-step-pending" aria-hidden /> : null
 }
 
 /**
