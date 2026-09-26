@@ -94,7 +94,7 @@ export default function ChordProConverterPage() {
             where your hand changes:
           </p>
           <pre>
-            <code>{'[Am]The last bus home is [F]late\nand [C]I am singing [G]anyway'}</code>
+            <code>{'[Am]The last bus home is [F]late\nand I am [C]singing any[G]way'}</code>
           </pre>
           <p>
             <strong>The chord is now attached to a syllable instead of to a column</strong>, which is what lets an app

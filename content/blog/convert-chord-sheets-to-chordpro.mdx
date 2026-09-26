@@ -36,7 +36,7 @@ Here is a sheet in the format almost everything is published in:
 ```
 Am                   F
 The last bus home is late
-    C            G
+         C          G
 and I am singing anyway
 ```
 
@@ -44,7 +44,7 @@ And the same thing as ChordPro:
 
 ```
 [Am]The last bus home is [F]late
-and [C]I am singing [G]anyway
+and I am [C]singing any[G]way
 ```
 
 The chord names have not changed and the words have not changed. **What changed is what the
@@ -75,7 +75,8 @@ import screen inside the app keeps the converted song editable before it saves a
 The bias is deliberate and worth knowing, because it decides which way the mistakes fall: a
 chord line mistaken for lyrics leaves a stray line you can see and fix, while **lyrics mistaken
 for chords take words out of the song** and hide them above an unrelated line. Given the
-choice, the converter takes the first.
+choice — on a line of bare note names like `do re mi` — the converter takes the first. A lone
+<Chord>A</Chord> on its own line is still read as a chord, so that is the line to check.
 
 ## How to check it in five seconds
 
@@ -95,7 +96,7 @@ The last bus home is late
 [Am]The last bus home i[F]s late
 ```
 
-One character of drift in the input is one misplaced bracket in the output. **The fix is in
+A column or two of drift in the input is a misplaced bracket in the output. **The fix is in
 the input, not the output**: nudge the chord line left or right until the chord sits over the
 first letter of the word, and paste again. Fighting the result instead means fixing the same
 thing once per verse.
@@ -116,9 +117,9 @@ A few kinds of file look close enough to confuse a converter and are worth knowi
 
 ## More than one song in the paste
 
-ChordPro separates songs with a `{new_song}` directive, or simply a second `{title: …}`, and a
-line of `---` between pasted songs counts too — which means a file holding a whole songbook can
-be split on those boundaries without guessing. If you paste several songs
+ChordPro separates songs with a `{new_song}` directive; Strumfolio also splits on a second
+`{title: …}` and on a line of `---` between pasted songs — which means a file holding a whole
+songbook comes apart on those boundaries. If you paste several songs
 at once, the converter will say how many it found, and importing the same paste into
 Strumfolio splits them into separate songs rather than one very long one.
 
@@ -153,9 +154,9 @@ when nothing identifies the source.
 
 Where the apps disagree, the specification is the thing to settle it against: the official
 [ChordPro cheat sheet](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/) is a single
-page listing every directive the format actually defines, which is usually shorter than the
-list your old app was writing. Anything on that page is safe to keep; anything that is not is
-a dialect, and worth knowing you are carrying.
+page listing the directives you will meet day to day, which is usually shorter than the list
+your old app was writing. Anything on that page is safe to keep; anything that is not is worth
+checking against the reference implementation before you call it a dialect.
 
 ## Why bother at all
 

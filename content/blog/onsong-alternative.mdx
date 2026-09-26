@@ -73,8 +73,9 @@ chord by its degree of the key.
 
 **It is a per-reader setting, not a per-song one.** The session player can read their charts in numbers
 while the singer reads theirs in Italian; in a Strum Together session everyone follows the
-leader's notation, so the room reads one alphabet. Every chord shape is checked against the notes
-that make the chord — [why a chord is a set of notes](/blog/a-chord-is-a-set-of-notes).
+leader's notation, so the room reads one alphabet. Every shape in the app's own library is checked against
+the notes that make the chord, and a fingering your file defines for itself is drawn as written —
+[why a chord is a set of notes](/blog/a-chord-is-a-set-of-notes).
 
 ## Moving a library across
 
@@ -88,7 +89,8 @@ under the wrong heading — and **a wrong value that arrived quietly is worse th
 because nothing ever prompts you to look at it again.
 
 Strumfolio sniffs which app wrote a file before reading its directives, and reads that app's
-table. When nothing identifies the source, the ambiguous directives are ignored rather than
+table. When nothing identifies the source, the directives the apps disagree on are read the way the
+ChordPro specification means them, or left alone where it gives them no meaning, rather than
 guessed. Everything lands behind a preview that stays editable before it saves, because a
 conversion is a heuristic and will not always be right.
 
@@ -130,7 +132,7 @@ apps in it, is in the [round-up of chord chart apps for gigging musicians](/blog
     {
       question: 'Can I move my OnSong ChordPro files without retyping them?',
       answer:
-        'Yes. Export them as ChordPro and import them, and the directives are read with the meanings OnSong itself uses rather than a generic table — which matters because the same directive means different things in different apps, and a value filed under the wrong heading is a mistake nothing later prompts you to check. The import lands behind a preview that stays editable before anything saves.',
+        'Yes. Export them as ChordPro and import them; when the file carries OnSong’s own header block, the directives are read with the meanings OnSong itself uses rather than a generic table — which matters because the same directive means different things in different apps, and a value filed under the wrong heading is a mistake nothing later prompts you to check. The import lands behind a preview that stays editable before anything saves.',
     },
     {
       question: 'Does OnSong run on Windows?',

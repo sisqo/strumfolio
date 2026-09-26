@@ -38,8 +38,8 @@ The lines in curly braces are directives — metadata about the song rather than
 itself. You will meet a handful of them constantly:
 
 - `{title: …}` and `{artist: …}` — what the song is called and whose it is.
-- `{key: …}` — the key it is written in, which is what lets an app transpose *relative* to
-  something instead of guessing.
+- `{key: …}` — the key it is written in, which is what lets an app name the key you land in
+  when you transpose, instead of guessing it from the chords.
 - `{capo: …}` — where the capo goes, if it goes anywhere. Separate from the key on purpose:
   [those are two different facts](/blog/capo-second-fret) and a sheet that conflates them
   makes both of them useless.
@@ -59,7 +59,7 @@ and I am [C]singing any[G]way
 ```
 
 The <Chord>G</Chord> is inside "anyway", between "any" and "way", because that is where the
-chord actually changes when you play it. Written as `[G]anyway` it would be a semiquaver
+chord actually changes when you play it. Written as `[G]anyway` it would come two syllables
 early; written at the end of the line it would be too late to be any use. **A chord that lands
 mid-word is not a mistake in the file, it is the file being precise.**
 
@@ -155,15 +155,14 @@ program now called **ChordPro**, named after the format rather than the other wa
 first alpha was released on 4 June 2016.
 
 The language itself is on version 6; version 5 was drafted and never shipped, folded into 6
-before release. That version is what added text markup and annotations, and it is what a
-current file is written against. The specification lives at
+before release, and version 6 is what a current file is written against. The specification lives at
 [chordpro.org](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/) — the cheat sheet is a
-single page and covers essentially all of it — and the reference implementation is on GitHub,
-open source, still maintained.
+single page and covers everyday use — and the reference implementation is on GitHub, open
+source, still maintained, and decides the rest.
 
 **There is no standards body, no committee and no company**, which cuts both ways. It is why
 the rarer directives drift between apps, and it is also why the format has cost nobody a
-licence fee, an account or a migration in thirty years. The core has not changed since the
+licence fee, an account or a migration in thirty-five years. The core has not changed since the
 tennis court: a chord in square brackets, glued to its syllable.
 
 ## It outlives the app

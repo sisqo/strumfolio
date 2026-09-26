@@ -37,11 +37,11 @@ const VERDICT: Record<InputFormat, string> = {
  * A chord sits over the syllable its column lands on — that is the whole format being
  * demonstrated — so a sample aligned by eye converts to `hom[F]e` and shows a first-time
  * visitor a failure at the first click. These columns were counted: `F` at 21 is «late», `C`
- * at 4 is «I», `G` at 17 is «anyway». Check the output, not the look, if you ever edit it.
+ * at 9 is «singing», `G` at 20 is the «way» of «anyway». Check the output, not the look, if you ever edit it.
  */
 const SAMPLE = `Am                   F
 The last bus home is late
-    C            G
+         C          G
 and I am singing anyway`
 
 export function ChordProConverter() {
