@@ -6,6 +6,7 @@ import { authConfig } from './auth.config'
 import { normalizeEmail } from './lib/allowlist'
 import { provisionAccount } from './lib/accounts/provision'
 import { freezeLeadAttribution, recordLeadAttribution } from './lib/attribution/write'
+import { markSignupConversion } from './lib/consent/server'
 import { isAccountSuspended, sessionsValidAfterOf } from './lib/accounts/status'
 import { readPasswordHash } from './lib/auth/credentials'
 import { outcomeFor, passwordSourceFor } from './lib/auth/loginAttempt'
@@ -230,6 +231,9 @@ const nextAuth = NextAuth({
       if (created) {
         await recordLeadAttribution(email)
         await freezeLeadAttribution(email)
+        /* The signup conversion, the Google path's twin of `verifyEmail`'s — see
+           `lib/consent/server.ts` for why it waits on the browser's consent. */
+        await markSignupConversion()
       }
 
       return true

@@ -13,6 +13,10 @@ import {
 } from '@/lib/attribution/touch'
 import { ACCOUNT_COOKIE, SCOPE_COOKIE, accountScopeTag, currentAccountFor } from '@/lib/accounts/scope'
 import { normalizeEmail } from '@/lib/allowlist'
+import { regionOf } from '@/lib/consent/region'
+import { adsConfig } from '@/lib/consent/state'
+import { REGION_COOKIE, REGION_MAX_AGE_SECONDS, type Region } from '@/lib/consent/types'
+import { qaAllowed } from '@/lib/qa/entry'
 import { SESSION_FREE_PATHS, isBlogPath, isFollowPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
 
@@ -194,6 +198,52 @@ function withAttribution(response: NextResponse, value: string | null): NextResp
 
 
 /**
+ * The region the consent banner should act on, or `null` because the cookie already says it —
+ * or because Google Ads is not configured, in which case nothing about consent is written at all.
+ *
+ * From Vercel's `x-vercel-ip-country` (`request.geo` is gone in Next 15), folded by `regionOf`,
+ * which answers `eea` for a missing or odd header: the fail-closed direction. A cookie rather
+ * than a render-time read because the landing page, the blog and the tools are prerendered, so
+ * only the browser can act on it. GET only, like the attribution cookie: a Server Action's POST
+ * would copy it onto the request for nothing.
+ *
+ * **Outside production a `?region=eea|other` wins and sticks**, so the branch that asks nobody
+ * can be tried from a machine with no geolocation header — the `qaAllowed` allowlist, not a
+ * `!== 'production'` test, for the reason `lib/qa/entry.ts` gives. Sticky means an existing
+ * cookie is not overwritten there by the header, which locally is always missing.
+ */
+function regionCookieFor(request: NextRequest): Region | null {
+  if (request.method !== 'GET' || adsConfig() === null) return null
+
+  const stored = request.cookies.get(REGION_COOKIE)?.value
+  let region: Region = regionOf(request.headers.get('x-vercel-ip-country'))
+
+  if (qaAllowed(process.env.VERCEL_ENV)) {
+    const override = request.nextUrl.searchParams.get('region')
+    if (override === 'eea' || override === 'other') region = override
+    else if (stored === 'eea' || stored === 'other') return null
+  }
+
+  return stored === region ? null : region
+}
+
+/** Put the region cookie on a response, or leave it untouched when there is nothing to write. */
+function withRegion(response: NextResponse, region: Region | null): NextResponse {
+  if (region === null) return response
+
+  response.cookies.set(REGION_COOKIE, region, {
+    /* Read by `ConsentManager` — see `regionCookieFor`. It names a region, never a person. */
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: REGION_MAX_AGE_SECONDS,
+  })
+
+  return response
+}
+
+/**
  * The value the account-scope cookie should carry for this request, or `null` because it
  * already carries it — or because there is nobody signed in to scope anything to.
  *
@@ -270,6 +320,9 @@ const withSession = auth(async (request) => {
      session is everybody — so the two exits below go on returning `undefined` exactly as they
      did, and nothing about the ordinary request changes. */
   const scope = await scopeCookieFor(request)
+
+  /* `null` unless Ads is configured and this browser's region cookie is missing or stale. */
+  const region = regionCookieFor(request)
 
   /* No cookie here, deliberately: these are assets — the service worker, the brand images,
      robots.txt, the promo mockup — fetched by browsers and link-preview bots, not landings
@@ -356,11 +409,15 @@ const withSession = auth(async (request) => {
    * email, and there is nothing in any of them for a crawler.
    */
   if (SESSION_FREE_PATHS.has(pathname)) {
-    if (request.auth) return scope === null ? undefined : withScope(NextResponse.next(), scope)
+    if (request.auth) {
+      if (scope === null && region === null) return
+      const response = withRegion(NextResponse.next(), region)
+      return scope === null ? response : withScope(response, scope)
+    }
 
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withAttribution(response, attribution)
+    return withRegion(withAttribution(response, attribution), region)
   }
 
   /**
@@ -384,7 +441,7 @@ const withSession = auth(async (request) => {
   if (isBlogPath(pathname)) {
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withAttribution(response, attribution)
+    return withRegion(withAttribution(response, attribution), region)
   }
 
   /**
@@ -481,13 +538,15 @@ const withSession = auth(async (request) => {
   if (!request.auth) {
     const response = NextResponse.redirect(new URL('/login', request.nextUrl.origin))
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withAttribution(response, attribution)
+    return withRegion(withAttribution(response, attribution), region)
   }
 
   /* Signed in, on a page of the app itself: the one exit that used to return nothing at all.
      Returning `NextResponse.next()` here is the same "carry on" as returning `undefined`, with
      a cookie attached — and only on the requests that still need one. */
-  if (scope !== null) return withScope(NextResponse.next(), scope)
+  if (scope === null && region === null) return
+  const response = withRegion(NextResponse.next(), region)
+  return scope === null ? response : withScope(response, scope)
 }) as unknown as SessionMiddleware
 
 /**
@@ -538,8 +597,8 @@ const SESSION_COOKIE = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=/
  * given up was never a considered design in the first place.
  *
  * Deliberately narrow in the other direction: only the session token, never the CSRF or
- * callback-url cookies Auth.js sets beside it, and never the attribution or device cookies the
- * callback above writes.
+ * callback-url cookies Auth.js sets beside it, and never the attribution, device or region
+ * cookies the callback above writes.
  */
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
   const response = await withSession(request, event)

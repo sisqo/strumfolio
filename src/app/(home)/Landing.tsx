@@ -96,8 +96,10 @@ export const LANDING_DESCRIPTION =
  *
  * Each claim is shipped behaviour, not a slogan: every edit writes standard ChordPro and
  * `lib/import/export.ts` hands the stored source back, one song or the whole library as a zip;
- * and «no ads» is the Cookie Policy's own «No advertising or third-party tracking» — no
- * advertising or profiling scripts, no data to advertising networks. The offer banner this page
+ * and «no ads» means no advertisement is ever *shown* here — still true once Google Ads
+ * measurement is on (`lib/consent/`), which counts our own advertisements elsewhere, only with
+ * consent, and puts none on this site; the Cookie Policy says «No other advertising» then, and
+ * «No advertising or third-party tracking» while it is off. The offer banner this page
  * can carry is Strumfolio's own campaign, shown only to a reader who arrived with its link — a
  * price of ours, and not somebody else's advert.
  *

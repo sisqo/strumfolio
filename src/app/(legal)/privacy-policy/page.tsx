@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+import { adsConfig } from '@/lib/consent/state'
+
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: 'What personal data Strumfolio collects, on what legal basis, who processes it and for how long.',
@@ -10,6 +12,11 @@ export const metadata: Metadata = {
 const CONTACT = 'info@strumfolio.com'
 
 export default function PrivacyPolicyPage() {
+  /* Everything about Google Ads is printed only in a build that loads its tag — the same rule
+     `plansEnforced()` follows on the landing page: the policy describes what this build does.
+     `lib/consent/CLAUDE.md` lists every passage that moves with it. */
+  const ads = adsConfig() !== null
+
   return (
     <>
       <h1>Privacy Policy</h1>
@@ -149,7 +156,15 @@ export default function PrivacyPolicyPage() {
         it is read once — when you begin a registration, or sign in for the first time — from which
         moment it is stored with your registration and then with your account. It tells us which
         channels bring musicians here; it records nothing about what you do inside the app, and it
-        is shared with nobody. <strong>If you never begin a registration, none of it ever reaches
+        is shared with nobody
+        {ads && (
+          <>
+            {' '}— with one exception, and only if you accept Google Ads measurement (below): the
+            identifier Google added to your click is handed to Google&apos;s tag, so that the click
+            is still recognised if you accept on a later page than the one you arrived on
+          </>
+        )}
+        . <strong>If you never begin a registration, none of it ever reaches
         us</strong>: it stays in your own browser and disappears with the cookie. Opening the
         one-time link in a verification or password-reset email is never recorded as an arrival.
       </p>
@@ -159,6 +174,19 @@ export default function PrivacyPolicyPage() {
         build cross-site profiles: visitors are identified by a temporary hash that is discarded
         within 24 hours, and only aggregated data is available to us.
       </p>
+      {ads && (
+        <p>
+          <strong>Advertising measurement — only if you accept.</strong> In the European Economic
+          Area, the United Kingdom and Switzerland we ask first; elsewhere it is on until you turn
+          it off under &ldquo;Cookie settings&rdquo; at the foot of every page. If it is on, we load
+          Google&apos;s advertising tag, which sets its own cookies and tells Google Ads when a visit
+          that came from one of our advertisements ends in a new account or a purchase — for a
+          purchase, the amount, the currency and Paddle&apos;s transaction number. Google receives
+          your IP address and browser details with it, as it does with any request to its servers.
+          We send Google no name, no email address and no account number, we use no personalised
+          advertising or remarketing, and nothing is loaded before you accept or after you refuse.
+        </p>
+      )}
       <p>
         <strong>Strum Together sessions.</strong> When you create or join a session, we process the
         session identifier and the synchronisation data needed to keep devices in step. Participants
@@ -286,6 +314,15 @@ export default function PrivacyPolicyPage() {
               You can object at any time — see section 7
             </td>
           </tr>
+          {ads && (
+            <tr>
+              <td>Measure which of our advertisements lead to a new account or a purchase</td>
+              <td>
+                Your consent — Art. 6(1)(a) and, for the cookies, Art. 122 of the Italian Privacy
+                Code. You can withdraw it at any time under &ldquo;Cookie settings&rdquo;
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -335,7 +372,10 @@ export default function PrivacyPolicyPage() {
         needs looking at contains the internal number of the account and Paddle&apos;s identifiers for
         it; the others contain no personal data.
       </p>
-      <p>Two providers are different, because they are independent data controllers for their part:</p>
+      <p>
+        {ads ? 'Three' : 'Two'} providers are different, because they are independent data
+        controllers for their part:
+      </p>
       <ul>
         <li>
           <strong>Google LLC</strong> — if you choose to sign in with Google, Google acts as an
@@ -343,6 +383,17 @@ export default function PrivacyPolicyPage() {
           own privacy policy. We only receive the account details listed in section 2 as a result of
           that sign-in.
         </li>
+        {ads && (
+          <li>
+            <strong>Google Ireland Limited</strong> — only if you accept advertising measurement
+            (section 2), Google Ads receives the conversion events described there as an independent
+            controller, under the Google Ads Controller-Controller Data Protection Terms and{' '}
+            <a href="https://policies.google.com/privacy" rel="noopener noreferrer" target="_blank">
+              Google&apos;s privacy policy
+            </a>
+            .
+          </li>
+        )}
         <li>
           <strong>Paddle</strong> (Paddle.com Market Ltd, United Kingdom, and its affiliate
           Paddle.com Inc. for some countries) — the merchant of record for every purchase. Paddle
@@ -360,8 +411,10 @@ export default function PrivacyPolicyPage() {
         </li>
       </ul>
       <p>
-        We do not sell your data, and we do not share it with anyone for advertising or marketing
-        purposes. We may disclose data where required to do so by law.
+        {ads
+          ? 'We do not sell your data, and the only data shared for advertising is the measurement described in section 2, with Google, and only with your consent. '
+          : 'We do not sell your data, and we do not share it with anyone for advertising or marketing purposes. '}
+        We may disclose data where required to do so by law.
       </p>
 
       <h2>5. International transfers</h2>
@@ -439,6 +492,14 @@ export default function PrivacyPolicyPage() {
         count of how far each offer reached. To have either removed, write to us at{' '}
         <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
       </p>
+      {ads && (
+        <p>
+          <strong>Advertising measurement.</strong> Your answer is kept in a cookie for six months,
+          after which we ask again. Google&apos;s own cookies, set only if you accept, last 90 days;
+          withdrawing deletes them from your browser. What Google Ads keeps is kept under
+          Google&apos;s policy.
+        </p>
+      )}
       <p>
         <strong>Short-lived data.</strong> The one-time link in a verification email stops working
         after 24 hours, and a password-reset link after one hour. A registration that is never
@@ -460,7 +521,11 @@ export default function PrivacyPolicyPage() {
         <li>request deletion of your data;</li>
         <li>request a copy of your data in a portable format;</li>
         <li>restrict certain processing;</li>
-        <li>withdraw any consent you have given, without affecting processing carried out before withdrawal;</li>
+        <li>
+          withdraw any consent you have given, without affecting processing carried out before
+          withdrawal
+          {ads && <> — for advertising measurement, under &ldquo;Cookie settings&rdquo; at the foot of every page, in one tap</>};
+        </li>
         <li>
           lodge a complaint with your national data protection authority (in Italy, the Garante per la
           Protezione dei Dati Personali).

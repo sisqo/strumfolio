@@ -61,6 +61,7 @@ everything that is not in this file has gone. Open them by name when the work is
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
 | `src/lib/mcp/CLAUDE.md` | AI access over MCP: the token-as-actor seam, `STRUMFOLIO_MCP`, the plan gate, whole-text writes with `songs.version`, the revision history, which clients a token reaches |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the five seams that record it, and the touch rules |
+| `src/lib/consent/CLAUDE.md` | the consent banner and Google Ads measurement: Consent Mode basic, EEA-only asking that fails closed, the two conversions, the gclid handed over after a late «yes», and the legal passages that move with it |
 | `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
 | `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, why they are driven through a real signed-in Chrome and photographed step by step, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
 | `customer-journey.md` | every email a reader receives, with their copy, and the moments that deliberately have none |
@@ -84,7 +85,11 @@ five facts whose absence is expensive are repeated here rather than left behind 
   both no longer true as written. Its legal basis is legitimate interest, Art. 6(1)(f), so the
   Privacy Policy's §3 table and the §7 right-to-object list both name it — **change one of those
   five places and the others are wrong**, the rule the booklet override and the install row already
-  live under. There is no consent banner, by decision.
+  live under. **It stays outside the consent banner**, which since 2026-09-27 exists for Google
+  Ads alone (`src/lib/consent/CLAUDE.md`, switched off until its three variables exist): refusing
+  Google does not turn this cookie off, and after a «yes» its gclid — and nothing else in it —
+  is handed to Google's tag, which the Cookie Policy's attribution paragraph names as the one
+  exception.
 - **`songbook-coupon` is the second, and lives under the same rule** (disclosed 2026-09-22, on
   legitimate interest by decision): its thirty days are Google Ads' attribution window, not the
   offer's. With it the Cookie Policy §2 describes `songs:coupon` and `songbook-offer-collapsed`, the

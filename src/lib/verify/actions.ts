@@ -20,6 +20,7 @@ import { hashPassword } from '@/lib/auth/password'
 import { issueSessionCookie } from '@/lib/auth/session'
 import { recordSignIn } from '@/lib/auth/signIns'
 import { hashToken } from '@/lib/auth/tokens'
+import { markSignupConversion } from '@/lib/consent/server'
 import { attachCouponViewFromCookie } from '@/lib/coupons/views'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, credentials, pendingRegistrations } from '@/lib/db/schema'
@@ -233,5 +234,8 @@ export async function verifyEmail(
    */
   await recordSignIn(normalized)
   await issueSessionCookie(normalized)
+  /* The signup conversion, for the `/` this redirect lands on — written only if this browser
+     already let Google's tag run (`lib/consent/server.ts`). */
+  await markSignupConversion()
   redirect('/')
 }

@@ -45,6 +45,7 @@ import Link from 'next/link'
 
 import { IconCheck } from '@/components/icons'
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
+import { trackPurchase } from '@/lib/consent/gtag'
 import { checkoutSettings, FRAME_TARGET } from '@/lib/plans/checkoutFrame'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
 import { changeStops, changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
@@ -340,6 +341,16 @@ export function PaddleCheckout(props: Props) {
         /* `checkout.completed` means Paddle took the money, not that the plan is granted —
            the webhook does that, and it may land a second or two later. */
         if (event.name === 'checkout.completed') {
+          /* A first purchase, and only here: `/pay`'s frame settles Paddle's dunning emails —
+             a renewal, not an acquisition — and a plan change never opens a checkout. A no-op
+             unless the reader let Google's tag run (`lib/consent/gtag.ts`). */
+          if (event.data) {
+            trackPurchase({
+              transactionId: event.data.transaction_id,
+              value: event.data.totals.total,
+              currency: event.data.currency_code,
+            })
+          }
           setPaid(true)
           setMessage('Payment received — we are finishing up. Your plan will appear in a moment.')
           announcePaid()

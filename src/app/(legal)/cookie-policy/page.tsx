@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+import { adsConfig } from '@/lib/consent/state'
+
 export const metadata: Metadata = {
   title: 'Cookie Policy',
   description: 'Which cookies and local storage Strumfolio uses, why, and how to clear them.',
@@ -10,10 +12,14 @@ export const metadata: Metadata = {
 const CONTACT = 'info@strumfolio.com'
 
 export default function CookiePolicyPage() {
+  /* Google Ads is described only in a build that loads its tag — see the Privacy Policy's
+     same line, and `lib/consent/CLAUDE.md` for every passage that moves with it. */
+  const ads = adsConfig() !== null
+
   return (
     <>
       <h1>Cookie Policy</h1>
-      <p className="legal-updated">Last updated: 26 September 2026</p>
+      <p className="legal-updated">Last updated: 27 September 2026</p>
 
       <p>
         This Cookie Policy explains how Strumfolio uses cookies and similar technologies — local
@@ -41,7 +47,15 @@ export default function CookiePolicyPage() {
         signed in, a further cookie, valid for one year and readable by the page itself, holds a
         short code derived from your account, so that the settings this device keeps (below) are
         kept apart for each account that signs in on it and are cleared when another one does; it
-        grants no access to anything. All of these are necessary for the Service to work and cannot
+        grants no access to anything.
+        {ads && (
+          <>
+            {' '}Two more hold your answer about advertising measurement (below), for six months,
+            and which part of the world your visit comes from — a region, never a place — so that we
+            know whether to ask; both are readable by the page itself.
+          </>
+        )}{' '}
+        All of these are necessary for the Service to work and cannot
         be disabled without affecting core functionality.
       </p>
       <p>
@@ -111,8 +125,11 @@ export default function CookiePolicyPage() {
         opened, for your first arrival and for your most recent one. It records{' '}
         <strong>where a visit came from, never what you do</strong> on the site, and it is read once
         only — at the moment you register, or sign in for the first time — so that we can tell which
-        channels bring musicians to Strumfolio. It is set by us, on our own domain, is never sent to
-        anyone else, and builds no profile of you across other websites. It holds no name, no email
+        channels bring musicians to Strumfolio. It is set by us, on our own domain,{' '}
+        {ads
+          ? 'and nothing in it is sent to anyone else, with one exception: if you accept advertising measurement, the identifier Google added to your click is handed to Google’s tag, so that a click is still recognised when you accept on a later page. It'
+          : 'is never sent to anyone else, and'}{' '}
+        builds no profile of you across other websites. It holds no name, no email
         address and no account identifier, so until you register it is linked to no one. Clearing
         your site data removes it.
       </p>
@@ -124,25 +141,65 @@ export default function CookiePolicyPage() {
         available to us. Because no information is stored on or read from your device for this
         purpose, no consent banner is required for it.
       </p>
-      <p>
-        <strong>No advertising or third-party tracking.</strong> Apart from the Cloudflare, Paddle
-        and Google cookies described above, which those providers set only inside their own forms,
-        no third party sets cookies through Strumfolio; we load no advertising or profiling scripts, and shares no data with advertising
-        networks. The attribution and discount cookies described above are our own and stay on our own
-        domain: we use them to measure how well our own announcements and offers work, never to
-        target you, and they follow you to no other website.
-      </p>
+      {ads ? (
+        <>
+          <p>
+            <strong>Google Ads measurement — only if you accept.</strong> In the European Economic
+            Area, the United Kingdom and Switzerland, a notice asks you first, and until you accept{' '}
+            <strong>nothing from Google is loaded at all</strong> — not even a request without
+            cookies. Elsewhere it is on until you turn it off. If it is on, we load Google&apos;s
+            advertising tag, which sets its own cookies (named <code>_gcl_…</code>, for 90 days) so
+            that Google Ads can tell us when a visit that began with one of our advertisements ends in
+            a new account or a purchase. We use no personalised advertising and no remarketing: the
+            tag is told so, and it builds no audience out of your visit. You can change your answer
+            at any time under &ldquo;Cookie settings&rdquo; at the foot of every page; withdrawing
+            deletes Google&apos;s cookies and stops the tag.
+          </p>
+          <p>
+            <strong>No other advertising or third-party tracking.</strong> Apart from the Cloudflare,
+            Paddle and Google sign-in cookies described above, which those providers set only inside
+            their own forms, and the Google Ads measurement you may accept, no third party sets cookies
+            through Strumfolio, and we load no other advertising or profiling scripts. The attribution
+            and discount cookies described above are our own and stay on our own domain: we use them
+            to measure how well our own announcements and offers work, never to target you, and they
+            follow you to no other website.
+          </p>
+        </>
+      ) : (
+        <p>
+          <strong>No advertising or third-party tracking.</strong> Apart from the Cloudflare, Paddle
+          and Google cookies described above, which those providers set only inside their own forms,
+          no third party sets cookies through Strumfolio; we load no advertising or profiling
+          scripts, and share no data with advertising networks. The attribution and discount cookies
+          described above are our own and stay on our own domain: we use them to measure how well
+          our own announcements and offers work, never to target you, and they follow you to no
+          other website.
+        </p>
+      )}
 
       <h2>3. Managing cookies and stored data</h2>
-      <p>
-        Everything described above is either strictly necessary to provide the Service you
-        requested or, in the case of the attribution and discount cookies, used only to measure how
-        people find Strumfolio and which offers they use. We place no advertising, profiling or
-        third-party cookies, and we would ask for your consent before ever doing so. Because the
-        attribution and discount cookies rest on our legitimate interest rather than on your
-        consent, you have the right to object to them: see section 7 of our <Link href="/privacy-policy">Privacy Policy</Link>, or simply
-        clear your site data.
-      </p>
+      {ads ? (
+        <p>
+          Google Ads measurement rests on your consent, and you give or withdraw it under
+          &ldquo;Cookie settings&rdquo; at the foot of every page. Everything else described above is
+          either strictly necessary to provide the Service you requested or, in the case of the
+          attribution and discount cookies, used only to measure how people find Strumfolio and which
+          offers they use. <strong>Refusing Google Ads does not turn those two off</strong>: they are
+          our own, go to no advertising network, and rest on our legitimate interest rather than on
+          your consent, so the way to stop them is to object — see section 7 of our{' '}
+          <Link href="/privacy-policy">Privacy Policy</Link> — or simply to clear your site data.
+        </p>
+      ) : (
+        <p>
+          Everything described above is either strictly necessary to provide the Service you
+          requested or, in the case of the attribution and discount cookies, used only to measure how
+          people find Strumfolio and which offers they use. We place no advertising, profiling or
+          third-party cookies, and we would ask for your consent before ever doing so. Because the
+          attribution and discount cookies rest on our legitimate interest rather than on your
+          consent, you have the right to object to them: see section 7 of our{' '}
+          <Link href="/privacy-policy">Privacy Policy</Link>, or simply clear your site data.
+        </p>
+      )}
       <p>
         You can manage or delete cookies, local storage and the offline cache through your browser
         settings, usually under &ldquo;site data&rdquo;. Doing so signs you out, forgets the

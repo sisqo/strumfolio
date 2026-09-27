@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Outfit } from 'next/font/google'
 
+import { ConsentManager } from '@/components/ConsentManager'
 import { FeedbackProvider } from '@/components/FeedbackProvider'
 import { OfflineSync } from '@/components/OfflineSync'
 import { RoleProvider } from '@/components/RoleProvider'
@@ -203,6 +204,13 @@ export default function RootLayout({
           <StrumTogetherProvider>
             <FeedbackProvider>{children}</FeedbackProvider>
           </StrumTogetherProvider>
+          {/*
+            * Inside RoleProvider because `/` is the landing page only for a visitor, and only
+            * a visitor's `/` may show the banner by itself. Here rather than in the public
+            * layouts because the tag it loads has to run on the signed-in screens a conversion
+            * happens on too — see ConsentManager.
+            */}
+          <ConsentManager />
         </RoleProvider>
         {/*
           * Silent and stateless from the outside — see OfflineSync's own doc comment.

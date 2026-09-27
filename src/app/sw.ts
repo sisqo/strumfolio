@@ -142,6 +142,9 @@ self.addEventListener('message', (event) => {
  */
 const NETWORK_TIMEOUT_SECONDS = 4
 
+/** Where Google's advertising tag and its conversion requests go — see the rule that uses it. */
+const GOOGLE_ADS_HOSTS = /(^|\.)(googletagmanager\.com|googleadservices\.com|doubleclick\.net|google\.com)$/
+
 const authenticatedPageCaching = (
   [
     [
@@ -315,6 +318,17 @@ const serwist = new Serwist({
         networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
         plugins: [new ExpirationPlugin({ maxEntries: 1500 }), rejectUnauthenticated, refuseEndedScope],
       }),
+    },
+    /*
+     * Google's advertising tag and every request it makes go straight to the network, never
+     * through a cache. `defaultCache`'s cross-origin catch-all would otherwise keep gtag.js and
+     * the conversion pings for an hour — and answer a ping offline from the cache, which is a
+     * conversion Google never hears of dressed up as one it did. Loaded at all only with
+     * consent (`lib/consent/`); this only decides that nothing of it is ever stored.
+     */
+    {
+      matcher: ({ url }) => GOOGLE_ADS_HOSTS.test(url.hostname),
+      handler: new NetworkOnly(),
     },
     ...authenticatedPageCaching,
     ...defaultCache,

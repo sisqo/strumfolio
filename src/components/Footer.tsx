@@ -1,7 +1,9 @@
 import Link from 'next/link'
 
+import { CookieSettingsButton } from '@/components/CookieSettingsButton'
 import { SITE_URL } from '@/lib/brand'
 import { COPYRIGHT_YEAR, CURRENT_VERSION } from '@/lib/changelog'
+import { adsConfig } from '@/lib/consent/state'
 
 /**
  * The identity line at the foot of every internal page: whose this is, which version of it, and
@@ -66,6 +68,16 @@ export function Footer() {
         <span className="app-footer-item">
           <Link href="/cookie-policy">Cookies</Link>
         </span>
+        {/*
+          * Beside the policy it acts on, and on every screen that carries this footer — the
+          * signed-in ones included, which is what makes withdrawing as easy as agreeing wherever
+          * Google's tag runs. Present only when Ads is configured (`lib/consent/CLAUDE.md`).
+          */}
+        {adsConfig() && (
+          <span className="app-footer-item">
+            <CookieSettingsButton className="app-footer-button" />
+          </span>
+        )}
         {/*
           * «Content copyright», not «Copyright», since the credit line above now opens with a
           * © of its own: that one is this site's, while this is the notice about the songs
