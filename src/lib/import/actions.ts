@@ -28,6 +28,7 @@ import type { Entitlements } from '@/lib/plans/entitlements'
 import { countRepertoire, entitlementsOf } from '@/lib/plans/resolve'
 import { limitFacts, type LimitFacts } from '@/lib/plans/types'
 import { revalidateSong } from '@/lib/revalidate'
+import { authorship, currentWriter, keepRevision, type StoredText } from '@/lib/revisions/keep'
 import { cleanName } from '@/lib/names'
 import { canEdit } from '@/lib/roles'
 import { uniqueSlug } from '@/lib/slug'
@@ -312,6 +313,17 @@ async function placeLast(
   return writes[writes.length - 1].position
 }
 
+/** What `keepRevision` needs of a row about to be overwritten. */
+const STORED_TEXT = {
+  id: songs.id,
+  title: songs.title,
+  artist: songs.artist,
+  body: songs.body,
+  updatedAt: songs.updatedAt,
+  aiWrittenAt: songs.aiWrittenAt,
+  aiTokenId: songs.aiTokenId,
+} satisfies Record<keyof StoredText, unknown>
+
 /** Same title and artist, ignoring case and surrounding space. */
 function sameSong(title: string, artist: string | null) {
   const normalisedTitle = sql`lower(trim(${songs.title})) = ${title.trim().toLowerCase()}`
@@ -406,6 +418,14 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
    * or find one it does not have — a duplicate prompt about nothing, or a silent second copy.
    */
   const artist = input.artist === null || input.artist.trim() === '' ? null : input.artist.trim()
+
+  if (input.expectedVersion !== undefined && !Number.isInteger(input.expectedVersion)) {
+    return { ok: false, reason: 'failed' }
+  }
+
+  /* From the request, never from `input`: this action is callable from any browser, and who
+     wrote a text is what decides whether it is kept (`lib/revisions/keep.ts`). */
+  const writer = currentWriter()
 
   try {
     const database = db()
@@ -520,7 +540,11 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
        * ignored — the exact bug this was written to fix.
        */
       updatedAt: sql`now()`,
+      ...authorship(writer),
     }
+
+    /** Every rewrite of an existing row moves its version on, whoever makes it (`0053`). */
+    const rewritten = { ...values, version: sql`${songs.version} + 1` }
 
     /**
      * The words as they stood before this save, read inside the same transaction that
@@ -532,16 +556,23 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
     // Editing a known song: update in place and keep the slug, which is what
     // keeps that song's saved transposition and speed attached to it.
     if (input.slug !== undefined) {
-      const updated = await database.transaction(async (tx) => {
+      const outcome = await database.transaction(async (tx) => {
+        /* Locked, so the version compared here is still the one overwritten below: two writers
+           naming the same version cannot both pass. */
         const before = await tx
-          .select({ sectionId: songs.sectionId, body: songs.body })
+          .select({ ...STORED_TEXT, sectionId: songs.sectionId, version: songs.version })
           .from(songs)
           .where(eq(songs.slug, input.slug as string))
           .limit(1)
+          .for('update')
 
-        if (before.length === 0) return []
+        if (before.length === 0) return 'missing' as const
+        if (input.expectedVersion !== undefined && before[0].version !== input.expectedVersion) {
+          return 'conflict' as const
+        }
 
         previousBody = before[0].body
+        await keepRevision(tx, before[0], writer)
 
         /*
          * A song sent to another section arrives unplaced, so it lands at the end
@@ -555,12 +586,14 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
 
         return tx
           .update(songs)
-          .set(moved ? { ...values, position: null } : values)
+          .set(moved ? { ...rewritten, position: null } : rewritten)
           .where(eq(songs.slug, input.slug as string))
           .returning()
       })
 
-      if (updated.length === 0) return { ok: false, reason: 'not-found' }
+      if (outcome === 'conflict') return { ok: false, reason: 'conflict' }
+      if (outcome === 'missing' || outcome.length === 0) return { ok: false, reason: 'not-found' }
+      const updated = outcome
 
       /*
        * After the transaction, never inside it: carrying the notes is a courtesy to
@@ -577,19 +610,27 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
 
     if (twin.length > 0 && decision === 'replace') {
       const updated = await database.transaction(async (tx) => {
+        const before = await tx
+          .select(STORED_TEXT)
+          .from(songs)
+          .where(eq(songs.slug, twin[0].slug))
+          .limit(1)
+          .for('update')
+        if (before.length > 0) await keepRevision(tx, before[0], writer)
+
         /*
          * Replacing a song's words is not moving it: one that already lives here keeps
          * the place it was given. Only one arriving from another section is placed,
          * and then at the end, like any other arrival.
          */
         if (twin[0].sectionId === values.sectionId) {
-          return tx.update(songs).set(values).where(eq(songs.slug, twin[0].slug)).returning()
+          return tx.update(songs).set(rewritten).where(eq(songs.slug, twin[0].slug)).returning()
         }
 
         const place = await placeLast(tx, values.sectionId, twin[0].slug)
         return tx
           .update(songs)
-          .set({ ...values, position: place })
+          .set({ ...rewritten, position: place })
           .where(eq(songs.slug, twin[0].slug))
           .returning()
       })
@@ -709,6 +750,7 @@ export async function createSong(
       sectionId: placed.sectionId,
       body: '',
       updatedAt: sql`now()`,
+      ...authorship(currentWriter()),
     }
 
     const taken = (await database.select({ slug: songs.slug }).from(songs)).map((row) => row.slug)

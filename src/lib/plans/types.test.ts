@@ -87,6 +87,7 @@ describe('PLANS', () => {
       booklet: 'no',
       mayLead: true,
       devices: 1,
+      aiAccess: false,
     })
     assert.deepEqual(PLANS.standard, {
       songbooks: 3,
@@ -97,6 +98,7 @@ describe('PLANS', () => {
       booklet: 'branded',
       mayLead: true,
       devices: 1,
+      aiAccess: true,
     })
     assert.deepEqual(PLANS.plus, {
       songbooks: null,
@@ -107,6 +109,7 @@ describe('PLANS', () => {
       booklet: 'plain',
       mayLead: true,
       devices: 3,
+      aiAccess: true,
     })
     assert.deepEqual(PLANS.premium, {
       songbooks: null,
@@ -117,6 +120,7 @@ describe('PLANS', () => {
       booklet: 'custom',
       mayLead: true,
       devices: 100,
+      aiAccess: true,
     })
   })
 

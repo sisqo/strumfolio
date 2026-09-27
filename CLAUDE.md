@@ -59,6 +59,7 @@ everything that is not in this file has gone. Open them by name when the work is
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
+| `src/lib/mcp/CLAUDE.md` | AI access over MCP: the token-as-actor seam, `STRUMFOLIO_MCP`, the plan gate, whole-text writes with `songs.version`, the revision history, which clients a token reaches |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the five seams that record it, and the touch rules |
 | `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
 | `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, why they are driven through a real signed-in Chrome and photographed step by step, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
@@ -102,7 +103,7 @@ chord. **Teach both, in the same commit**, and note the fan-out — `SongSheet.t
 `booklet/layout.ts` plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s
 `METADATA_DIRECTIVE` (what is stripped), `import/export.ts` (what is written),
 `editor/songData.ts` (which fields the song-data form owns), and `components/ChordProGuide.tsx`,
-which documents all of it. Directive names are matched by one function for both parsers,
+which documents all of it — plus `mcp/guide.ts`, the same guide written for an AI assistant. Directive names are matched by one function for both parsers,
 `matchDirective` (`lib/directiveLine.ts`).
 
 - **Run the invariant over `content/` and the reference files**, not over a hand-written string;

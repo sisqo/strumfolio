@@ -30,7 +30,7 @@
 import { PLAN_LABEL, type Plan } from './types'
 
 /** The four `Entitlements['refused']` fields (`entitlements.ts`) that ever answer `'plan-required'`. */
-export type PaywallGate = 'booklet' | 'bookletCustomFooter' | 'ukulele' | 'featureRequest'
+export type PaywallGate = 'booklet' | 'bookletCustomFooter' | 'ukulele' | 'featureRequest' | 'aiAccess'
 
 export interface PaywallFeature {
   /**
@@ -61,6 +61,8 @@ export const PAYWALL_FEATURES: Record<PaywallGate, PaywallFeature> = {
   ukulele: { label: 'ukulele chord shapes', minPlan: 'standard' },
   // PLANS.standard.featureRequests === 'no', PLANS.plus.featureRequests === 'yes'.
   featureRequest: { label: 'feature requests', minPlan: 'plus' },
+  // PLANS.free.aiAccess === false, PLANS.standard.aiAccess === true.
+  aiAccess: { label: 'songbook access for assistants', minPlan: 'standard' },
 }
 
 /** "Included in {plan}" — the title, and the first of the two places `plan` is allowed to appear. */

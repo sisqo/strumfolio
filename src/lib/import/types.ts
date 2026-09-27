@@ -24,6 +24,12 @@ export interface SongInput {
    */
   sectionName?: string | null
   body: string
+  /**
+   * The `songs.version` this edit was made against. When given, the save is refused with
+   * `conflict` if the song has been rewritten since — the MCP tools always send it; the editor
+   * does not yet, and keeps last-write-wins.
+   */
+  expectedVersion?: number
 }
 
 /**
@@ -57,6 +63,8 @@ export type SaveFailure =
    * than strings of its own, so this side and `WriteFailure` refuse in the same words.
    */
   | LimitReason
+  /** `expectedVersion` named a text that has since been rewritten. */
+  | 'conflict'
   | 'failed'
 
 /**
@@ -145,6 +153,7 @@ export const SAVE_MESSAGE: Record<SaveFailure | 'duplicate', string> = {
   'too-long': 'This song is longer than Strumfolio can keep.',
   'not-found': 'This song no longer exists.',
   duplicate: 'A song with this title and artist already exists.',
+  conflict: 'This song was changed elsewhere in the meantime. Reload it and try again.',
   failed: 'Save failed. Please try again.',
 }
 

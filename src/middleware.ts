@@ -69,6 +69,12 @@ function isPublicAsset(pathname: string): boolean {
      * payment that never reaches the account that made it.
      */
     pathname === '/api/paddle/webhook' ||
+    /*
+     * The MCP endpoint, for the same reason: an AI assistant carries a bearer token and no
+     * session, and a redirect to `/login` is a failure it cannot follow. `api/mcp/route.ts`
+     * authenticates every call itself.
+     */
+    pathname === '/api/mcp' ||
     pathname === '/sw.js' ||
     pathname === '/sw.js.map' ||
     pathname.startsWith('/swe-worker-') ||

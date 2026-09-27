@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: 26 September 2026</p>
+      <p className="legal-updated">Last updated: 27 September 2026</p>
 
       <p>
         This Privacy Policy explains how Strumfolio (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and
@@ -114,6 +114,15 @@ export default function PrivacyPolicyPage() {
         your collection comes from you, entered manually or imported from files on your own device.
       </p>
       <p>
+        <strong>AI access.</strong> If you create a token to connect an AI assistant to your
+        songbooks, we keep the name you give it, its first few characters and a cryptographic hash of
+        it — never the token itself — with when it was created, last used and revoked. When an
+        assistant changes one of your songs through it, we keep the text it replaced (and the one it
+        wrote, if you later overwrite it in the app), so that you can restore it. What the assistant
+        reads is sent to it by your own request, with your token: the provider of that assistant is
+        not our processor, and what it does with your songs is governed by your agreement with it.
+      </p>
+      <p>
         <strong>Feedback and feature requests.</strong> If you send us feedback from within the app,
         we receive your message, the category you chose, an optional screenshot you attach, your
         email address and your plan. It arrives in our inbox as an email we can reply to, and stays
@@ -196,7 +205,10 @@ export default function PrivacyPolicyPage() {
             <td>Performance of a contract — Art. 6(1)(b)</td>
           </tr>
           <tr>
-            <td>Store, sync and let you access your song collection and preferences</td>
+            <td>
+              Store, sync and let you access your song collection and preferences, including through an
+              AI assistant you connect, and keep the earlier versions of songs it changes
+            </td>
             <td>Performance of a contract — Art. 6(1)(b)</td>
           </tr>
           <tr>
@@ -385,6 +397,13 @@ export default function PrivacyPolicyPage() {
         provider&apos;s restore history, kept for a few days, and our hosting provider&apos;s
         technical logs, also kept for a few days — in both cases no longer than 30 days, except where
         we are required to retain data by law.
+      </p>
+      <p>
+        <strong>AI access.</strong> A token is kept until you revoke it; one not used for six months
+        stops working and is kept, revoked, with your account. Earlier versions of a song are kept up
+        to twenty per song, the oldest removed first — except the last version you wrote yourself,
+        which stays until a newer one of yours replaces it. Both are deleted with the song or with
+        your account.
       </p>
       <p>
         <strong>Payment records</strong> — the history of purchases and plan changes, with the

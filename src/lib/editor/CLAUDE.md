@@ -15,7 +15,7 @@ the same commit**, and note the fan-out — `SongSheet.tsx` (screen), `booklet/l
 plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s `METADATA_DIRECTIVE` (what is
 stripped), `import/export.ts` (what is written), `editor/songData.ts` (which fields the
 song-data form owns), and `components/ChordProGuide.tsx`, which is the page that documents
-all of it.
+all of it — and `mcp/guide.ts`, its twin for an AI assistant.
 
 **`toSource(fromSource(x)) === x` includes the separator, since 2026-09-20.** A `comment`,
 a `boundary` and a tab's opening line each carry `raw` — the line as the file wrote it —

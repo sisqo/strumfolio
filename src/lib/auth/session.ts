@@ -26,6 +26,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { auth, hasSessionCookie } from '@/auth'
+import { tokenActor } from '@/lib/auth/actor'
 import { authConfig } from '@/auth.config'
 import { accountExists } from '@/lib/accounts/status'
 import { currentAccountFor, readAccountCookie } from '@/lib/accounts/current'
@@ -61,6 +62,9 @@ export interface CurrentUser {
  * membership out of a table that no longer grants one.
  */
 export async function currentUser(): Promise<CurrentUser | null> {
+  const actor = tokenActor()
+  if (actor !== undefined) return actorUser(actor.accountOwnerEmail)
+
   const session = await auth()
   const email = session?.user?.email
   if (!email) return null
@@ -129,6 +133,16 @@ export async function requireAccount(): Promise<void> {
 }
 
 /**
+ * The token's account as `currentUser` would answer it for that account's own browser: admin
+ * there, and nothing anywhere else. Asks the same existence-and-suspension question, so a
+ * suspended or deleted account's token can change nothing either.
+ */
+async function actorUser(accountOwnerEmail: string): Promise<CurrentUser | null> {
+  if (!(await accountExists(accountOwnerEmail))) return null
+  return { email: accountOwnerEmail, accountOwnerEmail, role: 'admin' }
+}
+
+/**
  * Permission to do something on the reader's current account, and the reason when there
  * is none.
  *
@@ -183,6 +197,15 @@ async function permit(allows: (role: Role) => boolean): Promise<Permission> {
  * compare against.
  */
 export async function accessTo(accountOwnerEmail: string): Promise<CurrentUser | null> {
+  /* An AI token reaches its own account and no other — never through `roleOf`, which would hand
+     an owner's token every account there is (`lib/auth/actor.ts`). */
+  const actor = tokenActor()
+  if (actor !== undefined) {
+    return normalizeEmail(accountOwnerEmail) === actor.accountOwnerEmail
+      ? actorUser(actor.accountOwnerEmail)
+      : null
+  }
+
   const session = await auth()
   const email = session?.user?.email
   if (!email) return null
@@ -211,8 +234,10 @@ export async function accessTo(accountOwnerEmail: string): Promise<CurrentUser |
  * would send them round a login loop that fixes nothing.
  */
 async function permitOn(accountOwnerEmail: string, allows: (role: Role) => boolean): Promise<Permission> {
-  const session = await auth()
-  if (!session?.user?.email) return { ok: false, reason: 'no-session' }
+  if (tokenActor() === undefined) {
+    const session = await auth()
+    if (!session?.user?.email) return { ok: false, reason: 'no-session' }
+  }
 
   const user = await accessTo(accountOwnerEmail)
   if (user === null || !allows(user.role)) return { ok: false, reason: 'not-allowed' }

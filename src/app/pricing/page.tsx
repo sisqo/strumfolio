@@ -30,6 +30,7 @@ import { formatPlanDate } from '@/lib/plans/subscriptionCopy'
 import { loadLifetimeOnSale } from '@/lib/settings/read'
 import { PLAN_VALUES, PLANS } from '@/lib/plans/types'
 import type { BookletTier, FeatureRequestTier, Plan } from '@/lib/plans/types'
+import { mcpEnabled } from '@/lib/mcp/enabled'
 import { mustChooseNow } from '@/lib/plans/viewer'
 import type { Viewer } from '@/lib/plans/viewer'
 
@@ -560,7 +561,7 @@ const COMING_SOON = 'Coming soon'
  * way, worded `COMING_SOON`. All three are deliberate roadmap commitments on a public page,
  * confirmed rather than assumed: a reader on Plus or Premium is being told a themed booklet is
  * coming, not that it is here. "AI MCP integration" is the same kind of row for the same
- * reason, confirmed separately: nothing in this repository speaks MCP yet.
+ * reason while `STRUMFOLIO_MCP` is off, and an ordinary computed row once it is on.
  *
  * Which leaves this table with **no unlabelled promise on it**, and that is the property worth
  * keeping rather than a tidiness to preserve: every cell either describes what the gates do
@@ -699,15 +700,19 @@ const ROWS: ComparisonRow[] = [
     cells: [null, null, null, COMING_SOON],
   },
   /*
-   * A second roadmap commitment, confirmed the same way the two booklet-theme rows above
-   * were: nothing in this codebase talks to an AI assistant today, let alone over MCP —
-   * this row promises a server that does not exist yet, not a soft cap `PLANS` already
-   * enforces the way every row above it does.
+   * **Two states, and the switch decides which** (2026-09-27). The server exists now
+   * (`lib/mcp/`, `api/mcp/route.ts`) and is gated from Standard up by `PLANS[plan].aiAccess`,
+   * so while `STRUMFOLIO_MCP` is on the cells are read from that field like every row above.
+   * While it is off the row keeps the roadmap promise it made before the server existed —
+   * Premium, coming soon — rather than selling a door that answers 404. Widening it from
+   * Premium to Standard was the owner's decision, not a slip.
    */
   {
     label: 'AI MCP integration',
     note: 'Connect an AI assistant to your songbooks over MCP.',
-    cells: [null, null, null, COMING_SOON],
+    cells: mcpEnabled()
+      ? (['free', 'standard', 'plus', 'premium'] as const).map((plan) => (PLANS[plan].aiAccess ? INCLUDED : null))
+      : [null, null, null, COMING_SOON],
   },
   {
     label: 'Feature requests',

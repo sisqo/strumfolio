@@ -6,7 +6,7 @@ import { PLAN_LABEL } from './types'
 
 /**
  * The drift guard: this is the assertion that actually earns its keep as the map grows.
- * `entitlements.ts`'s `refused` has eight fields; only these four ever resolve to
+ * `entitlements.ts`'s `refused` has nine fields; only these five ever resolve to
  * `'plan-required'` (`createSongbook`/`createSong`/`editRepertoire` only ever answer
  * `frozen` or a numbered cap, and `lead` now answers null on every plan). A fifth gate landing
  * there with no matching entry here is exactly the drift `PAYWALL_FEATURES` exists to prevent.
@@ -16,8 +16,9 @@ import { PLAN_LABEL } from './types'
  * — see `paywall.ts` — and `entitlements.test.ts` pins the other side of that, asserting no
  * plan refuses leading at all.
  */
-test('PAYWALL_FEATURES covers exactly the four plan-required gates', () => {
+test('PAYWALL_FEATURES covers exactly the five plan-required gates', () => {
   assert.deepEqual(Object.keys(PAYWALL_FEATURES).sort(), [
+    'aiAccess',
     'booklet',
     'bookletCustomFooter',
     'featureRequest',

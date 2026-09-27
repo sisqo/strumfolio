@@ -119,6 +119,9 @@ export interface Entitlements {
     bookletCustomFooter: LimitReason | null
     ukulele: LimitReason | null
     featureRequest: LimitReason | null
+    /** Reaching the account through an AI token over MCP (`PlanLimits.aiAccess`). Outside the
+     *  freeze: a frozen account may still read, and its writes meet `editRepertoire` anyway. */
+    aiAccess: LimitReason | null
   }
 }
 
@@ -361,6 +364,7 @@ export function entitlementsFor(stored: StoredPlan, now: Date, counts: Repertoir
        * them is the order somebody answers in and not whether the request may be sent.
        */
       featureRequest: limits.featureRequests === 'no' ? 'plan-required' : null,
+      aiAccess: limits.aiAccess ? null : 'plan-required',
     },
   }
 }
@@ -393,6 +397,7 @@ export const UNGATED: Entitlements = {
     booklet: 'branded',
     mayLead: true,
     devices: 100,
+    aiAccess: true,
   },
   frozen: false,
   refused: {
@@ -410,6 +415,7 @@ export const UNGATED: Entitlements = {
     bookletCustomFooter: 'plan-required',
     ukulele: null,
     featureRequest: null,
+    aiAccess: null,
   },
 }
 

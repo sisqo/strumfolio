@@ -186,6 +186,13 @@ export interface PlanLimits {
    * meant to cap.
    */
   devices: number
+  /**
+   * May reach the account through an AI token over MCP (`lib/mcp/`) — read by `refused.aiAccess`
+   * on every tool call and when a token is created, and by nothing else. From Standard up by
+   * decision (2026-09-27): a Free account's tokens are suspended, not deleted, and work again
+   * the day the plan comes back.
+   */
+  aiAccess: boolean
 }
 
 /**
@@ -208,6 +215,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
      */
     mayLead: true,
     devices: 1,
+    aiAccess: false,
   },
   standard: {
     songbooks: 3,
@@ -218,6 +226,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
     booklet: 'branded',
     mayLead: true,
     devices: 1,
+    aiAccess: true,
   },
   plus: {
     songbooks: null,
@@ -228,6 +237,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
     booklet: 'plain',
     mayLead: true,
     devices: 3,
+    aiAccess: true,
   },
   premium: {
     songbooks: null,
@@ -238,6 +248,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
     booklet: 'custom',
     mayLead: true,
     devices: 100,
+    aiAccess: true,
   },
   /**
    * Deliberately a copy of premium's values, not a `plan === 'lifetime' ? premium : plan`
@@ -257,6 +268,7 @@ export const PLANS: Record<Plan, PlanLimits> = {
     booklet: 'custom',
     mayLead: true,
     devices: 100,
+    aiAccess: true,
   },
 }
 

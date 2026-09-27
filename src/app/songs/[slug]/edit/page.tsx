@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { EditorScreen } from '@/components/editor/EditorScreen'
+import { SongHistory } from '@/components/editor/SongHistory'
 import { IconInfo } from '@/components/icons'
 import { accessTo, requireAccount } from '@/lib/auth/session'
 import { songAccountOf } from '@/lib/data/access'
@@ -158,6 +159,8 @@ export default async function EditSongPage({ params }: Props) {
 
         <main className="mx-auto max-w-4xl px-4 pb-12">
           <EditorScreen song={song} />
+
+          {hasDatabase && <SongHistory slug={song.slug} />}
 
           <Footer />
         </main>

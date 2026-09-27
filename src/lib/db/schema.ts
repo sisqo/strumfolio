@@ -507,6 +507,25 @@ export const songs = pgTable(
     position: integer('position'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Which text this is, as a number that grows by one on every rewrite of the words, title
+     * or artist — whoever makes it (`0053`). It is what an AI sends back with «I read it like
+     * this»: `saveSong` refuses a write naming any other number, under a row lock, so a save
+     * made from a phone while the AI was working is never overwritten unseen.
+     *
+     * An integer and not `updatedAt`, which Postgres keeps to the microsecond and a JavaScript
+     * `Date` brings back to the millisecond: an equality check against it would never pass.
+     */
+    version: integer('version').notNull().default(1),
+    /**
+     * Set when the last rewrite came through an AI token, null when it came from the app.
+     * The «changed by AI» mark, and what makes `saveSong` keep that text in `song_revisions`
+     * before the app overwrites it — a queued offline edit landing after the AI's would
+     * otherwise erase its work with no trace.
+     */
+    aiWrittenAt: timestamp('ai_written_at', { withTimezone: true }),
+    /** The token that wrote it, while it still exists. */
+    aiTokenId: integer('ai_token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
   },
   (table) => [
     /**
@@ -546,6 +565,66 @@ export const songs = pgTable(
     /** The slug's uniqueness, which used to come free with the primary key. */
     unique('songs_slug').on(table.slug),
   ],
+)
+
+/**
+ * A personal token an AI assistant uses to reach one account's songbooks over MCP (`0053`).
+ *
+ * Only the sha256 of the secret is kept: the secret is 32 random bytes, so a slow hash buys
+ * nothing and a lookup by hash is one index probe. `prefix` is the start of the secret in the
+ * clear, so the owner can tell two tokens apart on `/profile`. No expiry column: a token dies
+ * when revoked or after `TOKEN_IDLE_DAYS` without use (`lib/mcp/tokens.ts`), and a password
+ * change does not touch it — owner's decision, 2026-09-27.
+ *
+ * Keyed by the account id like every table since v4.7, and removed with the account.
+ */
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: serial('id').primaryKey(),
+    accountId: integer('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    prefix: text('prefix').notNull(),
+    hash: text('hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [
+    unique('api_tokens_hash').on(table.hash),
+    index('api_tokens_account_id_idx').on(table.accountId),
+  ],
+)
+
+/**
+ * A song's words as they stood before something overwrote them (`0053`), so an AI's mistake
+ * can be undone from the app.
+ *
+ * Written in two cases only (`lib/revisions/keep.ts`): before every write through an AI token,
+ * and before the app overwrites a text an AI wrote. `written_by` is the author of the *kept*
+ * text, not of the write that displaced it. Twenty per song, with one exception that is the
+ * point of the table: the newest `app` row is never pruned, since it is the song as a person
+ * last left it before an AI started.
+ */
+export const songRevisions = pgTable(
+  'song_revisions',
+  {
+    id: serial('id').primaryKey(),
+    songId: integer('song_id')
+      .notNull()
+      .references(() => songs.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    artist: text('artist'),
+    body: text('body').notNull(),
+    writtenBy: text('written_by').$type<'app' | 'ai'>().notNull(),
+    tokenId: integer('token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
+    /** When the kept text had been written — the song's `updated_at` at that moment. */
+    writtenAt: timestamp('written_at', { withTimezone: true }).notNull(),
+    savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('song_revisions_song_idx').on(table.songId, table.id)],
 )
 
 /**

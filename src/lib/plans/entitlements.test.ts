@@ -636,6 +636,7 @@ describe('the off switch', () => {
       bookletCustomFooter: 'plan-required',
       ukulele: null,
       featureRequest: null,
+      aiAccess: null,
     })
   })
 

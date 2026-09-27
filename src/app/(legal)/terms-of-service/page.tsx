@@ -27,7 +27,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <h1>Terms of Service</h1>
-      <p className="legal-updated">Last updated: 26 September 2026</p>
+      <p className="legal-updated">Last updated: 27 September 2026</p>
 
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Strumfolio (&ldquo;the
@@ -124,13 +124,23 @@ export default function TermsOfServicePage() {
         them without the rightsholder&apos;s permission.
       </p>
 
-      <h2>5. Exporting and printing</h2>
+      <h2>5. Exporting, printing and AI assistants</h2>
       <p>
         Strumfolio lets you export Your Content as a backup, or as a typeset PDF booklet meant to be
         printed. Once downloaded, a file is outside the Service and entirely in your own hands. You are
         responsible for having the right to print, copy, or hand out Your Content in that form, the
         same as for anything you import or display within the app — Strumfolio does not review, endorse,
         or track what happens to an exported file once it has left the Service.
+      </p>
+      <p>
+        On the plans that include it, you can create a personal token that lets an AI assistant of your
+        choice read and change your songbooks. This access is offered as a beta: what it can do, and
+        the limits on how often it may be used, may change. Anything the assistant does with a token is
+        done on your behalf, as if you had done it in the app, so keep tokens private and revoke one you
+        no longer trust. Strumfolio is not responsible for the assistant itself or for what its
+        provider does with the content it reads, which is between you and that provider. An
+        assistant cannot delete anything, and the text a song had before an assistant changed it is
+        kept for you to restore, as described in our <Link href="/privacy-policy">Privacy Policy</Link>.
       </p>
 
       <h2>6. Acceptable use</h2>

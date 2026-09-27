@@ -372,6 +372,13 @@
       "when": 1790316324269,
       "tag": "0052_sessions_valid_after",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790497405355,
+      "tag": "0053_ai_access",
+      "breakpoints": true
     }
   ]
 }
