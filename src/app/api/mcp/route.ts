@@ -18,8 +18,9 @@ import { entitlementsOf } from '@/lib/plans/resolve'
 import { checkRateLimit } from '@/lib/rateLimit'
 import { mcpEnabled } from '@/lib/mcp/enabled'
 import { acceptsVersionHeader, handleMessage, PARSE_ERROR, SUPPORTED_VERSIONS, type Server } from '@/lib/mcp/protocol'
+import { withAccountLease } from '@/lib/mcp/lease'
 import { resolveToken } from '@/lib/mcp/tokens'
-import { serverFor } from '@/lib/mcp/tools'
+import { serverFor, TOOLS } from '@/lib/mcp/tools'
 
 /** Per token. Generous for an assistant working through a songbook, tight for a runaway loop. */
 const CALLS_PER_MINUTE = 120
@@ -42,6 +43,24 @@ function bearer(request: Request): string | null {
   const header = request.headers.get('authorization')
   const match = header?.match(/^Bearer\s+(\S+)$/i)
   return match ? match[1] : null
+}
+
+/** Every tool that may write: the ones not marked read-only. */
+const WRITE_TOOLS = new Set(TOOLS.filter((tool) => tool.annotations?.readOnlyHint !== true).map((tool) => tool.name))
+
+/** Writes one at a time per account (`lease.ts`): parallel calls would each read the caps before
+ *  any of them had written, and all pass. Reads are not held up. */
+function serialised(server: Server, accountId: number): Server {
+  return {
+    ...server,
+    callTool: async (name, args) => {
+      if (!WRITE_TOOLS.has(name)) return server.callTool(name, args)
+      const outcome = await withAccountLease(accountId, () => server.callTool(name, args))
+      return outcome === 'busy'
+        ? { text: 'Strumfolio is still saving another change to this account. Try this one again.', isError: true }
+        : outcome
+    },
+  }
 }
 
 /** The same server with every tool answering the plan sentence — so the assistant can connect,
@@ -81,7 +100,7 @@ export async function POST(request: Request): Promise<Response> {
   return runAsToken(token, async () => {
     const entitlements = await entitlementsOf(token.accountOwnerEmail)
     const base = serverFor(token.accountId)
-    const server = entitlements.refused.aiAccess === null ? base : suspended(base)
+    const server = entitlements.refused.aiAccess === null ? serialised(base, token.accountId) : suspended(base)
 
     const messages = Array.isArray(payload) ? payload : [payload]
     const answers = []

@@ -61,6 +61,20 @@ re-anchoring for free. There is no second copy of any gate, and that is the reas
 - `'use server'` modules may export only async functions — `mcp/actions.ts` exporting a constant
   broke the page in dev with a build error the type-checker never saw.
 
+## Caps, and why writes queue — `lease.ts`
+
+Every write tool reaches the app's own gate, so the caps hold call by call: measured 2026-09-27 on
+a Standard account, the fourth songbook and the 301st song were refused, `on_duplicate: "add"`
+included. **What did not hold was parallelism**: the gate reads the count before the insert, in
+another transaction, so ten `create_song` calls at once with one slot left all passed and the
+account ended at 309/300. The app accepts that race (`saveSong`'s own comment); an assistant that
+runs tools in parallel reaches it by default. So the route runs **write tools one at a time per
+account** (`withAccountLease`, a row `mcp-write:<id>` in `rate_limit_hits`, taken over after 30 s,
+a queued call waits up to 60 s and then answers «still saving… try again»). Same test afterwards:
+exactly 300, the rest refused or asked to retry. Reads are not queued. From this VM ten queued
+writes took ~70 s (every call pays the round trip to `us-east-1`); on Vercel, beside the database,
+expect far less.
+
 ## Tokens — `tokens.ts`
 
 sha256 of 32 random bytes, prefix `sfm_`, unique index on the hash. **No expiry; dead after 180
