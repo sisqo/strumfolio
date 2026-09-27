@@ -8,6 +8,7 @@ import { UserMenu } from '@/components/UserMenu'
 import { ViewingAsPill } from '@/components/ViewingAsPill'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons'
 import { APP_NAME } from '@/lib/brand'
+import { mcpEnabled } from '@/lib/mcp/enabled'
 
 export type Section =
   | 'songs'
@@ -18,6 +19,7 @@ export type Section =
   | 'export'
   | 'password'
   | 'profile'
+  | 'ai-access'
   | 'accounts'
   /* Beside `accounts`, ahead of `coupons`: a lead is a person who has not become an account
      yet, so `AdminPanel`'s own comment groups it with `accounts` rather than with `emails` —
@@ -173,7 +175,8 @@ export function TopBar({
           <SignOutButton />
         </UserMenu>
         <AdminMenu current={current} />
-        <NavMenu current={current} />
+        {/* The switch read here, on the server, so the client menu needs no public copy of it. */}
+        <NavMenu current={current} aiAccess={mcpEnabled()} />
       </div>
     </header>
   )

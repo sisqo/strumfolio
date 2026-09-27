@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
   const secret = bearer(request)
   const token = secret === null ? null : await resolveToken(secret)
   if (token === null) {
-    return rpcError(401, -32001, 'A valid Strumfolio token is required: create one under Profile → AI access.', {
+    return rpcError(401, -32001, 'A valid Strumfolio token is required: create one in Strumfolio, menu → AI assistants.', {
       'www-authenticate': 'Bearer realm="strumfolio"',
     })
   }

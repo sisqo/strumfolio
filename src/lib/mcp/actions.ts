@@ -1,7 +1,7 @@
 'use server'
 
 /**
- * The `/profile` side of AI access: listing, creating and revoking one's own tokens.
+ * The `/ai-access` side of AI access: listing, creating and revoking one's own tokens.
  *
  * **Only the account's own owner, in their own account, from a browser.** Three refusals, each
  * a decision rather than a default: a call made *with* a token is refused (a token must never

@@ -10,6 +10,7 @@ import {
   loadAiAccess,
   revokeAiToken,
 } from '@/lib/mcp/actions'
+import { ConnectGuides } from '@/components/ConnectGuides'
 import { NAME_MAX } from '@/lib/names'
 import { useOnline } from '@/lib/useOnline'
 
@@ -28,7 +29,7 @@ function day(iso: string): string {
 /**
  * The owner's personal tokens for an AI assistant, and how to connect one (`lib/mcp/`).
  *
- * A new token's secret is shown here once, beside the command that uses it, and never again —
+ * A new token's secret is shown here once, and filled into the setup instructions, and never again —
  * only its hash is stored. What each row says is what decides whether to keep it: when it was
  * last used, and when disuse will end it.
  */
@@ -95,24 +96,19 @@ export function AiAccessPanel() {
     }
   }
 
-  if (access === null) return <p className="text-sm text-muted">One moment…</p>
+  if (access === null) return <p className="mb-5 text-sm text-muted">One moment…</p>
   if (access.state === 'unavailable') {
     return (
-      <p className="text-[0.8125rem] leading-[1.45] text-muted">
+      <p className="notice notice-accent mb-5">
         AI access can only be set up by the account’s owner, from their own account.
       </p>
     )
   }
 
-  const command =
-    fresh === null
-      ? null
-      : `claude mcp add --transport http strumfolio ${access.endpoint} --header "Authorization: Bearer ${fresh.secret}"`
-
   const copy = async () => {
-    if (command === null) return
+    if (fresh === null) return
     try {
-      await navigator.clipboard.writeText(command)
+      await navigator.clipboard.writeText(fresh.secret)
       setCopied(true)
     } catch {
       setCopied(false)
@@ -120,7 +116,14 @@ export function AiAccessPanel() {
   }
 
   return (
-    <div className="grid gap-4">
+    <>
+      <section className="card mb-5 p-4">
+        <h2 className="section-title mb-1">Your tokens</h2>
+        <p className="mb-3 text-[0.8125rem] leading-[1.45] text-muted">
+          A token is the key your assistant uses to reach your songbooks. Create one for each assistant or computer, so
+          you can revoke one without disturbing the others.
+        </p>
+        <div className="grid gap-4">
       {access.state === 'plan-required' && (
         <p className="notice notice-accent">
           <span>
@@ -139,17 +142,16 @@ export function AiAccessPanel() {
         </p>
       )}
 
-      {fresh !== null && command !== null && (
+      {fresh !== null && (
         <div className="notice notice-success grid gap-2" role="status">
           <span>
-            Token «{fresh.token.name}» created. Copy it now: it will not be shown again. In Claude Code, run:
+            Token «{fresh.token.name}» created. Copy it now: it will not be shown again. The instructions below already
+            include it.
           </span>
-          <code className="block overflow-x-auto whitespace-pre rounded-row bg-nested p-2 font-mono text-xs">
-            {command}
-          </code>
+          <code className="block overflow-x-auto whitespace-pre rounded-row bg-nested p-2 font-mono text-xs">{fresh.secret}</code>
           <div>
             <button type="button" className="btn btn-sm" onClick={() => void copy()}>
-              {copied ? 'Copied' : 'Copy command'}
+              {copied ? 'Copied' : 'Copy token'}
             </button>
           </div>
         </div>
@@ -205,6 +207,16 @@ export function AiAccessPanel() {
           </button>
         </form>
       )}
-    </div>
+        </div>
+      </section>
+
+      <section className="card mb-5 p-4">
+        <h2 className="section-title mb-1">Connect your assistant</h2>
+        <p className="mb-3 text-[0.8125rem] leading-[1.45] text-muted">
+          Pick the assistant you use. The server address is {access.endpoint}.
+        </p>
+        <ConnectGuides endpoint={access.endpoint} token={fresh?.secret ?? null} />
+      </section>
+    </>
   )
 }

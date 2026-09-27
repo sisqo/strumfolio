@@ -6,16 +6,23 @@ leaves behind is `src/lib/revisions/`. Built 2026-09-27, every rule below the ow
 ## What it is
 
 A remote MCP server inside the app, so a musician's own AI assistant can read and edit their
-songbooks. **Personal tokens first, OAuth later**: a token is created on `/profile` («AI access»)
-and pasted into the client. Claude Code takes it directly (`claude mcp add --transport http … --header
-"Authorization: Bearer …"`); **Claude Desktop does not** — its custom connectors are OAuth only,
-so a token needs a local bridge (`mcp-remote`); Claude.ai's `static_headers` connectors are set by
-an organisation Owner, and whether a single person on a personal plan can use them is untested.
-OAuth is what opens it to everybody, and is phase two.
+songbooks. **Personal tokens first, OAuth later**: a token is created on `/ai-access` — its own
+page and its own row in the hamburger menu («AI assistants», beside Export), moved out of
+`/profile` on request the same day — and pasted into the client. `ConnectGuides` carries the
+setup for nine clients, each checked against that client's docs on 2026-09-27: Claude Code,
+Codex (`http_headers` in `config.toml`), Cursor, VS Code, Gemini CLI and Windsurf/Devin Desktop
+take a bearer header natively; Claude Desktop needs the `mcp-remote` bridge; Claude.ai's request
+headers are a beta not every account has; **ChatGPT cannot at all** — its developer-mode apps take
+OAuth or no authentication, and its tab says so and points at Codex. OAuth is what opens it to
+everybody, ChatGPT included, and is phase two. Do not «solve» ChatGPT with a token in the URL
+without deciding it: that puts a write credential in every log the URL passes through.
 
-- **Behind `STRUMFOLIO_MCP=on`** (`enabled.ts`), read by the route (404 when off), `/profile`
-  (no section) and `/pricing` (the «AI MCP integration» row keeps its old Premium «coming soon»
-  while off, and is computed from `PLANS[plan].aiAccess` while on). **On in all three Vercel
+- **Behind `STRUMFOLIO_MCP=on`** (`enabled.ts`), read by the route (404 when off), `/ai-access`
+  (404) and its menu row (absent), `/pricing` (the row keeps its old «AI MCP integration», Premium,
+  «coming soon» while off, and while on is «AI assistants (MCP)» computed from `PLANS[plan].aiAccess`,
+  with the Standard card naming it too), the landing page (the «Edit with your AI assistant» card and
+  the `AI_FAQ` answer in «Editing your songs», plus «access for AI assistants» in the free-plan
+  answer) and `/help` §9 (last, so §7 keeps its number). **On in all three Vercel
   environments and in `.env.local` since 2026-09-27**, owner's decision. Like every module-scope
   read it is baked at build: changing it needs a deploy after, not before — a push, or the
   `vercel redeploy` the auto-mode classifier blocks.
@@ -26,6 +33,12 @@ OAuth is what opens it to everybody, and is phase two.
   `UNGATED`, which includes this, the same as every other gate.
 - **Read and write, never delete.** No tool removes a song, a section or a songbook. Do not add
   one without asking: «an AI mistake is always repairable» is what the undo design rests on.
+
+**Seven surfaces describe this feature and move together**: `/ai-access` (with `ConnectGuides`),
+the landing card and FAQ, `/pricing`'s row and Standard card, `/help` §9, and Privacy §2/§3/§6 with
+Terms §5. Each names the same three limits — Standard and up, nothing deleted, every change
+restorable — and the same client list, ChatGPT marked «not yet». Change the list or a limit in one
+and the others are wrong.
 
 ## How a token becomes an account — `lib/auth/actor.ts`
 
@@ -45,7 +58,7 @@ re-anchoring for free. There is no second copy of any gate, and that is the reas
 - **A token cannot manage tokens**: `mcp/actions.ts` refuses under an actor, and refuses a global
   owner standing in a customer's account (a token belongs to whoever created it).
 - `'use server'` modules may export only async functions — `mcp/actions.ts` exporting a constant
-  broke `/profile` in dev with a build error the type-checker never saw.
+  broke the page in dev with a build error the type-checker never saw.
 
 ## Tokens — `tokens.ts`
 

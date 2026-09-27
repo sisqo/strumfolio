@@ -572,7 +572,7 @@ export const songs = pgTable(
  *
  * Only the sha256 of the secret is kept: the secret is 32 random bytes, so a slow hash buys
  * nothing and a lookup by hash is one index probe. `prefix` is the start of the secret in the
- * clear, so the owner can tell two tokens apart on `/profile`. No expiry column: a token dies
+ * clear, so the owner can tell two tokens apart on `/ai-access`. No expiry column: a token dies
  * when revoked or after `TOKEN_IDLE_DAYS` without use (`lib/mcp/tokens.ts`), and a password
  * change does not touch it — owner's decision, 2026-09-27.
  *

@@ -407,7 +407,10 @@ function columnsFor(coupon: Campaign | null, chargeable: { month: boolean; year:
   paidColumn(
     'Standard',
     'standard',
-    `${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, a printed booklet and the ukulele.`,
+    /* «AI assistants» only while the switch is on — the same condition as the table row below. */
+    mcpEnabled()
+      ? `${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, a printed booklet, the ukulele and AI assistants.`
+      : `${PLANS.standard.songbooks} songbooks, ${PLANS.standard.songs} songs, a printed booklet and the ukulele.`,
     coupon,
     chargeable,
   ),
@@ -708,8 +711,10 @@ const ROWS: ComparisonRow[] = [
    * Premium to Standard was the owner's decision, not a slip.
    */
   {
-    label: 'AI MCP integration',
-    note: 'Connect an AI assistant to your songbooks over MCP.',
+    label: mcpEnabled() ? 'AI assistants (MCP)' : 'AI MCP integration',
+    note: mcpEnabled()
+      ? 'Let Claude, Codex, Cursor and other assistants read and edit your songbooks — never delete.'
+      : 'Connect an AI assistant to your songbooks over MCP.',
     cells: mcpEnabled()
       ? (['free', 'standard', 'plus', 'premium'] as const).map((plan) => (PLANS[plan].aiAccess ? INCLUDED : null))
       : [null, null, null, COMING_SOON],

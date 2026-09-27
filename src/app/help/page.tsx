@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
+import { mcpEnabled } from '@/lib/mcp/enabled'
 
 export const metadata: Metadata = { title: 'Help' }
 
@@ -47,6 +48,12 @@ export default async function HelpPage() {
             <a href="#offline">7. Offline and on your phone</a>
             <br />
             <a href="#account">8. Your account</a>
+            {mcpEnabled() && (
+              <>
+                <br />
+                <a href="#ai-assistants">9. Edit with an AI assistant</a>
+              </>
+            )}
           </p>
 
           <h2 id="songbooks">1. Create your first songbook</h2>
@@ -180,6 +187,44 @@ export default async function HelpPage() {
             Sign in with Google, or with an email and password. Whichever address you use, it has its
             own songbooks and songs — separate from anyone else&apos;s, private by default.
           </p>
+
+          {/* Last and numbered 9 so nothing above renumbers — «/help §7» is cited by the install
+              row's rule. Only while `STRUMFOLIO_MCP` is on; the client list is `ConnectGuides`'. */}
+          {mcpEnabled() && (
+            <>
+              <h2 id="ai-assistants">9. Edit with an AI assistant</h2>
+              <p>
+                An AI assistant can read and edit your songbooks for you — transpose a song, turn pasted lyrics into
+                ChordPro, mark the chorus, fill in the key and tempo. It connects through MCP, the standard way assistants
+                reach other apps, with a personal token you create. Included from the Standard plan.
+              </p>
+              <p>
+                <strong>1. Create a token.</strong> Open the menu and tap <strong>AI assistants</strong>, or go straight to{' '}
+                <Link href="/ai-access">AI assistants</Link>. Give the token a name — «Claude on my laptop» — and tap{' '}
+                <strong>Create token</strong>. Copy it right away: it is shown only once. Make one per assistant or
+                computer, so you can revoke one without touching the others.
+              </p>
+              <p>
+                <strong>2. Connect your assistant.</strong> On the same page, pick yours under{' '}
+                <strong>Connect your assistant</strong>: the instructions already contain your token. Claude Code, Codex,
+                Cursor, VS Code, Gemini CLI and Windsurf take it directly; Claude Desktop through a small bridge the page
+                spells out. ChatGPT cannot connect yet, because it needs a sign-in Strumfolio does not offer so far.
+              </p>
+              <p>
+                <strong>3. Ask in your own words</strong>, naming the song or the songbook: «Transpose Amazing Grace from
+                G to D», «Add this song I wrote to my Originals songbook», «Create a section Encores in my Live songbook
+                and move Hallelujah there». The page lists more.
+              </p>
+              <p>
+                <strong>If something goes wrong.</strong> An assistant can never delete anything. Every song it changes
+                keeps the previous text: open the song, tap Edit, and under <strong>History</strong> tap Restore — the
+                current text is kept too, so a restore can be undone. If you edit a song while the assistant is working,
+                it is told to read it again rather than overwrite you. A token stops working after six months without
+                use, and you can revoke it at any time on the same page. On the free plan your tokens are kept, but the
+                assistant is told that a paid plan is needed.
+              </p>
+            </>
+          )}
         </article>
 
         <Footer />

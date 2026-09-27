@@ -19,6 +19,7 @@ import {
   IconMenu,
   IconNote,
   IconPrint,
+  IconSparkle,
   IconTuningFork,
 } from '@/components/icons'
 import type { Section } from '@/components/TopBar'
@@ -57,7 +58,7 @@ const TUNER_URL = 'https://guitar.sisqo.dev'
  * disagree about the same broadcast; see `StrumTogetherProvider`'s own comment for why that
  * state lives above both of them instead of in either.
  */
-export function NavMenu({ current }: { current: Section }) {
+export function NavMenu({ current, aiAccess = false }: { current: Section; aiAccess?: boolean }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'main' | 'strum-together' | 'install'>('main')
   const { mayEdit } = useRole()
@@ -219,6 +220,19 @@ export function NavMenu({ current }: { current: Section }) {
                       <IconDownload size={17} />
                       Export
                     </Link>
+
+                    {/*
+                      * With the booklet and the export because it is the same kind of thing — a
+                      * way for the repertoire to leave the app, here towards an AI assistant —
+                      * and not in `UserMenu`, where it sat under «Edit profile» for a day and was
+                      * moved on request. Present only while `STRUMFOLIO_MCP` is on (`TopBar`).
+                      */}
+                    {aiAccess && (
+                      <Link href="/ai-access" className={item('ai-access')} role="menuitem" onClick={close}>
+                        <IconSparkle size={17} />
+                        AI assistants
+                      </Link>
+                    )}
                   </>
                 )}
 

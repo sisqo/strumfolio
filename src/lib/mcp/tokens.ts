@@ -3,7 +3,7 @@
  *
  * A plain module, never `'use server'`: `resolveToken` takes a secret and answers an account,
  * and as a Server Action it would be an unauthenticated oracle with an id shipped to the
- * browser. The `/profile` actions that create and revoke tokens live in `actions.ts`.
+ * browser. The `/ai-access` actions that create and revoke tokens live in `actions.ts`.
  *
  * The rules, each a decision of 2026-09-27:
  *

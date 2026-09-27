@@ -22,6 +22,7 @@ import {
   IconPencil,
   IconPrint,
   IconSliders,
+  IconSparkle,
   IconTuningFork,
   IconUsers,
 } from '@/components/icons'
@@ -34,6 +35,7 @@ import { ReaderPhone } from '@/components/ReaderPhone'
 import { StrumTogetherStage } from '@/components/StrumTogetherStage'
 import { APP_NAME, APP_PAYOFF } from '@/lib/brand'
 import { limitLabel } from '@/lib/plans/limits'
+import { mcpEnabled } from '@/lib/mcp/enabled'
 import { paddleCheckoutEnabled, plansEnforced } from '@/lib/plans/resolve'
 import { PLANS } from '@/lib/plans/types'
 import { publicBarFor, publicBarFrom } from '@/lib/publicBar'
@@ -343,6 +345,33 @@ function cheatSheetLink(label: string): ReactNode {
   )
 }
 
+/**
+ * The AI-assistants answer, in the editing group because that is what it is: another way to
+ * edit. Every capability it names is a tool in `lib/mcp/tools.ts`, and every limit a rule in
+ * `lib/mcp/CLAUDE.md` — no deleting, the history, the version check, Standard and up. **ChatGPT is
+ * named as not yet**, not left out and not promised: its apps cannot send a personal token, and a
+ * visitor who reads «ChatGPT» in a list and then cannot connect it has been told something false.
+ * Only while `STRUMFOLIO_MCP` is on, like the page it describes.
+ */
+const AI_FAQ: FaqItem = {
+  q: 'Can I edit my songbooks with an AI assistant?',
+  a: (
+    <>
+      Yes. Strumfolio speaks MCP, the standard way AI assistants connect to other apps: create a personal token in the
+      app, paste it into Claude Code, Claude Desktop, Codex, Cursor, VS Code, Gemini CLI or Windsurf, and ask in your own
+      words. The assistant can list and search your songbooks, read a song, write or rewrite it in ChordPro, move it to
+      another section, and create or rename songbooks and sections. For example: «Transpose Amazing Grace from G to D and
+      update the key», «Turn these lyrics with chords above the words into ChordPro and add them to my Originals
+      songbook», «Mark the verses and the chorus in Scarborough Fair», «Add the tempo and key to every song in my Gig
+      songbook where they are missing», or «Put a comment at the top of each song in Rehearsal with the capo that lets me
+      play it with open chords». It can never delete anything; every song it changes keeps the previous text, which you
+      restore from the editor in one tap; and if you change a song on your phone while it is working, it has to read it
+      again instead of overwriting you. ChatGPT cannot connect yet — it needs a sign-in Strumfolio does not offer so far.
+      AI access comes with Standard, Plus, Premium and Lifetime.
+    </>
+  ),
+}
+
 const FAQ: FaqGroup[] = [
   {
     title: 'Bringing in your collection',
@@ -525,6 +554,7 @@ const FAQ: FaqGroup[] = [
         q: 'How precisely can I place a chord?',
         a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to nudge it letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
       },
+      ...(mcpEnabled() ? [AI_FAQ] : []),
     ],
   },
   {
@@ -631,7 +661,7 @@ const FAQ: FaqGroup[] = [
          * safe — but the caveat below still has to reach the four other answers that name a
          * plan, which is exactly why it stays a single copy and does not follow the reader.
          */
-        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, a Strum Together session with ${count(PLANS.free.devices, 'other device')} following, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet and the ukulele; the pricing page has all four. ${PLAN_HOLD}`,
+        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, a Strum Together session with ${count(PLANS.free.devices, 'other device')} following, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet${mcpEnabled() ? ', the ukulele and access for AI assistants' : ' and the ukulele'}; the pricing page has all four. ${PLAN_HOLD}`,
       },
       {
         q: 'How does a paid plan renew, and how do I stop it?',
@@ -694,7 +724,7 @@ const FAQ: FaqGroup[] = [
 ]
 
 /**
- * Twelve, not an exhaustive list. Each is something a visitor can picture doing on
+ * Twelve — thirteen while `STRUMFOLIO_MCP` is on — not an exhaustive list. Each is something a visitor can picture doing on
  * stage, in one sentence — the rest is for whoever is already inside to discover.
  */
 const FEATURES: Feature[] = [
@@ -741,6 +771,20 @@ const FEATURES: Feature[] = [
     title: 'A songbook for every set',
     text: "Keep sets, bands and occasions apart, each one split into its own sections — always the song you're after, never an endless list. How many songbooks you can keep depends on your plan.",
   },
+  ...(mcpEnabled()
+    ? [
+        {
+          icon: <IconSparkle size={26} />,
+          title: 'Edit with your AI assistant',
+          /* Every verb here is a tool in `lib/mcp/tools.ts`; «never deletes» and «one tap back» are
+             the two rules the whole feature was built around (`lib/mcp/CLAUDE.md`). */
+          text:
+            'Connect Claude, Codex, Cursor or another assistant that speaks MCP, and ask it to transpose a song, ' +
+            'turn pasted lyrics into ChordPro or tidy a songbook. It never deletes anything, and every change it ' +
+            'makes is one tap away from undone. From the Standard plan.',
+        },
+      ]
+    : []),
   {
     icon: <IconBroadcast size={26} />,
     title: 'Strum together',

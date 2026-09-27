@@ -1,12 +1,10 @@
 import { requireAccount } from '@/lib/auth/session'
 import type { Metadata } from 'next'
 
-import { AiAccessPanel } from '@/components/AiAccessPanel'
 import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { ProfileScreen } from '@/components/ProfileScreen'
 import { TopBar } from '@/components/TopBar'
-import { mcpEnabled } from '@/lib/mcp/enabled'
 
 export const metadata: Metadata = { title: 'Profile' }
 
@@ -31,19 +29,6 @@ export default async function ProfilePage() {
         </header>
 
         <ProfileScreen />
-
-        {/* Behind `STRUMFOLIO_MCP` like the endpoint itself: a section for tokens nothing accepts
-            would be the same unlabelled promise /pricing is careful never to make. */}
-        {mcpEnabled() && (
-          <section className="card mt-6 p-4">
-            <h2 className="section-title mb-1">AI access</h2>
-            <p className="mb-3 text-[0.8125rem] leading-[1.45] text-muted">
-              Let an AI assistant read and edit your songbooks over MCP. It can never delete anything, and every
-              song it changes keeps the previous text, which you can restore from the editor.
-            </p>
-            <AiAccessPanel />
-          </section>
-        )}
 
         <Footer />
       </main>
