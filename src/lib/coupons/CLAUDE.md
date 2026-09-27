@@ -197,31 +197,17 @@ load-bearing parts:
 
 ## What the checkout and /billing show must be what Paddle charges
 
-- **The refusal was narrowed, not lifted, and the narrow form is the invariant** — and it takes
-  *two* questions to keep, which is what a real defect found on 2026-09-15 established.
-  `coupon-unsupported` answers the first: «a coupon is in play and this exact plan and cycle have
-  no `dsc_…`» — a sync that never ran, one Paddle refused, a campaign covering no Lifetime, a
-  cycle whose three prices could not all be named. All of those sell nothing.
-
-  The second is **may this account still redeem it at all**, and the screen was not asking it.
-  `/checkout/[plan]` decided what to show from `activeCoupon` alone, which knows about campaigns
-  and nothing about ceilings, windows or previous redemptions; the charge went through
-  `redeemableCouponFor`, which asks all three and answers `null` — and a `null` coupon does not
-  trip the guard, so the sale proceeded at the listino. A reader who had spent COUPON30 on a
-  subscription **was shown the Lifetime at €139.99 while the transaction the server made carried
-  `discount_id: null` and `total: 19999`**: sixty euro more than advertised, the gap this
-  paragraph exists to deny, arriving through the door left open for a *tampered* `?coupon=`
-  (where showing a discount and not honouring it is the safe direction). Evidence in
-  `/media/psf/Download/strumfolio-qa-2026-09-15/06-lifetime-scontato/`.
-
-  Fixed the same day: `couponRefusalFor` puts `redeemability` on the display path beside the
-  write path, the ticket comes down where the coupon will not be honoured, and
-  `couponRefusedNotice` says why in one sentence that ends «The price above is the usual one.»
-  Two silences are deliberate and tested — a campaign that simply does not reach this plan, which
-  `appliedCopy` already words, and a coupon table that could not be read, where the charge gives
-  up the same way so the two still agree. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
-  a recurring discount survives a plan change on its own, so what is left is a code never
-  redeemed, and the two sentences that say what a change costs know nothing about discounts.
+- **The display path asks the same two questions as the charge** (`couponRefusalFor`): «does this
+  plan and cycle have a `dsc_…`» (the `coupon-unsupported` bullet above) and **«may this account
+  still redeem it at all»** (`redeemability`: ceilings, windows, previous redemptions).
+  `activeCoupon` alone knows only campaigns, and a `null` from `redeemableCouponFor` does not
+  trip the guard — so without the second question a reader who had spent COUPON30 was shown the
+  Lifetime at €139.99 and charged €199.99 (2026-09-15, evidence in
+  `/media/psf/Download/strumfolio-qa-2026-09-15/06-lifetime-scontato/`). Where the coupon will not
+  be honoured the ticket comes down and `couponRefusedNotice` says why, ending «The price above is
+  the usual one.» Two silences are deliberate and tested: a campaign that does not reach this plan
+  (`appliedCopy` words it) and a coupon table that could not be read (the charge gives up the same
+  way, so the two still agree).
 
   **`recurring_transaction_details` ignores a subscription's discount and `next_transaction`
   applies it**, which is the field that decides whether a discounted reader is quoted the
