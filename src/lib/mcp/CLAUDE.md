@@ -93,6 +93,12 @@ saves stay last-write-wins. Title and artist are arguments; a `{title:}` the wri
 body gets a warning in the answer, since the sample songbook's songs already carry such lines and
 those are the owner's text.
 
+- **A rewrite that changes nothing writes nothing** — no revision, no version bump — or an assistant
+  «fixing» fifty songs that needed nothing would fill every history with copies.
+- **`create_song` checks `section_id` against the songbook itself**: `saveSong` treats the section as
+  the stronger hint, so one from another songbook moved the song there, and one it could not find
+  fell back to the first section — both silently.
+
 ## History — `src/lib/revisions/`
 
 `song_revisions` keeps a text in two cases only: **before every AI write**, and **before an app
@@ -109,7 +115,9 @@ Hand-written, stateless JSON over Streamable HTTP, **legacy era only** (`initial
 `2025-11-25`/`2025-06-18`/`2025-03-26`). The `2026-07-28` revision dropped the handshake for
 per-request `_meta`; a dual-era client that tries it gets a plain 400, which that spec names as the
 signal to fall back. A modern-only client does not work until this learns `server/discover`. No
-`Mcp-Session-Id`, GET/DELETE are 405, a batch array is accepted, a notification is 202.
+`Mcp-Session-Id`, GET/DELETE are 405, a batch array is accepted, a notification is 202. **Every
+message of a batch pays the rate limit** (120 a minute per token), not just the POST: otherwise one
+request of a thousand calls went through on one hit (fixed 2026-09-27, measured: 130 pings → 14 refused).
 
 ## The ChordPro guide — `guide.ts`
 

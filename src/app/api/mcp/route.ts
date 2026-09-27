@@ -104,7 +104,16 @@ export async function POST(request: Request): Promise<Response> {
 
     const messages = Array.isArray(payload) ? payload : [payload]
     const answers = []
-    for (const message of messages) {
+    for (const [index, message] of messages.entries()) {
+      /* A 2025-03-26 client may batch, and one POST must not buy a hundred calls: every message
+         after the first pays the same limit the request paid at the door. */
+      if (index > 0 && !(await checkRateLimit(`mcp:${token.tokenId}`, CALLS_PER_MINUTE, 60_000))) {
+        const id = (message as { id?: unknown } | null)?.id
+        if (typeof id === 'string' || typeof id === 'number') {
+          answers.push({ jsonrpc: '2.0', id, error: { code: -32002, message: 'Too many calls. Wait a minute and try again.' } })
+        }
+        continue
+      }
       const answer = await handleMessage(server, message)
       if (answer !== null) answers.push(answer)
     }

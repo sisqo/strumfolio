@@ -377,13 +377,26 @@ async function createSong(accountId: number, args: Record<string, unknown>): Pro
   const book = await songbookOf(accountId, text(args, 'songbook', true))
   if (book === null) return refused('No songbook with that slug.')
   const body = text(args, 'body', true)
+  const sectionId = whole(args, 'section_id') ?? null
+
+  /* `saveSong` takes a section id as the stronger of the two hints: one from another songbook
+     would put the song there, and one it cannot find would fall back to the first section, both
+     silently. So the tool asks first. */
+  if (sectionId !== null) {
+    const found = await db()
+      .select({ id: sections.id })
+      .from(sections)
+      .where(and(eq(sections.id, sectionId), eq(sections.songbookId, book.id)))
+      .limit(1)
+    if (found.length === 0) return refused('No section with that id in this songbook: see list_songbooks.')
+  }
 
   const result = await saveSong(
     {
       title: text(args, 'title', true),
       artist: text(args, 'artist') ?? null,
       songbookSlug: book.slug,
-      sectionId: whole(args, 'section_id') ?? null,
+      sectionId,
       body,
     },
     args.on_duplicate === 'add' ? 'add' : undefined,
@@ -412,6 +425,16 @@ async function updateSong(accountId: number, args: Record<string, unknown>): Pro
   const artist = args.artist === undefined ? current.artist : args.artist === null ? null : text(args, 'artist')
 
   if (body.length > SONG_TEXT_MAX || title.length > SONG_TITLE_MAX) return refused(saveMessage({ reason: 'too-long' }))
+
+  /* A rewrite that changes nothing writes nothing: it would still keep a revision and move the
+     version on, and an assistant «fixing» fifty songs that needed no fix would fill every
+     history with copies of the text it already holds. */
+  /* Normalised the way `saveSong` stores it: blank is no artist. */
+  const storedArtist = artist === null || artist === undefined || artist.trim() === '' ? null : artist.trim()
+  const sameArtist = storedArtist === current.artist
+  if (version === current.version && body === current.body && title.trim() === current.title && sameArtist) {
+    return ok('Nothing to save: the text, title and artist are already these.', songCard(current))
+  }
 
   const result = await saveSong({
     slug: current.slug,
