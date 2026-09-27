@@ -15,8 +15,10 @@ OAuth is what opens it to everybody, and is phase two.
 
 - **Behind `STRUMFOLIO_MCP=on`** (`enabled.ts`), read by the route (404 when off), `/profile`
   (no section) and `/pricing` (the «AI MCP integration» row keeps its old Premium «coming soon»
-  while off, and is computed from `PLANS[plan].aiAccess` while on). Off in production until the
-  owner switches it on; set it before the push that should bake it, like every module-scope read.
+  while off, and is computed from `PLANS[plan].aiAccess` while on). **On in all three Vercel
+  environments and in `.env.local` since 2026-09-27**, owner's decision. Like every module-scope
+  read it is baked at build: changing it needs a deploy after, not before — a push, or the
+  `vercel redeploy` the auto-mode classifier blocks.
 - **From Standard up** (`PlanLimits.aiAccess`, `refused.aiAccess`), asked on **every call**, not
   when the token is made. On Free the token still authenticates, `tools/list` still answers, and
   every tool answers one sentence saying the plan is needed — so the assistant can tell its user
