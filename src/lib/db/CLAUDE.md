@@ -6,7 +6,8 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 ## Numeric keys (`0039`, v4.7) — and the four tables that deliberately still use an email
 
 Every table with a surrogate key has an `integer id` — `accounts`, `songbooks`, `sections`,
-`songs`, `sing_along_sessions`, `outreach_actions`, `lead_attribution` — and every foreign key
+`songs`, `sing_along_sessions`, `outreach_actions`, `lead_attribution`, and since `0053` `api_tokens`
+and `song_revisions` (both removed with their account or song by cascade) — and every foreign key
 points at one, except three that point at text keys: `coupon_redemptions.campaign_id` and
 `coupon_views.campaign_id` at `coupon_campaigns.id`, and `sing_along_devices.token` at
 `sing_along_sessions.token`. The email and the slug stayed as `UNIQUE` natural keys, because the email is how

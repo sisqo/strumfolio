@@ -77,3 +77,13 @@ else's* account — cannot reach that browser at all. Reproduced and fixed 2026-
 - **Deleting yourself goes through `currentUser`**, so a suspended account cannot: deleting
   clears the suspension with the row, and the address could register again (owner's decision,
   2026-09-25). The same goes for the name and the newsletter preference.
+
+## An AI token is a second way to be somebody (2026-09-27)
+
+`currentUser`, `accessTo` and `permitOn` answer for an MCP token before they read the session
+(`lib/auth/actor.ts`, `runAsToken`): the token's own account, admin there and nowhere else, never
+through `roleOf`, so an owner's token is not a global owner. **`auth()` is deliberately left alone**,
+so every operator action that reads it sees nobody and refuses. A change to any of those three
+functions must keep the actor branch first; `actor.test.ts` pins the cross-account refusal, and
+`src/lib/mcp/CLAUDE.md` has the rest. Token revocation is not `sessions_valid_after`: a password
+change leaves tokens alone, by decision.

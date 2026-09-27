@@ -829,3 +829,12 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
   direction, and the line is the same one everywhere: moving to monthly bills nothing and simply
   replaces what was arranged, moving to yearly is billed now and is refused until the reader
   calls that change off on /billing.
+
+## `aiAccess` — reaching the account from an AI assistant (2026-09-27)
+
+A ninth `PlanLimits` field, `false` on Free and `true` from Standard up (`UNGATED` too), read as
+`refused.aiAccess` on **every** MCP call and when a token is created — never when it is merely
+listed or revoked, so a reader who dropped to Free still sees and can kill the tokens their plan
+suspended. It is a `PaywallGate` («songbook access for assistants», `minPlan: 'standard'`), and
+`/pricing` computes its row and names it on the Standard card only while `STRUMFOLIO_MCP` is on.
+`src/lib/mcp/CLAUDE.md` has the rest.
