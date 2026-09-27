@@ -136,11 +136,6 @@ export function AiAccessPanel() {
         </p>
       )}
 
-      {error !== null && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
 
       {fresh !== null && (
         <div className="notice notice-success grid gap-2" role="status">
@@ -148,7 +143,9 @@ export function AiAccessPanel() {
             Token «{fresh.token.name}» created. Copy it now: it will not be shown again. The instructions below already
             include it.
           </span>
-          <code className="block overflow-x-auto whitespace-pre rounded-row bg-nested p-2 font-mono text-xs">{fresh.secret}</code>
+          <div className="ai-fresh-secret">
+            <code>{fresh.secret}</code>
+          </div>
           <div>
             <button type="button" className="btn btn-sm" onClick={() => void copy()}>
               {copied ? 'Copied' : 'Copy token'}
@@ -206,6 +203,11 @@ export function AiAccessPanel() {
             Create token
           </button>
         </form>
+      )}
+      {error !== null && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
       )}
         </div>
       </section>

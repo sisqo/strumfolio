@@ -17800,6 +17800,226 @@
   }
 }
 
+@layer components {
+  /*
+   * `/ai-access`, from `AI Access.dc.html` (2026-09-27). Every hex of the mock is a token here:
+   * `#edebe5` is `--surface-2`, `#e6e3dc` `--line-soft`, `#e1f3e6`/`#1a7a42` the success pair;
+   * the two with none — the chosen tile's `#fbf5ee` and the hover border `#c9a27f` — are mixes
+   * of `--accent`, so the dark theme follows.
+   */
+  .ai-clients {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .ai-client {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-height: 64px;
+    padding: 11px 13px;
+    border: 1.5px solid var(--line-soft);
+    border-radius: 16px;
+    background: var(--surface);
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .ai-client:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--surface));
+  }
+
+  .ai-client.is-on {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  }
+
+  .ai-client-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+  }
+
+  .ai-client-name {
+    flex: 1;
+    min-width: 0;
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ai-client.is-on .ai-client-name {
+    color: var(--accent);
+  }
+
+  .ai-client-note {
+    flex: none;
+    white-space: nowrap;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .ai-client-meta {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  .ai-snippet {
+    overflow: hidden;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    background: var(--bg);
+  }
+
+  .ai-snippet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 6px 5px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--surface-2);
+  }
+
+  .ai-snippet-lang {
+    flex: 1;
+    min-width: 0;
+    color: var(--muted);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 11.5px;
+  }
+
+  .ai-snippet-secret {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .ai-snippet-secret::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    background: currentColor;
+  }
+
+  .ai-snippet-secret.is-real {
+    color: var(--success);
+  }
+
+  .ai-snippet-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgb(22 24 29 / 6%);
+    cursor: pointer;
+  }
+
+  .ai-snippet-copy:hover {
+    border-color: var(--accent);
+  }
+
+  .ai-snippet-copy.is-copied {
+    border-color: transparent;
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .ai-snippet-code {
+    display: block;
+    padding: 12px 14px 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .ai-token-mark {
+    padding: 1px 3px;
+    border-radius: 4px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .ai-token-mark.is-real {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .ai-fresh-secret {
+    overflow-x: auto;
+    padding: 10px 12px 12px;
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  .ai-fresh-secret code {
+    display: block;
+    white-space: pre;
+    color: var(--ink);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .ai-examples {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    column-gap: 32px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ai-examples li {
+    padding: 12px 0 13px;
+    border-top: 1px solid var(--surface-2);
+  }
+
+  .ai-example-title {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .ai-example-prompt {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .ai-examples-foot {
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--surface-2);
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /*
    * Auto-scroll is the feature, not decoration, so it is not disabled here —

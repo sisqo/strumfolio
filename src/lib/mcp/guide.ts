@@ -13,6 +13,8 @@ Before writing a song, read the resource strumfolio://guide/chordpro once.
 
 Edit by reading with get_song, then sending the whole new text to update_song with the version you read. If the song changed in the meantime, update_song refuses: read it again and redo the edit on the new text. Never try to delete anything: this server cannot, by design. Every AI edit keeps the previous text, and the owner can restore it from the app.
 
+A song lives in exactly one section of one songbook. move_song takes it out of where it was; to have a song in a second songbook as well — a set list, a copy in another key — create a new song there with create_song (on_duplicate "add"), and leave the original alone.
+
 Keep the owner's text as it is except where asked to change it: same line breaks, same directives, same spelling of chords. Title and artist are fields of their own, passed as arguments.`
 
 export const CHORDPRO_GUIDE = `# ChordPro as Strumfolio reads it

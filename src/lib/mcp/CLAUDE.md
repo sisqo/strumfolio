@@ -8,7 +8,8 @@ leaves behind is `src/lib/revisions/`. Built 2026-09-27, every rule below the ow
 A remote MCP server inside the app, so a musician's own AI assistant can read and edit their
 songbooks. **Personal tokens first, OAuth later**: a token is created on `/ai-access` — its own
 page and its own row in the hamburger menu («AI assistants», beside Export), moved out of
-`/profile` on request the same day — and pasted into the client. `ConnectGuides` carries the
+`/profile` on request the same day, laid out after `AI Access.dc.html` (Claude Design project
+`f366724a…`, which also rewrote the ten example prompts) — and pasted into the client. `ConnectGuides` carries the
 setup for nine clients, each checked against that client's docs on 2026-09-27: Claude Code,
 Codex (`http_headers` in `config.toml`), Cursor, VS Code, Gemini CLI and Windsurf/Devin Desktop
 take a bearer header natively; Claude Desktop needs the `mcp-remote` bridge; Claude.ai's request
