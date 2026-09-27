@@ -261,9 +261,9 @@ const STRUM_TOGETHER_POINTS: StrumPoint[] = [
 interface FaqItem {
   q: string
   /**
-   * `ReactNode` rather than `string`, and the one item below that names the ChordPro cheat
-   * sheet is the only one that needs it — every other answer here is still a plain string,
-   * which the type allows unchanged.
+   * Paragraphs, since 2026-09-27: every answer is JSX — `<p>`s, the words that answer the question
+   * in `<strong>`, and a list where one reads better — rendered inside a `div.faq-answer`. A bare
+   * string still works and is wrapped in one `<p>`, but a long answer should not be one.
    */
   a: ReactNode
 }
@@ -357,17 +357,32 @@ const AI_FAQ: FaqItem = {
   q: 'Can I edit my songbooks with an AI assistant?',
   a: (
     <>
-      Yes. Strumfolio speaks MCP, the standard way AI assistants connect to other apps: create a personal token in the
-      app, paste it into Claude Code, Claude Desktop, Codex, Cursor, VS Code, Gemini CLI or Windsurf, and ask in your own
-      words. The assistant can list and search your songbooks, read a song, write or rewrite it in ChordPro, move it to
-      another section, and create or rename songbooks and sections. For example: «Transpose Amazing Grace from G to D and
-      update the key», «Turn these lyrics with chords above the words into ChordPro and add them to my Originals
-      songbook», «Mark the verses and the chorus in Scarborough Fair», «Add the tempo and key to every song in my Gig
-      songbook where they are missing», or «Put a comment at the top of each song in Rehearsal with the capo that lets me
-      play it with open chords». It can never delete anything; every song it changes keeps the previous text, which you
-      restore from the editor in one tap; and if you change a song on your phone while it is working, it has to read it
-      again instead of overwriting you. ChatGPT cannot connect yet — it needs a sign-in Strumfolio does not offer so far.
-      AI access comes with Standard, Plus, Premium and Lifetime.
+      <p>
+        <strong>Yes.</strong> Strumfolio speaks <strong>MCP</strong>, the standard way AI assistants connect to other
+        apps: create a <strong>personal token</strong> in the app, paste it into Claude Code, Claude Desktop, Codex,
+        Cursor, VS Code, Gemini CLI or Windsurf, and ask in your own words.
+      </p>
+      <p>
+        The assistant can <strong>list and search</strong> your songbooks, <strong>read</strong> a song,{' '}
+        <strong>write or rewrite</strong> it in ChordPro, <strong>move</strong> it to another section, and{' '}
+        <strong>create or rename</strong> songbooks and sections. For example:
+      </p>
+      <ul>
+        <li>«Transpose Amazing Grace from G to D and update the key»</li>
+        <li>«Turn these lyrics with chords above the words into ChordPro and add them to my Originals songbook»</li>
+        <li>«Mark the verses and the chorus in Scarborough Fair»</li>
+        <li>«Add the tempo and key to every song in my Gig songbook where they are missing»</li>
+        <li>«Put a comment at the top of each song in Rehearsal with the capo that lets me play it with open chords»</li>
+      </ul>
+      <p>
+        It can <strong>never delete anything</strong>; every song it changes <strong>keeps the previous text</strong>,
+        which you restore from the editor in one tap; and if you change a song on your phone while it is working, it
+        has to read it again instead of overwriting you.
+      </p>
+      <p>
+        <strong>ChatGPT cannot connect yet</strong> — it needs a sign-in Strumfolio does not offer so far. AI access
+        comes with <strong>Standard, Plus, Premium and Lifetime</strong>.
+      </p>
     </>
   ),
 }
@@ -378,7 +393,14 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to create my songs from scratch, or can I import what I already have?',
-        a: "Strumfolio isn't a library you browse — there's no catalogue to search. You bring your own songs, imported from what you already have. So you don't start from a blank page, a new account arrives with one example songbook of public-domain songs already in it — an ordinary songbook you can edit, rename or delete like any other.",
+        a: (
+          <p>
+            Strumfolio isn&apos;t a library you browse — there&apos;s no catalogue to search.{' '}
+            <strong>You bring your own songs</strong>, imported from what you already have. So you don&apos;t start from a
+            blank page, a new account arrives with <strong>one example songbook</strong> of public-domain songs already in
+            it — an ordinary songbook you can edit, rename or delete like any other.
+          </p>
+        ),
       },
       {
         q: 'What file formats can I import and export?',
@@ -403,13 +425,18 @@ const FAQ: FaqGroup[] = [
          */
         a: (
           <>
-            {cheatSheetLink('ChordPro')} is what Strumfolio reads and writes — and around it,
-            the dialects other apps use, OnSong, MusicXML, a SongbookPro backup, PDF, Word,
-            and a zip holding any of those: fifteen file types in all, plus any text you can
-            paste. Chords written above the words are converted for you, always behind a
-            preview you can correct before anything is saved, since that conversion is a
-            guess and not always the right one. Export hands you standard ChordPro back — one
-            song, or the whole collection as a zip.
+            <p>
+              {cheatSheetLink('ChordPro')} is what Strumfolio reads and writes — and around it, the dialects other apps
+              use, <strong>OnSong, MusicXML, a SongbookPro backup, PDF, Word</strong>, and a zip holding any of those:{' '}
+              <strong>fifteen file types</strong> in all, plus any text you can paste.
+            </p>
+            <p>
+              <strong>Chords written above the words are converted for you</strong>, always behind a preview you can
+              correct before anything is saved, since that conversion is a guess and not always the right one.
+            </p>
+            <p>
+              <strong>Export</strong> hands you standard ChordPro back — one song, or the whole collection as a zip.
+            </p>
           </>
         ),
       },
@@ -423,12 +450,11 @@ const FAQ: FaqGroup[] = [
          * format, and what an export hands back.
          */
         a: (
-          <>
-            Behind the scenes, every song on Strumfolio is saved in ChordPro, the standard
-            format for lyrics and chords. Because we don&apos;t use closed, proprietary formats
-            that only we understand, when you export your repertoire you will get back clean,
-            universal files ready to be opened anywhere.
-          </>
+          <p>
+            Behind the scenes, every song on Strumfolio is saved in <strong>ChordPro</strong>, the standard format for
+            lyrics and chords. Because we don&apos;t use closed, proprietary formats that only we understand, when you
+            export your repertoire you will get back <strong>clean, universal files</strong> ready to be opened anywhere.
+          </p>
         ),
       },
       {
@@ -458,16 +484,21 @@ const FAQ: FaqGroup[] = [
          */
         a: (
           <>
-            Closely, and deliberately so. Strumfolio implements ChordPro as published in the{' '}
-            {cheatSheetLink('ChordPro cheat sheet')} (version 6.07): sections and their labels,
-            the full set of metadata directives, chord and fingering definitions, annotations,
-            comments and custom x_ directives. Anything the specification defines
-            for print typesetting — fonts, colours, page and column breaks — has no equivalent on
-            a scrolling screen, so Strumfolio carries it through your file untouched rather than
-            dropping it. Export a song you imported and it comes back as you wrote it, down to
-            the directives we never act on; only the title, artist, songbook and section are
-            rewritten in the standard spelling, because those four are the fields Strumfolio
-            keeps of its own.
+            <p>
+              <strong>Closely, and deliberately so.</strong> Strumfolio implements ChordPro as published in the{' '}
+              {cheatSheetLink('ChordPro cheat sheet')} (version 6.07): sections and their labels, the full set of
+              metadata directives, chord and fingering definitions, annotations, comments and custom x_ directives.
+            </p>
+            <p>
+              Anything the specification defines for print typesetting — fonts, colours, page and column breaks — has no
+              equivalent on a scrolling screen, so Strumfolio <strong>carries it through your file untouched</strong>{' '}
+              rather than dropping it.
+            </p>
+            <p>
+              Export a song you imported and <strong>it comes back as you wrote it</strong>, down to the directives we
+              never act on; only the title, artist, songbook and section are rewritten in the standard spelling, because
+              those four are the fields Strumfolio keeps of its own.
+            </p>
           </>
         ),
       },
@@ -480,7 +511,20 @@ const FAQ: FaqGroup[] = [
          * caveat is a page that reads as a disclaimer. It is said once, in "Is Strumfolio free to
          * use?", which is the answer every existing reader opens, and pointed to from here.
          */
-        a: `The free plan holds ${count(PLANS.free.songbooks, 'songbook')} and ${count(PLANS.free.songs, 'song')}. Standard holds ${count(PLANS.standard.songbooks, 'songbook')} and ${count(PLANS.standard.songs, 'song')}, counted across the whole account rather than per songbook; Plus and above have no limit on either. The pricing page lists all four side by side.`,
+        a: (
+          <p>
+            The free plan holds{' '}
+            <strong>
+              {count(PLANS.free.songbooks, 'songbook')} and {count(PLANS.free.songs, 'song')}
+            </strong>
+            . Standard holds{' '}
+            <strong>
+              {count(PLANS.standard.songbooks, 'songbook')} and {count(PLANS.standard.songs, 'song')}
+            </strong>
+            , counted across the whole account rather than per songbook; <strong>Plus and above have no limit</strong> on
+            either. The pricing page lists all four side by side.
+          </p>
+        ),
       },
     ],
   },
@@ -489,7 +533,13 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'How does the smart capo suggestion work?',
-        a: 'It checks every possible fret position and finds the one that lets you play the most open chords. That means you get the easiest shapes for your hands, not just a fret that happens to match the right sound.',
+        a: (
+          <p>
+            It checks every possible fret position and finds the one that lets you play <strong>the most open chords</strong>
+            . That means you get <strong>the easiest shapes</strong> for your hands, not just a fret that happens to match
+            the right sound.
+          </p>
+        ),
       },
       {
         q: 'Does it show chord shapes for both guitar and ukulele?',
@@ -510,7 +560,13 @@ const FAQ: FaqGroup[] = [
          * into sounding like the public charts are gated, and don't let it advertise them either
          * — that is the tools pages' own job.
          */
-        a: 'Yes — tap any chord in a song and see exactly where to place your fingers. Guitar is on every plan, including the free one; the ukulele comes with the paid plans.',
+        a: (
+          <p>
+            Yes — <strong>tap any chord</strong> in a song and see exactly where to place your fingers.{' '}
+            <strong>Guitar is on every plan</strong>, including the free one; <strong>the ukulele comes with the paid
+            plans</strong>.
+          </p>
+        ),
       },
       {
         q: 'If I switch to Do-Re-Mi, does that change my songs?',
@@ -532,7 +588,19 @@ const FAQ: FaqGroup[] = [
          *   hands a follower that notation with the key. So "chosen once, for every song you
          *   read" — the card's own closing words — has exactly one gap in it, and this is it.
          */
-        a: "No — the alphabet is how a sheet is drawn for you, not something stored inside it. Your files keep standard chord names, so an export reads the same for anybody you send it to, and the choice sits on your account rather than on one song. The one place you read somebody else's choice is while following a Strum Together session: there the alphabet arrives from whoever is leading, along with the key.",
+        a: (
+          <>
+            <p>
+              <strong>No</strong> — the alphabet is how a sheet is drawn for you, not something stored inside it.{' '}
+              <strong>Your files keep standard chord names</strong>, so an export reads the same for anybody you send it
+              to, and the choice sits on your account rather than on one song.
+            </p>
+            <p>
+              The one place you read somebody else&apos;s choice is while <strong>following a Strum Together
+              session</strong>: there the alphabet arrives from whoever is leading, along with the key.
+            </p>
+          </>
+        ),
       },
     ],
   },
@@ -542,17 +610,28 @@ const FAQ: FaqGroup[] = [
       {
         q: 'Do I need to learn ChordPro to edit my songs?',
         a: (
-          <>
-            No. The visual editor shows the song exactly as it reads — words on the line,
-            chords above them — and writes standard {cheatSheetLink('ChordPro')} for you
-            underneath. If you like working with brackets, the Source view is one tap away,
-            and the two can never disagree.
-          </>
+          <p>
+            <strong>No.</strong> The <strong>visual editor</strong> shows the song exactly as it reads — words on the
+            line, chords above them — and writes standard {cheatSheetLink('ChordPro')} for you underneath. If you like
+            working with brackets, the <strong>Source view</strong> is one tap away, and the two can never disagree.
+          </p>
         ),
       },
       {
         q: 'How precisely can I place a chord?',
-        a: "Tap above a line and the chord lands on the syllable under your finger; hold and drag to nudge it letter by letter. Chords can also sit past the last word — for a turnaround or an outro — and a tap between two chords slips a new one exactly there. While you name it, the song's own chords are one tap away as suggestions.",
+        a: (
+          <>
+            <p>
+              Tap above a line and the chord <strong>lands on the syllable under your finger</strong>;{' '}
+              <strong>hold and drag</strong> to nudge it letter by letter.
+            </p>
+            <p>
+              Chords can also sit <strong>past the last word</strong> — for a turnaround or an outro — and a tap between
+              two chords slips a new one exactly there. While you name it, the song&apos;s own chords are one tap away as
+              suggestions.
+            </p>
+          </>
+        ),
       },
       ...(mcpEnabled() ? [AI_FAQ] : []),
     ],
@@ -562,11 +641,23 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Do I need to install an app, or does it work in the browser?',
-        a: 'Neither an app store nor an install step is required — just open Strumfolio on your phone like any regular app, straight from the browser. If you want it to have its own icon, the menu has an Add to home screen entry: one tap on Android, and on an iPhone it shows the three steps Safari needs.',
+        a: (
+          <p>
+            <strong>Neither an app store nor an install step is required</strong> — just open Strumfolio on your phone
+            like any regular app, straight from the browser. If you want it to have its own icon, the menu has an{' '}
+            <strong>Add to home screen</strong> entry: one tap on Android, and on an iPhone it shows the three steps
+            Safari needs.
+          </p>
+        ),
       },
       {
         q: 'What happens if I lose internet connection while playing?',
-        a: 'Nothing changes. Once your repertoire is saved, it stays fully available on your device — no signal required, on stage or anywhere else.',
+        a: (
+          <p>
+            <strong>Nothing changes.</strong> Once your repertoire is saved, it stays fully available on your device —{' '}
+            <strong>no signal required</strong>, on stage or anywhere else.
+          </p>
+        ),
       },
       {
         q: 'Does my collection sync across my devices?',
@@ -576,7 +667,13 @@ const FAQ: FaqGroup[] = [
          * where — split across two groups, and each was silent on the other's half: this one
          * never mentioned the device you edited on, that one never mentioned the rest of them.
          */
-        a: 'Yes, and with nothing to back up or transfer by hand. An edit is on the reading screen of the device you made it on the moment you save it, and every other device you own picks it up as soon as it is online.',
+        a: (
+          <p>
+            <strong>Yes</strong>, and with nothing to back up or transfer by hand. An edit is on the reading screen of the
+            device you made it on the moment you save it, and <strong>every other device you own picks it up</strong> as
+            soon as it is online.
+          </p>
+        ),
       },
     ],
   },
@@ -601,15 +698,38 @@ const FAQ: FaqGroup[] = [
          * printing "Unlimited" — see its comment. Softening the number here silently un-fixes
          * that page too.
          */
-        a: `Every plan can lead one, free included, and how many follow is what changes: Free and Standard add ${count(PLANS.free.devices, 'other device')}, Plus ${PLANS.plus.devices}, Premium and Lifetime ${PLANS.premium.devices}. The device you play from is never counted, so Free is you and one other screen. Anyone can follow with no account at all — the limit is on how many follow at once, never on who.`,
+        a: (
+          <>
+            <p>
+              <strong>Every plan can lead one</strong>, free included, and how many follow is what changes: Free and
+              Standard add <strong>{count(PLANS.free.devices, 'other device')}</strong>, Plus{' '}
+              <strong>{PLANS.plus.devices}</strong>, Premium and Lifetime <strong>{PLANS.premium.devices}</strong>.
+            </p>
+            <p>
+              The device you play from is never counted, so Free is you and one other screen.{' '}
+              <strong>Anyone can follow with no account at all</strong> — the limit is on how many follow at once, never
+              on who.
+            </p>
+          </>
+        ),
       },
       {
         q: 'Does everyone need an account to join a session?',
-        a: 'No sign-up and no setup required. Anyone with the link can join instantly and start singing along within seconds.',
+        a: (
+          <p>
+            <strong>No sign-up and no setup required.</strong> Anyone with the link can join instantly and start singing
+            along within seconds.
+          </p>
+        ),
       },
       {
         q: 'Does Strum Together work without an internet connection?',
-        a: 'No. Since every device needs to stay in sync in real time, Strum Together requires an active internet connection to work.',
+        a: (
+          <p>
+            <strong>No.</strong> Since every device needs to stay in sync in real time, Strum Together{' '}
+            <strong>requires an active internet connection</strong> to work.
+          </p>
+        ),
       },
     ],
   },
@@ -618,11 +738,30 @@ const FAQ: FaqGroup[] = [
     items: [
       {
         q: 'Does the printed booklet use my own key and capo, or the song as written?',
-        a: "The song as written, by default — a booklet is meant to be printed and handed to other people, so it's typeset in each song's own key (with the capo or transposition the song file itself sets, if it sets one), not whatever transposition or capo you personally have set for reading, which wouldn't mean anything on somebody else's copy. You can choose your own key and capo instead, one download at a time, for a personal copy — every song printed that way says so on its own page.",
+        a: (
+          <>
+            <p>
+              <strong>The song as written, by default</strong> — a booklet is meant to be printed and handed to other
+              people, so it&apos;s typeset in each song&apos;s own key (with the capo or transposition the song file
+              itself sets, if it sets one), not whatever transposition or capo you personally have set for reading, which
+              wouldn&apos;t mean anything on somebody else&apos;s copy.
+            </p>
+            <p>
+              You can <strong>choose your own key and capo instead</strong>, one download at a time, for a personal copy —
+              every song printed that way says so on its own page.
+            </p>
+          </>
+        ),
       },
       {
         q: 'Can I print more than one songbook at a time?',
-        a: "One PDF per songbook — pick which one from the Printable booklet screen in the menu and download it. If you keep separate songbooks for separate sets or bands, each one becomes its own booklet, complete with its own cover and index.",
+        a: (
+          <p>
+            <strong>One PDF per songbook</strong> — pick which one from the <strong>Printable booklet</strong> screen in
+            the menu and download it. If you keep separate songbooks for separate sets or bands, each one becomes its own
+            booklet, complete with its own cover and index.
+          </p>
+        ),
       },
     ],
   },
@@ -661,11 +800,49 @@ const FAQ: FaqGroup[] = [
          * safe — but the caveat below still has to reach the four other answers that name a
          * plan, which is exactly why it stays a single copy and does not follow the reader.
          */
-        a: `There is a free plan, and it does not run out: ${count(PLANS.free.songbooks, 'songbook')}, ${count(PLANS.free.songs, 'song')}, a Strum Together session with ${count(PLANS.free.devices, 'other device')} following, and everything needed to read and play them — no card, and no trial counting down. The paid plans lift those limits and add the printed booklet${mcpEnabled() ? ', the ukulele and access for AI assistants' : ' and the ukulele'}; the pricing page has all four. ${PLAN_HOLD}`,
+        a: (
+          <>
+            <p>
+              <strong>There is a free plan, and it does not run out</strong>: {count(PLANS.free.songbooks, 'songbook')},{' '}
+              {count(PLANS.free.songs, 'song')}, a Strum Together session with{' '}
+              {count(PLANS.free.devices, 'other device')} following, and everything needed to read and play them —{' '}
+              <strong>no card, and no trial counting down</strong>.
+            </p>
+            <p>
+              The paid plans lift those limits and add{' '}
+              <strong>
+                the printed booklet{mcpEnabled() ? ', the ukulele and access for AI assistants' : ' and the ukulele'}
+              </strong>
+              ; the pricing page has all four.
+            </p>
+            <p>{PLAN_HOLD}</p>
+          </>
+        ),
       },
       {
         q: 'How does a paid plan renew, and how do I stop it?',
-        a: 'Standard, Plus and Premium are subscriptions — monthly or yearly, as you choose — and each period renews into another of the same length until you stop it; Lifetime is a single payment with no renewal ever due. Cancelling is a control on the Plan & billing page inside the app, and it stops the next renewal rather than the plan you hold: you keep that until the end of the period you have paid for, and the account then returns to the free plan, where everything you put in stays readable and exportable. A change that costs more — a higher plan on the same billing cycle, or moving to yearly billing on the same plan or a higher one — takes effect immediately; one that would hand back part of what you have paid — a lower plan, a cancellation, or moving from a paid year to monthly — waits for the end of the period already paid for, and you can undo a scheduled change any time before it lands.',
+        a: (
+          <>
+            <p>
+              Standard, Plus and Premium are <strong>subscriptions — monthly or yearly</strong>, as you choose — and each
+              period renews into another of the same length until you stop it; <strong>Lifetime is a single
+              payment</strong> with no renewal ever due.
+            </p>
+            <p>
+              <strong>Cancelling</strong> is a control on the <strong>Plan &amp; billing</strong> page inside the app, and
+              it stops the next renewal rather than the plan you hold: <strong>you keep that until the end of the period
+              you have paid for</strong>, and the account then returns to the free plan, where everything you put in stays
+              readable and exportable.
+            </p>
+            <p>
+              A change that costs more — a higher plan on the same billing cycle, or moving to yearly billing on the same
+              plan or a higher one — <strong>takes effect immediately</strong>; one that would hand back part of what you
+              have paid — a lower plan, a cancellation, or moving from a paid year to monthly —{' '}
+              <strong>waits for the end of the period already paid for</strong>, and you can undo a scheduled change any
+              time before it lands.
+            </p>
+          </>
+        ),
       },
       {
         q: 'What if I change my mind after paying?',
@@ -678,7 +855,23 @@ const FAQ: FaqGroup[] = [
          * — and that also has the withdrawal sentence to copy — costs the reader one hop and
          * costs this page no duplication.
          */
-        a: 'Fourteen days from a purchase to withdraw from it and get the whole amount back, without giving a reason and with no deduction for the days you used it — the same fourteen days wherever you live, and for Lifetime too. Write to us from the address on your account and say so; there is no form to fill in, and the Terms page carries both the address and a sentence you can copy. And if a renewal goes through that you did not mean to keep, tell us within fourteen days of the charge and we refund it, ending the plan at once.',
+        a: (
+          <>
+            <p>
+              <strong>Fourteen days from a purchase</strong> to withdraw from it and <strong>get the whole amount
+              back</strong>, without giving a reason and with no deduction for the days you used it — the same fourteen
+              days wherever you live, and for Lifetime too.
+            </p>
+            <p>
+              <strong>Write to us</strong> from the address on your account and say so; there is no form to fill in, and
+              the Terms page carries both the address and a sentence you can copy.
+            </p>
+            <p>
+              And if <strong>a renewal</strong> goes through that you did not mean to keep, tell us within fourteen days of
+              the charge and <strong>we refund it</strong>, ending the plan at once.
+            </p>
+          </>
+        ),
       },
     ],
   },
@@ -691,11 +884,23 @@ const FAQ: FaqGroup[] = [
            single question is an accident of growth rather than a section, and it read as one with
            something missing; here it sits beside the two other answers about whose account is
            whose. */
-        a: "No — there's no shared songbook to invite anyone into. Anyone can create their own account — with an email and password, or with Google — and gets their own collection, kept separate from everyone else's.",
+        a: (
+          <p>
+            <strong>No</strong> — there&apos;s no shared songbook to invite anyone into. Anyone can create{' '}
+            <strong>their own account</strong> — with an email and password, or with Google — and gets their own
+            collection, kept separate from everyone else&apos;s.
+          </p>
+        ),
       },
       {
         q: 'Is my collection private, or can others see it?',
-        a: "Your collection is private by default, visible only to you — nobody else has access to an account that isn't theirs. The one exception is a Strum Together session you start: while it is live, whoever holds its link can open your songs.",
+        a: (
+          <p>
+            Your collection is <strong>private by default</strong>, visible only to you — nobody else has access to an
+            account that isn&apos;t theirs. The one exception is <strong>a Strum Together session you start</strong>: while
+            it is live, whoever holds its link can open your songs.
+          </p>
+        ),
       },
       {
         q: 'If I stop using Strumfolio, can I take my songs with me?',
@@ -711,11 +916,14 @@ const FAQ: FaqGroup[] = [
          */
         a: (
           <>
-            Yes, in one download: Backup gives you the whole repertoire as a zip of standard{' '}
-            {cheatSheetLink('ChordPro')} files — plain text you can read yourself and hand to
-            another app. Nothing here is kept in a format only Strumfolio understands, and
-            closing the account for good is a button in your own settings rather than a
-            request you have to send us.
+            <p>
+              <strong>Yes, in one download</strong>: Backup gives you the whole repertoire as a zip of standard{' '}
+              {cheatSheetLink('ChordPro')} files — plain text you can read yourself and hand to another app.
+            </p>
+            <p>
+              Nothing here is kept in a format only Strumfolio understands, and <strong>closing the account for good is a
+              button</strong> in your own settings rather than a request you have to send us.
+            </p>
           </>
         ),
       },
@@ -1305,7 +1513,7 @@ export async function Landing({ signedIn }: { signedIn?: boolean } = {}) {
                         <IconChevronRight size={15} className="faq-arrow" />
                         <span>{item.q}</span>
                       </summary>
-                      <p className="faq-answer">{item.a}</p>
+                      <div className="faq-answer">{typeof item.a === 'string' ? <p>{item.a}</p> : item.a}</div>
                     </details>
                   ))}
                 </div>
@@ -1317,9 +1525,9 @@ export async function Landing({ signedIn }: { signedIn?: boolean } = {}) {
         {/*
           * The last thing the page says, and it stays a sentence rather than becoming a panel.
           *
-          * It has to sit out here rather than inside one of the two answers that name the pricing
-          * page in words: `FaqItem.a` is typed `string` and rendered as `{item.a}`, so an answer
-          * cannot hold a link without widening that type and touching all twenty-two of them.
+          * It sits out here rather than inside one of the two answers that name the pricing page in
+          * words. That was forced while `FaqItem.a` was a string; the answers are JSX now, so a link
+          * inside one is possible, and keeping this sentence here is a choice rather than a limit.
           *
           * **Its old reason for being quiet is gone and it is still quiet, by decision.** The
           * reason used to be that this was «the page every existing reader signs in on every day,

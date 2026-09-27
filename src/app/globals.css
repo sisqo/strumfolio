@@ -6930,6 +6930,27 @@
     text-wrap: pretty;
   }
 
+  /* Long answers are paragraphs now (2026-09-27, on request), with the words that answer the
+     question in bold — ink rather than muted, so a skim reads the answer and nothing else. */
+  /* Only the gap: Tailwind's preflight already zeroes a paragraph's margins, and a `margin: 0`
+     on `> p` here would outrank this rule and put the paragraphs back together. */
+  .faq-answer > * + * {
+    margin-top: 0.625rem;
+  }
+
+  .faq-answer strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .faq-answer > ul {
+    display: grid;
+    gap: 0.25rem;
+    padding-left: 1.1rem;
+    list-style: disc;
+    font-style: italic;
+  }
+
   /* A warm wash behind the card, so the page is not a flat rectangle. */
   .login-glow {
     position: fixed;
