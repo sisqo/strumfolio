@@ -1,95 +1,108 @@
 # Customer journey — every email a reader receives
 
 Every message Strumfolio puts in a reader's inbox, in the order a reader meets them, with the
-copy as it goes out. Written against commit `d7fc86d` (2026-09-12) by reading the templates
-and every call site, and revisited on 2026-09-14 when the Paddle integration moved two of the
-six senders — the copy of every template is unchanged since; the copy below is quoted from `src/lib/email/templates.ts`, which is the
-only place it is decided. **When this file and that file disagree, the template is right** —
-the live, rendered version of each email is at `/emails` (global owners only), which can also
-send a real copy, prefixed `[Preview]`, to the owner's own inbox.
+copy as it goes out. Re-verified against `src/lib/email/templates.ts` and every call site on
+2026-09-27. That file is the only place the copy is decided: **when this file and that file
+disagree, the template wins** — the live, rendered version of each email is at `/emails`
+(global owners only), which can also send a real copy, prefixed `[Preview]`, to the owner's own
+inbox.
 
-Six emails reach a reader. One more travels the other way (feedback, to the support inbox), and
+Eight emails reach a reader. One more travels the other way (feedback, to the support inbox), and
 a newsletter is announced in the Privacy Policy but has never been sent. Nothing is sent on a
 schedule: every message below is the direct consequence of something a person did a moment
-earlier — the reader, or an operator on `/accounts/[email]`.
+earlier — the reader, or an operator on `/accounts` or `/accounts/[email]`.
 
 | # | Moment | Email | Template | Sent by |
 |---|---|---|---|---|
-| 1 | Signing up with email + password | Verify your email | `verificationEmail` | `register/actions.ts` (`register`, `resendVerification`) |
+| 1 | Signing up with an email address | Verify your email | `verificationEmail` | `register/actions.ts` (`register`, `resendVerification`) |
 | 2 | The account exists | Welcome | `welcomeEmail` | `verify/actions.ts`, `auth.ts` (first Google sign-in), `accounts/actions.ts` (`confirmPendingRegistration`, `createAccount`) |
 | 3 | Forgotten password | Reset your password | `passwordResetEmail` | `forgotPassword/actions.ts` (self-service), `auth/actions.ts` (`sendPasswordResetFor`, operator) |
 | 4 | Buying or upgrading a plan | Purchase confirmation | `purchaseEmail` | `plans/webhookApply.ts` (`announcePayment`, on `transaction.completed`) |
 | 5 | Downgrading or cancelling | Plan change notice | `planChangeEmail` | `plans/paddlePlanChange.ts` (`changePaddlePlan`), `plans/paddleSubscription.ts` (`cancelPaddleSubscription`) |
 | 6 | Being given a plan | Gift notice | `giftEmail` | `accounts/actions.ts` (`sendGiftNotice`, operator) |
+| 7 | A week or so in | A thank-you and a question | `courtesyThanksEmail` | `courtesy/actions.ts` (`sendCourtesyThanks`, operator, from `/accounts`' list) |
+| 8 | After the thank-you | Anything you need? | `courtesyCheckinEmail` | `courtesy/actions.ts` (`sendCourtesyCheckin`, operator, from `/accounts`' list) |
 
 ## What every email shares
 
 - **Sender**: `RESEND_FROM`, defaulting to `Strumfolio <no-reply@strumfolio.com>`. In
-  Production the variable exists with an **empty** value (checked 2026-09-12), and the two gift
-  notices recorded as delivered on 2026-09-11 show the default is what actually goes out; the
-  Preview and Development values still read `Songbook <no-reply@sisqo.dev>` from before the
-  domain move, so a locally-sent email does not prove what the production header says. The code
-  reads it with `??`, which would *not* fall back on an empty string if the platform ever
-  passed one through. Delivery is Resend (`lib/email/send.ts`).
+  Production the variable exists with an **empty** value (checked 2026-09-12), and the gift
+  notices delivered from there show the default is what actually goes out; the Preview and
+  Development values still read `Songbook <no-reply@sisqo.dev>` from before the domain move, so a
+  locally-sent email does not prove what the production header says. The code reads it with
+  `??`, which would *not* fall back on an empty string if the platform ever passed one through.
+  Delivery is Resend (`lib/email/send.ts`). The two courtesy notes (§7, §8) are the exception:
+  they are sent from `Francesco from Strumfolio <info@strumfolio.com>` (`COURTESY_FROM`).
 - **Reply-To**: unset on every message that carries a link and nothing else — `no-reply@` is the
   honest sender for a verification or a reset, and inviting a reply to one invites an answer
-  to a robot. The gift notice is the one exception (`info@strumfolio.com`), because it is
-  written to be answered. The Privacy Policy's own test: a reply-to belongs where somebody
-  would read the reply.
+  to a robot. The gift notice (`info@strumfolio.com`) and the two courtesy notes
+  (`COURTESY_REPLY_TO`, the same inbox) are the exceptions, because they are written to be
+  answered. The Privacy Policy's own test: a reply-to belongs where somebody would read the
+  reply.
 - **Chrome**: a white card on the app's off-white wash, the Strumfolio lockup as a hosted PNG
   (`/brand/email/logo.png`, never the inline SVG — mail clients cannot be trusted with it), a
   20px heading, 14px muted paragraphs, one round accent-coloured button, and a footer line
   `Strumfolio — Your favourite songs, ready to play`. Colours are the light palette as literal
-  hex; there is no dark mode in an inbox. Every message ships as HTML **and** plain text.
+  hex; there is no dark mode in an inbox. Every message ships as HTML **and** plain text. The two
+  courtesy notes have **no chrome at all** (`plainMessage`): no wash, card, lockup, heading or
+  footer, and not one `style` attribute — see `lib/courtesy/CLAUDE.md`.
 - **Language**: English, like every sentence in the app.
 - **Links** are built from the origin of the request that triggered the send, so a preview
-  deployment sends links to itself. Tokens travel as `?email=…&token=…`; the pages they open
+  deployment sends links to itself — through `linkOrigin` (`lib/origin.ts`), which writes any
+  host outside the product's own as `https://strumfolio.com`. Tokens travel as `?email=…&token=…`; the pages they open
   only *read* on GET and write on an explicit tap, because corporate scanners follow every
   link in a message before a person sees it.
 - **Dates** are written out in British English — `22 September 2027` — by one function
   (`formatPlanDate`), so an email and `/billing` can never spell the same day two ways.
 - **A failed send never undoes anything.** `sendEmail` swallows every error: the account, the
   token, the plan change are already written by the time the email goes, and the action that
-  caused it reports success regardless. Only the gift notice asks what happened
-  (`deliverEmail`), because it has a row to settle as `done` or `failed`.
+  caused it reports success regardless. Only the gift notice and the two courtesy notes ask what
+  happened (`deliverEmail`), because each has an `outreach_actions` row to settle as `done` or
+  `failed`.
 - **Locally, with no `RESEND_API_KEY`, nothing is sent**: the full message, link included, is
   logged to the dev server's console instead. That is how registration and reset are tested
   end to end without a mailbox.
 
 ## 1. Signing up — «Verify your email for Strumfolio»
 
-**When.** The reader submits `/register` with email, first and last name, password, and the
-Turnstile challenge. Nothing but a *pending registration* row exists at this point — no
-account, no songbook, no session. The account is born only when the link is followed and the
-button on `/verify` is pressed.
+**When.** The reader submits `/register` with email, first and last name, the newsletter switch
+(off by default) and the Turnstile challenge — **no password**, since 2026-09-24: it is chosen on
+`/verify`, once the link has proved the inbox. Nothing but a *pending registration* row exists at
+this point — no account, no songbook, no session. The account is born only when the link is
+followed and the form on `/verify` is submitted.
 
 **Copy (plain text; the HTML has the same words under a heading, with a `Verify email` button
-and an «Or copy and paste this link into your browser» fallback):**
+after the first paragraph and an «Or copy and paste this link into your browser» fallback):**
 
 ```
-Verify your email
+Verify your address
 
-Click the link below to verify your email address and finish setting up your account. This link expires in 24 hours.
+One step left: open the link below to confirm your address, choose your password and finish creating your account. The link expires in 24 hours.
 
 https://strumfolio.com/verify?email=<address>&token=<token>
+
+If you didn't sign up, you can ignore this email. Until it's confirmed, the address isn't used for anything.
 
 Strumfolio — Your favourite songs, ready to play
 ```
 
-**Landing.** `/verify` checks the token on GET and shows a `Verify my email` button; that tap
-is the one write. On success the reader is signed in immediately and sent to `/`, not back to
-`/login` to retype the password they just chose.
+**Landing.** `/verify` checks the token on GET and writes nothing. It shows `VerifyForm`: the
+password twice, the newsletter switch preset to what was chosen on `/register`, and a
+`Create my account` button; that POST is the one write. On success the reader is signed in
+immediately and sent to `/`.
 
 **Expiry and resend.** 24 hours. Two ways to get another one, and neither is a "resend" link in
 the email itself:
 
-- Registering again on the same still-pending address renews the token and the expiry (an
-  upsert), which is the documented answer to «the email never arrived» while the form is
-  still open.
+- Registering again on the same still-pending address — the form's own `Resend email` once it
+  has been sent — renews the token and the expiry (an upsert), which is the documented answer
+  to «the email never arrived» while the form is still open. The same upsert rewrites the name
+  and the newsletter default shown on `/verify`, and clears any password left on an older row
+  (`NO_PENDING_PASSWORD`).
 - An expired or invalid link on `/verify` shows «This link is invalid or has expired» with a
   `Resend email` button (`ResendVerificationButton`), behind the same captcha; on success the
-  page says «Check your inbox at <address> for a new link.» This rotates the token but keeps
-  the password hash — the reader is not asked to choose one again.
+  page says «Check your inbox at <address> for a new link.» This touches only the token and its
+  expiry.
 
 **Limits.** Five attempts per ten minutes, per address *and* per IP, shared between registering
 and resending. An address that already has an account is told to sign in or recover the
@@ -104,36 +117,40 @@ first sign-in creates the account directly and goes straight to the welcome belo
 sign-in — every path gates it on `provisionAccount` answering *created*, not on the sign-in
 succeeding. Four paths reach it:
 
-- The reader taps `Verify my email` on `/verify` (the ordinary case).
+- The reader submits `Create my account` on `/verify` (the ordinary case).
 - The reader signs in with Google for the first time.
 - An operator confirms a pending registration by hand from `/accounts` — for an address whose
   verification never landed. Note what this costs: a usable account for an inbox that never
-  proved itself, an exposure the code states and accepts.
+  proved itself, an exposure the code states and accepts. The account is created with no
+  password; the way in is Google or the reset email (§3).
 - An operator opens an account by hand from `/accounts` (`CreateAccountForm`) — address, name,
   and a password only if one is typed. No verification email is ever sent on this path, and
   the welcome is the reader's first and only message; if no password was set, the way in is
   the reset email (§3), which the operator sends from the account's page.
+
+**On the two operator paths the welcome goes out only when `courtesySendable`** — in production,
+or to an `@strumfolio.test` address — so an operator working against the local copy of
+production never mails a real reader.
 
 **Copy:**
 
 ```
 Welcome to Strumfolio
 
-Your account is ready. Import the songs you already have, build your songbooks, and take them with you — on stage, in rehearsal, even with no signal.
+When you first sign in, you won't find an empty screen, but a songbook with nine traditionals. Use them to get familiar with the app: try changing the look of the page, moving a chord, or testing the auto-scroll. Think of them as a simple practice space, which you can rename or delete entirely when you are ready to get serious.
+
+When you're ready, bring in the songs you already play. Paste the lyrics and Strumfolio will recognize the chords above the words, or import your files to build your songbooks. From there, you can take them with you anywhere: on stage, in rehearsal, even with no signal.
+
+Take your time to explore the app. The Free plan you're on right now has no time limit and already lets you use Strum Together. Paid plans are just for when you need higher limits or specific tools, like printed booklets and ukulele chords. Either way, whatever you decide, what you put in always stays yours: readable and exportable at any time.
 
 Strumfolio — Your favourite songs, ready to play
 ```
 
-**One conditional sentence.** While `SONGBOOK_PLANS=on` (the variable is set in Production;
-its value cannot be read from this CLI, only its presence), the first paragraph ends with: «Before you get to them, we'll ask you to pick a plan — Free, with no card
-and no end date, is one of the choices.» It is read per send, not at build time, because the
-plan-choice gate only redirects anyone while that flag is on, and the email must not promise a
-screen that never comes.
+No sentence depends on `SONGBOOK_PLANS`; the copy is the same for every send.
 
 **What the reader finds.** The account comes with one songbook of nine public-domain
-traditionals already in it (`insertSampleSongbook`), so «import the songs you already have» is
-an invitation and not the only way to see anything. No button in this email: it announces, it
-does not ask.
+traditionals already in it (`insertSampleSongbook`), which is what the first paragraph
+describes. No button in this email: it announces, it does not ask.
 
 The same moment fires the operator's Telegram notice («New registration», carrying the
 address and the name); that is not an email and the reader never sees it — but it is personal
@@ -152,14 +169,17 @@ data leaving the EEA, and the Privacy Policy says so in three places.
   operator would rather let the account holder pick a password than type one for them. No
   captcha, no rate limit, no masking — the page already knows the account exists.
 
-**Copy (HTML: heading, the same paragraph, a `Reset password` button, the fallback link):**
+**Copy (HTML: heading, the first paragraph, a `Reset password` button, the fallback link, the
+last paragraph):**
 
 ```
 Reset your password
 
-Click the link below to choose a new password. If you didn't request this, you can safely ignore this email — your password won't change.
+Open the link below to choose a new password. The link expires in one hour.
 
 https://strumfolio.com/reset-password?email=<address>&token=<token>
+
+If you didn't ask for this, you can ignore this email: your password stays as it is.
 
 Strumfolio — Your favourite songs, ready to play
 ```
@@ -195,18 +215,14 @@ year, ending 22 September 2027):
 ```
 Thanks — you're on Premium
 
-We've received your payment of €99 for the first year. Premium is active on your account right now. It runs until 22 September 2027, and you can change or cancel it any time from Billing.
+We've received your payment of €99 for the first year. Premium is active on your account right now. It runs until 22 September 2027, and you can change or cancel it any time from Plan & billing.
 
-Next: make a songbook, put your first songs in it, and take it with you — on stage, in rehearsal, even with no signal.
-
-https://strumfolio.com/
-
-Your payment history and this plan's settings are in Billing: https://strumfolio.com/billing
+Your payment history and this plan's settings are in Plan & billing: https://strumfolio.com/billing
 
 Strumfolio — Your favourite songs, ready to play
 ```
 
-The HTML has a `Start your songbook` button on `/` and links «Billing» to `/billing`.
+No button; the HTML links «Plan & billing» (`BILLING_SECTION`) to `/billing`.
 
 - **Payment clause**: «We've received your payment of €9.49 for the first month.» /
   «…for the first year.» / for Lifetime, which has no cycle: «We've received your payment of
@@ -218,19 +234,17 @@ The HTML has a `Start your songbook` button on `/` and links «Billing» to `/bi
   subscribed.» This is the disclosure that lets a discount revert without a dispute: the
   customer was told in writing, at the moment they paid. Lifetime names the code and the full
   price but no duration, since there is no cycle to revert on.
-- **End clause**: «It runs until <day>, and you can change or cancel it any time from Billing.»
+- **End clause**: «It runs until <day>, and you can change or cancel it any time from Plan &
+  billing.»
   / for Lifetime: «There is nothing to renew — it stays yours, for good.» The word is *runs
   until*, never *renews*: nothing in this repository renews anything, and when the day comes
   the entitlement simply stops.
 
-**Two facts to hold onto.** The copy was worded as a real payment confirmation while the
-processor behind it was still a mock — a decision that paid off: the mock was demolished on
-2026-09-13 and this template needed no rewriting, only a new sender. It is sent from the
-webhook now, because a real payment has no action of ours behind it — Paddle's own overlay is
-what the customer pressed — and Paddle, as merchant of record, sends its invoice beside it;
-which *plan* you now have and until when is this app's sentence to write. And the operator's
-Telegram line for the same event («💰 Acquisto: premium/year · €99») carries no address, on
-purpose.
+**Sent from the webhook** (`transaction.completed`), because a real payment has no action of
+ours behind it — Paddle's own overlay is what the customer pressed — and Paddle, as merchant of
+record, sends its invoice beside it; which *plan* you now have and until when is this app's
+sentence to write. The operator's Telegram line for the same event («💰 Acquisto: premium/year ·
+€99») carries no address, on purpose.
 
 ## 5. Downgrading or cancelling — «Your Premium plan ends on 22 September 2027»
 
@@ -269,17 +283,20 @@ Your Premium plan ends on 22 September 2027
 
 Premium stays in force until 22 September 2027. On that day this account goes back to Free.
 
-Nothing you have put in is deleted: your songs stay readable and exportable.
+Nothing you have put in is touched: your songs stay readable and exportable.
 
-Changed your mind? «Keep Premium» in Billing calls this off, any time before then.
+Changed your mind? «Keep Premium» in Plan & billing calls this off, any time before then.
 
 https://strumfolio.com/billing
 
 Strumfolio — Your favourite songs, ready to play
 ```
 
-The immediate shape swaps the last sentence for «You can start a plan again whenever you
-want.» The HTML has an `Open Billing` button.
+The «Nothing you have put in is touched» line appears only when the change **takes away**
+(`takesAway`: a cancellation or a drop in tier) — not for a move that only changes the billing,
+nor for the one rise in tier that waits (case B7). The immediate shape swaps the last sentence
+for «You can start a plan again whenever you want.» The HTML has an `Open Plan & billing`
+button.
 
 **Two words deliberately absent.** «Printable» is not in the reassurance line, here or on
 `/pricing`: going back to Free closes the booklet PDF, which is the only way to print in this
@@ -295,10 +312,9 @@ press. `planChangeNotice` (`plans/subscriptionCopy.ts`) is where that rule lives
 **It is sent from the action rather than from the webhook**, which is the opposite of §4 and
 deliberate: the action is the one that knows what was asked for and which day was promised, and
 it fires exactly once per press, where Paddle's `subscription.updated` arrives twice for one
-change of billing cycle and again on every renewal. Between 2026-09-13 and 2026-09-14 it was
-sent by nobody at all — both of its senders lived inside the mock — so a scheduled downgrade
-left no written trace anywhere, Paddle included, since a waiting change bills nothing and
-produces no invoice to ride along with.
+change of billing cycle and again on every renewal. It is also the only written trace of a
+scheduled downgrade: a waiting change bills nothing, so Paddle produces no invoice to ride along
+with.
 
 ## 6. Being given a plan — «Your Premium plan is on us»
 
@@ -329,7 +345,7 @@ We've put Premium on your account — free, and yours until 22 September 2027.
 
 Thanks for the detailed bug report last month — this one is on us.
 
-There is nothing to set up and nothing to pay: everything Premium opens up is on right now.
+There is nothing to set up and nothing to pay: everything Premium opens up is already on.
 
 https://strumfolio.com/
 
@@ -353,6 +369,69 @@ note cannot resend it, an *improved* gift is a new occurrence and can. The subje
 actually went out is stored in that row's `detail`, the only record anywhere of what this
 reader was told; the tab draws it as history. Not a marketing message: the newsletter
 preference does not govern it, the same footing as §4 and §5.
+
+## 7. A week or so in — «A thank-you and a question»
+
+**When.** An operator clicks the thank-you icon beside the account on `/accounts`' own list
+(`CourtesyIcons`) and confirms in `CourtesyConfirmModal`, which shows the fixed copy — nothing
+here is typed by the operator. One account per click, never on a schedule. Refused, before
+anything is claimed, when the address has opted out (`accounts.courtesy_opted_out_at`) and, outside
+production, for any address that is not `@strumfolio.test` (`courtesySendable`).
+
+**Sender.** `Francesco from Strumfolio <info@strumfolio.com>`, Reply-To `info@strumfolio.com`
+(`COURTESY_REPLY_TO`), sent through `deliverEmail` so the `outreach_actions` row settles `done`
+or `failed`. **No chrome** (`plainMessage`): it is meant to read as one person writing.
+
+**Copy** (plain text; the HTML is the same paragraphs joined by `<br><br>`, with «unsubscribe» as
+the link):
+
+```
+Hi <first name>,
+
+I'm Francesco, the person who builds Strumfolio. I wanted to thank you personally for signing up, and I'd love to know a bit about your music and how Strumfolio can help.
+
+What do you play? Guitar, ukulele, piano, just voice. And what do you usually play — songwriters, worship, standards, your own songs, a bit of everything.
+
+The other thing I'd love to know is where you picture using it: on stage, at rehearsal, in a lesson, or just on the sofa on a Sunday.
+
+Just reply to this email — I read it myself. One sentence is plenty.
+
+Francesco
+
+P.S. And how did you find Strumfolio? A forum, a friend, a search, a chat with an AI. It tells me where to spend my time.
+
+If you'd rather not get these, unsubscribe: https://strumfolio.com/courtesy-unsubscribe?…
+```
+
+With no first name on the account the greeting is «Hi,». **Legitimate interest, not newsletter
+consent**, which is why it carries its own unsubscribe line and its own opt-out column; the
+Privacy Policy names it under Art. 6(1)(f). Once per address, recorded like the gift notice.
+
+## 8. After the thank-you — «Anything you need?»
+
+**When.** The check-in icon on the same row, lit only once §7 has a `done` row for the address —
+enforced in `sendCourtesyCheckin`, not only by the icon. Same sender, Reply-To, gates and
+`plainMessage` as §7.
+
+```
+Hi <first name>,
+
+Still Francesco. Writing to you a second and last time, to ask whether there's something you need that you're not finding right now.
+
+It could be a feature you expected, a format Strumfolio doesn't read, something you couldn't work out how to do, or just an idea that came to you looking at it. Even one line is useful to me.
+
+Requests don't turn into a ticket here: whatever you tell me goes on the list of things to do. And if what you're looking for already exists, I'll point you to it.
+
+Just reply to this email — I read it myself.
+
+Francesco
+
+If you'd rather not get these, unsubscribe: https://strumfolio.com/courtesy-unsubscribe?…
+```
+
+**The unsubscribe link opens `/courtesy-unsubscribe`**, which reads on GET and writes only on an
+explicit tap; it sets `courtesy_opted_out_at` and touches nothing else — the newsletter
+preference included.
 
 ## Moments with no email
 
@@ -382,9 +461,10 @@ not a follow-up.
 - An account deleted, by its owner (`deleteMyAccount`, which ends on `/`) or by an operator.
 - A verification link that expired without ever being followed — the pending row simply sits.
 - The newsletter. The preference exists (the Settings view in the hamburger menu,
-  `NewsletterPrefs`; a checkbox at registration; off by default for Google sign-ups) and the
-  Privacy Policy names it, but no issue has been sent and there is no sending mechanism. The outreach engine (`lib/outreach/`) declares two more kinds — a
-  birthday greeting and an upgrade voucher — with no handler and no caller.
+  `NewsletterPrefs`; a switch on `/register` and `/verify`; off by default for Google sign-ups)
+  and the Privacy Policy names it, but no issue has been sent and there is no sending mechanism.
+  The outreach engine (`lib/outreach/`) declares two more kinds — a birthday greeting and an
+  upgrade voucher — with no handler and no caller.
 
 ## Mail that is not for the reader
 
@@ -400,5 +480,7 @@ For completeness, since it uses the same sender and chrome:
 - **`[Preview]` copies** from `/emails` go to the signed-in global owner's own address only. The
   links inside carry a fake token and open the «invalid or expired» state by design.
 - **Telegram notices** to the operator (registration, purchase, downgrade, cancellation,
-  feedback) are not email at all, and since 2026-09-03 only the registration one carries any
-  personal data.
+  feedback, and the payment alerts) are not email at all. The registration notice names the
+  address and the name; the payment alerts (a second subscription, a coupon used twice, a ceiling
+  overshot) name the account by its number and Paddle's ids — pseudonymous, so the Privacy
+  Policy counts them as personal data too.

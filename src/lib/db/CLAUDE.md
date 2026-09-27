@@ -5,9 +5,22 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
 ## Numeric keys (`0039`, v4.7) — and the four tables that deliberately still use an email
 
-Every table is keyed by an `integer id` and every foreign key points at one. The email and
-the slug stayed as `UNIQUE` natural keys, because the email is how somebody signs in and the
-slug is in the URL. What a future change must not get wrong:
+Every table with a surrogate key has an `integer id` — `accounts`, `songbooks`, `sections`,
+`songs`, `sing_along_sessions`, `outreach_actions`, `lead_attribution` — and every foreign key
+points at one, except three that point at text keys: `coupon_redemptions.campaign_id` and
+`coupon_views.campaign_id` at `coupon_campaigns.id`, and `sing_along_devices.token` at
+`sing_along_sessions.token`. The email and the slug stayed as `UNIQUE` natural keys, because the email is how
+somebody signs in and the slug is in the URL. The exceptions are all deliberate:
+
+- **text keys**: `user_song_comments.id` (client-minted), `coupon_campaigns.id`,
+  `coupon_redemptions.id` and `coupon_views.id` (server `randomUUID()`), `paddle_events.event_id`
+  (Paddle's own id, which is what makes a replay a `duplicate`), `rate_limit_hits.key` and
+  `app_settings.key` (the key *is* the thing);
+- **keyed by the account**: `user_prefs` and `newsletter_prefs` (`account_id`), and the composite
+  `user_song_prefs (account_id, song_id)` and `sing_along_devices (token, device_id)`;
+- **keyed by an email**: the four tables below.
+
+What a future change must not get wrong:
 
 - **`src/lib/db/ids.ts` is the one seam.** `accountIdOf(email)`, `songIdOf(slug)`,
   `songbookIdOf(slug)` each render a scalar subquery, so a call site pays no round trip and
@@ -16,8 +29,9 @@ slug is in the URL. What a future change must not get wrong:
   *decide* whether a row exists.
 - **The edges keep speaking addresses and slugs, and that is load-bearing.** Three
   independent reasons: `data/files.ts` builds songs from `.chopro` files that have nothing
-  but a slug; `currentUser()` reads no database at all, so it has no id to hand out and a
-  global owner has a role with no `accounts` row; and the offline outbox already in readers'
+  but a slug; `currentUser()` does query — `accountExists` (`lib/auth/session.ts`) reads
+  whether the row exists and is not suspended, and `auth()` itself checks
+  `sessions_valid_after` — but it never resolves or returns an id, so it has none to hand out, and a global owner has a role with no `accounts` row; and the offline outbox already in readers'
   browsers names song slugs and client-minted comment ids in writes that drain *after* a
   deploy. So `SongRepository`, `CurrentUser`, `saveSongPrefs`, the comment actions and
   `data/access.ts` stay slug- and email-shaped. Resolve inside, never at the signature.
@@ -26,16 +40,17 @@ slug is in the URL. What a future change must not get wrong:
   on any of them would break sign-in rather than harden it — `sign_ins` is written from
   `signIn` in `auth.ts` *before* `provisionAccount` creates the account row. Same reason
   `sing_along_sessions.owner_email` has no key while `broadcast_account_id` does.
-- **Three email columns are history and must never be updated**:
-  `paddle_events.account_owner_email`, `coupon_redemptions.account_owner_email` and
-  `outreach_actions.account_owner_email` record the address something happened under. Each has
+- **Four email columns are history and must never be updated**:
+  `paddle_events.account_owner_email`, `coupon_redemptions.account_owner_email`,
+  `coupon_views.account_owner_email` and `outreach_actions.account_owner_email` record the
+  address something happened under. Each has
   an `account_id` beside it and every read uses the id. Do not add any of them to
   `changeAccountEmail`: on the coupon it would reopen the delete-and-recreate loop that
   `coupon_redemptions_once_email` exists to close, and on the outreach row the same loop would
   farm whatever an action hands out — see `src/lib/outreach/CLAUDE.md`.
 - **`lead_attribution` uses the same email-history + id-pointer shape, and that is the whole
   reason it has it**: there is nothing to add to `changeAccountEmail`, by construction rather than
-  by anybody remembering. It differs from those two in one place — **`ON DELETE CASCADE`, not SET
+  by anybody remembering. It differs from those four in one place — **`ON DELETE CASCADE`, not SET
   NULL** — because nothing it holds is handed out, so there is no farming to prevent; the knowing
   cost is that a campaign's historical total shrinks as the people it brought close their
   accounts. On a nullable foreign key a cascade never touches the null rows, which is what lets
@@ -46,16 +61,16 @@ slug is in the URL. What a future change must not get wrong:
   partial on `WHERE account_id IS NULL`, is the constraint that actually holds — and nothing in
   the app repeats its predicate, since `recordLeadAttribution` inserts with a bare `ON CONFLICT DO
   NOTHING`.
-- **`changeAccountEmail` is now one `UPDATE`** over `accounts`, `credentials`, `signIns` plus
-  a stale `pendingRegistrations` delete. Needing to add a table to it is the signal that
+- **`changeAccountEmail` is one transaction**: a delete of any stale `pendingRegistrations` row
+  for the new address, then an `UPDATE` each of `accounts` (which also sets
+  `sessions_valid_after`, ending every other session), `credentials` and `signIns`. Needing to add a table to it is the signal that
   something is keyed by an address that should be keyed by an id.
 - **`ON UPDATE CASCADE` on `songs_section_songbook_fk` is still required.** It looks
   redundant and is not: moving a section between songbooks changes `sections.songbook_id`,
   the *referenced* column, and the constraint is checked per statement. Verified by moving a
   section with 31 songs in it.
-- **Two primary keys are text on purpose.** `user_song_comments.id` is minted by the client
-  so a note written offline has an identity before any server sees it;
-  `coupon_campaigns.id` is a server `randomUUID()`, already a surrogate key.
+- **`user_song_comments.id` is text because the client mints it**, so a note written offline
+  has an identity before any server sees it. The `randomUUID()` ones are already surrogate keys.
 - **The `DOWN` is `drizzle/0039_numeric_ids.down.sql`**, written and round-trip verified. It
   rebuilds the dropped emails and slugs *from the ids*, which works only because `accounts`,
   `songs` and `songbooks` kept both keys — the reason the shape is «surrogate **plus**
@@ -63,13 +78,16 @@ slug is in the URL. What a future change must not get wrong:
 
 ## Column order is `schema.ts`'s order, and `ADD COLUMN` will not keep it that way
 
-Since `0041` the physical column order of every table matches the field order declared in
-`schema.ts`, so each table opens with its key — `id` first, then the foreign keys that point
-elsewhere. That was not true before: `0039` added the numeric keys with `ALTER TABLE ADD
-COLUMN`, which in Postgres appends **always**, so `accounts."id"` sat twenty-sixth and
-`songs."id"` thirteenth while `schema.ts` had declared both first all along. The field order
-inside a `pgTable` does not reach the database, which is why the two could drift this far
-without anything breaking.
+`0041` rebuilt every table so that its physical column order matched the field order declared
+in `schema.ts`, each opening with its key — `id` first, then the foreign keys that point
+elsewhere. `ALTER TABLE ADD COLUMN` in Postgres appends **always**, and the field order inside a
+`pgTable` does not reach the database, so the two can drift without anything breaking.
+
+**They have drifted once since**: `0043` added `user_song_prefs.bpm` and `.beats_per_bar` with
+`ADD COLUMN`, so both sit physically last, after `updated_at`, while `schema.ts` declares them
+in the middle of the table (after `chord_shapes`). Every other column added after `0041`
+(`accounts.courtesy_opted_out_at`, `.is_test`, `.sessions_valid_after`,
+`coupon_redemptions.event_id`) is declared last, so it matches.
 
 What a future change has to know:
 
@@ -90,14 +108,16 @@ What a future change has to know:
   and after, on dev and across the `DOWN` round trip, and the per-table data checksums with
   it — the only thing that changed was `attnum`.
 
-## `db:generate` does not run — every migration since `0024` is hand-written
+## `db:generate` does not run — every migration from `0028` on is hand-written
 
 `drizzle-kit generate` refuses to work in this repo, `--custom` included: the snapshots
 `drizzle/meta/0028_snapshot.json`, `0029` and `0030` all carry the **same `id` and the same
 `prevId`** (`8d0b1ba2…` / `c406eebf…`), so the chain drizzle-kit walks to diff against is
-broken. Verified 2026-09-06, still broken.
+broken — and the three files are byte-identical, i.e. copies, not generator output. Up to
+`0027` it chains (`0019` has no snapshot, but `0020` points at `0018`); from `0031` on there is
+no snapshot at all. Rechecked 2026-09-27.
 
-So `0024` through `0045` were written by hand — **the `.sql` file *and* its
+So every migration from `0028` on was written by hand — **the `.sql` file *and* its
 `drizzle/meta/_journal.json` entry**, which is the half that is easy to forget and, per the
 root `CLAUDE.md`'s production-migration section, the load-bearing one. Repairing the chain is
 unattempted work, not a known-easy fix; until somebody does it, treat `npm run db:generate` in

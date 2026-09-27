@@ -6,8 +6,8 @@ una riga per caso che dice *cosa facciamo* in poche parole, *dove* sta, e soprat
 controlla che regga**. Serve a rispondere in dieci secondi a «questo caso è coperto?» senza
 leggere quattro file, e a non poter più credere che lo sia quando non lo è.
 
-La numerazione è quella del documento d'analisi (`strumfolio-upgrade-downgrade-paddle.md`), così
-le due cose si leggono affiancate. Dove abbiamo deciso **diversamente** dalla proposta di quel
+La numerazione è quella del documento d'analisi (`strumfolio-upgrade-downgrade-paddle.md`, un
+documento esterno che non sta in questo repository), così le due cose si leggono affiancate. Dove abbiamo deciso **diversamente** dalla proposta di quel
 documento, la riga lo dice: è il punto in cui una tabella vale più di un discorso.
 
 `cases.test.ts` tiene onesto questo file: gira dentro `npm test`, pretende che ci siano tutti e
@@ -48,7 +48,7 @@ sono quella frase applicata, non cinque decisioni separate.
 
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
-| B1 | Tier ↑, stesso ciclo | Subito, `prorated_immediately`, prorata netta | `planChange.test.ts › agrees with PLAN_RANK on every pair of paid plans` | `browser 2026-09-14` |
+| B1 | Tier ↑, stesso ciclo | Subito, `prorated_immediately`, prorata netta | `planChange.test.ts › bills an upgrade at once, and holds a downgrade of tier to the end of the period` | `browser 2026-09-14` |
 | B2 | Tier ↓, stesso ciclo | Pending. `do_not_bill` + stamp in `custom_data`, periodo intatto | `webhook.test.ts › writes the plan that was paid for, with the cheaper one behind it` | `browser 2026-09-14` |
 | B3 | Stesso tier, mensile → annuale | Subito. Il periodo riparte, ed è il punto | `planChange.test.ts › treats yearly as the upgrade when only the cycle moves` | `browser 2026-09-14` |
 | B4 | Stesso tier, annuale → mensile | Pending, e una seconda chiamata rimette `next_billed_at` sulla data pagata | `planChange.test.ts › holds a year-to-month move to the end of the year, and pins the billing date` | `browser 2026-09-14` |
@@ -86,10 +86,10 @@ sono quella frase applicata, non cinque decisioni separate.
 | E1 | Rinnovo riuscito, nessun pending | `expiresAt` = fine del periodo ora pagato, mai più in là | `webhook.test.ts › writes the end of the period being paid for as the expiry` | `mai` |
 | E2 | Rinnovo riuscito, con un pending | Lo stamp si ritira da solo: il nuovo periodo comincia dove finiva quello pagato. **Il caso che nessuno eserciterà a mano prima di un mese**, e il più importante da guardare quando succederà | `webhook.test.ts › is spent once the period it named has begun` | `mai` |
 | E3 | Rinnovo fallito | `grace`, che ignora le date apposta: chi ha la carta che non passa è quasi sempre già oltre la scadenza | `entitlements.test.ts › keeps the full plan on a failed renewal, past date and all` | `mai` |
-| E4 | Pagamento recuperato nel grace | Torna `active` e il webhook scrive il periodo nuovo | `webhook.test.ts › reads an unknown status as active rather than revoking` | `mai` |
+| E4 | Pagamento recuperato nel grace | Torna `active` e il webhook scrive il periodo nuovo | `webhook.test.ts › writes the end of the period being paid for as the expiry` | `mai` |
 | E5 | Grace esaurito | **Non è una finestra nostra**, ed è una decisione: niente qui sposta un account fuori da `grace`. Finisce il dunning di Paddle, arriva `canceled`, e quello vale `expired`. **La seconda metà vista il 14/9**: una disdetta immediata forzata dalla API — cosa che l'app non fa mai — è arrivata come `subscription.canceled` e /billing ha detto «Premium, expired», col pulsante di disdetta sparito. Il dunning che ci porta resta non osservato | `webhook.test.ts › ends a canceled subscription` | `browser 2026-09-14` |
 | E6 | Upgrade chiesto durante il grace | Di fatto non si offre nulla: `checkoutMode` risponde `stalled` per tutto ciò che potrebbe ancora fatturare. **Unica eccezione il Lifetime** (B9), che è proprio la via d'uscita di chi ha la carta che non passa. Come *politica* il documento lo lascia aperto e lo è ancora | `planChange.test.ts › offers nothing while anything may still be running` | `mai` |
-| E7 | Rimborso emesso dal supporto. **Provato dal vivo il 14/9**: un rimborso pieno su una transazione di *abbonamento* nasce `pending_approval`, porta `items[].type: 'full'` — la forma che `adjustmentEffect` legge — e non tocca la subscription, che è esattamente il non-fare che ci aspettiamo | Un rimborso **pieno e approvato** revoca — `planStatus` a `expired`, `plan` intatto. Su una subscription non facciamo nulla: la disdice Paddle. Segue la decisione che il documento aveva già preso per E9, «rimborso pieno, accesso revocato». Il cliente lo vede nel proprio storico: prima «richiesto», poi «rimborsato» col segno meno | `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` · `webhook.test.ts › waits for Paddle to approve a refund, and never acts on one it refused` · `history.test.ts › says a refund is only requested until Paddle has approved it` | `sandbox 2026-09-14` |
+| E7 | Rimborso emesso dal supporto | Un rimborso **pieno e approvato** revoca — `planStatus` a `expired`, `plan` intatto — sul Lifetime. Segue la decisione che il documento aveva già preso per E9, «rimborso pieno, accesso revocato». Su una subscription non facciamo nulla (ogni adjustment con `subscription_id` è di Paddle), e un rimborso Paddle non la disdice: **provato dal vivo il 14/9**, un rimborso pieno su una transazione di *abbonamento* nasce `pending_approval`, porta `items[].type: 'full'` — la forma che `adjustmentEffect` legge — e la subscription resta attiva, stessi item, stessa data. Il cliente lo vede nel proprio storico: prima «richiesto», poi «rimborsato» col segno meno | `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` · `webhook.test.ts › waits for Paddle to approve a refund, and never acts on one it refused` · `history.test.ts › says a refund is only requested until Paddle has approved it` | `sandbox 2026-09-14` |
 | E8 | Chargeback | Su una subscription **la disdice Paddle** — il suo log di history registra il motivo `chargeback` — e la disdetta arriva qui come `subscription.canceled`, che vale `expired`. **Documentato, mai osservato.** Sul Lifetime, che non ha nessuna subscription da disdire, revochiamo noi leggendo l'adjustment | `webhook.test.ts › leaves every adjustment that belongs to a subscription alone` · `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` | `mai` |
 | E9 | Recesso 14 giorni UE/UK | Pubblicato su `/` e nei Termini, che nominano il Lifetime. Paddle è merchant of record. Tecnicamente è E7: Paddle disdice la subscription col motivo `eu_withdrawal` (**documentato, mai osservato**) e rimborsa; sul Lifetime revoca l'adjustment. È la sola ragione per cui B9 disdice a `next_billing_period` invece che subito | `webhook.test.ts › revokes on a fully approved refund, and on a chargeback` | `mai` |
 | E10 | Regalo sovrapposto a un abbonamento | La direzione di un cambio si decide sulla subscription **pagata**, letta da Paddle, non sul piano effettivo, così il regalo non falsa il verso | `entitlements.test.ts › never takes anything away from a better subscription` | `n/d` |
@@ -100,7 +100,7 @@ sono quella frase applicata, non cinque decisioni separate.
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
 | F1 | Webhook duplicato | `paddle_events.event_id` è la primary key: l'insert **è** il dedup, e sta nella stessa transazione della scrittura sull'account | `—` | `sandbox 2026-09-12` |
-| F2 | Webhook fuori ordine | **Divergenza nota e accettata.** Niente confronta `occurred_at`: vince l'ultimo arrivato. Le due chiamate di un cambio di ciclo producono due eventi, e invertiti lascerebbero lo stato di prima. Il rimedio, se servirà, è un confronto con l'ultimo `occurred_at` applicato per quella subscription | `—` | `n/d` |
+| F2 | Webhook fuori ordine | Ordinati per `occurred_at` di Paddle, letto dal ledger sotto il lock dell'account: un evento di subscription più vecchio di uno già applicato non scrive niente (`laterSubscriptionEvent`), e un adjustment a cui uno successivo ha già risposto nemmeno (`laterAdjustmentDecides`). Provato contro dev, non contro Paddle. **Il limite**: uno stamp di downgrade elaborato prima che sia applicato l'upgrade che segue viene giudicato sul piano più basso e rifiutato con un avviso — la direzione sicura, mai vista | `—` | `mai` |
 | F3 | Webhook mai arrivato | **Non implementato.** Nessuna riconciliazione periodica contro Paddle esiste da nessuna parte | `—` | `n/d` |
 | F4 | Checkout chiuso a metà | Nessun cambio di stato: niente viene scritto finché non arriva il webhook, che è anche il motivo per cui il redirect di successo non concede nulla | `—` | `sandbox 2026-09-12` |
 | F5 | Doppio click sul cambio piano | Il pulsante si disabilita su `busy` per tutta la durata della chiamata, e sull'acquisto il pulsante sparisce del tutto quando si apre il form inline, che porta lui l'azione: con l'overlay `busy` tornava falso all'apertura della modale e chi aveva appena pagato guardava un «Pay» ancora vivo. **Due schede aperte non sono un doppio click** e nessun pulsante può niente: l'azione di acquisto rilegge la subscription viva e rifiuta se ce n'è una (`wouldBeSecondSubscription`), che è la stessa regola di `changePaddlePlan`. Resta scoperta la finestra prima che il webhook scriva la colonna — **e soprattutto il form già aperto**: la transazione nasce al caricamento della pagina e il pagamento nel frame di Paddle non richiama l'app, quindi due schede con due form aperti pagati uno dopo l'altro sono due subscription. Dal 2026-09-22 una scheda che completa l'acquisto chiude i form delle altre (`BroadcastChannel`, solo stesso browser) e il webhook avvisa l'operatore su Telegram (`subscriptionRelation`) senza disdire niente da solo: la nuova diventa quella dell'account e gli eventi della vecchia non scrivono più niente, così disdirla come dice l'avviso non toglie il piano. **Rilevato, non impedito** | `planChange.test.ts › refuses a subscription plan while Paddle says one is running` · `planChange.test.ts › sells on every answer but a confirmed live subscription, unreadable ones included` | `mai` |
@@ -114,17 +114,16 @@ qui sopra.
 1. **E2, il rinnovo che applica un cambio in sospeso.** Tutto il meccanismo «si ripaga in tempo,
    non in denaro» finisce lì, e nessun rinnovo reale è ancora scaduto. Il primo che scade va
    guardato.
-2. **Che Paddle disdica davvero su chargeback e su recesso è documentato e mai visto.** Quattro
-   righe qui sopra ci si appoggiano (E7, E8, E9, e per differenza D3). Se quell'inferenza fosse
+2. **Che Paddle disdica davvero su chargeback e su recesso è documentato e mai visto.** Tre
+   righe qui sopra ci si appoggiano (E8, E9, e per differenza D3). Se quell'inferenza fosse
    sbagliata, il caso «qualcuno tiene un piano senza averlo pagato» sarebbe ancora aperto e lo
-   crederemmo chiuso. Si prova nel sandbox rimborsando una transazione di subscription.
+   crederemmo chiuso. Un rimborso non la prova — quello del 14/9 non ha disdetto niente, come
+   atteso (E7) —: servono un chargeback o un recesso, che il sandbox non innesca a comando.
    **La destination deve essere iscritta a `adjustment.created` e `adjustment.updated`**, o
    niente di tutto questo parte: aggiunti a quella del preview il 14/09/2026 e a
    quella live il 19/09/2026.
-3. **Le schermate, che non ha mai guardato nessuno.** La branch `subscribed` di
-   `/checkout/[plan]` e la riga di C6 sono compilate e testate nella parte pura, mai viste
-   funzionare: servono una sessione e un preview deployment.
-4. **F3, nessuna riconciliazione.** Regge finché Paddle consegna, e Paddle consegna. Ma tre
+3. **F3, nessuna riconciliazione.** Regge finché Paddle consegna, e Paddle consegna. Ma tre
    giorni di retry esauriti sono un evento perso per sempre e in silenzio.
-5. **E7 e D3**, che sono la stessa domanda non decisa vista da due lati: cosa fa il supporto
-   quando rimborsa.
+4. **D3, il Lifetime rimborsato, mai visto.** La revoca c'è e un `chargeback_reverse` la
+   annulla, ma il Lifetime non è in vendita sulla preview, quindi nessun rimborso di Lifetime è
+   mai passato da un webhook vero. E7 invece è deciso: un rimborso pieno e approvato revoca.

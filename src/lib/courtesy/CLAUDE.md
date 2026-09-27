@@ -13,8 +13,8 @@ same reason: the send is composed here, not run through `runOutreach`.
 - **Legitimate interest, not newsletter consent — the whole reason this directory exists
   separately from the engine it uses.** `lib/outreach/eligibility.ts`'s `consentGate` refuses
   any `email`-channel action unless `newsletter_prefs.subscribed` is `true`, refusing on `null`
-  too. New accounts start unsubscribed by default (`RegisterForm`'s checkbox, and every Google
-  sign-up since 2026-09-03), so routing these two through that gate would refuse nearly every
+  too. New accounts start unsubscribed by default (the switch is off on `/register` and carried
+  to `/verify`, and every Google sign-up since 2026-09-03 starts unsubscribed), so routing these two through that gate would refuse nearly every
   reader `courtesy_thanks` is written for. `trigger: 'elsewhere'` keeps `eligibilityFor` from
   ever running for either kind — the same mechanism that already lets `gift_notice` bypass a
   gate built for marketing mail, extended to a second case. Because of this, the Privacy
@@ -29,9 +29,10 @@ same reason: the send is composed here, not run through `runOutreach`.
   since no `max-width` is declared either) and the refusal of a `List-Unsubscribe` header are in
   `courtesyThanksEmail`'s own header. Five tests in `templates.test.ts` hold the line, because
   nothing about `layout()` makes it look wrong to wrap these two in it "for consistency" with
-  the six templates around them. The opt-out line moved into the body's own voice at the same
-  time — same size, same ink, last line of both halves — for the same reason: small grey type
-  is the one thing left in a message that announces a machine wrote it.
+  the six reader-facing templates around them (seven go through `layout()`, counting the
+  operator's own `feedbackEmail`). The opt-out line is in the body's own voice — same size,
+  same ink, last line of both halves — for the same reason: small grey type is the one thing
+  left in a message that announces a machine wrote it.
 - **`accounts.courtesy_opted_out_at` is the gate that actually governs these two, and it is
   checked here, in `actions.ts`, never by the engine.** A dedicated column rather than the
   newsletter's, because unsubscribing from one must say nothing about the other — a reader who
@@ -60,10 +61,12 @@ same reason: the send is composed here, not run through `runOutreach`.
     stranger is meant to call — the token is the authorization, not a session — and keeping it
     apart from the owner-gated sends is what stops a future edit giving it an `isOwner` check by
     habit, which would lock every reader out of their own unsubscribe link.
-- **Outside production a courtesy email goes only to a QA address** (`sendable.ts`,
-  2026-09-24). The local database is a copy of production's real addresses and `.env.local` holds
-  a real Resend key, so trying the dialog on `npm run dev` emailed a customer — with an
-  unsubscribe link to `localhost`. Refused as `not-production`, before anything is claimed.
+- **Outside production a courtesy email goes only to a QA address** (`courtesySendable`,
+  `sendable.ts`, 2026-09-24): `VERCEL_ENV === 'production'`, or an `@strumfolio.test` address
+  (`isQaEmail`). The local database is a copy of production's real addresses, so with a Resend
+  key in the environment trying the dialog on `npm run dev` would email a customer, with an
+  unsubscribe link to `localhost`. Anything else is refused as `not-production`, before anything
+  is claimed.
   **The same rule covers the gift notice and the welcome email an operator's hand triggers**
   (`accounts/actions.ts`: `sendGiftNotice` refuses; `confirmPendingRegistration` and
   `createAccount` make the account and stay silent) — any send an operator can start from
@@ -78,15 +81,16 @@ same reason: the send is composed here, not run through `runOutreach`.
   address, with no matching account id, as `already-done` — the guarantee that stops a voucher
   or a message being farmed by deleting an account and signing up again. Reading this list by
   `accountId` instead would show an icon as "not sent" for an address the send action would
-  actually refuse: the screen would lie in exactly the way `OutreachLine.inFlight` was built to
-  prevent, in a new place.
+  actually refuse: the screen would claim a send is possible that the action refuses.
 - **A `failed` or a stale `pending` row reads as "not sent," never as "sent."** Clicking the icon
   again is what re-enters `claimOccurrence`'s compare-and-swap and retries it — the same
   behaviour `sendGiftNotice`'s own retry already relies on. Only `status = 'done'` lights the
   icon.
-- **Testing burns the occurrence.** With no `RESEND_API_KEY` (this machine's `.env.local`
-  default), `deliverEmail` reports `{ ok: true }` locally and the send settles `done` — which
-  then permanently refuses a real send to that same address, by design (the anti-farming rule
-  above). Test against a single-use throwaway account on `strumfolio-db-dev`, never a real
-  address, and never reuse the address across test runs: `removeAccountAndContent` does not
-  delete `outreach_actions`, so the row (and the refusal) outlives the deleted account.
+- **Testing burns the occurrence.** `.env.local` holds no `RESEND_API_KEY` (checked
+  2026-09-27), so `deliverEmail` only logs the message, reports `{ ok: true }` and the send
+  settles `done` — which then permanently refuses a second send to that same address, by design
+  (the anti-farming rule above). Outside production only an `@strumfolio.test` address is
+  sendable at all, so test with a **fresh `/qa` account** (`qa-…@strumfolio.test`) on
+  `strumfolio-db-dev`, and never reuse the address across test runs: `removeAccountAndContent`
+  does not delete `outreach_actions`, so the row (and the refusal) outlives the deleted
+  account.

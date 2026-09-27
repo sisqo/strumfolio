@@ -12,29 +12,25 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   `GiftForm`-shaped screen of its own. See `lib/courtesy/CLAUDE.md` for the send path, the
   unsubscribe link, and why these two bypass the newsletter consent gate entirely.
 - **`/accounts/[email]` is the admin surface** — a read-only summary strip over five tabs, all
-  five now the mock's own (`Account Detail.dc.html`, redrawn 2026-09-11: Identity, Plan & gift,
-  Payments, Outreach, Security, in that order). Outreach postdated the *first* handoff and its
-  absence from that one was never a deviation to reconcile; the current mock draws it. The tab
-  is a URL param (`?tab=`), not client state, which is what keeps the page a server component
+  five the mock's own (`Account Detail.dc.html`, 2026-09-11: Identity, Plan & gift, Payments,
+  Outreach, Security, in that order). The tab is a URL param (`?tab=`), not client state, which is what keeps the page a server component
   and the «All N events» link a link; the strip above the tabs holds no control at all.
   Newsletter is **read-only** there (`loadNewsletterSummaryFor`); the name *is* admin-editable,
   while `/profile` is the reader's own self-service page for it.
 - **The strip is two halves and only the left one is an answer.** The tinted `.acct-force` panel
   states the plan in force and the gift queued behind it; the seven `.acct-cells` beside it are
-  facts checked against that. Three of those seven — Status, Last sign-in, Rate limit — came up
-  out of the Security tab in the redesign, and that is the point of it: reading whether an
-  account is suspended used to mean opening the one tab that also holds the password field and
-  the delete row. **The Security tab is now controls only**, which is why it is drawn last.
-- **The Outreach tab is a log now, and nothing else** (decided 2026-09-11, matching the mock).
-  Its `Run now` / `Skip` / `Run everything due` rows are gone, so `OutreachPanel` is a server
-  component holding the mock's four-column table and no control. The rows cost little to lose —
-  `HANDLERS` is all `null`, so each button could only answer «not built yet», and the one
-  message that really goes out (`gift_notice`) is sent from the Plan & gift tab, which keeps its
-  «Send the notice». `skipOutreach` is what genuinely went: `suppressed` is still storable and
-  no longer writable from anywhere. See `lib/outreach/CLAUDE.md`.
-- **The Outreach tab is no longer the only reader of `lib/outreach/`, and `/accounts` (the
-  list) is the second.** `loadOutreachFor` is still the one function of that directory this
-  *tab* invokes, but `/accounts`' own list calls `listCourtesyStatus` (`lib/courtesy/read.ts`)
+  facts checked against that. Status, Last sign-in and Rate limit sit in the strip so that
+  reading whether an account is suspended never means opening the one tab that also holds the
+  password field and the delete row. **The Security tab is controls only**, which is why it is
+  drawn last.
+- **The Outreach tab is a log, and nothing else** (decided 2026-09-11, matching the mock).
+  `OutreachPanel` is a server component holding the mock's four-column table and no control:
+  `HANDLERS` is all `null`, so a run button could only answer «not built yet», and the one
+  message that really goes out from this page (`gift_notice`) is sent from the Plan & gift tab's
+  «Send the notice». `skipOutreach` is still exported from `lib/outreach/actions.ts` but lost its
+  only caller, so `suppressed` is storable and written by nothing. See `lib/outreach/CLAUDE.md`.
+- **`/accounts` (the list) reads `lib/outreach/` too.** `loadOutreachFor` is the one function
+  of that directory the Outreach *tab* invokes, but `/accounts`' own list calls `listCourtesyStatus` (`lib/courtesy/read.ts`)
   to draw its two courtesy icons, and each icon's confirm dialog calls a send action
   (`sendCourtesyThanks`/`sendCourtesyCheckin`, `lib/courtesy/actions.ts`) that claims and
   settles a row in `outreach_actions` exactly the way `sendGiftNotice` already does — a second
@@ -57,32 +53,31 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - **A read that failed renders «—», never a reassuring value.** `rateLimitStatusFor` answers
   null and the Rate limit cell shows a dash rather than «Not hit»; the Status cell does the
   same when `admin` is null. "Nothing is wrong" and "could not tell" are opposite answers on
-  the one screen built to be believed. **The rule got wider when the strip split Content into
-  three counted cells**: a failed `usageSummaryFor` must print three dashes and not three
-  zeroes, since «0 songbooks» is a sentence about an empty account. The mock draws only the
+  the one screen built to be believed. A failed `usageSummaryFor` must print three dashes and
+  not three zeroes in the three counted Content cells, since «0 songbooks» is a sentence about
+  an empty account. The mock draws only the
   happy path for all seven cells, so a literal match of it silently drops every one of these
   branches — check them before checking anything cosmetic.
-- **Creating an account by hand is back on `/accounts` (2026-09-11), and the reason is the
-  quirk at the foot of this file.** v3.8 removed it as covered by self-service registration,
-  which is true of everybody who *asks* for an account and was never true of the two cases left:
-  the pre-`02ac495` repair that ends «delete and recreate the account from the Accounts admin
-  page», whose second half had been impossible since, and an address that will never find the
-  registration form. `createAccount` mirrors `confirmPendingRegistration` **minus the Telegram
+- **Creating an account by hand is on `/accounts` (since 2026-09-11)** for the two cases
+  self-service registration never covers: the repair of the quirk at the foot of this file
+  («delete and recreate»), and an address that will never find the registration form.
+  `createAccount` mirrors `confirmPendingRegistration` **minus the Telegram
   notice** — nobody needs telling about the account they are creating with their own hands,
   which is why the root `CLAUDE.md`'s «three callers» of `registrationNotice` is still three —
   and **plus an optional password**, which the confirmation path does not write at all: since
   2026-09-24 a registration carries none (it is chosen on `/verify`, root `CLAUDE.md`), and one
   left on an older pending row was typed before anybody proved the inbox. Empty is an answer:
   `PasswordForm` and `SendResetEmailRow` on the detail page are the rest of it, and Google needs
-  none. A pending registration on the address is **refused, never absorbed** — `Confirm now` is
+  none. **Both `createAccount` and `confirmPendingRegistration` send the welcome email only when
+  `courtesySendable`** (`lib/courtesy/sendable.ts`: production, or an `@strumfolio.test`
+  address) — the confirmation's Telegram notice waits on the same answer — so an operator
+  working against the local copy of production never mails a real reader. A pending registration on the address is **refused, never absorbed** — `Confirm now` is
   a button below on the same screen. **`already-exists` is
   guarded on the `accounts` row alone**, and not on the three tables `changeAccountEmail` checks
   before a rename: `removeAccountAndContent` never deletes `signIns`, so guarding on that one
   would refuse the second half of «delete and recreate» for every account that ever signed in —
   which is every account the quirk affects. No newsletter opt-in, for
   2026-09-03's reason: an operator cannot give that consent on somebody else's behalf.
-  `Accounts.dc.html` draws no such control, and that is the mock predating the decision rather
-  than a deviation to reconcile.
 - **`confirmPendingRegistration` is an attribution seam, not only a provisioning one.** It calls
   `provisionAccount` itself, so it must also call `freezeLeadAttribution` — without it every
   account created from this screen keeps a null pointer and disappears from every attribution
@@ -131,24 +126,23 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   ask `deletionBlockFor` (`deletable.ts`) first: no subscription pointer, Paddle unconfigured, a
   `canceled` subscription or one with a scheduled `cancel` all delete; anything else answers
   `subscription-running`, and a Paddle read that throws answers `subscription-unreadable` — a
-  deletion cannot be taken back, so «could not tell» refuses. Before this the rows went and the
-  subscription stayed: renewals landed as `unmatched` and the card went on being charged.
+  deletion cannot be taken back, so «could not tell» refuses. Without it the rows go and the
+  subscription stays: renewals land as `unmatched` and the card goes on being charged.
   **Every open subscription of the customer is asked, not only the pointer**, which a second
   subscription moves; and `past_due`/`paused` answer `subscription-stuck`, because
   `livePaddleSubscription` refuses to cancel either, so the reader is told to write to us rather
-  than sent to a button that says no (both the same evening). **Terms
+  than sent to a button that says no. **Terms
   of Service §11 and the Privacy Policy's self-service sentence in §7 state the rule**, so they
   move with it.
-- **Suspending an account ends its sessions too, since 2026-09-24** — reversed by decision. It
-  used to block future sign-ins only, on the ground that the JWT cannot be revoked; but
-  `currentUser()` already asks the database on every request (`accountExists`), and that lookup
-  now reads `suspended_at` as well, so a suspended account behaves exactly like a deleted one:
+- **Suspending an account ends its sessions too, since 2026-09-24** — by decision.
+  `currentUser()` asks the database on every request (`accountExists`), and that lookup reads
+  `suspended_at` as well, so a suspended account behaves exactly like a deleted one:
   writes refused, `requireAccount` to `/login` — through `accessTo` as well as `currentUser`, since
   every action reached by a slug asks the first — and a running Strum Together broadcast is
   deleted, since its guests read by token and not by session. A global owner stays exempt, which is what keeps
   «Enter as this account» working on the account they suspended.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
-- **`ViewingAsPill` (`TopBar.tsx`) is the real exit control** for impersonation, not a label;
+- **`ViewingAsPill` (`src/components/ViewingAsPill.tsx`, rendered by `TopBar`) is the real exit control** for impersonation, not a label;
   `SwitchAccountButton` performs the same three steps with a different `targetEmail`. A guest's
   own copy of a control must never be able to broadcast into the owner's session.
 - **`firstName`/`lastName` are separate, nullable, filled only when missing and never a gate.**
@@ -156,8 +150,8 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   (`src/lib/auth/nameSplit.ts`), a heuristic split of `profile.name`.
 - **`newsletterPrefs` is its own table and its insert sits *outside* the transaction that
   creates `accounts`** — a newsletter write must never be able to fail account creation.
-  Existing accounts were backfilled `subscribed = true` by `0035`; Google sign-ups were
-  subscribed by default until **2026-09-03**, when that was reversed.
+  Existing accounts were backfilled `subscribed = true` by `0035`; since **2026-09-03** Google
+  sign-ups are not subscribed by default.
 
 ## A known, understood data quirk
 
@@ -165,7 +159,5 @@ Accounts created before commit `02ac495` ("Niente più ospiti", 2026-08-14) — 
 shared accounts with view-only member roles — can get stuck unable to edit their own account.
 The current permission code (`src/lib/roles.ts`, `src/lib/accounts/current.ts`) is correct
 and tested; the failure is leftover data on those rows, not a logic bug. Fix is to delete and
-recreate the account from the Accounts admin page, not to debug the permission code again.
-Both halves of that repair exist again as of 2026-09-11 — between v3.8 and that date this
-paragraph named a screen that could no longer do what it says, which is the argument that
-brought `createAccount` back.
+recreate the account from the Accounts admin page (`deleteAccount`, then `createAccount`), not
+to debug the permission code again.

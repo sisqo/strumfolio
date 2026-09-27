@@ -15,43 +15,41 @@ auto-scroll, transposition, capo, offline. Next.js 15 App Router, React 19, Type
 Tailwind v3, Postgres on Neon via Drizzle ORM, NextAuth v5, Serwist for the service worker.
 Deployed on Vercel (`sisqo` account), production at https://strumfolio.com.
 
-`PRODUCT.md` frames the product, `DESIGN.md` the visual language, and **this file is the only
-prose that has to stay true.** Write build-relevant constraints here, in the section they
-belong to.
+`PRODUCT.md` frames the product, `DESIGN.md` the visual language, and **this file with the nested
+`CLAUDE.md`s listed below is the only prose that has to stay true.** Write a build constraint in
+the one whose directory it governs, or here if it binds the whole repo or a command that edits
+no file.
 
-**The `PLAN*.md` files were deleted on 2026-09-06** — `PLAN.md` plus fourteen
-`PLAN-<feature>.md`, about 7,300 lines. **All fourteen** described features already in
-production, so they had become a second, drifting description of the code: every line
-reference in them was stale (`shapeFor` had moved 87 lines), and ten still opened by claiming
-their feature "non è ancora scritta" when it had shipped weeks earlier. What was load-bearing
-in them lives in this file and the nested ones it maps below; the rest was delivery history,
-which `git log` and `/changelog` already hold. Do **not** recreate the convention: a feature
-being built does not get a plan file of its own, and nothing gets "folded in" anywhere. All of
-it is still readable
-at the commit before the deletion — `git show 2b32ee9:PLAN.md`, `git show
-2b32ee9:PLAN-coupons.md`, and so on (the `:path` form, not `-- path`, which prints nothing
-because that commit never touched them).
+**There are no plan files, and the convention must not come back.** The `PLAN*.md` files
+(`PLAN.md` plus fourteen `PLAN-<feature>.md`) were deleted on 2026-09-06 because every one
+described a feature already in production and had drifted from the code. A feature being built
+gets no plan file; build constraints go in the right `CLAUDE.md`, delivery history is `git log`
+and `/changelog`. The old files are readable at `git show 2b32ee9:PLAN.md` (the `:path` form —
+`-- path` prints nothing, since that commit never touched them).
 
-Their citations were stripped from every `.ts`/`.tsx`/`.css` comment, but **`drizzle/*.sql` and
-`.impeccable/critique/*.md` deliberately keep theirs.** Both are records of something that
-already happened — an applied migration, a critique run on a given day — so a reference to the
-document that was open at the time is accurate history, not a dangling link. Leave them.
-
-Version numbers (v3.2, v4.1, v4.7…) survive in code comments as era labels and no longer
-index anything. Dozens of comments in `auth.ts`, `RegisterForm.tsx`, `rateLimit.ts` and their
-neighbours cite a numbered point from the old v3.1/v3.2 lists; those numbers are now inert, so
-read such a comment as a self-contained statement, which is how each was written.
+**`drizzle/*.sql` and `.impeccable/critique/*.md` deliberately keep their citations** of those
+files: they record something that already happened, so leave them. Version labels in code
+comments (v3.2, v4.1, v4.7…) are era labels and index nothing, and the numbered v3.1/v3.2 points
+cited in `auth.ts`, `RegisterForm.tsx`, `rateLimit.ts` and their neighbours are inert — read each
+such comment as a self-contained statement.
 
 ## Where the rest lives
 
 Repo-wide rules stay in this file. Guidance scoped to one subsystem lives in a nested
-`CLAUDE.md`, which loads only when Claude works under that directory. **The last two rows are
-neither**: `CASES.md` and `INTEGRATION-TESTS.md` are documents rather than rule files — nothing
+`CLAUDE.md`, which loads only when Claude works under that directory. **The last three rows are
+neither**: `CASES.md`, `INTEGRATION-TESTS.md` and `customer-journey.md` are documents rather than rule files — nothing
 loads them automatically, and they are listed here because this table is the index of where
 everything that is not in this file has gone. Open them by name when the work is theirs.
 
 | File | Covers |
 |---|---|
+| `src/lib/editor/CLAUDE.md` | ChordPro in depth: the song-data form, where each field lives, `{transpose}` as modulation, the 2026-09-23 conformance pass and what is deliberately not followed — **read it before touching `src/lib/chordpro.ts`**, which has no directory of its own |
+| `src/lib/auth/CLAUDE.md` | the password chosen on `/verify`, `currentUser`/`requireAccount`, session revocation, the owner exemption |
+| `src/lib/qa/CLAUDE.md` | the passwordless `/qa` sign-in and its two guards |
+| `src/lib/storage/CLAUDE.md` | why every browser cache is scoped to one account, the scope cookie, the worker's epoch |
+| `src/lib/install/CLAUDE.md` | the «Add to home screen» row and the site-wide `beforeinstallprompt` capture |
+| `src/lib/telegram/CLAUDE.md` | what the operator notices carry, and the three Privacy Policy passages that move with them |
+| `src/components/CLAUDE.md` | the reading bar's motion: prefetch, step direction, the end-of-song glow |
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
 | `src/lib/plans/CLAUDE.md` | plans, entitlements, the Paddle checkout, which Paddle id the code holds and which it deliberately does not, and how the catalogue is verified |
 | `src/lib/coupons/CLAUDE.md` | campaigns, `liveDiscount`, and what a coupon is not allowed to decide |
@@ -61,14 +59,15 @@ everything that is not in this file has gone. Open them by name when the work is
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
-| `src/lib/attribution/CLAUDE.md` | where a lead came from, the four seams that record it, and the touch rules |
+| `src/lib/attribution/CLAUDE.md` | where a lead came from, the five seams that record it, and the touch rules |
 | `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
 | `INTEGRATION-TESTS.md` | the live runs — which environment and why not the other two, why they are driven through a real signed-in Chrome and photographed step by step, the throwaway users, the sandbox card, how a Paddle transaction settles an argument between the screen and the charge, and where the screenshots go |
+| `customer-journey.md` | every email a reader receives, with their copy, and the moments that deliberately have none |
 
 **Anything that scopes by directory can be missed by a command that edits no file**, so the
-four facts whose absence is expensive are repeated here rather than left behind a path:
+five facts whose absence is expensive are repeated here rather than left behind a path:
 
-- **`db:generate` does not run**, and every migration since `0024` is written by hand — the
+- **`db:generate` does not run**, and every migration from `0028` on is written by hand — the
   `.sql` file *and* its `drizzle/meta/_journal.json` entry, which is the half that is easy to
   forget and, per *Migrating the production database* below, the load-bearing one.
 - **Four tables are still keyed by an email on purpose** — `credentials`,
@@ -78,12 +77,6 @@ four facts whose absence is expensive are repeated here rather than left behind 
   exists, and `/checkout/[plan]` sells through Paddle or says it cannot sell. `SONGBOOK_PLANS`
   gates enforcement and is not a security boundary; whether money can be taken is not a flag at
   all but whether `PADDLE_API_KEY` and `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` are both configured.
-- **`songbook-coupon` is the second, and lives under the same rule** (disclosed 2026-09-22, on
-  legitimate interest by decision): its thirty days are Google Ads' attribution window, not the
-  offer's. With it the Cookie Policy §2 names `songs:coupon` and `songbook-offer-collapsed`, the
-  Privacy Policy §2 names `coupon_views` and `coupon_redemptions`, §3's table has its own row, §6
-  says both of those keep the address after the account is deleted, and §7's object list names
-  the offers. `songbook-scope` is among the essential cookies in the same commit.
 - **`songbook-attribution` is the first cookie here that is not strictly necessary**, and the
   Cookie Policy had to be rewritten for it: §2 gained a paragraph, «No advertising or third-party
   tracking» and §3's «everything above is strictly necessary… we will ask for your consent» were
@@ -91,315 +84,42 @@ four facts whose absence is expensive are repeated here rather than left behind 
   Privacy Policy's §3 table and the §7 right-to-object list both name it — **change one of those
   five places and the others are wrong**, the rule the booklet override and the install row already
   live under. There is no consent banner, by decision.
+- **`songbook-coupon` is the second, and lives under the same rule** (disclosed 2026-09-22, on
+  legitimate interest by decision): its thirty days are Google Ads' attribution window, not the
+  offer's. With it the Cookie Policy §2 describes `songs:coupon` and `songbook-offer-collapsed`, the
+  Privacy Policy §2 describes `coupon_views` and `coupon_redemptions` (in words, not by name), §3's table has its own row, §6
+  says both of those keep the address after the account is deleted, and §7's object list names
+  the offers. `songbook-scope` is among the essential cookies in the same commit.
 
 ## ChordPro is read by two parsers, and they have to agree
 
 `src/lib/chordpro.ts` is the **reader** — it throws away what the screen does not need.
 `src/lib/editor/document.ts` is the **editor's**, one block per source line, holding
-`toSource(fromSource(x)) === x` byte for byte so saving never rewrites somebody's file.
-A construct taught to one and not the other does not fail: the editor turns it into an
-opaque chip, or worse reads it as lyrics and offers its `[` as a chord. **Teach both, in
-the same commit**, and note the fan-out — `SongSheet.tsx` (screen), `booklet/layout.ts`
-plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s `METADATA_DIRECTIVE` (what is
-stripped), `import/export.ts` (what is written), `editor/songData.ts` (which fields the
-song-data form owns), and `components/ChordProGuide.tsx`, which is the page that documents
-all of it.
+`toSource(fromSource(x)) === x` byte for byte (separators included, via each block's `raw`) so
+saving never rewrites somebody's file. A construct taught to one and not the other does not
+fail: the editor turns it into an opaque chip, or reads it as lyrics and offers its `[` as a
+chord. **Teach both, in the same commit**, and note the fan-out — `SongSheet.tsx` (screen),
+`booklet/layout.ts` plus `booklet/document.tsx` (PDF), `import/deduce.ts`'s
+`METADATA_DIRECTIVE` (what is stripped), `import/export.ts` (what is written),
+`editor/songData.ts` (which fields the song-data form owns), and `components/ChordProGuide.tsx`,
+which documents all of it. Directive names are matched by one function for both parsers,
+`matchDirective` (`lib/directiveLine.ts`).
 
-**`toSource(fromSource(x)) === x` includes the separator, since 2026-09-20.** A `comment`,
-a `boundary` and a tab's opening line each carry `raw` — the line as the file wrote it —
-and hand it back until somebody edits that line, at which point `setLineText` drops `raw`
-and the canonical `{name: value}` is written instead. Keep what was written, normalise what
-was typed. Before that the three were always re-emitted canonically, so `{c:forte}` and
-`{comment Repeat ad lib}` — both legal, neither ours — were rewritten the moment anybody
-opened the song and pressed Save. One file in the twelve-file corpus did it, on three lines,
-and no fixture had caught it: **run the invariant over `content/` and the reference files,
-not over a hand-written string.**
+- **Run the invariant over `content/` and the reference files**, not over a hand-written string;
+  `chordpro.test.ts`'s «the reader and the editor agree» is the cheapest check that a new
+  construct is safe.
+- **Understood must never mean deleted.** `KEPT_IN_BODY` (`import/deduce.ts`) is the whole
+  answer to «what does the importer keep»: a `Field` with no column belongs in it. **Dropping a
+  column and adding its field to `KEPT_IN_BODY` are one change**, and the second half has no
+  compiler behind it.
+- **Anything a drawn line does that the source does not say is decided at render, never at
+  parse** (`%{…}`, a `{chorus}` repeat, a conditional's selector), and notes are anchored by
+  line identity (`buildAnchorMap` takes the caller's own sections).
 
-The format reference is the [cheat
-sheet](https://www.chordpro.org/chordpro/chordpro-cheat_sheet/), and compliance was
-brought up to it on 2026-09-19.
-
-**The rule that governs the import path: understood must never mean deleted.**
-`isDroppedDialectDirective` removes any directive it recognises, on the assumption that a
-column is taking the value. For `key`, `copyright`, `ccli`, `duration`, `capo` and
-`subtitle` no column takes it, so that line was the only copy anybody had and the importer
-deleted it — a songbook app deleting a copyright line being the case that makes the shape
-obvious. `KEPT_IN_BODY` (`import/deduce.ts`) is now the whole answer to «what does the
-importer keep»: **a `Field` with no column belongs in it**, and nothing but that list
-connects the two facts.
-
-**Dropping a column is therefore a change to that list, and forgetting it is silent.**
-`0050` dropped `songs.tags` and left `tags` out of `KEPT_IN_BODY` for a day: `{keywords: …}`
-and `{topic: …}` map to that field in the dialects that mean tags by them, so what had been
-a correct strip — read the line, fill the column, drop the line — became a deletion with
-nothing catching the value. `{tag:}` itself was never at risk, since no dialect claims that
-name, which is exactly why testing the field this app writes would have missed it. Measured
-and fixed on 2026-09-20; zero stored songs carried either directive, so nothing was lost.
-The general rule: **`db:migrate` dropping a column and `KEPT_IN_BODY` gaining its field are
-one change**, and the second half has no compiler behind it.
-
-**OnSong's `Name: Value` block is the same rule from a third door** (2026-09-22). `deduce`
-removes the block whole, so until then only the four fields a column takes survived it — `Key`,
-`Capo`, `Tempo`, `Time`, `Copyright`, `CCLI` and `Keywords` were read and deleted with it. They
-are written back at the top of the body as directives (`METATAG_DIRECTIVE`, one `{tag}` per
-keyword); OnSong's own mechanics (`Number`, `Flow`, `MIDI`…) have no spelling here and still go.
-
-**Where each field lives**, since «handled» means four different things here:
-
-**All of it is edited in one form since 2026-09-20** — `SongDataForm`, in the editor's «Song
-data» drawer, from the `Edit Song v2.dc.html` handoff. The head used to be drawn line by line
-above the words, so a well-described file put a dozen chips between a musician and the first
-verse. Three things about that form are load-bearing and none is obvious from looking at it:
-
-- **It is a view over the blocks, never a second copy.** Each row carries the index of the
-  block it came from and editing it is `setLineText` on that block. Nothing rebuilds or
-  reorders the head, which is what keeps an untouched file byte-identical and a reader's
-  notes on the lines they were left on. `songData.test.ts` asserts it directly — **one field,
-  one line** — because a round-trip test passes just as well against a form that re-emits the
-  whole head in its own order.
-- **A field is found wherever it sits and is not moved there.** A `{capo: 2}` written below
-  the words shows in the form and edits that line where it stands. What decides «head» is
-  position and not name (`headEnd`: everything before the first block that draws something),
-  and that only decides two things — where a *new* field is written, and which unrecognised
-  directives are metadata rather than layout. A `{column_break}` mid-song is positional, so it
-  keeps its row in the editor; an unknown directive in the head is metadata, so it lands in
-  «Anything else» under its own name.
-- **`tag` and `define` are repeat groups**, with N rows and their own add and remove. Both
-  directives are singular and repeatable and a single input would have kept the first and
-  destroyed the rest — the bug the reader had until `{tag:}` was fixed the same week.
-- **A field is drawn because its line exists, not because it has a value** (2026-09-21). The
-  form used to draw every field it knows, which put nineteen inputs on an ordinary song with
-  fifteen of them empty; now the empty ones live behind «Add a field» in the foot, and an
-  ordinary song shows five or six. The test is the *line* and never the value, and that is
-  the whole of it: a field whose value is empty but whose line exists stays on screen, or
-  clearing a value to retype it would take the field away under the caret — and with
-  `DraftInput` holding the typed draft the rule would have had to become «has a value, or
-  has the focus», an «or» in the one sentence that has to be simple. A group with no rows is
-  not drawn at all, heading included. Consequences worth knowing:
-  - **`addSongField` is the only door in**, and `setSongField` no longer creates anything:
-    every row has a block because every row is a line.
-  - **Adding focuses what it added.** The block index is the row's id and the row exists
-    only after the next render, so the focus waits on the source coming back through the
-    props. Forget it and the menu writes a field somebody then has to scroll to find — the
-    same gap the toolbar's own menu had the day before.
-  - **Songbook, section, title and artist are exempt and are not in the menu** (`COLUMNS`,
-    `SongDataForm`). They are columns rather than directives and the first three always hold
-    a value, so offering to add one would be offering something already there.
-  - **The menu takes a name nobody here knows**, which is what makes «a field this app has no
-    name for keeps its own» true: until then a private directive could only arrive by
-    importing a file. `isFieldName` refuses a conditional and anything that is not a name
-    rather than correcting it — `{album-guitar}` is a legal directive and an impossible
-    *field*, since the form draws one row for the whole song. **The shape is not enough, and
-    `typedField` is the whole answer** (2026-09-22): a column (`title`, `t`, `songbook`…) or
-    anything with a place in the song (`comment`, `start_of_chorus`, the toolbar's own list)
-    is refused, because it would be written, drawn nowhere and — for a column — stripped at
-    save; a name the song already carries goes to its line instead of writing a second one.
-  - **A single field written twice is one row, the first** — the line the reader takes. The
-    refactor that made rows depend on lines drew every occurrence for a day, so a file with
-    two `{key}` lines showed two Key inputs, one of them editing a line nobody reads.
-- **The toolbar's own «Field» menu keeps only structure and printing** (2026-09-21). Those
-  directives have a *place* in the song, which is why they are dropped where the caret is; a
-  `{key: …}` between two verses is the same field the form shows at the top, so offering it
-  in both was offering one act in two places, one of which wrote it where nobody would look.
-  `FIELD_GROUPS` divided exactly on that line already, so the menu shortened without being
-  reorganised.
-
-One trap that cost a round trip to find: **a value round-trips through `{name: value}` and the
-parse trims**, so a controlled input fed from the document loses a trailing space and «Disco di
-prova» arrives as «Discodiprova». `DraftInput` holds what was typed while the field has focus,
-and only while the two still agree once trimmed, so Undo and the Source tab still win. It is
-used by the form *and* by the editor's directive rows, which had the same bug.
-
-| Kind | Fields | Where |
-|---|---|---|
-| Column, stripped from the body, rewritten on export | `title` `artist` `songbook` `division` | `songs.*` |
-| Body, reread every time the song opens | `tempo` `time` `capo` `transpose` `key` `tag` `define` | no column, by decision |
-| Body, shown and never acted on | `album` `composer` `lyricist` `arranger` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
-| Body, kept and never shown to a reader | the ~30 typesetting directives | editor only, graphic and raw |
-
-- **`{key}` beats `estimateKey`**, reversing what `import/CLAUDE.md` calls «archival only».
-  The estimate is a guess and is weakest exactly where a file bothers to declare one. A key
-  this app cannot read (`{key: H}`, German) falls back to the estimate and never to zero.
-- **`{subtitle}`/`{st}` is decided by `sniffDialect`**, not by the reader: the artist in an
-  OnSong file and consumed into that column, a subtitle everywhere else. Measured first — of
-  223 stored songs 37 carry a `{subtitle:}` and **all 37 hold what their artist column
-  holds**, which is why `songInfoRows` refuses to print a subtitle that only repeats the
-  artist.
-- **Everything a drawn line does that the source does not say is decided at render, never at
-  parse**, and there are now three of them: `%{…}` substitution, a `{chorus}` repeat, and a
-  conditional's selector. `parseChordPro` stays a pure function of the text, which is what
-  lets one file mean one thing while two readers see two — and what keeps the notes
-  resolvable, since they are found by the identity of the lines that remain.
-- **Notes are anchored by line identity, not by counting.** `buildAnchorMap` returns a
-  `Map<Line, …>` and takes **the caller's own sections**, because an identity-keyed map is
-  useless to a caller holding different objects — parsing a second time inside made every
-  lookup miss, silently, and the test that walks `content/` is what caught it. Each lyrics
-  line records the source lines it was built from (`sourceLines`), which is how a joined line
-  resolves into two blocks and a repeated stanza resolves into none. **This is what made
-  `{chorus}` repeat and `\` continue possible at all**; before it, either one shifted every
-  note below itself onto the wrong row.
-- **`{define}`/`{chord}` win over the built-in library for that song**, and lose to a shape
-  the reader chose by hand. The file's fingering goes to the *front* of the candidate list
-  rather than replacing it, so it is the default and still sits beside the table's voicings in
-  the alternates picker. Matched on the chord as currently **shown**: a file's C fingering is
-  not a D, so transposing correctly stops using it. And on the **instrument, by string count**
-  (2026-09-24): a `{define}` names none, so six frets is a guitar's and four a ukulele's —
-  before that a ukulele reader's default was a six-string diagram.
-- **The editor's «add field» menu offers only what lives in the body.** A `{title:}` typed
-  into the body is stripped at the next save, so offering it would be offering something that
-  quietly disappears; `fields.test.ts` checks every entry against `METADATA_DIRECTIVE`.
-- **`%{…}` is resolved at render and never at parse**, both forms. A placeholder swapped for
-  a value of a different length at parse time would slide every comment anchored below it,
-  and the file has to keep what its writer typed for the export to hand it back.
-  `parseLyricLine` therefore keeps a placeholder *whole* through word splitting — the
-  conditional form contains a space, and a split one could never be put together again.
-- **A conditional's `!` lives in the directive-name matcher, which used to exist twice.** The
-  negated form (`{comment-!guitar}`, «everybody except») was unreachable until 2026-09-20:
-  `selectorMatches` had implemented and tested negation from the start, but neither parser's
-  name charset admitted `!`, so the line matched no directive and was drawn as **lyrics** —
-  the `{comment Repeat ad lib}` failure again, from the other end. Both halves were correct
-  in isolation, which is why no unit test found it and why the check that did was parsing a
-  file that used every construct the guide documents. `!` is admitted only *after* a dash, so
-  a bare `{!foo}` is still words. **There is one copy since 2026-09-24** —
-  `matchDirective` (`lib/directiveLine.ts`), read by both parsers — because a name only one
-  accepts is a line the reader draws as a directive and the editor offers as lyrics with its
-  `[` live. It is a scan and not a regular expression: the old one had four whitespace
-  quantifiers over the same spaces, so a line opening `{` with a long run of spaces and no
-  closing brace took 5 s at 400 spaces and 83 s at 800, hanging the server's home screen
-  (which parses every song) and freezing reader, editor and import preview.
-  `directiveLine.test.ts` checks it against the old expression on short random lines. The editor keeps a conditional whole as
-  an opaque `directive` block rather than as `comment`/`boundary`, which is deliberate — it
-  never takes the selector apart, so it cannot lose it.
-- **The four comment spellings are four values in the parse and three looks on screen.**
-  `plain` and `italic` coincide because this app's comment style *is* muted italic; `box` and
-  `highlight` asked for a frame and now get one. Every comment this app generates — a section
-  label, `{chorus}`, a tab's name — is `plain`.
-
-**Conformance was checked against the reference implementation on 2026-09-23**, not against
-the website alone: the ChordPro repository (`lib/ChordPro/Song.pm`'s directive and abbreviation
-tables, `res/config/chordpro.json`'s metadata keys and delegates, `docs/content/*.md`) was read
-and every directive and syntax form in it probed through the reader, the editor round trip, the
-importer and this guide. The documentation contradicts itself in places and the code decides.
-What that changed, each held by a test in `chordpro.test.ts` («ChordPro conformance»):
-
-- **`cb` is `comment_box` when it has words, and a column break when bare.** `Song.pm` maps
-  `cb` → `comment_box` and `colb` → `column_break`; `Directives-column_break.md` also claims
-  `cb`. This app had taken the column-break reading, so `{cb: Palm mute}` vanished from the
-  screen. Both parsers make the same cut (`COMMENT_STYLE`, `COMMENT_NAMES`).
-- **Labels take the attribute spelling** the spec recommends — `{start_of_verse:
-  label="Verse 1"}`, `{chorus: label="Final"}` — and `\n` inside one breaks the line
-  (`readLabel`). The attribute form used to be printed as it stood.
-- **`{chorus: Final}` repeats the last chorus under that label** (`Directives-chorus.md`). A
-  label naming a chorus this app has seen still picks that one; one that names none used to
-  print the word and repeat nothing.
-- **`arranger` is standard metadata** (in the reference's `metadata.keys`), and `composer`,
-  `lyricist`, `arranger` keep every value, joined with `; ` as the reference does
-  (`MULTI_VALUED`); the song-data form draws each line (`MULTI_FIELDS`). **Every other
-  single-valued item takes the first occurrence**, `key`/`time`/`tempo`/`capo` included — the
-  spec says each «applies from where it was specified», so the song's own is the one it opens
-  with. **`{transpose}` has its own rule**, below.
-- **`{transpose}` modulates from where it appears** — decided with the owner on 2026-09-23 after
-  the conformance pass, question by question, and every answer is a decision, not a default:
-  - **values add up and an empty one restores the one before**, the reference's stack
-    (`Song.pm`'s `dir_transpose`);
-  - **the total in force at the first line of words is the starting transposition**
-    (`song.transpose`), the value a reader's own choice *replaces* (`resolvedSemitones`,
-    unchanged); a song whose `{transpose}` only comes later has none;
-  - **every later change is a modulation, carried on the lines below it** (`Line.shift`), and
-    **the reader's choice never removes one** — a last chorus a tone up stays a tone up in
-    whatever key it is read;
-  - **the sheet announces it** with a line the parser writes (`keyChange` on a comment),
-    naming the arrival key when `{key}` is declared, on screen and in the booklet;
-  - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`), and a
-    modulation written *inside* the chorus repeats with it, relative to that pitch
-    (`repeatedLines`, 2026-09-23 — the «Key change» line was repeated and the chords after it
-    were not), and the return to the pitch in force when the repeat ends is announced too
-    (2026-09-24 — otherwise the next verse dropped a tone without warning);
-  - **a starting total past an octave is folded, not clamped** (+15 is +3): clamping it while
-    later modulations were measured from 15 bent each of them; and a bare `{transpose}` with
-    nothing to restore says nothing (`null`, not 0);
-  - **the song's key shown at the top is the opening one**; Nashville numbers follow the
-    modulation (the line's tonic moves by `shift` too), so a stepped-up chorus reads 1-4-5;
-  - **`chordTokens` lists the chords played** past a modulation, shifted; `chordTokens(song,
-    false)` gives the written ones, which is what estimating the opening key uses;
-  - **`2s`/`2f` are read for the number and the letter is dropped**: sharps or flats stay the
-    reader's own preference (`GlobalPrefs.accidentals`, v4.1), the owner's answer;
-  - **the song-data form owns only a starting `{transpose}`** (`HEAD_ONLY`) — «starting» by
-    the reader's rule, up to the first line of words, and not `headEnd`'s, which stops at a
-    comment or a `{soc}` — and draws every one, since they add up; the toolbar's Structure menu
-    offers «Key change» at the caret.
-  Strum Together needs nothing of its own: it broadcasts the starting transposition and renders
-  through `SongSheet`. Measured before deciding: one production song of 225 uses `{transpose}`,
-  never twice.
-- **The delegated environments** (`abc`, `ly`, `svg`, `textblock`, `strum`) are verbatim
-  blocks closed only by their own `{end_of_…}` — `variant: 'delegate'` in both parsers — folded
-  on screen under the language's name, and left out of the printed booklet except `textblock`
-  (`printsVerbatim`). `{start_of_grille}` is a grid.
-- **Markup is drawn, never printed as tags** (`lib/markup.ts`): the part's `text` is plain
-  and its style rides in `runs`, so width, search, the booklet and the anchors see no tags; the
-  anchor walker skips tags and counts `\uXXXX` as one drawn character. Only the tags the format
-  defines are markup — `a < b` stays text.
-- **`\uXXXX`** is the character it names, in lyrics and directive values.
-- **`{duration: 268}` is shown as `4:28`** (`readableDuration`), as the spec requires.
-- **The song-data form reads `{meta: composer X}` as the Composer field** and keeps a meta line
-  a meta line when edited (`fieldParts`). **`meta` carries metadata and never structure** (`META_NAMES`, 2026-09-25):
-  `{meta: soc x}` or `{meta: start_of_tab x}` opened a block in the reader only, since the editor
-  keeps any meta line as one directive; a comment, a section or a block through `meta` is ignored.
-  `transpose` and `define` still pass, because the form reads them through `meta` too.
-
-What is deliberately **not** followed, each argued where it lives rather than here:
-
-- **`{st}`/`{subtitle}` is the artist**, which is OnSong's convention and not the
-  specification's — `import/dialect.ts` has the argument. Moving it would change how every
-  already-importable file imports.
-- **`{songbook}`, `{division}` and `{link1..3}` are written unprefixed**, where a strict
-  reading spells a private directive `{x_…}`. The `{x_}` forms are *read* since the same
-  date, so a file from a stricter tool is understood; what the export writes is unchanged,
-  because the export is also this repo's restore path.
-- **The typesetting directives are ignored** — `{textfont}`, `{columns}`, `{new_page}`,
-  `{image}` and the rest — but **not `{define}`**, which was on this list until 2026-09-20 and
-  now feeds the shapes. This app lays a song out for a phone on a stand and has no page to
-  break. Ignored is not lost: the editor keeps them verbatim.
-- **`{chorus}` replays the stanza, and the repeated lines carry no `sourceLines`.** That is
-  what made it safe: a line with no source resolves to no anchors, so a reader's note stays on
-  the stanza they put it on instead of being duplicated onto the repeat. It reads the last
-  chorus seen, or a named one (`{start_of_chorus: Final}` … `{chorus: Final}`), repeats the last
-  one under the label when the name matches none, and falls back to printing the word where a
-  file references a chorus it never opened. Until 2026-09-19 it
-  printed the reference, and the reason was exactly this anchoring problem.
-- **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
-  stopped counting — see the identity bullet above. **A line opening with `{` never continues**
-  (2026-09-25): the editor never joins, so `{c: a \` + `b}` would be a comment to the reader and
-  two lines of words to the editor; its `\` stays a character. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
-  construct is safe — compared line by line since 2026-09-23: it used to compare a count taken
-  from `buildAnchorMap`, which has one entry per reader line whatever the editor did, so it could
-  not fail.
-
-- **`{capo}` and `{transpose}` seed the controls, and the reader overrides them** (for
-  `{transpose}`, only the starting one since 2026-09-23 — a later one is a modulation the reader
-  never overrides; see the `{transpose}` rule above) — settled by
-  `0048`, which made `user_song_prefs.capo` and `.semitones` nullable so `null` can mean «I take
-  the song's», exactly as `SongPrefs.bpm` already worked. That distinction is the whole
-  mechanism and the reason a migration was unavoidable: under `NOT NULL DEFAULT 0` the column
-  spelled «no capo» and «never chose» with one value, so applying the file's fret wherever it
-  read 0 would have put a capo back on somebody who had taken it off. `resolve.ts` holds the
-  three-way answer (`resolvedCapo`, `resolvedSemitones`, `canTakeSongValue`) in one pure module
-  because the reading screen, the booklet and Strum Together must not each arrive at their own;
-  `canTakeSongValue` is what decides whether the «back to the song's own» control has anywhere
-  to go. Applied to all three databases on 2026-09-20, preview included — `preview-db.env`
-  exists now, so the third environment is no longer a step for somebody else. Measured before
-  deciding: of 223 stored songs **zero** declare `{capo:}` and zero declare `{key:}`, so both
-  directives only ever arrive on an imported file.
-- **`{key}` seeds nothing, and that is not a gap.** `estimateKey` derives the key from the
-  chords, which are present and say it; a reader's `semitones` is a shift *relative to what
-  is written*, which is exactly what `{key}` declares, so seeding from it would transpose the
-  song away from itself. It stays archival, as `import/CLAUDE.md` already says, and
-  `METADATA_DIRECTIVE` still strips it on import.
-
-That leaves nothing on the cheat sheet unanswered. The last open question — whether
-`{define}`/`{chord}` diagrams should feed the chord library — was decided on 2026-09-20 and is
-the `{define}` bullet above: the file's fingering goes to the front of the candidate list, and
-`readDefinition` requires the `frets` keyword, so a bare list of numbers is not a definition.
+**Everything else — the song-data form, where each field lives, `{transpose}` as modulation,
+the conformance decisions of 2026-09-23 and what is deliberately not followed — is in
+`src/lib/editor/CLAUDE.md`.** Read it before touching `chordpro.ts`, whose directory has no file
+of its own.
 
 ## Commands
 
@@ -431,7 +151,7 @@ SCRATCH=/tmp/claude-*/…/scratchpad/push-check   # anywhere outside the repo
 rm -rf "$SCRATCH" && mkdir -p "$SCRATCH"
 git archive HEAD | tar -x -C "$SCRATCH"
 ln -s "$(pwd)/node_modules" "$SCRATCH/node_modules"
-cd "$SCRATCH" && npx tsc --noEmit && npm test && npm run build
+cd "$SCRATCH" && npx tsc --noEmit && npm test && npm run lint && npm run build
 ```
 
 A working-tree build (even an `rsync`'d copy) can pass while the commit is broken if a file
@@ -526,7 +246,7 @@ schemas (~125 KB, ~13 seconds, latency again) into the Parallels shared folder
 `/media/psf/Download`, staging it on local disk first so a dropped connection cannot leave a
 truncated `.dump` on the Mac. It is production-only by construction, since `prod-url` refuses
 every other host, and there is deliberately no dev twin — client 17 cannot dump the 18.6 dev
-server, per *Development and Production are separate Neon databases* below. The dump is
+server, per *Three separate Neon databases* below. The dump is
 complete on purpose, so it carries `drizzle.__drizzle_migrations` and `neon_auth.*`: pouring
 those into another database rewrites which migrations that one believes it has applied, and
 the reason the format is custom rather than plain SQL is that `pg_restore -n public` then
@@ -555,9 +275,9 @@ it must be greater than the previous migration's. Without the insert the *next* 
 re-runs this one, and since `migrate` wraps the run in one transaction that failure takes
 every later migration down with it.
 
-## Development and Production are separate Neon databases (since 2026-08-29)
+## Three separate Neon databases: production, development, preview
 
-Two independent Neon projects that **will drift**: production `strumfolio-db`
+Three independent Neon databases that **will drift** — preview is its own subsection below. Two of them are Neon projects: production `strumfolio-db`
 (`ep-muddy-rain-awwahyle`) and development `strumfolio-db-dev` (`ep-little-boat-aui3a9q1`),
 both serving a database called `neondb`. Before 2026-08-29 they were the same one, so local
 `npm run dev` was reading and writing real production data.
@@ -569,12 +289,9 @@ right for `psql` and migrations — `next dev` itself runs on the pooled `DATABA
 chase a PgBouncer-shaped difference on that one instead. Dev migrations need no injection at
 all: `.env.local` already points there, so plain `npm run db:migrate` is enough.
 
-**Renamed 2026-09-06**: the two projects were `songs-db` and `songs-db-dev` until that date,
-and the reproduction note in `src/lib/prefs/actions.ts` still says so — it records what was
-run at the time, so read the old name as the new one wherever it turns up. Only the label
-changed: endpoints,
-Postgres database name and connection strings are untouched, which is why no env var and no
-redeploy were involved. The rename happens in **Vercel, not Neon** (`action restricted;
+**Renamed 2026-09-06** from `songs-db`/`songs-db-dev` (old notes such as
+`src/lib/prefs/actions.ts` still use those names). Only the label changed — endpoints, database
+name and connection strings did not. The rename happens in **Vercel, not Neon** (`action restricted;
 reason: "organization is managed by Vercel"`, because a Marketplace project lives in a
 Vercel-managed organisation): <https://vercel.com/sisqoz/~/stores> → the database → Settings,
 store ids `store_ymYuYVjaylIEI48x` (production) and `store_YV4I8u7ePKrckzf6` (dev). **No API
@@ -587,8 +304,8 @@ by the auto-mode classifier. `vercel api
 "/v1/storage/stores?teamId=team_ZnJvYlBo3JNg9eLJweZVUdWJ"` reads back the `name` the
 dashboard writes.
 
-- **Schema changes ship twice**: against `strumfolio-db-dev` for local/preview work, and
-  separately against production when the migration is meant to ship.
+- **Schema changes ship three times** — dev, preview and production, each with its own
+  `__drizzle_migrations` — and no deploy step applies anything to any of them.
 - **Data**: dev got a one-time, one-way `pg_dump --data-only` / `pg_restore` copy of
   production on 2026-08-29 (excluding `drizzle.__drizzle_migrations` and
   `neon_auth.project_config`). A snapshot, not a sync — real accounts, emails, password
@@ -618,42 +335,33 @@ dashboard writes.
   classifier**, so the old `strumfolio-db` resource still shows as "connected" in `vercel
   integration ls` with none of its env vars left anywhere — cosmetic, harmless to leave.
 
-### Preview is a third database, and until 2026-09-12 it was nothing at all
+### Preview
 
-The section heading above says two databases; there are three. `neon-byzantium-harbor`
+`neon-byzantium-harbor`
 (`ep-blue-mode-avih2w94`, Postgres 18.6) was created on 2026-09-12 with
 `vercel integration add neon -e preview --plan free_v3 -m region=iad1 -m auth=false`, connected
 to **Preview only**, so sandbox purchases have somewhere to land that is neither production nor
 the dev snapshot of it. The integration writes `DATABASE_URL` itself, which is the point: no
 connection string passes through a person or a shell on the way in.
 
-**Preview had never been configured**, and the bullet above claiming `strumfolio-db-dev` serves
-"local/preview work" was true of local and aspirational about preview: the environment had no
-`DATABASE_URL` and no `AUTH_SECRET`, so every preview deployment ran with no database at all.
-It now carries its own `AUTH_SECRET`, `ALLOWED_EMAILS` and `SONGBOOK_PLANS=on`.
+The Preview environment carries its own `AUTH_SECRET`, `ALLOWED_EMAILS` and `SONGBOOK_PLANS=on`
+(it had no database and no `AUTH_SECRET` at all before 2026-09-12).
 
-**Schema changes ship three times, and nothing here can run the third.** The bullet above says
-migrations ship against dev and against production; preview is a third database with a third
-`__drizzle_migrations`, and no deploy step applies anything to it — `vercel.json` is four words
-and `build` is `precache-routes` plus `next build`.
+**Preview migrations use the `prod-url` arrangement**: `~/.config/strumfolio/preview-url` reads
+`STRUMFOLIO_PREVIEW_DATABASE_URL` out of `preview-db.env` (pasted there by hand, and present),
+refuses anything that is not `ep-blue-mode-avih2w94` or is pooled, and prints nothing otherwise:
 
-**The preview has the same `prod-url` arrangement now, and it is empty until somebody fills it.**
-`~/.config/strumfolio/preview-url` is the gemello of `prod-url` — it reads
-`STRUMFOLIO_PREVIEW_DATABASE_URL` out of `preview-db.env`, refuses anything that is not
-`ep-blue-mode-avih2w94`, refuses the pooled endpoint, and prints nothing otherwise; its
-missing-file error *is* the instruction for creating it. That indirection is the whole point:
-the string is pasted once, by hand, into a file outside the repo, and every migration after that
-is `DATABASE_URL_UNPOOLED="$(~/.config/strumfolio/preview-url)" npm run db:migrate` with the
-secret never passing through a shell history, a transcript or `.env.local`. What cannot happen
-is an agent *fetching* it: `vercel env pull --environment=preview` is refused by Claude Code's
-auto-mode classifier, the same refusal `vercel redeploy` gets, and routing around that is not
-the fix — being handed access and taking it are different things.
+```bash
+DATABASE_URL_UNPOOLED="$(~/.config/strumfolio/preview-url)" npm run db:migrate
+```
 
-Until that file exists, a migration the preview needs is a step for whoever owns that
-environment, and the code reading the new column must not be deployed there expecting to find
-it: the symptom is not a missing feature but `column "…" does not exist` thrown out of the page
-that reads it — measured on 2026-09-15, when `/billing` sat on «One moment…» for exactly that
-reason. Rehearse against dev first, and against production too — `BEGIN; \i drizzle/00xx.sql;
+The secret never passes through a shell history, a transcript or `.env.local`. An agent must not
+*fetch* it: `vercel env pull --environment=preview` is refused by the auto-mode classifier, and
+routing around that is not the fix — being handed access and taking it are different things.
+
+Code reading a new column must not reach the preview before the migration does: the symptom is
+`column "…" does not exist` thrown out of the page that reads it (2026-09-15, `/billing` stuck on
+«One moment…»). Rehearse against dev first, and against production too — `BEGIN; \i drizzle/00xx.sql;
 …; ROLLBACK;` runs the real file against the real rows and leaves nothing, so there is no excuse
 for a migration whose first execution is the real one.
 
@@ -701,7 +409,8 @@ for a migration whose first execution is the real one.
 
 ## Paddle: three MCP servers, two catalogues, and one promise about tax
 
-The payment processor, and **it has taken real money in production since 2026-09-19**. The
+The payment processor, and **wired to take real money in production since 2026-09-19** (no
+subscription existed there yet on 2026-09-25). The
 sandbox catalogue exists since 2026-09-12 and the live one since 2026-09-19; the facts below are
 the ones that cost something to rediscover.
 
@@ -766,14 +475,12 @@ moves — Standard yearly reads 28.68 + 6.31, 29.40 + 5.59 and 34.99 + 0.00, all
 **€34.99**. That is `prices.ts`' central sentence, demonstrated against the catalogue that will
 take real money.
 
-**The seven ids live in `PADDLE_PRICE_IDS`, not in `paddleId`, and that reverses what
-`paddlePrices.ts` and `plans/CLAUDE.md` describe as the plan.** Writing them into `prices.ts`
-was tried the same day and reverted within the hour, because the committed id wins **in every
+**The seven ids live in `PADDLE_PRICE_IDS`, not in `paddleId`.** Writing them into `prices.ts`
+was tried and reverted, because the committed id wins **in every
 environment**: `paddlePriceId` consults the environment only where `paddleId` is empty, so the
 moment all seven are filled the *preview* deployment stops reading its sandbox ids and starts
 naming live prices at the sandbox API — killing the one environment where a purchase can be
-tested at all, which is what `INTEGRATION-TESTS.md` is built on. The original comment reasoned
-about production alone and never about the same code running elsewhere.
+tested at all, which is what `INTEGRATION-TESTS.md` is built on.
 
 **Two tests are what caught it, and they are a tripwire rather than an oversight.**
 `paddlePrices.test.ts`'s «is only reachable while the code holds no live id» asserts the
@@ -812,60 +519,33 @@ inferred. Verify this way after any catalogue change, on the *total*: a `200` fr
 `prices.create` proves only that the field was accepted. **Never `tax_mode: 'location'`**,
 whose per-jurisdiction behaviour is the exact opposite of "wherever they are".
 
-**And the reader has to be told, which /pricing stopped doing for four months.** The claim was
-true in the code, true in Paddle and measured in the table above, and between the v3.4 redesign
-(`134c043`, which dropped `BILLING_NOTE` along with everything else the mock does not draw) and
-2026-09-17 it was written **nowhere a visitor could see** — the page printed «€34.99» and left
-«plus whatever your country adds» to be ruled out by reaching the checkout and looking. Those are
-two different offers, so this is not a missing disclaimer but a missing half of the price.
-`TAX_NOTE` (`prices.ts`, beside `euro()` and the table that makes the claim true) is the fix, and
-it is deliberately **repeated beside every number** rather than written once under the grid: a
-reader compares one column against another and never reads a price list top to bottom.
+**And the reader has to be told**: «€34.99» alone leaves «plus whatever your country adds» open,
+which is a different offer, not a missing disclaimer. `TAX_NOTE` (`prices.ts`, beside `euro()`) is
+**repeated beside every number** rather than written once under the grid, because a reader
+compares one column against another. It is abbreviated because it sits on the price's own line —
+«€3.49 /mo Tax incl.» — where a plan card's ~140px content box at the four-column layout will not
+hold «Tax included»; verified at 1280, 1024, 820 and 390px, both cycles, with and without a
+coupon, and `white-space: nowrap` means it can only break *before* «Tax».
 
-**Beside and not under, which is why it is abbreviated.** It shipped as «Tax included» on a line
-of its own for a day and was moved onto the price's own line on request — «€3.49 /mo Tax incl.».
-That position answers the question a reader is actually asking, and it will not hold eleven
-characters: a plan card's content box is about 140px at the four-column desktop layout, so «Tax
-included» pushes «€9.99/mo» past the edge where «Tax incl.» fits with room to spare. Verified at
-1280, 1024, 820 and 390px, on both cycles, with and without a coupon: one line everywhere, and
-`white-space: nowrap` means the phrase can only ever break *before* «Tax», never between the two
-words. A line of its own was also the worse place on its own merits — a card is a flex column
-with a `0.75rem` gap, so it sat as far from the number as the audience sentence did, and on a
-discounted card the coupon caption came between them.
+**The tax claim is printed in six places and they move together**: on /pricing the four plan cards
+(`.plan-price-tax`, absent on Free), the comparison table header (`.plan-table-tax`, inside
+`.plan-table-price`, which is `display: block`) and the Lifetime panel (`.lifetime-tax`); in
+`PaddleCheckout`, `footNote`'s «Tax included, in euro.» on a first purchase and the same sentence
+under a **plan change** (kept out of `footNote`, whose cycle and renewal date a change does not
+share); and Terms of Service § 7, the long form («VAT or any other applicable sales tax — the
+amount shown is the amount charged»), which must stay true if the others are reworded.
 
-So the tax claim is now printed in **six** places and they move together — the rule this file
-already states about the booklet override, the install row and the Telegram notice. On /pricing:
-the four plan cards (`.plan-price-tax`, absent on Free, which has no price to tax), the
-comparison table's header (`.plan-table-tax`, inside `.plan-table-price` rather than after it,
-since that one is `display: block` and a sibling would start its own line) and the Lifetime panel
-(`.lifetime-tax`). In
-`PaddleCheckout`: `footNote`'s «Tax included, in euro.» on a first purchase, and the same
-sentence under a **plan change**, which had been quoting two amounts about to be charged and
-saying nothing about either — added the same day, and kept out of `footNote` itself because that
-string also names a cycle and a renewal date, which on a change is exactly what the calendar
-above it decides. And § 7 of the Terms of Service, which words it the long way («VAT or any other
-applicable sales tax — the amount shown is the amount charged») and is the one that has to stay
-true if the others are ever reworded.
-
-**«Tax», never «VAT»**, wherever it is printed, and the stop in «incl.» is part of the string
-rather than styling — «Tax incl» reads as a word somebody cut off. Paddle is the merchant of record and collects
-whatever the reader's own jurisdiction levies, so «VAT included» is simply false for an American
-one. The Italian shorthand this was reported in («i prezzi sono tutti vat included») is the fact,
-not the wording.
-
-**Two of the three facts `BILLING_NOTE` carried are still gone, and that stays a decision.** No
-free trial needs no line — the Free card says the plan has no end date, which is what a trial
-claim would be denying, and no price carries a `trial_period` (above). The bank's cut on a
-non-euro card is in Terms § 7 and nowhere on /pricing; the comment in `pricing/page.tsx` that
-called it «not stated anywhere else on the site either» was wrong on that point and has been
-corrected rather than acted on.
+**«Tax», never «VAT»** — Paddle is merchant of record and collects whatever the reader's
+jurisdiction levies, so «VAT included» is false for an American — and the stop in «incl.» is part
+of the string. **No free trial is stated and none exists** (no price carries a `trial_period`); the
+bank's cut on a non-euro card is in Terms § 7 and nowhere on /pricing, by decision.
 
 Everything else about the catalogue is checked by `scripts/verify-paddle-catalogue.ts`, which
 compares it against `PRICES` row by row — `--sandbox` matches on the stamped `custom_data` and
 needs no ids, and since no Paddle credential lives in this repo the catalogue is fetched
 through the MCP server and passed in with `--from`. `plans/CLAUDE.md` has the rest.
 
-Three more properties of that catalogue, each of which is a decision rather than a default:
+Four more properties of that catalogue, each of which is a decision rather than a default:
 
 - **`tax_category` cannot be changed after a product's first sale.** All four are `saas`, and
   **the live catalogue must use the same value** or the two environments issue different
@@ -887,60 +567,22 @@ Three more properties of that catalogue, each of which is a decision rather than
 
 ### The payment form is branded from Paddle's dashboard, and one palette is all there is
 
-The inline checkout frame is Paddle's, inside our card. What the *code* controls is in
-`PaddleCheckout.tsx` — `theme` pinned to `light` (see below), `variant: 'one-page'`, `frameStyle`
-with a transparent background and no border, `showAddDiscounts: false`. Everything else is
-**`/checkout-settings#Inline`** — the documentation calls it «Branded inline checkout» and there
-is **no page by that name**: it is the Inline tab of Checkout Settings, verified 2026-09-16
-against the dashboard's own navigation, so do not go hunting for a second screen. Five sections
-(Overall, Buttons, Inputs, Links, Messages), living in the Paddle account rather than in this
-repo.
+The inline checkout frame is Paddle's, inside our card. The *code* controls the settings in
+`checkoutSettings` (`lib/plans/checkoutFrame.ts`, read by `PaddleCheckout.tsx` and `PayFrame.tsx`) — `theme` pinned to `light`, `variant: 'one-page'`, a transparent borderless
+`frameStyle`, `showAddDiscounts: false`. Everything else is **`/checkout-settings#Inline`**, the
+Inline tab of Checkout Settings (the docs call it «Branded inline checkout»; there is no page by
+that name). Five sections — Overall, Buttons, Inputs, Links, Messages — held in the Paddle
+account, not in this repo.
 
-**The trap, and it is the whole of this section: an *unset* colour follows the theme, a *set* one
-does not — and pressing Save sets every colour in the editor, including the ones nobody touched
-and the ones somebody has just emptied.** There is no per-theme palette. What that means in practice was measured on
-2026-09-15: after the first save the dark checkout's labels, its typed text and the selected
-country all turned near-black on near-black, because `#2B2A35` — Paddle's *light* default — had
-been written into the fields as an explicit value. The white text that used to appear in dark
-was not a setting; it was the absence of one.
+**The trap: an *unset* colour follows the theme, a *set* one does not, and Save sets every colour
+in the editor** — the untouched ones and the ones just emptied, which come back as Paddle's
+light-theme defaults (`Label color` `#2B2A35`, `Placeholder` `#9393A8`, `Font` `#2B2A35`, `Border`
+`#D2D4DE`, `Checkbox background` `#FFFFFF`, message pairs `#EBECF0`/`#FFFFFF`; measured
+2026-09-16). So an unset colour cannot be persisted once anything has been saved, and the grey
+hint in an empty field is not always what Save writes (`Label color` hinted `#9393A8`, saved
+`#2B2A35`). `Reset` means «revert to the last published settings», not «Paddle's defaults».
 
-**A cleared field cannot be saved, and that is the whole mechanism.** Emptying one gets the
-value out of the *editor* — it goes back to showing its default hex in grey with an empty
-swatch, where a set one is dark text with the colour filled in — and then **Save writes the
-default into it as an explicit value**. Measured properly on 2026-09-16, which is what this
-paragraph used to get wrong: nine colours were emptied (the five in Inputs, the four in
-Messages), saved, and the page reloaded. Every one came back explicit — `Label color` `#2B2A35`,
-`Placeholder` `#9393A8`, `Font` `#2B2A35`, `Border` `#D2D4DE`, `Checkbox background` `#FFFFFF`,
-and both message pairs `#EBECF0`/`#FFFFFF`. So there is no way through this editor to *persist*
-an unset colour once anything has been saved.
-
-**One detail in that is a trap of its own**: the grey hint shown in an empty field is not
-always the value Save writes. `Label color` displayed `#9393A8` while empty and was saved as
-`#2B2A35`. Read the hint as «something will be written here», never as «this is what you will
-get».
-
-**An earlier note here blamed the wrong thing and is retracted.** It said that branding the
-checkout at all makes Paddle stop giving the labels their dark palette, whether or not `Label
-color` holds a value. There is no such rule: what happens is only ever the sentence above, and
-the labels stayed unreadable after a clear because the clear never survived the Save.
-
-**`Reset` is «revert to the last published settings», not «restore Paddle's defaults»** — its
-own confirmation dialog says so, and adds that Paddle's defaults are used only if nothing was
-ever published. So it undoes unsaved edits and is safe to press; it is not a way back to an
-unbranded checkout, and a previous note here calling it a bulk clear was wrong.
-
-**Which is what settles «keep only the orange button and let the rest follow the theme»**, the
-obvious idea and a good one: it cannot be persisted. Clear the neutrals, keep the accent, press
-Save, and the neutrals come back as Paddle's own light-theme hexes. And since those defaults
-are themselves light values, a «cleared» configuration is not an adaptive one — it is Paddle's
-light palette, with the dark form exactly as broken as it is with ours. Clearing buys nothing,
-which is why the Strumfolio palette was put back the same day rather than left half-undone.
-
-**A dark palette does not exist to be found, and that is a fact about the editor rather than a
-thing we failed to locate.** Checked 2026-09-16 against both the reference and the dashboard
-itself: the «Brand inline checkout» page lists the same five sections and never mentions a
-theme, and the editor carries no light/dark selector, no preview toggle and no second palette
-anywhere. What it *can* colour is foreground only —
+**There is no dark palette and no theme selector**, and the editor colours foreground only:
 
 | Section | Colours it holds |
 |---|---|
@@ -950,76 +592,38 @@ anywhere. What it *can* colour is foreground only —
 | Links | link and hover |
 | Messages | footer and coupon-notice **border and background** — not their text |
 
-— and the checkbox background is the **only** background field in the whole editor. **The ground
-is not settable, and neither is the heading «Please enter your details», the helper line under
-it, the footer's «Sold by Paddle…», nor the text inside the message containers.** Those five
-follow `theme`, so they are light on a dark ground and dark on a light one whatever the branding
-says.
+The ground is not settable, nor are the heading «Please enter your details», its helper line, the
+footer's «Sold by Paddle…» or the text inside the message containers — those follow `theme`. One
+input-text colour cannot be legible on two grounds, so **branding and theme-switching are
+mutually exclusive here, and the form is pinned to `light`**: in the dark theme the payment form
+is a light panel inside a dark page, knowingly, and it is never re-opened on a theme change (which
+used to throw away a half-typed card number). **The card under the frame is `bg-white`** — one of the
+app's three hard-coded colours, with `/pay`'s frame and the email preview — because it is
+Paddle's ground, not our `--surface`.
 
-**Which makes pinning the theme the only coherent state, not a defeat.** One colour cannot be
-legible on two grounds — the decisive pair is that the input *text* colour is settable and the
-input *background* is not — so the palette fixes the ground, and `theme` has to match the ground
-the palette was chosen against. Branding and theme-switching are mutually exclusive here by
-construction. Nor is «drop the branding and let the theme follow» the other half of a choice: the
-card would have to go back to `--surface`, and Paddle's own light form on our warm off-white is
-the complaint the inline work started from.
+**Every dashboard value is one of `DESIGN.md`'s light tokens:**
 
-**So the app's theme gives way, and `PaddleCheckout` pins the form to `light`.** A single
-palette chosen against a single known background is right by construction, and it is the only
-arrangement here in which every value in that dashboard can simply be one of `DESIGN.md`'s light
-tokens. The cost is visible and was chosen knowingly — in the dark theme the payment form is a
-light panel inside a dark page — and it buys one thing back: the frame used to be re-opened on
-every change of theme, throwing away a half-typed card number, and a form that never changes
-theme never needs that.
+- **Overall** — focus border and shadow `#97490f`; checkout padding **off** (hence `frameStyle`'s
+  `min-width: 286px`; 312 is the padding-on minimum).
+- **Buttons** — primary height 44, radius 45 (the field's cap, already `--r-pill`), background
+  `#97490f`, hover `#884311` (`color-mix(--accent 88%, --ink)`), font 15px `#fffaf4`, border set to
+  the same two so Paddle's green ring disappears. Secondary: height 40, radius 45, colours cleared.
+- **Inputs** — label `#5c626c` (`--muted`), text `#16181d` (`--ink`), placeholder `#8d939c`
+  (`--faint`), border `#e6e3dc` (`--line-soft`); radius 18 (`--r-lg`), height 50, border 1, **font
+  size 16** — what stops iOS zooming on focus, inside the iframe too.
+- **Links** — `#97490f` / `#884311`.
+- **Messages** — radius 18, border `#e6e3dc`, background `#f1efe9` (`--surface-3`), footer and
+  coupon notice both.
 
-**The card under the frame is `bg-white`, and it is the only hard-coded colour in this app.**
-`frameStyle` keeps the frame transparent, so that element is the ground Paddle draws on; it was
-`--surface`, which is `#181b21` in the dark theme and would put black label text on a near-black
-panel. It is not our surface any more, it is Paddle's, and calling it `--surface` would claim a
-relationship to our theme that no longer exists.
+Cannot follow us: **the font** (Outfit is not offered; Lato stays) and **the selected
+payment-method tab's green outline**.
 
-**Every value in the dashboard is then one of `DESIGN.md`'s light tokens**, which is the whole
-dividend of pinning the theme — there is one background to be right against, so nothing is a
-compromise and nothing has to be left to Paddle:
-
-- **Overall** — focus border and shadow `#97490f`; checkout padding **off**, so the frame has no
-  gutter of its own inside `.card`'s `1.375rem` (this is why `frameStyle` says `min-width: 286px`
-  — 286 is the padding-off minimum, 312 the padding-on one).
-- **Buttons** — primary height 44, radius 45 (**the field caps at 45**, which on a 44px button is
-  already `--r-pill`), background `#97490f`, hover `#884311` (`color-mix(--accent 88%, --ink)`),
-  font 15px `#fffaf4`, and the primary **border** set to the same two so the 1px is invisible —
-  the default is Paddle green and it draws a ring around the fill. Secondary: height 40 and
-  radius 45 only — every one of its colours is cleared.
-- **Inputs** — label `#5c626c` (`--muted`), typed text `#16181d` (`--ink`), placeholder
-  `#8d939c` (`--faint`), border `#e6e3dc` (`--line-soft`); radius 18 (`--r-lg`), height 50,
-  border width 1, **font size 16**. That last one is not styling: 16px is what stops iOS zooming
-  the viewport when a field takes focus, exactly as `.form-field`'s own comment says, and it
-  applies inside the iframe too.
-- **Links** — `#97490f` and `#884311`, the accent and its hover.
-- **Messages** — container radius 18, border `#e6e3dc`, background `#f1efe9` (`--surface-3`), for
-  both the checkout footer and the coupon notice.
-
-Two things that cannot follow us at all, worth knowing before anybody tries again: **the font**
-(the picker offers Arial, Helvetica Neue, Lato, Lucida Grande, Verdana and Georgia — Outfit is
-not among them, so Lato stays, and changing it buys nothing), and **the selected payment-method
-tab's green outline**, which the editor does not expose.
-
-**Sandbox and live are separate accounts, so this is configured twice — and the live one is done
-since 2026-09-19**, verified field by field after a reload rather than on the «saved» toast. Two
-values could not be carried across, and both are the live editor offering less than the sandbox
-one did: **the primary button's border is `No` instead of matched colours**, because this
-dashboard exposes only a Yes/No for it and `Yes` left Paddle's green ring around the orange fill
-(seen by zooming, not inferred); and **`Label color` has no field at all**, only «Label visible»,
-so `--muted` has nowhere to go. Everything else is the palette below, to the hex.
-
-**The secondary button came out of the Save explicitly Paddle green** — `#06C668`/`#05B25E` on
-its border, font and hover — where it had been unset. That is the rule this section already
-states, met in the wild: Save writes every colour in the editor, the untouched ones included. The
-sandbox sits in the same state, so the two environments agree; it is recorded here because it
-looks like a mistake and is not one. And since the values are copies of `DESIGN.md`'s tokens held outside this repo, a change
-to `--accent`, `--r-lg` or `--r-pill` makes them wrong with nothing to catch it: the same
-«change one place and the others are wrong» this file states about the booklet override and the
-install row.
+**Sandbox and live are separate accounts, configured twice; live done 2026-09-19**, verified field
+by field after a reload. Two live differences: the primary button border is `No` (the live editor
+offers only Yes/No, and `Yes` kept the green ring), and live has no `Label color` field. The
+secondary button came out of Save explicitly Paddle green (`#06C668`/`#05B25E`) in both accounts —
+the rule above, not a mistake. **A change to `--accent`, `--r-lg` or `--r-pill` makes these copies
+wrong with nothing to catch it.**
 
 ### The webhook, and the two traps in the SDK
 
@@ -1056,7 +660,8 @@ account that does not exist is recorded as `unmatched`.
 - **`PADDLE_NOTIFICATION_WEBHOOK_SECRET` is the route's only secret**, and it belongs to *one*
   notification destination. Sandbox and live have separate destinations with separate secrets;
   crossing them fails every delivery in exactly the way the `initialize()` trap does. It is
-  **not** `PADDLE_API_KEY`, which this route deliberately does not hold.
+  **not** `PADDLE_API_KEY`, which verification never needs (applying an event may, see the
+  API-key paragraph below).
 - **The signature proves who sent the event, not who wrote its `custom_data`** (2026-09-24).
   Paddle.js opens a checkout with any items and any `customData` using the public client token,
   and `updateCheckout` replaces it, so `account_id` and the downgrade stamp are believed only
@@ -1070,30 +675,15 @@ account that does not exist is recorded as `unmatched`.
 
 ### Changing plan: Paddle cannot schedule one, so the app makes it look as if it could
 
-`subscriptions.update` replaces a subscription's items **immediately** — only the billing can be
-deferred, through `proration_billing_mode` — and `scheduled_change` models `cancel`, `pause` and
-`resume` and nothing else. There is therefore no way to say «move this to Standard when the year
-runs out». What is done instead: the items move now under `do_not_bill`, which charges and
-credits nothing and leaves the billing period alone, and a `custom_data` stamp carries the date
-the reader keeps their old plan until, which the webhook turns into `pendingPlan`. No cron and
-no renewal-time write. **What decides the timing is which way the money goes, not which way the
-plan goes: a change that would hand money back waits, and only a change that collects money
-happens now** — so a drop in tier waits, and so does any move onto monthly billing while a year
-is paid for, even one that raises the tier (B7). Two proration modes in the whole app, and no
-third. `plans/CLAUDE.md` carries the rest, including the six measurements that
-settle it: `scheduled_change: null` may not travel with any other field; a subscription carrying
-a scheduled change keeps it through an items change and quietly moves its date (the reason the
-app clears first, restated on 2026-09-14 after the refusal this file used to claim turned out not
-to happen); a nested object inside `custom_data`
-comes back verbatim; **`do_not_bill` preserves the period only while the frequency is
-unchanged**, restarting it on any change of cycle; `next_billed_at` — the repair for that —
-is ignored beside an items change and refused alone, so it is always a second call; and **the pin
-puts the date back but not the invoice**, so after a change of cycle Paddle credits nothing for
-what was paid and every later change is priced at the full new price — while a change of cycle on
-a freshly bought subscription prorates normally (€96.50 of €99.99, measured 2026-09-14). Which
-means neither «same cycle» nor «change of cycle» predicts the credit, and one uncredited reading
-is unexplained even by the restarted period; the screen therefore reads `update_summary.credit`
-and infers nothing. `plans/CLAUDE.md` has all six measurements.
+`subscriptions.update` replaces items **immediately** and `scheduled_change` models only `cancel`,
+`pause` and `resume`, so «move this to Standard when the year runs out» cannot be said. The items
+move now under `do_not_bill` and a `custom_data` stamp carries the date the old plan lasts until,
+which the webhook turns into `pendingPlan` — no cron, no renewal-time write. **The direction of the
+money decides the timing, not the direction of the plan**: a change that would hand money back
+waits, only one that collects money happens now (so monthly-while-a-year-is-paid waits even when
+the tier rises, B7). Two proration modes in the whole app. The screen reads
+`update_summary.credit` and infers nothing, because the credit after a change of cycle is not
+predictable — `plans/CLAUDE.md` holds the six sandbox measurements behind all of this.
 
 **The live notification destination exists since 2026-09-19**: `ntfset_01m2wgwgzewvq76c14h83xa15a`,
 `https://strumfolio.com/api/paddle/webhook`, active, `api_version: 1` and
@@ -1107,21 +697,18 @@ A simulation delivered to production is a real payload reaching `webhookApply.ts
 single writer of the plan columns — so a test event could grant or revoke somebody's plan. Keep
 simulations on the sandbox destination, which exists for exactly that.
 
-**Its signing secret was never read.** It was created through the MCP with code that returns
-every field except `endpoint_secret_key`, so the value lives only inside Paddle and has to be
-copied from the dashboard — Developer Tools → Notifications — into Production's
-`PADDLE_NOTIFICATION_WEBHOOK_SECRET` by hand, which was done the same day. That is the same arrangement `prod-url` exists for,
-applied to a secret an agent would otherwise have printed into a transcript.
+**Its signing secret was never read by an agent**: created through the MCP with code that returns
+every field except `endpoint_secret_key`, and copied by hand from Developer Tools → Notifications
+into Production's `PADDLE_NOTIFICATION_WEBHOOK_SECRET` — the `prod-url` principle, applied to a
+secret that would otherwise have been printed into a transcript.
 
 **Everything that stood between the integration and a real charge was finished on 2026-09-19** —
 the branding, the five variables, the domain, the default payment link and the campaign's Discount
-entities. **What has never happened is a purchase.** No live transaction has been created, no
-webhook has been delivered, and therefore the signing secret sitting in Production **has never
-verified a real signature**. That is the one untested link in the chain, and its failure mode is
-quiet in the expensive direction: a wrong secret answers 401 to every delivery and Paddle retries
-for three days before giving up. So the first live purchase tests the secret as much as it tests
-the checkout, and it is worth driving deliberately rather than waiting for a customer to be the
-first.
+entities. **Until a first live purchase lands, the Production signing secret has never verified a
+real signature** (no subscription existed on 2026-09-25) — the one untested link, and quiet in
+the expensive direction: a wrong secret answers 401 to every delivery for three days of retries.
+Drive the first live purchase deliberately rather than let a customer be the first, and check
+`paddle_events` afterwards.
 
 **The gate that sat in front of all of them was the live domain, and it opened on 2026-09-19.**
 `strumfolio.com` (`chedom_01m2we9rfyfcy7jtwpnr90rcvm`) went from `pending_review` to `approved`
@@ -1150,12 +737,13 @@ that bakes them, which is the required order and not a preference: `/pricing` re
 redeploy` that the auto-mode classifier blocks. Any ordinary forward commit does the baking.
 
 **The live API key carries three permissions and no others**, derived from the calls rather than
-guessed — the whole app makes exactly seven, on three entities: `transactions.create`;
-`subscriptions.get`/`update`/`cancel`/`previewUpdate`; `discounts.create`/`update`. So
+guessed — the whole app makes exactly eight, on three entities: `transactions.create`;
+`subscriptions.get`/`list`/`update`/`cancel`/`previewUpdate`; `discounts.create`/`update`. So
 **Transactions write, Subscriptions read+write, Discounts read+write**. Nothing else, and
 **Adjustments write above all**: that is the power to issue refunds, and no code path here issues
-one — the webhook only *receives* `adjustment.*`, and it authenticates with the signing secret,
-never with this key. Products and Prices are absent too, since the ids come from the environment
+one — the webhook only *receives* `adjustment.*`, and verifies it with the signing secret, not with
+this key (applying an event can still use the key: a Lifetime buying out a subscription
+cancels it through `webhookApply.ts`). Products and Prices are absent too, since the ids come from the environment
 and the app never asks Paddle for a price.
 
 Two more things the dashboard holds that are decisions rather than defaults, both set 2026-09-19.
@@ -1165,107 +753,23 @@ Two more things the dashboard holds that are decisions rather than defaults, bot
 **«Display discount field on the checkout» is off**: `PaddleCheckout` already passes
 `showAddDiscounts: false`, but the account default is a second door, and a code typed into
 Paddle's own field attaches a discount without passing `redeemableCouponFor` — no row in
-`coupon_redemptions`, no campaign ceiling applied, none of the three `accounts.coupon*` columns
-written.
+`coupon_redemptions`, no campaign ceiling applied, none of the three coupon columns (`coupon_code`,
+`coupon_percent`, `discount_ends_at`) written.
 
 ### Coupons are Paddle Discounts, and a coupon never causes a sale at full price
 
-Since 2026-09-14 a campaign in `lib/coupons/` has real Paddle Discount entities behind it
+Since 2026-09-14 each campaign in `lib/coupons/` has real Paddle Discount entities behind it
 (`paddleDiscount.ts` translates, `paddleDiscountSync.ts` writes them on every create and edit),
-and the checkout attaches one by its `dsc_…` id. Four things about it are expensive to
-rediscover; `coupons/CLAUDE.md` has the rest.
-
-- **The refusal was narrowed, not lifted, and the narrow form is the invariant** — and it takes
-  *two* questions to keep, which is what a real defect found on 2026-09-15 established.
-  `coupon-unsupported` answers the first: «a coupon is in play and this exact plan and cycle have
-  no `dsc_…`» — a sync that never ran, one Paddle refused, a campaign covering no Lifetime, a
-  cycle whose three prices could not all be named. All of those sell nothing.
-
-  The second is **may this account still redeem it at all**, and the screen was not asking it.
-  `/checkout/[plan]` decided what to show from `activeCoupon` alone, which knows about campaigns
-  and nothing about ceilings, windows or previous redemptions; the charge went through
-  `redeemableCouponFor`, which asks all three and answers `null` — and a `null` coupon does not
-  trip the guard, so the sale proceeded at the listino. A reader who had spent COUPON30 on a
-  subscription **was shown the Lifetime at €139.99 while the transaction the server made carried
-  `discount_id: null` and `total: 19999`**: sixty euro more than advertised, the gap this
-  paragraph exists to deny, arriving through the door left open for a *tampered* `?coupon=`
-  (where showing a discount and not honouring it is the safe direction). Evidence in
-  `/media/psf/Download/strumfolio-qa-2026-09-15/06-lifetime-scontato/`.
-
-  Fixed the same day: `couponRefusalFor` puts `redeemability` on the display path beside the
-  write path, the ticket comes down where the coupon will not be honoured, and
-  `couponRefusedNotice` says why in one sentence that ends «The price above is the usual one.»
-  Two silences are deliberate and tested — a campaign that simply does not reach this plan, which
-  `appliedCopy` already words, and a coupon table that could not be read, where the charge gives
-  up the same way so the two still agree. **`changePaddlePlan` still refuses any redeemable coupon outright**, deliberately:
-  a recurring discount survives a plan change on its own, so what is left is a code never
-  redeemed, and the two sentences that say what a change costs know nothing about discounts.
-
-  **`recurring_transaction_details` ignores a subscription's discount and `next_transaction`
-  applies it**, which is the field that decides whether a discounted reader is quoted the
-  listino. Measured 2026-09-16 on four sandbox subscriptions: Premium monthly carrying a
-  recurring 30% reads `total 999` / `discount 0` in the first and `total 699` / `discount 246`
-  in the second, and Standard monthly `349`/`0` against `244`/`86`. The documentation calls the
-  first «what the customer can expect to be billed», which is true of everything except the
-  discount. `nextChargeOf` reads `next_transaction`; reading the neighbouring field instead
-  would put the listino in front of somebody who is being charged 30% less — the
-  shown-price/charged-price gap this file already guards twice.
-
-  **A change of *cycle* stops the discount being applied, and `/billing` went on promising it.**
-  Each Discount entity is `restrict_to` its own cycle's three prices, so a tier change within a
-  cycle keeps it — Standard → Premium monthly previews `699` with `discount 246` — while moving
-  the same subscription to a yearly price comes back `discount: null` and `total 9999`, the full
-  listino. `nextChargeOf` is right on both counts, since the branch that quotes `PRICES` is
-  exactly the change-of-cycle one. What was wrong was one screen further on:
-  `accounts.discount_ends_at` is computed at redemption and read back from nowhere, so
-  `discountLine` kept telling that reader «COUPON30 −30% until 16 September 2027» over a
-  subscription Paddle had stopped discounting. The direction is the dangerous one — a benefit
-  they redeemed, silently lost — and it was reachable, because `changePaddlePlan`'s
-  `coupon-unsupported` guard asks `redeemableCouponFor`, which excludes a coupon already spent:
-  it never fires for the one reader who actually holds a live discount.
-
-  **Fixed 2026-09-16 by letting Paddle veto the columns, never replace them.**
-  `paddleDiscountState` (`paddleAccount.ts`) answers `carried`, `dropped` or `unknown`, and
-  `discountStillLive` (`coupons/discount.ts`, pure and tested) takes the line down on `dropped`
-  alone. Four properties of that shape are the whole of it, and each is a decision:
-  **`unknown` keeps the discount** — Paddle unconfigured, no subscription, a read that threw —
-  because a stale line for one read is a smaller wrong than taking away something somebody
-  redeemed, the asymmetry `accountExists` already argues for. **Paddle is asked only when there
-  is a line to take down, and only on `/billing`** — no reader without a coupon pays a round
-  trip, the loader still renders where Paddle is not configured at all, and `loadPurchaseSummary`
-  is left alone because `/thanks` never prints the line and does not deserve a Paddle call in the
-  critical path of the screen that loads right after a card is charged. **Never for a Lifetime**, since
-  `paddle_subscription_id` means «has had a subscription», not «has one», and judging a one-off
-  purchase's coupon against a dead subscription is exactly how this would come back. And **it
-  does not read Paddle's `ends_at`**: that is the half measured to agree, and the fix stays on
-  the half measured not to. The operator screens (`/coupons`, `/accounts/[email]`) still read the
-  columns in the clear, deliberately — the defect is about what a *customer* is promised, and a
-  Paddle call per row on a list is not the price of showing an operator what the row says.
-
-  **Measured by `subscriptions.preview`, not by an executed update**, and it says only that
-  Paddle stops *applying* the discount — whether moving back to monthly would restore it is not
-  measured and not assumed, which is also why the repair is a veto rather than a rewrite.
-- **A campaign needs more than one Discount entity because `maximum_recurring_intervals` counts
-  billing periods**, while `coupon_campaigns.discount_months` is one figure in months — three
-  months is `3` monthly and `1` yearly, and one entity cannot hold both. Two entities, three when
-  the campaign covers the Lifetime, each `restrict_to` its own cycle's three prices, all derived
-  from the single row. **`restrict_to` is all-or-nothing per kind**: a discount restricted to two
-  of three prices attaches to the third's transaction, matches no item and charges full price,
-  with no error anywhere — so a kind whose every price cannot be named is not created at all.
-- **Measured against the sandbox on 2026-09-14**, both halves, because a field accepted is not a
-  field applied — `tax_mode`'s own lesson. 30% restricted to Standard monthly turned €3.49 into
-  €2.44, the cent-for-cent figure `discountedAmount` computes from the commercial deck's table;
-  and three intervals attached to a monthly subscription came back `starts_at 2026-10-13` /
-  `ends_at 2027-01-13`, three whole months, which is `discountEnd`'s arithmetic. That is why
-  `accounts.discount_ends_at` is computed once at redemption rather than read back from Paddle.
-- **`coupon_redemptions` got its writer back in the same commit**, which was the standing
-  condition: anything that starts selling at a discount without that insert silently uncaps every
-  campaign ceiling. **The insert is also the clock.** Paddle carries a transaction's `custom_data`
-  onto the subscription it opens, so the campaign stamp arrives again on every renewal; the
-  unique index taking a row exactly once is what separates the first payment from the ninetieth,
-  and the three `accounts.coupon*` columns are written only when it did. They are *cleared* by a
-  purchase carrying no coupon — `isNewPurchase` reads Paddle's `origin` to tell a purchase from a
-  renewal, and clearing on a renewal would take a live discount away at the first period.
+attached at checkout by `dsc_…` id. **The invariant: a price shown with a coupon is the price
+charged.** Two questions keep it, on the display path and the write path alike
+(`couponRefusalFor`): «does this exact plan and cycle have a `dsc_…`» (`coupon-unsupported`
+otherwise) and «may this account still redeem it» (`redeemability`). `changePaddlePlan` refuses
+any redeemable coupon outright. `/billing` reads Paddle's `next_transaction` (never
+`recurring_transaction_details`, which ignores the discount) and lets Paddle **veto** the
+discount line (`paddleDiscountState` → `discountStillLive`), since a change of cycle stops the
+discount applying. `coupon_redemptions`' insert is both the campaign ceiling and the clock that
+tells a first payment from a renewal. All of it — entity counts, `restrict_to` all-or-nothing, the
+2026-09-14/16 sandbox measurements — is in `src/lib/coupons/CLAUDE.md`.
 
 ## Domain, email, CAPTCHA and OAuth: six independent places, six different access methods
 
@@ -1277,8 +781,8 @@ Google sign-in started failing:
 - **Vercel** (project domains + DNS zone) — fully automatable: `vercel dns add`, and
   `POST`/`DELETE` on `/v9/projects/<id>/domains`. `strumfolio.com`'s zone is on Vercel's own
   nameservers, so records can be added from here.
-- **Resend** (`RESEND_FROM`'s sending domain) — automatable with `RESEND_API_KEY` from
-  `.env.local`. Its DKIM/SPF live on a dedicated `send.<domain>` subdomain Resend requires,
+- **Resend** (`RESEND_FROM`'s sending domain) — automatable with a `RESEND_API_KEY` (not in `.env.local`,
+  which holds none — locally `deliverEmail` only logs). Its DKIM/SPF live on a dedicated `send.<domain>` subdomain Resend requires,
   never the apex, so they coexist with ImprovMX's apex MX/TXT. Don't "simplify" either set
   thinking they are redundant: they answer different questions (who may send *as* the domain
   vs where mail *to* it goes).
@@ -1327,35 +831,14 @@ cannot be forged, and the one thing standing between a pass-through proxy and a 
 stranger's site. **A new domain goes into `OWN_HOSTS` there**, or its emails link to the old one.
 
 **`middleware.ts` strips NextAuth's own session-token `Set-Cookie` from every response, and
-signing out does not work without it.** `auth()` asks Auth.js for the session on each request,
-and with the `jwt` strategy the `session` action does not merely read the token — it **re-signs
-it and returns a fresh ninety-day cookie**. `handleAuth` appends that *after* this file's
-callback has returned, so it cannot be dropped from inside the callback; the export is wrapped.
-
-That refresh rides on **every request the matcher covers** — measured against production
-2026-09-09, `/brand/og-image.png` and `/manifest.webmanifest` each answered with a session
-cookie. So when `signOut()` deletes the cookie, **any GET already in flight comes back a few
-milliseconds later carrying a fresh ninety-day cookie and restores the session**. `OfflineSync`
-makes that certain rather than unlucky: it walks the reader's whole repertoire with sequential
-`fetch()` calls, so anybody with songs always has one in flight. Reproduced in a real browser
-against production with service workers blocked.
-
-**It must be unconditional, and the narrower version is the trap.** This first shipped stripping
-only non-GET and `/api/auth/*` — which fixed the sign-out POST, verified, and changed nothing a
-reader could see, because the request that resurrects the session is an ordinary GET for a PNG.
-An account with an **empty repertoire cannot reproduce any of it**, which is what hid the bug
-through three wrong diagnoses; test with songs.
-
-**The cost, stated plainly**: the ninety days no longer roll — a session lasts ninety days from
-signing in, not from the last visit, since this was the only place the expiry was extended
-(`auth()` in a server component cannot write cookies). Auth.js' own `session.updateAge` exists
-to throttle exactly this refresh and the middleware path ignores it, so what is given up was
-never a considered design.
-
-Two service-worker bugs were found and fixed while chasing that one, and neither was the cause —
-worth knowing so the next reader does not re-derive them as suspects: `/` was precached and
-therefore served from cache without ever asking the server, and `/password` in the same manifest
-made the worker's install fail outright for anybody signed out. Both are covered above.
+signing out does not work without it.** With the `jwt` strategy, Auth.js' `session` action
+**re-signs the token and returns a fresh ninety-day cookie** on every request the matcher covers
+(even `/brand/og-image.png`), appended after the callback returns — so the export is wrapped. Without
+the strip, any GET in flight when `signOut()` deletes the cookie comes back carrying a new one and
+restores the session; `OfflineSync`'s sequential walk of the repertoire guarantees one is in flight.
+**It must be unconditional**: stripping only non-GET and `/api/auth/*` fixed the sign-out POST and
+nothing a reader could see. **Test with songs** — an empty repertoire reproduces none of it.
+**The cost**: a session lasts ninety days from signing in and no longer rolls.
 
 ## Design fidelity from Claude Design handoffs
 
@@ -1401,432 +884,143 @@ under `$HOME` (e.g. `~/songbook-shots`) if a visual comparison is needed.
 
 ## The public side: `/` is the landing page, `/login` is only the form
 
-Until 2026-09-08, `/` required a session and `middleware.ts` redirected anybody without one to
-`/login` — so the sign-in form was also the product's only public page, carrying the hero, the
-three demo bands, eleven features and twenty-two FAQ answers. `publicRoutes.ts` had recorded
-that as an open problem beside its own entry for months. It is split now:
+Split on 2026-09-08; before, `/` required a session and `/login` was the only public page.
 
 - **`/` serves two audiences from one URL.** `app/(home)/layout.tsx` decides: no session →
-  `Landing` (the public home, `app/(home)/Landing.tsx`); a session → `page.tsx`, the reader's
-  own songbooks, unchanged.
-- **`/login` is the sign-in card**, back inside the `(auth)` group with the four other narrow
-  sign-in pages, having left it only because it used to be 70rem wide.
-- **`/home` is the same landing page at a URL that ignores the session** (`app/home/page.tsx`,
-  added 2026-09-11), so the public home can be read without signing out of the app to see it.
-  It renders `(home)/Landing` directly with no branch of any kind — not a redirect or a rewrite
-  to `/`, which cannot work: the request would reach `(home)/layout.tsx` still carrying the
-  session cookie and be served the app. Its row in `publicRoutes.ts` is `indexable: false` and
-  the page adds a `robots` `noindex` of its own, because the two flags answer different
-  questions — one stops this site advertising the URL, the other stops a crawler that arrived
-  from a pasted link putting a byte-identical duplicate of `/` in front of the same search
-  intent. **It is linked from exactly one place, and only ever to somebody signed in**: the
-  public bar's brand mark, which leads here for a reader and to `/` for a visitor
-  (`lib/publicBar.ts`, from 2026-09-20). That is what lets the `noindex` keep meaning what it
-  says — a crawler is never signed in, so what a crawler is served on every public page is a
-  mark pointing at `/`, and this URL still reaches an index only through a pasted link. Until
-  then nothing linked to it at all, and a bar that pointed everybody here would have made a
-  hidden duplicate the most-linked page on the site while `/` lost the internal links that
-  decide how it ranks.
-- **The two public bars are deliberately not the same bar.** `PublicHeader` draws the app's
-  own chrome and, per `Home.dc.html`, carries no sections at all — theme, «Pricing», and one
-  action. `SiteHeader` draws the paper surface the blog and the tools share and does carry
-  them, from `lib/publicNav.ts`, collapsing into `PublicNavMenu` below 48rem. Two components
-  because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`/`.tool-page` and cannot leave
-  them. Blog and tools are reachable from every page through `Footer`'s row.
-- **`PublicHeader` carries one action and knows who is reading, since 2026-09-20 — and that
-  overrules `Home.dc.html`, which draws two.** The mock's «Sign in» quiet beside «Start free»
-  loud asked two different things of one corner and was reported as confusing; the bar now has
-  a single capsule, **«Sign in» for a visitor and «My songbooks» for a reader**, and its mark
-  leads to `/` or to `/home` by the same answer. The rule is `lib/publicBar.ts` and nothing
-  else decides it — `publicBarFrom` is the pure half, covered by `npm test`; `publicBarFor` is
-  the read. Three things about it cost something to rediscover:
-  - **It reads `currentUser()`, never `auth()`.** `auth()` answers «signed in» for a session
-    whose account has been deleted, and that reader would be handed «My songbooks» pointing at
-    `/`, which for them *is* the landing page they are standing on — a loop. The price is that
-    a signed-in reader costs one indexed lookup per public page, memoized per request by
-    `accountExists` and skipped for a global owner; a visitor costs a cookie read and never
-    touches the database.
+  `Landing` (`app/(home)/Landing.tsx`); a session → `page.tsx`, the reader's songbooks.
+- **`/login` is the sign-in card**, inside the `(auth)` group with the four other narrow pages.
+- **`/home` is the same landing page ignoring the session** (`app/home/page.tsx`): it renders
+  `(home)/Landing` directly — a redirect or rewrite to `/` cannot work, since the request would
+  still carry the session cookie. `indexable: false` in `publicRoutes.ts` *and* a `robots`
+  `noindex` on the page, because the two answer different questions (this site advertising it,
+  a crawler arriving from a pasted link). **It is linked from one place only, and only for a
+  signed-in reader** — the public bar's brand mark (`lib/publicBar.ts`) — so a crawler only ever
+  sees a mark pointing at `/`.
+- **The two public bars are deliberately different.** `PublicHeader` draws the app's chrome with
+  no sections (theme, «Pricing», one action); `SiteHeader` draws the blog/tools paper surface with
+  `lib/publicNav.ts`'s sections, collapsing into `PublicNavMenu` below 48rem — two components
+  because `SiteHeader`'s `--blog-*` tokens are scoped to `.blog`/`.tool-page`. Blog and tools are
+  reachable from every page through `Footer`.
+- **`PublicHeader` carries one action and knows who is reading** (2026-09-20, overruling
+  `Home.dc.html`'s two): «Sign in» for a visitor, «My songbooks» for a reader, and the mark leads
+  to `/` or `/home` by the same answer. `lib/publicBar.ts` decides it alone (`publicBarFrom` pure
+  and tested, `publicBarFor` the read):
+  - **It reads `currentUser()`, never `auth()`** — a session whose account was deleted would be
+    handed «My songbooks» pointing at `/`, which for them *is* the landing page: a loop. A reader
+    costs one memoized lookup per public page; a visitor never touches the database.
   - **Seven pages stopped being prerendered for it** — the four legal ones, `/changelog`,
-    `/register`, `/forgot-password` — because reading a session is a dynamic API. Taken
-    knowingly over the alternative, which is deciding in the browser and showing «Sign in» to a
-    signed-in reader for a frame on every public page.
-  - **`/pricing` keeps a third case the shared rule does not know about**: a reader
-    `requirePlanChoice` redirected *there* gets no capsule at all, because every destination
-    bounces them back. It is also the only public page that may pay for `hasChosenPlan`.
-  **`SiteHeader` was deliberately left out** and still prints «Sign in» + «Start free» to
-  everybody, signed-in readers included — the same defect, knowingly deferred: the blog and the
-  seven tool pages are prerendered (`/blog/[slug]` with `generateStaticParams` and
-  `dynamicParams = false`) and are what a search sends people to. When it is picked up, the two
-  ways are to decide in the browser from the `songbook-scope` cookie (already non-`httpOnly`,
-  and `currentScope()` reads it) at the price of a flash, or to give up the prerender.
-- **«Start free» is not navigation and stays where it converts**: the landing page's hero and
-  `PromoPanel`, which closes every article and all seven tools. That panel pointed at `/login`
-  until 2026-09-20 — a «Start free» opening the form for people who already have an account,
-  left over from when `/login` was the public home — and points at `/register` now.
-- **The brand mark is drawn on every public page, including the two that print it again a few
-  dozen pixels below** (the landing hero badge, `AuthLockup` over the five sign-in cards). The
-  `brand={false}` prop those two passed is gone. «The same drawing twice on one screen reads as
-  a mistake» was the argument, and it lost to the top-left corner being empty on the pages a
-  stranger arrives at first; the repetition is known, not missed.
+    `/register`, `/forgot-password` — knowingly, over a frame of «Sign in» shown to a reader.
+  - **`/pricing` has a third case**: a reader `requirePlanChoice` sent there gets no capsule,
+    since every destination bounces them back; it is the only public page that may pay for
+    `hasChosenPlan`.
+  - **`SiteHeader` still prints «Sign in» + «Start free» to everybody**, a known, deferred defect:
+    the blog and the seven tool pages are prerendered and are what search sends people to. The
+    two ways out are deciding in the browser from the non-`httpOnly` `songbook-scope` cookie (a
+    flash) or giving up the prerender.
+- **«Start free» stays where it converts** — the landing hero and `PromoPanel` (which closes every
+  article and tool), pointing at `/register`.
+- **The brand mark is drawn on every public page**, including the two that print it again below
+  (landing hero badge, `AuthLockup`): the repetition is known, not missed.
 
-Four things here are expensive to get wrong, and none of them fails loudly:
+Six things here are expensive to get wrong, and none of them fails loudly:
 
-- **The branch in `(home)/layout.tsx` has three outcomes, not two.** `hasDatabase` false makes
-  `currentUser()` null, and reading that as "a visitor" serves the marketing page at `/` on
-  every `npm run dev` with no `DATABASE_URL` — the normal way to work locally — leaving the
-  home screen unreachable. The `hasDatabase` gate wraps the whole decision for that reason.
-  The same three outcomes are why the render and `generateMetadata` share one `audience()`
-  helper: written out twice, the metadata got two of the three and local dev rendered the app
-  under the landing page's title.
-- **`/` is the first dual-audience path**, so `publicRoutes.ts` answers three questions rather
-  than two: session-free (the guard), indexable (the sitemap), and `isOutsideAppPath` — which
-  `FeedbackProvider` asks. Adding `/` to the list and stopping there takes the feedback bubble
-  off the app's own home screen for every signed-in reader, and looks correct to anybody who
-  checks it signed out. A second dual-audience path goes in `DUAL_AUDIENCE_PATHS`, not into a
-  predicate as a string.
-- **`ANONYMOUS_HEADER` on an anonymous `/` is what keeps the marketing page out of the app's
-  cache.** `sw.ts` gives `/` its own `NetworkFirst` rule and `rejectUnauthenticated` refuses
-  anything carrying that header, so a browser that visits while signed out never files the
-  *marketing page* under `/` and is never served it as the app's home afterwards. The
-  middleware's `SESSION_FREE_PATHS` branch is conditional (`if (request.auth) return`)
-  precisely so this holds; do not "simplify" it to the unconditional shape `/follow` uses.
-- **`/` is deliberately not precached** (changed 2026-09-09; `scripts/precache-routes.ts` now
-  lists only `/password` and the manifest). Serwist registers its `PrecacheRoute` before
-  anything in `runtimeCaching` and answers from the cache without asking the network, so a
-  device that installed while signed in kept that reader's home under `/` for good: the session
-  really ended — cookie cleared, every other page redirecting to `/login` — and `/` alone went
-  on showing the app, which is indistinguishable from a logout that failed. That was the bug.
-  The replacement rule is `NetworkFirst`, has no `ExpirationPlugin` (the installed app's
-  `start_url` must open offline however long it has been), and matches **navigations only** —
-  an RSC fetch for `/` carries a body that is not HTML and must keep falling through to the RSC
-  rules. What is still unfixed: offline and signed out, the stored copy is the last signed-in
-  home, because nothing clears this device's caches on sign-out.
-- **Every precached URL must be fetchable by a stranger, and no page is one.** This is the
-  half that made the bug above self-sealing, so it is worth more care than it looks. The
-  worker's `install` fetches every manifest entry with `credentials: 'same-origin'`; a
-  session-gated URL answers a redirect to `/login` for a browser with no session,
-  `rejectUnauthenticated` refuses a redirected response, `cachePut` returns false and
-  `PrecacheStrategy` throws — and since Serwist awaits every entry together, **one such entry
-  fails the whole install**, so the new worker is discarded and the old one serves for ever.
-  There is no error to find: no failed request, just a worker that never changes. It bit for
-  real on 2026-09-09 — removing `/` from the list shipped and fixed nothing on anybody's
-  device, because `/password` was still listed and a *signed-out* reader is both the one
-  carrying the stale home and the one who cannot install the worker that would replace it.
-  `scripts/precache-routes.ts` is down to `/manifest.webmanifest` for that reason. Check any
-  candidate before adding it: `curl -sSI -o /dev/null -w '%{http_code} %{num_redirects}'
-  https://strumfolio.com<path>` must say `200 0`. And note what this retires — `sw.ts`'s old
-  "registration only happens behind the gate, so a valid cookie exists at install time" is
-  true of the first registration and false of every **update**, which the browser starts by
-  itself on any navigation in scope.
-- **`lead_attribution.landing_page` changes meaning on the cutover date**: `/login` before,
-  `/` after, for the same visits. No backfill, by decision. `attribution/CLAUDE.md` carries
-  the date.
+- **`(home)/layout.tsx` has three outcomes, not two.** Without `hasDatabase`, `currentUser()` is
+  null, and reading that as a visitor would serve the landing page on every `npm run dev` with no
+  `DATABASE_URL`. The `hasDatabase` gate wraps the whole decision, and render and
+  `generateMetadata` share one `audience()` helper so both get all three outcomes.
+- **`/` is dual-audience, so `publicRoutes.ts` answers three questions**: session-free (the
+  guard), indexable (the sitemap) and `isOutsideAppPath` (`FeedbackProvider`). Listing `/` as
+  public without the third takes the feedback bubble off every reader's home screen, and looks
+  right to anybody checking signed out. A second such path goes in `DUAL_AUDIENCE_PATHS`.
+- **`ANONYMOUS_HEADER` on an anonymous `/` keeps the landing page out of the app's cache**:
+  `sw.ts` gives `/` its own `NetworkFirst` rule and `rejectUnauthenticated` refuses anything
+  carrying that header. The middleware's `SESSION_FREE_PATHS` branch is conditional (`if
+  (request.auth) return`) for this reason — do not «simplify» it to `/follow`'s unconditional shape.
+- **`/` is not precached.** Serwist answers a precached URL from the cache before `runtimeCaching`
+  is consulted, so a device that installed while signed in kept that reader's home under `/` after
+  sign-out, indistinguishable from a failed logout. The replacement rule is `NetworkFirst`, with no
+  `ExpirationPlugin` (the installed app's `start_url` must open offline however long it has been),
+  matching **navigations only** so an RSC fetch for `/` falls through to the RSC rules. Still
+  unfixed: offline and signed out, the stored copy is the last signed-in home.
+- **Every precached URL must be fetchable by a stranger, and no page is one.** Install fetches
+  every manifest entry; a session-gated URL answers a redirect, `rejectUnauthenticated` refuses it,
+  and since Serwist awaits all entries together **one such entry fails the whole install**, so the
+  old worker serves for ever with no error anywhere. `scripts/precache-routes.ts` therefore lists
+  only `/manifest.webmanifest`. Check any candidate with `curl -sSI -o /dev/null -w '%{http_code}
+  %{num_redirects}' https://strumfolio.com<path>` → `200 0`. Worker *updates* start by themselves
+  on any navigation, signed out included.
+- **`lead_attribution.landing_page` changes meaning on 2026-09-08**: `/login` before, `/` after,
+  for the same visits. No backfill, by decision (`attribution/CLAUDE.md`).
 
-`manifest.ts` keeps `start_url: '/'`, so the installed app whose session has lapsed would open
-onto the marketing page; `StandaloneRedirect` sends it to `/login` instead. Done client-side on
-purpose — nothing in a request says whether the browser is running the page as an installed app,
-and the server-side alternative (`start_url: '/?app=1'`) would need a branch in the middleware
-for a cosmetic redirect. It used to have a sharper objection than that — the parameter landed on
-the one URL the service worker precached — which the line above retired. That component's
-comment has the whole argument.
+`manifest.ts` keeps `start_url: '/'`; `StandaloneRedirect` sends an installed app whose session
+has lapsed to `/login`, client-side on purpose (nothing in a request says the page runs as an
+installed app). **It is rendered by `(home)/layout.tsx`'s landing branch, not by `Landing`**, or
+it would follow the page to `/home` and bounce the installed app off the one URL promised to show
+the landing page unconditionally.
 
-**It is rendered by `(home)/layout.tsx`'s landing branch, not by `Landing`**, which is where it
-sat until `/home` arrived. Its whole argument is about that one URL, so riding along inside the
-component would have followed the page to `/home` and bounced the installed app away from the
-URL whose only promise is to show the landing page unconditionally.
-
-`SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, because there is no account
-left to sign in to.
+`SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, since there is no account left.
 
 ## The registration notice names a person, and three texts have to agree
 
-`registrationNotice()` (`src/lib/telegram/registrationNotice.ts`) sends the registrant's **email
-address, plus their name when one is known**, to a private Telegram chat, and carries no link.
-Between 2026-09-03 and 2026-09-11 it took no parameters and named nobody, precisely so no caller
-could hand it an address; that was reversed on request, because the notice is read on a phone away
-from a signed-in browser and «something happened, go and look» is not worth a notification.
-
-**The payment alerts are the second kind of message, since 2026-09-22.** `webhookApply.ts` tells
-the operator about a second subscription on one account, a coupon used twice and a ceiling
-overshot, naming the account by its number and Paddle's ids — pseudonymous, and therefore
-personal data, so the same three places say so rather than «no personal data».
-
-**It is personal data leaving the EEA, so the Privacy Policy carries it in three places and all
-three move together**: §2 says what the message contains, the processors list names Telegram
-FZ-LLC and what it receives, and §5 states that it is established in the UAE, covered by no
-adequacy decision and not certified under the Data Privacy Framework, with an opt-out by email.
-Change the notice text and those three are wrong — the rule the booklet override and the install
-row already live under. Telegram offers no Chapter V safeguard to sign, which is why §5 states the
-position rather than claiming one; if that exposure is ever judged too high, the fix is to stop
-sending the field, not to soften the sentence.
-
-The three callers (`auth.ts`, `verify/actions.ts`, `accounts/actions.ts`) each pass the very
-`{firstName, lastName} | undefined` they already build for `provisionAccount`, from one local
-`registeredName`, so the notification cannot describe a different person than the row it announces.
+`registrationNotice()` sends the registrant's email (and name) to a private Telegram chat, and
+`webhookApply.ts`'s payment alerts send pseudonymous account numbers and Paddle ids. Both are
+personal data leaving the EEA, so **the Privacy Policy's §2, its processors list and §5 move
+together with the notice text** — change one and the others are wrong. Detail in
+`src/lib/telegram/CLAUDE.md`.
 
 ## The password is chosen on `/verify`, never on `/register`
 
-**Since 2026-09-24 registering asks for a name, an address and nothing else; the password and
-the newsletter switch are answered on `/verify`, by whoever opened the link.** Until then the
-password was typed at registration and stored on the pending row, and registering again on a
-still-pending address replaced it — so a stranger who knew an address could register over its
-owner's attempt (or before it), the owner clicked a genuine Strumfolio link, and the account was
-born with the stranger's password. Every «don't overwrite» variant left the second case open;
-asking only after the inbox is proved closes both.
-
-- **No migration.** `pending_registrations.password_hash` stays `NOT NULL` and `register` writes
-  `NO_PENDING_PASSWORD` (`''`, `verify/types.ts`) into it — over an older row's real hash too.
-  `readPendingCredential` reads that as no pending password, so `/login` answers such an address
-  as it answers a stranger; rows from before the change keep their hash and still get the
-  «confirm your email» answer until they expire. Dropping the column is a later, separate step.
-- **`/verify`'s GET still writes nothing** — the form is `VerifyForm` over `verifyEmail`, a
-  POST. `verifyEmail` also calls `recordSignIn` now: it signs in with `issueSessionCookie`, so
-  `auth.ts`'s callback, where every other sign-in is counted, never ran for a registrant.
-- **`confirmPendingRegistration` creates the account with no password** — the pending one may be
-  a stranger's; the person comes in with Google or «Forgot password».
+Since 2026-09-24 registering asks for a name and an address only; the password (and the
+newsletter switch) is answered on `/verify`, by whoever proved the inbox — so a stranger can no
+longer register over an owner's pending attempt. Detail, including `NO_PENDING_PASSWORD`, in
+`src/lib/auth/CLAUDE.md`.
 
 ## A session no longer outlives its account
 
-**`currentUser()` now asks the database whether the account still exists**, and that reverses a
-property this repo used to state as a feature: it was deliberately query-free — `auth()` reads the
-JWT cookie, `readAccountCookie` a cookie, `roleOf` the environment. Everything in that chain is
-pure, so `roleOf` answered `admin` for a reader looking at the account named by their own email
-whether or not a row backed it. **Deleting somebody's account removed their rows and left their
-browser signed in for the rest of the ninety-day cookie, with every write still permitted.**
-`deleteMyAccount` hid it by calling `signOut`; `deleteAccount` — an operator removing *somebody
-else's* account — cannot reach that browser at all. Reproduced and fixed 2026-09-11.
+- **`currentUser()` asks the database whether the account still exists** (`accountExists`,
+  fails open, memoized with `cache()`), which closes every write through `permit()`/`accessTo()`.
+- **Getting the reader off the screen is `requireAccount()`, and it has to be called** — in a
+  layout wherever the segment has a `loading.tsx`. `src/lib/auth/gatedRoutes.test.ts` fails when a
+  new page forgets it.
+- **A session can be revoked** (`accounts.sessions_valid_after`, `0052`): the check wraps
+  `auth()` in `src/auth.ts`, not `currentUser`, so operator actions reading `auth()` are covered.
+  Always a JavaScript `Date`, never the database's `now()`.
+- The middleware cannot do any of this: it runs on the edge, where Postgres does not reach.
 
-- **Two halves, and only one of them is automatic.** `currentUser()` answering `null` closes the
-  writes everywhere at once, because every write funnels through `permit()` or, for one reached
-  by a slug, `accessTo()` — which asked nothing until 2026-09-24, so a suspended reader could
-  still save and delete songs by posting to the action ids. Getting the reader
-  off the screen is `requireAccount()` (`lib/auth/session.ts`), and that has to be *called* — the
-  pages read `currentUser` to scope their data, not as a gate.
-- **`middleware.ts` cannot do this**, which is why it is not there: it runs on the edge, where
-  this app's Postgres driver does not reach — the same constraint that makes `rememberUrlCoupon`
-  a client effect. The only universal gate in the app is the one that cannot ask the question.
-- **`src/lib/auth/gatedRoutes.test.ts` is what stops a new route forgetting.** It walks
-  `src/app/**/page.tsx`, skips what `publicRoutes.ts` calls session-free plus a named exempt set,
-  and fails when a page has no `requireAccount` in itself or in a layout above it. It earned its
-  place immediately: it caught `/brand`, `/help/chordpro` and `/songs/[slug]/edit` — the editor —
-  in the same commit that added it.
-- **Put the call in a layout wherever the segment has a `loading.tsx`** (`(home)` and
-  `songbooks/[slug]` are the two). A `redirect()` thrown from inside a page's own async body is
-  not a redirect once Suspense is streaming a shell around it; `(home)/layout.tsx` carries that
-  scar in full.
-- **A global owner is exempt**, the same exemption `isAdmitted` already stated: their admission
-  comes from `ALLOWED_EMAILS` rather than a row, and they may be standing inside a customer's
-  account they have just deleted from that very screen.
-- **`accountExists` fails open** — no database configured, or a read that throws, both answer
-  "exists". Answering "gone" on a blip would sign out every reader of the app at once, which is
-  far worse than a deleted account surviving a few more minutes. Memoized with React `cache()`,
-  the first use of it here, so the several `currentUser()` calls one request makes cost one query.
-- **A session can be revoked since 2026-09-25, and `auth()` is where** — owner's decision. The
-  JWT carries `signedInAt`, stamped by the `jwt` callback on sign-in and by
-  `issueSessionCookie`; `accounts.sessions_valid_after` (`0052`) is the moment before which
-  none is believed (`sessionRevoked`, `lib/auth/revocation.ts`). It is written by
-  `writePasswordHash`/`deletePasswordHash` (every password change, reset and removal, the
-  operator's included), by `changeAccountEmail`, and by `provisionAccount` when the row is
-  born — the last so a session left from an earlier holder of the address cannot wake inside the
-  new account. `setOwnPassword` and `removeOwnPassword` re-issue the reader's own cookie, so
-  only the *other* sessions end. **The check wraps `auth()` in `src/auth.ts`, not
-  `currentUser`**: about thirty operator actions read `auth()` and `isOwner` directly, and a
-  narrower check would leave a stolen owner session working after a password change. The
-  middleware's own instance is untouched (edge, no database). Always a JavaScript `Date`, never
-  the database's `now()`: the claim and the column must come from the same clock, or a Neon clock
-  a second ahead refuses the cookie issued right after it. Tokens from before the claim count as
-  the oldest there are, and `null` revokes nothing, so the migration signed nobody out.
-- **Deleting yourself goes through `currentUser`**, so a suspended account cannot: deleting
-  clears the suspension with the row, and the address could register again (owner's decision,
-  2026-09-25). The same goes for the name and the newsletter preference.
+The rest — the global-owner exemption, who writes `sessions_valid_after`, self-deletion — is in
+`src/lib/auth/CLAUDE.md`.
 
 ## `/qa` signs somebody in without a password, and must never exist in production
 
-`app/qa/page.tsx` makes an already-verified account and issues its session cookie in one click —
-no verification email, no password typed, no Telegram notice — because everything worth testing
-here is behind a session and every ordinary way in needs a real inbox, an OAuth redirect URI no
-preview has, or a form filled by hand. It is an authentication bypass, so it is fenced by two
-independent guards that live in `lib/qa/entry.ts`, pure and covered by `npm test`:
-
-- **Where it may run**: `qaAllowed` is an *allowlist* — `VERCEL_ENV` absent (local), `preview`,
-  or `development`. The obvious spelling, `VERCEL_ENV !== 'production'`, reads the same and fails
-  **open**: a renamed environment or a value nobody anticipated would be admitted. `VERCEL_ENV`
-  and not `NODE_ENV`, for `forcedPlanNotice`'s reason — `NODE_ENV` is `production` on previews too.
-- **Who it may be**: `isQaEmail`, anchored at both ends against `@strumfolio.test`. RFC 2606
-  reserves `.test`, so no real person can own one and no mail to one can be delivered. This is the
-  guard that matters locally, where `DATABASE_URL` points at a database holding the 2026-08-29
-  copy of production — real addresses and real password hashes.
-
-**Both guards are on the first lines of `lib/qa/actions.ts`, not only in the page.** A Server
-Action is addressable by its action id over `POST` whatever its page renders, so guarding only in
-`page.tsx` would hide the form in production and leave a live passwordless sign-in behind it.
-
-Three more things worth not re-deriving:
-
-- **A `credentials` row is what "already verified" means** in this codebase — one only ever exists
-  for an address that has been through `/verify` — so writing it is the whole of the verification,
-  and it is what keeps `/login` testable by hand with `QA_PASSWORD`.
-- **The account cookie is deleted when the session is issued**, and that is not tidiness.
-  `currentAccountFor` falls back to the reader's own account for a cookie they may not open, which
-  self-heals for an ordinary QA account and **not** for one added to `ALLOWED_EMAILS`: a global
-  owner may open anybody's, so a leftover cookie would land the new session inside the previous
-  account with nothing looking wrong.
-- **No QA account can be a global owner from here.** `isOwner` reads `ALLOWED_EMAILS` and nothing
-  at runtime can write it, so `/coupons`, `/accounts` and `/leads` stay shut. `QA_OWNER_EMAIL`
-  (`qa-owner@strumfolio.test`) exists so there is one stable string to paste into that variable by
-  hand — `.env.local` locally (remember `vercel env pull` and `vercel integration add` both rewrite
-  that file wholesale), Vercel's Preview environment for the preview.
-
-Its `publicRoutes.ts` row is unconditional and the page 404s in production instead, so the one
-list keeps giving both its readers the same answer.
-
-**What to do with it once you are in is `INTEGRATION-TESTS.md`**, at the root: the environment a
-live run belongs on, how it is driven — a real Chrome that is already signed in, `claude
---chrome`, every step photographed — the coupon to apply and why the same one twice on one
-account is a case rather than a mistake, the sandbox card, the Paddle calls that decide who is
-right when the screen and the charge disagree, and the shape of the folder the screenshots go
-into. That page exists **because** an agent may not type a password into a field: it is not a
-convenience, it is the only way one gets inside the app at all. `npm test`
-and a run of that kind answer different questions — the second is what found the €139.99/€199.99
-gap that every pure test passed straight through.
+`app/qa/page.tsx` makes an already-verified account and issues its session in one click. Two
+independent guards, both in `lib/qa/entry.ts` and **both on the first lines of
+`lib/qa/actions.ts`** (a Server Action is reachable by id whatever the page renders):
+`qaAllowed` is an *allowlist* of `VERCEL_ENV` (absent, `preview`, `development`) — never
+`!== 'production'`, which fails open — and `isQaEmail` admits only `@strumfolio.test`. No QA
+account can be a global owner from here (`QA_OWNER_EMAIL` exists to be pasted into
+`ALLOWED_EMAILS` by hand). How to use it for a live run is `INTEGRATION-TESTS.md`; the rest is in
+`src/lib/qa/CLAUDE.md`.
 
 ## Everything this app stores in a browser is scoped to one account
 
-**Every `localStorage` key here must be built by `keyFor` (`src/lib/storage/scope.ts`), never
-written as a constant.** The keys used to be constants — `songs:songbooks`, `songs:edits`,
-`songs:prefs` — so each said *what* was stored and never *whose* it was, and nothing emptied
-any of them at sign-out or when a second account signed in on the same browser. The next reader
-inherited the previous one's songbook names, and in `songs:edits` their words and chords.
+- **Every `localStorage` key is built by `keyFor` (`src/lib/storage/scope.ts`), never written as a
+  constant**, and no tag means no cache at all, never an unscoped one. `DEVICE_KEYS` (`songs:theme`,
+  `songs:coupon` and the stored scope) are the device's, not the account's, and stay exempt.
+- **Any new service-worker page cache goes into `PAGE_CACHES`** (`lib/storage/pageCaches.ts`) in the
+  same commit, or sign-out and a change of account stop clearing it.
 
-It was visible rather than merely latent, and the mechanism is worth knowing because it makes
-any repeat of it look like a rendering glitch: `SongbookProvider` seeds its state from the
-server snapshot — which is correct and account-scoped — and then **replaces it in a
-`useLayoutEffect`, which runs before the browser paints**, with whatever is in the cache, while
-`refresh()` in an ordinary `useEffect` puts it right one round trip later. So the wrong
-repertoire is what a reader actually sees for the width of a fetch, after which it corrects
-itself and leaves nothing to find. Reported as «per un attimo si vedono i miei canzonieri».
-
-- **The tag comes from a cookie, not a prop.** `middleware.ts` computes it on every signed-in
-  request (`accountScopeTag` over `currentAccountFor`) and sets `songbook-scope`, which is the
-  one cookie here that is deliberately **not** `httpOnly` — the page's own script is the
-  consumer. It authorises nothing: the server scopes every read by `accountOwnerEmail`
-  regardless, so forging it buys a browser only its own cache back. A prop was rejected because
-  `PrefsProvider` alone is mounted on about twenty pages, and one omission would silently fall
-  back to an unscoped key — the bug again, on one page, invisibly.
-- **Recomputed every signed-in request, not only when the cookie is missing.** That is what
-  makes a global owner switching into a customer's account switch caches too, with no second
-  place to keep in step; `writeAccountCookie` stays a cookie write and nothing more.
-- **No tag means no cache at all, never an unscoped one.** Every store refuses to read *and* to
-  write when `keyFor` answers null. The server-rendered snapshot is always present and always
-  right, so the cost is a cache miss.
-- **`mayAccess` and `currentAccountFor` live in `lib/accounts/scope.ts`**, not in
-  `accounts/current.ts` where they were written and from where they are still re-exported:
-  `middleware.ts` needs them and runs on the edge runtime, where `next/headers` — which
-  `current.ts` imports — cannot follow. One copy of the rule, or the tag would name a different
-  account than the session does.
-- **`songs:theme` is exempt and must stay exempt** (`DEVICE_KEYS`). The theme belongs to the
-  device, not to whoever is signed in, and it is read by the inline script in `app/layout.tsx`
-  before React exists — purging it would flash the whole app to the other theme on every change
-  of account.
-- **Two defences, because either alone fails where the other holds.** The keys are scoped, so
-  another account's cache cannot be *read*; and the whole area plus every Cache Storage entry is
-  emptied when the tag changes (`purgeIfForeign`, called from `keyFor` itself so there is no
-  mount to forget) and again at sign-out (`StorageCleanup` on `/login`, armed by the sign-out
-  action deleting the scope cookie — and on the landing page, since 2026-09-23, because
-  `deleteMyAccount` ends on `/` and never reached `/login`), so another account's words do not
-  *linger* in devtools on a shared machine.
-- **The service worker's page caches have the same shape and are handled by clearing, not
-  scoping**: `rejectUnauthenticated` only refuses anonymous and redirected responses, so a
-  signed-in reader's rendered screens are stored under plain URL keys. `sw.ts` recorded «nothing
-  evicts it when a session ends» as understood-and-accepted; that reasoning covered offline and
-  not the case where a second account signs in on the device.
-- **Songs and songbooks have a cache of their own, `repertoire`, with no expiry** (2026-09-22).
-  They used to fall through to `others` — 32 entries for 24 hours, shared with images — so once
-  `OfflineSync` walked a whole repertoire the last pages fetched evicted the ones a reader had
-  opened, and a day without signal emptied it. **Any new page cache goes into `PAGE_CACHES`**
-  (`lib/storage/pageCaches.ts`, shared by the page and the worker) in the same commit, or
-  sign-out and a change of account stop clearing that account's songs off the device.
-- **Emptying from the page loses a race, so the worker refuses late writes** (2026-09-23).
-  `fetch()` resolves on the headers and the worker stores the body afterwards, and with the
-  four-second `NetworkFirst` timeout the page may already hold the stored copy while the real
-  response is still arriving — so a request `OfflineSync` had in flight at sign-out landed
-  *after* the emptying, into `repertoire`, for good. `clearPageCaches` now also posts
-  `SCOPE_ENDED_MESSAGE`; `sw.ts`'s `refuseEndedScope` stamps every page request with an epoch
-  and drops any response from an older one. A change of account (`SwitchAccountButton`) clears
-  before navigating, or the timeout serves `/` from the account being left.
-- **Purge, then warm — `OfflineSync` calls `settleScope()` before its walk** (2026-09-24). The
-  foreign-account purge ran on the first `keyFor` read, and after a password sign-in the page is
-  rendered before the scope cookie exists, so that read could come *after* the walk: the next
-  song opened, or the `offline` event itself, emptied the freshly warmed `repertoire`.
-
-Verified before/after in a real browser on 2026-09-11 with a planted foreign cache: the other
-account's songbook name was visible with the unscoped store and absent at all forty samples
-across the flash window with the scoped one.
+The mechanism — the `songbook-scope` cookie, the two defences, the worker's epoch, purge-then-warm
+— is in `src/lib/storage/CLAUDE.md`.
 
 ## The reading bar's motion
 
-Added 2026-09-26: a press on every control, play and pause turning into each other, the panels
-rising out of the bar, a song stepped to arriving from the side of the arrow, a progress line
-while it scrolls and a cue for the next song when it ends. What is not visible from the result:
-
-- **The next and previous songs are prefetched in full** (`prefetch` on `Step`'s `Link`). The
-  route is `force-dynamic`, so the default prefetch fetched nothing and every step waited a whole
-  server render with no answer on screen. That is two extra renders per song opened; measured
-  locally, a step went from ~6 s to under 100 ms once they had landed. A step taken before they
-  land shows `StepPending`'s line and fades the song being left (`body:has(…)`, after 150 ms).
-  A full prefetch expires after five minutes (`staleTimes.static`) and the bar never leaves the
-  viewport to trigger another, so `PrevNext` remounts the arrows every minute: the router
-  refetches only an expired entry, so the remount is cheap.
-- **There is deliberately no `loading.tsx` under `songs/[slug]`.** A skeleton would have replaced
-  the reading bar the reader's thumb is on, and it would have needed `requireAccount` and
-  `requirePlanChoice` moved into a layout (see *A session no longer outlives its account*).
-- **The direction crosses the navigation in a module variable** (`lib/stepDirection.ts`), and
-  `SheetEntrance` is keyed on the slug, which is the only reason a follower's in-place swap
-  animates at all. With no direction the song rises instead (opened from a list, the back
-  button, a broadcast), and **a hard load does not animate at all**: `useSyncExternalStore`'s
-  server snapshot is what tells hydration from a client mount, so the server's markup and the
-  first client render agree and words already painted never blink.
-- **The end of a song is a count, not a flag** (`useAutoScroll`'s `endings`): the Next arrow's
-  glow is keyed on it, and `PrevNext` marks a shown one as seen when it remounts the arrows for
-  the prefetch, or the glow would replay every minute. An «Up next» card under the words was
-  built the same day and removed on the owner's request: the arrow's glow is the whole cue, by
-  decision. `tapFeedback` buzzes on Android and does nothing on an
-  iPhone, which has no `navigator.vibrate`.
-- **`:active` works on iOS because React listens for `touchstart` on its root.** Safari applies
-  the state only where a touch listener exists, and React 19 registers one (passive) for every
-  event it supports on the container it renders into — so every page has it, songbook lists and
-  editor included, with nothing of ours to keep. Checked in `react-dom-client.production.js`
-  (`listenToAllSupportedEvents`), not on a phone. The press uses the `scale` property, and the panels
-  use `transform`, so neither collides with `.speed-popover`'s own `translate`.
+No `loading.tsx` under `songs/[slug]`, by decision, and the next/previous songs are prefetched
+in full. The rest (direction, the end-of-song glow, `:active` on iOS) is in
+`src/components/CLAUDE.md`.
 
 ## Adding the app to the home screen
 
-The hamburger's "Add to home screen" row (`src/lib/install/`, `InstallPanel.tsx`) is one row
-with two behaviours, and three facts about it are easy to break from far away:
-
-- **It is absent inside the installed app**, and that is the first thing to check when it
-  looks missing rather than the cache or the deploy: `display-mode: standalone` (and iOS'
-  `navigator.standalone`) means the app is already there, so the row has nothing to do. It
-  cost a full round of deploy-side diagnosis once — production was serving the right commit
-  and `beforeinstallprompt` was firing; the phone was simply opened from its home-screen
-  icon. `/app-settings` answers that question directly, in `DeviceLaunchCheck`'s own line:
-  «opened from the Home Screen» or «in a browser tab».
-- **Three surfaces say this out loud and must agree**: the row itself, `/help` §7, and the
-  public FAQ answer on installing, which is now on `/` (`app/(home)/Landing.tsx`) rather than
-  on `/login`. Change one and the other two are wrong — the same rule the booklet's own
-  override already lives under.
-- **`beforeinstallprompt` is captured by an inline script in `app/layout.tsx`**, not by a
-  listener in an effect: it fires once, and on a warm cache it fires before React hydrates,
-  so an effect misses it exactly on the fastest loads. Its `preventDefault()` is required —
-  without it Chromium adds its own install infobar beside our row. That call now runs on
-  every page, landing pages included, so **Chromium's automatic infobar is suppressed
-  site-wide**; the browser's own ⋮ → "Install app" and the desktop omnibox icon still work.
-- **A visitor still has no way to install, and that is now a decision rather than an
-  absence.** It used to hold because `/login` and `PublicHeader` had no hamburger to put the
-  row in. `PublicHeader` has one since the public site grew a navigation
-  (`PublicNavMenu`), so the row *could* go there and deliberately does not: installing is a
-  gesture for somebody who has an account, not for somebody deciding whether to get one.
-  Note what this costs, since it is invisible — `preventDefault()` on
-  `beforeinstallprompt` runs site-wide (above), so a visitor gets neither our row nor
-  Chromium's own infobar, and on iOS there is no infobar to get. Re-open the question by
-  putting the row in the public menu, not by weakening that `preventDefault()`.
+The hamburger's "Add to home screen" row is **absent inside the installed app on purpose** —
+check `/app-settings` («opened from the Home Screen» / «in a browser tab») before diagnosing a
+deploy. The row, `/help` §7 and the landing page's install FAQ must agree. The rest is in
+`src/lib/install/CLAUDE.md`.

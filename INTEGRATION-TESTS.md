@@ -5,11 +5,10 @@ copy — e gira in quindici secondi senza toccare niente. Questi comprano **davv
 una transazione su Paddle, un webhook che arriva, delle colonne che cambiano. Sono due cose
 diverse, e la seconda è l'unica che può smentire la prima.
 
-Vale la pena dirlo con l'esempio che l'ha dimostrato. Il 15/9/2026 `couponRefusedNotice` non
-esisteva ancora e tutto quello che c'era era verde: type-check, 1706 test, build. Il difetto che
-mostrava €139,99 e ne addebitava €199,99 l'ha trovato un giro dal vivo, perché nessun test puro
-può accorgersi che *due strade diverse* rispondono a due domande diverse. Chi fa questi giri sta
-cercando quello.
+Nessun test puro può accorgersi che *due strade diverse* rispondono a due domande diverse — lo
+schermo che mostra un prezzo e il server che ne addebita un altro. Il 15/9/2026 un giro dal vivo
+ha trovato €139,99 mostrati ed €199,99 addebitati con type-check, 1706 test e build tutti verdi.
+Chi fa questi giri sta cercando quello.
 
 Le decisioni e il perché stanno in `CLAUDE.md` e nei commenti dei moduli. Qui c'è **come si
 procede**: dove, con quali utenti, con quali coupon, come si verifica, e dove finiscono i
@@ -98,7 +97,8 @@ serve sapere come si usa.
 - **`qa-owner@strumfolio.test`** è l'unico indirizzo che *può* diventare owner, e solo se
   qualcuno lo mette in `ALLOWED_EMAILS` dell'ambiente Preview su Vercel. Finché non c'è,
   `/coupons`, `/accounts` e `/leads` rispondono 404 anche a lui: `isOwner` legge l'ambiente e
-  niente a runtime può scriverlo.
+  niente a runtime può scriverlo. Lo stesso vale per le altre pagine owner-only: `/emails`,
+  `/app-settings`, `/brand`, `/design-system`, `/pages`.
 
 ## I coupon
 
@@ -107,16 +107,17 @@ crea **davvero** le entità Discount su Paddle — due, o tre se copre il Lifeti
 
 Per applicarne uno durante una prova basta l'URL: `?coupon=CODICE` su `/pricing` o direttamente
 su `/checkout/<piano>`. Il cookie lo fa sopravvivere alle pagine successive, quindi si applica
-una volta e vale per tutto il giro. `?promo=` è l'altro ingresso ed è equivalente.
+una volta e vale per tutto il giro. **`?promo=1` non è equivalente**: non porta un codice ma
+risolve la campagna di default (quella segnata `is_default` in `/coupons`), quindi prova il
+coupon di default e nessun altro.
 
 Nel sandbox esiste già **`COUPON30`** — 30%, 12 mesi, copre anche il Lifetime — ed è quello che
 i giri usano.
 
 **Una campagna si riscatta una volta per account.** Per riprovare il percorso scontato serve un
-account nuovo: è il motivo per cui `/qa` fa indirizzi usa-e-getta. Ed è esattamente il buco da
-cui è uscito il difetto del 15/9 — un account che aveva già riscattato vedeva ancora il prezzo
-scontato — quindi **provare due volte lo stesso coupon sullo stesso account è un caso da fare,
-non da evitare**.
+account nuovo: è il motivo per cui `/qa` fa indirizzi usa-e-getta. E un account che ha già
+riscattato deve vedere il prezzo pieno, non quello scontato, quindi **provare due volte lo stesso
+coupon sullo stesso account è un caso da fare, non da evitare**.
 
 ## Pagare
 
@@ -147,12 +148,12 @@ ma è dedotto, non misurato. Un acquisto e una lettura lo chiudono.
 `5596ede`: etichette, bottoni e date tutti in inglese, e sotto il bottone «2,44 € now, then 2,44
 €/month from 17 Oct 2026». Quelle cifre non seguono né `locale` né il paese scelto nel form, e
 nessuna impostazione del checkout le raggiunge — **non è un difetto da riaprire a ogni giro**, e
-`PaddleCheckout.tsx` ha la misura per intero.
+`src/lib/plans/checkoutFrame.ts` ha la misura per intero.
 
 **La regola che conta: quando lo schermo e l'addebito sembrano in disaccordo, è la transazione
 l'arbitro, non l'occhio.** E si può leggere **senza pagare**: aprire il form crea già una
 transazione `draft` lato server, quindi `total` e `discount_id` dicono in anticipo cosa verrebbe
-addebitato. È così che il difetto dei sessanta euro è stato provato invece che sospettato.
+addebitato: un disaccordo si prova, invece di sospettarlo.
 
 ## Dove vanno i risultati
 
@@ -206,8 +207,7 @@ Costano tempo ogni volta che si riscoprono.
   ```
 
   L'intera form — email, nome, 16 cifre, scadenza, CVV, CAP — si compila in un batch solo
-  alternando `key` e `Tab`. Misurato il 16/9/2026, dopo che `type` aveva bloccato un giro intero
-  la sera prima.
+  alternando `key` e `Tab`. Misurato il 16/9/2026.
 - **`Tab` fra i campi funziona meglio dei click**, che mancano il bersaglio quando il layout si
   riassesta. Il campo della carta **non avanza da solo** dopo le 16 cifre: scadenza e CVV
   vogliono un `Tab` esplicito.
@@ -220,13 +220,11 @@ Costano tempo ogni volta che si riscoprono.
   JavaScript.
 - **L'estensione può scollegarsi del tutto**, e allora ogni chiamata risponde «Browser
   extension is not connected». Non è la scheda: è il collegamento, e si riprende riavviando
-  Chrome. Se succede a metà giro, quello che non si è visto **non è verificato** — il 15/9 è
-  successo subito dopo il deploy di una correzione, e la riprova di quella correzione non è mai
-  entrata nella cartella. Dirlo nel `LEGGIMI` invece di lasciarlo intendere.
-- **Non giudicare colori e contrasto a occhio su uno screenshot compresso.** Il 15/9 ho detto
-  due volte «le etichette sono bianche» quando erano grigio scuro, e l'ha visto l'utente. Se la
-  domanda è un colore, va misurata — o va detto che non è verificata, che è sempre meglio di
-  affermarla.
+  Chrome. Se succede a metà giro, quello che non si è visto **non è verificato**, anche la
+  riprova di una correzione appena deployata. Dirlo nel `LEGGIMI` invece di lasciarlo intendere.
+- **Non giudicare colori e contrasto a occhio su uno screenshot compresso**: il grigio scuro
+  può sembrare bianco. Se la domanda è un colore, va misurata — o va detto che non è verificata,
+  che è sempre meglio di affermarla.
 
 ## Cosa non è ancora mai stato visto dal vivo
 

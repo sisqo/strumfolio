@@ -12,8 +12,8 @@ override with their own key and capo, and the rules are narrow on purpose:
 
 - **Asked at every download and never persisted** — a checkbox above "Download PDF", not a
   modal on click and not a second button.
-- **Every song printed that way says so on its own page**, same text and logic as
-  `TransposeNote` on screen, and only when capo or semitones ≠ 0.
+- **Every song printed that way says so on its own page**, in `transposeNoteText`'s sentence
+  (`src/lib/music/capo.ts`), and only when capo or semitones ≠ 0.
 - **Preferences are read for the email actually signed in, never `accountOwnerEmail`** — the
   two differ precisely while a global owner is viewing as somebody else.
 - The public FAQ on `/` (`app/(home)/Landing.tsx`, «Printing a booklet») states this behaviour

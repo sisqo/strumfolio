@@ -9,9 +9,11 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - `entitlements.ts` — `resolveSubscription`/`liveSubscription`: pure functions collapsing a
   scheduled downgrade or cancellation the instant `now` passes its date. Called at every read
   site instead of a cron job — there is no background job anywhere in this repo.
-- `checkout.ts` (`'use server'`) — **six loaders and nothing else.** It writes no plan columns
-  at all any more: `loadCheckoutStatus`, `loadPurchaseSummary`, `loadThanksPreview`,
-  `loadMyPaymentHistory`, `loadFreezeState`, `activatePlanChoice`. The writers live beside it,
+- `checkout.ts` (`'use server'`) — **five loaders and one write, and no plan column among
+  them**: `loadCheckoutStatus`, `loadPurchaseSummary`, `loadThanksPreview`,
+  `loadMyPaymentHistory`, `loadFreezeState`, plus `activatePlanChoice`, which stamps
+  `planChosenAt` (`coalesce`, so only the first choice counts) and nothing else. It also exports
+  the `SubscriptionState` type. The writers of the plan itself live beside it,
   one file per act — `paddleCheckout.ts` (buy), `paddlePlanChange.ts` (move),
   `paddleSubscription.ts` (cancel, keep) — and every one of them leaves the *columns* to
   `webhookApply.ts`, which is the single writer.
@@ -23,16 +25,13 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   at module scope**, so it is baked into the build. Adding `PADDLE_API_KEY` to an environment
   with no code push leaves the buy buttons absent until a `vercel redeploy` — the env-var trap
   the root `CLAUDE.md` already describes, now applying to whether anything is on sale. `SONGBOOK_PLANS` is not a security boundary and never was.
+- `SONGBOOK_FORCE_PLAN` — a deliberately risky local-only escape hatch (forces every read to
+  one plan); never meant to run in production.
 
 ## The mock is gone (2026-09-13)
 
-`mockPurchase`, `mockCancel`, `clearPendingChange`, `forceExpireNow`, `loadMostRecentCycleFor`,
-`CheckoutScreen.tsx`, `ForceExpireRow.tsx`, `forceExpireMessage.ts`, `testCard.ts`,
-`mockCheckoutEnabled()` and `SONGBOOK_MOCK_CHECKOUT` — all deleted. It was a placeholder that was
-never designed, so nothing about it was treated as a specification to preserve; what survives
-survives because it is right for a real integration, not because the mock did it.
-
-Three things about the demolition are worth knowing rather than rediscovering:
+`SONGBOOK_MOCK_CHECKOUT` and everything behind it were deleted; what survives survives because
+it is right for a real integration, not because the mock did it. Four consequences:
 
 - **`/checkout/[plan]` has no fallback branch now, deliberately.** A checkout that cannot take
   money is not a lesser checkout, it is a screen that asks for a decision it cannot honour. An
@@ -43,17 +42,13 @@ Three things about the demolition are worth knowing rather than rediscovering:
   their own merits, not for parity — Paddle is Merchant of Record and sends its own invoice,
   which names a price and a product; which *plan* you now have and until when is this app's
   sentence to write, and nobody else holds both facts.
-- **What is simply gone**: `forceExpireNow`, the operator's «expire this plan now» row on
-  `/accounts/[email]`. It had no Paddle counterpart — nothing can make Paddle believe a period
-  ended early — so the freeze path is no longer exercisable without waiting out a real date, or
-  writing the column by hand. That is a real loss of an operator capability, stated here rather
-  than discovered.
-- **`logMockEvent` is deleted but `fromMockPayload` (`history.ts`) is kept.** Nothing writes the
-  mock's flat payload any more; rows in that shape are still in the development database, and a
-  reader that stopped understanding them would render them as bare «Event» lines with no amount.
-  The ledger's job is to have the event.
-- `SONGBOOK_FORCE_PLAN` — a deliberately risky local-only escape hatch (forces every read to
-  one plan); never meant to run in production.
+- **There is no «expire this plan now» for an operator.** Nothing can make Paddle believe a
+  period ended early, so the freeze path is exercisable only by waiting out a real date or
+  writing the column by hand — a real loss of an operator capability.
+- **`fromMockPayload` (`history.ts`) is kept although nothing writes the mock's flat payload.**
+  Rows in that shape are still in the development database, and a reader that stopped
+  understanding them would render them as bare «Event» lines with no amount. The ledger's job is
+  to have the event.
 
 ## What the reader is told before the press, and the press after the press (2026-09-14)
 
@@ -98,8 +93,9 @@ break from a distance:
 - **The frame has to be painted before `Checkout.open` runs.** Paddle finds its target by class
   name, so opening straight from the click — which works with the overlay — draws nothing at all
   and reports nothing. `openTransaction` holds the id, React paints the `div`, and an effect
-  opens into it. `FRAME_TARGET` is one constant shared by the setting and the element for the
-  same reason: renaming one silently breaks the other.
+  opens into it. `FRAME_TARGET` (`checkoutFrame.ts`, shared with `PayFrame.tsx`, the `/pay`
+  page) is one constant for the setting and the element for the same reason: renaming one
+  silently breaks the other.
 - **The button and the form are never both on the page.** A "Pay for Premium" above a live
   payment form is a second way to start a second transaction, and it is also what made the
   overlay's double-press possible.
@@ -107,22 +103,22 @@ break from a distance:
   reader who opened the checkout to look at it is stuck with it until they reload, on the one
   screen where being stuck reads as «this is about to charge me». It calls `Checkout.close()` and
   drops the id; the unpaid transaction is harmless and the next press makes another.
-- **Four settings are passed, and two of them reverse what this bullet used to say.** `variant:
-  'one-page'` because the default collects details and card on two screens, and a frame changing
-  height between them moves the page under the reader's thumb. `frameStyle` carries a minimum
-  width and **no height**: Paddle grows the frame itself, and a height of ours is what would clip
-  the «merchant of record» footer it is required to show.
+- **`checkoutSettings()` (`checkoutFrame.ts`) passes nine settings, and four are the decisions
+  argued here**; the rest are plumbing (`displayMode`, `frameTarget`, `frameInitialHeight`) or
+  the two discount switches — `showAddDiscounts: false` and `allowDiscountRemoval: false`, the
+  second so a reader cannot take off the `dsc_…` the server attached while the bar above still
+  quotes the discount. `variant: 'one-page'` because the default collects details and card on
+  two screens, and a frame changing height between them moves the page under the reader's thumb.
+  `frameStyle` carries a minimum width and **no height**: Paddle grows the frame itself, and a
+  height of ours is what would clip the «merchant of record» footer it is required to show.
 
-  `theme` is **pinned to `light`** and no longer «read from `documentElement` at the moment of
-  opening», which is what this said and what shipped first. The branding in Paddle's dashboard has
-  one palette for both themes, so a form that follows the reader is a form whose labels are
-  unreadable for half of them; the root `CLAUDE.md` carries the whole measurement.
+  `theme` is **pinned to `light`**: the branding in Paddle's dashboard has one palette for both
+  themes, so a form that follows the reader is a form whose labels are unreadable for half of
+  them; the root `CLAUDE.md` carries the whole measurement.
 
-  `locale` is **pinned to `en`** since 2026-09-17 and is no longer left off «so an Italian phone
-  gets an Italian payment form». The frame is not a thing a reader arrives at on its own — it sits
-  inside our page, under our own English price line, in an app with no language selector — so the
-  old arrangement did not meet anybody in their language, it put Italian labels inside an English
-  screen.
+  `locale` is **pinned to `en`** (2026-09-17). The frame is not a thing a reader arrives at on
+  its own — it sits inside our page, under our own English price line, in an app with no
+  language selector — so following the browser puts Italian labels inside an English screen.
 
   **It bought the words and not the figures.** Measured on the preview the same day: every label,
   button and date in the frame is English, and the line under the button still reads «2,44 € now,
@@ -132,51 +128,40 @@ break from a distance:
   for IT, IE, DE, US and GB alike, so it is not a euro convention either. What survives that
   elimination is the browser's preferred language — standing, not measured; an English browser in
   front of the same frame would close it. **No checkout setting reaches it**, so the mismatch
-  stands until Paddle changes it; `PaddleCheckout.tsx` carries the measurement in full.
+  stands until Paddle changes it; `checkoutFrame.ts` carries the measurement in full.
 
   **And it reaches past the frame**: `startPaddleCheckout` sends no customer, so Paddle
   creates that record from the checkout itself and `customers.locale` is what its receipts and
   invoice PDFs are written in. All seven sandbox customers read `locale: "it"` on 2026-09-17, the
   browser's. The form is documented, the email is inference — **read a customer back after the next
   sandbox purchase and confirm `locale: "en"`** before anybody calls that half settled.
-- **The form opens on arrival, because the cycle was chosen on /pricing** (2026-09-14). Every
-  CTA there carries `?cycle=`, and Lifetime has none to carry — so the reader arriving has
-  already decided everything this page could ask, and a «Pay» button in front of the form is a
-  press that collects nothing. **The bare link is the exception that must still ask**:
-  `initialCycle` is `null` when a typed or bookmarked URL requested nothing, and guessing there
-  is the defect this directory already documents — it offered silent year→month moves to people
-  who never asked. Once per mount, and never again after «Not now», or backing out would reopen
-  what was backed out of.
-- **What that costs, stated because it is invisible**: a `transactions.create` per page view
-  rather than per press, so refreshing `/checkout/premium?cycle=year` five times leaves five
-  unpaid transactions in Paddle. They bill nothing and expire on their own; what they do is make
-  the dashboard's transaction list a poor measure of intent.
-- **The switch is gone from the checkout screens** (2026-09-14, on request): the cycle is chosen
-  on /pricing, every CTA there carries `?cycle=`, and repeating a settled question as a control
-  in front of a payment form is a step that collects nothing. The price line states what is being
-  charged. **The test is what the *link* asked for**, not what the page ended up using — a bare
-  URL carries no cycle, and that is the one case where nothing has been chosen, so the switch and
-  the yearly-versus-monthly comparison both appear there and nowhere else. It also matters for a
-  subscriber, who on a bare link falls back to the cycle they are already billed on and would
-  otherwise have no way to ask for the other.
-- **Changing the cycle rebuilds the form instead of freezing it** (in the bare-link case, the
-  only one that still shows the switch).** The transaction behind an open
-  form was made server-side for one price, so the toggle cannot move under it — but disabling it
-  strands the reader on a decision the page now opens with. It closes, asks the server again and
-  reopens. **Not `Checkout.updateItems`**, which would have the browser naming a price: the whole
-  reason `startPaddleCheckout` hands back an id instead of taking one.
-- **The frame sits on a card of ours, not on the page background.** `--bg` in the light theme is
-  a warm off-white and Paddle's light form is drawn for white, so on the page its fields and
-  hairlines washed out — reported as «in light mode it looks bad», with dark fine because
-  dark-on-dark forgives it. `--surface` is `#ffffff` in light and a lifted panel in dark, so one
-  card serves both while `frameStyle` stays transparent.
-- **A frame already drawn keeps the theme it was drawn with**, so switching theme mid-payment
-  left a light form inside a dark card — reported from the preview. `updateCheckout` carries
-  items, a discount and customer data and **no settings**, so the only lever is opening again:
-  the open effect watches `useResolvedTheme` and keys its guard on transaction *and* theme.
-  What that costs is a restarted form, so anything half-typed is lost — taken because the
-  mismatch is what a reader actually sees, and changing theme at that moment is deliberate and
-  rare.
+- **The cycle is a constant, decided before the page is asked for** (since 2026-09-15,
+  `e6c84ec`): `initialCycle ?? live
+  cycle ?? 'month'` (Lifetime is `year`). There is no switch on the checkout — the cycle is
+  chosen on /pricing, every CTA there carries `?cycle=`, and a control repeating a settled
+  question in front of a payment form collects nothing. The price line and its footnote («Billed
+  monthly · renews …») say which cycle was picked, and that sentence is the only correction a
+  reader gets; somebody who wanted the other cycle goes back to /pricing (a first purchase; for
+  a subscriber, see the open defect below).
+- **The form opens on arrival only for a first purchase whose choice is already made** —
+  `live === null` and either Lifetime or an explicit `?cycle=`. A bare link (`initialCycle`
+  `null`: typed, bookmarked, sent in a message) shows the «Pay» button on the fallback cycle
+  instead of opening a form nobody chose, and a subscriber never auto-opens. Once per mount, and
+  never again after «Not now», or backing out would reopen what was backed out of.
+- **Open defect: `/pricing`'s «Change billing cycle» promises a choice this screen no longer
+  offers.** The link carries no cycle on purpose (`checkoutQueryNoCycle`, because /pricing cannot
+  know the live cycle — `Viewer` has no field for one because `accounts` has no column for one),
+  and its tooltip says it «opens this plan's checkout with both billing cycles to choose from».
+  With the switch gone, that bare link resolves to the live cycle, i.e. the plan and cycle the
+  subscriber already has, and `planChangeEffect` answers `same` — «that is the plan you are
+  already on». The dead end the bare link was introduced to fix is back, and nothing
+  on that card reaches the other cycle of the same plan.
+- **What opening on arrival costs, stated because it is invisible**: a `transactions.create` per
+  page view rather than per press, so refreshing `/checkout/premium?cycle=year` five times leaves
+  five unpaid transactions in Paddle. They bill nothing and expire on their own; what they do is
+  make the dashboard's transaction list a poor measure of intent.
+- **The browser never names a price.** `startPaddleCheckout` hands back a transaction id made
+  server-side for one price, and the frame is opened on that id — never `Checkout.updateItems`.
 - **The checkout wears the public chrome, at `/pricing`'s width** (2026-09-14, on request).
   `TopBar` carried the hamburger, the account menu, sign-out and the songbook navigation onto a
   page where somebody is about to pay — every one of them a way out of the only thing the page
@@ -190,63 +175,28 @@ break from a distance:
   move the page under the reader; the checkout itself is the width that page gives its lede,
   because a payment form stretched to the width of a four-column price table is one nobody can
   read a line of.
-- **A paid form is never redrawn.** The theme rule above stops at `checkout.completed`: Paddle's
-  own «thank you» lives inside the frame, and re-opening a transaction that has been paid would
-  put a payment form back in front of somebody who had just paid — the one redraw that could
-  read as «it wants the money again». Found on the fifth pass, a day after the theme rule that
-  introduced it.
+- **A paid transaction is never re-opened** (`if (paid) return` in the open effect): Paddle's own
+  «thank you» lives inside the frame, and a payment form back in front of somebody who has just
+  paid reads as «it wants the money again».
 - **The gutter is 16px where /pricing's is 20**, the one deliberate difference between the two
   shells: Paddle gives the frame a hard `min-width` (286px, or 312px with checkout padding on in
   the dashboard, which nothing here can read), and on a 320px phone those four pixels a side
   decide whether the page scrolls sideways. The card around the frame drops its own side padding
   below `sm` for the same reason and carries `overflow-x-auto` so that if the floor is ever
-  higher than the room, the card scrolls and the body does not.
-- **A second, clean run the same day confirmed all four fixes on the deployed build**, and
-  covered two paths nobody had watched. The test subscription was ended *immediately* through
-  the API — a shape this app never asks for, used here as a fixture — and `/billing` read
-  «Premium, expired» with the cancel button gone: the `canceled` → `expired` half of E5. The same
-  account then bought again, and a reader carrying a **dead** `paddle_subscription_id` was
-  offered all three plans rather than «Manage» — `checkoutMode` answering `sell` on `gone`, the
-  case that rule was written for and had never been seen. The new purchase (Standard yearly, in
-  the **light** theme) drew the form on a white card with legible fields, which is the complaint
-  the whole inline change started from, and `/billing` settled on «Standard, active until 14
-  September 2027» without a reload.
-- **Watched working end to end on the preview, 2026-09-14**, on a throwaway account: the form
-  drawn on arrival, the sandbox test card, `checkout.completed`, the webhook granting the plan
-  and `/billing` reading «Plus, active until 14 October 2026» with the three ledger rows under
-  it. Then Plus → Premium at once (€3.00, the prorated difference, with the summary and the
-  dialog), Premium → Standard waiting for the period end, «Keep Premium» calling it off, a
-  cancellation, and «Keep Premium» again. Three things were wrong and are fixed in the same
-  commit:
-  - **`/pricing`'s «Change billing cycle» was a dead end.** It carried the page toggle's cycle,
-    which opens on Monthly, so a monthly subscriber pressing it reached «that is the plan you
-    are already on». The page cannot know the live cycle — `Viewer` has no field for one because
-    `accounts` has no column for one — so the link now carries **no cycle at all**, and the
-    checkout's bare-link branch does the asking on the one screen that knows the answer.
-  - **A successful change left the screen reading as a refusal.** The preview re-reads after the
-    write, Paddle answers what was just asked for, and the summary turned into «that is the plan
-    you are already on» *above* the sentence saying it was done. A settled screen now shows the
-    outcome and a way to /billing, and nothing else.
-  - **The copy promised a discount that Paddle does not always give.** «You pay €99.99 now — the
-    difference for the rest of the period you have already paid for» was said over a charge that
-    came back `credit: 0` and `charge: 9999`. **The first two explanations for that were both
-    wrong**, and they are written out here because each looked obvious: it is not that a change
-    of *cycle* never prorates (measured 2026-09-14 on a subscription bought minutes earlier,
-    Standard monthly → Premium yearly quoted **€96.50** — the unused month credited, across a
-    change of frequency), and it is not that a same-cycle change always does. **The rule is only
-    half known**: a period restarted by an earlier change of frequency has no invoice behind it
-    and credits nothing, which covers two of the three uncredited measurements; the third —
-    Premium monthly → Premium yearly ten minutes after a same-cycle upgrade, period untouched —
-    is not covered by it and has no confirmed explanation. The totals look identical either way,
-    which is why nobody would have caught this from the figures, and why `changeCostLine` reads
-    **Paddle's own `credit`** rather than anything computed here. The after-the-press sentence
-    carried the same claim and is corrected off the same field.
-  - **`/billing` refreshed faster than the webhook.** «Kept — staying on Premium» sat over a
-    line still promising the downgrade, right until a manual reload. It re-reads once more three
-    seconds later; deliberately not a poll, because a screen that is briefly behind is better
-    than one held hostage to somebody else's delivery. The mechanism is type-checked and built; what
-  nobody has watched is the frame itself — its width on a phone, the theme matching, and that
-  footer being visible.
+  higher than the room, the card scrolls and the body does not. **Never watched on a phone**:
+  the frame's width at phone size and the «merchant of record» footer being visible there.
+- **A settled screen shows the outcome and a way to /billing, and nothing else.** The preview
+  re-reads after the write and Paddle answers what was just asked for, so a summary left up
+  turns into «that is the plan you are already on» *above* the sentence saying it was done.
+- **`/billing` re-reads once more three seconds after one of its own actions** («Keep …», a
+  cancellation), because the webhook lands a second or two after the action returns — deliberately not a poll: a screen that is briefly behind is better than
+  one held hostage to somebody else's delivery.
+- **Watched end to end on the preview, 2026-09-14**, on throwaway accounts: the form drawn on
+  arrival, the sandbox test card, the webhook granting the plan, Plus → Premium at once (€3.00,
+  the prorated difference), Premium → Standard waiting for the period end, «Keep Premium», a
+  cancellation; a subscription ended immediately through the API reading «Premium, expired» on
+  `/billing` (E5's second half); and a reader carrying a **dead** `paddle_subscription_id`
+  offered all three plans (`checkoutMode` answering `sell` on `gone`).
 
 ## Money going back: `adjustment.*`, and why it only ever touches the Lifetime (2026-09-14)
 
@@ -256,7 +206,8 @@ break from a distance:
   as `chargeback` and `eu_withdrawal`. That cancellation arrives as `subscription.canceled`, which
   `statusOf` has always read as `expired`. So E8 and E9 were already covered for subscribers, by
   Paddle's behaviour rather than by design. **Documented, never observed** — say it that way until
-  somebody drives a real refund in the sandbox, because four rows of `CASES.md` rest on it.
+  somebody watches a real chargeback or withdrawal (a refund does not test it: the one driven on
+  2026-09-14 cancelled nothing, as expected), because three rows of `CASES.md` rest on it.
 - **The hole was the Lifetime**, and it is the whole reason `adjustmentEffect` exists. A one-off
   purchase has no subscription for Paddle to cancel, so a refunded or charged-back Lifetime
   produced nothing this app acted on, and the account kept — for ever — a plan it had been given
@@ -315,12 +266,10 @@ break from a distance:
   acted on only once `approved`: refunds are created `pending_approval` and may be rejected, so
   acting on `adjustment.created` alone would take a plan away over a request Paddle turns down.
   Chargebacks carry no such gate — Paddle creates them already applied.
-- **The payment history had to learn the vocabulary too**, and did not until a third review
-  pass (2026-09-14). Every delivered event is a `paddle_events` row and the customer's own
-  `/billing` renders them, so subscribing to `adjustment.*` put a bare «Event» with no amount
-  into somebody's history on the very day their refunded Lifetime stopped working — the exact
-  failure `history.ts` already documents having fixed once for a different event family.
-  `adjustmentAction` reads `action` and `status` together, the same pair `adjustmentEffect`
+- **The payment history has to know the vocabulary too.** Every delivered event is a
+  `paddle_events` row and the customer's own `/billing` renders them, so an event family the
+  history cannot read shows as a bare «Event» with no amount — for a refund, on the very day a
+  refunded Lifetime stops working. `adjustmentAction` reads `action` and `status` together, the same pair `adjustmentEffect`
   gates on: a refund shows as *requested* until Paddle approves it and *refunded* after, which
   is two rows for one refund because that is two things that happened. Only an approved refund,
   a chargeback or a credit is marked `moneyBack` and drawn with a minus. **`collected` on the
@@ -334,11 +283,9 @@ break from a distance:
 
 ## The email a change sends, and the two silences (2026-09-14)
 
-`planChangeEmail` had **no sender at all** for a day: both of its send sites lived inside the
-mock (`mockPurchase`'s scheduled branch and `mockCancel`), and demolishing it took the
-customer's only written trace of a downgrade or a cancellation with it. Paddle has none to
-offer in its place — a waiting change bills nothing, so there is no invoice and no processor
-mail to ride along with. Found on the third review pass of this branch.
+`planChangeEmail` is the customer's only written trace of a downgrade or a cancellation:
+Paddle has none to offer — a waiting change bills nothing, so there is no invoice and no
+processor mail to ride along with.
 
 - **Sent from the action, not from the webhook**, which is the opposite of `announcePayment`
   beside it and deliberate. A payment has no action of ours behind it — Paddle's own form is what
@@ -366,42 +313,36 @@ mail to ride along with. Found on the third review pass of this branch.
 - `customer-journey.md` is the document that describes all six emails, and §4 and §5 both moved
   with this.
 
-## Il giro per immagini del 2026-09-14, e le due cose che ha trovato
+## The photographed run of 2026-09-14, and the two rules it left
 
-Diciassette casi fotografati passo per passo contro la preview, con Paddle in sandbox e la
-carta di test; il materiale sta in `/media/psf/Download/strumfolio-qa-2026-09-14/`, una cartella
-per caso, con un `LEGGIMI.md` che dice anche quali casi non sono riproducibili da lì e perché
-(il Lifetime non è in vendita sulla preview, i rinnovi vorrebbero un mese, il dunning e i
-chargeback non si innescano a comando). Le celle «Dal vivo» di `CASES.md` che sono passate a
-`browser 2026-09-14` vengono da lì.
+Seventeen cases photographed step by step against the preview, with Paddle in sandbox and the
+test card; the material is in `/media/psf/Download/strumfolio-qa-2026-09-14/`, one folder per
+case, with a `LEGGIMI.md` that also says which cases cannot be reproduced from there and why
+(the Lifetime is not on sale on the preview, renewals would take a month, dunning and
+chargebacks cannot be triggered on demand). The «Dal vivo» cells of `CASES.md` that read
+`browser 2026-09-14` come from it.
 
-- **«La differenza» non era una differenza, e ci sono voluti tre tentativi.** La frase sotto il
-  riepilogo prometteva «the difference for the rest of the period you have already paid for»
-  anche dove Paddle non accredita niente. Primo tentativo: legarla al *cambio di ciclo* — un
-  proxy, e sbagliato. Secondo: leggere `update_summary.credit`, che è la domanda giusta ma
-  **arrivava sempre a zero**, perché la conversione camelCase→snake_case scritta a mano dentro
-  `previewPaddlePlanChange` non passava affatto quel campo; un campo assente da un object
-  literal non è un errore di tipo e nessun altro lo leggeva. Adesso la conversione è
-  `readSdkChangeCost`, pura e con un test che asserisce proprio che il credito sopravvive.
-  Un `credit` di **zero non è un credito**, ed è la forma che Paddle manda davvero.
-  - **E il ramo «nessun credito» non deve promettere nemmeno un periodo nuovo.** Diceva «and a
-    fresh period starts today»: nel caso che l'aveva prodotto la data di rinnovo non si era
-    mossa di un secondo (`next_billed_at` restava pinnata a un anno). Dice solo il fatto
-    monetario — prezzo pieno, niente accreditato — e la data ce l'ha la riga «Next charge».
-- **Chi sceglie Free dopo un abbonamento finito leggeva «This plan has ended»**, ed è corretto
-  dal 14/9/2026 con `/thanks?chose=free`. Il problema: `activatePlanChoice` timbra solo
-  `planChosenAt` e le colonne del piano restano quelle del Premium finito, quindi la pagina —
-  che legge il conto e non l'URL — rispondeva alla domanda «cosa ho» invece che a «cosa ho
-  appena fatto». Scelta la strada del parametro e **non** quella di azzerare le colonne
-  dall'azione, che avrebbe messo un secondo scrittore accanto al webhook. Il parametro è onorato
-  **solo con `live === null`**, cioè dove nessun piano è davvero in corso: non esiste valore che
-  faccia congratulare la pagina per un piano che non si ha, che è la proprietà difesa dal
-  commento di `ThanksScreen`.
+- **The cost line reads Paddle's `update_summary.credit`, and `readSdkChangeCost` must carry
+  it.** That is the pure camelCase→snake_case conversion of the SDK's answer, with a test
+  asserting that the credit survives: a field missing from a hand-written object literal is not
+  a type error, and nothing else reads it. A `credit` of **zero is not a credit**, and it is the
+  shape Paddle actually sends. The no-credit branch states only the money — full price, nothing
+  credited — and promises no fresh period, since the renewal date may not have moved at all; the
+  «Next charge» row carries the date.
+- **Choosing Free after a subscription has ended lands on `/thanks?chose=free`.**
+  `activatePlanChoice` stamps only `planChosenAt`, so the plan columns still hold the ended
+  Premium, and the page — which reads the account, not the URL — would answer «what do I have»
+  («This plan has ended») instead of «what did I just do». The parameter was chosen over clearing
+  the columns from the action, which would have put a second writer beside the webhook. It is
+  honoured **only with `live === null`**, i.e. where no plan is actually running: no value of it
+  can make the page congratulate somebody on a plan they do not have, which is the property
+  `ThanksScreen`'s comment defends.
 
 ## `CASES.md` is the index of the cases, and it is checked by the build
 
-Beside this file. One row per case of `strumfolio-upgrade-downgrade-paddle.md` — all forty-one,
-A1 to F6 — saying what we do, which test covers it, and whether anybody has ever seen it happen
+Beside this file. One row per case of the analysis document
+`strumfolio-upgrade-downgrade-paddle.md` (external, not in this repository) — all forty-one, A1
+to F6 — saying what we do, which test covers it, and whether anybody has ever seen it happen
 against Paddle or in a browser. It is an index and not a second description: the reasoning stays
 here and in the module comments, written once.
 
@@ -418,19 +359,19 @@ is the honest state rather than an omission.
 ## What Paddle already decides, and what it does not yet
 
 The sandbox catalogue exists since 2026-09-12 — the ids, the tax argument and the three MCP
-servers are in the root `CLAUDE.md`, because losing them costs more than a path lookup. Two
+servers are in the root `CLAUDE.md`, because losing them costs more than a path lookup. Three
 consequences land in *this* directory:
 
 - **`paddleId` holds the *live* price id and only that** (decided 2026-09-12). One string
   cannot carry two environments, and the sandbox ids are the wrong half to keep: the
   verification script the field exists for would then interrogate the sandbox catalogue from
   production — the id-shaped-string-that-resolves-to-nothing failure the empty string was
-  chosen over `'pri_TODO'` to prevent. **All seven are still `''` although the live catalogue has
-  existed since 2026-09-19**, and that reverses what this bullet used to plan for: writing them in
-  was tried and rolled back within the hour, because a committed id wins in *every* environment
-  and filling it made the preview name live prices at the sandbox API. Every deployment reads its
-  ids from `PADDLE_PRICE_IDS`, production included. What the decision costs is nothing on the verification side and one env lookup on the
-  checkout side, which is the cheaper end of the trade.
+  chosen over `'pri_TODO'` to prevent. **All seven stay `''` although the live catalogue exists
+  since 2026-09-19**: a committed id wins in *every* environment, so filling them makes the
+  preview name live prices at the sandbox API (the root `CLAUDE.md` has the decision and the two
+  tests that trip on it). Every deployment reads its ids from `PADDLE_PRICE_IDS`, production
+  included. What the decision costs is nothing on the verification side and one env lookup on
+  the checkout side, which is the cheaper end of the trade.
 - **`catalogue.ts` is that verification, and `scripts/verify-paddle-catalogue.ts` runs it.**
   The comparison is pure and tested (`catalogue.test.ts`), so the rules live somewhere `npm
   test` can reach them; the script is fetching and printing. It checks more than the amount,
@@ -442,25 +383,20 @@ consequences land in *this* directory:
   `custom_data`, so `--sandbox` needs no ids and no configuration — and since this repo holds
   no Paddle credential, the catalogue is fetched through the MCP server and handed over with
   `--from`.
-- **Coupons had no counterpart in Paddle at all until 2026-09-14, and everything from here to the
-  end of this bullet is the argument from before that date**, kept because the invariant it
-  defends is still the point. `discountedAmount` (`lib/coupons/`) reproduces all seven figures of
-  the commercial deck's promo column, and each is now backed by a real Discount entity that
-  `paddleDiscountSync` writes on every create and edit. That is the same shown-price-versus-charged-price
-  invariant the listino itself now satisfies — measured, in the root section — left unsatisfied
-  one level down: a live campaign changes what `/pricing` says and nothing whatsoever about
-  what a real checkout would take. **No longer harmless**: the mock is gone and the Paddle
-  checkout is the only one, so `startPaddleCheckout` and `changePaddlePlan` both refuse the sale
-  outright (`coupon-unsupported`) while a campaign is redeemable, rather than charging the
-  listino to somebody who has just been promised 30% off. That refusal is the gate, and it now fires only where a
-  campaign has no `dsc_…` for that exact plan and cycle rather than as the standing state.
-  **It reads the cookie and nothing else, on purpose — so every screen that shows a coupon has to
-  write the cookie.** `redeemableCouponFor` takes the code from the request's own jar because
-  nothing client-side may reach a decision about money; the consequence is that a screen showing
-  a coupon applied from a *URL* must also persist it, or the two halves read different sources.
-  `/checkout/[plan]` did not until a review on 2026-09-14, so a reader arriving straight on
-  `/checkout/plus?coupon=X` — never having passed through /pricing — was shown the discount and
-  then sold at the listino. Both pages pass `persist` now.
+- **A coupon never causes a sale at the listino.** `discountedAmount` (`lib/coupons/`)
+  reproduces all seven figures of the commercial deck's promo column, and each is backed by a
+  real Discount entity that `paddleDiscountSync` writes on every create and edit — the same
+  shown-price-versus-charged-price invariant the listino itself satisfies, one level down. The
+  two writers guard it differently. `startPaddleCheckout` refuses (`coupon-unsupported`) only
+  when a redeemable coupon is in play **and** this exact plan and cycle have no `dsc_…`
+  (`coupon !== null && discountId === null`); with a `dsc_…` it sells at the discount.
+  `changePaddlePlan` refuses outright while any coupon is redeemable, for the reason
+  `coupons/CLAUDE.md` gives. **Both read the cookie and nothing else, on purpose — so every
+  screen that shows a coupon has to write the cookie.** `redeemableCouponFor` takes the code from
+  the request's own jar because nothing client-side may reach a decision about money, so a
+  screen showing a coupon applied from a *URL* must also persist it, or a reader arriving
+  straight on `/checkout/plus?coupon=X` is shown the discount and sold at the listino. Both
+  `/pricing` and `/checkout/[plan]` pass `persist`.
 
 ## The webhook: what an event is allowed to conclude
 
@@ -487,19 +423,21 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   transaction carries **no** `subscription_id` — every renewal completes a transaction too, and
   acting on both would have two writes racing over one row with the newer expiry possibly
   losing. Its `expiresAt` is `null`, meaning never.
-- **The account contract, which the checkout has to satisfy**: `custom_data.account_id` (the
-  numeric `accounts.id`), then `accounts.paddle_subscription_id`, then — for an adjustment
-  only — the account of the ledger's `transaction.completed` it refunds, **and never
-  `accounts.paddle_customer_id`** (removed as a fallback the same evening: Paddle reuses the
-  customer that has the typed email, so an unsigned checkout opened with somebody else's address
-  was matched to their account by it). **The customer id is not a handle on one account** (2026-09-24):
-  a second email typed into Paddle's form is a second customer, and the cancellation of a
-  subscription bought under the first wrote that id back over the Lifetime's, so the Lifetime's
-  refund found nobody. It is now written only by events that are neither stale nor `foreign`,
-  and an adjustment is matched by its `transaction_id` first. Only the first works on a *first* purchase, when neither
-  column has been written — so **the checkout must stamp the account id onto the transaction**.
-  Numeric and not the email, per `db/CLAUDE.md`, and because an address in Paddle's records
-  goes stale the day somebody changes theirs.
+- **The account contract, which the checkout has to satisfy** (`findAccount`, in this order):
+  `custom_data.account_id` (the numeric `accounts.id`), then `accounts.paddle_subscription_id`,
+  then — for an adjustment only — the account of the ledger's `transaction.completed` it
+  refunds, **and
+  never `accounts.paddle_customer_id`**: Paddle reuses the customer that has the typed email, so
+  an unsigned checkout opened with somebody else's address would be matched to their account by
+  it. An adjustment carries no `custom_data`, so one with a `subscription_id` is found by the
+  subscription pointer, and only one without (a Lifetime's) by its `transaction_id`. **The
+  customer id is not a handle on one account** (2026-09-24): a second email typed into Paddle's
+  form is a second customer, and the cancellation of a subscription bought under the first wrote
+  that id back over the Lifetime's. It is written only by events that are neither stale nor
+  `foreign`. Only the account id works on a *first* purchase, when neither column has been
+  written — so **the checkout must stamp the account id onto the transaction**. Numeric and not
+  the email, per `db/CLAUDE.md`, and because an address in Paddle's records goes stale the day
+  somebody changes theirs.
   - **And sign it** (2026-09-24, `customDataSignature.ts`): `account_sig` beside `account_id`,
     an HMAC keyed off `AUTH_SECRET`. Paddle.js opens a checkout with any items and any
     `customData` using the public client token, and `updateCheckout` replaces it on one already
@@ -536,10 +474,8 @@ round trip, not read off the documentation.
 **Run end to end on 2026-09-13**: the sandbox subscription was moved premium/year →
 standard/year by the same sequence this code performs, `current_billing_period` stayed on
 2027-09-12, one item came back where one went in, and the `subscription.updated` that followed
-was delivered to the preview webhook on the first attempt. What that run does **not** prove is
-the screen: reaching `/checkout/[plan]` on preview needs a signed-in session, so the
-`subscribed` branch and the «Switch to …» button have been type-checked and built but not yet
-watched working by anybody.
+was delivered to the preview webhook on the first attempt. The screens were watched on the
+preview the next day (`browser 2026-09-14` in `CASES.md`).
 
 - **CASO B2 — a downgrade of tier keeps the plan that was paid for until the period ends**, and
   the mechanism is worth knowing exactly, because nothing about it is what the API suggests.
@@ -570,14 +506,13 @@ watched working by anybody.
     public client token, and a Standard bought from free carrying «Premium until 2099» would
     otherwise be honoured; the webhook re-reads such an event as unstamped and alerts. **An
     `expired` account is refused too** (2026-09-23): it keeps its `plan` column, so a lapsed
-    Premium or a refunded Lifetime passed the rank test with the same forged stamp — **but not on
-    the subscription already stored** (2026-09-24): the stamp stays in its `custom_data`, so the
-    `.canceled` after the `.updated` that wrote `expired` carries it again, and refusing it there
-    alerted «tampering» on every cancellation of a downgraded plan. **It is
+    Premium or a refunded Lifetime would pass the rank test with the same forged stamp — **except
+    on the subscription already stored** (2026-09-24): the stamp stays in its `custom_data`, so
+    the `.canceled` after the `.updated` that wrote `expired` carries it again, and refusing it
+    there would alert «tampering» on every cancellation of a downgraded plan. **It is
     deliberately not a bound on the date**: a change of cycle restarts the period, so until the
     second call pins it back a legitimate B4/B7 stamp is *later* than the period Paddle reports.
-    A date bound was shipped and reverted within the hour for exactly that. **Since 2026-09-24
-    it is the second layer, not the first**: a stamp is read at all only when signed for the
+    **Since 2026-09-24 it is the second layer, not the first**: a stamp is read at all only when signed for the
     account the same object names (`stampIsSigned`, the `sig` inside `downgrade`), by the
     webhook and by `livePaddleSubscription` alike, so a hand-written one is ignored before rank
     is ever asked. Paddle's own documentation settles what the sandbox never measured:
@@ -590,7 +525,7 @@ watched working by anybody.
   - **B6 and B8 are the same rule with the cycle moving too**, and cost only the extra call B4
     already pays for. There is no branch for them: every drop in tier is `do_not_bill` and
     `period-end`, and `pinBillingDate` follows from whether the frequency moves.
-- **CASO B7 — un aumento di Tier che accorcia il ciclo aspetta comunque** (decided 2026-09-14),
+- **CASO B7 — a rise in tier that shortens the cycle waits all the same** (decided 2026-09-14),
   and it is the case that turned four rules into one. Standard yearly → Premium monthly *raises*
   the tier, so it read as an upgrade and was billed on the spot — and what `prorated_immediately`
   does to the paid year on the way is credit whatever is left of it. **Paddle issues that as
@@ -680,9 +615,8 @@ watched working by anybody.
     sequence for both writers: it retries the date once, and if it still cannot be set it puts
     the items back and pins again. The rollback goes back to what Paddle *had*, never forward —
     a reader left on the plan they already bought is a failure nobody is charged for, and an
-    early charge is not. **It also sends the operator a Telegram**, which it did not until a
-    review on 2026-09-14 noticed that the cheapest failure on the Paddle path alerted and the
-    only one that costs a customer money did not.
+    early charge is not. **It also sends the operator a Telegram**: this is the one failure on
+    the Paddle path that can cost a customer money.
   - **Whether the date landed is `pinLanded`, with a minute of tolerance, and not equality.**
     That value makes a round trip through Paddle, and exact equality fails in the expensive
     direction: a pin that *worked* would read as failed, and the rollback would undo a change
@@ -690,13 +624,11 @@ watched working by anybody.
     that never moved, and an unpinned date is a whole cycle away — a month or a year — so the
     tolerance is enormous against the noise and still leaves the real failure no room. Pure and
     tested for that reason; everything else in that file is I/O.
-  - **Both writers re-read the period from the call that clears a scheduled cancellation.**
-    `changePaddlePlan` has done so since `22aac13`; `keepPaddleSubscription` did not until the
-    same review, and it is reachable — a reader who arranged a change of cycle *and* cancelled
-    has both undos run on one press, and the second was pinning to a day read before Paddle had
-    touched the row twice.
-  - **The period is re-read from the call that clears a scheduled cancellation**, never from the
-    snapshot taken before it. Everything downstream pins a date — the stamp promises the reader a
+  - **Both writers — `changePaddlePlan` and `keepPaddleSubscription` — re-read the period from
+    the call that clears a scheduled cancellation**, never from the snapshot taken before it. The
+    second is reachable too: a reader who arranged a change of cycle *and* cancelled has both
+    undos run on one press, and the second must not pin to a day read before Paddle touched the
+    row twice. Everything downstream pins a date — the stamp promises the reader a
     day and `pinBillingDate` writes that day into Paddle — so believing a snapshot over Paddle's
     own answer would end the paid year on the wrong day for anybody who cancelled and then
     changed cycle. Paddle answers every update with the updated subscription, which removes the
@@ -737,10 +669,9 @@ watched working by anybody.
   netting itself.** Measured clean on 2026-09-13, Standard monthly €3.49 → Plus monthly €6.99
   mid-period: `credit −3.49`, `charge +6.99`, `result: charge 3.50`, with both lines on the
   immediate transaction. `prorated_immediately` is the right mode and the arithmetic matches the
-  analysis document exactly. **An earlier reading of this was wrong** and is recorded because it
-  cost a wrong answer to the user: a same-cycle upgrade observed *two minutes after a cycle
-  change*, with a €99.85 credit already queued, charged the new plan gross and deferred the old
-  plan's credit. That is the polluted case, not the rule.
+  analysis document exactly. A same-cycle upgrade made *minutes after a cycle change*, with a
+  credit already queued (€99.85), charges the new plan gross and defers the old plan's credit —
+  the polluted case, not the rule.
 - **The amount is shown before the press, and the button is refused until it is known.**
   `previewPaddlePlanChange` sends the identical body to `subscriptions.previewUpdate` that the
   write sends to `update`, so the figure on the screen is the figure on the card rather than a
@@ -757,26 +688,14 @@ watched working by anybody.
   schedule_change with other fields». So clearing a pending cancellation is a call of its own,
   and it must come **first**. Cancelling also nulls `next_billed_at`; clearing restores it —
   measured again on 2026-09-14, both halves.
-  - **The reason it must come first changed on 2026-09-14, and the old one was wrong.** This
-    file said a subscription carrying a scheduled change «refuses the deferred proration modes
-    outright». It does not: driven live against the sandbox, a `do_not_bill` items change on a
-    subscription scheduled to cancel was **accepted** — twice, once with the frequency moving and
-    once without. What happens instead is worse than a refusal, which is why the rule survives
-    its own justification: the cancellation **stays**, and on a change of frequency its
-    `effective_at` silently follows the restarted period. Measured: a cancel set for
-    2026-10-13T08:35 came back reading 2026-10-13T22:20 after a year→month move. A reader who
+  - **Why first: a scheduled change is not refused, it is carried along.** A `do_not_bill` items
+    change on a subscription scheduled to cancel is **accepted** (measured on the sandbox
+    2026-09-14, with and without the frequency moving), the cancellation **stays**, and on a
+    change of frequency its `effective_at` silently follows the restarted period — a cancel set
+    for 2026-10-13T08:35 came back reading 2026-10-13T22:20 after a year→month move. A reader who
     cancelled and then changed plan would keep a cancellation nobody told them about, on a day
-    neither they nor this app chose.
-  - Nothing in the code changes: `changePaddlePlan` has always cleared first, and it clears only
-    when `livePaddleSubscription` says a scheduled change is standing.
-- **Two calls are two `subscription.updated` events, and nothing here enforces their order** —
-  stated as an accepted limitation rather than left to be found. `webhookApply.ts` writes
-  whichever arrives last: no `occurred_at` comparison, no version column. The first of the pair
-  carries the *old* items and the old stamp, so a reversed delivery leaves the account on the
-  state before the change. It was true of the items alone before B2 and is worth more now,
-  because the stale state includes an entitlement claim with a date on it. Paddle delivers in
-  order in practice and both events are seconds apart; the fix, if it is ever wanted, is a
-  comparison against the last applied `occurred_at` for the same subscription.
+    neither they nor this app chose. `changePaddlePlan` clears only when `livePaddleSubscription`
+    says a scheduled change is standing.
 - **A change of plan within one cycle leaves `current_billing_period` alone; a change of
   *cycle* restarts it.** premium/year → premium/month moved the period end from 2027 to one
   month out, with the credit funding the renewals from there. The webhook writes whatever
@@ -796,10 +715,10 @@ watched working by anybody.
     cannot retry, so a failure tells the operator on Telegram with both ids in the message —
     the remedy is one click in Paddle, and the cost of nobody knowing is a subscription
     renewing for ever beside a Lifetime. **The account is named by its number and never by its
-    address**: outside the registration line the Privacy Policy states in two places that these
-    notifications carry no personal data, and the root `CLAUDE.md` settles which half gives way
-    — stop sending the field, do not soften the sentence. It shipped carrying the email on
-    2026-09-14 and was corrected the same day.
+    address**: the Privacy Policy (§2, the processors list, §5) says a payment alert carries the
+    account's internal number and Paddle's identifiers and nothing else, and the root
+    `CLAUDE.md` settles which half gives way — stop sending the field, do not soften the
+    sentence.
   - **`next_billing_period`, not `immediately`, and only one thing decides it: reversibility.**
     Paddle refunds nothing either way — a cancellation stops billing and returns no money,
     whichever date it lands on, which is the documented behaviour and not the «prorated refund»
@@ -851,31 +770,25 @@ watched working by anybody.
   - **The Lifetime checkout sells in every mode, `stalled` included.** That branch exists to
     stop a *second subscription*; Lifetime is not one. A reader whose card is failing is, if
     anything, the one most helped by buying their way out.
-  - **A Lifetime transaction used to null `paddle_subscription_id`** — writing `null` over the
-    pointer to the subscription still running beside it, in the same statement that granted the
-    Lifetime. Neither id column is ever nulled once it has a value now; that was a pre-existing
-    defect, and it also cost every later event the second of the three ways to find an account.
+  - **Neither id column is ever nulled once it has a value**, a Lifetime purchase included:
+    nulling `paddle_subscription_id` there would lose the pointer to the subscription still
+    running beside it, and every later event the second of the three ways to find an account.
 - **The live plan and cycle are read from Paddle, never from this database.** `accounts` has
   no column for the live *cycle* and never has, so the direction of a move cannot be decided
   without asking — and asking Paddle compares against what is actually being billed.
-- **The press that buys twice is the second press on the same screen**, not the exotic one.
-  `busy` went false the moment Paddle's modal opened, so when it closed the reader was looking at
-  a live «Pay for Premium» with nothing but a line of text saying the payment arrived — and the
-  server-side guard cannot help, because it asks `paddle_subscription_id`, the column the webhook
-  this screen is waiting for has not written yet. Found on the fourth review pass; before it,
-  buying twice needed one press and no bad luck at all. **The inline checkout closed it by
-  construction** a day later — the button and the payment form are never both on the page — and
-  `paid` stayed for the smaller question of whether «Not now» should still be offered.
+- **The press that buys twice is the second press on the same screen**, not the exotic one, and
+  the server-side guard cannot help with it: it asks `paddle_subscription_id`, the column the
+  webhook this screen is waiting for has not written yet. **The inline checkout closes it by
+  construction** — the button and the payment form are never both on the page — and `paid`
+  decides the smaller question of whether «Not now» is still offered.
 - **`/thanks` is no longer where a purchase lands**, and that is a consequence rather than a
   decision: the payment completes before the grant exists, so a redirect there would show the
   plan the reader had before paying. The Free choice still lands there; the paid branch of
   `ThanksScreen` is now reachable for a customer only by returning to the URL. What would repair
   it is a screen that waits for the grant, which is a thing to design.
-- **Without the branch on `/checkout/[plan]`, an existing subscriber pressing «Pay» opened a
-  second checkout** — and a second completed checkout is a second subscription, both billing,
-  with the webhook overwriting `paddle_subscription_id` so only the newer one stays cancellable.
-  That shipped on 2026-09-12 and was live until this change. The mock could not do it: it wrote
-  columns and had nothing left running.
+- **Without the `subscribed` branch on `/checkout/[plan]`, an existing subscriber pressing
+  «Pay» opens a second checkout** — and a second completed checkout is a second subscription,
+  both billing.
   - **The screen decides what is offered and the action decides what is done**, so
     `startPaddleCheckout` reads the subscription again (2026-09-14). The branch above is a page
     *render*; the press is a different event, and a reader can hold a stale «Pay» in one tab
@@ -901,22 +814,18 @@ watched working by anybody.
   one; and **stalled** — say something, offer nothing — for a failing card, a hold, an unreadable
   shape or Paddle not answering, because each of those may still be billing. It is pure and
   tested, including that a reason invented later falls to `stalled` rather than to `sell`.
-- **The cycle comes from what the link asked for, then from the live cycle, then monthly** —
-  and the middle step is what was missing. (It was a visible toggle on the checkout until
-  2026-09-14; it is now the value the page charges, and a control only on a bare link — see the
-  inline section above.) A bare link carries no `?cycle=`, which collapsed to
-  `month` for everybody, so a premium/year subscriber arriving from a typed or bookmarked link
-  met «Switch to Premium» sitting on Monthly — and pressing it is a year→month move, which
-  restarts the billing period and trades the rest of their year for a credit. Legitimate when
-  chosen, not when defaulted into. **An explicit `?cycle=` still wins**, and must: every CTA on
-  /pricing carries one and «Change billing cycle» is a link whose whole purpose is to set it, so
-  letting the live cycle override it would leave that link opening on the cycle it was pressed
-  to leave. Hence `initialCycle` is `BillingPeriod | null` on the Paddle branch and flattened
-  only for `CheckoutScreen`, which has `loadMostRecentCycleFor` to correct itself. The screen
-  also names what they are on, since «you are changing a plan you already pay for» does not say
-  *which*.
+- **The cycle comes from what the link asked for, then from the live cycle, then monthly**, and
+  the middle step matters: without it a bare link collapses to `month` for everybody, so a
+  premium/year subscriber arriving from a typed or bookmarked link meets «Switch to Premium» on
+  Monthly — and pressing it is a year→month move, which restarts the billing period and trades
+  the rest of their year for a credit. Legitimate when chosen, not when defaulted into. **An
+  explicit `?cycle=` still wins**, and must: every CTA on /pricing carries one, and letting the
+  live cycle override it would reopen on the cycle the reader asked to leave. Hence
+  `initialCycle` is `BillingPeriod | null`. The screen also names what they are on, since «you
+  are changing a plan you already pay for» does not say *which*.
 - **`/pricing`'s «Change billing cycle» tooltip** says a scheduled *cancellation* gets called
-  off, which is true and is all it claims. Against a scheduled *downgrade* the answer depends on
+  off, which is true; its other claim, «both billing cycles to choose from», is the open defect
+  in the inline section above. Against a scheduled *downgrade* the answer depends on
   direction, and the line is the same one everywhere: moving to monthly bills nothing and simply
   replaces what was arranged, moving to yearly is billed now and is refused until the reader
   calls that change off on /billing.

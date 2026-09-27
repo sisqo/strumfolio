@@ -3,9 +3,11 @@
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
-- **The song owns key/capo/accidentals/chord-display** — chips on the song itself, not controls
-  in the reading panel. A reader's own transposition is separate, in
-  `user_song_prefs.semitones`/`.capo`.
+- **Key, capo, accidentals and chord display are chips on the song screen**, not controls in
+  the reading panel — but they are stored in two different places. Key and capo are per song and
+  per reader: `user_song_prefs.semitones` (a shift relative to what is written — no key is ever
+  stored) and `.capo`. Accidentals and chord display are the reader's global preferences,
+  `user_prefs.accidentals` and `.chord_display`, so changing one on a song changes it on all.
 - **`shapeFor` picks the default, not the only shape.** Every chord has an alternate-forms
   picker — `ShapeCarousel`, guitar *and* ukulele — reached from `ChordPopup` in a song and
   from a box on either public chart. Only the song half remembers anything: on the chart there

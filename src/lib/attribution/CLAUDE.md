@@ -7,7 +7,7 @@ Campaign parameters, click ids, referring host and landing page, captured for an
 first time it is given and frozen when it becomes an account. One row per lead in
 `lead_attribution`, read on `/accounts/[email]`'s Identity tab and in aggregate on `/leads`.
 
-## The four seams, and what happens if one is dropped
+## The five seams, and what happens if one is dropped
 
 `coupons/CLAUDE.md` says of its three: «Drop the third and every email/password sign-up is
 recorded as having seen nothing.» Here there are **five**, and dropping one does not fail
@@ -24,7 +24,7 @@ anything — it silently removes a whole sign-up path from the numbers.
 4. **`signIn` callback** (`auth.ts`) — the Google path, which has no pending registration at
    all, so it is both halves at once and is **gated on `created`**, the same boolean the welcome
    email uses.
-5. **`createAccount()`** (`lib/accounts/actions.ts`, back on 2026-09-11) — the admin screen
+5. **`createAccount()`** (`lib/accounts/actions.ts`, since 2026-09-11) — the admin screen
    opening an account for an address that never registered, so unlike every seam above it
    ordinarily has **nothing to freeze**, and that is not a reason to drop the call: an address
    can carry an open row from a registration it abandoned, and an unfrozen row is eligible to be
@@ -58,10 +58,10 @@ scar `accounts/current.ts` carries).
 
 **The rules hold at the row too, not only in the cookie** (2026-09-24). A return to the first
 campaign is still rule 1's «replaces the last», written as *no* last because it would repeat the
-first — `mergeTouch` used to leave B standing after A → B → A. And `recordLeadAttribution`, seeing
-a second device's cookie, applies the same two rules to the stored row: an untagged newest touch
-(`isTaggedTouch`) replaces nothing, and one equal to the stored first clears `last_*` instead of
-copying the first into it.
+first — so after A → B → A, `mergeTouch` leaves no last touch, not B. And
+`recordLeadAttribution`, seeing a second device's cookie, applies the same two rules to the stored
+row: an untagged newest touch (`isTaggedTouch`) replaces nothing, and one equal to the stored
+first clears `last_*` instead of copying the first into it.
 
 **Rule 2 is a designed-out bug, not caution.** After a Google sign-in the browser returns with
 `Referer: accounts.google.com`, and Paddle's checkout does the same. Were any external referer a
@@ -80,20 +80,16 @@ new entry so the next person does not prune it.
 the word-of-mouth channel. `overwrites: false`, like every untagged arrival, so a leader inviting
 the same friend to four rehearsals cannot overwrite the campaign that friend arrived from.
 
-## The middleware has six exits and every landing one must carry the cookie
+## Every landing exit of the middleware must carry the cookie
 
-One `withAttribution` helper called at each exit rather than five copies of a `cookies.set`, and
-the rule survives the change that removed its own illustration.
+One `withAttribution` helper, called at each of the four exits that answer a landing (four call
+sites in `middleware.ts`), rather than a copy of a `cookies.set` per branch.
 
-It read: **`/` requires a session**, so `strumfolio.com/?utm_source=…` — the most ordinary
-campaign URL there is — reaches the *redirect* branch, and the redirect does not carry the query
-string. **`/` is public since 2026-09-08** (`app/(home)/layout.tsx` serves the landing page to
-anybody with no session), so that URL now lands in the `SESSION_FREE_PATHS` branch with its
-parameters intact and gets its cookie there. Verified with a real GET, not by reading the code.
-
-The redirect branch still exists for every path that does need one — a bookmarked song, a shared
-songbook link — and a campaign can point at a deep link as easily as at the home page, so it
-still has to carry the cookie. Nothing to relax; only the example changed.
+`strumfolio.com/?utm_source=…` — the most ordinary campaign URL there is — lands in the
+`SESSION_FREE_PATHS` branch with its parameters intact (`/` is public since 2026-09-08) and gets
+its cookie there. **The redirect branch must carry it too**: it serves every path that needs a
+session — a bookmarked song, a shared songbook link — a campaign can point at a deep link as
+easily as at the home page, and the redirect to `/login` does not carry the query string.
 
 Two gates, both deliberate: **GET only** (a Server Action POSTs to the page's own URL, and
 Next.js copies the `Set-Cookie` onto the *request* — the scar the `/follow` device-id branch
@@ -108,8 +104,7 @@ which sends HEAD and is refused by the method gate:
 ```bash
 # Grep for the cookie by name, never for `set-cookie`: NextAuth puts `authjs.csrf-token` and
 # `authjs.callback-url` on these responses whatever this module does, so the loose grep is
-# never empty and reads as a rule-4 violation that is not there. (It said `grep -i set-cookie`
-# with «must be empty» beside it until somebody ran it.)
+# never empty and reads as a rule-4 violation that is not there.
 curl -s -D - -o /dev/null 'http://localhost:3000/?utm_source=x&utm_campaign=y' | grep -c songbook-attribution   # 1
 curl -s -D - -o /dev/null 'http://localhost:3000/verify?token=abc'             | grep -c songbook-attribution   # 0
 curl -s -D - -o /dev/null 'http://localhost:3000/forgot-password'              | grep -c songbook-attribution   # 0

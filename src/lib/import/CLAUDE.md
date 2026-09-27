@@ -4,8 +4,8 @@ Loaded when Claude works under this directory. Repo-wide rules — the push chec
 production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 
 - **Fifteen extensions in the picker**, listed in `ACCEPTED` (`src/components/AddSongScreen.tsx`)
-  — plain text, the ChordPro dialects, OnSong, MusicXML, ZIP, a SongbookPro backup, and — since
-  2026-09-07 — **PDF and Word**. `detectSource` opens a few more that the picker does not offer
+  — plain text, the ChordPro dialects, OnSong, MusicXML, ZIP, a SongbookPro backup, and **PDF and
+  Word** (since 2026-09-07). `detectSource` opens a few more that the picker does not offer
   (`.docm`, `.text`, `.lyrics`, `.opensong`, `.openlyrics`): aliases that work when dropped, and
   would only lengthen a list whose job is to grey out the wrong files. Parsing happens **in the browser**, one `await import()` per
   format, so an unused format costs nothing. No AI anywhere. Inside a `.zip` those two are
@@ -31,13 +31,14 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   advice, like OnSong's backup: it is the file somebody with songs «in Word» is likeliest to hold.
 - **Archives flatten: folders become sections, never new songbooks.**
 - **The plan cap is checked before anything is written**, and import itself is free.
-- **`estimateKey` (`src/lib/music/key.ts`) always wins** over an imported key column, which is
-  archival only.
+- **A declared `{key}` wins, and `estimateKey` (`src/lib/music/key.ts`) is the fallback**
+  (`tonicOf`, 2026-09-19) — for a song that declares none, and for a key this app cannot read
+  (`{key: H}`), which falls back to the estimate and never to C.
 - **`sniffDialect` (`src/lib/import/dialect.ts`) reads the content, not the extension**, and
   genuinely ambiguous files are skipped rather than guessed.
 - **A rule (`---`, `===`…) cuts songs only in text with no ChordPro song marks** (2026-09-24).
   It is what people type between two pasted songs; a file with `{title}` or `{new_song}` already
   says where each song starts, and this app's export — the restore path — is such a file, so a
-  `---` in a body used to split a restored song in two. A chunk with a title is a song even with
+  `---` in a body must not split a restored song in two. A chunk with a title is a song even with
   no words, verbatim blocks are skipped labelled or not (`{start_of_tab: Intro}`, `{sot-guitar}`,
   grids, delegated environments), and `METADATA_DIRECTIVE`/`TITLE` match a value holding a brace.
