@@ -119,6 +119,12 @@ signal to fall back. A modern-only client does not work until this learns `serve
 message of a batch pays the rate limit** (120 a minute per token), not just the POST: otherwise one
 request of a thousand calls went through on one hit (fixed 2026-09-27, measured: 130 pings → 14 refused).
 
+- **Tool schemas use no type unions** (`["string", "null"]`): Gemini's function schema has none and
+  refuses the whole list over one. «Clear it» is an empty string, and `null` is still accepted.
+- **`/.well-known/oauth-*` answers 404, never `/login`** (`middleware.ts`): after a 401 a client
+  looks for OAuth there, and a redirect hands it a sign-in page to parse as metadata — the user
+  sees a baffling error instead of «invalid token». Phase two puts real metadata at those paths.
+
 ## The ChordPro guide — `guide.ts`
 
 What the assistant is told, as a resource and in `instructions`. Its own text, not a render of
@@ -131,5 +137,9 @@ ChordPro fan-out list.
 against `next dev` (`STRUMFOLIO_MCP=on`): `initialize`, `notifications/initialized` → 202,
 `tools/list`, `tools/call`, a stale `version` → the conflict sentence, another account's slug or
 section → «No such…», an idle, revoked or suspended token → 401, a Free account → the plan
-sentence. A dev token is a row inserted by hand (hash of a secret generated locally); never paste a
+sentence. **A real client, with nothing installed**: `claude -p "…" --mcp-config <file> --strict-mcp-config
+--allowedTools "mcp__strumfolio__get_song …"`, the file holding `{"mcpServers":{"strumfolio":{"type":
+"http","url":"http://localhost:3000/api/mcp","headers":{"Authorization":"Bearer …"}}}}` —
+first done 2026-09-27 (list, read, `update_song` clearing the artist: version 2, the old artist in
+`song_revisions`). `claude mcp add` would write the user's config instead. A dev token is a row inserted by hand (hash of a secret generated locally); never paste a
 real one into a transcript.

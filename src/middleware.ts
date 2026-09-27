@@ -75,6 +75,12 @@ function isPublicAsset(pathname: string): boolean {
      * authenticates every call itself.
      */
     pathname === '/api/mcp' ||
+    /*
+     * Where an MCP client looks for OAuth after a 401. There is none yet (phase two), and a 404
+     * is how a client learns that and reports the bad token; a redirect to `/login` hands it an
+     * HTML page to parse as metadata, and the user a confusing error instead of «invalid token».
+     */
+    pathname.startsWith('/.well-known/oauth-') ||
     pathname === '/sw.js' ||
     pathname === '/sw.js.map' ||
     pathname.startsWith('/swe-worker-') ||

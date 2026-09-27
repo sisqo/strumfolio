@@ -985,11 +985,12 @@ const FEATURES: Feature[] = [
           icon: <IconSparkle size={26} />,
           title: 'Edit with your AI assistant',
           /* Every verb here is a tool in `lib/mcp/tools.ts`; «never deletes» and «one tap back» are
-             the two rules the whole feature was built around (`lib/mcp/CLAUDE.md`). */
+             the two rules the whole feature was built around (`lib/mcp/CLAUDE.md`). «One tap back» is
+             said of a song's text only: a move, a rename or a new songbook keeps no history. */
           text:
             'Connect Claude, Codex, Cursor or another assistant that speaks MCP, and ask it to transpose a song, ' +
-            'turn pasted lyrics into ChordPro or tidy a songbook. It never deletes anything, and every change it ' +
-            'makes is one tap away from undone. From the Standard plan.',
+            'turn pasted lyrics into ChordPro or tidy a songbook. It never deletes anything, and every song it ' +
+            'rewrites keeps its previous text, one tap away. From the Standard plan.',
         },
       ]
     : []),

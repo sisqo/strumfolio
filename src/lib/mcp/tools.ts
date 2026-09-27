@@ -114,7 +114,9 @@ export const TOOLS: readonly ToolDefinition[] = [
         version: integer('The version you read.'),
         body: string('The whole new ChordPro text.'),
         title: string('New title; omit to keep it.'),
-        artist: { type: ['string', 'null'], description: 'New artist, null to clear; omit to keep it.' },
+        /* A plain string, not `['string', 'null']`: Gemini's function schema has no type unions
+           and refuses the whole tool list over one. `null` is still accepted below. */
+        artist: string('New artist; an empty string clears it; omit to keep it.'),
       },
       required: ['slug', 'version', 'body'],
       additionalProperties: false,
