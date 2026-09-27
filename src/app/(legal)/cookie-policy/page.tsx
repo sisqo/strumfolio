@@ -54,7 +54,7 @@ export default function CookiePolicyPage() {
             answer, for six months; one which part of the world your visit comes from — a region,
             never a place; and one only whether you arrived by clicking one of our advertisements,
             for as long as the attribution cookie below. All three are readable by the page
-            itself, and none of them is sent to anyone.
+            itself, and none of them is shared with anyone.
           </>
         )}{' '}
         All of these are necessary for the Service to work and cannot

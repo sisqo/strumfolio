@@ -65,7 +65,14 @@ export function serializeConsent(choice: ConsentChoice): string {
  */
 export function parseConsent(raw: string | null | undefined, now: number): ConsentChoice | null {
   if (!raw) return null
-  const match = /^(\d+):(granted|denied):(\d+)$/.exec(decodeURIComponent(raw))
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    /* A stray `%` would otherwise throw out of the banner and every server action that asks. */
+    return null
+  }
+  const match = /^(\d+):(granted|denied):(\d+)$/.exec(decoded)
   if (!match) return null
 
   const version = Number(match[1])

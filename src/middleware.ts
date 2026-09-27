@@ -239,7 +239,8 @@ function regionCookieFor(request: NextRequest): Region | null {
  * does not erase the click, and the attribution cookie keeps it too.
  */
 function adClickCookieFor(request: NextRequest, attribution: string | null): boolean {
-  if (adsConfig() === null) return false
+  /* GET only, for `regionCookieFor`'s reason — and it spares every Server Action a JSON parse. */
+  if (request.method !== 'GET' || adsConfig() === null) return false
 
   const source = attribution ?? request.cookies.get(ATTRIBUTION_COOKIE)?.value
   if (gclidOf(decodeAttribution(source)) === null) return false

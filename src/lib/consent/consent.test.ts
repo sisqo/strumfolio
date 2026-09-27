@@ -74,6 +74,7 @@ describe('the stored answer', () => {
     assert.equal(parseConsent('yes', NOW), null)
     assert.equal(parseConsent(`${CONSENT_VERSION}:maybe:${NOW}`, NOW), null)
     assert.equal(parseConsent(`${CONSENT_VERSION}:granted:${NOW + DAY}`, NOW), null)
+    assert.equal(parseConsent('%E0%A4%A', NOW), null)
   })
 })
 

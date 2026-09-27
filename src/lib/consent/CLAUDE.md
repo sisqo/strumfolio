@@ -74,6 +74,34 @@ account's id only, never production's.
   - **Not from `PayFrame` (`/pay`)**, which settles Paddle's dunning emails, i.e. renewals.
   - A plan change never opens a checkout, so it never counts.
 
+**Verified and not verified (2026-09-27, locally, fake `AW-` id, real gtag.js):**
+
+- **Verified.**
+  - *Email signup:* accept on `/register`, then register, then open the verification link from
+    the dev log, then choose the password. Result: a `pagead/conversion` request on `/`, with the
+    cookie gone. (Locally this needs `NEXT_PUBLIC_TURNSTILE_SITE_KEY=` and
+    `TURNSTILE_SECRET_KEY=` set empty on the `npm run dev` line, since the widget never loads on
+    `localhost`.)
+  - *Basic mode:* zero requests to Google before an answer and after a refusal.
+  - *Withdrawal:* withdrawing from the footer deletes `_gcl_*`, and nothing is requested after
+    the reload.
+  - *Region override:* `?region=other` loads the tag without a banner, and the value sticks.
+  - *The ad-click rule:*
+    - an organic EEA visitor gets no banner and no request;
+    - «Cookie settings» still opts them in;
+    - a `?gclid=` arrival gets the banner on later pages too, and again after an organic return.
+- **Not verified.**
+  - **The Google signup path**: the cookie is set with `cookies().set` inside the Auth.js
+    `signIn` callback, in a route handler whose redirect Auth.js builds itself. Nothing else in
+    the repo writes a cookie from there.
+  - **The purchase**: `trackPurchase` has never fired. The first sandbox run on the preview
+    (`INTEGRATION-TESTS.md`) must confirm that the conversion carries `transaction_id`. The unit
+    is settled by Paddle's reference for `checkout.completed` (checked 2026-09-27): Paddle.js
+    events carry totals as decimal numbers (`"total": 32.66`), unlike the API's
+    lowest-denomination strings, so `totals.total` goes to Ads unconverted.
+  - **`sw.ts`'s `NetworkOnly` rule** for Google hosts, since Serwist is disabled under `next
+    dev`. Check it on the preview build.
+
 ## The gclid handed over after a late «yes»
 
 Because the card does not block, a visitor can land on `/?gclid=…`, browse, and accept on
