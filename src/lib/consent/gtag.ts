@@ -6,7 +6,7 @@
  * Browser-only: import it from client components alone.
  */
 
-import { serializeConsent, type AdsConfig } from './state'
+import { serializeConsent, tagPageLocation, tagReferrer, type AdsConfig } from './state'
 import {
   CONSENT_COOKIE,
   CONSENT_MAX_AGE_SECONDS,
@@ -86,6 +86,7 @@ export function loadGtag(config: AdsConfig, clickId: string | null): void {
   })
   window.gtag('consent', 'update', { ad_storage: 'granted', ad_user_data: 'granted' })
   window.gtag('js', new Date())
+  tellPage()
 
   const current = new URL(location.href)
   let restore: string | null = null
@@ -113,9 +114,17 @@ export function loadGtag(config: AdsConfig, clickId: string | null): void {
    * processed after it, the tag read the restored URL, and `_gcl_aw` was never written. The
    * timeout bounds how long the gclid can sit in the address bar when Google does not answer.
    */
-  window.gtag('config', config.id, { allow_ad_personalization_signals: false, send_page_view: false })
+  /* `allow_enhanced_conversions: false` so that a switch in the Ads dashboard cannot start
+     reading email fields off our forms with no change here. */
+  window.gtag('config', config.id, {
+    allow_ad_personalization_signals: false,
+    allow_enhanced_conversions: false,
+    send_page_view: false,
+    ...pageFields(),
+  })
   window.gtag('event', 'page_view', {
     send_to: config.id,
+    ...pageFields(),
     event_callback: putBack,
     event_timeout: 3000,
   })
@@ -127,6 +136,29 @@ export function loadGtag(config: AdsConfig, clickId: string | null): void {
   document.head.appendChild(script)
   /* A last resort if neither callback ever fires. */
   window.setTimeout(putBack, 5000)
+}
+
+/**
+ * Tell the tag which page it is on — the sanitised address (`tagPageLocation`), never
+ * `location.href`, which on `/verify` carries an email address and the token that chooses the
+ * password. Called before the first hit, and by `ConsentManager` on every client navigation,
+ * because the tag stays resident across them and would otherwise read the real address.
+ */
+export function tellPage(): void {
+  if (!loadedFor) return
+  window.gtag?.('set', pageFields())
+}
+
+/**
+ * The sanitised address, for `set` and for every hit as well. Measured on 2026-09-27: `set`
+ * alone left the first page view of a full load (`/follow/<token>`) on the real address, so
+ * `config`, the page view and each conversion carry it explicitly too.
+ */
+function pageFields(): { page_location: string; page_referrer: string } {
+  return {
+    page_location: tagPageLocation(location.href),
+    page_referrer: tagReferrer(document.referrer, location.origin),
+  }
 }
 
 /**
@@ -151,7 +183,7 @@ export function withdrawConsent(): void {
 
 export function trackSignup(): void {
   if (!loadedFor) return
-  window.gtag?.('event', 'conversion', { send_to: `${loadedFor.id}/${loadedFor.signupLabel}` })
+  window.gtag?.('event', 'conversion', { send_to: `${loadedFor.id}/${loadedFor.signupLabel}`, ...pageFields() })
 }
 
 /**
@@ -166,5 +198,6 @@ export function trackPurchase(purchase: { transactionId: string; value: number; 
     value: purchase.value,
     currency: purchase.currency,
     transaction_id: purchase.transactionId,
+    ...pageFields(),
   })
 }

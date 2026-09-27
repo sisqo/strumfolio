@@ -327,6 +327,9 @@ A wrapping row of small recessed pills under the song title, one per thing this 
 
 They exist because a control whose value is worth reading cannot live behind a button. Before this row the app had a separate line under the title whose only job was to say in words what a shut panel was hiding.
 
+### Consent banner
+A non-blocking card fixed at the foot of the viewport (`ConsentManager`, right-aligned and capped at 26rem on a wide screen): `xl` radius, `--shadow-panel`, `--edge` border, a title, one sentence and a link to the Cookie Policy. **Its two answers are the same `.btn`, dropped to the page colour because a control never takes the surface it sits on — never a primary beside a secondary**: refusing has to look exactly as easy as accepting, and the X counts as a refusal. It is the one card the app places over a page uninvited, so it is never shown over the reading surface or the editor, only on public pages and the checkout (`src/lib/consent/CLAUDE.md`).
+
 ### The Reading Control Bar (signature component)
 A floating pill-shaped dock (`--r-2xl`, `--shadow-float`) pinned above the safe-area inset, holding only what's touched mid-song (play/pause, speed, the Strum Together toggle) with the two genuinely set-and-forgotten choices (instrument, text size) tucked behind one button that opens a panel above the dock. Key, capo, accidentals and chord display used to be in that panel and are now the chips above.
 

@@ -205,10 +205,8 @@ export default function RootLayout({
             <FeedbackProvider>{children}</FeedbackProvider>
           </StrumTogetherProvider>
           {/*
-            * Inside RoleProvider because `/` is the landing page only for a visitor, and only
-            * a visitor's `/` may show the banner by itself. Here rather than in the public
-            * layouts because the tag it loads has to run on the signed-in screens a conversion
-            * happens on too — see ConsentManager.
+            * Here rather than in the public layouts because the tag it loads has to run on the
+            * signed-in screens a conversion happens on too — see ConsentManager.
             */}
           <ConsentManager />
         </RoleProvider>

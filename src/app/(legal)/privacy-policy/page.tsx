@@ -176,7 +176,7 @@ export default function PrivacyPolicyPage() {
       </p>
       {ads && (
         <p>
-          <strong>Advertising measurement — only if you accept.</strong> In the European Economic
+          <strong>Advertising measurement.</strong> In the European Economic
           Area, the United Kingdom and Switzerland it is off unless you accept: we ask when you
           arrive by clicking one of our advertisements, and you can turn it on or off under
           &ldquo;Cookie settings&rdquo; at the foot of every page. Elsewhere it is on until you turn
@@ -185,8 +185,11 @@ export default function PrivacyPolicyPage() {
           that came from one of our advertisements ends in a new account or a purchase — for a
           purchase, the amount, the currency and Paddle&apos;s transaction number. Google receives
           your IP address and browser details with it, as it does with any request to its servers.
-          We send Google no name, no email address and no account number, we use no personalised
-          advertising or remarketing, and nothing is loaded before you accept or after you refuse.
+          The tag is never loaded on a page whose address carries an email address or a private
+          link, nor on the screens where you read and edit your songs, so we send Google no name,
+          no email address, no account number and no link token; we use no personalised
+          advertising or remarketing. In those three places nothing is loaded before you accept,
+          and nowhere is anything loaded after you refuse.
         </p>
       )}
       <p>
@@ -320,8 +323,10 @@ export default function PrivacyPolicyPage() {
             <tr>
               <td>Measure which of our advertisements lead to a new account or a purchase</td>
               <td>
-                Your consent — Art. 6(1)(a) and, for the cookies, Art. 122 of the Italian Privacy
-                Code. You can withdraw it at any time under &ldquo;Cookie settings&rdquo;
+                In the European Economic Area, the United Kingdom and Switzerland, your consent —
+                Art. 6(1)(a) and, for the cookies, Art. 122 of the Italian Privacy Code; elsewhere,
+                legitimate interest in measuring our own advertising — Art. 6(1)(f). Either way you
+                can withdraw or object at any time under &ldquo;Cookie settings&rdquo;
               </td>
             </tr>
           )}
@@ -387,8 +392,8 @@ export default function PrivacyPolicyPage() {
         </li>
         {ads && (
           <li>
-            <strong>Google Ireland Limited</strong> — only if you accept advertising measurement
-            (section 2), Google Ads receives the conversion events described there as an independent
+            <strong>Google Ireland Limited</strong> — while advertising measurement is on (section
+            2), Google Ads receives the conversion events described there as an independent
             controller, under the Google Ads Controller-Controller Data Protection Terms and{' '}
             <a href="https://policies.google.com/privacy" rel="noopener noreferrer" target="_blank">
               Google&apos;s privacy policy
@@ -414,7 +419,7 @@ export default function PrivacyPolicyPage() {
       </ul>
       <p>
         {ads
-          ? 'We do not sell your data, and the only data shared for advertising is the measurement described in section 2, with Google, and only with your consent. '
+          ? 'We do not sell your data, and the only data shared for advertising is the measurement described in section 2, with Google, and only while it is on. '
           : 'We do not sell your data, and we do not share it with anyone for advertising or marketing purposes. '}
         We may disclose data where required to do so by law.
       </p>
@@ -497,9 +502,9 @@ export default function PrivacyPolicyPage() {
       {ads && (
         <p>
           <strong>Advertising measurement.</strong> Your answer is kept in a cookie for six months,
-          after which we ask again. Google&apos;s own cookies, set only if you accept, last 90 days;
-          withdrawing deletes them from your browser. What Google Ads keeps is kept under
-          Google&apos;s policy.
+          after which we ask again. The cookies Google&apos;s tag sets on our domain while
+          measurement is on last 90 days, and turning it off deletes them. What Google keeps, and
+          any cookie of its own on its own domains, is kept under Google&apos;s policy.
         </p>
       )}
       <p>
@@ -545,12 +550,15 @@ export default function PrivacyPolicyPage() {
         <strong>Your right to object.</strong> Where we process your data on the basis of our
         legitimate interest — namely to keep the Service secure, to measure aggregate traffic and
         performance, to understand which channels bring people to Strumfolio, to run and measure our
-        discount offers, to tell the developer about new accounts and payments, and to send you the
-        one or two personal emails described in section 2 — <strong>you have the right
+        discount offers,{ads && ' to measure our advertisements where we do not ask for consent first (section 2),'} to
+        tell the developer about new accounts and payments, and to send you the one or two personal
+        emails described in section 2 — <strong>you have the right
         to object to that processing at any time, on grounds relating to your particular
         situation.</strong> If you object, we will stop that processing unless we can demonstrate
         compelling legitimate grounds that override your interests, rights and freedoms. To object,
-        write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. For the two personal emails
+        write to <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+        {ads && <> — or, for advertising measurement, simply turn it off under &ldquo;Cookie settings&rdquo;</>}
+        . For the two personal emails
         specifically, the link each of them carries does the same thing without writing
         to us at all.
       </p>

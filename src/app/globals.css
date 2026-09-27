@@ -10015,7 +10015,9 @@
     max-width: 26rem;
     margin-left: auto;
     padding: 1.125rem 1.125rem 1rem;
-    border: 1px solid var(--line-soft);
+    /* `--edge`, like every card and panel: transparent in light, where the shadow lifts it, and
+       a hairline in dark — never a border and a shadow together (DESIGN.md, Elevation). */
+    border: 1px solid var(--edge);
     border-radius: var(--r-xl);
     background: var(--surface);
     box-shadow: var(--shadow-panel);
@@ -10069,10 +10071,11 @@
     margin-top: 0.875rem;
   }
 
-  /* `--edge` disappears against the card's own white in the light theme; `--line` is the
-     border a `.btn` needs to read as a button here, the same for both. */
+  /* A control never gets the surface it sits on (DESIGN.md, Navigation): a white `.btn` on this
+     white card disappeared in light, so both answers drop to the page colour — the same fill for
+     both, which is the equal weight the Garante asks for. */
   .consent-banner-actions .btn {
-    border-color: var(--line);
+    background: var(--bg);
   }
 
   @media (hover: hover) {

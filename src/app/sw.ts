@@ -142,8 +142,13 @@ self.addEventListener('message', (event) => {
  */
 const NETWORK_TIMEOUT_SECONDS = 4
 
-/** Where Google's advertising tag and its conversion requests go — see the rule that uses it. */
-const GOOGLE_ADS_HOSTS = /(^|\.)(googletagmanager\.com|googleadservices\.com|doubleclick\.net|google\.com)$/
+/**
+ * Where Google's advertising tag and its conversion requests go — see the rule that uses it.
+ * `google.<country>` too (`google.it`, `google.co.uk`): the tag pings the visitor's own Google
+ * domain, which a `google.com`-only pattern let through to `defaultCache`'s cross-origin cache.
+ */
+const GOOGLE_ADS_HOSTS =
+  /(^|\.)(googletagmanager\.com|googleadservices\.com|doubleclick\.net|google\.[a-z]{2,3}(\.[a-z]{2})?)$/
 
 const authenticatedPageCaching = (
   [

@@ -53,8 +53,9 @@ export default function CookiePolicyPage() {
             {' '}Three more decide the advertising-measurement notice (below): one holds your
             answer, for six months; one which part of the world your visit comes from — a region,
             never a place; and one only whether you arrived by clicking one of our advertisements,
-            for as long as the attribution cookie below. All three are readable by the page
-            itself, and none of them is shared with anyone.
+            for as long as the attribution cookie below. They exist only to decide whether to ask
+            you and to remember the answer; all three are readable by the page itself, and none of
+            them is shared with anyone.
           </>
         )}{' '}
         All of these are necessary for the Service to work and cannot
@@ -146,18 +147,22 @@ export default function CookiePolicyPage() {
       {ads ? (
         <>
           <p>
-            <strong>Google Ads measurement — only if you accept.</strong> In the European Economic
-            Area, the United Kingdom and Switzerland it is off unless you turn it on: a notice asks
-            you when you arrive by clicking one of our advertisements, and anybody else can turn it
-            on under &ldquo;Cookie settings&rdquo;. Until you accept,{' '}
+            <strong>Google Ads measurement.</strong> In the European Economic Area, the United
+            Kingdom and Switzerland it is off unless you accept: a notice asks you when you arrive
+            by clicking one of our advertisements, and anybody else can turn it on under
+            &ldquo;Cookie settings&rdquo;. Until you accept there,{' '}
             <strong>nothing from Google is loaded at all</strong> — not even a request without
-            cookies. Elsewhere it is on until you turn it off. If it is on, we load Google&apos;s
-            advertising tag, which sets its own cookies (named <code>_gcl_…</code>, for 90 days) so
-            that Google Ads can tell us when a visit that began with one of our advertisements ends in
-            a new account or a purchase. We use no personalised advertising and no remarketing: the
-            tag is told so, and it builds no audience out of your visit. You can change your answer
-            at any time under &ldquo;Cookie settings&rdquo; at the foot of every page; withdrawing
-            deletes Google&apos;s cookies and stops the tag.
+            cookies. Elsewhere it is on until you turn it off, and nowhere is anything loaded after
+            you have refused. While it is on, we load Google&apos;s advertising tag, which sets
+            cookies on our domain (named <code>_gcl_…</code>, for 90 days) so that Google Ads can
+            tell us when a visit that began with one of our advertisements ends in a new account or
+            a purchase; Google may also read or set its own cookies on its own domains, under
+            Google&apos;s policy, which we can neither see nor delete. The tag is never loaded on
+            a page whose address carries an email address or a private link, nor on the screens
+            where you read and edit your songs, so none of those reaches Google. We use no personalised advertising and no remarketing: the tag is told so, and
+            it builds no audience out of your visit. You can change your answer at any time under
+            &ldquo;Cookie settings&rdquo; at the foot of every page; turning it off stops the tag
+            and deletes the cookies it set on our domain.
           </p>
           <p>
             <strong>No other advertising or third-party tracking.</strong> Apart from the Cloudflare,
@@ -184,8 +189,10 @@ export default function CookiePolicyPage() {
       <h2>3. Managing cookies and stored data</h2>
       {ads ? (
         <p>
-          Google Ads measurement rests on your consent, and you give or withdraw it under
-          &ldquo;Cookie settings&rdquo; at the foot of every page. Everything else described above is
+          In the European Economic Area, the United Kingdom and Switzerland, Google Ads measurement
+          rests on your consent; elsewhere, on our legitimate interest in measuring our own
+          advertising. Either way you turn it on or off under &ldquo;Cookie settings&rdquo; at the
+          foot of every page. Everything else described above is
           either strictly necessary to provide the Service you requested or, in the case of the
           attribution and discount cookies, used only to measure how people find Strumfolio and which
           offers they use. <strong>Refusing Google Ads does not turn those two off</strong>: they are

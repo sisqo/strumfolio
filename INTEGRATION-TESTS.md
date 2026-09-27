@@ -232,3 +232,11 @@ La colonna «Dal vivo» di `src/lib/plans/CASES.md` tiene il conto caso per caso
 famiglie intere: i rinnovi, il dunning, i chargeback, i regali e gli eventi del webhook che
 nessuno ha mai fatto arrivare per davvero. Un giro che ne copre uno **aggiorna quella colonna**,
 altrimenti la prossima persona lo rifà.
+
+**Le conversioni Google Ads non sono mai partite da un acquisto vero** (`src/lib/consent/`, spente
+finché mancano le tre `NEXT_PUBLIC_GOOGLE_ADS_*`). Il primo giro sulla preview con un ID Ads di prova:
+arrivare con `?gclid=…`, accettare il banner, comprare con la carta sandbox, e cercare nella rete la
+richiesta `pagead/conversion` con l'etichetta d'acquisto e il `transaction_id` del `txn_…` di Paddle.
+Nello stesso giro, una registrazione con Google (il cookie scritto nel callback `signIn`) e la regola
+`NetworkOnly` del service worker, che in `next dev` non gira. Poi aggiornare il blocco «Verified and not
+verified» di `src/lib/consent/CLAUDE.md`.

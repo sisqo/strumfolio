@@ -133,6 +133,9 @@ const RoleContext = createContext<RoleContextValue>({
  * This is not the permission. Every action re-reads the table on the server: this only
  * decides what to draw.
  */
+/** The pages whose sign-in lands on the same root layout without reloading the document. */
+const SIGN_IN_PATHS: ReadonlySet<string> = new Set(['/login', '/verify', '/qa'])
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null)
   const [accountOwnerEmail, setAccountOwnerEmail] = useState<string | null>(null)
@@ -186,8 +189,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, [ask])
 
   /*
-   * And again on the one navigation that can turn a stale answer into a wrong one: leaving
-   * `/login`. `signIn('credentials', ...)` redirects to the same root layout this provider
+   * And again on the navigations that can turn a stale answer into a wrong one: leaving
+   * `/login`, `/verify` or `/qa`. The last two sign somebody in from a Server Action that ends in
+   * `redirect('/')` (`verifyEmail`, the QA entry) — the same in-place patch, found by the consent
+   * review of 2026-09-27, where a verified reader's home was being told nobody was signed in.
+   * The explanation below is written about `/login`.
+   *
+   * From `/login`, `signIn('credentials', ...)` redirects to the same root layout this provider
    * lives in, so Next.js patches the tree in place rather than reloading the document — the
    * mount-time `ask()` above already ran and settled on "signed out" before the credentials
    * form ever submitted, and nothing else was going to ask again. (Google's button doesn't
@@ -197,9 +205,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const previousPathname = useRef(pathname)
   useEffect(() => {
-    const cameFromLogin = previousPathname.current === '/login' && pathname !== '/login'
+    const previous = previousPathname.current
+    const cameFromSignIn = SIGN_IN_PATHS.has(previous) && pathname !== previous
     previousPathname.current = pathname
-    if (cameFromLogin) void ask()
+    if (cameFromSignIn) void ask()
   }, [pathname, ask])
 
   const value = useMemo<RoleContextValue>(

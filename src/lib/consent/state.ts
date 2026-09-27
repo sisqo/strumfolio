@@ -8,7 +8,7 @@
  */
 
 import type { Attribution } from '@/lib/attribution/touch'
-import { isOutsideAppPath } from '@/lib/publicRoutes'
+import { isOutsideAppPath, isSessionFreePath } from '@/lib/publicRoutes'
 
 import {
   CONSENT_MAX_DAYS,
@@ -122,7 +122,8 @@ export function decideConsent(input: {
  * arriving from an advertisement is — and never a reading or editing screen: the installed app
  * is used on stage, and a card over a song is the one thing it must never show.
  *
- * - `/` is the landing page only for a visitor; a reader's `/` is their songbooks.
+ * - `/` is the landing page only for a visitor; a reader's `/` is their songbooks. The caller
+ *   says which is on screen (`ConsentManager` reads it from the DOM).
  * - `/follow/…` is a guest reading along during a performance — a reading screen.
  * - `/qa` and `/pay` are not destinations anybody arrives at from an advertisement.
  *
@@ -130,10 +131,33 @@ export function decideConsent(input: {
  */
 export function bannerAllowedOn(pathname: string, visitor: boolean): boolean {
   if (pathname === '/') return visitor
-  if (pathname.startsWith('/follow/')) return false
-  if (pathname === '/qa' || pathname === '/pay') return false
+  if (!tagAllowedOn(pathname)) return false
   if (/^\/checkout\/[^/]+$/.test(pathname)) return true
   return isOutsideAppPath(pathname)
+}
+
+/**
+ * Pages whose address carries a secret or a person, where Google's tag is never loaded: the
+ * token that chooses a password (`/verify`), the reset and unsubscribe links, a guest's read
+ * link (`/follow/…`), the QA entry and Paddle's `/pay`. Not a detail of the address — **the tag
+ * sends the real `location.href` on its `ccm/collect` page view whatever `page_location` says**
+ * (measured 2026-09-27: `/follow/<token>` reached Google with `page_location` set to
+ * `/follow`), so the only way to keep a secret out of Google is not to load the tag there.
+ */
+const TAG_NEVER: ReadonlySet<string> = new Set(['/verify', '/reset-password', '/courtesy-unsubscribe', '/qa', '/pay'])
+
+/**
+ * Where Google's tag may be loaded at all: `/` (the landing page, and the reader's home the
+ * signup conversion fires on), `/checkout/<plan>` (the purchase), and the public pages an
+ * advertisement can land on — `TAG_NEVER` and `/follow/…` excepted. Nowhere else inside the
+ * app: no conversion happens there, and every address there is the reader's own content.
+ * Once loaded the tag stays resident across client navigations, but sends nothing by itself.
+ */
+export function tagAllowedOn(pathname: string): boolean {
+  if (pathname === '/') return true
+  if (/^\/checkout\/[^/]+$/.test(pathname)) return true
+  if (pathname.startsWith('/follow/') || TAG_NEVER.has(pathname)) return false
+  return isSessionFreePath(pathname)
 }
 
 /**
@@ -148,4 +172,66 @@ export function gclidOf(attribution: Attribution | null): string | null {
     if (touch?.clickIdKind === 'gclid' && touch.clickId) return touch.clickId
   }
   return null
+}
+
+/** Google's own click ids, the only query parameters the tag is ever shown. */
+const CLICK_PARAMS = ['gclid', 'gbraid', 'wbraid']
+
+/**
+ * The URL Google's tag is told it is on — never the real one.
+ *
+ * gtag.js puts the page's address on every hit (`dl`), and several of this app's addresses carry
+ * a secret or a person: `/verify?email=…&token=…` (whose token chooses the account's password),
+ * `/reset-password?…`, `/courtesy-unsubscribe?…`, `/follow/<token>` (a guest's read access),
+ * `/accounts/<email>`. The Privacy Policy promises Google no email address, and Google's own
+ * policy forbids sending one. So:
+ *
+ * - the query is dropped, except Google's own click ids;
+ * - a public page keeps its path, `/follow/…` excepted, which becomes `/follow`;
+ * - `/checkout/<plan>` keeps its path — the plan is what the conversion is about;
+ * - anything else — every screen inside the app — becomes `/app`: nothing there is an Ads
+ *   landing page, and song and songbook slugs are the reader's own content.
+ *
+ * The hash is dropped too. Anything unparseable becomes the bare origin-less `/app`.
+ */
+export function tagPageLocation(href: string): string {
+  let url: URL
+  try {
+    url = new URL(href)
+  } catch {
+    return '/app'
+  }
+
+  const kept = new URLSearchParams()
+  for (const name of CLICK_PARAMS) {
+    const value = url.searchParams.get(name)
+    if (value) kept.set(name, value)
+  }
+  /* `toString()`, not `.size`: Safari before 17 has no `size`, and there the gclid would vanish. */
+  const serialized = kept.toString()
+  const query = serialized === '' ? '' : `?${serialized}`
+
+  const path = url.pathname
+  let shown: string
+  if (path.startsWith('/follow/')) shown = '/follow'
+  else if (/^\/checkout\/[^/]+$/.test(path) || path === '/' || isSessionFreePath(path)) shown = path
+  else shown = '/app'
+
+  return `${url.origin}${shown}${query}`
+}
+
+/**
+ * The referrer the tag is told: another site is reduced to its origin, one of our own pages goes
+ * through `tagPageLocation` — the page a reader came from is exactly as secret as the page they
+ * are on (a `/verify` link followed to `/`).
+ */
+export function tagReferrer(referrer: string, ownOrigin: string): string {
+  if (!referrer) return ''
+  let url: URL
+  try {
+    url = new URL(referrer)
+  } catch {
+    return ''
+  }
+  return url.origin === ownOrigin ? tagPageLocation(referrer) : `${url.origin}/`
 }

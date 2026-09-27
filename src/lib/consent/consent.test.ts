@@ -4,7 +4,17 @@ import { describe, it } from 'node:test'
 import { parseRegion, regionOf, requiresConsent } from './region'
 import type { Touch } from '@/lib/attribution/touch'
 
-import { adsConfigFrom, bannerAllowedOn, decideConsent, gclidOf, parseConsent, serializeConsent } from './state'
+import {
+  adsConfigFrom,
+  bannerAllowedOn,
+  tagAllowedOn,
+  decideConsent,
+  gclidOf,
+  parseConsent,
+  serializeConsent,
+  tagPageLocation,
+  tagReferrer,
+} from './state'
 import { CONSENT_MAX_DAYS, CONSENT_VERSION } from './types'
 
 const NOW = Date.UTC(2026, 8, 27)
@@ -128,8 +138,8 @@ describe('where the banner may appear by itself', () => {
     assert.equal(bannerAllowedOn('/', false), false)
   })
 
-  it('never on a reading, editing or guest screen', () => {
-    for (const path of ['/songs/wonderwall', '/songs/wonderwall/edit', '/songbooks/main', '/follow/abc', '/app-settings', '/qa', '/pay']) {
+  it('never on a reading, editing or guest screen, nor on a page whose address is a secret', () => {
+    for (const path of ['/songs/wonderwall', '/songs/wonderwall/edit', '/songbooks/main', '/follow/abc', '/app-settings', '/qa', '/pay', '/verify', '/reset-password', '/courtesy-unsubscribe']) {
       assert.equal(bannerAllowedOn(path, false), false, path)
       assert.equal(bannerAllowedOn(path, true), false, path)
     }
@@ -151,5 +161,50 @@ describe('the gclid handed over after a late «yes»', () => {
   it('is nothing without a Google click', () => {
     assert.equal(gclidOf(null), null)
     assert.equal(gclidOf({ first: touch('msclkid', 'M'), last: touch(null, null) }), null)
+  })
+})
+
+describe('the address Google\'s tag is shown', () => {
+  const O = 'https://strumfolio.com'
+
+  it('never carries the verification or reset token, nor the address', () => {
+    assert.equal(tagPageLocation(`${O}/verify?email=a%40b.it&token=SECRET`), `${O}/verify`)
+    assert.equal(tagPageLocation(`${O}/reset-password?email=a%40b.it&token=SECRET`), `${O}/reset-password`)
+    assert.equal(tagPageLocation(`${O}/courtesy-unsubscribe?t=SECRET`), `${O}/courtesy-unsubscribe`)
+  })
+
+  it('hides a guest link and every screen inside the app', () => {
+    assert.equal(tagPageLocation(`${O}/follow/TOKEN`), `${O}/follow`)
+    assert.equal(tagPageLocation(`${O}/accounts/a%40b.it`), `${O}/app`)
+    assert.equal(tagPageLocation(`${O}/songs/my-song/edit`), `${O}/app`)
+    assert.equal(tagPageLocation(`${O}/songbooks/main`), `${O}/app`)
+  })
+
+  it('keeps public paths, the checkout and Google\'s own click ids, nothing else', () => {
+    assert.equal(tagPageLocation(`${O}/pricing?gclid=G1&utm_source=x&coupon=C#top`), `${O}/pricing?gclid=G1`)
+    assert.equal(tagPageLocation(`${O}/checkout/standard?cycle=year`), `${O}/checkout/standard`)
+    assert.equal(tagPageLocation(`${O}/?wbraid=W`), `${O}/?wbraid=W`)
+    assert.equal(tagPageLocation(`${O}/blog/a-post`), `${O}/blog/a-post`)
+  })
+
+  it('reduces a referrer the same way, or to its origin when it is another site', () => {
+    assert.equal(tagReferrer(`${O}/verify?email=a%40b.it&token=SECRET`, O), `${O}/verify`)
+    assert.equal(tagReferrer('https://www.google.com/search?q=chords', O), 'https://www.google.com/')
+    assert.equal(tagReferrer('', O), '')
+    assert.equal(tagReferrer('not a url', O), '')
+  })
+})
+
+describe('where Google\'s tag may be loaded at all', () => {
+  it('on the landing and home page, the checkout and public pages', () => {
+    for (const path of ['/', '/checkout/plus', '/pricing', '/register', '/login', '/blog/a-post', '/tools/capo-calculator', '/cookie-policy']) {
+      assert.equal(tagAllowedOn(path), true, path)
+    }
+  })
+
+  it('never where the address carries a secret or a person, nor inside the app', () => {
+    for (const path of ['/verify', '/reset-password', '/courtesy-unsubscribe', '/follow/TOKEN', '/qa', '/pay', '/accounts/a@b.it', '/songs/x', '/songbooks/y', '/profile']) {
+      assert.equal(tagAllowedOn(path), false, path)
+    }
   })
 })
