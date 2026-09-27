@@ -17,6 +17,7 @@ import {
 import { parseRegion } from '@/lib/consent/region'
 import { adsConfig, bannerAllowedOn, decideConsent, parseConsent } from '@/lib/consent/state'
 import {
+  AD_CLICK_COOKIE,
   CONSENT_COOKIE,
   CONSENT_OPEN_EVENT,
   REGION_COOKIE,
@@ -30,6 +31,7 @@ function currentDecision() {
     configured: config !== null,
     choice: parseConsent(readBrowserCookie(CONSENT_COOKIE), Date.now()),
     region: parseRegion(readBrowserCookie(REGION_COOKIE)),
+    adClick: readBrowserCookie(AD_CLICK_COOKIE) === '1',
   })
 }
 

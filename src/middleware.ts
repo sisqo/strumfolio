@@ -14,8 +14,8 @@ import {
 import { ACCOUNT_COOKIE, SCOPE_COOKIE, accountScopeTag, currentAccountFor } from '@/lib/accounts/scope'
 import { normalizeEmail } from '@/lib/allowlist'
 import { regionOf } from '@/lib/consent/region'
-import { adsConfig } from '@/lib/consent/state'
-import { REGION_COOKIE, REGION_MAX_AGE_SECONDS, type Region } from '@/lib/consent/types'
+import { adsConfig, gclidOf } from '@/lib/consent/state'
+import { AD_CLICK_COOKIE, REGION_COOKIE, REGION_MAX_AGE_SECONDS, type Region } from '@/lib/consent/types'
 import { qaAllowed } from '@/lib/qa/entry'
 import { SESSION_FREE_PATHS, isBlogPath, isFollowPath } from '@/lib/publicRoutes'
 import { DEVICE_COOKIE } from '@/lib/strumTogether/devices'
@@ -227,8 +227,46 @@ function regionCookieFor(request: NextRequest): Region | null {
   return stored === region ? null : region
 }
 
-/** Put the region cookie on a response, or leave it untouched when there is nothing to write. */
-function withRegion(response: NextResponse, region: Region | null): NextResponse {
+/**
+ * Whether to (re)write `songbook-ad-click`, the one bit of the attribution cookie the browser is
+ * allowed to see: «this browser arrived from a Google Ads click». Inside the EEA it is what lets
+ * the banner appear by itself (`decideConsent`), so an organic visitor is never interrupted.
+ *
+ * Read from the attribution value this request is about to write, or else from the one the
+ * browser already carries — so a reader signed in since the click (the checkout) still has it.
+ * Rewritten whenever a new attribution value is, which keeps its 90 days in step with that
+ * cookie's; otherwise written only when missing. Never removed here: a later untagged visit
+ * does not erase the click, and the attribution cookie keeps it too.
+ */
+function adClickCookieFor(request: NextRequest, attribution: string | null): boolean {
+  if (adsConfig() === null) return false
+
+  const source = attribution ?? request.cookies.get(ATTRIBUTION_COOKIE)?.value
+  if (gclidOf(decodeAttribution(source)) === null) return false
+
+  return attribution !== null || request.cookies.get(AD_CLICK_COOKIE)?.value !== '1'
+}
+
+/** The two cookies the consent banner reads, computed once per request by the helpers above. */
+interface ConsentCookies {
+  region: Region | null
+  adClick: boolean
+}
+
+/** Put the consent banner's cookies on a response, or leave it untouched when there is nothing to write. */
+function withConsent(response: NextResponse, consent: ConsentCookies): NextResponse {
+  if (consent.adClick) {
+    response.cookies.set(AD_CLICK_COOKIE, '1', {
+      /* Read by `ConsentManager`; the click id itself stays in the `httpOnly` cookie. */
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: ATTRIBUTION_MAX_AGE_SECONDS,
+    })
+  }
+
+  const region = consent.region
   if (region === null) return response
 
   response.cookies.set(REGION_COOKIE, region, {
@@ -321,8 +359,12 @@ const withSession = auth(async (request) => {
      did, and nothing about the ordinary request changes. */
   const scope = await scopeCookieFor(request)
 
-  /* `null` unless Ads is configured and this browser's region cookie is missing or stale. */
-  const region = regionCookieFor(request)
+  /* Nothing to write unless Ads is configured and one of the two is missing or stale. */
+  const consent: ConsentCookies = {
+    region: regionCookieFor(request),
+    adClick: adClickCookieFor(request, attribution),
+  }
+  const consentWrites = consent.region !== null || consent.adClick
 
   /* No cookie here, deliberately: these are assets — the service worker, the brand images,
      robots.txt, the promo mockup — fetched by browsers and link-preview bots, not landings
@@ -410,14 +452,14 @@ const withSession = auth(async (request) => {
    */
   if (SESSION_FREE_PATHS.has(pathname)) {
     if (request.auth) {
-      if (scope === null && region === null) return
-      const response = withRegion(NextResponse.next(), region)
+      if (scope === null && !consentWrites) return
+      const response = withConsent(NextResponse.next(), consent)
       return scope === null ? response : withScope(response, scope)
     }
 
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withRegion(withAttribution(response, attribution), region)
+    return withConsent(withAttribution(response, attribution), consent)
   }
 
   /**
@@ -441,7 +483,7 @@ const withSession = auth(async (request) => {
   if (isBlogPath(pathname)) {
     const response = NextResponse.next()
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withRegion(withAttribution(response, attribution), region)
+    return withConsent(withAttribution(response, attribution), consent)
   }
 
   /**
@@ -538,14 +580,14 @@ const withSession = auth(async (request) => {
   if (!request.auth) {
     const response = NextResponse.redirect(new URL('/login', request.nextUrl.origin))
     response.headers.set(ANONYMOUS_HEADER, '1')
-    return withRegion(withAttribution(response, attribution), region)
+    return withConsent(withAttribution(response, attribution), consent)
   }
 
   /* Signed in, on a page of the app itself: the one exit that used to return nothing at all.
      Returning `NextResponse.next()` here is the same "carry on" as returning `undefined`, with
      a cookie attached — and only on the requests that still need one. */
-  if (scope === null && region === null) return
-  const response = withRegion(NextResponse.next(), region)
+  if (scope === null && !consentWrites) return
+  const response = withConsent(NextResponse.next(), consent)
   return scope === null ? response : withScope(response, scope)
 }) as unknown as SessionMiddleware
 
@@ -597,7 +639,7 @@ const SESSION_COOKIE = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=/
  * given up was never a considered design in the first place.
  *
  * Deliberately narrow in the other direction: only the session token, never the CSRF or
- * callback-url cookies Auth.js sets beside it, and never the attribution, device or region
+ * callback-url cookies Auth.js sets beside it, and never the attribution, device or consent
  * cookies the callback above writes.
  */
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {

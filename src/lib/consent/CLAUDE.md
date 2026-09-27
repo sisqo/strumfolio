@@ -19,7 +19,16 @@ account's id only, never production's.
 - **Conversions only, no remarketing.** `ad_personalization` is never granted, and
   `allow_ad_personalization_signals: false` is set too. The banner offers one choice. A second
   purpose means a second choice in the banner, a bump to `CONSENT_VERSION`, and new legal text.
-- **The EEA, UK and Switzerland are asked; everywhere else starts granted.** The region comes
+- **Inside the EEA, only a visitor who arrived from an ad is asked** (decided 2026-09-27, the
+  same day, after the first version asked everybody). `songbook-ad-click` (`1`, not httpOnly,
+  90 days like the attribution cookie) is written by the middleware whenever
+  `songbook-attribution` holds a gclid (`adClickCookieFor`, via `gclidOf`). It is the one bit of
+  that httpOnly cookie the page may read, never the click id. Without the flag, an EEA visitor
+  with no answer gets no banner and no tag. «Cookie settings» still lets them opt in, and the
+  first ad click after an organic visit makes the banner appear. The cost, accepted: the
+  view-through conversions of somebody who saw an ad and came back by search. Outside the EEA
+  nothing changed: the tag loads with or without a click.
+- **The region: the EEA, UK and Switzerland need a «yes»; everywhere else starts granted.** The region comes
   from `x-vercel-ip-country` in the middleware, which writes the `songbook-region` cookie. It is
   not httpOnly: the landing page, the blog and the tools are prerendered, so only the browser can
   act on it.
@@ -33,7 +42,7 @@ account's id only, never production's.
   basic mode a refusal sends nothing, so nothing needs proving. A stored answer from an older
   `CONSENT_VERSION` counts as no answer. **Bump the version** whenever what «Accept» agrees to
   changes.
-- **Where the banner shows by itself: `bannerAllowedOn`.** That means the public pages
+- **Where the banner shows by itself: `bannerAllowedOn`** (and only for an ad arrival, above). That means the public pages
   (`isOutsideAppPath`), a visitor's `/` and `/checkout/[plan]`. It never shows on a reading,
   editing or `/follow` screen, because the app is used on stage. `ConsentManager` is mounted
   once, in the root layout. It loads the tag on *every* page where consent is granted, because
@@ -97,7 +106,7 @@ Everything is printed only when `adsConfig()` is non-null (the `plansEnforced()`
 the behaviour and every one of these is wrong:
 
 - **Cookie Policy**
-  - §2, the essential-cookies paragraph: the consent and region cookies.
+  - §2, the essential-cookies paragraph: the consent, region and ad-click cookies.
   - §2, the attribution paragraph: the gclid exception.
   - §2, «Google Ads measurement — only if you accept», and «No other advertising…».
   - §3: consent, and the fact that refusing does not stop the two first-party cookies.

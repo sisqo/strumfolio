@@ -20,6 +20,16 @@ export const CONSENT_COOKIE = 'songbook-consent'
 export const REGION_COOKIE = 'songbook-region'
 
 /**
+ * `1` when this browser's attribution cookie holds a Google Ads click (a gclid), written by the
+ * middleware beside it. Inside the EEA it is what makes the banner appear by itself: a visitor
+ * who never arrived from one of our advertisements has no Ads conversion to measure, so they are
+ * not asked, and the tag stays unloaded unless they open «Cookie settings» themselves. Not
+ * `httpOnly`, since the prerendered pages can only act on it in the browser; `songbook-attribution`
+ * itself stays `httpOnly`, and this carries one bit of it, never the click id.
+ */
+export const AD_CLICK_COOKIE = 'songbook-ad-click'
+
+/**
  * Set by the server on the one request that creates an account, and only when the tag may run;
  * read and deleted by `ConsentManager` on the next page, which fires the signup conversion. It
  * exists only for Google Ads, which is why nothing writes it before a «yes».

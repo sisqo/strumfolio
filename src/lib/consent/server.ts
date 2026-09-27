@@ -12,6 +12,7 @@ import { cookies } from 'next/headers'
 import { parseRegion } from './region'
 import { adsConfig, decideConsent, parseConsent, type ConsentDecision } from './state'
 import {
+  AD_CLICK_COOKIE,
   CONSENT_COOKIE,
   REGION_COOKIE,
   SIGNUP_CONVERSION_COOKIE,
@@ -24,6 +25,7 @@ export async function consentDecisionForRequest(): Promise<ConsentDecision> {
     configured: adsConfig() !== null,
     choice: parseConsent(jar.get(CONSENT_COOKIE)?.value, Date.now()),
     region: parseRegion(jar.get(REGION_COOKIE)?.value),
+    adClick: jar.get(AD_CLICK_COOKIE)?.value === '1',
   })
 }
 

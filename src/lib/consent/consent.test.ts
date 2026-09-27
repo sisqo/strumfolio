@@ -84,23 +84,33 @@ describe('what the browser does', () => {
   it('does nothing at all when Ads is not configured, whatever else is true', () => {
     for (const region of ['eea', 'other'] as const) {
       for (const choice of [null, granted, denied]) {
-        assert.deepEqual(decideConsent({ configured: false, choice, region }), { load: false, ask: false })
+        for (const adClick of [true, false]) {
+          assert.deepEqual(decideConsent({ configured: false, choice, region, adClick }), { load: false, ask: false })
+        }
       }
     }
   })
 
-  it('asks in the EEA and loads nothing until the answer', () => {
-    assert.deepEqual(decideConsent({ configured: true, choice: null, region: 'eea' }), { load: false, ask: true })
+  it('asks in the EEA a visitor who arrived from an ad, and loads nothing until the answer', () => {
+    assert.deepEqual(decideConsent({ configured: true, choice: null, region: 'eea', adClick: true }), { load: false, ask: true })
   })
 
-  it('loads without asking outside the EEA', () => {
-    assert.deepEqual(decideConsent({ configured: true, choice: null, region: 'other' }), { load: true, ask: false })
+  it('neither asks nor loads in the EEA for a visitor who never arrived from an ad', () => {
+    assert.deepEqual(decideConsent({ configured: true, choice: null, region: 'eea', adClick: false }), { load: false, ask: false })
   })
 
-  it('honours an answer everywhere, a «no» outside the EEA included', () => {
+  it('loads without asking outside the EEA, however the visitor arrived', () => {
+    for (const adClick of [true, false]) {
+      assert.deepEqual(decideConsent({ configured: true, choice: null, region: 'other', adClick }), { load: true, ask: false })
+    }
+  })
+
+  it('honours an answer everywhere, a «no» outside the EEA and a «yes» from an organic visitor included', () => {
     for (const region of ['eea', 'other'] as const) {
-      assert.deepEqual(decideConsent({ configured: true, choice: granted, region }), { load: true, ask: false })
-      assert.deepEqual(decideConsent({ configured: true, choice: denied, region }), { load: false, ask: false })
+      for (const adClick of [true, false]) {
+        assert.deepEqual(decideConsent({ configured: true, choice: granted, region, adClick }), { load: true, ask: false })
+        assert.deepEqual(decideConsent({ configured: true, choice: denied, region, adClick }), { load: false, ask: false })
+      }
     }
   })
 })

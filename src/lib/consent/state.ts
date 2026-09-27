@@ -81,7 +81,7 @@ export function parseConsent(raw: string | null | undefined, now: number): Conse
 export interface ConsentDecision {
   /** Load Google's tag, with `ad_storage` and `ad_user_data` granted. */
   load: boolean
-  /** Show the banner (where `bannerAllowedOn` also agrees). */
+  /** Show the banner by itself (where `bannerAllowedOn` also agrees). «Cookie settings» opens it regardless. */
   ask: boolean
 }
 
@@ -92,18 +92,22 @@ export interface ConsentDecision {
  * - An answer on record wins everywhere, a «no» from outside the EEA included: «Cookie settings»
  *   is available to everybody precisely so that it means something.
  * - No answer, outside the EEA/UK/CH: the tag runs and nobody is asked.
- * - No answer, inside (or unknown, which `parseRegion` already folded into `eea`): ask, and
- *   load nothing until the answer.
+ * - No answer, inside (or unknown, which `parseRegion` already folded into `eea`), arrived from
+ *   one of our advertisements (`adClick`): ask, and load nothing until the answer.
+ * - No answer, inside, never arrived from an advertisement: nothing — no banner, no tag. There
+ *   is no Ads conversion of theirs to measure, so an organic visitor is not interrupted; the
+ *   cost is the view-through conversions of somebody who saw an ad and came back by search.
  */
 export function decideConsent(input: {
   configured: boolean
   choice: ConsentChoice | null
   region: Region
+  adClick: boolean
 }): ConsentDecision {
   if (!input.configured) return { load: false, ask: false }
   if (input.choice) return { load: input.choice.ads === 'granted', ask: false }
   if (input.region === 'other') return { load: true, ask: false }
-  return { load: false, ask: true }
+  return { load: false, ask: input.adClick }
 }
 
 /**

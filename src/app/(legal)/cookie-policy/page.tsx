@@ -50,9 +50,11 @@ export default function CookiePolicyPage() {
         grants no access to anything.
         {ads && (
           <>
-            {' '}Two more hold your answer about advertising measurement (below), for six months,
-            and which part of the world your visit comes from — a region, never a place — so that we
-            know whether to ask; both are readable by the page itself.
+            {' '}Three more decide the advertising-measurement notice (below): one holds your
+            answer, for six months; one which part of the world your visit comes from — a region,
+            never a place; and one only whether you arrived by clicking one of our advertisements,
+            for as long as the attribution cookie below. All three are readable by the page
+            itself, and none of them is sent to anyone.
           </>
         )}{' '}
         All of these are necessary for the Service to work and cannot
@@ -145,7 +147,9 @@ export default function CookiePolicyPage() {
         <>
           <p>
             <strong>Google Ads measurement — only if you accept.</strong> In the European Economic
-            Area, the United Kingdom and Switzerland, a notice asks you first, and until you accept{' '}
+            Area, the United Kingdom and Switzerland it is off unless you turn it on: a notice asks
+            you when you arrive by clicking one of our advertisements, and anybody else can turn it
+            on under &ldquo;Cookie settings&rdquo;. Until you accept,{' '}
             <strong>nothing from Google is loaded at all</strong> — not even a request without
             cookies. Elsewhere it is on until you turn it off. If it is on, we load Google&apos;s
             advertising tag, which sets its own cookies (named <code>_gcl_…</code>, for 90 days) so
