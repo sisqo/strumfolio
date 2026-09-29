@@ -129,19 +129,19 @@ describe('what the browser does', () => {
 describe('where the banner may appear by itself', () => {
   it('on the public pages and the checkout', () => {
     for (const path of ['/pricing', '/login', '/register', '/blog', '/blog/some-post', '/tools/capo-calculator', '/cookie-policy', '/checkout/standard']) {
-      assert.equal(bannerAllowedOn(path, true), true, path)
+      assert.equal(bannerAllowedOn(path, true, ''), true, path)
     }
   })
 
   it('on / only for a visitor, since a reader\'s / is their songbooks', () => {
-    assert.equal(bannerAllowedOn('/', true), true)
-    assert.equal(bannerAllowedOn('/', false), false)
+    assert.equal(bannerAllowedOn('/', true, ''), true)
+    assert.equal(bannerAllowedOn('/', false, ''), false)
   })
 
   it('never on a reading, editing or guest screen, nor on a page whose address is a secret', () => {
     for (const path of ['/songs/wonderwall', '/songs/wonderwall/edit', '/songbooks/main', '/follow/abc', '/app-settings', '/qa', '/pay', '/verify', '/reset-password', '/courtesy-unsubscribe']) {
-      assert.equal(bannerAllowedOn(path, false), false, path)
-      assert.equal(bannerAllowedOn(path, true), false, path)
+      assert.equal(bannerAllowedOn(path, false, ''), false, path)
+      assert.equal(bannerAllowedOn(path, true, ''), false, path)
     }
   })
 })
@@ -198,13 +198,28 @@ describe('the address Google\'s tag is shown', () => {
 describe('where Google\'s tag may be loaded at all', () => {
   it('on the landing and home page, the checkout and public pages', () => {
     for (const path of ['/', '/checkout/plus', '/pricing', '/register', '/login', '/blog/a-post', '/tools/capo-calculator', '/cookie-policy']) {
-      assert.equal(tagAllowedOn(path), true, path)
+      assert.equal(tagAllowedOn(path, ''), true, path)
     }
   })
 
   it('never where the address carries a secret or a person, nor inside the app', () => {
     for (const path of ['/verify', '/reset-password', '/courtesy-unsubscribe', '/follow/TOKEN', '/qa', '/pay', '/accounts/a@b.it', '/songs/x', '/songbooks/y', '/profile']) {
-      assert.equal(tagAllowedOn(path), false, path)
+      assert.equal(tagAllowedOn(path, ''), false, path)
     }
+  })
+
+  it('never on an allowed page whose query carries an address or a token', () => {
+    /* What the sign-in form redirects an unverified address to — `/login` by its path alone. */
+    const unverified = `?${new URLSearchParams({ unverified: '1', email: 'reader@strumfolio.test' })}`
+    assert.equal(tagAllowedOn('/login', unverified), false)
+    assert.equal(bannerAllowedOn('/login', true, unverified), false)
+    assert.equal(tagAllowedOn('/', '?token=SECRET'), false)
+    assert.equal(bannerAllowedOn('/', true, '?email=a%40b.it'), false)
+  })
+
+  it('still on a query that carries neither', () => {
+    assert.equal(tagAllowedOn('/login', '?reset=1'), true)
+    assert.equal(tagAllowedOn('/pricing', '?coupon=HAPPYSONG&gclid=G1'), true)
+    assert.equal(bannerAllowedOn('/pricing', false, '?coupon=HAPPYSONG'), true)
   })
 })

@@ -79,12 +79,17 @@ sent Google the address and the live token.
 `set` and on `config` and on the page view, the `ccm/collect` page view still reached Google
 with `dl=…/follow/<token>`. So the rule is structural:
 
-- **`tagAllowedOn(pathname)`** (`state.ts`, tested) is where the tag may be loaded at all:
+- **`tagAllowedOn(pathname, search)`** (`state.ts`, tested) is where the tag may be loaded at all:
   - `/`, the landing page and the home the signup conversion fires on;
   - `/checkout/<plan>`;
   - the public pages, except `TAG_NEVER` (`/verify`, `/reset-password`, `/courtesy-unsubscribe`,
     `/qa`, `/pay`) and `/follow/…`;
-  - no screen inside the app.
+  - no screen inside the app;
+  - **and never when the query carries `email` or `token`** (`SECRET_PARAMS`), whatever the path.
+    A sign-in with an unverified address lands on `/login?unverified=1&email=…`, which the path
+    alone allowed until 2026-09-29. `search` is required, and every load decision in
+    `ConsentManager` reads `location.search` live: a redirect that changes only the query keeps
+    the pathname, so the effect does not re-run and the banner can still be on screen.
 - **The banner never appears on a page the tag may not load on.** An «Accept» given there
   through «Cookie settings» keeps its recovered gclid (`pendingClick`) for the first page that
   may load it.
@@ -98,7 +103,8 @@ with `dl=…/follow/<token>`. So the rule is structural:
   fields that do honour it.
 - **`allow_enhanced_conversions: false`**, so a switch in the Ads dashboard cannot start reading
   email fields off our forms.
-- **A new public path whose URL carries a secret goes into `TAG_NEVER`.**
+- **A new public path whose URL carries a secret goes into `TAG_NEVER`**, and a new query
+  parameter that carries one into `SECRET_PARAMS`.
 
 ## The two conversions
 
@@ -146,6 +152,13 @@ with `dl=…/follow/<token>`. So the rule is structural:
     lowest-denomination strings, so `totals.total` goes to Ads unconverted.
   - **`sw.ts`'s `NetworkOnly` rule** for Google hosts, since Serwist is disabled under `next
     dev`. Check it on the preview build.
+  - **The referrer (`dr`)**, open since the 2026-09-29 review. `page_referrer` is set from
+    `tagReferrer`, but nobody has measured that `ccm/collect` honours it, and `page_location` was
+    measured not to override `dl`. The case that matters: `/verify`'s form keeps its native
+    fallback, so a submit before hydration is a full load of `/` whose `document.referrer` is
+    `/verify?email=…&token=…` (no Referrer-Policy is set anywhere). The token is spent by then;
+    the address is not. The fix, not taken: `referrer: 'no-referrer'` in the metadata of the
+    pages whose address carries a secret.
 
 ## The gclid handed over after a late «yes»
 

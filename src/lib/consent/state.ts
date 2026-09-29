@@ -129,9 +129,9 @@ export function decideConsent(input: {
  *
  * «Cookie settings» opens the banner anywhere, whatever this says.
  */
-export function bannerAllowedOn(pathname: string, visitor: boolean): boolean {
+export function bannerAllowedOn(pathname: string, visitor: boolean, search: string): boolean {
+  if (!tagAllowedOn(pathname, search)) return false
   if (pathname === '/') return visitor
-  if (!tagAllowedOn(pathname)) return false
   if (/^\/checkout\/[^/]+$/.test(pathname)) return true
   return isOutsideAppPath(pathname)
 }
@@ -147,13 +147,30 @@ export function bannerAllowedOn(pathname: string, visitor: boolean): boolean {
 const TAG_NEVER: ReadonlySet<string> = new Set(['/verify', '/reset-password', '/courtesy-unsubscribe', '/qa', '/pay'])
 
 /**
+ * Query parameters that carry an address or a credential, on whatever path they appear — the
+ * other half of `TAG_NEVER`, for a public page that is harmless until its query is not: a sign-in
+ * with an unverified address lands on `/login?unverified=1&email=…`, which the path alone reads
+ * as `/login` (found 2026-09-29). A new parameter of that kind goes here.
+ */
+const SECRET_PARAMS: readonly string[] = ['email', 'token']
+
+function carriesSecret(search: string): boolean {
+  const params = new URLSearchParams(search)
+  return SECRET_PARAMS.some((name) => params.has(name))
+}
+
+/**
  * Where Google's tag may be loaded at all: `/` (the landing page, and the reader's home the
  * signup conversion fires on), `/checkout/<plan>` (the purchase), and the public pages an
  * advertisement can land on — `TAG_NEVER` and `/follow/…` excepted. Nowhere else inside the
  * app: no conversion happens there, and every address there is the reader's own content.
  * Once loaded the tag stays resident across client navigations, but sends nothing by itself.
+ *
+ * `search` is required, not defaulted: it is `location.search` at the moment of asking, and a
+ * caller that left it out would let `SECRET_PARAMS` through without a word.
  */
-export function tagAllowedOn(pathname: string): boolean {
+export function tagAllowedOn(pathname: string, search: string): boolean {
+  if (carriesSecret(search)) return false
   if (pathname === '/') return true
   if (/^\/checkout\/[^/]+$/.test(pathname)) return true
   if (pathname.startsWith('/follow/') || TAG_NEVER.has(pathname)) return false

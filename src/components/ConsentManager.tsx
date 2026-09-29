@@ -57,6 +57,10 @@ export function ConsentManager() {
    * `.landing-hero` exists only in `Landing`, which only a visitor is ever rendered.
    */
   const [landing, setLanding] = useState(false)
+  /* The query the banner is judged with (`bannerAllowedOn`), read with `landing`. Every decision
+     to *load* reads `location.search` live instead: a redirect that changes only the query — the
+     unverified sign-in's `/login?…&email=…` — keeps the pathname and does not re-run the effect. */
+  const [search, setSearch] = useState('')
   const [reopened, setReopened] = useState(false)
   const [granted, setGranted] = useState(false)
   /* True between «Accept» and the tag loading with the recovered gclid: a navigation in that
@@ -71,6 +75,7 @@ export function ConsentManager() {
   useEffect(() => {
     if (!config) return
     setLanding(document.querySelector('.landing-hero') !== null)
+    setSearch(location.search)
     const decision = currentDecision()
     setAsked(decision.ask)
     setGranted(decision.load)
@@ -78,7 +83,7 @@ export function ConsentManager() {
 
     /* During an accept in flight the loader waits for its gclid — see `accepting`. */
     if (accepting.current) return
-    if (tagAllowedOn(pathname)) {
+    if (tagAllowedOn(pathname, location.search)) {
       loadGtag(config, pendingClick.current)
       pendingClick.current = null
     }
@@ -87,7 +92,7 @@ export function ConsentManager() {
        signup cookie waits (ten minutes) for one; `verifyEmail` lands on `/`, which is. */
     if (!gtagLoaded()) return
     tellPage()
-    if (!tagAllowedOn(pathname)) return
+    if (!tagAllowedOn(pathname, location.search)) return
     if (readBrowserCookie(SIGNUP_CONVERSION_COOKIE) !== null) {
       deleteBrowserCookie(SIGNUP_CONVERSION_COOKIE)
       trackSignup()
@@ -115,7 +120,7 @@ export function ConsentManager() {
       // Offline: the tag loads without the recovered click, which is the lesser loss.
     }
     /* `location`, not the render's `pathname`: the reader may have moved on during the await. */
-    if (tagAllowedOn(location.pathname)) loadGtag(config, clickId)
+    if (tagAllowedOn(location.pathname, location.search)) loadGtag(config, clickId)
     else pendingClick.current = clickId
     accepting.current = false
     /* Anything that happened while the gclid was being fetched — a signup cookie on the page
@@ -135,7 +140,7 @@ export function ConsentManager() {
 
   if (!config) return null
 
-  const show = reopened || (asked && bannerAllowedOn(pathname, landing))
+  const show = reopened || (asked && bannerAllowedOn(pathname, landing, search))
   if (!show) return null
 
   return (

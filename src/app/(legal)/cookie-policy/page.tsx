@@ -161,7 +161,7 @@ export default function CookiePolicyPage() {
             a page whose address carries an email address or a private link, nor on the screens
             where you read and edit your songs, so none of those reaches Google. We use no personalised advertising and no remarketing: the tag is told so, and
             it builds no audience out of your visit. You can change your answer at any time under
-            &ldquo;Cookie settings&rdquo; at the foot of every page; turning it off stops the tag
+            &ldquo;Cookie settings&rdquo; in the footer of the site; turning it off stops the tag
             and deletes the cookies it set on our domain.
           </p>
           <p>
@@ -191,8 +191,8 @@ export default function CookiePolicyPage() {
         <p>
           In the European Economic Area, the United Kingdom and Switzerland, Google Ads measurement
           rests on your consent; elsewhere, on our legitimate interest in measuring our own
-          advertising. Either way you turn it on or off under &ldquo;Cookie settings&rdquo; at the
-          foot of every page. Everything else described above is
+          advertising. Either way you turn it on or off under &ldquo;Cookie settings&rdquo; in the
+          footer of the site. Everything else described above is
           either strictly necessary to provide the Service you requested or, in the case of the
           attribution and discount cookies, used only to measure how people find Strumfolio and which
           offers they use. <strong>Refusing Google Ads does not turn those two off</strong>: they are

@@ -179,7 +179,7 @@ export default function PrivacyPolicyPage() {
           <strong>Advertising measurement.</strong> In the European Economic
           Area, the United Kingdom and Switzerland it is off unless you accept: we ask when you
           arrive by clicking one of our advertisements, and you can turn it on or off under
-          &ldquo;Cookie settings&rdquo; at the foot of every page. Elsewhere it is on until you turn
+          &ldquo;Cookie settings&rdquo; in the footer of the site. Elsewhere it is on until you turn
           it off there. If it is on, we load
           Google&apos;s advertising tag, which sets its own cookies and tells Google Ads when a visit
           that came from one of our advertisements ends in a new account or a purchase — for a
@@ -531,7 +531,7 @@ export default function PrivacyPolicyPage() {
         <li>
           withdraw any consent you have given, without affecting processing carried out before
           withdrawal
-          {ads && <> — for advertising measurement, under &ldquo;Cookie settings&rdquo; at the foot of every page, in one tap</>};
+          {ads && <> — for advertising measurement, under &ldquo;Cookie settings&rdquo; in the footer of the site, in one tap</>};
         </li>
         <li>
           lodge a complaint with your national data protection authority (in Italy, the Garante per la
