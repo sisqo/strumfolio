@@ -79,8 +79,10 @@ expect far less.
 
 sha256 of 32 random bytes, prefix `sfm_`, unique index on the hash. **No expiry; dead after 180
 days unused** (`TOKEN_IDLE_DAYS`, from `last_used_at`, or `created_at` if never used), revocable by
-hand, ten live per account. **A password change does not touch them** — `sessions_valid_after` is
-about browsers — while suspension and deletion end them (the account row is read on every call;
+hand, ten live per account. **A token made before `sessions_valid_after` is dead** (`superseded`,
+owner's decision 2026-10-16, reversing the 27/9 «that is about browsers»): a password chosen or
+removed, or a change of address, ends it, since a reset is how a stolen account is taken back.
+Suspension and deletion end them too (the account row is read on every call;
 deletion cascades). `last_used_at` is written at most every five minutes.
 
 ## Writing — whole text plus version

@@ -75,12 +75,17 @@ function toRow(row: typeof apiTokens.$inferSelect): AiTokenRow {
 
 async function liveTokens(accountId: number): Promise<AiTokenRow[]> {
   const now = new Date()
+  const [account] = await db()
+    .select({ sessionsValidAfter: accounts.sessionsValidAfter })
+    .from(accounts)
+    .where(eq(accounts.id, accountId))
+    .limit(1)
   const rows = await db()
     .select()
     .from(apiTokens)
     .where(and(eq(apiTokens.accountId, accountId), isNull(apiTokens.revokedAt)))
     .orderBy(desc(apiTokens.createdAt))
-  return rows.filter((row) => tokenState(row, now) === 'live').map(toRow)
+  return rows.filter((row) => tokenState(row, now, account?.sessionsValidAfter ?? null) === 'live').map(toRow)
 }
 
 export async function loadAiAccess(): Promise<AiAccessState> {

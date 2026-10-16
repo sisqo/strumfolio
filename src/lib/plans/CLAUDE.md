@@ -8,7 +8,11 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   different clock than a limit does.
 - `entitlements.ts` — `resolveSubscription`/`liveSubscription`: pure functions collapsing a
   scheduled downgrade or cancellation the instant `now` passes its date. Called at every read
-  site instead of a cron job — there is no background job anywhere in this repo.
+  site instead of a cron job — there is no background job anywhere in this repo. **A renewing
+  subscription keeps its plan for `RENEWAL_LATENCY_MS` (12 h) past its period end** (owner's
+  decision 2026-10-16): `active`, nothing pending, because Paddle reports a renewal only after
+  billing it, and without the margin every renewal dropped a paying reader to Free until the
+  webhook landed. A scheduled cancel is a pending `free` and gets no margin; `grace` ignores dates.
 - `checkout.ts` (`'use server'`) — **five loaders and one write, and no plan column among
   them**: `loadCheckoutStatus`, `loadPurchaseSummary`, `loadThanksPreview`,
   `loadMyPaymentHistory`, `loadFreezeState`, plus `activatePlanChoice`, which stamps

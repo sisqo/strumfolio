@@ -243,8 +243,18 @@ export function liveSubscription(stored: SubscriptionColumns, now: Date): Plan |
   if (resolved.status === 'expired') return null
   if (resolved.status === 'grace') return resolved.plan
   if (resolved.expiresAt === null) return resolved.plan
-  return resolved.expiresAt.getTime() > now.getTime() ? resolved.plan : null
+  /* An `active` row with nothing scheduled is renewing, and its renewal is reported after the
+     fact: Paddle bills at `ends_at` and the `subscription.updated` carrying the new period
+     arrives later — seconds, or hours of retries if a delivery fails. Without a margin every
+     renewal dropped a paying reader to Free for that window (owner's decision 2026-10-16: twelve
+     hours). A cancellation is a pending `free`, resolved above, and never gets the margin; a
+     failed renewal is `grace`, which never looks at dates at all. */
+  const margin = stored.status === 'active' && stored.pendingPlan === null ? RENEWAL_LATENCY_MS : 0
+  return resolved.expiresAt.getTime() + margin > now.getTime() ? resolved.plan : null
 }
+
+/** How long a renewing subscription stays in force past its period end — see `liveSubscription`. */
+export const RENEWAL_LATENCY_MS = 12 * 60 * 60 * 1000
 
 /**
  * The gift's plan if it is live at `now`, otherwise null.

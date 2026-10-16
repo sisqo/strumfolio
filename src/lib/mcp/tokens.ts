@@ -57,13 +57,22 @@ export function idleDeadline(token: { createdAt: Date; lastUsedAt: Date | null }
   return new Date((token.lastUsedAt ?? token.createdAt).getTime() + TOKEN_IDLE_DAYS * DAY_MS)
 }
 
-export type TokenState = 'live' | 'revoked' | 'idle'
+export type TokenState = 'live' | 'revoked' | 'idle' | 'superseded'
 
+/**
+ * `superseded`: made before the account's sessions were last revoked — a password chosen or
+ * removed, the address changed (`accounts.sessions_valid_after`). Owner's decision 2026-10-16,
+ * reversing the 27/9 one that the revocation was about browsers only: a reset is how a stolen
+ * account is taken back, and a thief who held the session could have made a token on
+ * `/ai-access` that kept reading and rewriting the songs for six months after it.
+ */
 export function tokenState(
   token: { createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null },
   now: Date,
+  sessionsValidAfter: Date | null = null,
 ): TokenState {
   if (token.revokedAt !== null) return 'revoked'
+  if (sessionsValidAfter !== null && token.createdAt.getTime() < sessionsValidAfter.getTime()) return 'superseded'
   return now.getTime() >= idleDeadline(token).getTime() ? 'idle' : 'live'
 }
 
@@ -90,6 +99,7 @@ export async function resolveToken(secret: string, now = new Date()): Promise<Re
       revokedAt: apiTokens.revokedAt,
       ownerEmail: accounts.ownerEmail,
       suspendedAt: accounts.suspendedAt,
+      sessionsValidAfter: accounts.sessionsValidAfter,
     })
     .from(apiTokens)
     .innerJoin(accounts, eq(apiTokens.accountId, accounts.id))
@@ -97,7 +107,7 @@ export async function resolveToken(secret: string, now = new Date()): Promise<Re
     .limit(1)
 
   const row = rows[0]
-  if (row === undefined || row.suspendedAt !== null || tokenState(row, now) !== 'live') return null
+  if (row === undefined || row.suspendedAt !== null || tokenState(row, now, row.sessionsValidAfter) !== 'live') return null
 
   if (row.lastUsedAt === null || now.getTime() - row.lastUsedAt.getTime() > TOUCH_AFTER_MS) {
     /* Best effort: a failed stamp must not fail the call it describes. */

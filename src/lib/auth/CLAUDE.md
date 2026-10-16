@@ -87,3 +87,13 @@ so every operator action that reads it sees nobody and refuses. A change to any 
 functions must keep the actor branch first; `actor.test.ts` pins the cross-account refusal, and
 `src/lib/mcp/CLAUDE.md` has the rest. Token revocation is not `sessions_valid_after`: a password
 change leaves tokens alone, by decision.
+
+## The sign-in limit can lock somebody out, knowingly
+
+`auth.ts` refuses a password sign-in once an address has had ten attempts in ten minutes (`login:email:<address>`),
+**the right password included**, and the answer reads like a wrong one. So anybody who knows an
+address can keep its owner out of password sign-in with an attempt a minute. Kept as it is by the
+owner's decision of 2026-10-16: the risk is theoretical today, the limit is what stops password
+guessing, and Google sign-in and `clearRateLimitFor` on `/accounts` still get the person in. The
+alternatives weighed were a Turnstile challenge past the threshold and an explicit «too many
+attempts» message (which tells a stranger the address was targeted).

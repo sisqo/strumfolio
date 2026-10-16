@@ -46,3 +46,16 @@ describe('tokenState', () => {
     assert.equal(tokenState({ createdAt: created, lastUsedAt: created, revokedAt: created }, created), 'revoked')
   })
 })
+
+describe('a token made before the sessions were revoked', () => {
+  const created = new Date('2026-10-01T10:00:00Z')
+  const token = { createdAt: created, lastUsedAt: created, revokedAt: null }
+
+  it('stops working once the password changes after it', () => {
+    assert.equal(tokenState(token, created, new Date('2026-10-02T10:00:00Z')), 'superseded')
+  })
+
+  it('keeps working when the revocation came first', () => {
+    assert.equal(tokenState(token, created, new Date('2026-09-30T10:00:00Z')), 'live')
+  })
+})

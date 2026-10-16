@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  RENEWAL_LATENCY_MS,
   UNGATED,
   bookletBrandLine,
   bookletCustomFooterAllowed,
@@ -192,9 +193,14 @@ describe('expiry', () => {
     assert.equal(ent.state?.until, null)
   })
 
-  it('counts a date of exactly now as passed', () => {
-    const ent = entitlementsFor(stored({ plan: 'premium', expiresAt: NOW }), NOW, EMPTY)
-    assert.deepEqual(ent.limits, PLANS.free)
+  /* Owner's decision 2026-10-16: a renewing subscription is reported after its period ends, so
+     an `active` row with nothing scheduled keeps its plan for `RENEWAL_LATENCY_MS` past it. */
+  it('keeps a renewing subscription for the renewal margin, and not a moment longer', () => {
+    const renewing = entitlementsFor(stored({ plan: 'premium', expiresAt: NOW }), NOW, EMPTY)
+    assert.deepEqual(renewing.limits, PLANS.premium)
+
+    const lapsed = entitlementsFor(stored({ plan: 'premium', expiresAt: new Date(NOW.getTime() - RENEWAL_LATENCY_MS) }), NOW, EMPTY)
+    assert.deepEqual(lapsed.limits, PLANS.free)
   })
 
   it('never invents an expiry for a row that has none', () => {
@@ -219,7 +225,7 @@ describe('expiry', () => {
     const lapsed = [
       stored({ plan: 'standard', expiresAt: PAST }),
       stored({ plan: 'plus', status: 'expired' }),
-      stored({ plan: 'premium', expiresAt: NOW }),
+      stored({ plan: 'premium', expiresAt: new Date(NOW.getTime() - RENEWAL_LATENCY_MS) }),
       stored({ plan: 'lifetime', status: 'expired' }),
     ]
 
