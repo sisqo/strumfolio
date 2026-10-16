@@ -534,3 +534,19 @@ describe('familyOf never contradicts the chord', () => {
     assert.equal(familyOf('m+7'), null)
   })
 })
+
+describe('chord tones are spelt on their own letters (2026-10-16)', () => {
+  const names = (symbol: string) => chordNoteNames(parseChord(symbol)!).join(' ')
+
+  it('writes a minor third as a flat on a natural root, never as the sharp of the second', () => {
+    assert.equal(names('Cm'), 'C Eb G')
+    assert.equal(names('C7'), 'C E G Bb')
+    assert.equal(names('Fm'), 'F Ab C')
+  })
+
+  it('raises the fifth of an augmented chord and prints a dim7 seventh without a double flat', () => {
+    assert.equal(names('Caug'), 'C E G#')
+    assert.equal(names('Cdim7'), 'C Eb Gb A')
+    assert.equal(names('G#dim7'), 'G# B D F')
+  })
+})

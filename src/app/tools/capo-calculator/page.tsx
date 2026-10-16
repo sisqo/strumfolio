@@ -92,8 +92,8 @@ export default function CapoCalculatorPage() {
 
           <h2>Guitar and ukulele are different questions</h2>
           <p>
-            The same chords are hard on one and simple on the other: <BlogChord>E</BlogChord> is a stretch on a guitar and three
-            fingers on a ukulele, and <BlogChord>Bb</BlogChord> is the reverse. The switch above is not cosmetic — it changes
+            The same chords are hard on one and simple on the other: <BlogChord>E</BlogChord> is an open chord on a guitar and a
+            stretch on a ukulele, and <BlogChord>C</BlogChord> is one finger on a ukulele and three on a guitar. The switch above is not cosmetic — it changes
             which shapes count as easy, and often which fret wins.
           </p>
 
@@ -136,7 +136,7 @@ export default function CapoCalculatorPage() {
             {
               question: 'Does this work for a ukulele?',
               answer:
-                'Yes, and it gives a different answer. The shapes a ukulele makes easy are not the ones a guitar makes easy — E is a stretch on a guitar and three fingers on a ukulele, and Bb is the reverse — so the instrument switch changes which chords count as easy, and often which fret wins.',
+                'Yes, and it gives a different answer. The shapes a ukulele makes easy are not the ones a guitar makes easy — E is an open chord on a guitar and a stretch on a ukulele, while C is one finger on a ukulele and three on a guitar — so the instrument switch changes which chords count as easy, and often which fret wins.',
             },
           ]}
         />

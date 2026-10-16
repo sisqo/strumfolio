@@ -633,6 +633,8 @@ export function definedShape(
     const named = parseChord(definition.name)
     if (named === null || named.root !== chord.root) continue
     if (normalizeSuffix(named.suffix) !== normalizeSuffix(chord.suffix)) continue
+    /* The bass too: a `{define: G/B …}` is the G/B fingering, and used to become plain G's. */
+    if (named.bass !== chord.bass) continue
     if (definition.frets.length !== TUNING[instrument].length) continue
 
     return { frets: definition.frets, family: chord.suffix, simplified: false }
@@ -704,6 +706,35 @@ export function isEasyShape(root: PitchClass, suffix: string, instrument: Instru
   return shape.frets.includes(0) && (fretted.length === 0 || Math.max(...fretted) <= 3)
 }
 
+/* Which letter above the root an interval is written on: a minor third is a third (C → Eb, never
+   D#), a diminished fifth a fifth, the sixth of an augmented chord a raised fifth. */
+const DEGREE: Record<number, number> = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6 }
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+const LETTER_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
+
+/**
+ * A chord tone spelt on its own degree's letter, or null when the root is not a plain letter
+ * name or the right letter would need a double sharp or flat (a dim7's Bbb is printed A).
+ * Until 2026-10-16 every natural-root chord was spelt with sharps: Cm read «C D# G».
+ */
+function spellDegree(
+  rootName: string,
+  pc: number,
+  interval: number,
+  augmented: boolean,
+  diminishedSeventh: boolean,
+): string | null {
+  const match = /^([A-G])([#b]?)$/.exec(rootName)
+  if (match === null) return null
+  const degree = interval === 8 && augmented ? 4 : interval === 9 && diminishedSeventh ? 6 : DEGREE[interval]
+  const letter = LETTERS[(LETTERS.indexOf(match[1] as (typeof LETTERS)[number]) + degree) % 7]
+  const offset = mod12(pc - LETTER_PC[letter])
+  if (offset === 0) return letter
+  if (offset === 1) return `${letter}#`
+  if (offset === 11) return `${letter}b`
+  return null
+}
+
 /**
  * The chord's notes as names, for the times a shape cannot be drawn — and as
  * something to read next to the one that can.
@@ -713,8 +744,14 @@ export function chordNoteNames(chord: Chord): string[] {
   const intervals = resolved === null ? [0] : FAMILIES[resolved.family].intervals
   // Follow the chord's own spelling: a Bb chord names its notes with flats.
   const flats = chord.rootName.includes('b')
+  const augmented = intervals.includes(8) && intervals.includes(4)
+  const diminishedSeventh = intervals.includes(6) && intervals.includes(9)
 
-  const names = intervals.map((interval) => spellPitchClass(mod12(chord.root + interval), flats))
+  const names = intervals.map(
+    (interval) =>
+      spellDegree(chord.rootName, mod12(chord.root + interval), interval, augmented, diminishedSeventh) ??
+      spellPitchClass(mod12(chord.root + interval), flats),
+  )
   if (chord.bass !== null && !intervals.some((i) => mod12(chord.root + i) === chord.bass)) {
     names.push(spellPitchClass(chord.bass, flats))
   }

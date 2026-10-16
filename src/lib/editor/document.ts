@@ -195,6 +195,8 @@ function atomLength(line: string, i: number): number {
     return unicodeEscapeAt(line, i) === null ? 1 : 6
   }
   if (line[i] === '<') return markupTagAt(line, i)?.length ?? 1
+  /* A surrogate pair is one character: a chord never goes between its halves. */
+  if (/[\uD800-\uDBFF]/.test(line[i]) && /[\uDC00-\uDFFF]/.test(line[i + 1] ?? '')) return 2
   if (line[i] === '%') {
     const end = placeholderAt(line, i)
     return end === null ? 1 : end - i

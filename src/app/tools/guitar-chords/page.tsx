@@ -129,8 +129,8 @@ export default function GuitarChordsPage() {
           <p>
             Not a shorter version of this one. Four strings and a four-fret reach leave so few valid voicings that the
             compact one usually <em>is</em> the one everybody plays, and the chords that are hard swap places
-            completely: <BlogChord>E</BlogChord> is a stretch on a guitar and three fingers on a ukulele, while{' '}
-            <BlogChord>Bb</BlogChord> is the reverse. The ukulele shapes are on{' '}
+            completely: <BlogChord>E</BlogChord> is an open chord on a guitar and a stretch on a ukulele, while{' '}
+            <BlogChord>C</BlogChord> is one finger on a ukulele and three on a guitar. The ukulele shapes are on{' '}
             <Link href={CHORD_CHART_PATH.ukulele}>their own chart</Link>, or use the switch at the top of this one.
           </p>
 

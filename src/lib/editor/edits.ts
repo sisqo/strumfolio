@@ -132,6 +132,44 @@ export function setTabRows(document: SongDocument, index: number, rows: string[]
  * The editor needs this to keep pointing at the chord it just made while the user
  * types its name.
  */
+/*
+ * Where a chord may stand: the start of a letter as a reader sees one. `at` counts UTF-16
+ * units, so a nudge of one, or a drag that tried every index, could stop inside an emoji's
+ * surrogate pair or between a letter and its combining accent — and a lone surrogate written
+ * to Postgres comes back as U+FFFD, so saving destroyed the emoji (2026-10-16).
+ */
+const graphemes = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null
+
+function letterStarts(text: string): number[] {
+  if (graphemes === null) return Array.from({ length: text.length + 1 }, (_, i) => i)
+  const starts = [...graphemes.segment(text)].map((part) => part.index)
+  starts.push(text.length)
+  return starts
+}
+
+/** `at` moved back to the start of the letter it falls inside; past the end it is left alone. */
+export function snapToLetter(text: string, at: number): number {
+  if (at <= 0) return 0
+  if (at >= text.length) return at
+  let snapped = 0
+  for (const start of letterStarts(text)) {
+    if (start > at) break
+    snapped = start
+  }
+  return snapped
+}
+
+/** The letter start `steps` letters away from `at` (positive is later); past the end, units. */
+function stepLetters(text: string, at: number, steps: number): number {
+  if (at > text.length || (at === text.length && steps > 0)) return Math.max(0, at + steps)
+  const starts = letterStarts(text)
+  const here = starts.indexOf(snapToLetter(text, at))
+  const target = here + steps
+  if (target < 0) return 0
+  if (target >= starts.length) return text.length + (target - starts.length + 1)
+  return starts[target]
+}
+
 /**
  * A chord's name as it may be written: no square brackets, which the format has no way to put
  * inside one. `A]` was written `[A]]` — the chord `A` and a stray bracket in the words — and a
@@ -165,7 +203,7 @@ export function addChord(
       : lyricsAt(document, index)
   if (block === null) return document
 
-  const clamped = Math.max(0, Math.min(block.text.length, at))
+  const clamped = snapToLetter(block.text, Math.max(0, Math.min(block.text.length, at)))
   const chords = [...block.chords, { at: clamped, name: chordName(name) }].sort((a, b) => a.at - b.at)
 
   return replace(document, index, { ...block, chords })
@@ -240,7 +278,7 @@ export function moveChord(
   const block = lyricsAt(document, index)
   if (block === null || block.chords[chord] === undefined) return { document, chord }
 
-  return moveChordTo(document, index, chord, block.chords[chord].at + delta)
+  return moveChordTo(document, index, chord, stepLetters(block.text, block.chords[chord].at, delta))
 }
 
 /**
@@ -258,7 +296,7 @@ export function moveChordTo(
   const block = lyricsAt(document, index)
   if (block === null || block.chords[chord] === undefined) return { document, chord }
 
-  const clamped = Math.max(0, at)
+  const clamped = snapToLetter(block.text, Math.max(0, at))
   const chords = block.chords.map((entry, position) =>
     position === chord ? { ...entry, at: clamped } : entry,
   )

@@ -145,8 +145,7 @@ export default function UkuleleChordsPage() {
           <h2>The hard chords are not the guitar&rsquo;s hard chords</h2>
           <p>
             Worth knowing if you play both, because the instinct transfers wrongly.{' '}
-            <BlogChord>E</BlogChord> is a stretch on a guitar and three easy fingers on a ukulele.{' '}
-            <BlogChord>Bb</BlogChord> is a first-fret barre here and a comfortable shape there.{' '}
+            <BlogChord>E</BlogChord> is an open chord on a guitar and a stretch on a ukulele.{' '}
             <BlogChord>C</BlogChord> is one finger on a ukulele and three on a guitar. So a key that sits badly on one
             instrument may sit perfectly on the other — and if it sits badly on the one in your hands, the{' '}
             <Link href="/tools/capo-calculator">capo calculator</Link> knows which fret fixes it, ukulele included.
@@ -196,7 +195,7 @@ export default function UkuleleChordsPage() {
             {
               question: 'Are ukulele chord shapes the same as guitar shapes?',
               answer:
-                'No, and the difficulty does not transfer either. A ukulele is not a small guitar: it has four strings tuned differently, so the shapes are unrelated, and the chords that are awkward swap over. E is a stretch on a guitar and three fingers on a ukulele; Bb is the reverse. The guitar chart is a separate page, linked from the switch at the top of this one.',
+                'No, and the difficulty does not transfer either. A ukulele is not a small guitar: it has four strings tuned differently, so the shapes are unrelated, and the chords that are awkward swap over. E is an open chord on a guitar and a stretch on a ukulele; C is one finger on a ukulele and three on a guitar. The guitar chart is a separate page, linked from the switch at the top of this one.',
             },
           ]}
         />

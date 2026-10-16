@@ -454,3 +454,16 @@ describe('comments read from a file (2026-10-16)', () => {
     assert.equal(edit('{c: [la]assolo}', (doc) => toggleComment(doc, 0)), '[la]assolo')
   })
 })
+
+describe('a chord never stands inside a letter (2026-10-16)', () => {
+  it('steps over an emoji whole, so saving cannot split its surrogate pair', () => {
+    let doc = fromSource('ciao [C]🎸 amore')
+    doc = moveChord(doc, 0, 0, 1).document
+    assert.equal(toSource(doc), 'ciao 🎸[C] amore')
+    assert.equal(toSource(moveChord(doc, 0, 0, -1).document), 'ciao [C]🎸 amore')
+  })
+
+  it('drops a chord on the start of an accented letter written with a combining mark', () => {
+    assert.equal(edit('perché no', (doc) => addChord(doc, 0, 6, 'Am')), 'perch[Am]é no')
+  })
+})
