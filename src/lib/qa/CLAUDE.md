@@ -49,3 +49,7 @@ into. That page exists **because** an agent may not type a password into a field
 convenience, it is the only way one gets inside the app at all. `npm test`
 and a run of that kind answer different questions — the second is what found the €139.99/€199.99
 gap that every pure test passed straight through.
+
+**Every `/qa` entry ends that account's AI tokens** (since 2026-10-16): it sets the password through
+`writePasswordHash`, which revokes sessions, and a token older than `sessions_valid_after` is dead
+(`mcp/tokens.ts`). For an MCP test, create the token after the last `/qa` sign-in.

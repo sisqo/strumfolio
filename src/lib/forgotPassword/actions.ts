@@ -120,6 +120,9 @@ export async function resetPassword(formData: FormData): Promise<ResetPasswordRe
      * an hour before the account was deleted or moved to another address used to write a
      * password for the old one, and the next sign-in there made a fresh account.
      */
+    /* Hashed first: scrypt is the slow step, and a link spent before a write that then failed
+       would leave the reader nothing to try again with. */
+    const hash = await hashPassword(password)
     const [account] = await db()
       .select({ ownerEmail: accounts.ownerEmail })
       .from(accounts)
@@ -137,7 +140,7 @@ export async function resetPassword(formData: FormData): Promise<ResetPasswordRe
       .returning({ email: passwordResetTokens.email })
     if (account === undefined || spent.length === 0) return { ok: false, reason: 'invalid-token' }
 
-    await writePasswordHash(email, await hashPassword(password))
+    await writePasswordHash(email, hash)
     return { ok: true }
   } catch (error) {
     console.error('resetPassword failed', error)

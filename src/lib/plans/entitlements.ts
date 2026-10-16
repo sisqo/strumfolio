@@ -221,10 +221,10 @@ export function resolveSubscription(stored: SubscriptionColumns, now: Date): Sub
  * something writes it — trusting the status alone would make a webhook that never arrived
  * look like a permanent free upgrade.
  *
- * That last rule puts a requirement on the future Paddle webhook, worth stating here
- * because it is unguessable from the outside: a renewal landing *after* period end
- * downgrades a paying customer for that window, so the webhook must write the new
- * `expiresAt` at or before period end. `grace` is the mechanism for "the date has passed
+ * That last rule met the real Paddle webhook, which reports a renewal only after period end:
+ * an `active` row with nothing scheduled therefore keeps its plan for `RENEWAL_LATENCY_MS`
+ * past it (2026-10-16), and the screens that print `expiresAt` show a date just past for
+ * that window. `grace` is the mechanism for "the date has passed
  * and they are still good", which is exactly why `grace` ignores dates entirely — by the
  * time a card has failed the paid period is virtually always already over, so requiring a
  * future date would make `grace` unreachable in practice and revoke the plan of the one

@@ -884,7 +884,11 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
   if (newEmail === oldEmail) return { ok: false, reason: 'same-email' }
   /* Both ends: one owner never moves another owner's account (and its password) to an address
      of their choosing — the rule every other operator action here already keeps. */
-  if (isOwner(newEmail, process.env.ALLOWED_EMAILS) || isOwner(oldEmail, process.env.ALLOWED_EMAILS)) {
+  const ownAccount = normalizeEmail(session?.user?.email ?? '') === oldEmail
+  if (
+    isOwner(newEmail, process.env.ALLOWED_EMAILS) ||
+    (isOwner(oldEmail, process.env.ALLOWED_EMAILS) && !ownAccount)
+  ) {
     return { ok: false, reason: 'is-owner' }
   }
 

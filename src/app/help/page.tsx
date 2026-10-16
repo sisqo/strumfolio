@@ -220,7 +220,7 @@ export default async function HelpPage() {
                 keeps the previous text: open the song, tap Edit, and under <strong>History</strong> tap Restore — the
                 current text is kept too, so a restore can be undone. If you edit a song while the assistant is working,
                 it is told to read it again rather than overwrite you. A token stops working after six months without
-                use or when you change your password, and you can revoke it at any time on the same page. On the free plan your tokens are kept, but the
+                use or when you change your password or email address, and you can revoke it at any time on the same page. On the free plan your tokens are kept, but the
                 assistant is told that a paid plan is needed.
               </p>
             </>

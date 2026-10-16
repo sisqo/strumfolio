@@ -63,7 +63,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
   // Both halves required: the flag alone has nobody to resend to, and the address alone is
   // just a value in a URL. Absent either, the page is the ordinary sign-in card.
-  const unverifiedEmail = unverified !== undefined && email !== undefined && isEmailShape(email) ? email : null
+  const unverifiedEmail = unverified !== undefined && typeof email === 'string' && isEmailShape(email) ? email : null
 
   const message =
     unverifiedEmail !== null

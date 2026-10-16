@@ -11,7 +11,8 @@
  *   hash, and a lookup is one probe of a unique index;
  * - **no expiry**, but a token unused for `TOKEN_IDLE_DAYS` is dead, so one forgotten in a
  *   config file does not stay valid for ever;
- * - **a password change does not touch it** — `sessions_valid_after` is about browsers;
+ * - **a password change ends it**: one made before `sessions_valid_after` is `superseded`
+ *   (owner's decision 2026-10-16) — a reset is how a stolen account is taken back;
  * - **suspension and deletion end it**: the account row is read on every call, and deletion
  *   cascades the row away.
  *

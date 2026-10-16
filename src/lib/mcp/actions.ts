@@ -115,7 +115,15 @@ export async function createAiToken(name: string): Promise<CreateTokenResult> {
     const minted = mintToken()
     const [row] = await db()
       .insert(apiTokens)
-      .values({ accountId: account.id, name: label, prefix: minted.prefix, hash: minted.hash })
+      .values({
+        accountId: account.id,
+        name: label,
+        prefix: minted.prefix,
+        hash: minted.hash,
+        /* This server's clock, the one `sessions_valid_after` is written with: a token is dead
+           when it is older than that, and two clocks could disagree about a fresh one. */
+        createdAt: new Date(),
+      })
       .returning()
     return { ok: true, secret: minted.secret, token: toRow(row) }
   } catch (error) {

@@ -85,8 +85,9 @@ else's* account — cannot reach that browser at all. Reproduced and fixed 2026-
 through `roleOf`, so an owner's token is not a global owner. **`auth()` is deliberately left alone**,
 so every operator action that reads it sees nobody and refuses. A change to any of those three
 functions must keep the actor branch first; `actor.test.ts` pins the cross-account refusal, and
-`src/lib/mcp/CLAUDE.md` has the rest. Token revocation is not `sessions_valid_after`: a password
-change leaves tokens alone, by decision.
+`src/lib/mcp/CLAUDE.md` has the rest. **A token made before `sessions_valid_after` is dead**
+(owner's decision 2026-10-16, reversing the 27/9 one): a password chosen or removed and a change
+of address end the AI tokens too, not only the browsers.
 
 ## The sign-in limit can lock somebody out, knowingly
 
