@@ -105,8 +105,10 @@ those are the owner's text.
 write over a text an AI wrote** (`songs.ai_written_at` set) — a queued offline edit landing after
 the AI's would otherwise erase it without trace. A restore always keeps what it replaces. Twenty
 per song, **and the newest `app` row is never pruned** (`prunable`): it is the song as a person
-left it before the AI started. The editor shows it under the words (`SongHistory`) and restores by
-reloading the page. The Privacy Policy §2, §3's contract row and §6 describe tokens and history,
+left it before the AI started. **A restore gives the text back its first author**
+(`restoredAuthorship`, 2026-10-16): stamped as the app's, a restored AI text became the newest
+`app` row once kept again and took that pin, and the person's original could be pruned. The editor shows it under the words (`SongHistory`) and restores by
+reloading the page, never while the editor holds unsaved changes (the next save would overwrite the restore). The Privacy Policy §2, §3's contract row and §6 describe tokens and history,
 and Terms §5 the beta — change the retention and those three move with it.
 
 ## The protocol — `protocol.ts`
@@ -118,6 +120,9 @@ signal to fall back. A modern-only client does not work until this learns `serve
 `Mcp-Session-Id`, GET/DELETE are 405, a batch array is accepted, a notification is 202. **Every
 message of a batch pays the rate limit** (120 a minute per token), not just the POST: otherwise one
 request of a thousand calls went through on one hit (fixed 2026-09-27, measured: 130 pings → 14 refused).
+  **A batch is at most fifty messages, and an empty one is an Invalid Request** (2026-10-16): with
+  no length cap one POST of a few MB was hundreds of thousands of sequential rate-limit upserts, and
+  once one message is refused the rest are refused without asking the database again.
 
 - **Tool schemas use no type unions** (`["string", "null"]`): Gemini's function schema has none and
   refuses the whole list over one. «Clear it» is an empty string, and `null` is still accepted.
