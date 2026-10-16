@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation'
+
 import { CommentsProvider } from '@/components/CommentsProvider'
 import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { LiveComments } from '@/components/LiveComments'
@@ -82,6 +84,10 @@ async function placeOf(
   library: { song: SongIndexRow; under: string | null }[]
 }> {
   const owner = hasDatabase ? await songAccountOf(song.slug) : null
+  /* Deleted between the page's own check and this read (another tab, a device, an AI token): the
+     unscoped lists below are for running without a database, and with one they are every
+     account's songs, which would have gone to the browser's search. */
+  if (hasDatabase && owner === null) notFound()
 
   const [songs, songbooks, sections] =
     owner !== null

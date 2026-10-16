@@ -15,7 +15,7 @@
 
 import { and, asc, eq, isNull, max, or, sql } from 'drizzle-orm'
 
-import { accessTo, asEditor } from '@/lib/auth/session'
+import { accessTo, asEditor, currentUser } from '@/lib/auth/session'
 import { reanchorSongComments } from '@/lib/comments/reanchorSong'
 import { songAccountOf } from '@/lib/data/access'
 import { placeAfter } from '@/lib/songbooks/order'
@@ -27,7 +27,7 @@ import { songbooks, sections, songs } from '@/lib/db/schema'
 import type { Entitlements } from '@/lib/plans/entitlements'
 import { countRepertoire, entitlementsOf } from '@/lib/plans/resolve'
 import { limitFacts, type LimitFacts } from '@/lib/plans/types'
-import { revalidateSong } from '@/lib/revalidate'
+import { revalidateSong, revalidateSongbook } from '@/lib/revalidate'
 import { authorship, currentWriter, keepRevision, type StoredText } from '@/lib/revisions/keep'
 import { cleanName } from '@/lib/names'
 import { canEdit } from '@/lib/roles'
@@ -270,8 +270,17 @@ async function resolveSection(
   return { ok: true, songbookSlug: book.slug, songbookId: book.id, sectionId: created[0].id }
 }
 
-function saved(song: Song): SaveResult {
-  revalidateSong(song.slug, song.songbookSlug)
+/**
+ * The end of an import batch: what each quiet row (`SongInput.quiet`) did not revalidate, once —
+ * the songbook, the home and the songs the batch wrote (a «replace» rewrote an existing one).
+ */
+export async function revalidateAfterImport(songbookSlug: string, songSlugs: string[]): Promise<void> {
+  if (typeof songbookSlug !== 'string' || !Array.isArray(songSlugs) || (await currentUser()) === null) return
+  revalidateSongbook(songbookSlug, songSlugs.filter((slug): slug is string => typeof slug === 'string').slice(0, 1000))
+}
+
+function saved(song: Song, quiet = false): SaveResult {
+  if (!quiet) revalidateSong(song.slug, song.songbookSlug)
   return { ok: true, song }
 }
 
@@ -618,7 +627,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
         await reanchorSongComments(input.slug as string, previousBody, input.body)
       }
 
-      return saved(rowToSong(updated[0], placed.songbookSlug))
+      return saved(rowToSong(updated[0], placed.songbookSlug), input.quiet === true)
     }
 
     if (twin.length > 0 && decision === 'replace') {
@@ -648,7 +657,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
           .returning()
       })
 
-      return saved(rowToSong(updated[0], placed.songbookSlug))
+      return saved(rowToSong(updated[0], placed.songbookSlug), input.quiet === true)
     }
 
     /*
@@ -672,7 +681,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
         .returning()
     })
 
-    return saved(rowToSong(inserted[0], placed.songbookSlug))
+    return saved(rowToSong(inserted[0], placed.songbookSlug), input.quiet === true)
   } catch (error) {
     console.error('saveSong failed', error)
     return { ok: false, reason: 'failed' }

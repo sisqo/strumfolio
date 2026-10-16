@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { IconCheck, IconClose, IconInfo, IconPlus } from '@/components/icons'
-import { saveSong, songHeadroom } from '@/lib/import/actions'
+import { revalidateAfterImport, saveSong, songHeadroom } from '@/lib/import/actions'
 import type { PreparedSong } from '@/lib/import/prepare'
 import { saveMessage, type Decision, type Headroom } from '@/lib/import/types'
 import { LIMIT_MESSAGE } from '@/lib/plans/types'
@@ -192,6 +192,8 @@ export function ImportBatch({
     let attempted = 0
     const total = rows.filter((row) => row.include && !settled(row)).length
     setProgress({ done: 0, total })
+    /* Each row saves `quiet`, and the pages are revalidated once, here, after the last one. */
+    const written: string[] = []
 
     for (const row of rows) {
       if (!row.include || settled(row)) continue
@@ -216,11 +218,13 @@ export function ImportBatch({
             sectionId: declaredSection !== null ? null : sectionId,
             sectionName: declaredSection,
             body: row.body,
+            quiet: true,
           },
           decision,
         )
 
         if (result.ok) {
+          written.push(result.song.slug)
           patch(row.id, { outcome: { state: 'saved' } })
         } else if (result.reason === 'duplicate') {
           patch(row.id, {
@@ -252,6 +256,7 @@ export function ImportBatch({
       }
     }
 
+    if (written.length > 0) await revalidateAfterImport(songbookSlug, written).catch(() => undefined)
     setBusy(false)
     await onDone(!anyUnresolved)
   }

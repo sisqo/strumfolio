@@ -30,6 +30,13 @@ export interface SongInput {
    * does not yet, and keeps last-write-wins.
    */
   expectedVersion?: number
+  /**
+   * One row of a batch (`ImportBatch`): the pages are not revalidated per row, and the batch asks
+   * once at the end (`revalidateAfterImport`). A revalidating action re-renders the page it was
+   * called from inside its own response, so a paste of a hundred songs paid a hundred renders of
+   * the add page, each loading the whole repertoire.
+   */
+  quiet?: boolean
 }
 
 /**
