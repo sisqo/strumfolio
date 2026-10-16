@@ -156,7 +156,10 @@ export default function CookiePolicyPage() {
             you have refused. While it is on, we load Google&apos;s advertising tag, which sets
             cookies on our domain (named <code>_gcl_…</code>, for 90 days) so that Google Ads can
             tell us when a visit that began with one of our advertisements ends in a new account or
-            a purchase; Google may also read or set its own cookies on its own domains, under
+            a purchase. When you create an account while it is on, we also set a cookie of our own,
+            readable by the page, that only tells the tag to count that new account: it holds no
+            identifier, is deleted as soon as the tag has counted it, and expires after ten minutes
+            in any case. Google may also read or set its own cookies on its own domains, under
             Google&apos;s policy, which we can neither see nor delete. The tag is never loaded on
             a page whose address carries an email address or a private link, nor on the screens
             where you read and edit your songs, so none of those reaches Google. We use no personalised advertising and no remarketing: the tag is told so, and

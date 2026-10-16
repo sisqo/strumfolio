@@ -503,7 +503,8 @@ export default function PrivacyPolicyPage() {
         <p>
           <strong>Advertising measurement.</strong> Your answer is kept in a cookie for six months,
           after which we ask again. The cookies Google&apos;s tag sets on our domain while
-          measurement is on last 90 days, and turning it off deletes them. What Google keeps, and
+          measurement is on last 90 days, and turning it off deletes them; the one we set to count a
+          new account lasts ten minutes at most. What Google keeps, and
           any cookie of its own on its own domains, is kept under Google&apos;s policy.
         </p>
       )}

@@ -58,6 +58,9 @@ export function serializeConsent(choice: ConsentChoice): string {
   return `${choice.version}:${choice.ads}:${choice.at}`
 }
 
+/** How far ahead of the server's clock a browser's consent stamp may be. */
+const CLOCK_SKEW_MS = 12 * 60 * 60 * 1000
+
 /**
  * A stored answer, or null when there is none worth honouring: malformed, from an older
  * `CONSENT_VERSION`, dated in the future, or older than `CONSENT_MAX_DAYS`. The cookie's own
@@ -79,7 +82,11 @@ export function parseConsent(raw: string | null | undefined, now: number): Conse
   const ads = match[2] as AdsConsent
   const at = Number(match[3])
   if (version !== CONSENT_VERSION) return null
-  if (at > now + 60_000) return null
+  /* The stamp is the browser's clock and is judged here by the server's. A minute of slack lost
+     the «yes» of a phone running a few minutes fast on the server alone — the tag loaded, but
+     the gclid was never handed over and the signup never counted. Half a day absorbs a wrong
+     clock and still refuses a stamp written to outlive its six months. */
+  if (at > now + CLOCK_SKEW_MS) return null
   if (now - at > CONSENT_MAX_DAYS * 24 * 60 * 60 * 1000) return null
 
   return { version, ads, at }

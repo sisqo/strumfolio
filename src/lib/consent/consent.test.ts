@@ -84,6 +84,8 @@ describe('the stored answer', () => {
     assert.equal(parseConsent('yes', NOW), null)
     assert.equal(parseConsent(`${CONSENT_VERSION}:maybe:${NOW}`, NOW), null)
     assert.equal(parseConsent(`${CONSENT_VERSION}:granted:${NOW + DAY}`, NOW), null)
+    /* A phone a few minutes fast still answered. */
+    assert.notEqual(parseConsent(`${CONSENT_VERSION}:granted:${NOW + 10 * 60 * 1000}`, NOW), null)
     assert.equal(parseConsent('%E0%A4%A', NOW), null)
   })
 })

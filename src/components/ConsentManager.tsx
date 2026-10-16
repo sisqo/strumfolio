@@ -9,6 +9,7 @@ import {
   deleteBrowserCookie,
   gtagLoaded,
   loadGtag,
+  onAllowedPage,
   readBrowserCookie,
   storeConsent,
   tellPage,
@@ -93,6 +94,7 @@ export function ConsentManager() {
     if (!gtagLoaded()) return
     tellPage()
     if (!tagAllowedOn(pathname, location.search)) return
+    onAllowedPage()
     if (readBrowserCookie(SIGNUP_CONVERSION_COOKIE) !== null) {
       deleteBrowserCookie(SIGNUP_CONVERSION_COOKIE)
       trackSignup()
@@ -130,9 +132,12 @@ export function ConsentManager() {
   const reject = useCallback(() => {
     setAsked(false)
     setReopened(false)
-    /* A tag already running has to be unloaded, and only a reload does that. */
+    /* A tag running in this document has to be unloaded, and only a reload does that; one that
+       never loaded here (granted outside the EEA, but the reader is in the app or the editor)
+       needs no reload, which would throw away whatever is on screen. */
     if (granted) {
-      withdrawConsent()
+      withdrawConsent({ reload: gtagLoaded() })
+      setGranted(false)
       return
     }
     storeConsent('denied')

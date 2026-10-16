@@ -98,6 +98,13 @@ with `dl=…/follow/<token>`. So the rule is structural:
   only ever sent from an allowed page, so the signup cookie waits, for up to ten minutes, for one.
   One side case: a browser «back» onto `/` did not re-run the effect in Playwright, so the
   cookie waited for the next navigation.
+- **Nothing that sends a hit is queued before the script has arrived on an allowed page**
+  (2026-10-16). gtag.js builds `dl` when it works through the queue, i.e. once the async script
+  has loaded, so a page view queued on `/` and processed after a tap into a song would have been
+  sent from the song. `config` and the page view now wait for `script.onload` with
+  `tagAllowedOn` checked again there, or for `onAllowedPage()` on the next allowed page, and
+  `trackSignup`/`trackPurchase` wait with them (`hit`). Not measured with a slow network yet; the
+  window left is the few milliseconds between `onload` and the queue being processed.
 - **`tellPage()` still sets `page_location` and `page_referrer`** from `tagPageLocation` and
   `tagReferrer` (query cut to the click ids, in-app paths as `/app`), as a second layer for the
   fields that do honour it.
@@ -196,6 +203,8 @@ the behaviour and every one of these is wrong:
   - §2, the attribution paragraph: the gclid exception.
   - §2, the Google Ads paragraph: its own cookies on its own domains, which cannot be deleted
     from here, and the pages the tag is never loaded on (`tagAllowedOn`).
+  - §2, the Google Ads paragraph: `songbook-conv-signup`, our own ten-minute cookie (missing
+    until 2026-10-16), with its retention in Privacy §6.
   - §3: the two legal bases.
   - §2, «Google Ads measurement — only if you accept», and «No other advertising…».
   - §3: consent, and the fact that refusing does not stop the two first-party cookies.

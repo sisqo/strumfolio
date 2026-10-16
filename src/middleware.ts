@@ -197,6 +197,9 @@ function withAttribution(response: NextResponse, value: string | null): NextResp
 }
 
 
+/** The production domain, where the `?region=` override below never applies. */
+const PRODUCTION_HOSTS = new Set(['strumfolio.com', 'www.strumfolio.com'])
+
 /**
  * The region the consent banner should act on, or `null` because the cookie already says it —
  * or because Google Ads is not configured, in which case nothing about consent is written at all.
@@ -218,7 +221,11 @@ function regionCookieFor(request: NextRequest): Region | null {
   const stored = request.cookies.get(REGION_COOKIE)?.value
   let region: Region = regionOf(request.headers.get('x-vercel-ip-country'))
 
-  if (qaAllowed(process.env.VERCEL_ENV)) {
+  /* The host as a second guard: the allowlist admits an absent `VERCEL_ENV`, and this is the one
+     reader of it on the edge, where nothing here has measured that it is set. On the production
+     domain an override would let a crafted link load the tag for an EEA visitor who never
+     answered, so it is refused there whatever the environment says. */
+  if (qaAllowed(process.env.VERCEL_ENV) && !PRODUCTION_HOSTS.has(request.nextUrl.hostname)) {
     const override = request.nextUrl.searchParams.get('region')
     if (override === 'eea' || override === 'other') region = override
     else if (stored === 'eea' || stored === 'other') return null

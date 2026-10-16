@@ -6,7 +6,7 @@
  * Browser-only: import it from client components alone.
  */
 
-import { serializeConsent, tagPageLocation, tagReferrer, type AdsConfig } from './state'
+import { serializeConsent, tagAllowedOn, tagPageLocation, tagReferrer, type AdsConfig } from './state'
 import {
   CONSENT_COOKIE,
   CONSENT_MAX_AGE_SECONDS,
@@ -22,6 +22,31 @@ declare global {
 }
 
 let loadedFor: AdsConfig | null = null
+/*
+ * gtag.js builds a hit's `dl` from `location.href` when it works through the queue, which is when
+ * the script has arrived — not when the hit was queued. On a slow stage network a reader can tap
+ * into a song (or an owner into `/accounts/<email>`) before then, and a page view queued on `/`
+ * would be sent from there. So nothing that sends a hit is queued before the script has loaded
+ * on a page the tag may be on: `config` and the page view wait for `configure`, and so does any
+ * conversion asked for meanwhile.
+ */
+let configure: (() => void) | null = null
+let configured = false
+let scriptArrived = false
+const waitingHits: (() => void)[] = []
+
+function hit(send: () => void): void {
+  if (configured) send()
+  else waitingHits.push(send)
+}
+
+/**
+ * Called by `ConsentManager` on each page the tag may be on: configures a tag whose script
+ * arrived while the reader was somewhere it may not be.
+ */
+export function onAllowedPage(): void {
+  if (configure !== null && scriptArrived) configure()
+}
 
 /** A cookie's value from `document.cookie`, or null. */
 export function readBrowserCookie(name: string): string | null {
@@ -116,22 +141,31 @@ export function loadGtag(config: AdsConfig, clickId: string | null): void {
    */
   /* `allow_enhanced_conversions: false` so that a switch in the Ads dashboard cannot start
      reading email fields off our forms with no change here. */
-  window.gtag('config', config.id, {
-    allow_ad_personalization_signals: false,
-    allow_enhanced_conversions: false,
-    send_page_view: false,
-    ...pageFields(),
-  })
-  window.gtag('event', 'page_view', {
-    send_to: config.id,
-    ...pageFields(),
-    event_callback: putBack,
-    event_timeout: 3000,
-  })
+  configure = () => {
+    configure = null
+    window.gtag?.('config', config.id, {
+      allow_ad_personalization_signals: false,
+      allow_enhanced_conversions: false,
+      send_page_view: false,
+      ...pageFields(),
+    })
+    window.gtag?.('event', 'page_view', {
+      send_to: config.id,
+      ...pageFields(),
+      event_callback: putBack,
+      event_timeout: 3000,
+    })
+    configured = true
+    for (const send of waitingHits.splice(0)) send()
+  }
 
   const script = document.createElement('script')
   script.async = true
   script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(config.id)}`
+  script.onload = () => {
+    scriptArrived = true
+    if (tagAllowedOn(location.pathname, location.search)) configure?.()
+  }
   script.onerror = putBack
   document.head.appendChild(script)
   /* A last resort if neither callback ever fires. */
@@ -163,10 +197,11 @@ function pageFields(): { page_location: string; page_referrer: string } {
 
 /**
  * Withdraw: tell the tag, delete the `_gcl_*` cookies it wrote on this host and its parent
- * domain, and reload so no instance of the tag survives in memory. The reload is the only
- * dependable way to unload a script, and a withdrawal is rare enough to pay for it.
+ * domain, and — when it was loaded in this document — reload so no instance of it survives in
+ * memory. The reload is the only dependable way to unload a script, and a withdrawal is rare
+ * enough to pay for it.
  */
-export function withdrawConsent(): void {
+export function withdrawConsent({ reload }: { reload: boolean }): void {
   storeConsent('denied')
   window.gtag?.('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied' })
 
@@ -178,12 +213,13 @@ export function withdrawConsent(): void {
     for (const domain of domains) deleteBrowserCookie(name, domain)
   }
 
-  location.reload()
+  if (reload) location.reload()
 }
 
 export function trackSignup(): void {
-  if (!loadedFor) return
-  window.gtag?.('event', 'conversion', { send_to: `${loadedFor.id}/${loadedFor.signupLabel}`, ...pageFields() })
+  const config = loadedFor
+  if (!config) return
+  hit(() => window.gtag?.('event', 'conversion', { send_to: `${config.id}/${config.signupLabel}`, ...pageFields() }))
 }
 
 /**
@@ -192,12 +228,15 @@ export function trackSignup(): void {
  * with every price `tax_mode: internal`, is the list price (`prices.ts`) less any coupon.
  */
 export function trackPurchase(purchase: { transactionId: string; value: number; currency: string }): void {
-  if (!loadedFor) return
-  window.gtag?.('event', 'conversion', {
-    send_to: `${loadedFor.id}/${loadedFor.purchaseLabel}`,
-    value: purchase.value,
-    currency: purchase.currency,
-    transaction_id: purchase.transactionId,
-    ...pageFields(),
-  })
+  const config = loadedFor
+  if (!config) return
+  hit(() =>
+    window.gtag?.('event', 'conversion', {
+      send_to: `${config.id}/${config.purchaseLabel}`,
+      value: purchase.value,
+      currency: purchase.currency,
+      transaction_id: purchase.transactionId,
+      ...pageFields(),
+    }),
+  )
 }
