@@ -625,6 +625,12 @@ export function parseChordPro(source: string): ParsedSong {
 
   let lastChorus: Section | null = null
   const chorusByLabel = new Map<string, Section>()
+  /* Lines a `{chorus}` may still draw. Each repeat copies the whole chorus, so a short file —
+     a thousand-line chorus and ten thousand `{chorus}` lines fit in the 100k-character cap —
+     asked for ten million drawn lines and ran the server out of memory on every page that
+     parses it. No song on a stand repeats anywhere near this; past it the label is printed, as
+     for a chorus that does not exist. */
+  let repeatBudget = CHORUS_REPEAT_BUDGET
   /** Rows collected since `{start_of_tab}` or `{start_of_grid}`, or null when inside neither. */
   let verbatimRows: string[] | null = null
   let verbatimVariant: 'tab' | 'grid' | 'delegate' = 'tab'
@@ -701,8 +707,15 @@ export function parseChordPro(source: string): ParsedSong {
      * made the two parsers disagree: `verse \` followed by `{c: hi}` drew `{c:` and `hi}` as
      * lyrics, and followed by `{start_of_tab}` never opened the tab at all.
      */
+    /* Nor into one that opens a brace even when it is no directive by itself (2026-10-16):
+       `{c: hi}\` or `{c: hello \` joined onto a line of only `\` became one once the mark was
+       dropped — a whole song swallowed into a folded `{start_of_abc}` here, words in the editor. */
     const continuesInto = (next: string | undefined) =>
-      next !== undefined && next.trim() !== '' && !next.startsWith('#') && DIRECTIVE.exec(next.trim()) === null
+      next !== undefined &&
+      next.trim() !== '' &&
+      !next.startsWith('#') &&
+      !next.trimStart().startsWith('{') &&
+      DIRECTIVE.exec(next.trim()) === null
 
     /*
      * **Nor out of a line that opens a brace** (2026-09-25). The editor never joins, so
@@ -977,7 +990,7 @@ export function parseChordPro(source: string): ParsedSong {
           const named = label === '' ? undefined : chorusByLabel.get(label.toLowerCase())
           const wanted = named ?? lastChorus
 
-          if (wanted === null || wanted.lines.length === 0) {
+          if (wanted === null || wanted.lines.length === 0 || wanted.lines.length > repeatBudget) {
             section ??= openSection(forcedKind ?? 'verse')
             section.lines.push(commentLine(label || 'Chorus', 'plain', null))
             break
@@ -989,6 +1002,7 @@ export function parseChordPro(source: string): ParsedSong {
           if (label !== '' && named === undefined) repeat.lines.push(commentLine(label, 'plain', null))
           /* At the pitch in force where `{chorus}` stands — the last chorus a tone up, written
              once — and not at the pitch it was first written at. */
+          repeatBudget -= wanted.lines.length
           repeat.lines.push(...repeatedLines(wanted.lines, modulation()))
           /* A key change inside the chorus is undone when the repeat ends — the song goes on at
              the pitch in force where `{chorus}` stood — and a return nobody announces is a tone
@@ -1146,6 +1160,9 @@ function repeated(line: Line, offset: number): Line {
  * announcements rather than re-reading each line's stored `shift` is what keeps the step
  * relative: the stored shifts are measured from where the chorus was first written.
  */
+/** How many lines all of a song's `{chorus}` repeats may draw together — see `repeatBudget`. */
+export const CHORUS_REPEAT_BUDGET = 5000
+
 function repeatedLines(lines: readonly Line[], offset: number): Line[] {
   let running = offset
   return lines.map((line) => {

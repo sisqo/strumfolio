@@ -444,3 +444,13 @@ describe('addFieldAt', () => {
     }
   })
 })
+
+describe('comments read from a file (2026-10-16)', () => {
+  it('splits into the head and the tail, without saving the whole comment again', () => {
+    assert.equal(edit('{c: hello world}', (doc) => splitLine(doc, 0, 5)), '{c: hello}\n world')
+  })
+
+  it('turns back into lyrics with its chords, not an escaped bracket', () => {
+    assert.equal(edit('{c: [la]assolo}', (doc) => toggleComment(doc, 0)), '[la]assolo')
+  })
+})

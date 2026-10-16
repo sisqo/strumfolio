@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 
 import {
   type Line,
+  CHORUS_REPEAT_BUDGET,
   chordTokens,
   parseChordPro,
   parseLyricLine,
@@ -1473,5 +1474,21 @@ describe('the reader stays linear', () => {
     assert.ok(line.kind === 'lyrics')
     assert.deepEqual(line.sourceLines, [5, 6, 7])
     assert.equal(extra, undefined)
+  })
+})
+
+describe('bounded work on a hostile file (2026-10-16)', () => {
+  it('stops repeating a chorus once the song has drawn its budget of repeats', () => {
+    const chorus = 'a\n'.repeat(1000)
+    const song = parseChordPro(`{soc}\n${chorus}{eoc}\n` + '{chorus}\n'.repeat(20))
+    const drawn = song.sections.reduce((sum, section) => sum + section.lines.length, 0)
+    assert.ok(drawn <= 1000 + CHORUS_REPEAT_BUDGET + 20)
+    assert.ok(drawn > 1000 + CHORUS_REPEAT_BUDGET - 1000)
+  })
+
+  it('reads deeply nested markup in linear time', () => {
+    const started = Date.now()
+    parseChordPro('<b>'.repeat(16000) + 'a'.repeat(50000))
+    assert.ok(Date.now() - started < 2000)
   })
 })

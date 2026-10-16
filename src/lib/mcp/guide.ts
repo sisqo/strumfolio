@@ -62,4 +62,4 @@ Typesetting directives ({columns}, {new_page}, {textfont}…) are kept and ignor
 
 ## Transposing by hand
 
-Rewrite every chord, including slash basses ([D/F#] → [E/G#]), and keep the owner's choice of sharps or flats unless asked otherwise. Update {key} if the song declares one, and leave {capo} alone unless asked.`
+Rewrite every chord, including slash basses ([D/F#] → [E/G#]), and keep the owner's choice of sharps or flats unless asked otherwise. Update {key} if the song declares one, and leave {capo} alone unless asked. If a {transpose} stands before the first line of words, the reader already starts that many semitones away from what is written: to move the song to a key, either take it out and rewrite the chords to that key, or keep it and rewrite them to the key it lands on minus that offset — and say which you did.`

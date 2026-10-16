@@ -859,7 +859,10 @@ function BookletLine({
        gets the step alone — a number is not a key. */
     if (line.keyChange !== undefined) {
       const step = `${line.keyChange.by > 0 ? 'up' : 'down'} ${Math.abs(line.keyChange.by)}`
-      const key = values.key === undefined || values.key === '' ? null : chordLabel(values.key, line.keyChange.offset)
+      /* Only a key that reads as a chord can be moved; `{key: G major}` printed as is would name
+         the key the song left, not the one it arrives in — so, like the screen, no «to». */
+      const key =
+        values.key === undefined || parseChord(values.key) === null ? null : chordLabel(values.key, line.keyChange.offset)
       const named = key !== null && !/^[0-9♭♯b#]/.test(key) ? ` · to ${key}` : ''
       return <Text style={[styles.comment, styles.keyChange]}>{`Key change · ${step}${named}`}</Text>
     }

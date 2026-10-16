@@ -133,6 +133,9 @@ export function markupTagAt(text: string, index: number): MarkupTag | null {
   return { length: tag[0].length, kind: 'open', name, style }
 }
 
+/** How many tags may be open at once and still style the text — see `MarkupState`. */
+export const MARKUP_DEPTH = 32
+
 /**
  * The style in force as tags open and close, one line at a time.
  *
@@ -142,10 +145,24 @@ export function markupTagAt(text: string, index: number): MarkupTag | null {
  */
 export class MarkupState {
   private open: { name: string; style: MarkStyle }[] = []
+  /* Tags opened past `MARKUP_DEPTH`, by name. Every character asks for the style of the whole
+     stack and every stray close walks it, so an unbounded stack made a line of 16,000 `<b>` and
+     the text after it cost nine seconds on the server (2026-10-16). Nothing real nests more than
+     a handful deep; past the limit a tag changes nothing, and its own close is spent on it rather
+     than on a tag that does. */
+  private ignored = new Map<string, number>()
 
   apply(tag: MarkupTag): void {
-    if (tag.kind === 'open') this.open.push({ name: tag.name, style: tag.style })
+    if (tag.kind === 'open') {
+      if (this.open.length < MARKUP_DEPTH) this.open.push({ name: tag.name, style: tag.style })
+      else this.ignored.set(tag.name, (this.ignored.get(tag.name) ?? 0) + 1)
+    }
     if (tag.kind === 'close') {
+      const deeper = this.ignored.get(tag.name) ?? 0
+      if (deeper > 0) {
+        this.ignored.set(tag.name, deeper - 1)
+        return
+      }
       for (let at = this.open.length - 1; at >= 0; at -= 1) {
         if (this.open[at].name === tag.name) {
           this.open.splice(at, 1)

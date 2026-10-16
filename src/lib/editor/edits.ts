@@ -15,6 +15,7 @@ import {
   directiveLine,
   directiveParts,
   fromSource,
+  readLyricLine,
   sectionsOf,
   shiftChords,
   toSource,
@@ -352,7 +353,9 @@ export function splitLine(document: SongDocument, index: number, at: number): So
     blocks.splice(
       index,
       1,
-      { ...block, text: block.text.slice(0, at) },
+      /* Without its `raw`: a comment read from a file keeps its source line there, and writing
+         that back would save the whole comment again above the tail split off below it. */
+      { ...block, text: block.text.slice(0, at), raw: undefined },
       { kind: 'lyrics', text: block.text.slice(at), chords: [] },
     )
   } else {
@@ -499,7 +502,9 @@ export function toggleComment(document: SongDocument, index: number): SongDocume
   if (block === undefined) return document
 
   if (block.kind === 'comment') {
-    return replace(document, index, { kind: 'lyrics', text: block.text, chords: [] })
+    /* Read, not copied: since the editor escapes a typed `[` (f212266), text with `[la]` in
+       it would be written back as `\[la]` and the chord lost. */
+    return replace(document, index, { kind: 'lyrics', ...readLyricLine(block.text) })
   }
 
   if (block.kind !== 'lyrics') return document

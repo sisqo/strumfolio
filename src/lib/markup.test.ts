@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { markupRuns, markupTagAt, stripMarkup } from './markup'
+import { MARKUP_DEPTH, markupRuns, markupTagAt, stripMarkup } from './markup'
 
 describe('ChordPro markup', () => {
   it('reads the tags the format defines, nested, into styled runs', () => {
@@ -37,5 +37,13 @@ describe('ChordPro markup', () => {
       { text: 'plain ', style: {} },
       { text: 'open', style: { italic: true } },
     ])
+  })
+})
+
+describe('nesting past the depth limit', () => {
+  it('ignores tags opened too deep, and spends their closes on them', () => {
+    const runs = markupRuns('<b>' + '<i>'.repeat(MARKUP_DEPTH) + 'x' + '</i>'.repeat(MARKUP_DEPTH) + 'y</b>z')
+    const y = runs.find((run) => run.text === 'y')
+    assert.ok(y !== undefined && y.style.bold === true && y.style.italic !== true)
   })
 })
