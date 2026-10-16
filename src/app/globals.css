@@ -17999,6 +17999,7 @@
 
   .ai-snippet-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: 5px 6px 5px 14px;
@@ -18021,6 +18022,19 @@
     color: var(--accent);
     font-size: 12px;
     white-space: nowrap;
+    /* At phone width the label goes under the language and the button rather than pushing the
+       button out of the card, whose overflow is hidden. */
+    order: 1;
+    flex-basis: 100%;
+    padding-bottom: 4px;
+  }
+
+  @media (min-width: 30rem) {
+    .ai-snippet-secret {
+      order: 0;
+      flex-basis: auto;
+      padding-bottom: 0;
+    }
   }
 
   .ai-snippet-secret::before {
@@ -18048,7 +18062,7 @@
     font-size: 13px;
     font-weight: 500;
     white-space: nowrap;
-    box-shadow: 0 1px 2px rgb(22 24 29 / 6%);
+    box-shadow: var(--shadow-1);
     cursor: pointer;
   }
 

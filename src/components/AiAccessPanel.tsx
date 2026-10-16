@@ -36,6 +36,9 @@ function day(iso: string): string {
 export function AiAccessPanel() {
   const online = useOnline()
   const [access, setAccess] = useState<AiAccessState | null>(null)
+  /* A load that failed (offline, a server error, a deploy in between) is not «you are not the
+     owner»: it says so, and offers to try again. */
+  const [loadFailed, setLoadFailed] = useState(false)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,8 +49,9 @@ export function AiAccessPanel() {
   const refresh = useCallback(async () => {
     try {
       setAccess(await loadAiAccess())
+      setLoadFailed(false)
     } catch {
-      setAccess({ state: 'unavailable' })
+      setLoadFailed(true)
     }
   }, [])
 
@@ -91,11 +95,25 @@ export function AiAccessPanel() {
       if (fresh?.token.id === id) setFresh(null)
       setConfirming(null)
       await refresh()
+    } catch {
+      setError('The token could not be revoked. Please try again.')
     } finally {
       setBusy(false)
     }
   }
 
+  if (access === null && loadFailed) {
+    return (
+      <div className="mb-5 grid gap-3">
+        <p className="notice notice-error" role="alert">
+          AI access could not be loaded. Check the connection and try again.
+        </p>
+        <button type="button" className="btn btn-sm justify-self-start" disabled={!online} onClick={() => void refresh()}>
+          Try again
+        </button>
+      </div>
+    )
+  }
   if (access === null) return <p className="mb-5 text-sm text-muted">One moment…</p>
   if (access.state === 'unavailable') {
     return (

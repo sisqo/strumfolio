@@ -41,6 +41,15 @@ export interface SongInput {
 export const SONG_TEXT_MAX = 100_000
 export const SONG_TITLE_MAX = 300
 
+/**
+ * A title or an artist on one line. Both are written back out as `{title: …}` and `{artist: …}`
+ * (`export.ts`), so a line break inside one — easy for an AI assistant to send — would become a
+ * directive of its own on the next import. Control characters go with it.
+ */
+export function oneLine(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim()
+}
+
 export interface DuplicateOf {
   slug: string
   title: string

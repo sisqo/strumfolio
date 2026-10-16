@@ -13,6 +13,7 @@ import { SongSheet } from '@/components/SongSheet'
 import { useSongbooks } from '@/components/SongbookProvider'
 import { PlanUpgradeModal, type PlanNotice } from '@/components/PlanUpgradeModal'
 import { type Caret, GraphicEditor } from '@/components/editor/GraphicEditor'
+import { SongHistory } from '@/components/editor/SongHistory'
 import { UnsavedGuard } from '@/components/editor/UnsavedGuard'
 import {
   IconBridge,
@@ -166,7 +167,7 @@ function caretFromRaw(source: string, rawAt: number): Caret {
  * the reading page show the new words the moment it opens rather than after its own
  * round trip.
  */
-export function EditorScreen({ song }: { song: Song }) {
+export function EditorScreen({ song, showHistory = false }: { song: Song; showHistory?: boolean }) {
   const router = useRouter()
   const { songbooks, sections, refresh: refreshSongbooks } = useSongbooks()
 
@@ -253,6 +254,8 @@ export function EditorScreen({ song }: { song: Song }) {
   const lastKind = useRef<string | null>(null)
 
   const saved = useRef({ source: song.body, fields })
+  /** Counts saves, so the history under the editor reads itself again after each one. */
+  const [saves, setSaves] = useState(0)
   const dirty =
     source !== saved.current.source ||
     JSON.stringify(fields) !== JSON.stringify(saved.current.fields)
@@ -629,6 +632,7 @@ export function EditorScreen({ song }: { song: Song }) {
       saved.current = { source, fields }
       setNotice('Saved. It shows in the song right away; publish it to have it offline too.')
       setJustSaved(true)
+      setSaves((count) => count + 1)
       await refreshSongbooks()
     } catch {
       setError(saveMessage({ reason: 'failed' }))
@@ -1112,6 +1116,8 @@ export function EditorScreen({ song }: { song: Song }) {
           </button>
         )}
       </div>
+
+      {showHistory && <SongHistory slug={song.slug} dirty={dirty} saves={saves} />}
     </div>
   )
 }

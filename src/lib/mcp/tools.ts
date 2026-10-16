@@ -426,7 +426,9 @@ async function updateSong(accountId: number, args: Record<string, unknown>): Pro
   const title = text(args, 'title') ?? current.title
   const artist = args.artist === undefined ? current.artist : args.artist === null ? null : text(args, 'artist')
 
-  if (body.length > SONG_TEXT_MAX || title.length > SONG_TITLE_MAX) return refused(saveMessage({ reason: 'too-long' }))
+  if (body.length > SONG_TEXT_MAX || title.length > SONG_TITLE_MAX || (typeof artist === 'string' && artist.length > SONG_TITLE_MAX)) {
+    return refused(saveMessage({ reason: 'too-long' }))
+  }
 
   /* A rewrite that changes nothing writes nothing: it would still keep a revision and move the
      version on, and an assistant «fixing» fifty songs that needed no fix would fill every

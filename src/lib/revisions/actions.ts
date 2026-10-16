@@ -22,7 +22,7 @@ import { entitlementsOf } from '@/lib/plans/resolve'
 import { revalidateSong } from '@/lib/revalidate'
 import { canEdit } from '@/lib/roles'
 
-import { authorship, currentWriter, keepRevision } from './keep'
+import { currentWriter, keepRevision, restoredAuthorship } from './keep'
 
 export interface RevisionRow {
   id: number
@@ -132,7 +132,7 @@ export async function restoreSongRevision(slug: string, revisionId: number): Pro
           /* The database's clock, as every save stamps it — see `saveSong`. */
           updatedAt: sql`now()`,
           version: sql`${songs.version} + 1`,
-          ...authorship(writer),
+          ...restoredAuthorship(revision),
         })
         .where(eq(songs.id, stored.id))
 

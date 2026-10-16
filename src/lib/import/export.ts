@@ -9,6 +9,7 @@
 
 import type { Song } from '../data/types'
 import { METADATA_DIRECTIVE } from './deduce'
+import { oneLine } from './types'
 
 export interface ExportedFile {
   name: string
@@ -25,9 +26,9 @@ export function toChoproFile(
   songbookName: string | null,
   sectionName: string | null,
 ): string {
-  const head: string[] = [`{title: ${song.title}}`]
+  const head: string[] = [`{title: ${oneLine(song.title)}}`]
 
-  if (song.artist !== null && song.artist !== '') head.push(`{artist: ${song.artist}}`)
+  if (song.artist !== null && song.artist !== '') head.push(`{artist: ${oneLine(song.artist)}}`)
   if (songbookName !== null) head.push(`{songbook: ${songbookName}}`)
   if (sectionName !== null) head.push(`{division: ${sectionName}}`)
 

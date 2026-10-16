@@ -67,6 +67,20 @@ export function authorship(writer: Writer): { aiWrittenAt: Date | ReturnType<typ
 }
 
 /**
+ * Who wrote a restored text is who wrote it the first time, not who pressed «Restore»: stamping
+ * an AI's text as the app's would make it the newest `app` row once kept again, and `prunable`
+ * would pin it in place of the person's own original, which could then be pruned.
+ */
+export function restoredAuthorship(revision: { writtenBy: 'app' | 'ai'; tokenId: number | null; writtenAt: Date }): {
+  aiWrittenAt: Date | null
+  aiTokenId: number | null
+} {
+  return revision.writtenBy === 'ai'
+    ? { aiWrittenAt: revision.writtenAt, aiTokenId: revision.tokenId }
+    : { aiWrittenAt: null, aiTokenId: null }
+}
+
+/**
  * Keeps `stored` when the rule above says so, inside the caller's transaction — the same one
  * that overwrites it, so a rolled-back save leaves no revision behind.
  */

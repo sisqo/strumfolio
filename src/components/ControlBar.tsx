@@ -436,10 +436,23 @@ function PrevNext({
    * step is cold for at most a minute after the fifth.
    */
   const [round, setRound] = useState(0)
+  /* The remount is skipped while the arrows are in use: a finger already down on one would lose
+     its tap (a click needs both ends on the same element), a keyboard or VoiceOver user resting
+     on it would be dropped onto the body, and a step in flight would lose its pending line. The
+     next minute catches up. */
+  const nav = useRef<HTMLDivElement>(null)
+  const inUseUntil = useRef(0)
   useEffect(() => {
-    const timer = window.setInterval(() => setRound((count) => count + 1), PREFETCH_REFRESH_MS)
+    const timer = window.setInterval(() => {
+      const busy =
+        Date.now() < inUseUntil.current || nav.current?.contains(document.activeElement) === true
+      if (!busy) setRound((count) => count + 1)
+    }, PREFETCH_REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [])
+  const markInUse = () => {
+    inUseUntil.current = Date.now() + STEP_IN_USE_MS
+  }
 
   /* The remount above would replay the «next song» cue every minute after a song ended, so a
      cue already shown is marked as seen whenever the arrows are rebuilt. */
@@ -451,7 +464,7 @@ function PrevNext({
   }
 
   return (
-    <div className="control-nav" key={round}>
+    <div className="control-nav" key={round} ref={nav} onPointerDown={markInUse} onClick={markInUse}>
       <Step
         step={steps.previous}
         label="Previous song"
@@ -476,6 +489,8 @@ function PrevNext({
 
 /** How often the arrows ask for their songs again — see `PrevNext`. */
 const PREFETCH_REFRESH_MS = 60 * 1000
+/** How long a press on an arrow holds the remount off: the tap itself and the step it starts. */
+const STEP_IN_USE_MS = 10 * 1000
 
 function Step({
   step,

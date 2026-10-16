@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { prunable, shouldKeep } from './keep'
+import { prunable, restoredAuthorship, shouldKeep } from './keep'
 
 describe('shouldKeep', () => {
   it('keeps whatever an AI write replaces', () => {
@@ -38,5 +38,22 @@ describe('prunable', () => {
 
   it('prunes nothing under the limit', () => {
     assert.deepEqual(prunable(rows(['ai', 'app', 'ai'])), [])
+  })
+})
+
+describe('restoredAuthorship', () => {
+  const at = new Date('2026-10-01T10:00:00Z')
+
+  it('gives a restored AI text back its AI stamp, so it can never take the pin of a person’s text', () => {
+    assert.deepEqual(restoredAuthorship({ writtenBy: 'ai', tokenId: 7, writtenAt: at }), { aiWrittenAt: at, aiTokenId: 7 })
+    const pinned = prunable([
+      { id: 3, writtenBy: 'ai' },
+      { id: 1, writtenBy: 'app' },
+    ], 1)
+    assert.deepEqual(pinned, [])
+  })
+
+  it('leaves a restored hand-written text unstamped', () => {
+    assert.deepEqual(restoredAuthorship({ writtenBy: 'app', tokenId: null, writtenAt: at }), { aiWrittenAt: null, aiTokenId: null })
   })
 })

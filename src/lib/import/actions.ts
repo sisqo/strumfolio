@@ -41,7 +41,7 @@ import {
   organizeExport,
   toChoproFile,
 } from './export'
-import { SONG_TEXT_MAX, SONG_TITLE_MAX, type Decision, type DeleteResult, type Headroom, type SaveFailure, type SaveResult, type SongInput } from './types'
+import { oneLine, SONG_TEXT_MAX, SONG_TITLE_MAX, type Decision, type DeleteResult, type Headroom, type SaveFailure, type SaveResult, type SongInput } from './types'
 
 /**
  * The export answers **null** when refused rather than an empty list, and the difference
@@ -406,10 +406,16 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
   ) {
     return { ok: false, reason: 'failed' }
   }
-  const title = input.title.trim()
+  const title = oneLine(input.title)
   if (title === '') return { ok: false, reason: 'invalid-title' }
   if (input.body.trim() === '') return { ok: false, reason: 'empty-body' }
-  if (input.body.length > SONG_TEXT_MAX || title.length > SONG_TITLE_MAX) return { ok: false, reason: 'too-long' }
+  if (
+    input.body.length > SONG_TEXT_MAX ||
+    title.length > SONG_TITLE_MAX ||
+    (input.artist !== null && input.artist.length > SONG_TITLE_MAX)
+  ) {
+    return { ok: false, reason: 'too-long' }
+  }
 
   /*
    * Normalised once, up here, because two things read it now: the twin lookup below and the
@@ -417,7 +423,7 @@ export async function saveSong(input: SongInput, decision?: Decision): Promise<S
    * to keep in step, and the day one drifted a song would either fail to find its own twin
    * or find one it does not have — a duplicate prompt about nothing, or a silent second copy.
    */
-  const artist = input.artist === null || input.artist.trim() === '' ? null : input.artist.trim()
+  const artist = input.artist === null || oneLine(input.artist) === '' ? null : oneLine(input.artist)
 
   if (input.expectedVersion !== undefined && !Number.isInteger(input.expectedVersion)) {
     return { ok: false, reason: 'failed' }
@@ -732,7 +738,7 @@ export async function createSong(
   }
 
   if (typeof title !== 'string') return { ok: false, reason: 'failed' }
-  const trimmed = title.trim()
+  const trimmed = oneLine(title)
   if (trimmed === '') return { ok: false, reason: 'invalid-title' }
   if (trimmed.length > SONG_TITLE_MAX) return { ok: false, reason: 'too-long' }
 

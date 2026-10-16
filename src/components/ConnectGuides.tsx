@@ -142,7 +142,6 @@ function Snippet({ text, secret, real }: { text: string; secret: string; real: b
         )}
         <button
           type="button"
-          aria-label="Copy to clipboard"
           className={copied ? 'ai-snippet-copy is-copied' : 'ai-snippet-copy'}
           onClick={() => {
             navigator.clipboard.writeText(text).then(
@@ -154,7 +153,7 @@ function Snippet({ text, secret, real }: { text: string; secret: string; real: b
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d={copied ? DONE_ICON : COPY_ICON} />
           </svg>
-          {copied ? 'Copied' : 'Copy'}
+          <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
       <code className="ai-snippet-code">
@@ -178,13 +177,12 @@ export function ConnectGuides({ endpoint, token }: { endpoint: string; token: st
     <div className="grid gap-3">
       <div className="min-w-0">
         <span className="field-label">Assistant</span>
-        <div className="ai-clients" role="tablist" aria-label="Assistant">
+        <div className="ai-clients" role="group" aria-label="Assistant">
           {CLIENTS.map((entry) => (
             <button
               key={entry.key}
               type="button"
-              role="tab"
-              aria-selected={client === entry.key}
+              aria-pressed={client === entry.key}
               className={client === entry.key ? 'ai-client is-on' : 'ai-client'}
               onClick={() => setClient(entry.key)}
             >
@@ -200,14 +198,14 @@ export function ConnectGuides({ endpoint, token }: { endpoint: string; token: st
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-2" role="tabpanel">
+      <div className="grid min-w-0 gap-2">
         {parts.map((part, index) =>
           part.kind === 'step' ? (
             <p key={`${client}-${index}`} className="text-[0.8125rem] leading-[1.45] text-muted">
               {part.text}
             </p>
           ) : (
-            <Snippet key={`${client}-${index}`} text={part.text} secret={secret} real={token !== null} />
+            <Snippet key={`${client}-${index}-${part.text}`} text={part.text} secret={secret} real={token !== null} />
           ),
         )}
       </div>

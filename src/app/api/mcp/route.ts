@@ -17,13 +17,15 @@ import { runAsToken } from '@/lib/auth/actor'
 import { entitlementsOf } from '@/lib/plans/resolve'
 import { checkRateLimit } from '@/lib/rateLimit'
 import { mcpEnabled } from '@/lib/mcp/enabled'
-import { acceptsVersionHeader, handleMessage, PARSE_ERROR, SUPPORTED_VERSIONS, type Server } from '@/lib/mcp/protocol'
+import { acceptsVersionHeader, handleMessage, INVALID_REQUEST, PARSE_ERROR, SUPPORTED_VERSIONS, type Server } from '@/lib/mcp/protocol'
 import { withAccountLease } from '@/lib/mcp/lease'
 import { resolveToken } from '@/lib/mcp/tokens'
 import { serverFor, TOOLS } from '@/lib/mcp/tools'
 
 /** Per token. Generous for an assistant working through a songbook, tight for a runaway loop. */
 const CALLS_PER_MINUTE = 120
+/** The longest batch read at all; a minute's allowance spent in one POST is already generous. */
+const MAX_BATCH = 50
 
 const PLAN_REQUIRED =
   'Strumfolio: reaching your songbooks from an AI assistant needs the Standard plan or above. Your tokens are kept, and work again as soon as the plan is back.'
@@ -103,11 +105,19 @@ export async function POST(request: Request): Promise<Response> {
     const server = entitlements.refused.aiAccess === null ? serialised(base, token.accountId) : suspended(base)
 
     const messages = Array.isArray(payload) ? payload : [payload]
+    /* JSON-RPC answers an empty batch with one Invalid Request, and a batch longer than a minute's
+       allowance can only be refused message by message — so it is refused whole, before a single
+       message costs a database round trip. */
+    if (messages.length === 0) return rpcError(400, INVALID_REQUEST, 'Invalid Request: empty batch')
+    if (messages.length > MAX_BATCH) return rpcError(400, INVALID_REQUEST, `Invalid Request: at most ${MAX_BATCH} messages per batch`)
     const answers = []
+    let spent = false
     for (const [index, message] of messages.entries()) {
       /* A 2025-03-26 client may batch, and one POST must not buy a hundred calls: every message
-         after the first pays the same limit the request paid at the door. */
-      if (index > 0 && !(await checkRateLimit(`mcp:${token.tokenId}`, CALLS_PER_MINUTE, 60_000))) {
+         after the first pays the same limit the request paid at the door. Once one is refused the
+         rest are too, without asking the database again. */
+      if (index > 0 && (spent || !(await checkRateLimit(`mcp:${token.tokenId}`, CALLS_PER_MINUTE, 60_000)))) {
+        spent = true
         const id = (message as { id?: unknown } | null)?.id
         if (typeof id === 'string' || typeof id === 'number') {
           answers.push({ jsonrpc: '2.0', id, error: { code: -32002, message: 'Too many calls. Wait a minute and try again.' } })

@@ -23,7 +23,7 @@ function author(row: Pick<RevisionRow, 'writtenBy' | 'tokenName'>): string {
  * own document and draft, and a page built from the restored row is the only state nobody has
  * to reason about.
  */
-export function SongHistory({ slug }: { slug: string }) {
+export function SongHistory({ slug, dirty, saves }: { slug: string; dirty: boolean; saves: number }) {
   const online = useOnline()
   const [history, setHistory] = useState<History | null>(null)
   const [open, setOpen] = useState<number | null>(null)
@@ -39,9 +39,10 @@ export function SongHistory({ slug }: { slug: string }) {
     }
   }, [slug])
 
+  /* Again after every save: saving over an AI's text keeps a revision and clears the stamp. */
   useEffect(() => {
     void refresh()
-  }, [refresh])
+  }, [refresh, saves])
 
   if (history === null || (history.aiWrittenAt === null && history.revisions.length === 0)) return null
 
@@ -51,6 +52,8 @@ export function SongHistory({ slug }: { slug: string }) {
     try {
       const result = await restoreSongRevision(slug, id)
       if (result.ok) {
+        /* `busy` is put back first: a reload can still be declined (`UnsavedGuard`). */
+        setBusy(false)
         window.location.reload()
         return
       }
@@ -77,6 +80,7 @@ export function SongHistory({ slug }: { slug: string }) {
           : ''}
         Before every change an AI assistant makes, the previous text is kept here. Restoring one keeps the current text
         too.
+        {dirty ? ' Save or undo your changes above to restore a version.' : ''}
       </p>
 
       {error !== null && (
@@ -102,7 +106,7 @@ export function SongHistory({ slug }: { slug: string }) {
                 </button>
                 {confirming === row.id ? (
                   <>
-                    <button type="button" className="btn btn-sm btn-primary" disabled={busy || !online} onClick={() => void restore(row.id)}>
+                    <button type="button" className="btn btn-sm btn-primary" disabled={busy || !online || dirty} onClick={() => void restore(row.id)}>
                       Restore
                     </button>
                     <button type="button" className="btn btn-sm btn-quiet" onClick={() => setConfirming(null)}>
@@ -110,7 +114,7 @@ export function SongHistory({ slug }: { slug: string }) {
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="btn btn-sm" disabled={busy || !online} onClick={() => setConfirming(row.id)}>
+                  <button type="button" className="btn btn-sm" disabled={busy || !online || dirty} onClick={() => setConfirming(row.id)}>
                     Restore…
                   </button>
                 )}
