@@ -55,7 +55,7 @@ const GROUPS: PageGroup[] = [
       {
         href: '/checkout/standard',
         label: 'Checkout — Standard',
-        description: 'The mock checkout screen for this plan.',
+        description: 'The real Paddle checkout for this plan — in production it takes real money.',
       },
       {
         href: '/checkout/plus',

@@ -19,7 +19,7 @@ export default function CookiePolicyPage() {
   return (
     <>
       <h1>Cookie Policy</h1>
-      <p className="legal-updated">Last updated: 27 September 2026</p>
+      <p className="legal-updated">Last updated: 16 October 2026</p>
 
       <p>
         This Cookie Policy explains how Strumfolio uses cookies and similar technologies — local
@@ -73,9 +73,10 @@ export default function CookiePolicyPage() {
         preferences.
       </p>
       <p>
-        <strong>The offline cache — the heart of the app.</strong> Once you have signed in, a service
-        worker keeps on your device a copy of the app itself and of every song and songbook in your
-        collection, downloaded in the background, so that it opens on stage with no signal. The copy
+        <strong>The offline cache — the heart of the app.</strong> A service worker keeps on your
+        device a copy of the app itself — its code and styles, the same for every visitor, stored on
+        your first visit whether or not you have an account — and, once you have signed in, of every
+        song and songbook in your collection, downloaded in the background, so that it opens on stage with no signal. The copy
         is refreshed whenever you are online and has no expiry: it is emptied when you sign out, when
         another account signs in on the same browser, or when you clear your site data. It refuses to
         keep anything that was served to a signed-out visitor. It exists only in your browser: nothing in it is sent to us or to anyone else, and

@@ -459,8 +459,8 @@ export default function PrivacyPolicyPage() {
         we are required to retain data by law.
       </p>
       <p>
-        <strong>AI access.</strong> A token stops working when you revoke it, when you change your
-        password or email address, or after six months without use, and its record (name, first characters, hash and dates) is kept with your
+        <strong>AI access.</strong> A token stops working when you revoke it, when your password or the
+        email address of your account changes, or after six months without use, and its record (name, first characters, hash and dates) is kept with your
         account until the account is deleted, so that the history can say which assistant wrote
         what. Earlier versions of a song are kept up to twenty per song, the oldest removed first —
         except the last version you wrote yourself, which stays until a newer one of yours replaces

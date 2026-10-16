@@ -54,6 +54,13 @@ export const ATTRIBUTION_COOKIE_MAX_DAYS = 90
 const VALUE_MAX_LENGTH = 80
 
 /**
+ * A click id's own cap, longer: a gclid commonly runs to ninety or a hundred characters, and one
+ * cut at eighty is not a shorter gclid but a wrong one — the id handed to Google after a late
+ * «yes» (`consent/state.ts`, `gclidOf`) and the one `lead_attribution` keeps (2026-10-16).
+ */
+const CLICK_ID_MAX_LENGTH = 256
+
+/**
  * The ceiling on the encoded cookie. Over this the payload is thinned rather than dropped — see
  * `encodeAttribution`, which sheds `term` and `content` first and the whole last touch second,
  * because losing the campaign entirely to save a `utm_content` is the wrong trade.
@@ -160,11 +167,11 @@ export interface TouchRead {
 }
 
 /** Trim, cap, and treat an empty string as absence — a `?utm_source=` is not a source. */
-function readValue(raw: string | null): string | null {
+function readValue(raw: string | null, max = VALUE_MAX_LENGTH): string | null {
   if (raw === null) return null
   const trimmed = raw.trim()
   if (trimmed === '') return null
-  return trimmed.slice(0, VALUE_MAX_LENGTH)
+  return trimmed.slice(0, max)
 }
 
 /**
@@ -233,7 +240,7 @@ export function readTouch(url: URL, referer: string | null, requestHost: string,
   const term = readValue(params.get('utm_term'))
   const content = readValue(params.get('utm_content'))
 
-  const click = CLICK_ID_PARAMS.map((entry) => ({ kind: entry.kind, value: readValue(params.get(entry.param)) })).find(
+  const click = CLICK_ID_PARAMS.map((entry) => ({ kind: entry.kind, value: readValue(params.get(entry.param), CLICK_ID_MAX_LENGTH) })).find(
     (entry) => entry.value !== null,
   )
 
@@ -382,10 +389,10 @@ function thinTouch(touch: Touch): Touch {
  * `utm_content` first, both of which qualify a campaign already named; the whole last touch
  * second, since the first is the one that cannot be recovered later.
  *
- * **At `VALUE_MAX_LENGTH` of 80 none of that can happen**: two touches with every field at its
- * cap encode to well under `COOKIE_MAX_BYTES`, which `touch.test.ts` pins as a fact rather than
- * leaving to arithmetic. The thinning is here for whoever raises that cap, and the test above it
- * is what tells them the order this sheds in was chosen and not stumbled into.
+ * **Since 2026-10-16 it can happen with plain ASCII too**: the length is measured
+ * percent-encoded, as the cookie is written, and click ids may run to `CLICK_ID_MAX_LENGTH`, so
+ * two full touches can pass the ceiling and lose `term` and `content` first. The test above it is
+ * what tells a reader the order this sheds in was chosen and not stumbled into.
  */
 export function encodeAttribution(attribution: Attribution): string | null {
   const candidates: Attribution[] = [
@@ -396,7 +403,10 @@ export function encodeAttribution(attribution: Attribution): string | null {
 
   for (const candidate of candidates) {
     const encoded = JSON.stringify(candidate)
-    if (encoded.length <= COOKIE_MAX_BYTES) return encoded
+    /* Measured as it is written: the cookie value goes out percent-encoded, so an «é» costs six
+       bytes and a CJK character nine, and the JSON's own length let a 1,608-character payload
+       become an 8 KB header the browser silently refused (2026-10-16). */
+    if (encodeURIComponent(encoded).length <= COOKIE_MAX_BYTES) return encoded
   }
 
   return null
@@ -410,7 +420,8 @@ function readTouchShape(value: unknown): Touch | null {
   const at = typeof raw.at === 'string' ? raw.at : null
   if (landingPath === null || at === null) return null
 
-  const text = (key: string): string | null => (typeof raw[key] === 'string' ? readValue(raw[key] as string) : null)
+  const text = (key: string, max = VALUE_MAX_LENGTH): string | null =>
+    typeof raw[key] === 'string' ? readValue(raw[key] as string, max) : null
 
   return {
     source: text('source'),
@@ -419,7 +430,7 @@ function readTouchShape(value: unknown): Touch | null {
     term: text('term'),
     content: text('content'),
     clickIdKind: text('clickIdKind'),
-    clickId: text('clickId'),
+    clickId: text('clickId', CLICK_ID_MAX_LENGTH),
     refererHost: text('refererHost'),
     landingPath: landingPath.slice(0, VALUE_MAX_LENGTH),
     at,
