@@ -856,8 +856,9 @@ export async function setAccountTest(ownerEmail: string, isTest: boolean): Promi
  * global owner needs no row in `accounts` at all (v3.1), and `signIns` is written by
  * `signIn` in `auth.ts` *before* `provisionAccount` creates that row, so none of them can
  * carry a foreign key to it. Two of them move here; the other two do not, and that is
- * deliberate. `passwordResetTokens`: an unconsumed token under the old address simply
- * stops matching anything, a silent and harmless dead end. `pendingRegistrations` on the
+ * deliberate. `passwordResetTokens`: an unconsumed token under the old address is refused
+ * by `resetPassword`, which spends a token only for an address that still has an account
+ * (until 2026-10-16 it wrote a password for the old address instead). `pendingRegistrations` on the
  * old address likewise resolves to nothing.
  *
  * **What must never be added to this function**: `paddle_events.account_owner_email` and
@@ -881,7 +882,11 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
 
   if (!isEmailShape(newEmail)) return { ok: false, reason: 'invalid-email' }
   if (newEmail === oldEmail) return { ok: false, reason: 'same-email' }
-  if (isOwner(newEmail, process.env.ALLOWED_EMAILS)) return { ok: false, reason: 'is-owner' }
+  /* Both ends: one owner never moves another owner's account (and its password) to an address
+     of their choosing — the rule every other operator action here already keeps. */
+  if (isOwner(newEmail, process.env.ALLOWED_EMAILS) || isOwner(oldEmail, process.env.ALLOWED_EMAILS)) {
+    return { ok: false, reason: 'is-owner' }
+  }
 
   try {
     const oldRows = await db()

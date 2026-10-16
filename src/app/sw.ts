@@ -59,6 +59,23 @@ const rejectUnauthenticated = {
 }
 
 /**
+ * **A server error is not an answer while a stored copy exists** (2026-10-16). `NetworkFirst`
+ * falls back to its cache only when the fetch throws or times out; a quick 500 or 503 — the
+ * database refusing connections, a function failing to start — went straight to the reader on
+ * a stage, over a perfectly good copy of the song. A 4xx is still the true answer (a song that
+ * was deleted is gone), and with no copy the error is shown as before.
+ */
+function storedOnServerError(cacheName: string, keyOf: (request: Request) => string = (request) => request.url) {
+  return {
+    handlerWillRespond: async ({ request, response }: { request: Request; response: Response }) => {
+      if (response.status < 500) return response
+      const stored = await (await caches.open(cacheName)).match(keyOf(request))
+      return stored ?? response
+    },
+  }
+}
+
+/**
  * **A response to a request that left before the last sign-out is never stored.**
  *
  * The page empties the page caches when an account stops being the one on this device
@@ -289,6 +306,7 @@ const serwist = new Serwist({
           { cacheKeyWillBeUsed: async ({ request }) => new URL('/', request.url).href },
           rejectUnauthenticated,
           refuseEndedScope,
+          storedOnServerError('home', (request) => new URL('/', request.url).href),
         ],
       }),
     },
@@ -321,7 +339,12 @@ const serwist = new Serwist({
       handler: new NetworkFirst({
         cacheName: 'repertoire',
         networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
-        plugins: [new ExpirationPlugin({ maxEntries: 1500 }), rejectUnauthenticated, refuseEndedScope],
+        plugins: [
+          new ExpirationPlugin({ maxEntries: 1500 }),
+          rejectUnauthenticated,
+          refuseEndedScope,
+          storedOnServerError('repertoire'),
+        ],
       }),
     },
     /*

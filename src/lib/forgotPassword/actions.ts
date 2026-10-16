@@ -7,10 +7,11 @@
  * reach: an address with no verified email loop of its own to receive a link on.
  */
 
-import { eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 
 import { isEmailShape, normalizeEmail } from '@/lib/allowlist'
 import { writePasswordHash } from '@/lib/auth/credentials'
+import { hashToken } from '@/lib/auth/tokens'
 import { hashPassword, isPasswordAcceptable } from '@/lib/auth/password'
 import { verifyTurnstile } from '@/lib/captcha'
 import { db, hasDatabase } from '@/lib/db/client'
@@ -112,8 +113,31 @@ export async function resetPassword(formData: FormData): Promise<ResetPasswordRe
   if (password !== confirmPassword) return { ok: false, reason: 'password-mismatch' }
 
   try {
+    /*
+     * The token is spent before anything is written, by the one statement that can only succeed
+     * once: two submits of the same link used to both pass the check above and both set a
+     * password. And it is spent only for an address that still has an account — a link mailed
+     * an hour before the account was deleted or moved to another address used to write a
+     * password for the old one, and the next sign-in there made a fresh account.
+     */
+    const [account] = await db()
+      .select({ ownerEmail: accounts.ownerEmail })
+      .from(accounts)
+      .where(eq(accounts.ownerEmail, email))
+      .limit(1)
+    const spent = await db()
+      .delete(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.email, email),
+          eq(passwordResetTokens.tokenHash, hashToken(token)),
+          gt(passwordResetTokens.expiresAt, new Date()),
+        ),
+      )
+      .returning({ email: passwordResetTokens.email })
+    if (account === undefined || spent.length === 0) return { ok: false, reason: 'invalid-token' }
+
     await writePasswordHash(email, await hashPassword(password))
-    await db().delete(passwordResetTokens).where(eq(passwordResetTokens.email, email))
     return { ok: true }
   } catch (error) {
     console.error('resetPassword failed', error)

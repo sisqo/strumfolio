@@ -34,6 +34,12 @@ describe('isEmailShape', () => {
     assert.equal(isEmailShape(' Qualcuno@Example.Com '), true)
   })
 
+  it('refuses an address longer than SMTP carries before the pattern sees it', () => {
+    const started = Date.now()
+    assert.equal(isEmailShape('a@' + '.'.repeat(30000) + '@'), false)
+    assert.ok(Date.now() - started < 50)
+  })
+
   it('rejects what is plainly not one', () => {
     assert.equal(isEmailShape('qualcuno'), false)
     assert.equal(isEmailShape('qualcuno@example'), false)

@@ -447,7 +447,14 @@ export function FollowSession({ token }: { token: string }) {
           admitted = true
         }
 
-        await reconcile(poll.songSlug, poll.semitones, poll.notation)
+        /* The same rule again, for the song fetch inside: a throw is not an answer. Uncaught,
+           one dropped request on a stage's wifi ended `run` for good, and the follower's screen
+           stayed on the old song with nothing to say why. The next poll fetches it again. */
+        try {
+          await reconcile(poll.songSlug, poll.semitones, poll.notation)
+        } catch {
+          // Retried by the next tick.
+        }
         if (cancelled) return
 
         await sleep(POLL_MS)
@@ -488,11 +495,15 @@ export function FollowSession({ token }: { token: string }) {
 
     setLiveMeta(null)
     let cancelled = false
-    void guestLoadSong(token, liveSlug).then((loaded) => {
-      if (cancelled || loaded === null) return
-      songCacheRef.current.set(loaded.slug, loaded)
-      setLiveMeta({ title: loaded.title, artist: loaded.artist })
-    })
+    void guestLoadSong(token, liveSlug)
+      .then((loaded) => {
+        if (cancelled || loaded === null) return
+        songCacheRef.current.set(loaded.slug, loaded)
+        setLiveMeta({ title: loaded.title, artist: loaded.artist })
+      })
+      .catch(() => {
+        // The banner waits for the next song change; it names nothing rather than failing.
+      })
     return () => {
       cancelled = true
     }

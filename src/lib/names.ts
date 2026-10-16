@@ -11,6 +11,9 @@ export const NAME_MAX = 100
 
 export function cleanName(value: unknown): string | null {
   if (typeof value !== 'string') return null
-  const trimmed = value.trim()
+  /* On one line: a songbook or section name is written back out as `{songbook: …}` and
+     `{division: …}` (`import/export.ts`), and a line break inside one became a directive of its
+     own — `Book}` + `{start_of_abc` folded the whole exported song into an ABC block. */
+  const trimmed = value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim()
   return trimmed === '' || trimmed.length > NAME_MAX ? null : trimmed
 }

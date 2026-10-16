@@ -40,8 +40,15 @@ export function parseAllowlist(raw: string | undefined | null): string[] {
  * domain, a pasted line of text — before it becomes a row that silently admits nobody.
  */
 export function isEmailShape(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email))
+  const address = normalizeEmail(email)
+  /* 254 is the longest address SMTP carries, and the length is checked before the pattern: its
+     backtracking is quadratic on `a@` followed by dots, and `/login?…&email=` reaches it from a
+     plain GET (28k characters cost half a second, measured 2026-10-16). */
+  if (address.length > EMAIL_MAX) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)
 }
+
+const EMAIL_MAX = 254
 
 /** Whether this address is one of the owners, who cannot be removed from inside the app. */
 export function isOwner(email: string | null | undefined, raw: string | undefined | null): boolean {

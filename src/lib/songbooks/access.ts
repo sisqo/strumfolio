@@ -55,6 +55,9 @@ export async function editableSongbook(slug: string): Promise<EditableSongbook> 
 
 /** Same question, starting from a section's id: resolved to its songbook first. */
 export async function editableSection(id: number): Promise<EditableSection> {
+  /* Posted by a browser, so not necessarily a number: a non-integer made the query throw, a bare
+     500 from every section action. Beyond int4 it threw as well. */
+  if (!Number.isSafeInteger(id) || id < 1 || id > 2_147_483_647) return { ok: false, reason: 'not-found' }
   const rows = await db()
     .select({ songbookSlug: songbooks.slug })
     .from(sections)

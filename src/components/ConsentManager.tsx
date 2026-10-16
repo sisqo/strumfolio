@@ -121,6 +121,13 @@ export function ConsentManager() {
     } catch {
       // Offline: the tag loads without the recovered click, which is the lesser loss.
     }
+    /* The answer read again: a «Reject» pressed during the await (from «Cookie settings») no
+       longer reloads the page when no tag is loaded yet, so it does not end this call either. */
+    const still = parseConsent(readBrowserCookie(CONSENT_COOKIE) ?? undefined, Date.now())
+    if (still?.ads !== 'granted') {
+      accepting.current = false
+      return
+    }
     /* `location`, not the render's `pathname`: the reader may have moved on during the await. */
     if (tagAllowedOn(location.pathname, location.search)) loadGtag(config, clickId)
     else pendingClick.current = clickId

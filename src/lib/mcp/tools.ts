@@ -18,7 +18,7 @@ import { db } from '@/lib/db/client'
 import { sections, songbooks, songs } from '@/lib/db/schema'
 import { METADATA_DIRECTIVE } from '@/lib/import/deduce'
 import { saveSong } from '@/lib/import/actions'
-import { saveMessage, SONG_TEXT_MAX, SONG_TITLE_MAX } from '@/lib/import/types'
+import { oneLine, saveMessage, SONG_TEXT_MAX, SONG_TITLE_MAX } from '@/lib/import/types'
 import { createSection, renameSection } from '@/lib/sections/actions'
 import { createSongbook, moveSong, renameSongbook } from '@/lib/songbooks/actions'
 import { writeMessage } from '@/lib/songbooks/types'
@@ -434,9 +434,9 @@ async function updateSong(accountId: number, args: Record<string, unknown>): Pro
      version on, and an assistant «fixing» fifty songs that needed no fix would fill every
      history with copies of the text it already holds. */
   /* Normalised the way `saveSong` stores it: blank is no artist. */
-  const storedArtist = artist === null || artist === undefined || artist.trim() === '' ? null : artist.trim()
+  const storedArtist = artist === null || artist === undefined || oneLine(artist) === '' ? null : oneLine(artist)
   const sameArtist = storedArtist === current.artist
-  if (version === current.version && body === current.body && title.trim() === current.title && sameArtist) {
+  if (version === current.version && body === current.body && oneLine(title) === current.title && sameArtist) {
     return ok('Nothing to save: the text, title and artist are already these.', songCard(current))
   }
 

@@ -374,6 +374,13 @@ async function accountForSave(
 
 export async function saveSong(input: SongInput, decision?: Decision): Promise<SaveResult> {
   if (!hasDatabase) return { ok: false, reason: 'no-database' }
+  /* Checked here because the type is not: an unknown `decision` passed the duplicate prompt as
+     an answer, then matched neither «add» nor «replace» and skipped the song cap. And the slug's
+     shape before `accountForSave` reads it. */
+  if (decision !== undefined && decision !== 'add' && decision !== 'replace') return { ok: false, reason: 'failed' }
+  if (typeof input !== 'object' || input === null || (input.slug !== undefined && typeof input.slug !== 'string')) {
+    return { ok: false, reason: 'failed' }
+  }
 
   const target = await accountForSave(input.slug)
   if (!target.ok) return target

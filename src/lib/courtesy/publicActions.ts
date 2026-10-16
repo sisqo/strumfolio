@@ -32,6 +32,8 @@ export type CourtesyUnsubscribeStatus = 'invalid' | 'already-out' | 'confirmable
  */
 export async function courtesyUnsubscribeStatus(email: string, token: string): Promise<CourtesyUnsubscribeStatus> {
   if (!hasDatabase) return 'invalid'
+  /* A query string can repeat a key, and an action receives whatever was posted. */
+  if (typeof email !== 'string' || typeof token !== 'string') return 'invalid'
   if (!verifyCourtesyUnsubscribeToken(email, token)) return 'invalid'
 
   try {
@@ -62,6 +64,7 @@ export async function courtesyUnsubscribeStatus(email: string, token: string): P
  */
 export async function confirmCourtesyUnsubscribe(email: string, token: string): Promise<void> {
   if (!hasDatabase) return
+  if (typeof email !== 'string' || typeof token !== 'string') return
   if (!verifyCourtesyUnsubscribeToken(email, token)) return
 
   const address = normalizeEmail(email)
