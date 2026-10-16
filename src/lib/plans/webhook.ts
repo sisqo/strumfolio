@@ -302,6 +302,9 @@ export function stampIsSigned(custom: { downgrade?: unknown; account_id?: unknow
   return account.id !== null && stampSigned(account.id, stamp as Record<string, unknown>)
 }
 
+/** The same minute `paddleApply.ts`'s `PIN_TOLERANCE_MS` allows a pinned date. */
+const STAMP_TOLERANCE_MS = 60_000
+
 /**
  * The stamp, if one is still standing — and `null` the moment it is spent.
  *
@@ -337,8 +340,11 @@ export function readDowngradeStamp(
   const on = asDate(typeof at === 'string' ? at : null)
   if (on === null) return null
 
+  /* With the tolerance `pinLanded` already grants the date Paddle reports back (a minute): a
+     renewal pinned a second early would otherwise never retire the stamp, and the old plan
+     would stay «pending» with a «Keep» that hands the dearer tier back for free. */
   const started = asDate(periodStartsAt)
-  if (started !== null && started.getTime() >= on.getTime()) return null
+  if (started !== null && started.getTime() >= on.getTime() - STAMP_TOLERANCE_MS) return null
 
   return { fromPlan: fromPlan as Plan, fromCycle: readPendingCycle(fromCycle), at: on }
 }

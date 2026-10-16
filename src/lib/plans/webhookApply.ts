@@ -855,6 +855,13 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
                 pendingCycle: columns.pendingCycle,
               }
             : {}),
+          /* A purchase is a choice of plan. Nothing on the Paddle path wrote it since the mock
+             checkout went (932c940), so a first buyer `requirePlanChoice` had sent to /pricing
+             was sent back there on every visit after paying (found 2026-10-16, before any live
+             sale). `coalesce`, like `activatePlanChoice`: the first choice's date is kept. */
+          ...(columns && columns.plan !== 'free'
+            ? { planChosenAt: sql`coalesce(${accounts.planChosenAt}, now())` }
+            : {}),
           ...(statusOnly && !columns ? { planStatus: statusOnly } : {}),
           ...(statusOnly && !columns && effect.restoresLifetime
             ? { plan: 'lifetime', planExpiresAt: null, pendingPlan: null, pendingCycle: null }

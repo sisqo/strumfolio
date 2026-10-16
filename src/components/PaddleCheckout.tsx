@@ -46,6 +46,7 @@ import Link from 'next/link'
 import { IconCheck } from '@/components/icons'
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
 import { trackPurchase } from '@/lib/consent/gtag'
+import { activatePlanChoice } from '@/lib/plans/checkout'
 import { checkoutSettings, FRAME_TARGET } from '@/lib/plans/checkoutFrame'
 import { startPaddleCheckout, type PaddleCheckoutFailure } from '@/lib/plans/paddleCheckout'
 import { changeStops, changeSummary, type NextCharge } from '@/lib/plans/changeSummary'
@@ -351,6 +352,9 @@ export function PaddleCheckout(props: Props) {
               currency: event.data.currency_code,
             })
           }
+          /* The choice the webhook also records, written now so a reader who leaves this page
+             before the webhook lands is not sent back to /pricing by `requirePlanChoice`. */
+          void activatePlanChoice().catch(() => undefined)
           setPaid(true)
           setMessage('Payment received — we are finishing up. Your plan will appear in a moment.')
           announcePaid()

@@ -12,7 +12,11 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
 - `checkout.ts` (`'use server'`) — **five loaders and one write, and no plan column among
   them**: `loadCheckoutStatus`, `loadPurchaseSummary`, `loadThanksPreview`,
   `loadMyPaymentHistory`, `loadFreezeState`, plus `activatePlanChoice`, which stamps
-  `planChosenAt` (`coalesce`, so only the first choice counts) and nothing else. It also exports
+  `planChosenAt` (`coalesce`, so only the first choice counts) and nothing else. **A purchase is a
+  choice too**: `webhookApply.ts` stamps the same column whenever it grants a paid plan, and
+  `PaddleCheckout` calls `activatePlanChoice` on `checkout.completed`. Nothing did between the
+  mock's removal (932c940) and 2026-10-16, so the first live buyer `requirePlanChoice` had sent to
+  `/pricing` would have been sent back there after paying, on every visit. It also exports
   the `SubscriptionState` type. The writers of the plan itself live beside it,
   one file per act — `paddleCheckout.ts` (buy), `paddlePlanChange.ts` (move),
   `paddleSubscription.ts` (cancel, keep) — and every one of them leaves the *columns* to
