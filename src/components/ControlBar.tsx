@@ -436,20 +436,33 @@ function PrevNext({
    * step is cold for at most a minute after the fifth.
    */
   const [round, setRound] = useState(0)
-  /* The remount is skipped while the arrows are in use: a finger already down on one would lose
-     its tap (a click needs both ends on the same element), a keyboard or VoiceOver user resting
-     on it would be dropped onto the body, and a step in flight would lose its pending line. The
-     next minute catches up. */
+  /*
+   * For ten seconds after a press the remount is skipped: a finger already down on an arrow
+   * would lose its tap (a click needs both ends on the same element), and a step in flight
+   * would lose its pending line. The next minute catches up. Focus is not a reason to skip —
+   * a keyboard or VoiceOver user resting on «Next» for a whole song is exactly who needs the
+   * fresh prefetch — so the remount happens and focus is put back on the same arrow (by its
+   * `title`, the one attribute an arrow keeps whatever state it is in).
+   */
   const nav = useRef<HTMLDivElement>(null)
   const inUseUntil = useRef(0)
+  const refocus = useRef<string | null>(null)
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const busy =
-        Date.now() < inUseUntil.current || nav.current?.contains(document.activeElement) === true
-      if (!busy) setRound((count) => count + 1)
+      if (Date.now() < inUseUntil.current) return
+      const focused = document.activeElement
+      refocus.current =
+        focused instanceof HTMLElement && nav.current?.contains(focused) === true ? focused.title || null : null
+      setRound((count) => count + 1)
     }, PREFETCH_REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [])
+  useEffect(() => {
+    const title = refocus.current
+    refocus.current = null
+    if (title === null) return
+    nav.current?.querySelector<HTMLElement>(`[title="${title}"]`)?.focus()
+  }, [round])
   const markInUse = () => {
     inUseUntil.current = Date.now() + STEP_IN_USE_MS
   }

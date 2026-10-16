@@ -132,7 +132,9 @@ with `dl=…/follow/<token>`. So the rule is structural:
   - **Not from `PayFrame` (`/pay`)**, which settles Paddle's dunning emails, i.e. renewals.
   - A plan change never opens a checkout, so it never counts.
 
-**Verified and not verified (2026-09-27, locally, fake `AW-` id, real gtag.js):**
+**Verified and not verified (2026-09-27, locally, fake `AW-` id, real gtag.js).** This predates
+the 2026-10-16 loader (`config`, page view and conversions after `onload`): **re-run it before
+switch-on** — a late Accept still writes `_gcl_aw`, and both conversions still leave.
 
 - **Verified.**
   - *Email signup:* accept on `/register`, then register, then open the verification link from

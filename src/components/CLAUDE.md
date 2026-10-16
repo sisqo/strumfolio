@@ -15,7 +15,11 @@ while it scrolls and a cue for the next song when it ends. What is not visible f
   land shows `StepPending`'s line and fades the song being left (`body:has(…)`, after 150 ms).
   A full prefetch expires after five minutes (`staleTimes.static`) and the bar never leaves the
   viewport to trigger another, so `PrevNext` remounts the arrows every minute: the router
-  refetches only an expired entry, so the remount is cheap.
+  refetches only an expired entry, so the remount is cheap. **Not within ten seconds of a press on an
+  arrow** (2026-10-16): a tap whose pointerdown landed before the remount and pointerup after it
+  was lost, and a step in flight lost its pending line. Focus does not hold it off — a keyboard
+  user resting on «Next» needs the refresh most — so the focused arrow gets focus back by its
+  `title` after the remount.
 - **There is deliberately no `loading.tsx` under `songs/[slug]`.** A skeleton would have replaced
   the reading bar the reader's thumb is on, and it would have needed `requireAccount` and
   `requirePlanChoice` moved into a layout (see `src/lib/auth/CLAUDE.md`).

@@ -250,7 +250,9 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
 - **Markup is drawn, never printed as tags** (`lib/markup.ts`): the part's `text` is plain
   and its style rides in `runs`, so width, search, the booklet and the anchors see no tags; the
   anchor walker skips tags and counts `\uXXXX` as one drawn character. Only the tags the format
-  defines are markup — `a < b` stays text.
+  defines are markup — `a < b` stays text. **Past `MARKUP_DEPTH` (32) open tags a tag styles
+  nothing**, and its own close is spent on it (2026-10-16): the style was rebuilt from the whole
+  stack for every character, so 16,000 `<b>` cost nine seconds.
 - **`\uXXXX`** is the character it names, in lyrics and directive values.
 - **`{duration: 268}` is shown as `4:28`** (`readableDuration`), as the spec requires.
 - **The song-data form reads `{meta: composer X}` as the Composer field** and keeps a meta line
@@ -277,12 +279,15 @@ What is deliberately **not** followed, each argued where it lives rather than he
   the stanza they put it on instead of being duplicated onto the repeat. It reads the last
   chorus seen, or a named one (`{start_of_chorus: Final}` … `{chorus: Final}`), repeats the last
   one under the label when the name matches none, and falls back to printing the word where a
-  file references a chorus it never opened. Until 2026-09-19 it
+  file references a chorus it never opened. **All of a song's repeats together draw at most
+  `CHORUS_REPEAT_BUDGET` (5000) lines** (2026-10-16), past which the label is printed: each repeat
+  copies the chorus, and a 99k-character file asked for ten million lines and took the server down. Until 2026-09-19 it
   printed the reference, and the reason was exactly this anchoring problem.
 - **Line continuation and `{chorus}` both work now**, and neither could before the anchor map
   stopped counting — see the identity bullet above. **A line opening with `{` never continues**
   (2026-09-25): the editor never joins, so `{c: a \` + `b}` would be a comment to the reader and
-  two lines of words to the editor; its `\` stays a character. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
+  two lines of words to the editor; its `\` stays a character. **Nor is one continued into**
+  (2026-10-16): `\` alone followed by `{start_of_abc}\` became a directive once the mark dropped. `chordpro.test.ts`'s «the reader and the editor agree» is still the cheapest check that a new
   construct is safe — compared line by line since 2026-09-23: it used to compare a count taken
   from `buildAnchorMap`, which has one entry per reader line whatever the editor did, so it could
   not fail.
