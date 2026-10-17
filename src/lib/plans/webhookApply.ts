@@ -493,10 +493,11 @@ async function recordCouponRedemption(
  * committed — a throw would be a 500, and a 500 is retried for three days, which would mean
  * three days of emails about one payment.
  *
- * Renewals reach this too, and that is right rather than an oversight: a renewal is money
- * arriving, the operator wants to know, and the customer is entitled to the same confirmation
- * they got the first time. Paddle sends its own invoice beside it; this is the one that says
- * which plan, and until when.
+ * Renewals reach this too. The operator hears of every charge, labelled for what it is; the
+ * customer is mailed only for a new purchase (owner's decision 2026-10-16): the email said «for
+ * the first month» on every renewal and every upgrade, and Paddle's own receipt already covers
+ * those. A zero total — the transaction Paddle completes when a card is updated — is no payment
+ * and announces nothing.
  */
 async function announcePayment(
   event: IncomingPaddleEvent,
@@ -509,12 +510,15 @@ async function announcePayment(
   /* The same reader the payment history uses, so the ledger line and the email cannot name
      different amounts for one event. */
   const line = readLine(event.eventType, rawBody)
+  if (line.amount !== null && Number(line.amount) === 0) return
+  const purchase = isNewPurchase(event.data as never)
   const planLabel = line.plan === null ? null : PLAN_LABEL[line.plan]
   const periodEnd = transactionPeriodEnd(event.data as never)
 
   const label = `${line.plan ?? 'piano'}${line.cycle === null ? '' : `/${line.cycle}`}`
   const paidClause = line.amount === null ? '' : ` · ${euro(line.amount)}${line.cycle === null ? ' una tantum' : ''}`
-  await notifyTelegram('purchase', `💰 Acquisto: ${label}${paidClause}`)
+  await notifyTelegram('purchase', `💰 ${purchase ? 'Acquisto' : 'Rinnovo o cambio'}: ${label}${paidClause}`)
+  if (!purchase) return
 
   /* No plan to name is no confirmation worth sending: a transaction whose price carries no
      stamp is one this app cannot describe, and a receipt that names nothing is worse than

@@ -22,6 +22,7 @@ import {
 import { hashPassword, isPasswordAcceptable, verifyPassword } from '@/lib/auth/password'
 import { currentUser, issueSessionCookie } from '@/lib/auth/session'
 import type { PasswordResult } from '@/lib/auth/types'
+import { courtesySendable } from '@/lib/courtesy/sendable'
 import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, rateLimitHits } from '@/lib/db/schema'
 import { sendPasswordResetToken } from '@/lib/forgotPassword/sendToken'
@@ -249,9 +250,13 @@ export async function sendPasswordResetFor(email: string): Promise<PasswordResul
     return { ok: false, reason: 'not-allowed' }
   }
 
+  /* Behind the same guard as every other send an operator starts from /accounts: from a local
+     copy of production's data this mailed a real customer a link to localhost. And a failed
+     send is reported — the operator is the one person in a position to act on it. */
+  const address = normalizeEmail(email)
+  if (!courtesySendable(process.env.VERCEL_ENV, address)) return { ok: false, reason: 'not-production' }
   try {
-    await sendPasswordResetToken(normalizeEmail(email))
-    return { ok: true }
+    return (await sendPasswordResetToken(address)) ? { ok: true } : { ok: false, reason: 'failed' }
   } catch (error) {
     console.error('sendPasswordResetFor failed', error)
     return { ok: false, reason: 'failed' }

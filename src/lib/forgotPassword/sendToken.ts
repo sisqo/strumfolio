@@ -19,13 +19,14 @@
 import { db } from '@/lib/db/client'
 import { passwordResetTokens } from '@/lib/db/schema'
 import { generateToken } from '@/lib/auth/tokens'
-import { sendEmail } from '@/lib/email/send'
+import { deliverEmail } from '@/lib/email/send'
 import { passwordResetEmail } from '@/lib/email/templates'
 import { requestOrigin } from '@/lib/rateLimit'
 
 const EXPIRES_IN_MS = 60 * 60 * 1000
 
-export async function sendPasswordResetToken(email: string): Promise<void> {
+/** Whether Resend took the message: the self-service caller ignores it, the operator's does not. */
+export async function sendPasswordResetToken(email: string): Promise<boolean> {
   const { raw, hash } = generateToken()
   const expiresAt = new Date(Date.now() + EXPIRES_IN_MS)
 
@@ -41,5 +42,5 @@ export async function sendPasswordResetToken(email: string): Promise<void> {
   url.searchParams.set('email', email)
   url.searchParams.set('token', raw)
 
-  await sendEmail({ to: email, ...passwordResetEmail(url.toString()) })
+  return (await deliverEmail({ to: email, ...passwordResetEmail(url.toString()) })).ok
 }

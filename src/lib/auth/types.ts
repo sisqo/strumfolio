@@ -21,6 +21,8 @@ export type PasswordFailure =
   | 'not-allowed'
   /** A global owner's own way in is not something another admin may overwrite silently. */
   | 'is-owner'
+  /** An operator's send from a database that is not production's, to a real address. */
+  | 'not-production'
   | 'failed'
 
 export type PasswordResult = { ok: true } | { ok: false; reason: PasswordFailure }
@@ -33,5 +35,6 @@ export const PASSWORD_MESSAGE: Record<PasswordFailure, string> = {
   'no-password': 'This address has no password.',
   'not-allowed': 'Only a global owner may do this.',
   'is-owner': "A global owner's password can only be changed by themselves.",
+  'not-production': 'Not sent: outside production, emails go only to test addresses.',
   failed: 'Save failed. Please try again.',
 }

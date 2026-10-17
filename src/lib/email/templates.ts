@@ -201,7 +201,7 @@ export function welcomeEmail(): EmailTemplate {
   const subject = `Welcome to ${APP_NAME}`
 
   const paragraphs = [
-    `When you first sign in, you won't find an empty screen, but a songbook with nine traditionals. Use them to get familiar with the app: try changing the look of the page, moving a chord, or testing the auto-scroll. Think of them as a simple practice space, which you can rename or delete entirely when you are ready to get serious.`,
+    `When you first sign in, you won't find an empty screen, but a songbook with nine songs: eight traditionals and one of ours. Use them to get familiar with the app: try changing the look of the page, moving a chord, or testing the auto-scroll. Think of them as a simple practice space, which you can rename or delete entirely when you are ready to get serious.`,
     `When you're ready, bring in the songs you already play. Paste the lyrics and ${APP_NAME} will recognize the chords above the words, or import your files to build your songbooks. From there, you can take them with you anywhere: on stage, in rehearsal, even with no signal.`,
     `Take your time to explore the app. The Free plan you're on right now has no time limit and already lets you use Strum Together. Paid plans are just for when you need higher limits or specific tools, like printed booklets and ukulele chords. Either way, whatever you decide, what you put in always stays yours: readable and exportable at any time.`,
   ]
@@ -254,8 +254,13 @@ export function purchaseEmail(input: {
    * The day the period just paid for runs out, as a plain day — or null for a plan that has
    * no such day (`lifetime`).
    *
+   * **It renews again since 2026-10-16** (owner's decision): Paddle bills these subscriptions on
+   * that day, and this email — the one written record a buyer keeps — was the only place not
+   * saying so, beside a checkout and a /thanks that both print «renews». The paragraph below is
+   * the history of the mock era, when nothing renewed.
+   *
    * **Named for what it is, since v3.13.** This was `renewsOn`, and the sentence it fed said
-   * «It renews on 3 May 2027» — a promise nothing in this repository keeps. `checkout.ts`
+   * «It renews on 3 May 2027» — a promise nothing in this repository then kept. `checkout.ts`
    * passes `planExpiresAt`, and nothing renews it: no cron, no webhook, no scheduled write
    * exists anywhere here, so when that day comes the entitlement simply stops
    * (`liveSubscription`, `plans/entitlements.ts`). The three screens were corrected to say so
@@ -309,7 +314,7 @@ export function purchaseEmail(input: {
   const renewalClause = (section: string) =>
     endsOn === null
       ? 'There is nothing to renew — it stays yours, for good.'
-      : `It runs until ${endsOn}, and you can change or cancel it any time from ${section}.`
+      : `It renews on ${endsOn} unless you cancel before then, and you can change or cancel it any time from ${section}.`
 
   const billingUrl = `https://${SITE_URL}/billing`
 

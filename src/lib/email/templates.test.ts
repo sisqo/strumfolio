@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { courtesyCheckinEmail, courtesyThanksEmail, giftEmail, planChangeEmail } from './templates'
+import { courtesyCheckinEmail, courtesyThanksEmail, giftEmail, planChangeEmail, purchaseEmail } from './templates'
 
 const SCHEDULED_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: { day: '22 September 2027' }, takesAway: true } as const
 const IMMEDIATE_CANCEL = { fromLabel: 'Premium', toLabel: 'Free', effect: 'now', takesAway: true } as const
@@ -350,4 +350,18 @@ test('a courtesy note with no name opens on a bare greeting', async (t) => {
       assert.match(mail.text, /^Hi,\n\n/)
     })
   }
+})
+
+test('purchaseEmail', async (t) => {
+  /* Owner's decision 2026-10-16: the written confirmation says the subscription renews, like the
+     checkout and /thanks around it; a Lifetime says it is kept for good. */
+  await t.test('a subscription says it renews, and on which day', () => {
+    const mail = purchaseEmail({ planLabel: 'Standard', amount: '34.99', cycle: 'year', endsOn: '22 September 2027' })
+    for (const body of [mail.html, mail.text]) assert.match(body, /renews on 22 September 2027 unless you cancel/)
+  })
+
+  await t.test('a Lifetime promises no renewal', () => {
+    const mail = purchaseEmail({ planLabel: 'Lifetime', amount: '199.99', cycle: null, endsOn: null })
+    for (const body of [mail.html, mail.text]) assert.doesNotMatch(body, /renew on|renews on/)
+  })
 })

@@ -2,7 +2,7 @@
 
 Every message Strumfolio puts in a reader's inbox, in the order a reader meets them, with the
 copy as it goes out. Re-verified against `src/lib/email/templates.ts` and every call site on
-2026-09-27. That file is the only place the copy is decided: **when this file and that file
+2026-09-27, and §4–§5 again on 2026-10-17. That file is the only place the copy is decided: **when this file and that file
 disagree, the template wins** — the live, rendered version of each email is at `/emails`
 (global owners only), which can also send a real copy, prefixed `[Preview]`, to the owner's own
 inbox.
@@ -10,14 +10,16 @@ inbox.
 Eight emails reach a reader. One more travels the other way (feedback, to the support inbox), and
 a newsletter is announced in the Privacy Policy but has never been sent. Nothing is sent on a
 schedule: every message below is the direct consequence of something a person did a moment
-earlier — the reader, or an operator on `/accounts` or `/accounts/[email]`.
+earlier — the reader, or an operator on `/accounts` or `/accounts/[email]`. Paddle's renewals
+are charges with no person behind them, and this app mails nothing for them (§4): Paddle's own
+receipt is the record.
 
 | # | Moment | Email | Template | Sent by |
 |---|---|---|---|---|
 | 1 | Signing up with an email address | Verify your email | `verificationEmail` | `register/actions.ts` (`register`, `resendVerification`) |
 | 2 | The account exists | Welcome | `welcomeEmail` | `verify/actions.ts`, `auth.ts` (first Google sign-in), `accounts/actions.ts` (`confirmPendingRegistration`, `createAccount`) |
 | 3 | Forgotten password | Reset your password | `passwordResetEmail` | `forgotPassword/actions.ts` (self-service), `auth/actions.ts` (`sendPasswordResetFor`, operator) |
-| 4 | Buying or upgrading a plan | Purchase confirmation | `purchaseEmail` | `plans/webhookApply.ts` (`announcePayment`, on `transaction.completed`) |
+| 4 | Buying a plan | Purchase confirmation | `purchaseEmail` | `plans/webhookApply.ts` (`announcePayment`, on `transaction.completed`) |
 | 5 | Downgrading or cancelling | Plan change notice | `planChangeEmail` | `plans/paddlePlanChange.ts` (`changePaddlePlan`), `plans/paddleSubscription.ts` (`cancelPaddleSubscription`) |
 | 6 | Being given a plan | Gift notice | `giftEmail` | `accounts/actions.ts` (`sendGiftNotice`, operator) |
 | 7 | A week or so in | A thank-you and a question | `courtesyThanksEmail` | `courtesy/actions.ts` (`sendCourtesyThanks`, operator, from `/accounts`' list) |
@@ -30,7 +32,7 @@ earlier — the reader, or an operator on `/accounts` or `/accounts/[email]`.
   notices delivered from there show the default is what actually goes out; the Preview and
   Development values still read `Songbook <no-reply@sisqo.dev>` from before the domain move, so a
   locally-sent email does not prove what the production header says. The code reads it with
-  `??`, which would *not* fall back on an empty string if the platform ever passed one through.
+  `||` since 2026-10-17, so an empty string passed through falls back too.
   Delivery is Resend (`lib/email/send.ts`). The two courtesy notes (§7, §8) are the exception:
   they are sent from `Francesco from Strumfolio <info@strumfolio.com>` (`COURTESY_FROM`).
 - **Reply-To**: unset on every message that carries a link and nothing else — `no-reply@` is the
@@ -47,8 +49,10 @@ earlier — the reader, or an operator on `/accounts` or `/accounts/[email]`.
   courtesy notes have **no chrome at all** (`plainMessage`): no wash, card, lockup, heading or
   footer, and not one `style` attribute — see `lib/courtesy/CLAUDE.md`.
 - **Language**: English, like every sentence in the app.
-- **Links** are built from the origin of the request that triggered the send, so a preview
-  deployment sends links to itself — through `linkOrigin` (`lib/origin.ts`), which writes any
+- **Links** in §1–§3 and in the courtesy notes are built from the origin of the request that
+  triggered the send (the courtesy unsubscribe link is pinned to `https://strumfolio.com` in
+  production, since it never expires); §4, §5 and §6 link to `https://strumfolio.com`
+  (`SITE_URL`) whatever deployment sent them. A preview deployment's §1–§3 links go to itself — through `linkOrigin` (`lib/origin.ts`), which writes any
   host outside the product's own as `https://strumfolio.com`. Tokens travel as `?email=…&token=…`; the pages they open
   only *read* on GET and write on an explicit tap, because corporate scanners follow every
   link in a message before a person sees it.
@@ -137,7 +141,7 @@ production never mails a real reader.
 ```
 Welcome to Strumfolio
 
-When you first sign in, you won't find an empty screen, but a songbook with nine traditionals. Use them to get familiar with the app: try changing the look of the page, moving a chord, or testing the auto-scroll. Think of them as a simple practice space, which you can rename or delete entirely when you are ready to get serious.
+When you first sign in, you won't find an empty screen, but a songbook with nine songs: eight traditionals and one of ours. Use them to get familiar with the app: try changing the look of the page, moving a chord, or testing the auto-scroll. Think of them as a simple practice space, which you can rename or delete entirely when you are ready to get serious.
 
 When you're ready, bring in the songs you already play. Paste the lyrics and Strumfolio will recognize the chords above the words, or import your files to build your songbooks. From there, you can take them with you anywhere: on stage, in rehearsal, even with no signal.
 
@@ -197,8 +201,11 @@ only.
 
 ## 4. Buying or upgrading a plan — «Your Premium plan is active — thanks»
 
-**When.** The reader completes `/checkout/[plan]` and the change takes effect *now*: a first
-purchase, or an upgrade. A **scheduled** change (a downgrade that waits for the paid period to
+**When.** The reader completes `/checkout/[plan]` with a new purchase — a transaction whose
+Paddle `origin` is not `subscription_*` (`isNewPurchase`). **Not** for a renewal, an upgrade's
+prorated charge or the zero-total transaction a card update produces (owner's decision
+2026-10-16): until then every one of those mailed «for the first month». The operator's
+Telegram line still reports each charge, as «Rinnovo o cambio». A **scheduled** change (a downgrade that waits for the paid period to
 end) is not a purchase and gets the plan-change notice in §5 instead. The screen moves to
 `/thanks`; this email is the written copy of what that page says.
 
@@ -215,7 +222,7 @@ year, ending 22 September 2027):
 ```
 Thanks — you're on Premium
 
-We've received your payment of €99 for the first year. Premium is active on your account right now. It runs until 22 September 2027, and you can change or cancel it any time from Plan & billing.
+We've received your payment of €99 for the first year. Premium is active on your account right now. It renews on 22 September 2027 unless you cancel before then, and you can change or cancel it any time from Plan & billing.
 
 Your payment history and this plan's settings are in Plan & billing: https://strumfolio.com/billing
 
@@ -224,9 +231,9 @@ Strumfolio — Your favourite songs, ready to play
 
 No button; the HTML links «Plan & billing» (`BILLING_SECTION`) to `/billing`.
 
-- **Payment clause**: «We've received your payment of €9.49 for the first month.» /
+- **Payment clause**: «We've received your payment of €3.49 for the first month.» /
   «…for the first year.» / for Lifetime, which has no cycle: «We've received your payment of
-  €139.99.» / with no figure to name at all: «Your payment went through.» The amount is the
+  €199.99.» / with no figure to name at all: «Your payment went through.» The amount is the
   ledger row's own string, never recomputed here, so receipt and history cannot disagree.
 - **Coupon clause**, present only when a code was redeemed: « You used FOUNDER30, off the full
   price of €34.99.» followed by the exact sentence the checkout screen showed under the price
@@ -234,11 +241,11 @@ No button; the HTML links «Plan & billing» (`BILLING_SECTION`) to `/billing`.
   subscribed.» This is the disclosure that lets a discount revert without a dispute: the
   customer was told in writing, at the moment they paid. Lifetime names the code and the full
   price but no duration, since there is no cycle to revert on.
-- **End clause**: «It runs until <day>, and you can change or cancel it any time from Plan &
-  billing.»
-  / for Lifetime: «There is nothing to renew — it stays yours, for good.» The word is *runs
-  until*, never *renews*: nothing in this repository renews anything, and when the day comes
-  the entitlement simply stops.
+- **End clause**: «It renews on <day> unless you cancel before then, and you can change or
+  cancel it any time from Plan & billing.»
+  / for Lifetime: «There is nothing to renew — it stays yours, for good.» *Renews* since
+  2026-10-16 (owner's decision): Paddle charges again on that day, and this is the written
+  record the buyer keeps; it said *runs until* from the mock era, when nothing renewed.
 
 **Sent from the webhook** (`transaction.completed`), because a real payment has no action of
 ours behind it — Paddle's own overlay is what the customer pressed — and Paddle, as merchant of
@@ -256,8 +263,10 @@ is what makes it read as a cancellation:
   outlives the tab.
 - **Cancellation, scheduled**: `Cancel my plan` on `/billing` for a plan with a paid-until day.
   The plan stays in force until then.
-- **Cancellation, immediate**: the same button for a live plan carrying no end date — it has no
-  period to wait out, so the account is back on Free at once.
+- **Cancellation, immediate**: written in the template and never sent today —
+  `cancelPaddleSubscription` always cancels at the end of the period, and `planChangeNotice`
+  answers nothing for any other timing. Its subject and sentences are kept for the day an
+  immediate cancel exists.
 
 **Subject and first paragraph take one of five shapes.** `<From>` is the plan in force, `<To>`
 the destination, `<day>` the paid-until day when it can be named:
@@ -450,9 +459,9 @@ not a follow-up.
 
 - Signing in, on a new device or otherwise. Sessions last ninety days from sign-in and nothing
   writes to say so.
-- A plan reaching its paid-until day. Nothing runs on a schedule, so the entitlement stops
-  silently; the only written warning is the plan-change notice sent weeks earlier, if there
-  was one.
+- A plan reaching its paid-until day. A subscription renews (Paddle charges and sends its own
+  receipt; §4 says so at purchase); a cancelled one stops silently, and the only written
+  warning is the plan-change notice sent when it was cancelled.
 - A reader changing their own password from the app (`setOwnPassword`), or an operator setting
   one for them (`setPasswordFor`).
 - An operator changing the address on an account (`changeAccountEmail`) — neither the old nor

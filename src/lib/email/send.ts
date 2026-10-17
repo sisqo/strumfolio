@@ -22,7 +22,7 @@ import { Resend } from 'resend'
  * `RESEND_FROM` is a plain (not `NEXT_PUBLIC_`) env var and this module pulls in the Resend
  * SDK, which has no business in that page's client bundle.
  */
-export const FROM_ADDRESS = process.env.RESEND_FROM ?? 'Strumfolio <no-reply@strumfolio.com>'
+export const FROM_ADDRESS = process.env.RESEND_FROM || 'Strumfolio <no-reply@strumfolio.com>'
 
 export interface EmailMessage {
   to: string

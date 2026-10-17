@@ -499,7 +499,8 @@ export async function sendGiftNotice(
   }
 
   const planLabel = PLAN_LABEL[gifted]
-  const typed = clamp(asText(input.subject), MAX_GIFT_SUBJECT)
+  /* One line: a subject with a line break in it is refused by Resend, and the gift settled as failed. */
+  const typed = clamp(asText(input.subject).replace(/[\r\n]+/g, ' '), MAX_GIFT_SUBJECT)
   const personalLine = clamp(asText(input.personalLine), MAX_GIFT_PERSONAL_LINE)
   const template = giftEmail({
     planLabel,

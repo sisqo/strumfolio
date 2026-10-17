@@ -22,6 +22,7 @@ import { db, hasDatabase } from '@/lib/db/client'
 import { accounts, outreachActions } from '@/lib/db/schema'
 import { courtesyCheckinEmail, courtesyThanksEmail } from '@/lib/email/templates'
 import { deliverEmail } from '@/lib/email/send'
+import { PRODUCTION_ORIGIN } from '@/lib/origin'
 import { claimOccurrence, settle } from '@/lib/outreach/claim'
 import { occurrenceKeyFor } from '@/lib/outreach/occurrence'
 import { OUTREACH } from '@/lib/outreach/types'
@@ -102,7 +103,11 @@ function claimFailure(reason: OutreachFailure): CourtesyFailure {
 }
 
 function unsubscribeUrlFor(origin: string, ownerEmail: string, token: string): string {
-  const url = new URL('/courtesy-unsubscribe', origin)
+  /* In production the link never expires, so it is pinned to the public domain: sent while the
+     operator worked from `strumfolio-sisqoz.vercel.app`, it pointed for ever at a host behind
+     Vercel's sign-in, where no reader can use it. */
+  const base = process.env.VERCEL_ENV === 'production' ? PRODUCTION_ORIGIN : origin
+  const url = new URL('/courtesy-unsubscribe', base)
   url.searchParams.set('email', ownerEmail)
   url.searchParams.set('token', token)
   return url.toString()
