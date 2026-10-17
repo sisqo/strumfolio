@@ -19,6 +19,7 @@ import {
   IconPlus,
   IconTrash,
 } from '@/components/icons'
+import { pressNearestSave } from '@/lib/pressNearestSave'
 import { applyOrder } from '@/lib/songbooks/order'
 import { useLiveRows } from '@/lib/library/useLiveSongs'
 import type { SongIndexRow } from '@/lib/search-index'
@@ -367,6 +368,10 @@ export function SongbookSongs({
                             onChange={(event) => setDraft(event.target.value)}
                             onKeyDown={(event) => {
                               if (event.key === 'Escape') setRenaming(null)
+                              if (event.key === 'Enter') {
+                                event.preventDefault()
+                                pressNearestSave(event.currentTarget)
+                              }
                             }}
                             aria-label={`New name for ${section.name}`}
                             className="form-field min-w-0 flex-1"

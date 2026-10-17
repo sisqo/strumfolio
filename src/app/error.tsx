@@ -9,7 +9,7 @@ import { useEffect } from 'react'
  * reason `not-found.tsx` gives, and in the same shape, with the one thing a reader can do about
  * it: try again, or go home.
  */
-export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorPage({ error }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error)
   }, [error])
@@ -21,7 +21,10 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
         This page could not be shown. If you are offline, the songs you have opened before are still on this device.
       </p>
       <div className="mt-2 flex gap-4">
-        <button type="button" className="font-medium text-[var(--accent)] hover:underline" onClick={reset}>
+        {/* A reload, not `reset()` alone: the commonest error here is a script chunk that failed
+            to load (a deploy, a flaky connection), and webpack keeps that failed promise, so
+            `reset()` rendered the same error again (2026-10-17, found in a real browser). */}
+        <button type="button" className="font-medium text-[var(--accent)] hover:underline" onClick={() => window.location.reload()}>
           Try again
         </button>
         <Link href="/" className="font-medium text-[var(--accent)] hover:underline">

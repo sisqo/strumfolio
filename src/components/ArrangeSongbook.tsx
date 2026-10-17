@@ -25,6 +25,7 @@ import {
   rowsOf,
   sameMembers,
 } from '@/lib/songbooks/order'
+import { pressNearestSave } from '@/lib/pressNearestSave'
 import { useRowDrag } from '@/lib/songbooks/useRowDrag'
 import { writeMessage, type WriteFailure } from '@/lib/songbooks/types'
 import type { LimitFacts } from '@/lib/plans/types'
@@ -413,6 +414,10 @@ export function ArrangeSongbook({
                       onChange={(event) => setDraft(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Escape') setRenaming(null)
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          pressNearestSave(event.currentTarget)
+                        }
                       }}
                       aria-label={`New name for ${name}`}
                       className="form-field flex-1"

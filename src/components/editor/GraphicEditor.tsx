@@ -82,18 +82,22 @@ function letterAt(row: HTMLElement, clientX: number): number | null {
  * a new one can be added, or two chords a finger apart wall off every letter
  * between them.
  */
-function chipAt(row: HTMLElement, clientX: number): { chord: number; gap: number } | null {
-  let best: { chord: number; gap: number } | null = null
+function chipAt(row: HTMLElement, clientX: number, clientY: number): { chord: number; gap: number } | null {
+  let best: { chord: number; gap: number; height: number } | null = null
 
   for (const chip of row.querySelectorAll<HTMLElement>('.chord-chip')) {
     const box = chip.getBoundingClientRect()
     const gap = Math.max(box.left - clientX, clientX - box.right, 0)
-    if (gap <= 16 && (best === null || gap < best.gap)) {
-      best = { chord: Number(chip.dataset.chord), gap }
+    /* Height breaks the tie: chords stacked on one letter are lifted into lanes at the same x,
+       and by x alone the first in the DOM always won — tapping G in «[C][G][Am]» edited C
+       (2026-10-17, found in a real browser). */
+    const height = Math.max(box.top - clientY, clientY - box.bottom, 0)
+    if (gap <= 16 && (best === null || gap < best.gap || (gap === best.gap && height < best.height))) {
+      best = { chord: Number(chip.dataset.chord), gap, height }
     }
   }
 
-  return best
+  return best === null ? null : { chord: best.chord, gap: best.gap }
 }
 
 /**
@@ -1283,7 +1287,7 @@ function ChordRow({
     // here reads a position off the finger.
     if ((event.target as HTMLElement).closest('.chord-add-seat') !== null) return
 
-    const near = chipAt(event.currentTarget, event.clientX)
+    const near = chipAt(event.currentTarget, event.clientX, event.clientY)
     pointer.current = {
       id: event.pointerId,
       startX: event.clientX,
@@ -1400,7 +1404,7 @@ function ChordRow({
           // a chip only when it all but hit it, so the gap between two chords
           // stays the place where a new one slips in — by order, the only
           // position a wordless line has.
-          const near = chipAt(event.currentTarget, event.clientX)
+          const near = chipAt(event.currentTarget, event.clientX, event.clientY)
           if (near !== null && near.gap <= 6) {
             onEdit(near.chord)
             return

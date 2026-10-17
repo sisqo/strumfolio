@@ -25,6 +25,7 @@ import {
   IconSearch,
   IconTrash,
 } from '@/components/icons'
+import { pressNearestSave } from '@/lib/pressNearestSave'
 import { type AccountSummary, listAllAccounts } from '@/lib/accounts/read'
 import type { RecentSong } from '@/lib/data/db'
 import { loadSongIndex } from '@/lib/library/actions'
@@ -656,6 +657,10 @@ export function HomeScreen({
                               onChange={(event) => setDraft(event.target.value)}
                               onKeyDown={(event) => {
                                 if (event.key === 'Escape') setRenaming(null)
+                                if (event.key === 'Enter') {
+                                  event.preventDefault()
+                                  pressNearestSave(event.currentTarget)
+                                }
                               }}
                               aria-label={`New name for ${group.name}`}
                               className="form-field min-w-0 flex-1"
@@ -804,8 +809,8 @@ export function HomeScreen({
                             return (
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="flex-1">
-                                  Delete &quot;{group.name}&quot; and all {held}{' '}
-                                  {held === 1 ? 'song' : 'songs'} in it? This can&apos;t be undone.
+                                  Delete &quot;{group.name}&quot; and{' '}
+                                  {held === 1 ? 'the song' : `all ${held} songs`} in it? This can&apos;t be undone.
                                 </span>
                                 <button
                                   type="button"
