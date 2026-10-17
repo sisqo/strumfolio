@@ -4,11 +4,10 @@ import { type ReactNode, createContext, useCallback, useContext, useEffect, useS
 
 import {
   type BroadcastState,
-  broadcastAudience,
-  getMyBroadcast,
   startBroadcast,
   stopBroadcast,
 } from '@/lib/strumTogether/session'
+import { readerBroadcastAudience, readerMyBroadcast } from '@/lib/reader/client'
 
 type StartResult = Awaited<ReturnType<typeof startBroadcast>>
 type StopResult = Awaited<ReturnType<typeof stopBroadcast>>
@@ -79,7 +78,7 @@ export function StrumTogetherProvider({ children }: { children: ReactNode }) {
 
   const checkBroadcast = useCallback(() => {
     setAskFailed(false)
-    void getMyBroadcast()
+    void readerMyBroadcast()
       .then(setBroadcast)
       .catch(() => {
         setAskFailed(true)
@@ -101,7 +100,7 @@ export function StrumTogetherProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     const read = () => {
-      void broadcastAudience()
+      void readerBroadcastAudience()
         .then((answer) => {
           if (!cancelled) setAudience(answer)
         })

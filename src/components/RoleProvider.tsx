@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { loadIdentity } from '@/lib/auth/actions'
+import { readerLoadIdentity } from '@/lib/reader/client'
 import type { Plan } from '@/lib/plans/types'
 import { type Role, canEdit } from '@/lib/roles'
 
@@ -151,7 +151,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const ask = useCallback(async () => {
     try {
-      const identity = await loadIdentity()
+      const identity = await readerLoadIdentity()
       if (alive.current) {
         setEmail(identity?.email ?? null)
         setAccountOwnerEmail(identity?.accountOwnerEmail ?? null)

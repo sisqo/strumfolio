@@ -18,15 +18,12 @@
  *   apply the value from before the reader acted — a star quietly going out, or a capo
  *   springing back, seconds after being set.
  *
- * **The counter guards a state that is currently unreachable, and it is here so that the
- * code does not depend on why.** Measured on 2026-09-05 against a deliberately slowed
- * `loadPrefs`: Next.js runs one client's server actions strictly one at a time, so a write
- * enqueued after a read in flight cannot complete until that read has answered — the read
- * therefore always lands while `writePending` is still true, and `writePending` alone is
- * enough today. That is an undocumented property of the framework, not of this app: it
- * would stop holding if `prefsQueue.flush` ever stopped awaiting each write in turn, or if
- * a future Next version dispatched actions in parallel. The counter costs one integer and
- * makes the rule stand on its own either way.
+ * **The counter is what holds this now, not a backstop.** Measured on 2026-09-05: while the
+ * read and the writes were Server Actions, Next.js ran them strictly one at a time, so a write
+ * enqueued after a read in flight could not land before the read answered, and `writePending`
+ * alone was enough. Since 2026-10-17 both go by plain `fetch` (`lib/reader/route.ts`, so that a
+ * pending one overtaken by Next cannot reload the song on dead wifi), and a write can now land
+ * while an older read is still out — exactly the order the counter catches.
  *
  * (What the separate columns fix is a *different* race, and that one is real and was
  * reproduced — see `saveFavorite`.)
@@ -46,10 +43,17 @@ export interface ReadGuard {
   editsNow: number
   /** Whether a write for this scope is still waiting to reach the server. */
   writePending: boolean
+  /**
+   * Whether one was already waiting when this read went out. Since the read and the writes run
+   * in parallel (2026-10-17), such a read can be answered from before that write and come back
+   * after it has landed — when `writePending` is false and the counter has not moved. Optional
+   * only so a guard that cannot know says nothing; `PrefsProvider` always sets it.
+   */
+  pendingAtRead?: boolean
 }
 
 export function readStillStands(guard: ReadGuard): boolean {
-  return guard.editsAtRead === guard.editsNow && !guard.writePending
+  return guard.editsAtRead === guard.editsNow && !guard.writePending && guard.pendingAtRead !== true
 }
 
 /**

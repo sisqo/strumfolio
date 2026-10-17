@@ -41,3 +41,13 @@ while it scrolls and a cue for the next song when it ends. What is not visible f
   editor included, with nothing of ours to keep. Checked in `react-dom-client.production.js`
   (`listenToAllSupportedEvents`), not on a phone. The press uses the `scale` property, and the panels
   use `transform`, so neither collides with `.speed-popover`'s own `translate`.
+- **What a song page sends on its own is a `fetch` to `/api/reader/*`, never a Server Action**
+  (2026-10-17, `lib/reader/route.ts` and `lib/reader/client.ts`). Next runs actions in the
+  router's queue, and a navigation that overtakes a pending one schedules a refresh; on wifi
+  that is «connected but dead» the refresh fails and Next answers with a full reload, mid-song.
+  The reads on opening a song, the preferences queue, the notes, the leader's pings, the
+  identity, favourites and own-broadcast reads and the offline walk's list all moved; a new background call on a reading
+  screen goes the same way. Two things the queue gave for free and the code now does itself:
+  the same-origin check (`readerRoute`) and the order of reads against writes
+  (`pendingAtRead` in `prefs/adopt.ts`, `queuedAtRead` in `CommentsProvider`, `inOrder` for the
+  leader's broadcasts).

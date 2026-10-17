@@ -30,7 +30,7 @@ import { SCROLL_SPEEDS, ZOOM_STEPS } from '@/lib/prefs/types'
 import type { SongStep } from '@/lib/songbooks/series'
 import { markStep } from '@/lib/stepDirection'
 import { tapFeedback } from '@/lib/haptics'
-import { broadcastPlay } from '@/lib/strumTogether/session'
+import { readerBroadcastPlay } from '@/lib/reader/client'
 import { useAutoScroll } from '@/lib/useAutoScroll'
 
 /** Where this song sits in the sequence a reader can step through with the bar's own
@@ -230,7 +230,7 @@ export function ControlBar({
                */
               tapFeedback()
               if (!running && broadcastEnabled) {
-                void broadcastPlay(songSlug, resolvedSemitones(song.semitones, songTranspose)).catch(() => {})
+                void readerBroadcastPlay(songSlug, resolvedSemitones(song.semitones, songTranspose)).catch(() => {})
                 if (isLive) setBroadcastPulse((count) => count + 1)
               }
               toggle()

@@ -12,7 +12,7 @@ import {
 
 import { type ParsedSong, parseChordPro } from '@/lib/chordpro'
 import type { Song } from '@/lib/data/types'
-import { loadSongContent } from '@/lib/library/actions'
+import { readerLoadSongContent } from '@/lib/reader/client'
 import { isNewer } from '@/lib/library/overlay'
 import { dropEdit, readEdit, writeEdit } from '@/lib/library/store'
 
@@ -81,7 +81,7 @@ export function SongProvider({
 
     void (async () => {
       try {
-        const result = await loadSongContent(baked.slug)
+        const result = await readerLoadSongContent(baked.slug)
         if (!alive) return
 
         // Says nothing about the song: keep the page and the cache as they are.

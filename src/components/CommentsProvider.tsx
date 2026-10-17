@@ -10,7 +10,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
-import { deleteComment, loadComments, saveComment } from '@/lib/comments/actions'
+import { readerDeleteComment, readerLoadComments, readerSaveComment } from '@/lib/reader/client'
 import { readNotesHidden, writeNotesHidden } from '@/lib/comments/notesVisibility'
 import {
   type OutboxEntry,
@@ -128,8 +128,8 @@ const drainState = { draining: false, again: false }
 async function send(entry: OutboxEntry): Promise<boolean> {
   const result =
     entry.kind === 'save'
-      ? await saveComment(entry.songSlug, entry.comment)
-      : await deleteComment(entry.id)
+      ? await readerSaveComment(entry.songSlug, entry.comment)
+      : await readerDeleteComment(entry.id)
   return result !== 'failed'
 }
 
@@ -232,12 +232,16 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
 
   useEffect(() => {
     let cancelled = false
+    /* Asked before the read too: read and writes run in parallel since they left the action
+       queue (`lib/reader/route.ts`), so a read sent while a note was queued can answer from
+       before it and come back after the outbox has emptied. */
+    const queuedAtRead = readOutbox().length > 0
 
-    loadComments(songSlug)
+    readerLoadComments(songSlug)
       .then((stored) => {
         // Never overwrite what is still queued: the server's copy is by definition older
         // than a write that has not reached it yet.
-        if (cancelled || stored === null || readOutbox().length > 0) return
+        if (cancelled || stored === null || queuedAtRead || readOutbox().length > 0) return
         store(stored)
       })
       .catch(() => {

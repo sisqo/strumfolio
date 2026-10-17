@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react'
 
-import { loadFavoriteSlugs } from '@/lib/favorites/actions'
+import { readerFavoriteSlugs } from '@/lib/reader/client'
 import { readFavoritesOnly, writeFavoritesOnly } from '@/lib/favorites/filter'
 import { resolveFavorites } from '@/lib/favorites/resolve'
 import { prefsQueue } from '@/lib/prefs/queue'
@@ -95,7 +95,7 @@ export function FavoritesProvider({
   useEffect(() => {
     let cancelled = false
 
-    loadFavoriteSlugs()
+    readerFavoriteSlugs()
       .then((slugs) => {
         if (!cancelled && slugs !== null) setLive(slugs)
       })

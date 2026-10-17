@@ -33,7 +33,7 @@ import {
   type ChordDisplay,
   clampSemitones,
 } from '@/lib/prefs/types'
-import { broadcastTranspose } from '@/lib/strumTogether/session'
+import { readerBroadcastTranspose } from '@/lib/reader/client'
 
 /** Which chip's menu is open, if any — at most one, so opening a second closes the first. */
 type Menu = 'capo' | 'chords' | 'tempo' | null
@@ -130,7 +130,7 @@ export function SongControls({
   const move = (value: number) => {
     const clamped = clampSemitones(value)
     setSemitones(clamped)
-    if (broadcastEnabled) void broadcastTranspose(songSlug, clamped).catch(() => {})
+    if (broadcastEnabled) void readerBroadcastTranspose(songSlug, clamped).catch(() => {})
   }
 
   useEffect(() => {

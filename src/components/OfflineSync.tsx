@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
-import { listOfflineRoutes } from '@/lib/offline/sync'
+import { readerOfflineRoutes } from '@/lib/reader/client'
 import { clearPageCaches, currentScope, settleScope } from '@/lib/storage/scope'
 import { useOnline } from '@/lib/useOnline'
 
@@ -179,7 +179,7 @@ export function OfflineSync() {
 
       let routes: string[] | null
       try {
-        routes = await listOfflineRoutes()
+        routes = await readerOfflineRoutes()
       } catch {
         current.state = 'stopped'
         return

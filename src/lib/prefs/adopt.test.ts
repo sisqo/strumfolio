@@ -36,6 +36,14 @@ describe('readStillStands', () => {
   it('refuses a read taken while this scope was still waiting to be saved', () => {
     assert.equal(readStillStands({ editsAtRead: 4, editsNow: 4, writePending: true }), false)
   })
+
+  /**
+   * The same read once the write has landed: the queue is empty and the counter matches, but
+   * the read and the write ran in parallel, so its answer may predate the write.
+   */
+  it('refuses a read sent while a write was waiting, even after that write landed', () => {
+    assert.equal(readStillStands({ editsAtRead: 4, editsNow: 4, writePending: false, pendingAtRead: true }), false)
+  })
 })
 
 describe('adoptStoredSong', () => {

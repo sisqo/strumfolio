@@ -80,6 +80,13 @@ function isPublicAsset(pathname: string): boolean {
      */
     pathname === '/api/mcp' ||
     /*
+     * The reading screen's own calls (`lib/reader/route.ts`), which were Server Actions until
+     * 2026-10-17 and are answered the way those were: each asks `currentUser()` itself and
+     * answers «nobody» with its own value — `loadIdentity`'s `null` is how a signed-out page
+     * learns it is signed out, and a redirect to `/login` would have turned that into an error.
+     */
+    pathname.startsWith('/api/reader/') ||
+    /*
      * Where an MCP client looks for OAuth after a 401. There is none yet (phase two), and a 404
      * is how a client learns that and reports the bad token; a redirect to `/login` hands it an
      * HTML page to parse as metadata, and the user a confusing error instead of «invalid token».

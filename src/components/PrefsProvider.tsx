@@ -16,16 +16,16 @@ import { useRole } from '@/components/RoleProvider'
 import type { Accidentals, Notation } from '@/lib/music/chord'
 import type { Instrument } from '@/lib/music/shapes'
 import { PLANS } from '@/lib/plans/types'
-import {
-  loadPrefs,
-  recordSongOpened,
-  saveFavorite,
-  saveGlobalPrefs,
-  saveSongPrefs,
-  saveTabsExpanded,
-} from '@/lib/prefs/actions'
 import { adoptStoredSong, readStillStands } from '@/lib/prefs/adopt'
 import { prefsQueue } from '@/lib/prefs/queue'
+import {
+  readerLoadPrefs,
+  readerRecordSongOpened,
+  readerSaveFavorite,
+  readerSaveGlobalPrefs,
+  readerSaveSongPrefs,
+  readerSaveTabsExpanded,
+} from '@/lib/reader/client'
 import {
   readGlobalPrefs,
   readSongPrefs,
@@ -168,10 +168,10 @@ export function PrefsProvider({
   useEffect(() => {
     if (!persist) return
     prefsQueue.setHandlers({
-      saveGlobal: saveGlobalPrefs,
-      saveSong: saveSongPrefs,
-      saveFavorite,
-      saveTabsExpanded,
+      saveGlobal: readerSaveGlobalPrefs,
+      saveSong: readerSaveSongPrefs,
+      saveFavorite: readerSaveFavorite,
+      saveTabsExpanded: readerSaveTabsExpanded,
     })
     prefsQueue.watchConnection()
     return prefsQueue.subscribe(setPending)
@@ -187,8 +187,12 @@ export function PrefsProvider({
     const songAtRead = songEdits.current
     const starAtRead = starEdits.current
     const tabsAtRead = tabsEdits.current
+    const globalPendingAtRead = prefsQueue.hasPending('global')
+    const songPendingAtRead = songSlug !== null && prefsQueue.hasPending(`song:${songSlug}`)
+    const starPendingAtRead = songSlug !== null && prefsQueue.hasPending(`favorite:${songSlug}`)
+    const tabsPendingAtRead = songSlug !== null && prefsQueue.hasPending(`tabsExpanded:${songSlug}`)
 
-    loadPrefs(songSlug)
+    readerLoadPrefs(songSlug)
       .then((stored) => {
         if (cancelled) return
 
@@ -196,6 +200,7 @@ export function PrefsProvider({
           editsAtRead: globalAtRead,
           editsNow: globalEdits.current,
           writePending: prefsQueue.hasPending('global'),
+          pendingAtRead: globalPendingAtRead,
         })
 
         if (stored.global !== null && globalStands) {
@@ -211,16 +216,19 @@ export function PrefsProvider({
               editsAtRead: songAtRead,
               editsNow: songEdits.current,
               writePending: prefsQueue.hasPending(`song:${songSlug}`),
+              pendingAtRead: songPendingAtRead,
             },
             star: {
               editsAtRead: starAtRead,
               editsNow: starEdits.current,
               writePending: prefsQueue.hasPending(`favorite:${songSlug}`),
+              pendingAtRead: starPendingAtRead,
             },
             tabs: {
               editsAtRead: tabsAtRead,
               editsNow: tabsEdits.current,
               writePending: prefsQueue.hasPending(`tabsExpanded:${songSlug}`),
+              pendingAtRead: tabsPendingAtRead,
             },
           })
 
@@ -239,7 +247,9 @@ export function PrefsProvider({
     // slow or failing write here must never delay the sheet showing the right key.
     // `recordSongOpened` catches its own errors on the server, but offline the call
     // itself rejects in the browser, so it is caught here too: nothing to tell anybody.
-    if (songSlug !== null) recordSongOpened(songSlug).catch(() => {})
+    // Every read and write here goes by `lib/reader/client.ts`, never as a Server Action:
+    // a pending action overtaken by Next reloads the song on dead wifi (`lib/reader/route.ts`).
+    if (songSlug !== null) readerRecordSongOpened(songSlug).catch(() => {})
 
     return () => {
       cancelled = true
