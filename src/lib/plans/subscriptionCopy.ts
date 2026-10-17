@@ -57,8 +57,9 @@ export function planWithCycle(plan: Plan, cycle: BillingPeriod | null): string {
  * promised, and it fires exactly once per press where `subscription.updated` arrives twice for
  * one cycle change and again on every renewal.
  *
- * **`'now'` never writes.** An immediate change is either an upgrade — which takes money, so
- * Paddle completes a transaction and `announcePayment` sends the purchase email for it — or a
+ * **`'now'` never writes.** An immediate change is either an upgrade — which takes money as a
+ * `subscription_update` transaction, which `announcePayment` reports on Telegram and does not
+ * mail (`isNewPurchase`, 2026-10-16), so Paddle's receipt is the only written trace — or a
  * revert, and the template's own header says why that one stays silent: calling a change off
  * takes nothing away, and an inbox does not need a message per press.
  *

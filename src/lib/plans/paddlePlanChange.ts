@@ -336,8 +336,9 @@ export async function changePaddlePlan(
     /*
      * **The written trace of what was just arranged**, which nothing sent between the mock's
      * demolition and 2026-09-14. `planChangeNotice` owns the rule — including that an immediate
-     * change sends nothing from here, since an upgrade's own transaction brings `announcePayment`
-     * behind it and calling a change off takes nothing away.
+     * change sends nothing from here: an upgrade's own transaction is mailed by nobody but Paddle
+     * (`announcePayment` mails new purchases only, 2026-10-16), and calling a change off takes
+     * nothing away.
      *
      * After the write and after `revalidatePath`, and awaited: `sendEmail` swallows its own
      * errors by construction, so a mail server having a bad minute cannot turn a change Paddle

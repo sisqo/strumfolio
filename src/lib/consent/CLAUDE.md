@@ -43,10 +43,12 @@ account's id only, never production's.
   - An answer the reader gave wins everywhere, including a «no» from outside the EEA, which is
     why «Cookie settings» sits in the footer for everybody.
   - Outside production, `?region=eea|other` overrides the region and sticks (the `qaAllowed`
-    allowlist). That is how the non-EEA branch gets tested locally.
+    allowlist), and never on strumfolio.com / www.strumfolio.com (`PRODUCTION_HOSTS`), whatever
+    `VERCEL_ENV` says. That is how the non-EEA branch gets tested locally.
 - **The answer lives in `songbook-consent` for 182 days** (`v:ads:at`). No server-side log: in
   basic mode a refusal sends nothing, so nothing needs proving. A stored answer from an older
-  `CONSENT_VERSION` counts as no answer. **Bump the version** whenever what «Accept» agrees to
+  `CONSENT_VERSION` counts as no answer, and so does a stamp more than twelve hours in the future
+  (`CLOCK_SKEW_MS`, the browser's clock judged by the server's). **Bump the version** whenever what «Accept» agrees to
   changes.
 - **Where the banner shows by itself: `bannerAllowedOn`** (and only for an ad arrival, above).
   On `/`, `ConsentManager` asks the DOM whether `.landing-hero` is on screen instead of asking
@@ -165,7 +167,9 @@ switch-on** — a late Accept still writes `_gcl_aw`, and both conversions still
     `tagReferrer`, but nobody has measured that `ccm/collect` honours it, and `page_location` was
     measured not to override `dl`. The case that matters: `/verify`'s form keeps its native
     fallback, so a submit before hydration is a full load of `/` whose `document.referrer` is
-    `/verify?email=…&token=…` (no Referrer-Policy is set anywhere). The token is spent by then;
+    `/verify?email=…&token=…` (the site-wide `Referrer-Policy: strict-origin-when-cross-origin` in
+    `next.config.ts`, since 2026-10-17, still passes the full URL to a same-origin page, so it does
+    not close this). The token is spent by then;
     the address is not. The fix, not taken: `referrer: 'no-referrer'` in the metadata of the
     pages whose address carries a secret.
 
@@ -208,7 +212,7 @@ the behaviour and every one of these is wrong:
   - §2, the Google Ads paragraph: `songbook-conv-signup`, our own ten-minute cookie (missing
     until 2026-10-16), with its retention in Privacy §6.
   - §3: the two legal bases.
-  - §2, «Google Ads measurement — only if you accept», and «No other advertising…».
+  - §2, «Google Ads measurement.» and «No other advertising…».
   - §3: consent, and the fact that refusing does not stop the two first-party cookies.
 - **Privacy Policy**
   - §2, the attribution paragraph and «Advertising measurement».
@@ -227,11 +231,13 @@ the behaviour and every one of these is wrong:
   hour, and answer a ping from cache when offline.
 - **An «Accept» in flight blocks the loader** (`accepting` in `ConsentManager`). Otherwise a
   navigation during `acceptedClickId()` would load the tag without the gclid, and the second
-  `loadGtag` would be a no-op.
+  `loadGtag` would be a no-op. The cookie is read again after that await, so a «Reject» pressed
+  meanwhile stops the tag from loading.
 - **The gclid can stay in one history entry**: follow a link within the three to five seconds
   before `putBack`, and the previous entry keeps `?gclid=…`. Cosmetic, and accepted.
-- **Withdrawing reloads the page** (`withdrawConsent`). It is the only reliable way to unload a
-  running tag. The `_gcl_*` cookies are deleted on the host and its parent domain first.
+- **Withdrawing reloads the page only when the tag was loaded in this document**
+  (`withdrawConsent({ reload: gtagLoaded() })`). A reload is the only reliable way to unload a
+  running tag; with none running it would only throw away what is on screen. The `_gcl_*` cookies are deleted on the host and its parent domain first.
 - **Coupon overlay (z 40), feedback launcher (45), banner (50).** The banner sits on top because
   it is the one waiting for an answer.
 - **Enhanced conversions and offline import were deliberately not built.** Both send Google data

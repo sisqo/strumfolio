@@ -1,7 +1,7 @@
 # Coupons (`src/lib/coupons/`) — and what a coupon is *not* allowed to decide
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 Percentage-off campaigns, native to Strumfolio. **This repo decides *whether* a discount is
 owed and Paddle applies it** — a campaign row here is translated into two or three Paddle
@@ -25,8 +25,8 @@ load-bearing parts:
 - **`durationCopy` vs `termCopy`** — the second adjacent pair, and the same hazard as the one
   above: both word the same discount over the same `spanCopy`, and they differ in one thing.
   `durationCopy` **opens with the discounted amount** («€2.44 for the first 12 months, then
-  €3.49.») and is for the three screens with no price above it — /checkout, the stored receipt,
-  `planChangeEmail`. `termCopy` does not, because on a /pricing card that number is the line
+  €3.49.») and is for a sentence with no price above it — today one consumer, the purchase
+  confirmation email (`announcePayment`); /checkout words its applied coupon with `appliedCopy`. `termCopy` does not, because on a /pricing card that number is the line
   directly above the caption. Swap them and nothing fails: one screen says the price twice, the
   other stops saying it at all.
 - **`liveDiscount` is the only way to read
@@ -95,6 +95,13 @@ load-bearing parts:
   `resyncCampaign` is the only path that builds them — the write path only syncs a campaign it
   is saving. Worth doing deliberately after a deploy rather than discovering from a conversion
   rate.
+- **What an operator can no longer change** (2026-10-17, `updateCampaign`/`createCampaign`): an
+  archived campaign is not edited at all (`archived` — renamed, its code was free for a new
+  campaign that old cookies and links would resolve to); after the first redemption neither the
+  percent nor the code moves (`percent-locked`, `code-locked`); and a campaign whose dates are
+  not live cannot be made the default (`default-not-live`). `CampaignForm` sends its dates as
+  instants converted in the browser (`instantOf`), because the server runs in UTC and read a
+  zoneless time as UTC.
 - **The cookie carries a code and nothing else.** Every read re-derives state, window, both
   ceilings and `entry` from the table (`read.ts`' header). Written by `rememberUrlCoupon`
   from an effect in `CouponBar` — not by the middleware, which runs on the edge where the
@@ -128,8 +135,11 @@ load-bearing parts:
   NOT NULL`, so a subquery yielding NULL for an unknown address writes an unreachable row that
   the index cannot see — the upsert silently becomes an insert and grows a row per page view.
   `ids.ts` says this of itself. Select the row and look at it.
-- `coupon_redemptions_once` (unique on campaign + account) makes `usage_limit` a ceiling that
-  can be *verified*: `times_used` is a `COUNT(*)`, not a mirrored number.
+- `coupon_redemptions_once` (unique on campaign + account) makes both ceilings verifiable, as a
+  `COUNT(*)` rather than a mirrored number: `usage_limit_subscription` counts every redemption of
+  the campaign, `usage_limit_lifetime` only `plan = 'lifetime'` rows — at checkout
+  (`redeemability`), in the webhook's recount and when an operator lowers it
+  (`lifetimeRedeemedCount`).
   **Verified, not enforced at payment** (2026-09-22): the ceiling and «once per account» are
   checked when a checkout opens, and every transaction opened before either closes stays
   payable — two discounted tabs on one account, or N readers who opened before the cap, all

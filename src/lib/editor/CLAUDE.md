@@ -19,8 +19,8 @@ all of it — and `mcp/guide.ts`, its twin for an AI assistant.
 
 **`toSource(fromSource(x)) === x` includes the separator, since 2026-09-20.** A `comment`,
 a `boundary` and a tab's opening line each carry `raw` — the line as the file wrote it —
-and hand it back until somebody edits that line, at which point `setLineText` drops `raw`
-and the canonical `{name: value}` is written instead. Keep what was written, normalise what
+and hand it back until somebody edits that line, at which point `setLineText` (or `splitLine`,
+for a comment split in two) drops `raw` and the canonical `{name: value}` is written instead. Keep what was written, normalise what
 was typed. Before that the three were always re-emitted canonically, so `{c:forte}` and
 `{comment Repeat ad lib}` — both legal, neither ours — were rewritten the moment anybody
 opened the song and pressed Save. One file in the corpus (`content/` plus the reference files) did it, on three lines,
@@ -129,7 +129,7 @@ used by the form *and* by the editor's directive rows, which had the same bug.
 | Body, shown and never acted on | `album` `composer` `lyricist` `arranger` `year` `copyright` `duration` `ccli` `sorttitle` `sortartist` `subtitle` | `ParsedSong.metadata`, printed by the info panel |
 | Body, kept and never shown to a reader | the ~30 typesetting directives | editor only, graphic and raw |
 
-- **`{key}` beats `estimateKey`**, reversing what `import/CLAUDE.md` calls «archival only».
+- **`{key}` beats `estimateKey`**, reversing what `import/CLAUDE.md` once called «archival only».
   The estimate is a guess and is weakest exactly where a file bothers to declare one. A key
   this app cannot read (`{key: H}`, German) falls back to the estimate and never to zero.
 - **`{subtitle}`/`{st}` is decided by `sniffDialect`**, not by the reader: the artist in an
@@ -156,7 +156,8 @@ used by the form *and* by the editor's directive rows, which had the same bug.
   the alternates picker. Matched on the chord as currently **shown**: a file's C fingering is
   not a D, so transposing correctly stops using it. And on the **instrument, by string count**
   (2026-09-24): a `{define}` names none, so six frets is a guitar's and four a ukulele's —
-  before that a ukulele reader's default was a six-string diagram.
+  before that a ukulele reader's default was a six-string diagram. And on the **bass**
+  (2026-10-16): a `{define: G/B}` is G/B's fingering, never plain G's.
 - **The editor's «add field» menu offers only what lives in the body.** A `{title:}` typed
   into the body is stripped at the next save, so offering it would be offering something that
   quietly disappears; `fields.test.ts` checks every entry against `METADATA_DIRECTIVE`.
@@ -221,7 +222,8 @@ What that changed, each held by a test in `chordpro.test.ts` («ChordPro conform
     **the reader's choice never removes one** — a last chorus a tone up stays a tone up in
     whatever key it is read;
   - **the sheet announces it** with a line the parser writes (`keyChange` on a comment),
-    naming the arrival key when `{key}` is declared, on screen and in the booklet;
+    naming the arrival key when `{key}` is declared and reads as a chord (`{key: G major}` gets
+    the step alone), on screen and in the booklet;
   - **a `{chorus}` after it repeats at the pitch in force where it stands** (`repeated`), and a
     modulation written *inside* the chorus repeats with it, relative to that pitch
     (`repeatedLines`, 2026-09-23 — the «Key change» line was repeated and the chords after it

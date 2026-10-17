@@ -67,7 +67,8 @@ else's* account — cannot reach that browser at all. Reproduced and fixed 2026-
   operator's included), by `changeAccountEmail`, and by `provisionAccount` when the row is
   born — the last so a session left from an earlier holder of the address cannot wake inside the
   new account. `setOwnPassword` and `removeOwnPassword` re-issue the reader's own cookie, so
-  only the *other* sessions end. **The check wraps `auth()` in `src/auth.ts`, not
+  only the *other* sessions end — along with every AI token on the account, the reader's own
+  included (below). **The check wraps `auth()` in `src/auth.ts`, not
   `currentUser`**: about thirty operator actions read `auth()` and `isOwner` directly, and a
   narrower check would leave a stolen owner session working after a password change. The
   middleware's own instance is untouched (edge, no database). Always a JavaScript `Date`, never
@@ -96,5 +97,15 @@ of address end the AI tokens too, not only the browsers.
 address can keep its owner out of password sign-in with an attempt a minute. Kept as it is by the
 owner's decision of 2026-10-16: the risk is theoretical today, the limit is what stops password
 guessing, and Google sign-in and `clearRateLimitFor` on `/accounts` still get the person in. The
+same limit is also kept per IP (`login:ip:<ip>`, ten in ten minutes), and `clearRateLimitFor`
+deliberately never clears an IP key — an address may be shared by a whole network — so a
+lock-out by IP waits out its ten minutes. The
 alternatives weighed were a Turnstile challenge past the threshold and an explicit «too many
 attempts» message (which tells a stranger the address was targeted).
+
+## A reset link works once
+
+`resetPassword` (`lib/forgotPassword/actions.ts`) spends the token with a `DELETE … RETURNING`
+before it writes, so two submits of the same link can no longer both set a password, and writes
+nothing for an address that no longer has an account (a link mailed before a deletion or a change
+of address). The password is hashed first, so a failed hash leaves the link usable.

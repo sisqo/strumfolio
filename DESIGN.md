@@ -173,7 +173,7 @@ ladder, not from gradients, glow, or noise — see the Don'ts below for the spec
 - One accent color, reserved first for chords; everything else that uses it is deliberately quieter.
 - A corner-radius scale keyed to each shape's job, not its size — nested shapes are always rounder than their container.
 - Elevation is a shadow in light, a border in dark — the mechanism changes per theme, the meaning (this is raised off the page) doesn't.
-- Pills are the one shape reserved for actions (buttons); nothing else in the app is pill-shaped.
+- Pills belong to small things you tap or scan — buttons, capsules, chips, badges, avatars, toggle and range tracks; a card, a field or a panel is never pill-shaped.
 
 ## 2. Colors
 
@@ -246,7 +246,7 @@ accent, exactly as before.
 - **Hero** (500, `clamp(2.5rem, 5vw, 3.625rem)`, line-height 1, letter-spacing -0.04em): the one headline on the public page — the payoff, not the app name.
 - **Screen title** (500, 1.875rem, line-height 1.1, letter-spacing -0.03em): the name of the current screen. Lighter weight than a bold heading would be, so it sits next to a song's own words rather than shouting over them.
 - **Section title** (500, 1.1875rem, line-height 1.2, letter-spacing -0.02em): one step down from screen title, for a section inside a screen.
-- **Body** (400, 1rem, line-height 1.5): default reading text, capped implicitly by each container's own max-width (the sheet caps at 48rem).
+- **Body** (400, 1rem, line-height 1.5): default reading text, capped implicitly by each container's own max-width (the sheet caps at 56rem, like every screen in the app).
 - **Label** (500, 0.6875rem, letter-spacing 0.08em, uppercase, faint color): group labels over control clusters and form fields — the only uppercase, tracked text in the system, and it never appears anywhere else.
 - **Chord** (500, 0.7em relative to its lyric line, letter-spacing 0): deliberately smaller and lighter than the lyric underneath it — a chord you read instead of sing is a chord sized wrong.
 
@@ -290,7 +290,7 @@ What goes over the page while something is open on top of it. Two weights of one
 ## 5. Components
 
 ### Buttons
-- **Shape:** full pill (`border-radius: 999px`) — the one shape in the app reserved exclusively for actions; nothing else is pill-shaped.
+- **Shape:** full pill (`border-radius: 999px`, `--r-pill`) — shared with the other small tap-or-scan shapes (capsules, chips, badges), never with a card, field or panel.
 - **Primary:** solid Chord Terracotta/Amber fill, `on-accent` text, no border, `0.5rem 1.125rem` padding, 2.75rem minimum height. Disabled state drops the fill entirely (to a flat recessed gray) rather than fading it — a disabled primary should read as "not ready," not "nearly ready."
 - **Secondary (default `.btn`):** white/surface fill with a hairline edge and a resting shadow.
 - **Quiet / Ghost:** transparent fill, muted text, no border, no shadow.
@@ -302,11 +302,11 @@ What goes over the page while something is open on top of it. Two weights of one
 - **Background:** white/surface at the first level; drops back to the page color (`bg`) the moment a card is nested inside another card or the song sheet, so two white surfaces never touch and read as one.
 - **Shadow Strategy:** see Elevation — `--shadow-1` at rest, `--shadow-2` for a card that leads somewhere.
 - **Border:** `--edge` (transparent in light, hairline in dark) on every card, control-bar, and panel.
-- **Page width — two measures, and a third only for prose:** `70rem` for the wide public pages (`/login` via `.landing-width`, `/pricing`, and the blog/tools shell via `--site-width`), `48rem` (`max-w-3xl`) for every screen inside the app and for the legal pages. The third measure is `45rem`, the blog's reading column, and it is the one width answering to the line length of a thousand words instead of to the page — a new page width, on the other hand, has to earn itself, because one that misses an existing width by a few pixels reads as a misalignment and not as a decision.
-- **Every bar is the same box:** a 1rem gutter, 0.75rem above and below, the mark 1.375rem tall at the left. Only the cap changes from page to page (`--top-bar-width` on `TopBar`/`PublicHeader`, `--site-width` on the blog's `SiteHeader`), so two pages of the same width put the mark on the same pixel and a visitor crossing between them sees the bar stand still. **A bar answers to the bar on the page it links to, not to the column underneath itself** — it is the one part of a page ever seen in motion. Where a page's content gutter is wider than 1rem (the blog's 2.5rem, `/pricing`'s 2rem), the bar's contents sit slightly outside the column, which is the price of the rule and cheaper than the jump. The one width where the rule bends is a phone under 40rem on the blog's bar, which carries five things rather than three and drops its mark to 1.125rem to keep both of its doors.
+- **Page width — two measures, and a third only for prose:** `70rem` for the wide public pages (`/` via `.landing-width`, `/pricing`, and the blog/tools shell via `--site-width`), `56rem` (`max-w-4xl`) for every screen inside the app, the song sheet included, and for the legal pages, the changelog and the sign-in forms' bar. The third measure is `45rem`, the blog's reading column, and it is the one width answering to the line length of a thousand words instead of to the page — a new page width, on the other hand, has to earn itself, because one that misses an existing width by a few pixels reads as a misalignment and not as a decision.
+- **Every bar is the same box:** a 1rem gutter, 0.75rem above and below, the mark 1.375rem tall at the left. Only the cap changes from page to page (`--top-bar-width`, which `PublicHeader` sets and `TopBar` leaves at its 56rem default; `--site-width` on the blog's `SiteHeader`), so two pages of the same width put the mark on the same pixel and a visitor crossing between them sees the bar stand still. **A bar answers to the bar on the page it links to, not to the column underneath itself** — it is the one part of a page ever seen in motion. Where a page's content gutter is wider than 1rem (the blog's 2.5rem, `/pricing`'s 2rem), the bar's contents sit slightly outside the column, which is the price of the rule and cheaper than the jump. The one width where the rule bends is a phone under 40rem on the blog's bar, which still fits five things in the row (mark, section pill, theme switch, «Start free», the menu button — below 48rem the sections and «Sign in» are inside `PublicNavMenu`) and drops its mark to 1.125rem to do it.
 
 ### Inputs / Fields
-- **Style:** white/surface fill (or page-colored when nested inside a card, matching the card ladder), hairline `--edge` border, `1.125rem` (lg) radius, resting shadow. 16px minimum font size, specifically to stop iOS auto-zooming a field on focus.
+- **Style:** white/surface fill (or page-colored when nested inside a card, matching the card ladder), hairline `--edge` border, `1.125rem` (lg) radius, resting shadow. 16px or more on `.form-field`, the note fields, `.picker-select` and `.chord-field`, specifically to stop iOS auto-zooming a field on focus. Not everywhere: the song-data form (15px), `.tab-input` and `.tool-input` (14px) and the operator's `/accounts` fields (13.5–14.5px, by decision, a desktop screen first) sit under it.
 - **Focus:** border-color transition only (150ms ease) — no glow, no layout shift.
 - **Placeholder:** faint-colored, never lighter than the app's own contrast floor.
 
@@ -356,16 +356,17 @@ control on that bar sits at the same 44px floor as the reading control bar.
 Drawn from the `Blog.dc.html` handoff and the one surface in Strumfolio that is a **page**
 rather than a screen: the shell's own 70rem for the index and its hero band, 720px for the
 words. The mock draws that band at 1100px on a 1280px canvas and it ships at 70rem instead —
-the width `/login` and `/pricing` already had, since twenty pixels of difference between two
+the width `/` and `/pricing` already had, since twenty pixels of difference between two
 pages one bar links together reads as a misalignment rather than as a choice. It
-keeps `SiteHeader` (mark, a «Blog» capsule, Pricing, a Sign in capsule) rather than
+keeps `SiteHeader` (mark, a section pill, the other sections, a quiet «Sign in» and a «Start free» capsule) rather than
 `PublicHeader` — same bar box as everywhere else, different contents — a visitor arriving from a search is deciding neither between reading and
 paying, so the bar names the section and offers both doors instead of spending its one CTA
-on a single one. Its foot is the same shared `Footer` every internal page prints (© year,
-version, commit hash, then Privacy/Terms/Cookies/Content copyright/Changelog/Blog/Tools),
+on a single one. Its foot is the same shared `Footer` every internal page prints (© year and
+`SITE_URL`, version, commit hash, then Privacy/Terms/Cookies, «Cookie settings» only while Google
+Ads is configured, Content copyright/Changelog/Blog/Tools),
 not a lighter one of its own — `SiteHeader` and `Footer` are both `messo a comune`, shared
-with `/tools`, and `PublicHeader` stays reserved for the pages built to sell (`/login`,
-`/pricing`).
+with `/tools`, and `PublicHeader` draws the app's own pages outside the sign-in (`/`, `/pricing`,
+the legal pages, the changelog, the sign-in forms, `/checkout` and `/pay`).
 
 The index divides into three shapes that only appear once they can be filled: one wide
 featured card, a row of three, then a compact «Earlier» list. Each article carries exactly one
@@ -404,8 +405,8 @@ because both themes here are designed rather than inverted.
 - **Do** design light and dark as two independent, hand-tuned surfaces — never assume a dark value by formula from its light counterpart.
 - **Do** use a shadow for elevation in light and a border (`--edge`) in dark; never both on the same surface.
 - **Do** size every corner radius by the shape's job (how nested it is), not by the shape's absolute size.
-- **Do** keep the pill shape exclusive to actionable buttons — a card, a field, a badge, none of those are pills.
-- **Do** provide a `prefers-reduced-motion: reduce` alternative for every animation (the rolling hero counters already do this). Note what that setting actually does here: `globals.css` ends with a blanket `animation-duration: 0.01ms !important` over every element, so under it an animation does not play slowly — it does not play at all.
+- **Do** keep the pill shape to small tap-or-scan shapes (buttons, capsules, chips, badges) — a card, a field, a panel, none of those are pills.
+- **Do** provide a `prefers-reduced-motion: reduce` alternative for every animation. Note what that setting actually does here: `globals.css` ends with a blanket `animation-duration: 0.01ms !important` over every element, so under it an animation does not play slowly — it does not play at all.
 - **Do** hit a 2.75rem (44px) minimum control size anywhere a control is tapped repeatedly mid-performance (control bar, segmented buttons).
 
 ### Don't:

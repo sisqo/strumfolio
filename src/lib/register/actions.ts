@@ -104,7 +104,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
       })
 
     /*
-     * Seam 1 of four: the moment this address stops being anonymous is the moment there is
+     * Seam 1 of five: the moment this address stops being anonymous is the moment there is
      * something for an attribution row to be about. Written here rather than after the email, so
      * a send that fails still leaves the lead recorded — the pending row above already is.
      *

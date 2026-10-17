@@ -213,7 +213,7 @@ const nextAuth = NextAuth({
       await attachCouponViewFromCookie(email)
 
       /*
-       * Seam 4 of four: the Google path, which has no pending registration behind it at all, so
+       * Seam 4 of five: the Google path, which has no pending registration behind it at all, so
        * this is both halves at once — record what the browser was carrying, then point it at the
        * account and freeze it.
        *

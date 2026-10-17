@@ -1,7 +1,7 @@
 # Outreach (`src/lib/outreach/`) — what the platform does *to* a reader, and doing it once
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 Everything else in this repo is something a reader does; this is the one thing the platform
 does to them. A birthday greeting, an upgrade offer carrying a voucher, whatever joins them:

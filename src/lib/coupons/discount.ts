@@ -351,10 +351,9 @@ function spanCopy(months: number | null, cycle: BillingPeriod): string | null {
  *
  * A fragment rather than a sentence, and that is the whole of what separates it from
  * `durationCopy`: it does not open with the discounted amount, because on a card that number is
- * the line directly above it and `Pricing.dc.html` prints it exactly once. The three consumers
- * of `durationCopy` have no such line to lean on — /checkout sets its sentence beside a cycle
- * toggle, `checkout.ts` stores it, and `planChangeEmail` sends it with no price above it at all
- * — so that function keeps the amount and this one does not. Neither is the other's replacement.
+ * the line directly above it and `Pricing.dc.html` prints it exactly once. `durationCopy`'s one
+ * consumer, the purchase confirmation email (`announcePayment`), has no such line to lean on, so
+ * that function keeps the amount and this one does not. Neither is the other's replacement.
  *
  * No full stop for the same reason: the design draws this as a caption on the price, not as a
  * sentence standing on its own.

@@ -1065,7 +1065,7 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
   }
 
   /*
-   * Seam 3 of four, and the one the coupon ledger next door has no equivalent of: this confirms
+   * Seam 3 of five, and the one the coupon ledger next door has no equivalent of: this confirms
    * a pending registration by hand and calls `provisionAccount` itself, so without this line
    * every account created from the admin screen would keep a null pointer and vanish from every
    * read — all of which ask by the id.

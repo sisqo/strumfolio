@@ -44,11 +44,11 @@ everything that is not in this file has gone. Open them by name when the work is
 | File | Covers |
 |---|---|
 | `src/lib/editor/CLAUDE.md` | ChordPro in depth: the song-data form, where each field lives, `{transpose}` as modulation, the 2026-09-23 conformance pass and what is deliberately not followed — **read it before touching `src/lib/chordpro.ts`**, which has no directory of its own |
-| `src/lib/auth/CLAUDE.md` | the password chosen on `/verify`, `currentUser`/`requireAccount`, session revocation, the owner exemption |
-| `src/lib/qa/CLAUDE.md` | the passwordless `/qa` sign-in and its two guards |
+| `src/lib/auth/CLAUDE.md` | the password chosen on `/verify`, `currentUser`/`requireAccount`, session revocation (AI tokens included), the AI token as a second actor, the sign-in limit that can lock somebody out, the owner exemption |
+| `src/lib/qa/CLAUDE.md` | the passwordless `/qa` sign-in, its two guards, and why each entry ends that account's other sessions and AI tokens |
 | `src/lib/storage/CLAUDE.md` | why every browser cache is scoped to one account, the scope cookie, the worker's epoch |
 | `src/lib/install/CLAUDE.md` | the «Add to home screen» row and the site-wide `beforeinstallprompt` capture |
-| `src/lib/telegram/CLAUDE.md` | what the operator notices carry, and the three Privacy Policy passages that move with them |
+| `src/lib/telegram/CLAUDE.md` | what the operator notices carry, and the four Privacy Policy passages that move with them |
 | `src/components/CLAUDE.md` | the reading bar's motion: prefetch, step direction, the end-of-song glow |
 | `src/lib/db/CLAUDE.md` | numeric keys, the four tables still keyed by an email, why `db:generate` is broken |
 | `src/lib/plans/CLAUDE.md` | plans, entitlements, the Paddle checkout, which Paddle id the code holds and which it deliberately does not, and how the catalogue is verified |
@@ -59,7 +59,7 @@ everything that is not in this file has gone. Open them by name when the work is
 | `src/lib/booklet/CLAUDE.md` | why the PDF prints the written key, and the one way to override it |
 | `src/lib/outreach/CLAUDE.md` | actions the platform aims at a reader, and why one can never happen twice |
 | `src/lib/courtesy/CLAUDE.md` | the two founder emails, legitimate interest vs. newsletter consent, the stateless unsubscribe link |
-| `src/lib/mcp/CLAUDE.md` | AI access over MCP: the token-as-actor seam, `STRUMFOLIO_MCP`, the plan gate, whole-text writes with `songs.version`, the revision history, which clients a token reaches |
+| `src/lib/mcp/CLAUDE.md` | AI access over MCP: the token-as-actor seam, `STRUMFOLIO_MCP`, the plan gate, whole-text writes with `songs.version`, the revision history, which clients a token reaches, what ends a token (`sessions_valid_after` included) |
 | `src/lib/attribution/CLAUDE.md` | where a lead came from, the five seams that record it, and the touch rules |
 | `src/lib/consent/CLAUDE.md` | the consent banner and Google Ads measurement: Consent Mode basic, EEA-only asking that fails closed, the two conversions, the gclid handed over after a late «yes», and the legal passages that move with it |
 | `src/lib/plans/CASES.md` | the forty-one plan-change cases by their analysis-document number: what each does, which test covers it, and whether anybody has ever watched it happen |
@@ -134,7 +134,7 @@ npm run dev       # next dev, http://localhost:3000
 npm test          # tsx --test over every src/**/*.test.ts and scripts/**/*.test.ts
 npm run lint      # eslint
 npm run build     # tsx scripts/precache-routes.ts, then next build
-npm run db:migrate  # tsx scripts/migrate.ts — applies drizzle/*.sql to $DATABASE_URL
+npm run db:migrate  # tsx scripts/migrate.ts — applies the journal's entries (never the *.down.sql) to $DATABASE_URL
 npm run db:generate # BROKEN — snapshots 0028/0029/0030 share one id; write migrations by hand
 npm run seed      # tsx scripts/seed.ts
 ```
@@ -246,13 +246,15 @@ and looks like a success but writes `[SENSITIVE]` in place of all 16 secrets (te
 at all** — exporting it from such a pull yields an empty string and quietly migrates
 *development* instead, which is worse than not running.
 
-**Backing it up is one command**: `strumfolio-dump` — a symlink on `PATH` to
-`~/.config/strumfolio/prod-dump`, beside `prod-url` — writes a full `pg_dump -Fc` of all three
+**Backing it up is one command**: `strumfolio-dump` — a symlink in `~/.local/bin` to
+`~/.config/strumfolio/prod-dump`, beside `prod-url`; that directory is on a login shell's `PATH`
+but not on Claude Code's tool shell's, so call it there by its absolute path — writes a full `pg_dump -Fc` of all three
 schemas (~125 KB, ~13 seconds, latency again) into the Parallels shared folder
 `/media/psf/Download`, staging it on local disk first so a dropped connection cannot leave a
 truncated `.dump` on the Mac. It is production-only by construction, since `prod-url` refuses
-every other host, and there is deliberately no dev twin — client 17 cannot dump the 18.6 dev
-server, per *Three separate Neon databases* below. The dump is
+every other host, and there is deliberately no dev twin — decided while client 17 could not
+dump the 18.6 dev server; client 18 has been installed since 2026-09-30 (*Three separate Neon
+databases* below), so a dev dump is now possible by hand, just not scripted. The dump is
 complete on purpose, so it carries `drizzle.__drizzle_migrations` and `neon_auth.*`: pouring
 those into another database rewrites which migrations that one believes it has applied, and
 the reason the format is custom rather than plain SQL is that `pg_restore -n public` then
@@ -326,9 +328,11 @@ dashboard writes.
   migration file serve both.
 - **`pg_dump`/`pg_restore` version**: Ubuntu 24.04's stock `postgresql-client` stops at 16
   and `pg_dump` refuses a newer major, so `postgresql-client-17` was installed from the PGDG
-  apt repo (`apt.postgresql.org`). That is now too old for **dev**: `pg_dump` against 18.6
-  aborts with `server version mismatch`, and `postgresql-client-18` from the same repo is
-  what would fix it. `psql` is unaffected and talks to both. Where a dump was only wanted to
+  apt repo (`apt.postgresql.org`), and `postgresql-client-18` (18.6) beside it on 2026-09-30 —
+  17 alone aborts against the 18.6 dev server with `server version mismatch`. The
+  `pg_wrapper` behind `/usr/bin/pg_dump` picks the newest, so `pg_dump --version` answers 18.6
+  and it dumps both servers (`ls /usr/lib/postgresql` shows 16, 17 and 18). `psql` talks to
+  both either way. Where a dump was only wanted to
   rehearse a migration, there is a better tool anyway — Postgres DDL is transactional, so
   `BEGIN; \i drizzle/00xx.sql; …checks…; ROLLBACK;` rehearses the real thing on the real
   data and leaves nothing behind.
@@ -410,8 +414,9 @@ for a migration whose first execution is the real one.
   is not also in Vercel's Development environment is lost on the next run of either command.
 - **No fresh database is ever empty.** `0015_v3_accounts_additive.sql` and its breaking half
   carry a backfill with `f.limberti@gmail.com` written out as a literal, so migrating an empty
-  database creates that account as id 1 with a `newsletter_prefs` row beside it. Harmless, and
-  not a seed anybody chose — a historical data migration that keeps running for ever.
+  database creates that account as id 1 — and `0035_newsletter.sql`'s own backfill, which gives
+  every existing account a `newsletter_prefs` row, then gives it one too. Harmless, and not a seed
+  anybody chose — historical data migrations that keep running for ever.
 
 ## Paddle: three MCP servers, two catalogues, and one promise about tax
 
@@ -511,8 +516,8 @@ completing a sale that charges nothing.
 they are». **That is a property of the Paddle price, not of this repository**, and it holds
 only because all seven prices set `tax_mode: 'internal'` explicitly. Omitting the field
 defaults it to `account_setting`; if that account setting is ever tax-exclusive, VAT is added
-*on top* and the promise — plus /pricing's lede, which spends a sentence on it — becomes false
-in production with no code change and nothing to find. Measured against the sandbox on
+*on top* and the promise — plus every «Tax incl.» on /pricing and its meta description, which
+say it — becomes false in production with no code change and nothing to find. Measured against the sandbox on
 2026-09-12 with `pricingPreview`, Standard yearly:
 
 | Country | Taxable base | VAT | **Total** |
@@ -533,7 +538,8 @@ compares one column against another. It is abbreviated because it sits on the pr
 hold «Tax included»; verified at 1280, 1024, 820 and 390px, both cycles, with and without a
 coupon, and `white-space: nowrap` means it can only break *before* «Tax».
 
-**The tax claim is printed in six places and they move together**: on /pricing the four plan cards
+**The tax claim is printed in seven places and they move together**: on /pricing the meta
+description (`describe()`, «priced in euro with tax included»), the four plan cards
 (`.plan-price-tax`, absent on Free), the comparison table header (`.plan-table-tax`, inside
 `.plan-table-price`, which is `display: block`) and the Lifetime panel (`.lifetime-tax`); in
 `PaddleCheckout`, `footNote`'s «Tax included, in euro.» on a first purchase and the same sentence
@@ -557,10 +563,12 @@ Four more properties of that catalogue, each of which is a decision rather than 
   **the live catalogue must use the same value** or the two environments issue different
   invoices for the same product.
 - **No price carries a `trial_period`, and that is copy rather than an oversight.** The Free
-  card on `/pricing` says «no card, no end date, no trial to run out», and the lede spends a
-  sentence denying the trial reading. A trial in Paddle would contradict copy already shipped.
+  card on `/pricing` says «no card, no end date, no trial to run out» — the only denial on the
+  page, since the lede that also spent a sentence on it went with v3.4. A trial in Paddle would
+  contradict copy already shipped.
 - **No `unit_price_overrides`.** Euro only, as `prices.ts` argues at length: a localised price
-  is a claim a statically generated page cannot make, and what a non-euro cardholder's bank
+  is a claim a page that reads nothing about where its reader is cannot make (/pricing renders
+  per request, for the session, not for the country), and what a non-euro cardholder's bank
   charges is not ours to promise.
 - **Every price is capped at `quantity: {minimum: 1, maximum: 1}`, and omitting that field is
   the trap.** Paddle fills it with **1-100** when a price is created without it, so the checkout
@@ -724,8 +732,10 @@ done. `client.checkoutDomains.get` reads the status, so none of this needs a bro
 
 Approval is what unlocks the **default payment link**, a field in Checkout Settings → General
 whose own text reads «a default payment link is required to create a transaction».
-`startPaddleCheckout` creates one on **every** view of `/checkout/[plan]`, so until that field
-holds a value nothing is sellable at all, whatever else is configured. It is now
+`startPaddleCheckout` creates one **every time a payment form opens** on `/checkout/[plan]` — on
+the reader's press, or by itself on arrival for a first purchase whose cycle (or Lifetime) was
+already chosen — so until that field holds a value nothing is sellable at all, whatever else is
+configured. It is now
 `https://strumfolio.com/pay` — **not the home page**, because that URL is where Paddle appends
 `?_ptxn=…` for its own dunning emails and only `/pay` carries Paddle.js without a session.
 
@@ -829,12 +839,18 @@ Google sign-in started failing:
 the old domain and caused cross-domain login redirects). NextAuth v5 derives the origin from
 the request's `Host` header (`trustHost`, automatic on Vercel), which is what lets every
 attached domain work on its own. Re-add it only if the request host stops being trustworthy.
-The links this app emails (verify, reset, unsubscribe) take their origin from the same headers
-through `requestOrigin`, which since 2026-09-24 passes them through `linkOrigin`
-(`src/lib/origin.ts`): a host outside the product's own, this project's `*-sisqoz.vercel.app`
-and localhost is written as `https://strumfolio.com`. Harmless on Vercel, where the headers
-cannot be forged, and the one thing standing between a pass-through proxy and a reset link to a
-stranger's site. **A new domain goes into `OWN_HOSTS` there**, or its emails link to the old one.
+The verify and reset links this app emails take their origin from the same headers through
+`requestOrigin`, which since 2026-09-24 passes them through `linkOrigin` (`src/lib/origin.ts`): a
+host outside the product's own, this project's `*-sisqoz.vercel.app` and localhost is written as
+`https://strumfolio.com`. Harmless on Vercel, where the headers cannot be forged, and the one thing
+standing between a pass-through proxy and a reset link to a stranger's site. **The other emailed
+links do not follow the request**: the courtesy unsubscribe link is pinned to `PRODUCTION_ORIGIN`
+(same file) whenever `VERCEL_ENV` is `production`, since it never expires and an operator working
+from a `*.vercel.app` host would otherwise send a link behind Vercel's sign-in; and the purchase,
+plan-change and gift emails (and every email's logo) write `SITE_URL` (`src/lib/brand.ts`) as a
+constant. **A domain move
+therefore changes `SITE_URL`, `PRODUCTION_ORIGIN` and `OWN_HOSTS`**, or some emails link to the old
+one.
 
 **`middleware.ts` strips NextAuth's own session-token `Set-Cookie` from every response, and
 signing out does not work without it.** With the `jwt` strategy, Auth.js' `session` action
@@ -845,6 +861,15 @@ restores the session; `OfflineSync`'s sequential walk of the repertoire guarante
 **It must be unconditional**: stripping only non-GET and `/api/auth/*` fixed the sign-out POST and
 nothing a reader could see. **Test with songs** — an empty repertoire reproduces none of it.
 **The cost**: a session lasts ninety days from signing in and no longer rolls.
+
+**Every response carries security headers set in `next.config.ts`'s `headers()`** (2026-10-16):
+`X-Frame-Options: DENY` with `frame-ancestors 'none'` (nothing here may sit in another site's
+frame; Paddle framing itself inside our pages is unaffected), `nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, and a `Permissions-Policy` that turns off camera, microphone,
+geolocation and USB but **leaves `payment` alone**, which Paddle's frame needs for Apple and Google
+Pay; `poweredByHeader: false` beside them. **There is no full Content-Security-Policy yet**, on
+purpose: the two inline scripts, JSON-LD, Paddle.js, Turnstile and gtag would each need an entry,
+and a wrong one breaks checkout silently — separate work, to be measured in a browser.
 
 ## Design fidelity from Claude Design handoffs
 
@@ -966,12 +991,12 @@ the landing page unconditionally.
 
 `SignOutButton` ends at `/login`; `deleteMyAccount` ends at `/`, since there is no account left.
 
-## The registration notice names a person, and three texts have to agree
+## The registration notice names a person, and four texts have to agree
 
 `registrationNotice()` sends the registrant's email (and name) to a private Telegram chat, and
 `webhookApply.ts`'s payment alerts send pseudonymous account numbers and Paddle ids. Both are
-personal data leaving the EEA, so **the Privacy Policy's §2, its processors list and §5 move
-together with the notice text** — change one and the others are wrong. Detail in
+personal data leaving the EEA, so **the Privacy Policy's §2, its §3 legal-basis row, its
+processors list (§4) and §5 move together with the notice text** — change one and the others are wrong. Detail in
 `src/lib/telegram/CLAUDE.md`.
 
 ## The password is chosen on `/verify`, never on `/register`
@@ -990,7 +1015,9 @@ longer register over an owner's pending attempt. Detail, including `NO_PENDING_P
   new page forgets it.
 - **A session can be revoked** (`accounts.sessions_valid_after`, `0052`): the check wraps
   `auth()` in `src/auth.ts`, not `currentUser`, so operator actions reading `auth()` are covered.
-  Always a JavaScript `Date`, never the database's `now()`.
+  Always a JavaScript `Date`, never the database's `now()`. **AI tokens die with it**: one created
+  before `sessions_valid_after` is `superseded` (`tokenState`, `src/lib/mcp/tokens.ts`; owner's
+  decision 2026-10-16), so a password chosen or removed and a change of address end them too.
 - The middleware cannot do any of this: it runs on the edge, where Postgres does not reach.
 
 The rest — the global-owner exemption, who writes `sessions_valid_after`, self-deletion — is in

@@ -1,7 +1,7 @@
 # Plans, entitlements and the Paddle checkout (`src/lib/plans/`)
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 - `types.ts` — `Plan`, `PLANS` (the limits table), `PLAN_RANK` (generosity order, not price).
 - `prices.ts` — `PRICES`, `LIFETIME`; separate from `types.ts` because a price changes on a
@@ -49,7 +49,11 @@ it is right for a real integration, not because the mock did it. Four consequenc
   (`webhookApply.ts`), on `transaction.completed` only and only on a first delivery. Kept on
   their own merits, not for parity — Paddle is Merchant of Record and sends its own invoice,
   which names a price and a product; which *plan* you now have and until when is this app's
-  sentence to write, and nobody else holds both facts.
+  sentence to write, and nobody else holds both facts. The Telegram line goes out for every
+  charge, labelled «Acquisto» or «Rinnovo o cambio»; the email only for a new purchase
+  (`isNewPurchase`, 2026-10-16), never for a renewal or an upgrade's charge. A zero total is
+  silent only when nothing was bought (a card update); a €0 first purchase through a 100% coupon
+  still gets both.
 - **There is no «expire this plan now» for an operator.** Nothing can make Paddle believe a
   period ended early, so the freeze path is exercisable only by waiting out a real date or
   writing the column by hand — a real loss of an operator capability.
@@ -198,7 +202,9 @@ break from a distance:
   turns into «that is the plan you are already on» *above* the sentence saying it was done.
 - **`/billing` re-reads once more three seconds after one of its own actions** («Keep …», a
   cancellation), because the webhook lands a second or two after the action returns — deliberately not a poll: a screen that is briefly behind is better than
-  one held hostage to somebody else's delivery.
+  one held hostage to somebody else's delivery. After a payment or an immediate change,
+  `PaddleCheckout` likewise asks `RoleProvider` for the plan again at 3, 8, 20 and 40 s — four
+  bounded re-reads, not a poll either.
 - **Watched end to end on the preview, 2026-09-14**, on throwaway accounts: the form drawn on
   arrival, the sandbox test card, the webhook granting the plan, Plus → Premium at once (€3.00,
   the prorated difference), Premium → Standard waiting for the period end, «Keep Premium», a
@@ -309,17 +315,18 @@ processor mail to ride along with.
   «monthly billing» carries no tier at all.
 - **`planChangeNotice` (`subscriptionCopy.ts`) owns the rule and is pure**, so «what does this
   press write to somebody» is tested rather than buried in two `'use server'` modules.
-- **The two silences.** A change taking effect *now* sends nothing: an upgrade takes money, so a
-  transaction completes and `announcePayment` covers it, and both would be two messages about one
-  press. And calling a change off (`keepPaddleSubscription`) sends nothing either — that press
+- **The two silences.** A change taking effect *now* sends nothing from this app either: an
+  upgrade's prorated charge is a `subscription_update` transaction, which `announcePayment` reports
+  on Telegram as «Rinnovo o cambio» and does not mail (`isNewPurchase`, 2026-10-16), so Paddle's
+  receipt is the customer's only written trace of it. And calling a change off (`keepPaddleSubscription`) sends nothing either — that press
   takes nothing away, the decision the template's own header already carried.
 - **`fromLabel` is always the bare plan and `toLabel` the shortest true name of what it
   becomes.** The first is quoted in the «Keep Premium» sentence, which names a button that reads
   exactly `PLAN_LABEL`; the second is `changeNames`' rule with one substitution, since the email
   prints the day right behind that label and «moves to Premium on monthly billing on 13
   September» is what the comma in `planWithCycle` prevents.
-- `customer-journey.md` is the document that describes all six emails, and §4 and §5 both moved
-  with this.
+- `customer-journey.md` is the document that describes every email a reader receives (eight
+  today), and §4 and §5 both moved with this.
 
 ## The photographed run of 2026-09-14, and the two rules it left
 
@@ -346,7 +353,7 @@ chargebacks cannot be triggered on demand). The «Dal vivo» cells of `CASES.md`
   can make the page congratulate somebody on a plan they do not have, which is the property
   `ThanksScreen`'s comment defends.
 
-## `CASES.md` is the index of the cases, and it is checked by the build
+## `CASES.md` is the index of the cases, and it is checked by `npm test`
 
 Beside this file. One row per case of the analysis document
 `strumfolio-upgrade-downgrade-paddle.md` (external, not in this repository) — all forty-one, A1
@@ -356,7 +363,7 @@ here and in the module comments, written once.
 
 **It is not a PLAN file and `cases.test.ts` is what keeps it from becoming one.** That test runs
 in `npm test`, insists every case id is present exactly once, and resolves every test name the
-document cites against the file it names — so a renamed test breaks the build instead of leaving
+document cites against the file it names — so a renamed test fails `npm test` instead of leaving
 a citation that reads like coverage and points at nothing. Same defence as
 `lib/auth/gatedRoutes.test.ts`, aimed at a different kind of forgetting.
 
@@ -424,9 +431,10 @@ the root `CLAUDE.md`. What belongs here is what the rules *decide*:
   virtually always already over. There is no fourth `PlanStatus` for a pause, on purpose.
 - **The expiry written is always `current_billing_period.ends_at`** — the end of the period
   *now paid for*. `liveSubscription` states the requirement this satisfies and it is
-  unguessable from outside: a past `expiresAt` ends a subscription even while the status still
-  says `active`, so a renewal recorded with anything later than period end downgrades a paying
-  customer for that window.
+  unguessable from outside: it lets an `active` row with nothing pending outlive that date by
+  `RENEWAL_LATENCY_MS` (12 h, 2026-10-16), because Paddle reports a renewal only after billing
+  it; a renewal recorded later than that still drops a paying customer to Free until it lands,
+  and a scheduled cancellation gets no margin.
 - **The Lifetime arrives as `transaction.completed` and nowhere else**, and only when the
   transaction carries **no** `subscription_id` — every renewal completes a transaction too, and
   acting on both would have two writes racing over one row with the newer expiry possibly
@@ -505,8 +513,8 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
     into `plan` = the paid plan, `expiresAt` = the stamp's date, `pendingPlan` = the items' plan,
     and `resolveSubscription` collapses that on the day by pure reading.
   - **Nothing ever clears a stamp**, so it is retired by the period's own `starts_at`: a renewal
-    opens a period beginning where the paid one ended, and `starts_at >= at` means the downgrade
-    has landed. No clock is read on either side, which is what keeps the webhook and the screen
+    opens a period beginning where the paid one ended, and a `starts_at` no more than a minute
+    before `at` (`STAMP_TOLERANCE_MS`) means the downgrade has landed. No clock is read on either side, which is what keeps the webhook and the screen
     from disagreeing about the day. The renewal is the case nobody exercises by hand for a
     month, so it is the test that matters most in `webhook.test.ts`.
   - **A stamp is believed only from somebody who already held the plan it names**
@@ -681,8 +689,8 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
   credit already queued (€99.85), charges the new plan gross and defers the old plan's credit —
   the polluted case, not the rule.
 - **The amount is shown before the press, and the button is refused until it is known.**
-  `previewPaddlePlanChange` sends the identical body to `subscriptions.previewUpdate` that the
-  write sends to `update`, so the figure on the screen is the figure on the card rather than a
+  `previewPaddlePlanChange` sends `subscriptions.previewUpdate` the same items and proration mode
+  the write sends to `update`, so the figure on the screen is the figure on the card rather than a
   second implementation of Paddle's arithmetic. Two numbers are read and they answer different
   questions: `update_summary.result` is what the change *costs*, and the immediate transaction's
   `grand_total` is what leaves the *card*, which is smaller when the account already holds Paddle
@@ -740,8 +748,8 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
     `active`.** A paused subscription is not a dead one — it resumes and bills — so a guard
     reading `status !== 'active'` would skip precisely the case this function exists to prevent
     and, being an early return rather than a throw, would tell nobody. `past_due` is the same
-    argument: dunning that succeeds is a charge. The only two silent returns left are a
-    subscription that is already `canceled` and one already scheduled to cancel.
+    argument: dunning that succeeds is a charge. The only silent returns left are a subscription
+    that is already `canceled`, one already scheduled to cancel, and no Paddle client to ask.
   - **A paid plan with no `paddle_subscription_id` sends the operator a line rather than
     returning quietly.** Almost every Lifetime sale reaches that branch with nothing to do, so
     it cannot alert on all of them; the stored plan tells the two apart. An account this app
@@ -774,7 +782,9 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
     purchase also closes the payment forms open in the reader's other tabs (`BroadcastChannel`).
   - **The Lifetime is refused at checkout while `lifetime.on_sale` is off or the account holds
     one** (`lifetimeRefusal`, screen and press). Like every other rule here it runs when the
-    transaction is created, not when it is paid: a tab opened before the switch still pays.
+    transaction is created, not when it is paid: a tab opened before the switch still pays. And
+    a Lifetime holder is sold nothing at all (`purchaseRefusal`, which wraps it): a subscription
+    bought over a Lifetime would be billed every period for nothing.
   - **The Lifetime checkout sells in every mode, `stalled` included.** That branch exists to
     stop a *second subscription*; Lifetime is not one. A reader whose card is failing is, if
     anything, the one most helped by buying their way out.
@@ -813,7 +823,8 @@ preview the next day (`browser 2026-09-14` in `CASES.md`).
     an empty column. The stale tab is the reachable case; the race inside the webhook's own
     delivery window is not closed here.
 - **`paddle_subscription_id` means «has had a subscription», not «has one».** The webhook writes
-  it on *every* subscription event, `subscription.canceled` included, and nothing ever nulls it —
+  it on every subscription event that is neither stale nor `foreign`, `subscription.canceled`
+  included, and nothing ever nulls it —
   so a reader who cancelled and lapsed back to free still carries the id of what they left.
   Branching on the column offers that reader «Switch to Standard», which then refuses: a
   returning customer with no way to pay. `checkoutMode` is the rule instead, over

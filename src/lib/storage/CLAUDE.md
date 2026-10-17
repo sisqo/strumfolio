@@ -17,9 +17,9 @@ repertoire is what a reader actually sees for the width of a fetch, after which 
 itself and leaves nothing to find. Reported as «per un attimo si vedono i miei canzonieri».
 
 - **The tag comes from a cookie, not a prop.** `middleware.ts` computes it on every signed-in
-  request (`accountScopeTag` over `currentAccountFor`) and sets `songbook-scope`, which is the
-  one cookie here that is deliberately **not** `httpOnly` — the page's own script is the
-  consumer. It authorises nothing: the server scopes every read by `accountOwnerEmail`
+  request (`accountScopeTag` over `currentAccountFor`) and sets `songbook-scope`, which is
+  deliberately **not** `httpOnly` (like the consent banner's two cookies) — the page's own
+  script is the consumer. It authorises nothing: the server scopes every read by `accountOwnerEmail`
   regardless, so forging it buys a browser only its own cache back. A prop was rejected because
   `PrefsProvider` alone is mounted on about twenty pages, and one omission would silently fall
   back to an unscoped key — the bug again, on one page, invisibly.
@@ -46,8 +46,9 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   `deleteMyAccount` ends on `/` and never reached `/login`), so another account's words do not
   *linger* in devtools on a shared machine.
 - **The service worker's page caches have the same shape and are handled by clearing, not
-  scoping**: `rejectUnauthenticated` only refuses anonymous and redirected responses, so a
-  signed-in reader's rendered screens are stored under plain URL keys. `sw.ts` recorded «nothing
+  scoping**: `rejectUnauthenticated` only refuses anonymous, redirected and non-`ok` responses
+  (and `storedOnServerError` answers a 5xx with the stored copy), so a signed-in reader's
+  rendered screens are stored under plain URL keys. `sw.ts` recorded «nothing
   evicts it when a session ends» as understood-and-accepted; that reasoning covered offline and
   not the case where a second account signs in on the device.
 - **Songs and songbooks have a cache of their own, `repertoire`, with no age expiry, capped at 1500 entries** (2026-09-22).
@@ -70,8 +71,9 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   song opened, or the `offline` event itself, emptied the freshly warmed `repertoire`.
 - **The walk waits for a worker, and walks again** (2026-10-16). Not while
   `navigator.serviceWorker.controller` is null (a fetch then bypasses the worker and stores
-  nothing, but used to count as done); again on `controllerchange`, since a deploy's worker drops
-  the old build's scripts from the precache and the stored pages named them; and again when the
+  nothing, but used to count as done); again on a `controllerchange` that replaces an existing
+  worker (`workerChanged` — the first install's own one only starts the first walk), since a
+  deploy's worker drops the old build's scripts from the precache and the stored pages named them; and again when the
   page comes back after six hours, for songs added or rewritten elsewhere. Not yet watched in a
   real browser across a deploy.
 

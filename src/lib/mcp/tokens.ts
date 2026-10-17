@@ -13,7 +13,8 @@
  *   config file does not stay valid for ever;
  * - **a password change ends it**: one made before `sessions_valid_after` is `superseded`
  *   (owner's decision 2026-10-16) — a reset is how a stolen account is taken back;
- * - **suspension and deletion end it**: the account row is read on every call, and deletion
+ * - **suspension stops it while it lasts and deletion ends it**: the account row is read on
+ *   every call, so lifting a suspension (which revokes nothing) brings it back, and deletion
  *   cascades the row away.
  *
  * The plan (`refused.aiAccess`) is asked by the caller on every call, not here: a token on an

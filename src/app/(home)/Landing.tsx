@@ -97,8 +97,8 @@ export const LANDING_DESCRIPTION =
  * Each claim is shipped behaviour, not a slogan: every edit writes standard ChordPro and
  * `lib/import/export.ts` hands the stored source back, one song or the whole library as a zip;
  * and «no ads» means no advertisement is ever *shown* here — still true once Google Ads
- * measurement is on (`lib/consent/`), which counts our own advertisements elsewhere, only with
- * consent, and puts none on this site; the Cookie Policy says «No other advertising» then, and
+ * measurement is on (`lib/consent/`), which counts our own advertisements elsewhere — with a
+ * «yes» in the EEA, UK and Switzerland, on legitimate interest elsewhere — and puts none on this site; the Cookie Policy says «No other advertising» then, and
  * «No advertising or third-party tracking» while it is off. The offer banner this page
  * can carry is Strumfolio's own campaign, shown only to a reader who arrived with its link — a
  * price of ours, and not somebody else's advert.
@@ -409,9 +409,10 @@ const FAQ: FaqGroup[] = [
         /*
          * "Strumfolio uses ChordPro, the standard format for lyrics and chords" was the whole
          * answer here, and it read as a *requirement*: bring ChordPro files. What the importer
-         * actually accepts is `ACCEPTED` (`AddSongScreen.tsx`) — the dialects, OnSong, MusicXML,
-         * a SongbookPro backup, a zip of any of those — plus any text at all, since a paste of
-         * "chords above the lyrics" is converted. Someone with a folder of exports from another
+         * actually accepts is `ACCEPTED` (`AddSongScreen.tsx`) — the dialects, OnSong, OpenSong and
+         * OpenLyrics (`.xml`, told apart by `xmlFlavour`; MusicXML is not read), a SongbookPro backup,
+         * a zip of the text and XML ones (`readArchive` skips PDF, Word and SongbookPro entries) —
+         * plus any text at all, since a paste of "chords above the lyrics" is converted. Someone with a folder of exports from another
          * app was being told, in effect, to convert it first.
          *
          * **"Fifteen" is the one count on this page typed by hand**, and it has to stay in step
@@ -429,7 +430,8 @@ const FAQ: FaqGroup[] = [
           <>
             <p>
               {cheatSheetLink('ChordPro')} is what Strumfolio reads and writes — and around it, the dialects other apps
-              use, <strong>OnSong, MusicXML, a SongbookPro backup, PDF, Word</strong>, and a zip holding any of those:{' '}
+              use, <strong>OnSong, OpenSong, OpenLyrics, a SongbookPro backup, PDF, Word</strong>, and a zip of any of the
+              text ones:{' '}
               <strong>fifteen file types</strong> in all, plus any text you can paste.
             </p>
             <p>

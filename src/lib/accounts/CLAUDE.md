@@ -1,7 +1,7 @@
 # Accounts admin, names and the newsletter
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 - **`/accounts`' own list, not the detail page, is where the two courtesy emails are sent.**
   Two icons per row (`CourtesyIcons.tsx`), lit once a `done` row exists, dim and clickable while
@@ -63,7 +63,7 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   («delete and recreate»), and an address that will never find the registration form.
   `createAccount` mirrors `confirmPendingRegistration` **minus the Telegram
   notice** — nobody needs telling about the account they are creating with their own hands,
-  which is why the root `CLAUDE.md`'s «three callers» of `registrationNotice` is still three —
+  which is why `lib/telegram/CLAUDE.md`'s «three callers» of `registrationNotice` is still three —
   and **plus an optional password**, which the confirmation path does not write at all: since
   2026-09-24 a registration carries none (it is chosen on `/verify`, root `CLAUDE.md`), and one
   left on an older pending row was typed before anybody proved the inbox. Empty is an answer:
@@ -78,6 +78,13 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   would refuse the second half of «delete and recreate» for every account that ever signed in —
   which is every account the quirk affects. No newsletter opt-in, for
   2026-09-03's reason: an operator cannot give that consent on somebody else's behalf.
+  **`confirmPendingRegistration` answers ok only if an `accounts` row exists afterwards**
+  (2026-10-17): the pending row is already consumed when the insert fails, so a retry would only
+  answer `not-found`, and `not-created` tells the operator to open it with «New account».
+- **`changeAccountEmail` refuses an owner's address at either end**, except an owner renaming
+  their own account, and **ends the old address's Strum Together broadcast** in the same
+  transaction (2026-10-17): it is looked up by `owner_email`, so it would otherwise stay
+  unstoppable and pass to whoever took that address next. `lib/db/CLAUDE.md` has the rest.
 - **`confirmPendingRegistration` is an attribution seam, not only a provisioning one.** It calls
   `provisionAccount` itself, so it must also call `freezeLeadAttribution` — without it every
   account created from this screen keeps a null pointer and disappears from every attribution
@@ -134,13 +141,18 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   than sent to a button that says no. **Terms
   of Service §11 and the Privacy Policy's self-service sentence in §7 state the rule**, so they
   move with it.
-- **Suspending an account ends its sessions too, since 2026-09-24** — by decision.
+- **Suspending an account stops its sessions too, since 2026-09-24** — by decision, and for as
+  long as it lasts: nothing is revoked, so lifting it brings the same sessions (and AI tokens)
+  back.
   `currentUser()` asks the database on every request (`accountExists`), and that lookup reads
   `suspended_at` as well, so a suspended account behaves exactly like a deleted one:
   writes refused, `requireAccount` to `/login` — through `accessTo` as well as `currentUser`, since
   every action reached by a slug asks the first — and a running Strum Together broadcast is
   deleted, since its guests read by token and not by session. A global owner stays exempt, which is what keeps
-  «Enter as this account» working on the account they suspended.
+  «Enter as this account» working on the account they suspended. **No owner can be suspended,
+  not even by themselves** (2026-10-17): `signIn` refuses a suspended row with no owner
+  exemption, so only SQL would undo it. Lifting a suspension is always allowed, and the Suspend
+  row is not drawn on an owner's account unless it is already suspended.
 - **Clearing a rate limit clears the by-email keys, never the by-IP ones.**
 - **`ViewingAsPill` (`src/components/ViewingAsPill.tsx`, rendered by `TopBar`) is the real exit control** for impersonation, not a label;
   `SwitchAccountButton` performs the same three steps with a different `targetEmail`. A guest's

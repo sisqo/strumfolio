@@ -79,7 +79,7 @@ export default async function HelpPage() {
             </li>
             <li>
               <strong>Import a file.</strong> Drop a file on the add-song screen, or browse for one —
-              ChordPro, plain text, OnSong, PDF, Word, a zip of several and more. The same review
+              ChordPro, plain text, OnSong, PDF, Word, a zip of several text or ChordPro files and more. The same review
               as a paste comes before anything is saved.
             </li>
             <li>

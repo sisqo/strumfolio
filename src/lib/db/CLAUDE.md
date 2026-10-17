@@ -1,7 +1,7 @@
 # Schema, numeric keys and migrations
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 ## Numeric keys (`0039`, v4.7) — and the four tables that deliberately still use an email
 
@@ -18,7 +18,8 @@ somebody signs in and the slug is in the URL. The exceptions are all deliberate:
   (Paddle's own id, which is what makes a replay a `duplicate`), `rate_limit_hits.key` and
   `app_settings.key` (the key *is* the thing);
 - **keyed by the account**: `user_prefs` and `newsletter_prefs` (`account_id`), and the composite
-  `user_song_prefs (account_id, song_id)` and `sing_along_devices (token, device_id)`;
+  `user_song_prefs (account_id, song_id)`;
+- **keyed by the broadcast**: the composite `sing_along_devices (token, device_id)`;
 - **keyed by an email**: the four tables below.
 
 What a future change must not get wrong:
@@ -30,7 +31,7 @@ What a future change must not get wrong:
   *decide* whether a row exists.
 - **The edges keep speaking addresses and slugs, and that is load-bearing.** Three
   independent reasons: `data/files.ts` builds songs from `.chopro` files that have nothing
-  but a slug; `currentUser()` does query — `accountExists` (`lib/auth/session.ts`) reads
+  but a slug; `currentUser()` does query — `accountExists` (`lib/accounts/status.ts`, called from `lib/auth/session.ts`) reads
   whether the row exists and is not suspended, and `auth()` itself checks
   `sessions_valid_after` — but it never resolves or returns an id, so it has none to hand out, and a global owner has a role with no `accounts` row; and the offline outbox already in readers'
   browsers names song slugs and client-minted comment ids in writes that drain *after* a
@@ -63,8 +64,11 @@ What a future change must not get wrong:
   the app repeats its predicate, since `recordLeadAttribution` inserts with a bare `ON CONFLICT DO
   NOTHING`.
 - **`changeAccountEmail` is one transaction**: a delete of any stale `pendingRegistrations` row
-  for the new address, then an `UPDATE` each of `accounts` (which also sets
-  `sessions_valid_after`, ending every other session), `credentials` and `signIns`. Needing to add a table to it is the signal that
+  for the new address, then an `UPDATE` of `accounts` (which also sets
+  `sessions_valid_after`, ending every other session), a delete of the old address's
+  `sing_along_sessions` row (a live broadcast is looked up by `owner_email`, so it ends rather
+  than following), and an `UPDATE` each of `credentials` and `signIns`. Before any of it, an
+  owner's address is refused at either end, except an owner renaming their own account. Needing to add a table to it is the signal that
   something is keyed by an address that should be keyed by an id.
 - **`ON UPDATE CASCADE` on `songs_section_songbook_fk` is still required.** It looks
   redundant and is not: moving a section between songbooks changes `sections.songbook_id`,
@@ -88,7 +92,8 @@ elsewhere. `ALTER TABLE ADD COLUMN` in Postgres appends **always**, and the fiel
 `ADD COLUMN`, so both sit physically last, after `updated_at`, while `schema.ts` declares them
 in the middle of the table (after `chord_shapes`). Every other column added after `0041`
 (`accounts.courtesy_opted_out_at`, `.is_test`, `.sessions_valid_after`,
-`coupon_redemptions.event_id`) is declared last, so it matches.
+`coupon_redemptions.event_id`, and `0053`'s `songs.version`, `.ai_written_at`, `.ai_token_id`) is
+declared last, so it matches.
 
 What a future change has to know:
 

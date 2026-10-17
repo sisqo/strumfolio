@@ -50,6 +50,8 @@ convenience, it is the only way one gets inside the app at all. `npm test`
 and a run of that kind answer different questions — the second is what found the €139.99/€199.99
 gap that every pure test passed straight through.
 
-**Every `/qa` entry ends that account's AI tokens** (since 2026-10-16): it sets the password through
-`writePasswordHash`, which revokes sessions, and a token older than `sessions_valid_after` is dead
-(`mcp/tokens.ts`). For an MCP test, create the token after the last `/qa` sign-in.
+**Every `/qa` entry ends that account's other sessions and its AI tokens** (since 2026-10-16): it
+sets the password through `writePasswordHash`, which revokes sessions, re-issues a cookie only to the
+browser entering, and a token older than `sessions_valid_after` is dead (`mcp/tokens.ts`). For an
+MCP test, create the token after the last `/qa` sign-in; for a two-browser test, enter once and sign
+the second browser in on `/login` with `QA_PASSWORD`.

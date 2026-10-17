@@ -83,7 +83,7 @@ sono quella frase applicata, non cinque decisioni separate.
 
 | # | Caso | Come lo gestiamo | Test | Dal vivo |
 |---|---|---|---|---|
-| E1 | Rinnovo riuscito, nessun pending | `expiresAt` = fine del periodo ora pagato, mai più in là | `webhook.test.ts › writes the end of the period being paid for as the expiry` | `mai` |
+| E1 | Rinnovo riuscito, nessun pending | `expiresAt` = fine del periodo ora pagato, mai più in là; una riga `active` senza pending resta in vigore `RENEWAL_LATENCY_MS` (12 h) oltre quella data, perché Paddle annuncia il rinnovo dopo averlo fatturato (2026-10-16) | `webhook.test.ts › writes the end of the period being paid for as the expiry` · `entitlements.test.ts › keeps a renewing subscription for the renewal margin, and not a moment longer` | `mai` |
 | E2 | Rinnovo riuscito, con un pending | Lo stamp si ritira da solo: il nuovo periodo comincia dove finiva quello pagato. **Il caso che nessuno eserciterà a mano prima di un mese**, e il più importante da guardare quando succederà | `webhook.test.ts › is spent once the period it named has begun` | `mai` |
 | E3 | Rinnovo fallito | `grace`, che ignora le date apposta: chi ha la carta che non passa è quasi sempre già oltre la scadenza | `entitlements.test.ts › keeps the full plan on a failed renewal, past date and all` | `mai` |
 | E4 | Pagamento recuperato nel grace | Torna `active` e il webhook scrive il periodo nuovo | `webhook.test.ts › writes the end of the period being paid for as the expiry` | `mai` |

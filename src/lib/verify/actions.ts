@@ -213,7 +213,7 @@ export async function verifyEmail(
   await attachCouponViewFromCookie(normalized)
 
   /*
-   * Seam 2 of four: point the attribution row this address already has at the account that now
+   * Seam 2 of five: point the attribution row this address already has at the account that now
    * exists, and freeze it. Reads **no cookie**, deliberately — a verification link is very often
    * opened on a different device from the one the registration was typed on, where this
    * browser's cookie has never existed. The arrival was recorded by `register()`; all that is

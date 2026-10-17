@@ -29,8 +29,9 @@
  * every price it qualifies rather than in a paragraph; the bank's-cut half is in § 7 of the
  * Terms of Service and nowhere on /pricing, which is a deliberate omission and not an oversight
  * — see `HERO_SUBTITLE`'s neighbour in `app/pricing/page.tsx`. No currency map, no conversion, no Paddle.js on
- * the page — the page that renders these is statically generated and knows nothing about who is
- * reading it, so a localised price would be a claim it cannot make. That is also why the
+ * the page — the page that renders these was statically generated when this was written, and
+ * though it now renders per request (it reads the session), it still reads nothing about where
+ * its reader is or what card they hold, so a localised price would be a claim it cannot make. That is also why the
  * amounts are strings and not numbers: nothing here does arithmetic on them except
  * `yearlyTotalOfMonthly`, and a string is what a page prints. `2.49` as a float would invite
  * exactly one bug — a total rendered as `29.880000000000003`.

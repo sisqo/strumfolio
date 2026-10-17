@@ -12,10 +12,10 @@
  * away from a browser that is signed in, and «something happened, go and look» is not worth a
  * notification.
  *
- * **So the Privacy Policy had to move with it, and the two must never drift apart again.** §7's
- * international-transfer paragraph said in published text that these notifications «carry no
- * personal data, so Telegram processes none of yours», which this line makes false; §3's
- * recipients table named Telegram for operational notifications with no personal data in them.
+ * **So the Privacy Policy had to move with it, and the two must never drift apart again.** Its
+ * international-transfer paragraph (§7 then, §5 today) said in published text that these
+ * notifications «carry no personal data, so Telegram processes none of yours», which this line
+ * makes false; the recipients table (§3 then, §4 today) named Telegram for operational notifications with no personal data in them.
  * Both now say what this function actually sends. Change this text and those two are wrong —
  * the rule the booklet override and the install row already live under.
  *

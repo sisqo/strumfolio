@@ -1,7 +1,7 @@
 # Courtesy emails — legitimate interest, per-account, and their own unsubscribe
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 Two messages, `courtesy_thanks` ("A thank-you and a question") and `courtesy_checkin`
 ("Anything you need?"), sent by an operator's own click, one account at a time, from icons on
@@ -38,8 +38,9 @@ same reason: the send is composed here, not run through `runOutreach`.
   newsletter's, because unsubscribing from one must say nothing about the other — a reader who
   opts out of these two founder notes has not touched their newsletter preference, and vice
   versa.
-- **`courtesy_checkin` refuses unless `courtesy_thanks` already has a `done` row for the same
-  address** (`thanksAlreadySent`, `actions.ts`). Its own copy says "still Francesco" and "a
+- **`courtesy_checkin` refuses unless `courtesy_thanks` already has a `done` row for this
+  account or this address** (`thanksAlreadySent`, `actions.ts`) — the account too since
+  2026-10-17, because an operator's change of address leaves the row under the old one. Its own copy says "still Francesco" and "a
   second and last time" — both false for an address that never received the first message. This
   is enforced server-side, not only by the icon's disabled state on `/accounts`: the UI is a
   courtesy, the check in `sendCourtesyCheckin` is the actual fence.
@@ -47,7 +48,10 @@ same reason: the send is composed here, not run through `runOutreach`.
   HMAC-SHA256 of the normalized address, keyed by `COURTESY_UNSUBSCRIBE_SECRET` — a **dedicated**
   env var, never `AUTH_SECRET`. A link that must never die should not share a lifetime with a
   secret that has every reason to rotate. The cost, accepted on purpose: not revocable per
-  address, only by rotating the secret for everyone.
+  address, only by rotating the secret for everyone. **In production the link is built on
+  `PRODUCTION_ORIGIN`, never on the request's host** (`unsubscribeUrlFor`): a link that never
+  dies, sent while the operator worked from `strumfolio-sisqoz.vercel.app`, would point for ever
+  at a host behind Vercel's sign-in.
   - **`COURTESY_UNSUBSCRIBE_SECRET` must exist in Vercel Production (and `.env.local` for local
     work) before this feature can actually send.** It does not exist in either place by default.
     A missing secret makes `courtesyUnsubscribeToken` throw, which both send actions catch
@@ -57,8 +61,8 @@ same reason: the send is composed here, not run through `runOutreach`.
     still settle the row `done`, permanently burning the occurrence for a message whose
     unsubscribe link can never work.
   - **`confirmCourtesyUnsubscribe` (`publicActions.ts`) is deliberately its own file, never
-    merged into `actions.ts`.** It is the one server action in this whole app a signed-out
-    stranger is meant to call — the token is the authorization, not a session — and keeping it
+    merged into `actions.ts`.** It is a server action a signed-out stranger is meant to call,
+    authorised by the link alone — the token is the authorization, not a session — and keeping it
     apart from the owner-gated sends is what stops a future edit giving it an `isOwner` check by
     habit, which would lock every reader out of their own unsubscribe link.
 - **Outside production a courtesy email goes only to a QA address** (`courtesySendable`,
@@ -69,15 +73,17 @@ same reason: the send is composed here, not run through `runOutreach`.
   is claimed.
   **The same rule covers the gift notice and the welcome email an operator's hand triggers**
   (`accounts/actions.ts`: `sendGiftNotice` refuses; `confirmPendingRegistration` and
-  `createAccount` make the account and stay silent) — any send an operator can start from
+  `createAccount` make the account and stay silent, the former's Telegram notice included) and
+  the password reset an operator sends (`sendPasswordResetFor`, `auth/actions.ts`) — any send an operator can start from
   `/accounts` goes under it, or the local copy writes to a real customer again.
 - **`/courtesy-unsubscribe` reads on GET, writes only on an explicit tap**, the rule this repo
   states for `/verify` and `/reset-password`: a corporate mail scanner follows every link in a
   message before a person sees it, and a GET that wrote would opt out an account nobody but the
   scanner ever visited. It is listed in `publicRoutes.ts` — session-free, not indexable, outside
   the app — the same three-question shape every session-free page there answers.
-- **`lib/courtesy/read.ts`'s `listCourtesyStatus` groups by `account_owner_email`, never by
-  `account_id`.** `claimVerdict`'s rule 2 (`outreach/claim.ts`) treats a row matching only by
+- **`lib/courtesy/read.ts`'s `listCourtesyStatus` credits a `done` row to its own
+  `account_owner_email` and to the current address of its `account_id`, never by `account_id`
+  alone** (2026-10-17): the id half survives an operator's change of address. `claimVerdict`'s rule 2 (`outreach/claim.ts`) treats a row matching only by
   address, with no matching account id, as `already-done` — the guarantee that stops a voucher
   or a message being farmed by deleting an account and signing up again. Reading this list by
   `accountId` instead would show an icon as "not sent" for an address the send action would

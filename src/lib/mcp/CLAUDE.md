@@ -82,8 +82,8 @@ days unused** (`TOKEN_IDLE_DAYS`, from `last_used_at`, or `created_at` if never 
 hand, ten live per account. **A token made before `sessions_valid_after` is dead** (`superseded`,
 owner's decision 2026-10-16, reversing the 27/9 «that is about browsers»): a password chosen or
 removed, or a change of address, ends it, since a reset is how a stolen account is taken back.
-Suspension and deletion end them too (the account row is read on every call;
-deletion cascades). `last_used_at` is written at most every five minutes.
+Suspension stops them while it lasts (the account row is read on every call) and lifting it
+brings them back, since it revokes nothing; deletion ends them (the rows cascade). `last_used_at` is written at most every five minutes.
 
 ## Writing — whole text plus version
 
@@ -96,7 +96,10 @@ body gets a warning in the answer, since the sample songbook's songs already car
 those are the owner's text.
 
 - **A rewrite that changes nothing writes nothing** — no revision, no version bump — or an assistant
-  «fixing» fifty songs that needed nothing would fill every history with copies.
+  «fixing» fifty songs that needed nothing would fill every history with copies. «Nothing» is
+  judged the way `saveSong` stores it: title and artist through `oneLine`, a blank artist as none.
+- **The same length caps as an import**: title and artist up to `SONG_TITLE_MAX` (300), the body up
+  to `SONG_TEXT_MAX` (100 000), refused as `too-long` before anything is written.
 - **`create_song` checks `section_id` against the songbook itself**: `saveSong` treats the section as
   the stronger hint, so one from another songbook moved the song there, and one it could not find
   fell back to the first section — both silently.

@@ -56,7 +56,9 @@ export async function listCourtesyStatus(): Promise<Map<string, CourtesyStatus> 
      * because clicking the icon again is exactly what re-enters `claimOccurrence`'s
      * compare-and-swap and retries it.
      *
-     * **Grouped by `account_owner_email`, not `account_id`.** `claimVerdict`'s rule 2 treats a
+     * **Credited to the row's own `account_owner_email` and to the current address of its
+     * `account_id`, never by `account_id` alone.** The id half survives an operator's change of
+     * address, which leaves the history row under the old one. `claimVerdict`'s rule 2 treats a
      * row matching only by address (no matching `accountId`, e.g. after the account behind it
      * was deleted and recreated) as `already-done` — the anti-farming guarantee this schema's
      * two unique indexes exist for. Reading by `accountId` instead would show an icon as "not

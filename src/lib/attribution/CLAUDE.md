@@ -1,7 +1,7 @@
 # Attribution (`src/lib/attribution/`) — where a lead came from, and the five seams that record it
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 Campaign parameters, click ids, referring host and landing page, captured for an address the
 first time it is given and frozen when it becomes an account. One row per lead in
@@ -109,6 +109,19 @@ curl -s -D - -o /dev/null 'http://localhost:3000/?utm_source=x&utm_campaign=y' |
 curl -s -D - -o /dev/null 'http://localhost:3000/verify?token=abc'             | grep -c songbook-attribution   # 0
 curl -s -D - -o /dev/null 'http://localhost:3000/forgot-password'              | grep -c songbook-attribution   # 0
 ```
+
+## The caps, and the one value that leaves
+
+Every value is cut to 80 characters (`VALUE_MAX_LENGTH`), except a click id, which keeps 256
+(`CLICK_ID_MAX_LENGTH`, 2026-10-16): a gclid commonly runs to ninety or a hundred, and one cut at
+eighty is not a shorter gclid but a wrong one. The cookie's 2048-byte ceiling is measured
+**percent-encoded**, as the cookie is written — the JSON's own length once let a payload become an
+8 KB header the browser silently refused — and over it `encodeAttribution` sheds `term` and
+`content` first and the whole last touch second, never the campaign.
+
+The gclid is the only part of this cookie that ever reaches a third party: after a «yes» on the
+consent banner `consent/` hands it to Google's tag (`gclidOf`, `src/lib/consent/CLAUDE.md`).
+Refusing Google leaves the cookie and the five seams exactly as they are.
 
 ## `landing_page` means two different things either side of 2026-09-08
 

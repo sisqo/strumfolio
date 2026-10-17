@@ -20,9 +20,10 @@
  * somebody changes theirs.
  *
  * **`resolveSubscription` states two requirements on this file and they are unguessable from
- * the outside**, so they are repeated here. A renewal that lands *after* period end downgrades
- * a paying customer for that window, because a past `expiresAt` ends a subscription even while
- * the status still says `active` — so the expiry written here is the end of the period *now
+ * the outside**, so they are repeated here. A renewal that lands more than `RENEWAL_LATENCY_MS`
+ * (12 h) *after* period end downgrades a paying customer for the rest of that window, because
+ * past that margin an expired `expiresAt` ends a subscription even while the status still says
+ * `active` — so the expiry written here is the end of the period *now
  * being paid for*: Paddle's `current_billing_period.ends_at`, or, while a downgrade of this
  * app's own is scheduled, the date stamped with it, which is that same field copied at the
  * moment of the change. And `grace` ignores dates entirely, which is what makes it the right
@@ -312,9 +313,10 @@ const STAMP_TOLERANCE_MS = 60_000
  * overwrites it, so the one left behind by a downgrade that has already happened would, read
  * naively, go on granting the old plan for ever. The period's own `starts_at` is what retires
  * it, and it needs no clock to do so: a renewal opens a period beginning exactly where the paid
- * one ended, so `starts_at >= at` says the downgrade has landed and the items are now simply
- * the truth. Every renewal after that says the same thing, so the stamp is inert rather than
- * dangerous, and the next change of plan overwrites it anyway.
+ * one ended, so a `starts_at` no more than a minute before `at` (`STAMP_TOLERANCE_MS`) says
+ * the downgrade has landed and the items are now simply the truth. Every renewal after that
+ * says the same thing, so the stamp is inert rather than dangerous, and the next change of plan
+ * overwrites it anyway.
  *
  * A stamp this cannot read answers `null`, which means the items are believed and the tier
  * drops at once — the generous direction everywhere else in this file, reversed here on
@@ -445,8 +447,9 @@ export function subscriptionEffect(data: PaddleSubscriptionData, trustStamp = tr
  */
 export function adjustmentEffect(data: PaddleAdjustmentData): PaddleEventEffect {
   const account: AccountRef = {
-    /* An adjustment carries no `custom_data`, so the customer id is the only handle it offers —
-       written by the Lifetime's own `transaction.completed` before any of this can happen. */
+    /* An adjustment carries no `custom_data`, so its handles are the subscription id, when it
+       belongs to one, and the customer id — the latter written by the Lifetime's own
+       `transaction.completed` before any of this can happen. */
     accountId: null,
     paddleSubscriptionId: readString(data.subscription_id),
     paddleCustomerId: readString(data.customer_id),

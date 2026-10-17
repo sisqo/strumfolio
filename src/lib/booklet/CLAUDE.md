@@ -1,13 +1,13 @@
 # The booklet prints for a room, except when the reader asks otherwise
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 `/booklet` typesets each song in its **written** key by default, because a booklet is meant to
 be printed and handed to other people, where somebody else's capo means nothing. «Written»
 includes what the file itself declares: a `{capo}` or `{transpose}` in the song is applied with
-the checkbox off too (`resolvedCapo`/`resolvedSemitones` in `document.tsx`, the root `CLAUDE.md`'s
-«print follows screen»), because it is the song's, not the reader's. A reader can
+the checkbox off too (`resolvedCapo`/`resolvedSemitones` in `document.tsx`'s `prepare`, whose
+comments state the «print follows screen» rule), because it is the song's, not the reader's. A reader can
 override with their own key and capo, and the rules are narrow on purpose:
 
 - **Asked at every download and never persisted** — a checkbox above "Download PDF", not a

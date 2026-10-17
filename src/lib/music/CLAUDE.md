@@ -1,7 +1,7 @@
 # Reading a song: chips, chord shapes and notation
 
 Loaded when Claude works under this directory. Repo-wide rules — the push check, deploys,
-production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
+production migrations, the three Neon databases — stay in the root `CLAUDE.md`.
 
 - **Key, capo, accidentals and chord display are chips on the song screen**, not controls in
   the reading panel — but they are stored in two different places. Key and capo are per song and
@@ -37,3 +37,7 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   German `[B]` is the international `Bb`, so letting it into parsing would make one token mean
   two different chords with nothing in the file to disambiguate — `readRoots` stays on Italian
   and international deliberately.
+- **A chord's note names are spelt by degree** (`chordNoteNames`, `spellDegree`, 2026-10-16): a
+  minor third sits on the third's letter, so Cm reads C Eb G, not C D# G; a tone that would need a
+  double sharp or flat falls back to the root's own sharps or flats. A slash bass outside the
+  chord is listed as the sheet writes it — C/Bb lists Bb, not A#.

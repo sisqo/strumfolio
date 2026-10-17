@@ -1,7 +1,7 @@
 # I test d'integrazione, e come si fanno
 
 **`npm test` non è questo.** Quello è `node:test` sulle funzioni pure — decisioni, aritmetica,
-copy — e gira in quindici secondi senza toccare niente. Questi comprano **davvero**: una carta,
+copy — e gira in una ventina di secondi senza toccare niente. Questi comprano **davvero**: una carta,
 una transazione su Paddle, un webhook che arriva, delle colonne che cambiano. Sono due cose
 diverse, e la seconda è l'unica che può smentire la prima.
 

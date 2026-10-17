@@ -306,8 +306,8 @@ function withConsent(response: NextResponse, consent: ConsentCookies): NextRespo
  * this recomputes from it, so the tag follows the switch on the very next request with no second
  * place to keep in step. `writeAccountCookie` therefore stays a cookie write and nothing more.
  *
- * Not `httpOnly`, unlike every other cookie here, and that is the point of it: the consumer is
- * the page's own script. It authorises nothing — the server scopes every read by
+ * Not `httpOnly`, like the consent banner's two cookies and unlike the rest, and that is the
+ * point of it: the consumer is the page's own script. It authorises nothing — the server scopes every read by
  * `accountOwnerEmail` regardless — so a forged value buys a browser nothing but the right to
  * read a cache it wrote itself.
  */
