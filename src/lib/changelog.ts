@@ -37,6 +37,10 @@
  * comment, and nowhere else. This is not the same act as editing a release that was already
  * published, which the 1.0 note below treats as the exception it is.
  *
+ * **1.4 to 1.8 were written on 2026-10-17** for the same reason, with the same true dates; 1.7
+ * is skipped because that week shipped nothing a reader would notice. Rule 3 no longer holds
+ * anything back: `/pricing` has sold since 2026-09-19.
+ *
  * **The numbering starts fresh at 1.0 and is public.** The project kept an internal version
  * scale of its own — v1 through v4.7, thirty-odd entries in the `PLAN` docs deleted on
  * 2026-09-06 — and it is deliberately *not* reused here. Two reasons: that scale had real
@@ -90,6 +94,72 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.8',
+    date: '2026-10-17',
+    title: 'Steadier on stage',
+    highlights: [
+      {
+        kind: 'fixed',
+        text: 'Following a Strum Together session keeps up with the leader after a dropped connection.',
+      },
+      { kind: 'fixed', text: 'A song you have saved opens even when the server answers with an error.' },
+      { kind: 'fixed', text: 'Moving a chord never splits an emoji or an accented letter.' },
+      { kind: 'fixed', text: 'Chord notes are spelt as musicians write them: Cm is C Eb G.' },
+      { kind: 'fixed', text: 'After buying a plan you go straight to your songbooks.' },
+    ],
+  },
+  {
+    version: '1.6',
+    date: '2026-10-03',
+    title: 'Your AI assistant, in your songbooks',
+    highlights: [
+      {
+        kind: 'new',
+        text: 'Connect Claude, Codex, Cursor or another MCP assistant to read and edit your songbooks, from the Standard plan. It never deletes anything.',
+      },
+      { kind: 'new', text: 'History under the editor keeps the text an AI replaced, and restores it.' },
+    ],
+  },
+  {
+    version: '1.5',
+    date: '2026-09-26',
+    title: 'A player that answers your hand',
+    highlights: [
+      { kind: 'new', text: 'The song’s details are a form in the editor, one field per line the file has.' },
+      {
+        kind: 'new',
+        text: 'While a song scrolls, a line on the bar shows how much is left, and Next lights up when the words end.',
+      },
+      {
+        kind: 'better',
+        text: 'Every button on the bar answers the tap, and the next song slides in from the side it comes from.',
+      },
+      {
+        kind: 'better',
+        text: 'Your whole repertoire stays on the phone with no expiry, and a page waits at most four seconds for the network before showing the saved copy.',
+      },
+      { kind: 'better', text: 'The password is chosen on the page the confirmation email opens.' },
+    ],
+  },
+  {
+    version: '1.4',
+    date: '2026-09-19',
+    title: 'Paid plans, and the song’s own details',
+    highlights: [
+      { kind: 'new', text: 'Standard, Plus, Premium and Lifetime can be bought, with tax included in the price shown.' },
+      {
+        kind: 'new',
+        text: '«About this song» shows what the file says about it: album, composer, year, copyright, duration and more.',
+      },
+      { kind: 'new', text: '{chorus} repeats the whole chorus, and a line ending in \\ continues on the next.' },
+      {
+        kind: 'better',
+        text: 'A song’s own {define} fingerings are the ones drawn, and {capo} and {transpose} set where the controls start.',
+      },
+      { kind: 'better', text: 'Nashville numbers count from the key the song declares.' },
+    ],
+  },
   {
     version: '1.3',
     date: '2026-09-12',
