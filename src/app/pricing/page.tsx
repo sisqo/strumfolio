@@ -527,9 +527,8 @@ function featureRequestCell(tier: FeatureRequestTier): string | null {
  * and this table's Strum Together rows finally read the way the feature works — every plan
  * included, differing only in how many may follow.
  *
- * Premium's cell used to be hand-written as "Unlimited" (the v3.4 redesign's own call) rather
- * than through this function — reversed for the reason the row's own comment gives: it
- * disagreed with `/login`'s FAQ, which already states the same 100 literally.
+ * Premium and Lifetime print "Unlimited" again since 2026-10-16, the owner's decision — see the
+ * row's own comment; the literal 100 it printed in between is that comment's history.
  */
 function deviceCell(devices: number): string | null {
   if (devices >= PLANS.premium.devices) return 'Unlimited'

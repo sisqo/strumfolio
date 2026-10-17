@@ -753,7 +753,8 @@ export function chordNoteNames(chord: Chord): string[] {
       spellPitchClass(mod12(chord.root + interval), flats),
   )
   if (chord.bass !== null && !intervals.some((i) => mod12(chord.root + i) === chord.bass)) {
-    names.push(spellPitchClass(chord.bass, flats))
+    /* The bass as the sheet writes it: «C/Bb» lists Bb, not A#. */
+    names.push(chord.bassName ?? spellPitchClass(chord.bass, flats))
   }
   return names
 }

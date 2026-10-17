@@ -106,7 +106,7 @@ export const RELEASES: Release[] = [
       { kind: 'fixed', text: 'A song you have saved opens even when the server answers with an error.' },
       { kind: 'fixed', text: 'Moving a chord never splits an emoji or an accented letter.' },
       { kind: 'fixed', text: 'Chord notes are spelt as musicians write them: Cm is C Eb G.' },
-      { kind: 'fixed', text: 'After buying a plan you go straight to your songbooks.' },
+      { kind: 'fixed', text: 'Once you have paid for a plan, the app no longer sends you back to the plans page.' },
     ],
   },
   {

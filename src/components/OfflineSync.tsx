@@ -65,8 +65,13 @@ export function OfflineSync() {
     }
     document.addEventListener('visibilitychange', again)
     const container = 'serviceWorker' in navigator ? navigator.serviceWorker : null
+    /* Only a change *from* a worker is a deploy. The first install's `clientsClaim` fires this
+       too, from no controller at all, and used to leave the flag set, so every new device walked
+       its whole repertoire twice. */
+    let hadController = container?.controller != null
     const takenOver = () => {
-      workerChanged.current = true
+      if (hadController) workerChanged.current = true
+      hadController = true
       setLook((n) => n + 1)
     }
     container?.addEventListener('controllerchange', takenOver)
@@ -154,6 +159,8 @@ export function OfflineSync() {
     /* The same reader, back online after a blip: carry on from where the walk stopped, and
        skip what it already fetched rather than walking the repertoire again from the top. */
     const done = run.current?.done ?? new Set<string>()
+    /* A walk starting from nothing stores the current build's pages anyway. */
+    if (done.size === 0) workerChanged.current = false
     const current = {
       scope,
       done,
