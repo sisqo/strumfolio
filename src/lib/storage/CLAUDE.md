@@ -68,6 +68,12 @@ itself and leaves nothing to find. Reported as «per un attimo si vedono i miei 
   foreign-account purge ran on the first `keyFor` read, and after a password sign-in the page is
   rendered before the scope cookie exists, so that read could come *after* the walk: the next
   song opened, or the `offline` event itself, emptied the freshly warmed `repertoire`.
+- **The walk waits for a worker, and walks again** (2026-10-16). Not while
+  `navigator.serviceWorker.controller` is null (a fetch then bypasses the worker and stores
+  nothing, but used to count as done); again on `controllerchange`, since a deploy's worker drops
+  the old build's scripts from the precache and the stored pages named them; and again when the
+  page comes back after six hours, for songs added or rewritten elsewhere. Not yet watched in a
+  real browser across a deploy.
 
 Verified before/after in a real browser on 2026-09-11 with a planted foreign cache: the other
 account's songbook name was visible with the unscoped store and absent at all forty samples

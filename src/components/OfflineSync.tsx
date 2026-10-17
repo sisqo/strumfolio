@@ -20,6 +20,9 @@ import { useOnline } from '@/lib/useOnline'
  * that many parallel requests is a worse use of a phone's radio and a rehearsal room's
  * upload-starved wifi than the extra seconds sequential fetches cost.
  */
+/** How long a finished walk stands before the page coming back into view walks it again. */
+const REWALK_AFTER_MS = 6 * 60 * 60 * 1000
+
 export function OfflineSync() {
   const online = useOnline()
   /*
@@ -45,14 +48,32 @@ export function OfflineSync() {
     state: 'running' | 'stopped' | 'complete'
     inFlight: Promise<unknown> | null
     cancel: () => void
+    /** When the walk last finished, for `REWALK_AFTER_MS`. */
+    completedAt: number
   } | null>(null)
+  /*
+   * A new service worker took over: a deploy. The pages stored under the old one name the old
+   * build's scripts, which the new worker's activation deleted from the precache and which no
+   * other cache ever held — so offline they opened as bare HTML, with no transposing, no scroll,
+   * no edits. Walking again stores the new build's pages, whose scripts are precached.
+   */
+  const workerChanged = useRef(false)
 
   useEffect(() => {
     const again = () => {
       if (document.visibilityState === 'visible') setLook((n) => n + 1)
     }
     document.addEventListener('visibilitychange', again)
-    return () => document.removeEventListener('visibilitychange', again)
+    const container = 'serviceWorker' in navigator ? navigator.serviceWorker : null
+    const takenOver = () => {
+      workerChanged.current = true
+      setLook((n) => n + 1)
+    }
+    container?.addEventListener('controllerchange', takenOver)
+    return () => {
+      document.removeEventListener('visibilitychange', again)
+      container?.removeEventListener('controllerchange', takenOver)
+    }
   }, [])
 
   useEffect(() => {
@@ -98,6 +119,35 @@ export function OfflineSync() {
       return
     }
 
+    /*
+     * **No worker yet, no walk** (2026-10-16). A fetch made before a worker controls the page
+     * bypasses it and stores nothing, yet each one used to count as done — so on a new device,
+     * while the first install was still downloading, the whole walk could end «complete» with
+     * nothing kept. The worker's `controllerchange` looks again. Production only: in development
+     * there is no worker at all (`next.config.ts`).
+     */
+    if (
+      process.env.NODE_ENV === 'production' &&
+      'serviceWorker' in navigator &&
+      navigator.serviceWorker.controller === null
+    ) {
+      return
+    }
+
+    /*
+     * **A finished walk is walked again** after a deploy (`workerChanged`) and when the page comes
+     * back after `REWALK_AFTER_MS`: an installed app stays alive for days, and songs added on
+     * another device, or rewritten by an AI, never got an offline copy before.
+     */
+    if (
+      run.current !== null &&
+      run.current.state === 'complete' &&
+      (workerChanged.current || Date.now() - run.current.completedAt > REWALK_AFTER_MS)
+    ) {
+      workerChanged.current = false
+      run.current = null
+    }
+
     /* Already walking, or already walked, for this reader: a navigation changes nothing. */
     if (run.current !== null && run.current.state !== 'stopped') return
 
@@ -112,6 +162,7 @@ export function OfflineSync() {
       cancel: () => {
         if (current.state === 'running') current.state = 'stopped'
       },
+      completedAt: 0,
     }
     run.current = current
 
@@ -148,7 +199,10 @@ export function OfflineSync() {
           current.inFlight = null
         }
       }
-      if (current.state === 'running') current.state = routes.every((route) => done.has(route)) ? 'complete' : 'stopped'
+      if (current.state === 'running') {
+        current.state = routes.every((route) => done.has(route)) ? 'complete' : 'stopped'
+        if (current.state === 'complete') current.completedAt = Date.now()
+      }
     })()
   }, [online, pathname, look])
 
