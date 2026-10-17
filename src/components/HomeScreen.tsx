@@ -112,6 +112,22 @@ export function HomeScreen({
   const [clearing, setClearing] = useState(false)
   const [clearFailed, setClearFailed] = useState(false)
 
+  /*
+   * After a songbook goes, with its songs or moving them: the songbook list re-reads itself
+   * (`SongbookProvider`), but the song index behind search, Favourites and the header count, and
+   * the server's `recentlyPlayed` and `frozen`, do not — deleted songs stayed listed and led to a
+   * 404, and a Free account that had just come back under its caps was still told it was over.
+   */
+  const afterContentChange = async () => {
+    router.refresh()
+    try {
+      const live = await loadSongIndex()
+      if (live !== null) setSongs(mergeIndex(baked, live))
+    } catch {
+      // Offline: the next load reads it.
+    }
+  }
+
   const clearRecent = async () => {
     setClearing(true)
     setClearFailed(false)
@@ -764,6 +780,7 @@ export function HomeScreen({
                                   disabled={busy}
                                   onClick={async () => {
                                     if (await run(() => state.remove(group.slug, null))) {
+                                    void afterContentChange()
                                       setRemoving(null)
                                     }
                                   }}
@@ -796,6 +813,7 @@ export function HomeScreen({
                                   disabled={busy}
                                   onClick={async () => {
                                     if (await run(() => state.purge(group.slug))) {
+                                    void afterContentChange()
                                       setRemoving(null)
                                       setPurging(null)
                                     }
@@ -865,6 +883,7 @@ export function HomeScreen({
                                 disabled={busy || destination === ''}
                                 onClick={async () => {
                                   if (await run(() => state.remove(group.slug, destination))) {
+                                    void afterContentChange()
                                     setRemoving(null)
                                   }
                                 }}

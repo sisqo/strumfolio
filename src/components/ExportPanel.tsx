@@ -50,7 +50,9 @@ export function ExportPanel() {
       }
 
       downloadZip(files, 'songs-chopro.zip')
-      setNotice(`Downloaded ${files.length} songs. To restore them: put them back in content/ and run npm run seed.`)
+      setNotice(
+        `Downloaded ${files.length} ${files.length === 1 ? 'song' : 'songs'}. To bring them back, import the zip from Add songs.`,
+      )
     } catch {
       setNotice('Export failed.')
     } finally {
@@ -99,7 +101,7 @@ export function ExportPanel() {
             <h2 className="section-title">Backup</h2>
             <p className="mt-1.5 text-[0.90625rem] leading-[1.45] text-muted">
               Download every song in this account as a single zip — yours to keep, and ready to
-              bring back in with <code>npm run seed</code> whenever you need it.
+              import again from <strong>Add songs</strong> whenever you need it.
             </p>
           </div>
         </div>

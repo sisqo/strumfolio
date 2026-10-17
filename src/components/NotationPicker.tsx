@@ -1,6 +1,6 @@
 'use client'
 
-import { usePrefs } from '@/components/PrefsProvider'
+import { useOptionalPrefs } from '@/components/PrefsProvider'
 import { NOTATIONS, NOTATION_LABEL, NOTATION_TITLE } from '@/lib/prefs/types'
 
 /**
@@ -29,7 +29,11 @@ import { NOTATIONS, NOTATION_LABEL, NOTATION_TITLE } from '@/lib/prefs/types'
  * trade at this size — `NOTATION_TITLE` is what a screen reader and a hover get instead.
  */
 export function NotationPicker() {
-  const { global, setNotation } = usePrefs()
+  /* The menu is drawn by the loading skeletons too, outside any `PrefsProvider`; opening Settings
+     there threw and took the whole page down. Nothing to set until the page itself arrives. */
+  const prefs = useOptionalPrefs()
+  if (prefs === null) return null
+  const { global, setNotation } = prefs
 
   return (
     <div className="px-1.5 pb-1 pt-2">

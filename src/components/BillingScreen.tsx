@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { IconInfo } from '@/components/icons'
 import { PaymentHistoryTable } from '@/components/PaymentHistoryTable'
+import { useRole } from '@/components/RoleProvider'
 import {
   loadCheckoutStatus,
   loadFreezeState,
@@ -166,6 +167,9 @@ export function BillingScreen() {
    */
   const [cancelAsked, setCancelAsked] = useState(false)
 
+  const role = useRole()
+  const roleRef = useRef(role)
+  roleRef.current = role
   const refresh = () => {
     void Promise.all([loadCheckoutStatus(), loadMyPaymentHistory(), loadFreezeState()]).then(
       ([checkoutResult, historyResult, freezeResult]) => {
@@ -187,8 +191,15 @@ export function BillingScreen() {
           historyFailed: !historyResult.ok,
           frozen: freezeResult.ok && freezeResult.frozen,
         })
+        /* The plan the rest of the app shows (menu badge, ukulele, booklet) is read on its own
+           schedule; after a keep or a cancel on this screen it would stay the old one. */
+        void roleRef.current.refresh()
       },
     )
+      /* Offline or a server error: said, rather than «One moment…» for ever. */
+      .catch(() => {
+        setStatus({ state: 'unavailable', reason: 'Your plan could not be read. Check the connection and reload the page.' })
+      })
   }
 
   useEffect(() => {

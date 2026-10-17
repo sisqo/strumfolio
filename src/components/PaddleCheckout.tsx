@@ -45,6 +45,7 @@ import Link from 'next/link'
 
 import { IconCheck } from '@/components/icons'
 import { PlanChangeConfirm } from '@/components/PlanChangeConfirm'
+import { useRole } from '@/components/RoleProvider'
 import { trackPurchase } from '@/lib/consent/gtag'
 import { activatePlanChoice } from '@/lib/plans/checkout'
 import { checkoutSettings, FRAME_TARGET } from '@/lib/plans/checkoutFrame'
@@ -229,6 +230,10 @@ export function PaddleCheckout(props: Props) {
    * cannot close — `wouldBeSecondSubscription` reads a column the webhook has not written yet —
    * is closed on this screen either way.
    */
+  const role = useRole()
+  /* Read from the Paddle callback, which is registered once and would otherwise hold the first render's. */
+  const roleRef = useRef(role)
+  roleRef.current = role
   const [paid, setPaid] = useState(false)
   /* Set by this tab's own completion, so its announcement to the others never closes itself. */
   const paidHere = useRef(false)
@@ -358,6 +363,11 @@ export function PaddleCheckout(props: Props) {
           setPaid(true)
           setMessage('Payment received — we are finishing up. Your plan will appear in a moment.')
           announcePaid()
+          /* The plan reaches the database with the webhook, a few seconds after this; the plan
+             the rest of the app uses (ukulele, booklet, the menu badge) is asked for again over
+             the next half minute, or a reader who walked into a song still met the paywall for
+             the plan they had just bought. */
+          for (const delay of [3000, 8000, 20000, 40000]) window.setTimeout(() => void roleRef.current.refresh(), delay)
         }
       },
     })

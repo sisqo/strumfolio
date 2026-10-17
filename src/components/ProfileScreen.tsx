@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { IconOffline } from '@/components/icons'
+import { useRole } from '@/components/RoleProvider'
 import { loadOwnName, updateOwnName } from '@/lib/accounts/actions'
 import { NAME_MESSAGE } from '@/lib/accounts/types'
 import { useOnline } from '@/lib/useOnline'
@@ -25,6 +26,7 @@ export function ProfileScreen() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
 
+  const role = useRole()
   const refresh = useCallback(async () => {
     try {
       const loaded = await loadOwnName()
@@ -52,6 +54,8 @@ export function ProfileScreen() {
       if (result.ok) {
         setDone(true)
         await refresh()
+        /* The account menu greets by this name, read on its own schedule. */
+        void role.refresh()
       } else {
         setError(NAME_MESSAGE[result.reason])
       }

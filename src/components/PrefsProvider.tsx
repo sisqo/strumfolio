@@ -424,6 +424,11 @@ export function PrefsProvider({
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
 }
 
+/** The same, or null outside a provider — for the menu, which `loading.tsx` draws without one. */
+export function useOptionalPrefs(): PrefsContextValue | null {
+  return useContext(PrefsContext)
+}
+
 export function usePrefs(): PrefsContextValue {
   const context = useContext(PrefsContext)
   if (context === null) {

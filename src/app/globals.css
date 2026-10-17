@@ -1046,7 +1046,8 @@
     border-radius: var(--r-md);
     color: var(--ink);
     font-family: inherit;
-    font-size: 0.90625rem;
+    /* 16px: below it iOS zooms the page in on focus, mid-song (2026-10-16). */
+    font-size: 1rem;
     line-height: 1.45;
     resize: vertical;
   }
@@ -1486,7 +1487,8 @@
     background: var(--surface);
     color: var(--ink);
     font-family: inherit;
-    font-size: 0.875rem;
+    /* 16px, for the same iOS focus zoom as `.comment-card-field`. */
+    font-size: 1rem;
     line-height: 1.45;
     resize: none;
   }
