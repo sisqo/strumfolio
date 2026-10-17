@@ -192,7 +192,10 @@ async function resolveSection(
       .limit(1)
 
     if (found.length > 0) book = found[0]
+    else return { ok: false, reason: 'songbook-gone' }
   }
+  /* A named section that is not this account's is the same stale screen. */
+  if (sectionId !== null && wanted === '') return { ok: false, reason: 'songbook-gone' }
 
   if (book === null) {
     const unfiled = await database
@@ -302,6 +305,10 @@ async function placeLast(
   sectionId: number,
   slug: string,
 ): Promise<number> {
+  /* The section row locked first: a transaction alone does not stop two saves into one section
+     reading the same siblings under READ COMMITTED, so both took the same last position. The
+     second now waits here and reads the first's song. */
+  await tx.select({ id: sections.id }).from(sections).where(eq(sections.id, sectionId)).for('update')
   const siblings = await tx
     .select({ slug: songs.slug, position: songs.position })
     .from(songs)

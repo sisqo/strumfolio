@@ -202,3 +202,30 @@ describe('prefs write queue', () => {
     assert.deepEqual(seen, [0, 1, 0])
   })
 })
+
+describe('a change made while a flush is out (2026-10-17)', () => {
+  it('is flushed afterwards rather than waiting for the next change', async () => {
+    const calls: string[] = []
+    const queue = createPrefsQueue({ debounceMs: 5, retryMs: 10_000 })
+    let first = true
+    queue.setHandlers({
+      saveGlobal: async () => 'saved',
+      saveSong: async (slug) => {
+        calls.push(`song:${slug}`)
+        if (first) {
+          first = false
+          queue.enqueueSong('y', { ...DEFAULT_SONG_PREFS, semitones: 1 })
+        }
+        return 'saved'
+      },
+      saveFavorite: async () => 'saved',
+      saveTabsExpanded: async () => 'saved',
+    })
+
+    queue.enqueueSong('x', { ...DEFAULT_SONG_PREFS, semitones: 2 })
+    await queue.flush()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    assert.deepEqual(calls, ['song:x', 'song:y'])
+    assert.equal(queue.size(), 0)
+  })
+})

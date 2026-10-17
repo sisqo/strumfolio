@@ -17,14 +17,14 @@
 
 import { randomUUID } from 'crypto'
 
-import { and, eq, isNull, ne, sql } from 'drizzle-orm'
+import { and, count, eq, isNull, ne, sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
 import { isOwner } from '@/lib/allowlist'
 import { currentUser } from '@/lib/auth/session'
 import { db, hasDatabase } from '@/lib/db/client'
-import { couponCampaigns } from '@/lib/db/schema'
+import { couponCampaigns, couponRedemptions } from '@/lib/db/schema'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { campaignStatus, cookieMaxAge } from './discount'
@@ -490,10 +490,33 @@ export async function updateCampaign(
       if (status !== 'active' && status !== 'scheduled') return { ok: false, reason: 'default-not-live' }
     }
 
-    await db().transaction(async (tx) => {
+    /* The checks above read outside this transaction, so they are made again under the row's
+       lock (the lock the webhook takes to record a redemption): an archive from another tab, or
+       a first redemption, landing in between used to be overwritten by this edit anyway. */
+    const verdict = await db().transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ archivedAt: couponCampaigns.archivedAt })
+        .from(couponCampaigns)
+        .where(eq(couponCampaigns.id, id))
+        .for('update')
+      if (locked === undefined) return 'not-found' as const
+      if (locked.archivedAt !== null) return 'archived' as const
+      const changesTerms =
+        checked.value.discountPercent !== existing.discountPercent || checked.value.code !== existing.code
+      if (changesTerms) {
+        const [held] = await tx
+          .select({ held: count() })
+          .from(couponRedemptions)
+          .where(eq(couponRedemptions.campaignId, id))
+        if ((held?.held ?? 0) > 0) {
+          return checked.value.code !== existing.code ? ('code-locked' as const) : ('percent-locked' as const)
+        }
+      }
       if (checked.value.isDefault) await unflagOtherDefaults(tx, id)
       await tx.update(couponCampaigns).set(checked.value).where(eq(couponCampaigns.id, id))
+      return null
     })
+    if (verdict !== null) return { ok: false, reason: verdict }
   } catch (error) {
     if (error instanceof Error && error.message.includes('coupon_campaigns_code')) {
       return { ok: false, reason: 'duplicate-code' }
@@ -604,7 +627,11 @@ export async function setDefaultCampaign(
 
     await db().transaction(async (tx) => {
       if (value) await unflagOtherDefaults(tx, id)
-      await tx.update(couponCampaigns).set({ isDefault: value }).where(eq(couponCampaigns.id, id))
+      /* Never onto a row archived since it was read: an archived campaign is never the default. */
+      await tx
+        .update(couponCampaigns)
+        .set({ isDefault: value })
+        .where(value ? and(eq(couponCampaigns.id, id), isNull(couponCampaigns.archivedAt)) : eq(couponCampaigns.id, id))
     })
 
     console.warn(`coupon default ${value ? 'set to' : 'cleared from'} ${existing.code} by ${owner.email}`)

@@ -181,12 +181,29 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
     [songSlug],
   )
 
+  /* One drain at a time: two at once each sent their own snapshot of the outbox, and the
+     first could send an entry the second had already replaced. A drain asked for while one is
+     out runs again when it finishes, from the outbox as it then is. */
+  const draining = useRef(false)
+  const drainAgain = useRef(false)
   const drain = useCallback(async () => {
-    const entries = readOutbox()
-    setPending(entries.length)
-    for (const entry of entries) {
-      if (!(await send(entry))) break // still no network: keep the rest for later
-      setPending(dequeue(entry).length)
+    if (draining.current) {
+      drainAgain.current = true
+      return
+    }
+    draining.current = true
+    try {
+      do {
+        drainAgain.current = false
+        const entries = readOutbox()
+        setPending(entries.length)
+        for (const entry of entries) {
+          if (!(await send(entry))) return // still no network: keep the rest for later
+          setPending(dequeue(entry).length)
+        }
+      } while (drainAgain.current)
+    } finally {
+      draining.current = false
     }
   }, [])
 

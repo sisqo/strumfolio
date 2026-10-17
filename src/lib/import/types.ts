@@ -74,6 +74,13 @@ export type SaveFailure =
   | 'too-long'
   | 'not-found'
   /**
+   * The songbook or section the caller named is not in the account the save would write to —
+   * deleted meanwhile, or (for a global owner) a tab still showing the account they switched
+   * away from. Refused rather than filed into this account's «Unfiled» (2026-10-17): that put a
+   * whole import into another customer's repertoire and answered «saved».
+   */
+  | 'songbook-gone'
+  /**
    * Refused by the plan: the song cap is reached, the songbook a paste would have to mint
    * would be one too many, or the repertoire is frozen over its caps. `LimitReason` rather
    * than strings of its own, so this side and `WriteFailure` refuse in the same words.
@@ -168,6 +175,7 @@ export const SAVE_MESSAGE: Record<SaveFailure | 'duplicate', string> = {
   'empty-body': 'The text is empty.',
   'too-long': 'This song is longer than Strumfolio can keep.',
   'not-found': 'This song no longer exists.',
+  'songbook-gone': 'That songbook is not in this account any more. Reload the page and choose where it goes.',
   duplicate: 'A song with this title and artist already exists.',
   conflict: 'This song was changed elsewhere in the meantime. Reload it and try again.',
   failed: 'Save failed. Please try again.',

@@ -138,6 +138,9 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
     // A failure needs its own retry: otherwise the write waits for the app to be
     // backgrounded or the connection to drop and return.
     if (retry) schedule(retryMs)
+    // And a change made while this flush was out — its own `schedule` found `flushing` set
+    // and gave up — would otherwise wait for the next change or the next `online`.
+    else if (pending.size > 0) schedule(debounceMs)
   }
 
   return {

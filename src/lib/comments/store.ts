@@ -140,12 +140,14 @@ export function enqueue(entry: OutboxEntry): OutboxEntry[] {
   return next
 }
 
+/**
+ * Removes the entry that was sent — that exact entry, not every entry for its note. An edit
+ * or a delete queued while the save was out replaces it under the same id, and dropping it by
+ * id lost the edit, or brought a deleted note back on the next load (2026-10-17).
+ */
 export function dequeue(entry: OutboxEntry): OutboxEntry[] {
-  const id = entry.kind === 'save' ? entry.comment.id : entry.id
-  const next = readOutbox().filter((existing) => {
-    const existingId = existing.kind === 'save' ? existing.comment.id : existing.id
-    return existingId !== id
-  })
+  const sent = JSON.stringify(entry)
+  const next = readOutbox().filter((existing) => JSON.stringify(existing) !== sent)
   writeOutbox(next)
   return next
 }
