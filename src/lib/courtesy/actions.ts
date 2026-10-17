@@ -86,6 +86,8 @@ async function thanksAlreadySent(ownerEmail: string, accountId: number): Promise
     .where(
       and(
         eq(outreachActions.kind, 'courtesy_thanks'),
+        /* By account or by address, the same union `claimVerdict` refuses on (its rule 2 treats an
+           address match as done, against farming a deleted-and-recreated account). */
         or(eq(outreachActions.accountId, accountId), eq(outreachActions.accountOwnerEmail, normalizeEmail(ownerEmail))),
         eq(outreachActions.status, 'done'),
       ),

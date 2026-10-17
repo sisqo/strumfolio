@@ -53,17 +53,9 @@ export function paymentSummary(history: PaymentHistoryLine[]): PaymentSummary {
     /* `purchase` is the mock's word for it and `payment` is Paddle's; both are money that
        actually moved, and every other action is a plan changing. Adding Paddle's here is what
        stopped this reading €0.00 for accounts that had genuinely paid. */
-    if (line.amount === null) continue
-    /* What went back is taken off, the lines the table prints with a minus (`moneyBack`): a
-       refunded €199.99 Lifetime used to read «Collected €199.99». */
-    if (line.moneyBack) {
-      total -= toCents(line.amount) ?? 0
-      continue
-    }
-    if (line.action !== 'purchase' && line.action !== 'payment') continue
+    if ((line.action !== 'purchase' && line.action !== 'payment') || line.amount === null) continue
     total += toCents(line.amount) ?? 0
   }
-  total = Math.max(0, total)
 
   const paid = history.find(isPaidLine)
 

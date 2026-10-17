@@ -8,8 +8,8 @@ import { useAdminAction } from '@/lib/accounts/useAdminAction'
 import { useOnline } from '@/lib/useOnline'
 
 /**
- * Suspends or reactivates an account — blocks new sign-ins only, not a session already
- * issued (`setAccountSuspended`'s own comment). A
+ * Suspends or reactivates an account — blocks sign-in and ends the sessions already open
+ * (`setAccountSuspended`'s own comment). Not drawn on an owner's account. A
  * single toggle, not click-to-reveal like the delete row: fully reversible with one
  * more click, so the extra friction of a confirm step buys nothing here.
  *

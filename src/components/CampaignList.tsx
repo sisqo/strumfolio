@@ -156,13 +156,16 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
                       {row.isDefault ? 'Unset default' : 'Make default'}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => setOpenId((current) => (current === row.id ? null : row.id))}
-                  >
-                    {openId === row.id ? 'Close' : 'Edit'}
-                  </button>
+                  {/* An archived campaign is refused by `updateCampaign`, so it offers nothing to edit. */}
+                  {row.status !== 'archived' && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => setOpenId((current) => (current === row.id ? null : row.id))}
+                    >
+                      {openId === row.id ? 'Close' : 'Edit'}
+                    </button>
+                  )}
                 </span>
               </div>
 

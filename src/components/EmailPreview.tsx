@@ -13,7 +13,7 @@ import { useOnline } from '@/lib/useOnline'
 const FAILURE_MESSAGE: Record<'no-session' | 'not-owner' | 'not-sent', string> = {
   'no-session': 'Your session expired — sign in again.',
   'not-owner': 'Only a global owner can send a test email.',
-  'not-sent': 'Resend refused the message: check the sender and the API key.',
+  'not-sent': 'The message did not go out: Resend refused it or could not be reached. Check the sender and the API key.',
 }
 
 /** The two tab rows (`Email Previews.dc.html`), derived from `PREVIEW_KEYS` rather than

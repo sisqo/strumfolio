@@ -1048,8 +1048,13 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
      is already gone by now: the operator was told «confirmed» about an account that did not
      exist. Only an account that is really there is a success. */
   if (!created) {
-    const [exists] = await db().select({ id: accounts.id }).from(accounts).where(eq(accounts.ownerEmail, normalized)).limit(1)
-    if (exists === undefined) return { ok: false, reason: 'failed' }
+    try {
+      const [exists] = await db().select({ id: accounts.id }).from(accounts).where(eq(accounts.ownerEmail, normalized)).limit(1)
+      if (exists === undefined) return { ok: false, reason: 'not-created' }
+    } catch (error) {
+      console.error('confirmPendingRegistration could not check the account', error)
+      return { ok: false, reason: 'not-created' }
+    }
   }
 
   /* The account is made either way; only telling anybody about it waits for production. A

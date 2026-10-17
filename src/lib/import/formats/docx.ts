@@ -150,6 +150,8 @@ export function documentToText(xml: string): string {
         break
 
       case 'w:p':
+        /* Stop definitions live in a paragraph's properties: a missing `</w:tabs>` ends there. */
+        inTabStops = false
         if (closing) {
           flush()
           inParagraph = false

@@ -21,6 +21,7 @@ import { SuspendAccountRow } from '@/components/SuspendAccountRow'
 import { SwitchAccountButton } from '@/components/SwitchAccountButton'
 import { TestAccountRow } from '@/components/TestAccountRow'
 import { TopBar } from '@/components/TopBar'
+import { isOwner } from '@/lib/allowlist'
 import { loadAccountHistory } from '@/lib/accounts/actions'
 import { paymentSummary } from '@/lib/accounts/paymentSummary'
 import { NO_PLAN_LINE, giftCell, giftWithdrawn, noPlanYet, planBadge, rowStatus } from '@/lib/accounts/planText'
@@ -547,7 +548,10 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
             <SendResetEmailRow ownerEmail={detail.ownerEmail} />
             {/* Absent, not disabled, when the `0036` columns cannot be read: a toggle whose
                 current state is unknown would be a guess about which way it flips. */}
-            {detail.admin !== null && (
+            {/* Not on an owner's account, theirs included: suspending one is refused, since the
+                sign-in callback has no owner exemption and it would lock them out. Shown to lift
+                a suspension that predates the rule. */}
+            {detail.admin !== null && (suspended || !isOwner(detail.ownerEmail, process.env.ALLOWED_EMAILS)) && (
               <SuspendAccountRow ownerEmail={detail.ownerEmail} suspended={suspended} />
             )}
             <ClearRateLimitRow ownerEmail={detail.ownerEmail} />
