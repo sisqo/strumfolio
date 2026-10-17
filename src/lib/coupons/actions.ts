@@ -625,14 +625,21 @@ export async function setDefaultCampaign(
       }
     }
 
-    await db().transaction(async (tx) => {
+    /* Locked and re-read before the other default is unflagged: archived in another tab since
+       it was read, it is refused here, rather than leaving the installation with no default
+       and `?promo=1` dead while this answered «ok». */
+    const archivedMeanwhile = await db().transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ archivedAt: couponCampaigns.archivedAt })
+        .from(couponCampaigns)
+        .where(eq(couponCampaigns.id, id))
+        .for('update')
+      if (locked === undefined || (value && locked.archivedAt !== null)) return true
       if (value) await unflagOtherDefaults(tx, id)
-      /* Never onto a row archived since it was read: an archived campaign is never the default. */
-      await tx
-        .update(couponCampaigns)
-        .set({ isDefault: value })
-        .where(value ? and(eq(couponCampaigns.id, id), isNull(couponCampaigns.archivedAt)) : eq(couponCampaigns.id, id))
+      await tx.update(couponCampaigns).set({ isDefault: value }).where(eq(couponCampaigns.id, id))
+      return false
     })
+    if (archivedMeanwhile) return { ok: false, reason: 'archived' }
 
     console.warn(`coupon default ${value ? 'set to' : 'cleared from'} ${existing.code} by ${owner.email}`)
   } catch (error) {

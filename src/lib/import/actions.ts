@@ -287,6 +287,9 @@ function saved(song: Song, quiet = false): SaveResult {
   return { ok: true, song }
 }
 
+/** The advisory-lock namespace `placeLast` serialises a section's numbering under. */
+const PLACE_LAST_LOCK = 7301
+
 /**
  * Gives an arriving song the place after the ones already in its section.
  *
@@ -305,10 +308,11 @@ async function placeLast(
   sectionId: number,
   slug: string,
 ): Promise<number> {
-  /* The section row locked first: a transaction alone does not stop two saves into one section
-     reading the same siblings under READ COMMITTED, so both took the same last position. The
-     second now waits here and reads the first's song. */
-  await tx.select({ id: sections.id }).from(sections).where(eq(sections.id, sectionId)).for('update')
+  /* Serialised per section: a transaction alone does not stop two saves into one section
+     reading the same siblings under READ COMMITTED, so both took the same last position. An
+     advisory lock rather than the section row's, which `arrangeSongbook` and `removeSongbook`
+     also lock in their own order — a row lock here made two rare deadlocks with them. */
+  await tx.execute(sql`select pg_advisory_xact_lock(${PLACE_LAST_LOCK}::int4, ${sectionId}::int4)`)
   const siblings = await tx
     .select({ slug: songs.slug, position: songs.position })
     .from(songs)

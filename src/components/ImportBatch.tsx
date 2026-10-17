@@ -246,6 +246,11 @@ export function ImportBatch({
            * songs in all.» instead of thirty copies of a sentence with no number in it.
            */
           patch(row.id, { outcome: { state: 'refused', message: saveMessage(result) } })
+        } else if (result.reason === 'songbook-gone') {
+          /* Not a failure Retry could fix: every row would fail the same way. Refused, and the
+             rest of the paste is not sent into it. */
+          patch(row.id, { outcome: { state: 'refused', message: saveMessage(result) } })
+          break
         } else {
           patch(row.id, { outcome: { state: 'failed', message: saveMessage(result) } })
           anyUnresolved = true

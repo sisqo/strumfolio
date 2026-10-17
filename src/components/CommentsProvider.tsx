@@ -110,6 +110,15 @@ export function useComments(): CommentsValue {
   return value
 }
 
+/*
+ * One drain at a time, for the whole page and not per provider: the outbox is global, and this
+ * provider remounts with every song, so a drain left running by the last song and one started by
+ * this one each sent their own snapshot — the first could send an entry the second had already
+ * replaced, and a deleted note came back. A drain asked for while one is out runs again when it
+ * finishes, from the outbox as it then is.
+ */
+const drainState = { draining: false, again: false }
+
 /**
  * Sends one queued entry, and takes it out of the outbox only if the server is done with
  * it — which includes being *refused*. `no-destination` means nobody is signed in, so
@@ -181,29 +190,24 @@ export function CommentsProvider({ songSlug, children }: { songSlug: string; chi
     [songSlug],
   )
 
-  /* One drain at a time: two at once each sent their own snapshot of the outbox, and the
-     first could send an entry the second had already replaced. A drain asked for while one is
-     out runs again when it finishes, from the outbox as it then is. */
-  const draining = useRef(false)
-  const drainAgain = useRef(false)
   const drain = useCallback(async () => {
-    if (draining.current) {
-      drainAgain.current = true
+    if (drainState.draining) {
+      drainState.again = true
       return
     }
-    draining.current = true
+    drainState.draining = true
     try {
       do {
-        drainAgain.current = false
+        drainState.again = false
         const entries = readOutbox()
         setPending(entries.length)
         for (const entry of entries) {
           if (!(await send(entry))) return // still no network: keep the rest for later
           setPending(dequeue(entry).length)
         }
-      } while (drainAgain.current)
+      } while (drainState.again)
     } finally {
-      draining.current = false
+      drainState.draining = false
     }
   }, [])
 

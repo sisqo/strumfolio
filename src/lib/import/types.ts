@@ -175,7 +175,8 @@ export const SAVE_MESSAGE: Record<SaveFailure | 'duplicate', string> = {
   'empty-body': 'The text is empty.',
   'too-long': 'This song is longer than Strumfolio can keep.',
   'not-found': 'This song no longer exists.',
-  'songbook-gone': 'That songbook is not in this account any more. Reload the page and choose where it goes.',
+  'songbook-gone':
+    'That songbook is not in the account you are working in — it was removed, or you switched account in another tab. Pick another songbook, or switch back.',
   duplicate: 'A song with this title and artist already exists.',
   conflict: 'This song was changed elsewhere in the meantime. Reload it and try again.',
   failed: 'Save failed. Please try again.',
