@@ -124,6 +124,38 @@ function commitHash(): string {
 }
 
 const nextConfig: NextConfig = {
+  /* Fingerprinting only, but nothing reads it. */
+  poweredByHeader: false,
+  /**
+   * The headers every response carries (2026-10-16; there were none of our own before).
+   *
+   * - `X-Frame-Options: DENY` with `frame-ancestors 'none'`: no page here is meant to sit inside
+   *   another site's frame, and without it a hostile page could frame a signed-in reader's
+   *   «Delete account» or a checkout and steer the clicks. Paddle frames *itself* inside our
+   *   pages, which neither header touches.
+   * - `nosniff`, and the referrer policy browsers already default to, written out because three
+   *   URLs here carry a token (`/verify`, `/reset-password`, `/follow/<token>`).
+   * - `Permissions-Policy` turns off what the app never asks for. Not `payment`: Paddle's frame
+   *   may use it for Apple and Google Pay.
+   *
+   * No full Content-Security-Policy yet: two inline scripts (`themeScript`,
+   * `installCaptureScript`), JSON-LD, Paddle.js, Turnstile and gtag would each need an entry,
+   * and a wrong one breaks checkout silently. A separate piece of work, measured in a browser.
+   */
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), usb=(), interest-cohort=()' },
+        ],
+      },
+    ]
+  },
   /**
    * `mdx` is in here for a reason that has nothing to do with routing, and taking it out
    * again breaks the blog in `next dev` — every article, with a 500 and no obvious cause.
