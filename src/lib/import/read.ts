@@ -16,6 +16,7 @@
  * already 655 kB of first load; a second route like it would not be an accident twice.
  */
 
+import { decodeSongBytes } from './decode'
 import { IREAL_ADVICE, detectSource, isIRealPro, looksLikeXml } from './detect'
 import { type PreparedSong, type SourceFile, prepareFiles, prepareSongs } from './prepare'
 
@@ -131,7 +132,7 @@ export async function readSongFile(file: File): Promise<ReadResult> {
   }
 
   if (source.kind === 'text' || source.kind === 'xml') {
-    const raw = await file.text()
+    const raw = decodeSongBytes(new Uint8Array(await file.arrayBuffer()))
     if (raw.trim() === '') return { ok: false, message: 'That file is empty.' }
 
     const text = await asChordPro(raw)

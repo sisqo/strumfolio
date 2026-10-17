@@ -187,3 +187,12 @@ describe('reading a .docx file', () => {
     assert.match(result.message, /no text/)
   })
 })
+
+describe('tab stops (2026-10-16)', () => {
+  it('reads a paragraph’s tab-stop definitions as settings, not as tabs', () => {
+    const xml =
+      '<w:body><w:p><w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/><w:tab w:val="left" w:pos="1440"/></w:tabs></w:pPr>' +
+      '<w:r><w:t>C</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>G</w:t></w:r></w:p></w:body>'
+    assert.equal(documentToText(xml), 'C\tG')
+  })
+})

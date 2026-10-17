@@ -24,7 +24,9 @@
  * import plan, which is most of why archives rank where they do in it.
  */
 
-import { strFromU8, unzipSync } from 'fflate'
+import { unzipSync } from 'fflate'
+
+import { decodeSongBytes } from '../decode'
 
 import { detectSource } from '../detect'
 
@@ -94,7 +96,7 @@ export function readArchive(bytes: Uint8Array): { entries: ArchiveEntry[]; skipp
       continue
     }
 
-    const text = strFromU8(contents)
+    const text = decodeSongBytes(contents)
     if (text.trim() === '') {
       skipped++
       continue

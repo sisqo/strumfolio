@@ -127,6 +127,10 @@ export function documentToText(xml: string): string {
   const pattern = /<[^>]*>|[^<]+/g
   let inParagraph = false
   let inText = false
+  /* Inside `<w:tabs>`, the paragraph's tab-stop *definitions*: each is a `<w:tab w:pos=…/>` too,
+     and counting them as tabs shifted every line that set its own stops four columns per stop,
+     off the chords of the lines that did not. */
+  let inTabStops = false
 
   for (const [piece] of body.matchAll(pattern)) {
     if (!piece.startsWith('<')) {
@@ -157,8 +161,12 @@ export function documentToText(xml: string): string {
         }
         break
 
+      case 'w:tabs':
+        inTabStops = !closing && !selfClosing
+        break
+
       case 'w:tab':
-        if (inParagraph) current += '\t'
+        if (inParagraph && !inTabStops) current += '\t'
         break
 
       case 'w:nobreakhyphen':

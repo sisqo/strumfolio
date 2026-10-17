@@ -10,6 +10,9 @@ production migrations, the two Neon databases — stay in the root `CLAUDE.md`.
   would only lengthen a list whose job is to grey out the wrong files. Parsing happens **in the browser**, one `await import()` per
   format, so an unused format costs nothing. No AI anywhere. Inside a `.zip` those two are
   still counted as skipped rather than read: `readArchive` is synchronous and only takes text.
+- **Text is decoded by `decodeSongBytes`** (`decode.ts`, 2026-10-16), not `file.text()`: a BOM
+  decides, then UTF-8 if the bytes are valid, then Windows-1252, and NUL is dropped. Plain
+  files and the text inside a `.zip` go through it; Word and SongbookPro are UTF-8 by format.
 - **A PDF's songs divide by title if it has titles, and by page if it does not**
   (`layoutPages`, `formats/pdf.ts`). A page that opens with a line set larger than the body
   text starts a song — so a song running over two pages stays whole, because its second page
