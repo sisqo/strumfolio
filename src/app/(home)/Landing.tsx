@@ -685,7 +685,7 @@ const FAQ: FaqGroup[] = [
       {
         q: 'How many people can join a Strum Together session?',
         /*
-         * "As many as you like" was false on every plan, premium included: `PLANS.premium.devices`
+         * Before 2026-10-16: "As many as you like" was judged false on every plan, premium included: `PLANS.premium.devices`
          * is 100, a real technical ceiling. The leader's own device is deliberately not counted —
          * see `PlanLimits.devices` — which is what makes free's and standard's 1 a duo rather
          * than a solo.
@@ -696,16 +696,16 @@ const FAQ: FaqGroup[] = [
          * metronome wrong. Free and Standard carry the same 1, so they are named together rather
          * than as two lines saying the same number, which would read as a distinction.
          *
-         * /pricing's own devices row defers to this answer for the literal 100 rather than
-         * printing "Unlimited" — see its comment. Softening the number here silently un-fixes
-         * that page too.
+         * **Premium and Lifetime say «unlimited» since 2026-10-16**, by the owner's decision, on
+         * this page, /pricing and /thanks alike — knowing 100 is still enforced as a technical
+         * ceiling. The three pages move together.
          */
         a: (
           <>
             <p>
               <strong>Every plan can lead one</strong>, free included, and how many follow is what changes: Free and
               Standard add <strong>{count(PLANS.free.devices, 'other device')}</strong>, Plus{' '}
-              <strong>{PLANS.plus.devices}</strong>, Premium and Lifetime <strong>{PLANS.premium.devices}</strong>.
+              <strong>{PLANS.plus.devices}</strong>, Premium and Lifetime <strong>unlimited</strong>.
             </p>
             <p>
               The device you play from is never counted, so Free is you and one other screen.{' '}

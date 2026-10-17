@@ -532,6 +532,7 @@ function featureRequestCell(tier: FeatureRequestTier): string | null {
  * disagreed with `/login`'s FAQ, which already states the same 100 literally.
  */
 function deviceCell(devices: number): string | null {
+  if (devices >= PLANS.premium.devices) return 'Unlimited'
   return devices === 0 ? null : String(devices)
 }
 
@@ -656,13 +657,11 @@ const ROWS: ComparisonRow[] = [
     label: '«Strum Together» devices',
     note: 'Maximum number of devices following a «Strum Together» session.',
     /*
-     * `deviceCell(PLANS.premium.devices)` prints the honest "100" here rather than the v3.4
-     * redesign's own "Unlimited" — reversed because `/login`'s FAQ ("How many people can join
-     * a Strum Together session?") already states the same 100 literally, with its own comment
-     * explicitly rejecting "as many as you like" as false; the two public pages naming the
-     * same real cap two different ways was the actual bug, and this table is the one that
-     * moved. No change to what `admits` enforces in `strumTogether/devices.ts` either way — a
-     * 101st guest was and still is refused.
+     * Premium and Lifetime print "Unlimited", like `/thanks` (`thanksDevicesCaption`) and the
+     * landing FAQ — the owner's decision of 2026-10-16, taken knowing that `admits`
+     * (`strumTogether/devices.ts`) still refuses a 101st guest: 100 is treated as a technical
+     * ceiling nobody reaches, not as the offer. It reverses the earlier choice of the literal
+     * "100", made so that the public pages would name the cap one way; they still do.
      */
     cells: [
       deviceCell(PLANS.free.devices),

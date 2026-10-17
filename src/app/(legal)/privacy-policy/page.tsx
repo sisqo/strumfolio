@@ -372,6 +372,13 @@ export default function PrivacyPolicyPage() {
         </li>
       </ul>
       <p>
+        <strong>Our mailbox.</strong> What you write to {CONTACT} — and the feedback the app delivers
+        there — is forwarded by <strong>ImprovMX</strong>, the service that receives mail for our
+        domain, to a mailbox hosted by <strong>Google</strong> (Gmail), where it is read and kept for
+        as long as the conversation needs it. Both process the message, your address and anything
+        attached to it only to deliver and store it.
+      </p>
+      <p>
         <strong>Telegram FZ-LLC</strong> receives the private notifications described in section 2,
         under Telegram&apos;s own terms for bots; it offers no data processing agreement, and section 5
         explains what that means for the transfer. For the message sent when an account is created
@@ -432,7 +439,9 @@ export default function PrivacyPolicyPage() {
         European Economic Area. Where that happens, transfers are covered by appropriate safeguards
         under Chapter V GDPR: the EU-U.S. Data Privacy Framework where the provider is certified
         (Vercel, Google and Cloudflare are), and the European Commission&apos;s Standard Contractual
-        Clauses in the remaining cases. Paddle.com Market Ltd is established in the United Kingdom,
+        Clauses in the remaining cases. The mail you send to our contact address passes through
+        ImprovMX and is kept in Google&apos;s Gmail, both of which may process it outside the
+        European Economic Area. Paddle.com Market Ltd is established in the United Kingdom,
         which the European Commission recognises as providing adequate protection. You can obtain a
         copy of the safeguards in place, or further details about them, by writing to the contact
         address above.
@@ -486,7 +495,8 @@ export default function PrivacyPolicyPage() {
         from your most recent qualifying arrival. Once recorded with a registration or an account it
         has no fixed expiry, because comparing one year&apos;s campaigns with the next is the whole
         point of keeping it; it is deleted together with the account, at the same moment and by the
-        same action — or, for a registration never confirmed, when we remove it. If you would rather we did not keep it while keeping your account, write to us
+        same action. A registration that is never confirmed has no account to be deleted with, so its
+        record stays until you ask us to remove it. If you would rather we did not keep it while keeping your account, write to us
         at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
       </p>
       <p>
