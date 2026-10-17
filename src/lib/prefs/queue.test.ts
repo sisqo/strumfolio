@@ -232,11 +232,11 @@ describe('a change made while a flush is out (2026-10-17)', () => {
 
 describe('a queue that outlives the page (2026-10-17)', () => {
   it('saves what is pending and reads it back as pending, so a reload does not lose it', async () => {
-    let stored: [string, unknown][] | null = null
+    const box: { stored: [string, unknown][] | null } = { stored: null }
     const persist = {
-      load: () => stored as never,
+      load: () => box.stored as never,
       save: (entries: [string, unknown][]) => {
-        stored = entries
+        box.stored = entries
       },
     }
     const g = globalThis as { window?: unknown }
@@ -245,7 +245,7 @@ describe('a queue that outlives the page (2026-10-17)', () => {
     try {
       const before = createPrefsQueue({ debounceMs: 10_000, persist })
       before.enqueueSong('x', { ...DEFAULT_SONG_PREFS, semitones: 5 })
-      assert.equal(stored?.length, 1)
+      assert.equal(box.stored?.length, 1)
 
       const after = createPrefsQueue({ debounceMs: 10_000, persist })
       assert.equal(after.hasPending('song:x'), true, 'the reload finds it still waiting')
@@ -262,7 +262,7 @@ describe('a queue that outlives the page (2026-10-17)', () => {
       })
       await after.flush()
       assert.deepEqual(calls, ['x'])
-      assert.deepEqual(stored, [], 'and forgets it once it is saved')
+      assert.deepEqual(box.stored, [], 'and forgets it once it is saved')
     } finally {
       if (!hadWindow) delete g.window
     }
