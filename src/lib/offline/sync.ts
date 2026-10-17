@@ -33,7 +33,9 @@ export async function listOfflineRoutes(): Promise<string[] | null> {
     listSongsForAccount(account),
   ])
 
-  const routes: string[] = []
+  /* `/` first: after a sign-in (a server-action redirect) the home screen was never loaded as a
+     document, so offline the app opened on the offline page until one online reload. */
+  const routes: string[] = ['/']
   for (const songbook of songbooks) routes.push(`/songbooks/${songbook.slug}`)
   for (const song of songs) routes.push(`/songs/${song.slug}`)
   return routes

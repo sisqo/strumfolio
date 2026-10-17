@@ -237,9 +237,9 @@ export function PrefsProvider({
 
     // Fire-and-forget, and deliberately not awaited alongside the read above: a
     // slow or failing write here must never delay the sheet showing the right key.
-    // `recordSongOpened` already catches its own errors, so there is nothing to
-    // catch here — only a promise this effect does not need to wait for.
-    if (songSlug !== null) void recordSongOpened(songSlug)
+    // `recordSongOpened` catches its own errors on the server, but offline the call
+    // itself rejects in the browser, so it is caught here too: nothing to tell anybody.
+    if (songSlug !== null) recordSongOpened(songSlug).catch(() => {})
 
     return () => {
       cancelled = true

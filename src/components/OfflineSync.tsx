@@ -196,7 +196,10 @@ export function OfflineSync() {
         if (current.state !== 'running') return
         if (done.has(route)) continue
         try {
-          current.inFlight = fetch(route)
+          /* The body is read, never left hanging: an unread response keeps the old service
+             worker busy, and after a deploy the new one then waits in `installed` until every
+             tab reloads — so the re-walk below never happened in the tab that needed it. */
+          current.inFlight = fetch(route).then((response) => response.arrayBuffer())
           await current.inFlight
           done.add(route)
         } catch {

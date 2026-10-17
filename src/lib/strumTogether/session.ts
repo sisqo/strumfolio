@@ -760,7 +760,9 @@ async function seatDevice(
    */
   try {
     const live = sql<number>`(select count(*)::int from ${singAlongDevices}
-      where ${singAlongDevices.token} = ${token} and ${singAlongDevices.lastSeenAt} >= ${cutoff})`
+      where ${singAlongDevices.token} = ${token} and ${singAlongDevices.lastSeenAt} >= ${cutoff.toISOString()}::timestamptz)`
+    /* `toISOString()`, never the `Date`: inside a raw `sql` template postgres-js (with `prepare:
+       false`) cannot serialise a `Date`, and the peak was never recorded — the catch below hid it. */
 
     await db()
       .update(accounts)

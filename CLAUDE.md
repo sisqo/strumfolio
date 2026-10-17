@@ -971,7 +971,7 @@ Six things here are expensive to get wrong, and none of them fails loudly:
   is consulted, so a device that installed while signed in kept that reader's home under `/` after
   sign-out, indistinguishable from a failed logout. The replacement rule is `NetworkFirst`, with no
   `ExpirationPlugin` (the installed app's `start_url` must open offline however long it has been),
-  matching **navigations only** so an RSC fetch for `/` falls through to the RSC rules. Still
+  matching **HTML requests only** (no `RSC` header) so an RSC fetch for `/` falls through to the RSC rules — not navigations only, since `OfflineSync` walks `/` with a plain `fetch()` after a server-action sign-in that never loaded it as a document. Still
   unfixed: offline and signed out, the stored copy is the last signed-in home.
 - **Every precached URL must be fetchable by a stranger, and no page is one.** Install fetches
   every manifest entry; a session-gated URL answers a redirect, `rejectUnauthenticated` refuses it,

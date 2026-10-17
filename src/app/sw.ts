@@ -281,11 +281,12 @@ const serwist = new Serwist({
      * 24-hour, 32-entry `others` cache would have traded this bug for a worse one — the
      * installed app failing to open at all after a day away from the network.
      *
-     * **Navigations only**, and that is load-bearing rather than tidy: a client-side
+     * **HTML only (no `RSC` header)**, and that is load-bearing rather than tidy: a client-side
      * navigation to `/` is an RSC fetch whose body is not HTML, and storing it under this
      * rule's single cache key would serve a payload where a page belongs. Those keep falling
-     * through to the RSC rules below, exactly as they already did — an RSC request carries
-     * `?_rsc=…`, so it never matched the precache either.
+     * through to the RSC rules below. Not `mode === 'navigate'` any more (2026-10-17): a
+     * sign-in is a server-action redirect that never loads `/` as a document, so `OfflineSync`
+     * walks `/` with a plain `fetch()`, which has to land here and not in `others`.
      *
      * `cacheKeyWillBeUsed` is what replaces the precache's `ignoreURLParametersMatching`
      * (see `precacheOptions` above): `/?utm_source=…` off a campaign and `/?c=repertorio`
@@ -298,7 +299,7 @@ const serwist = new Serwist({
      */
     {
       matcher: ({ request, url, sameOrigin }) =>
-        sameOrigin && url.pathname === '/' && request.mode === 'navigate',
+        sameOrigin && url.pathname === '/' && request.method === 'GET' && request.headers.get('RSC') !== '1',
       handler: new NetworkFirst({
         cacheName: 'home',
         networkTimeoutSeconds: NETWORK_TIMEOUT_SECONDS,
