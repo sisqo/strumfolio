@@ -29,7 +29,7 @@ import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 import { campaignStatus, cookieMaxAge } from './discount'
 import { archiveCampaignDiscounts, syncCampaignDiscounts } from './paddleDiscountSync'
-import { activeCoupon, allCampaigns, campaignById, redeemedCount, resolveTypedCode } from './read'
+import { activeCoupon, allCampaigns, campaignById, lifetimeRedeemedCount, redeemedCount, resolveTypedCode } from './read'
 import { couponCookieValue, readCouponCookie } from './cookieValue'
 import {
   COUPON_COOKIE,
@@ -395,6 +395,13 @@ export async function createCampaign(
   const checked = validate(input)
   if (!checked.ok) return checked
 
+  /* The same check `updateCampaign` and `setDefaultCampaign` make: a new default with dates
+     already past (a mistyped year) unflagged the live default and left `?promo=1` dead. */
+  if (checked.value.isDefault) {
+    const status = campaignStatus({ ...checked.value, archivedAt: null }, new Date(), 0)
+    if (status !== 'active' && status !== 'scheduled') return { ok: false, reason: 'default-not-live' }
+  }
+
   const id = randomUUID()
 
   try {
@@ -451,13 +458,22 @@ export async function updateCampaign(
   try {
     const existing = await campaignById(id)
     if (existing === null) return { ok: false, reason: 'not-found' }
+    /* Renamed after archiving, its code was free for a new campaign that old cookies, links and
+       coupon sites would then resolve to — what the archive confirmation promises never happens. */
+    if (existing.archivedAt !== null) return { ok: false, reason: 'archived' }
 
     if (existing.redeemed > 0 && checked.value.discountPercent !== existing.discountPercent) {
       return { ok: false, reason: 'percent-locked' }
     }
+    if (existing.redeemed > 0 && checked.value.code !== existing.code) return { ok: false, reason: 'code-locked' }
 
-    for (const limit of [checked.value.usageLimitSubscription, checked.value.usageLimitLifetime]) {
-      if (limit !== null && limit < existing.redeemed) return { ok: false, reason: 'limit-below-redeemed' }
+    /* Each ceiling against what it counts: the Lifetime one over Lifetime redemptions alone, as
+       the checkout counts it, or 300 subscriptions refused a Lifetime limit of 20. */
+    if (checked.value.usageLimitSubscription !== null && checked.value.usageLimitSubscription < existing.redeemed) {
+      return { ok: false, reason: 'limit-below-redeemed' }
+    }
+    if (checked.value.usageLimitLifetime !== null && checked.value.usageLimitLifetime < (await lifetimeRedeemedCount(id))) {
+      return { ok: false, reason: 'limit-below-redeemed' }
     }
 
     /*

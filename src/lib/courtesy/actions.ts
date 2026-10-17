@@ -13,7 +13,7 @@
  * reason, the same fence `gift_notice` already sits behind.
  */
 
-import { and, eq } from 'drizzle-orm'
+import { and, eq, or } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 import { auth } from '@/auth'
@@ -74,15 +74,19 @@ async function readAccount(ownerEmail: string): Promise<CourtesyAccountRow | nul
   }
 }
 
-/** Whether a `done` `courtesy_thanks` row already exists for this address. */
-async function thanksAlreadySent(ownerEmail: string): Promise<boolean> {
+/**
+ * Whether a `done` `courtesy_thanks` row already exists for this account or this address. The
+ * account too: an operator's change of address leaves the history row under the old one, and
+ * the check-in was then refused for good as «send the thank-you first».
+ */
+async function thanksAlreadySent(ownerEmail: string, accountId: number): Promise<boolean> {
   const rows = await db()
     .select({ id: outreachActions.id })
     .from(outreachActions)
     .where(
       and(
         eq(outreachActions.kind, 'courtesy_thanks'),
-        eq(outreachActions.accountOwnerEmail, normalizeEmail(ownerEmail)),
+        or(eq(outreachActions.accountId, accountId), eq(outreachActions.accountOwnerEmail, normalizeEmail(ownerEmail))),
         eq(outreachActions.status, 'done'),
       ),
     )
@@ -189,7 +193,7 @@ export async function sendCourtesyCheckin(ownerEmail: string): Promise<CourtesyR
    * first one. Checked here, not only by the icon's own disabled state on the client — the
    * screen is a courtesy, this is the fence.
    */
-  if (!(await thanksAlreadySent(account.ownerEmail))) {
+  if (!(await thanksAlreadySent(account.ownerEmail, account.id))) {
     return { ok: false, reason: 'send-thanks-first' }
   }
 

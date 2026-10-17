@@ -767,9 +767,11 @@ export async function setAccountSuspended(ownerEmail: string, suspended: boolean
   }
 
   const target = normalizeEmail(ownerEmail)
-  /* Nor suspends another's: the `signIn` callback refuses a suspended row with no owner
-     exemption, so this would lock a fellow owner out of signing in at all. */
-  if (target !== normalizeEmail(session?.user?.email ?? '') && isOwner(target, process.env.ALLOWED_EMAILS)) {
+  /* No owner is suspended, their own account included: the `signIn` callback refuses a
+     suspended row with no owner exemption, so it locked them out of signing in at all — a
+     fellow owner, or themselves after their next sign-out, with only SQL to undo it. Lifting a
+     suspension is always allowed. */
+  if (suspended && isOwner(target, process.env.ALLOWED_EMAILS)) {
     return { ok: false, reason: 'not-allowed' }
   }
 
@@ -928,6 +930,11 @@ export async function changeAccountEmail(oldOwnerEmail: string, newEmailRaw: str
         throw new Error('changeAccountEmail: account row vanished mid-transaction')
       }
 
+      /* A live Strum Together broadcast is the exception to «follows the id»: it is looked up by
+         `owner_email`, so left behind the leader could neither see nor stop it, and whoever took
+         the old address next was handed its token — a read of this repertoire. It ends here. */
+      await tx.delete(singAlongSessions).where(eq(singAlongSessions.ownerEmail, oldEmail))
+
       /* A no-op where that address never had a row, which is the ordinary case for a
          Google-only account with no password of its own. */
       await tx.update(credentials).set({ email: newEmail }).where(eq(credentials.email, oldEmail))
@@ -1037,6 +1044,13 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
     registeredName,
     result.newsletterOptIn,
   )
+  /* `false` is also what `provisionAccount` answers when its insert failed, and the pending row
+     is already gone by now: the operator was told «confirmed» about an account that did not
+     exist. Only an account that is really there is a success. */
+  if (!created) {
+    const [exists] = await db().select({ id: accounts.id }).from(accounts).where(eq(accounts.ownerEmail, normalized)).limit(1)
+    if (exists === undefined) return { ok: false, reason: 'failed' }
+  }
 
   /* The account is made either way; only telling anybody about it waits for production. A
      pending row in the local copy is a stranger's from the 2026-08-29 snapshot. */
@@ -1103,7 +1117,7 @@ export async function confirmPendingRegistration(email: string): Promise<Confirm
  * than merely fills — `writePasswordHash` upserts, so typing one is always the last word.
  *
  * **Refuses a pending registration rather than absorbing it.** `confirmPendingRegistration` is
- * one button below on the same screen and keeps the password the person actually chose;
+ * one button below on the same screen and keeps the name and newsletter choice the person gave;
  * overwriting that row from here would throw away a decision somebody already made, and
  * silently, since both paths end with an account for the same address.
  *

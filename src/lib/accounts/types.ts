@@ -380,7 +380,7 @@ export const CREATE_ACCOUNT_MESSAGE: Record<CreateAccountFailure, string> = {
   'invalid-name': 'Enter a first and last name.',
   'weak-password': `The password must be at least ${MIN_PASSWORD} characters.`,
   'already-exists': 'That address already has an account.',
-  'pending-registration': 'That address registered on its own: confirm it under “Pending registrations” below instead, so it keeps the password it chose.',
+  'pending-registration': 'That address registered on its own: confirm it under “Pending registrations” below instead, so its name and newsletter choice are kept.',
   failed: 'Could not create the account. Please try again.',
 }
 

@@ -40,8 +40,11 @@ export async function listCourtesyStatus(): Promise<Map<string, CourtesyStatus> 
 
   try {
     const accountRows = await db()
-      .select({ ownerEmail: accounts.ownerEmail, courtesyOptedOutAt: accounts.courtesyOptedOutAt })
+      .select({ id: accounts.id, ownerEmail: accounts.ownerEmail, courtesyOptedOutAt: accounts.courtesyOptedOutAt })
       .from(accounts)
+    /* A history row also counts for the account it was written for, under whatever address that
+       account has now — an operator's change of address does not move the row. */
+    const emailOfAccount = new Map(accountRows.map((row) => [row.id, row.ownerEmail]))
 
     const result = new Map<string, CourtesyStatus>(
       accountRows.map((row) => [row.ownerEmail, { thanksSent: false, checkinSent: false, optedOut: row.courtesyOptedOutAt !== null }]),
@@ -61,16 +64,24 @@ export async function listCourtesyStatus(): Promise<Map<string, CourtesyStatus> 
      * failure `OutreachLine.inFlight` was built to avoid, in a new place.
      */
     const rows = await db()
-      .select({ kind: outreachActions.kind, accountOwnerEmail: outreachActions.accountOwnerEmail, status: outreachActions.status })
+      .select({
+        kind: outreachActions.kind,
+        accountId: outreachActions.accountId,
+        accountOwnerEmail: outreachActions.accountOwnerEmail,
+        status: outreachActions.status,
+      })
       .from(outreachActions)
       .where(inArray(outreachActions.kind, ['courtesy_thanks', 'courtesy_checkin']))
 
     for (const row of rows) {
       if (row.status !== 'done') continue
-      const entry = result.get(row.accountOwnerEmail)
-      if (entry === undefined) continue
-      if (row.kind === 'courtesy_thanks') entry.thanksSent = true
-      else if (row.kind === 'courtesy_checkin') entry.checkinSent = true
+      const current = row.accountId === null ? undefined : emailOfAccount.get(row.accountId)
+      for (const address of new Set([row.accountOwnerEmail, current])) {
+        const entry = address === undefined ? undefined : result.get(address)
+        if (entry === undefined) continue
+        if (row.kind === 'courtesy_thanks') entry.thanksSent = true
+        else if (row.kind === 'courtesy_checkin') entry.checkinSent = true
+      }
     }
 
     return result

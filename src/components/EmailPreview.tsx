@@ -10,9 +10,10 @@ import type { PreviewKey } from '@/lib/email/preview'
 import type { EmailTemplate } from '@/lib/email/templates'
 import { useOnline } from '@/lib/useOnline'
 
-const FAILURE_MESSAGE: Record<'no-session' | 'not-owner', string> = {
+const FAILURE_MESSAGE: Record<'no-session' | 'not-owner' | 'not-sent', string> = {
   'no-session': 'Your session expired — sign in again.',
   'not-owner': 'Only a global owner can send a test email.',
+  'not-sent': 'Resend refused the message: check the sender and the API key.',
 }
 
 /** The two tab rows (`Email Previews.dc.html`), derived from `PREVIEW_KEYS` rather than

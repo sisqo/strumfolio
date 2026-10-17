@@ -46,8 +46,8 @@ const EMPTY: CampaignInput = {
  *
  * Deliberately not ISO with a `Z`: the operator is scheduling a campaign against the clock on
  * the wall in front of them, and an input that shows UTC would make «starts at 9am» mean 10 or
- * 11 depending on the season. The action parses it back with `new Date(...)`, which reads a
- * zone-less local string as local — so the round trip agrees with what was typed.
+ * 11 depending on the season. `instantOf` turns it back into an instant *in the browser* before
+ * it is sent, so the round trip agrees with what was typed whatever zone the server runs in.
  */
 function localValue(iso: string): string {
   if (iso === '') return ''
@@ -55,6 +55,13 @@ function localValue(iso: string): string {
   if (Number.isNaN(date.getTime())) return ''
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** A `<datetime-local>` value as the instant it names in this browser's zone, ISO with a `Z`. */
+function instantOf(local: string): string {
+  if (local.trim() === '') return ''
+  const date = new Date(local)
+  return Number.isNaN(date.getTime()) ? local : date.toISOString()
 }
 
 /**
@@ -142,7 +149,11 @@ export function CampaignForm({ campaign, onDone }: { campaign: EditableCampaign 
     setDone(null)
 
     try {
-      const result = campaign === null ? await createCampaign(form) : await updateCampaign(campaign.id, form)
+      /* Sent as an instant, read here in the operator's zone: the action runs on a UTC server,
+         where `new Date('2026-10-31T23:59')` meant 23:59 UTC — an hour or two later than typed
+         in Rome — and every save, even one that only fixed the name, pushed both dates later. */
+      const sent = { ...form, startsAt: instantOf(form.startsAt), expiresAt: instantOf(form.expiresAt) }
+      const result = campaign === null ? await createCampaign(sent) : await updateCampaign(campaign.id, sent)
       if (result.ok) {
         setDone(campaign === null ? `Created ${normalizeCode(form.code)}.` : `Saved ${normalizeCode(form.code)}.`)
         router.refresh()

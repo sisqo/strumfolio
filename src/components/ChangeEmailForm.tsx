@@ -56,8 +56,8 @@ export function ChangeEmailForm({ ownerEmail }: { ownerEmail: string }) {
         <span className="acct-row-title">Email address</span>
         <span className="acct-row-note">
           Moves this account — its songbooks, songs, password, sign-in history and payment history — to a
-          new address. The old address stops existing; anyone signed in under it stays signed in until they
-          next sign out.
+          new address. The old address stops existing, every session open under it ends, and so do its AI
+          access tokens. Paddle keeps the old address for receipts until the customer changes it there.
         </span>
       </div>
 

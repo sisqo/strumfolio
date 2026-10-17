@@ -443,3 +443,12 @@ export async function activeCoupon(input: {
   }
 }
 
+
+/** How many accounts have redeemed one campaign on a Lifetime — the count its own ceiling is over. */
+export async function lifetimeRedeemedCount(campaignId: string): Promise<number> {
+  const rows = await db()
+    .select({ held: count() })
+    .from(couponRedemptions)
+    .where(and(eq(couponRedemptions.campaignId, campaignId), eq(couponRedemptions.plan, 'lifetime')))
+  return rows[0]?.held ?? 0
+}

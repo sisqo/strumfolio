@@ -18,9 +18,9 @@ import { requestOrigin } from '@/lib/rateLimit'
 
 import { buildEmailPreviews, isCourtesyPreview } from './preview'
 import type { PreviewKey } from './preview'
-import { sendEmail } from './send'
+import { deliverEmail } from './send'
 
-export type SendTestFailure = 'no-session' | 'not-owner'
+export type SendTestFailure = 'no-session' | 'not-owner' | 'not-sent'
 
 export async function sendTestEmail(key: PreviewKey): Promise<{ ok: true } | { ok: false; reason: SendTestFailure }> {
   const session = await auth()
@@ -33,7 +33,9 @@ export async function sendTestEmail(key: PreviewKey): Promise<{ ok: true } | { o
   // Prefixed so it can never be mistaken for a real one landing in the same inbox —
   // the sample link inside it opens the same "expired or invalid" state a stale real
   // one would (see `preview.ts`'s own comment), which reads as a bug without this.
-  await sendEmail({
+  /* The outcome, not «sent» regardless: this button exists to find out whether mail goes out,
+     and a Resend refusal (a sender the domain no longer verifies) used to read as success. */
+  const outcome = await deliverEmail({
     to: email,
     subject: `[Preview] ${template.subject}`,
     html: template.html,
@@ -43,5 +45,5 @@ export async function sendTestEmail(key: PreviewKey): Promise<{ ok: true } | { o
     // let an owner check, how a message actually looks in an inbox, sender included.
     ...(courtesy && { from: COURTESY_FROM, replyTo: COURTESY_REPLY_TO }),
   })
-  return { ok: true }
+  return outcome.ok ? { ok: true } : { ok: false, reason: 'not-sent' }
 }

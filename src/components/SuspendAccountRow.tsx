@@ -33,7 +33,7 @@ export function SuspendAccountRow({ ownerEmail, suspended }: { ownerEmail: strin
         <span className="acct-row-note">
           {suspended
             ? 'Lets this address sign in again. Nothing else about the account changed while it was suspended.'
-            : 'Blocks the next sign-in. A session already open — including one already broadcasting in Strum Together — keeps working until it naturally expires. Songbooks and songs are untouched, and it can be lifted at any time.'}
+            : 'Blocks sign-in and ends every session already open at once, a Strum Together broadcast and AI access included. Songbooks and songs are untouched, and it can be lifted at any time.'}
         </span>
         {error && (
           <p className="notice notice-error mt-2 text-sm" role="alert">
