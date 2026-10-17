@@ -311,10 +311,14 @@ export function purchaseEmail(input: {
       ? ''
       : ` You used ${coupon.code}, off the full price of ${euro(coupon.fullAmount)}.` +
         (coupon.duration === null ? '' : ` ${coupon.duration}`)
+  /* Decided by the cycle, not by the date: a subscription whose period could not be read has no
+     date to name but still renews, and must never be told it is kept «for good». */
   const renewalClause = (section: string) =>
-    endsOn === null
+    cycle === null
       ? 'There is nothing to renew — it stays yours, for good.'
-      : `It renews on ${endsOn} unless you cancel before then, and you can change or cancel it any time from ${section}.`
+      : endsOn === null
+        ? `It renews each ${cycle} unless you cancel, and you can change or cancel it any time from ${section}.`
+        : `It renews on ${endsOn} unless you cancel before then, and you can change or cancel it any time from ${section}.`
 
   const billingUrl = `https://${SITE_URL}/billing`
 

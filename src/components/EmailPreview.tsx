@@ -154,7 +154,8 @@ export function EmailPreview({ previews, defaultFrom }: { previews: Record<Previ
            own wash and cannot tell the difference. */
         <iframe
           title={`${PREVIEW_LABEL[active]} preview`}
-          srcDoc={template.html}
+          /* Links open in a tab: inside this frame the site itself is refused (X-Frame-Options). */
+          srcDoc={`<base target="_blank">${template.html}`}
           className="h-[520px] w-full rounded-[var(--r-lg)] border border-line bg-white p-4"
         />
       ) : (

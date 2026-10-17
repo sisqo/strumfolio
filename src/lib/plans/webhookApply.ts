@@ -510,8 +510,10 @@ async function announcePayment(
   /* The same reader the payment history uses, so the ledger line and the email cannot name
      different amounts for one event. */
   const line = readLine(event.eventType, rawBody)
-  if (line.amount !== null && Number(line.amount) === 0) return
   const purchase = isNewPurchase(event.data as never)
+  /* Zero is no payment only when nothing was bought: a card update. A first purchase at €0 —
+     a 100% coupon — is still announced, and its email still says when the price comes back. */
+  if (!purchase && line.amount !== null && Number(line.amount) === 0) return
   const planLabel = line.plan === null ? null : PLAN_LABEL[line.plan]
   const periodEnd = transactionPeriodEnd(event.data as never)
 

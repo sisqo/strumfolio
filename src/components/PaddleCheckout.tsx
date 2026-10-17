@@ -580,6 +580,9 @@ export function PaddleCheckout(props: Props) {
      * fell due in between — reports what actually happened rather than what was promised.
      */
     if (result.ok) {
+      /* An upgrade charged now changes the plan within seconds of the webhook: asked for again,
+         like after a purchase, or the reader meets the old plan's paywall until a reload. */
+      for (const delay of [3000, 8000, 20000, 40000]) window.setTimeout(() => void roleRef.current.refresh(), delay)
       setArranged(arrangedFor(result))
       setMessage(null)
     } else {
