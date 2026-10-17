@@ -14,6 +14,8 @@
  * indicator in the control bar exists — a pending write is visible.
  */
 
+import { keyFor } from '@/lib/storage/scope'
+
 import type { SaveResult } from './actions'
 import type { GlobalPrefs, SongPrefs } from './types'
 
@@ -59,15 +61,47 @@ export interface QueueHandlers {
  * Built as a factory rather than module-level state so it can be tested without
  * a backdoor to reset globals.
  */
-export function createPrefsQueue(options: { debounceMs?: number; retryMs?: number } = {}) {
+/**
+ * Where the queue keeps itself between page loads (2026-10-17). In memory alone, a change made
+ * seconds before a reload or a closed tab was lost: confirmed in a real browser — five taps of
+ * +1 and a star, Next, reload, and the server's old row came back over the device's newer one,
+ * because `adopt.ts` lets the server win when nothing is pending. Restored, the entries are
+ * pending again, so the device's value stands and is sent.
+ */
+export interface QueuePersistence {
+  load(): [string, Pending][] | null
+  save(entries: [string, Pending][]): void
+}
+
+export function createPrefsQueue(
+  options: { debounceMs?: number; retryMs?: number; persist?: QueuePersistence } = {},
+) {
   const debounceMs = options.debounceMs ?? DEBOUNCE_MS
   const retryMs = options.retryMs ?? RETRY_MS
+  const persist = options.persist
 
   /**
    * At most one pending write per target: only the latest value matters, so a
    * reader tapping +1 five times produces one save, not five.
    */
   const pending = new Map<QueueKey, Pending>()
+  let restored = false
+  /** Read back once, the first time anything asks — in the browser, after the scope exists. */
+  function restore() {
+    if (restored || persist === undefined || typeof window === 'undefined') return
+    restored = true
+    const stored = persist.load()
+    if (stored === null) return
+    for (const [key, entry] of stored) if (!pending.has(key as QueueKey)) pending.set(key as QueueKey, entry)
+    if (pending.size > 0) {
+      notify()
+      schedule(debounceMs)
+    }
+  }
+  function save() {
+    if (persist === undefined || typeof window === 'undefined') return
+    persist.save([...pending.entries()])
+  }
   const listeners = new Set<(count: number) => void>()
 
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -92,6 +126,7 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
   }
 
   async function flush(): Promise<void> {
+    restore()
     if (flushing || handlers === null || pending.size === 0) return
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return
 
@@ -129,6 +164,7 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
         if (pending.get(key) === entry) {
           pending.delete(key)
           notify()
+          save()
         }
       }
     } finally {
@@ -146,40 +182,51 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
   return {
     setHandlers(next: QueueHandlers) {
       handlers = next
+      restore()
     },
 
     subscribe(listener: (count: number) => void): () => void {
+      restore()
       listeners.add(listener)
       listener(pending.size)
       return () => listeners.delete(listener)
     },
 
     enqueueGlobal(prefs: GlobalPrefs) {
+      restore()
       pending.set('global', { kind: 'global', prefs })
       notify()
+      save()
       schedule(debounceMs)
     },
 
     enqueueSong(slug: string, prefs: SongPrefs) {
+      restore()
       pending.set(`song:${slug}`, { kind: 'song', slug, prefs })
       notify()
+      save()
       schedule(debounceMs)
     },
 
     enqueueFavorite(slug: string, favorite: boolean) {
+      restore()
       pending.set(`favorite:${slug}`, { kind: 'favorite', slug, favorite })
       notify()
+      save()
       schedule(debounceMs)
     },
 
     enqueueTabsExpanded(slug: string, tabsExpanded: boolean) {
+      restore()
       pending.set(`tabsExpanded:${slug}`, { kind: 'tabsExpanded', slug, tabsExpanded })
       notify()
+      save()
       schedule(debounceMs)
     },
 
     /** True while a change for this scope has not reached the server yet. */
     hasPending(key: QueueKey): boolean {
+      restore()
       return pending.has(key)
     },
 
@@ -193,6 +240,7 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
      * not.
      */
     pendingFavorites(): Record<string, boolean> {
+      restore()
       const found: Record<string, boolean> = {}
       for (const entry of pending.values()) {
         if (entry.kind === 'favorite') found[entry.slug] = entry.favorite
@@ -219,4 +267,31 @@ export function createPrefsQueue(options: { debounceMs?: number; retryMs?: numbe
   }
 }
 
-export const prefsQueue = createPrefsQueue()
+/** The queue's own key, scoped to the account like every other (`keyFor`): another reader
+    signing in on this device never sends this one's changes. */
+const QUEUE_KEY = 'prefs-queue'
+
+export const prefsQueue = createPrefsQueue({
+  persist: {
+    load() {
+      try {
+        const key = keyFor(QUEUE_KEY)
+        const raw = key === null ? null : window.localStorage.getItem(key)
+        const parsed: unknown = raw === null ? null : JSON.parse(raw)
+        return Array.isArray(parsed) ? (parsed as [string, Pending][]) : null
+      } catch {
+        return null
+      }
+    },
+    save(entries) {
+      try {
+        const key = keyFor(QUEUE_KEY)
+        if (key === null) return
+        if (entries.length === 0) window.localStorage.removeItem(key)
+        else window.localStorage.setItem(key, JSON.stringify(entries))
+      } catch {
+        // Private mode or a full quota: the queue still works in memory, as it always did.
+      }
+    },
+  },
+})

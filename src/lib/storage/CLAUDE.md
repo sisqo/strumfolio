@@ -8,6 +8,10 @@ written as a constant.** The keys used to be constants — `songs:songbooks`, `s
 any of them at sign-out or when a second account signed in on the same browser. The next reader
 inherited the previous one's songbook names, and in `songs:edits` their words and chords.
 
+**The preference queue is one of those keys** (`prefs-queue`, `lib/prefs/queue.ts`, 2026-10-17):
+what has not reached the server yet survives a reload, and is pending again when the page comes
+back, so `adopt.ts` keeps the device's value instead of the server's older one.
+
 It was visible rather than merely latent, and the mechanism is worth knowing because it makes
 any repeat of it look like a rendering glitch: `SongbookProvider` seeds its state from the
 server snapshot — which is correct and account-scoped — and then **replaces it in a
