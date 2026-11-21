@@ -645,6 +645,27 @@ async function endSubscriptionBoughtOut(account: { id: number; paddleSubscriptio
   }
 }
 
+/**
+ * The subscription a Lifetime bought out, when the Lifetime has just been taken back and that
+ * subscription is still only *scheduled* to end — the case `endSubscriptionBoughtOut`'s choice of
+ * `next_billing_period` was made for, and which nothing then acted on (found 2026-11-21): a reader
+ * who withdrew from the Lifetime inside the fourteen days was left on Free for the rest of a
+ * subscription period already paid, and with no plan at all once it ended. `pendingPlan` is null
+ * (the schedule's own event was withheld by `mayWritePlan`), so `/billing` offered no «Keep».
+ *
+ * **Told to the operator, never cleared from here.** The code cannot know whose cancellation it
+ * is: `endSubscriptionBoughtOut` skips a subscription the reader had already cancelled, and
+ * clearing that one would bill somebody who asked to stop. And the revocation may be a
+ * chargeback, where billing the same card again is the last thing to do. A refund is approved by
+ * hand anyway, so the person deciding it is the one who reads this.
+ */
+async function boughtOutStillRunning(subscriptionId: string): Promise<boolean> {
+  const paddle = paddleClient()
+  if (paddle === null) return false
+  const subscription = await paddle.subscriptions.get(subscriptionId)
+  return subscription.status !== 'canceled' && subscription.scheduledChange?.action === 'cancel'
+}
+
 export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: string): Promise<ApplyOutcome> {
   let effect = effectOf(event)
   /* Which account, and nothing more: every decision is taken on the row as re-read *inside* the
@@ -972,6 +993,23 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
         alerts.push(
           `⚠️ Chargeback vinto sul Lifetime dell'account ${before.id}: il Lifetime è di nuovo attivo, e la subscription ` +
             `${before.paddleSubscriptionId} comprata nel frattempo viene disdetta a fine periodo. Valuta un rimborso.`,
+        )
+      })
+    }
+
+    if (
+      effect?.statusOnly === 'expired' &&
+      readPlan(before.plan) === 'lifetime' &&
+      before.planStatus === 'active' &&
+      before.paddleSubscriptionId !== null
+    ) {
+      const subscriptionId = before.paddleSubscriptionId
+      await step('boughtOutStillRunning', async () => {
+        if (!(await boughtOutStillRunning(subscriptionId))) return
+        alerts.push(
+          `⚠️ Lifetime dell'account ${before.id} revocato (rimborso o contestazione), e la subscription ` +
+            `${subscriptionId} che aveva prima è ancora attiva ma disdetta a fine periodo, quindi l'account ora è su ` +
+            `Free. Se è un recesso e la disdetta l'aveva messa il Lifetime, toglila su Paddle e il piano torna da solo.`,
         )
       })
     }

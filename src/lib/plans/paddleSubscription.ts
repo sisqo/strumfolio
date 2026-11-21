@@ -38,6 +38,7 @@ import { paddlePriceId } from './paddlePrices'
 import { isCheckoutPlan } from './prices'
 import { paddleClient } from './paddleClient'
 import { paddleCallAllowed } from './paddleRate'
+import { holdsLifetime } from './resolve'
 import { planChangeNotice } from './subscriptionCopy'
 
 export type PaddleCancelFailure = 'not-configured' | 'no-database' | 'failed' | NoLiveSubscription
@@ -46,8 +47,11 @@ export type PaddleCancelResult =
   | { ok: true; effectiveAt: string | null }
   | { ok: false; reason: PaddleCancelFailure }
 
-/** Nothing was scheduled, so there is nothing to call off — not a fault, and worth its own word. */
-export type PaddleKeepFailure = PaddleCancelFailure | 'nothing-scheduled'
+/**
+ * Nothing was scheduled, so there is nothing to call off — not a fault, and worth its own word.
+ * `lifetime-held`: the cancellation is the one a Lifetime purchase put there, see below.
+ */
+export type PaddleKeepFailure = PaddleCancelFailure | 'nothing-scheduled' | 'lifetime-held'
 
 export type PaddleKeepResult = { ok: true } | { ok: false; reason: PaddleKeepFailure }
 
@@ -132,6 +136,16 @@ export async function keepPaddleSubscription(): Promise<PaddleKeepResult> {
   const paddle = paddleClient()
   if (paddle === null) return { ok: false, reason: 'not-configured' }
   if (!(await paddleCallAllowed())) return { ok: false, reason: 'failed' }
+
+  /*
+   * **Never beside a Lifetime in force** (2026-11-21). Buying Lifetime schedules the
+   * subscription's end (`endSubscriptionBoughtOut`), and a «Keep» pressed afterwards in a
+   * `/billing` tab opened before the purchase cleared it: the subscription renewed beside the
+   * Lifetime for ever, its events withheld by `mayWritePlan`, so nobody was told. The press is
+   * asked again here for the reason `startPaddleCheckout` asks — a render may be hours old.
+   */
+  const user = await currentUser()
+  if (user !== null && (await holdsLifetime(user.accountOwnerEmail))) return { ok: false, reason: 'lifetime-held' }
 
   try {
     const live = await livePaddleSubscription()

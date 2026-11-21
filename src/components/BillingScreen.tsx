@@ -48,6 +48,7 @@ const REFUSALS: Record<PaddleKeepFailure, string> = {
   'unexpected-items': 'Your subscription has an unusual shape. Please write to us and we will sort it out.',
   unreadable: 'We could not read your subscription just now. Please try again in a moment.',
   'nothing-scheduled': 'Nothing is scheduled, so there is nothing to call off.',
+  'lifetime-held': 'You have Lifetime now, so this subscription is ending on purpose and there is nothing to keep.',
   failed: "That didn't go through. Try again.",
 }
 
