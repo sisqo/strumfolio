@@ -7,7 +7,6 @@ import { usePrefs } from '@/components/PrefsProvider'
 import { useRole } from '@/components/RoleProvider'
 import { IconChevronDown, IconDownload, IconInfo, IconLock, IconPrint } from '@/components/icons'
 import { loadBooklet, loadBookletFooter, saveBookletFooter } from '@/lib/booklet/actions'
-import { bookletToBlob } from '@/lib/booklet/document'
 import type { Songbook } from '@/lib/data/types'
 import { downloadBlob } from '@/lib/download'
 import { PAYWALL_FEATURES } from '@/lib/plans/paywall'
@@ -141,6 +140,15 @@ export function BookletPanel() {
 
     setBusy(true)
     setNotice(null)
+    /*
+     * The typesetter is `@react-pdf/renderer` and `pdf-lib`, ~650 kB of the page's ~820 kB, and
+     * it was being fetched by everybody who only opened `/booklet` to look. Loaded on the press
+     * instead, beside `loadBooklet` rather than after it, so the wait is one round trip either
+     * way. The empty `catch` only stops a refusal below from leaving it unhandled; awaiting it
+     * still throws into this `try`.
+     */
+    const typesetter = import('@/lib/booklet/document')
+    typesetter.catch(() => {})
     try {
       const result = await loadBooklet(bookletSlug, usePersonalSettings, includeComments)
       if (!result.ok) {
@@ -163,6 +171,7 @@ export function BookletPanel() {
         return
       }
 
+      const { bookletToBlob } = await typesetter
       const blob = await bookletToBlob(booklet, global.notation, global.accidentals, global.instrument, footerText)
       downloadBlob(blob, `${booklet.songbookName}.pdf`)
       setNotice(`Downloaded "${booklet.songbookName}" as a printable booklet.`)
