@@ -5,4 +5,5 @@ import { isRecord, isSlug, readerRoute } from '@/lib/reader/route'
 export const POST = readerRoute(
   (body) => (isRecord(body) && isSlug(body.slug) ? { slug: body.slug } : null),
   ({ slug }) => loadSongContent(slug),
+  () => true,
 )

@@ -50,7 +50,10 @@ while it scrolls and a cue for the next song when it ends. What is not visible f
   screen goes the same way. Two things the queue gave for free and the code now does itself:
   the same-origin check (`readerRoute`) and the order of reads against writes
   (`pendingAtRead` in `prefs/adopt.ts`, `queuedAtRead` in `CommentsProvider`, `inOrder` for the
-  leader's broadcasts). **A write a queue waits on passes `readerRoute` its third argument**
-  (2026-11-21): with no session cookie it answers 401, so the queue keeps it — the redirect to
-  `/login` that used to do that no longer happens under `/api/reader/`, and `no-destination` is
-  dropped as finished.
+  leader's broadcasts). **A call whose answer to nobody would be wrong — a
+  write a queue waits on, a song's content — passes `readerRoute` its third argument**
+  (2026-11-21): with no session cookie it answers 401 and the caller keeps what it had, as the
+  redirect to `/login` used to make it; otherwise a write is dropped as `no-destination` and a
+  song read as `missing` shows as deleted. **The leader's pings are re-sent after a failure**
+  (`intended` in `lib/reader/client.ts`) until one lands well after the last, since an aborted
+  `fetch` can still reach the server late.

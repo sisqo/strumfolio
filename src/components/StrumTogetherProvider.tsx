@@ -7,7 +7,7 @@ import {
   startBroadcast,
   stopBroadcast,
 } from '@/lib/strumTogether/session'
-import { readerBroadcastAudience, readerMyBroadcast } from '@/lib/reader/client'
+import { forgetBroadcast, readerBroadcastAudience, readerMyBroadcast } from '@/lib/reader/client'
 
 type StartResult = Awaited<ReturnType<typeof startBroadcast>>
 type StopResult = Awaited<ReturnType<typeof stopBroadcast>>
@@ -120,7 +120,10 @@ export function StrumTogetherProvider({ children }: { children: ReactNode }) {
     setBusy(true)
     try {
       const result = await startBroadcast()
-      if (result.ok) setBroadcast({ token: result.token, songSlug: null, semitones: 0 })
+      if (result.ok) {
+        forgetBroadcast()
+        setBroadcast({ token: result.token, songSlug: null, semitones: 0 })
+      }
       return result
     } catch {
       return { ok: false, reason: 'failed' }
@@ -133,7 +136,10 @@ export function StrumTogetherProvider({ children }: { children: ReactNode }) {
     setBusy(true)
     try {
       const result = await stopBroadcast()
-      if (result.ok) setBroadcast(null)
+      if (result.ok) {
+        forgetBroadcast()
+        setBroadcast(null)
+      }
       return result
     } catch {
       return { ok: false }
