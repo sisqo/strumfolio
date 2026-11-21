@@ -10264,6 +10264,14 @@
     inset-inline-end: 0;
     z-index: 40;
     min-width: 13rem;
+    /* Its own scroll once it is taller than the screen under the bar (2026-11-21): the bar is
+       sticky, so scrolling the page never brought the bottom of a long menu into view — on a
+       phone held sideways «Help» and «Share your feedback» could not be reached, nor Settings'
+       last rows with the keyboard up. The `vh` line is for a browser without `dvh`. */
+    max-height: calc(100vh - 5rem);
+    max-height: calc(100dvh - 5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.5rem;
     background: var(--surface);
     border: 1px solid var(--edge);
@@ -13591,6 +13599,24 @@
   .metronome-panel,
   .speed-popover {
     z-index: 2;
+  }
+
+  /*
+   * On a short screen — a phone held sideways — the three panels that rise out of the reading
+   * bar grew past the top of the viewport with nothing to scroll (2026-11-21), so they get a
+   * ceiling and a scroll of their own there. Only there: `overflow` clips whatever a panel draws
+   * outside itself, and a full-height phone never needed it. `.speed-popover` is a slider on end
+   * and is left alone.
+   */
+  @media (max-height: 34rem) {
+    .control-panel,
+    .strum-panel,
+    .metronome-panel {
+      max-height: calc(100vh - 11rem - env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 11rem - env(safe-area-inset-bottom));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
   }
 
   @keyframes panelRise {
