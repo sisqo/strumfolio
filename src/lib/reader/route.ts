@@ -20,7 +20,13 @@
  * action got from Next for free and a route does not is the same-origin check, done here.
  */
 
-/** The ceiling Next.js puts on a Server Action's body, kept for the same calls. */
+import { hasSessionCookie } from '@/auth'
+import { hasDatabase } from '@/lib/db/client'
+
+/**
+ * A million characters, below the 3 MB `serverActions.bodySizeLimit` the same calls had as
+ * actions (`next.config.ts`) and far above anything they send: a note, a set of preferences.
+ */
 const MAX_BODY = 1_000_000
 
 /**
@@ -53,10 +59,21 @@ export function isSlug(value: unknown): value is string {
  * One route's `POST`: `parse` turns the JSON body into the call's arguments, or `null` for a
  * body that is not this call's (400); `run` makes the call. The answer is `{ value }`, `null`
  * standing for a `void` call.
+ *
+ * `isWrite` names the calls a queue is waiting on, and those answer **401 when the request
+ * carries no session cookie at all**. As actions they were posted to the page's own URL, which
+ * the middleware redirected to `/login` for a cookie that had expired, so the call rejected and
+ * the preferences queue and the notes outbox kept the write for after signing in. Here the
+ * middleware lets `/api/reader/` through, the action answers `no-destination`, and both queues
+ * drop that as finished — a capo or a note written in the last minutes of a ninety-day cookie
+ * was lost. The cookie and not `currentUser()`: a revoked session, or an account that is gone,
+ * still reaches the action and is dropped, exactly as it was, rather than retried for ever.
+ * Reads keep their own «nobody» answer, which is how a signed-out page learns it.
  */
 export function readerRoute<Input>(
   parse: (body: unknown) => Input | null,
   run: (input: Input) => Promise<unknown>,
+  isWrite: (input: Input) => boolean = () => false,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
     if (!fromThisSite(request)) return new Response(null, { status: 403 })
@@ -72,6 +89,7 @@ export function readerRoute<Input>(
     }
     const input = parse(body)
     if (input === null) return new Response(null, { status: 400 })
+    if (hasDatabase && isWrite(input) && !(await hasSessionCookie())) return new Response(null, { status: 401 })
 
     try {
       const value = (await run(input)) ?? null

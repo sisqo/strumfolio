@@ -32,4 +32,5 @@ export const POST = readerRoute(
         return deleteComment(call.id)
     }
   },
+  (call) => call.kind !== 'load',
 )

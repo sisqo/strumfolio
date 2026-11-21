@@ -50,4 +50,7 @@ while it scrolls and a cue for the next song when it ends. What is not visible f
   screen goes the same way. Two things the queue gave for free and the code now does itself:
   the same-origin check (`readerRoute`) and the order of reads against writes
   (`pendingAtRead` in `prefs/adopt.ts`, `queuedAtRead` in `CommentsProvider`, `inOrder` for the
-  leader's broadcasts).
+  leader's broadcasts). **A write a queue waits on passes `readerRoute` its third argument**
+  (2026-11-21): with no session cookie it answers 401, so the queue keeps it — the redirect to
+  `/login` that used to do that no longer happens under `/api/reader/`, and `no-destination` is
+  dropped as finished.

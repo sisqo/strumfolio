@@ -36,4 +36,5 @@ export const POST = readerRoute(
         return saveTabsExpanded(save.slug, save.value)
     }
   },
+  () => true,
 )

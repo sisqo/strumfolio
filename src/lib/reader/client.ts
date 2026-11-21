@@ -23,9 +23,9 @@ type Answer<F extends (...args: never[]) => Promise<unknown>> = Awaited<ReturnTy
 const TIMEOUT_MS = 15_000
 
 /**
- * Rejects on no network, on the timeout, and on any answer that is not the route's own: a
- * session that ended is redirected to `/login` by the middleware, and `fetch` follows that to
- * a page, not a result. Callers keep the `.catch` they had for the action.
+ * Rejects on no network, on the timeout, and on any answer that is not the route's own — a
+ * write sent with no session cookie is a 401 (`readerRoute`), and anything redirected is a
+ * page, not a result. Callers keep the `.catch` they had for the action.
  */
 async function post<T>(path: string, body: unknown): Promise<T> {
   const controller = new AbortController()
