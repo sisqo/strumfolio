@@ -126,7 +126,12 @@ export async function syncCampaignDiscounts(campaignId: string): Promise<SyncRes
         await paddle.discounts.update(existing, { ...body(spec), status: 'active' })
       } else {
         const created = await paddle.discounts.create(body(spec))
-        written[DISCOUNT_ID_COLUMN[spec.kind]] = created.id
+        /* Written at once, not with the others at the end: a throw on the next kind used to lose
+           this id, and the next Sync created the entity again beside an orphan nobody held. */
+        await db()
+          .update(couponCampaigns)
+          .set({ [DISCOUNT_ID_COLUMN[spec.kind]]: created.id })
+          .where(eq(couponCampaigns.id, campaignId))
       }
 
       synced.push(spec.kind)
@@ -150,7 +155,23 @@ export async function syncCampaignDiscounts(campaignId: string): Promise<SyncRes
     return { ok: true, synced }
   } catch (error) {
     console.error('syncCampaignDiscounts failed', campaignId, error)
+    await markOutOfStep(campaignId)
     return { ok: false, reason: 'failed' }
+  }
+}
+
+/**
+ * `last_synced_at` emptied when a sync or an archive fails, which `/coupons` reads as «this row
+ * and Paddle may disagree» (2026-11-21). A failure used to leave the previous date standing, and
+ * the list flagged only *missing* ids — so an edit of the months or the deadline that Paddle never
+ * received left entities discounting on the old terms while every screen here showed the new
+ * ones, with nothing for an operator to see. Best effort: the database may be what failed.
+ */
+async function markOutOfStep(campaignId: string) {
+  try {
+    await db().update(couponCampaigns).set({ lastSyncedAt: null }).where(eq(couponCampaigns.id, campaignId))
+  } catch (error) {
+    console.error('markOutOfStep failed', campaignId, error)
   }
 }
 
@@ -189,6 +210,7 @@ export async function archiveCampaignDiscounts(campaignId: string): Promise<Sync
     return { ok: true, synced: retired }
   } catch (error) {
     console.error('archiveCampaignDiscounts failed', campaignId, error)
+    await markOutOfStep(campaignId)
     return { ok: false, reason: 'failed' }
   }
 }

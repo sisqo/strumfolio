@@ -38,6 +38,8 @@ export interface CampaignRow extends EditableCampaign {
    * advertising campaign that quietly converts nobody.
    */
   missing: DiscountKind[]
+  /** The last sync or archive failed, so Paddle's entities may still carry the old terms. */
+  outOfStep: boolean
 }
 
 const STATUS_CLASS: Record<CampaignStatus, string> = {
@@ -141,7 +143,7 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
                 </span>
 
                 <span className="flex flex-none gap-2">
-                  {row.missing.length > 0 && (
+                  {(row.missing.length > 0 || row.outOfStep) && (
                     <button type="button" className="btn btn-sm" disabled={!online || busy} onClick={() => void sync(row)}>
                       Sync
                     </button>
@@ -200,6 +202,18 @@ export function CampaignList({ campaigns }: { campaigns: CampaignRow[] }) {
                     No discount on Paddle for {row.missing.map((kind) => DISCOUNT_KIND_LABEL[kind]).join(' and ')}.
                     Until there is, a reader carrying this code is refused at the checkout rather than charged the
                     full price. Press “Sync”.
+                  </span>
+                </p>
+              )}
+
+              {row.outOfStep && (
+                <p className="notice notice-error mt-2.5" role="status">
+                  <IconInfo />
+                  <span>
+                    {row.status === 'archived'
+                      ? 'Archived here, but Paddle did not take it: its discounts may still be active there.'
+                      : 'The last change did not reach Paddle, so its discounts may still be on the old terms.'}{' '}
+                    Press “Sync”.
                   </span>
                 </p>
               )}

@@ -74,6 +74,9 @@ function toRow(campaign: Campaign, now: Date): CampaignRow {
     /* Which halves of this campaign have no Paddle Discount behind them. An archived campaign is
        not missing anything — its entities are retired on purpose. */
     missing: campaign.status === 'archived' ? [] : missingDiscounts(campaign),
+    /* Its last sync or archive failed (`markOutOfStep`), so Paddle may hold other terms. Never
+       synced at all is the case `missing` already names. */
+    outOfStep: campaign.lastSyncedAt === null && (campaign.status === 'archived' || missingDiscounts(campaign).length === 0),
   }
 }
 

@@ -263,6 +263,7 @@ export function CampaignForm({ campaign, onDone }: { campaign: EditableCampaign 
             onChange={(event) => set('discountMonths', event.target.value)}
             inputMode="numeric"
             placeholder="forever"
+            disabled={percentLocked}
             className="form-field w-full"
           />
         </label>
@@ -287,7 +288,7 @@ export function CampaignForm({ campaign, onDone }: { campaign: EditableCampaign 
                 explanation reads as a bug. The remedy is named, since «you cannot» without
                 «instead, do this» is where an operator gets stuck. */}
             {redeemed} {redeemed === 1 ? 'account has' : 'accounts have'} redeemed this campaign, so the discount is
-            frozen at {form.discountPercent}% — what they were promised has to stay what they were promised. To change
+            frozen at {form.discountPercent}% for {form.discountMonths === '' ? 'ever' : form.discountMonths === '1' ? '1 month' : `${form.discountMonths} months`} — what they were promised has to stay what they were promised. To change
             the rate, archive this and make a new campaign.
           </span>
         </p>

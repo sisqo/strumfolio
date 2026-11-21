@@ -391,6 +391,12 @@ export type CampaignFailure =
   | 'default-needs-url'
   | 'default-not-live'
   | 'percent-locked'
+  /**
+   * How many months the discount runs is the other half of what was promised (2026-11-21): an
+   * edit rewrote `maximum_recurring_intervals` on the very Discount entities existing
+   * subscriptions carry, while their `discount_ends_at` kept the old date.
+   */
+  | 'months-locked'
   /** Its code is in cookies, links and ads already, and a redemption is recorded under it. */
   | 'code-locked'
   /** An archived campaign's code is never reused, so the campaign is not edited either. */
@@ -423,6 +429,8 @@ export const CAMPAIGN_FAILURE_MESSAGE: Record<CampaignFailure, string> = {
   'default-not-live': 'Only a live campaign can be the default one: this one is not active or scheduled.',
   'percent-locked':
     'This campaign has redemptions, so its discount cannot change — archive it and make a new one.',
+  'months-locked':
+    'This campaign has redemptions, so how long its discount lasts cannot change — archive it and make a new one.',
   'code-locked': 'This campaign has redemptions, so its code cannot change — archive it and make a new one.',
   archived: 'An archived campaign cannot be edited; its code is never reused.',
   'limit-below-redeemed': 'That limit is below the number of redemptions this campaign already has.',

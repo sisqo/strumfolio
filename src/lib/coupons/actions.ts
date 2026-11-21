@@ -465,6 +465,9 @@ export async function updateCampaign(
     if (existing.redeemed > 0 && checked.value.discountPercent !== existing.discountPercent) {
       return { ok: false, reason: 'percent-locked' }
     }
+    if (existing.redeemed > 0 && checked.value.discountMonths !== existing.discountMonths) {
+      return { ok: false, reason: 'months-locked' }
+    }
     if (existing.redeemed > 0 && checked.value.code !== existing.code) return { ok: false, reason: 'code-locked' }
 
     /* Each ceiling against what it counts: the Lifetime one over Lifetime redemptions alone, as
@@ -502,14 +505,19 @@ export async function updateCampaign(
       if (locked === undefined) return 'not-found' as const
       if (locked.archivedAt !== null) return 'archived' as const
       const changesTerms =
-        checked.value.discountPercent !== existing.discountPercent || checked.value.code !== existing.code
+        checked.value.discountPercent !== existing.discountPercent ||
+        checked.value.discountMonths !== existing.discountMonths ||
+        checked.value.code !== existing.code
       if (changesTerms) {
         const [held] = await tx
           .select({ held: count() })
           .from(couponRedemptions)
           .where(eq(couponRedemptions.campaignId, id))
         if ((held?.held ?? 0) > 0) {
-          return checked.value.code !== existing.code ? ('code-locked' as const) : ('percent-locked' as const)
+          if (checked.value.code !== existing.code) return 'code-locked' as const
+          return checked.value.discountPercent !== existing.discountPercent
+            ? ('percent-locked' as const)
+            : ('months-locked' as const)
         }
       }
       if (checked.value.isDefault) await unflagOtherDefaults(tx, id)
@@ -593,7 +601,10 @@ export async function resyncCampaign(id: string): Promise<{ ok: true } | { ok: f
   const owner = await requireOwner()
   if (!owner.ok) return owner
 
-  const result = await syncCampaignDiscounts(id)
+  /* An archived campaign is synced by retiring its entities again: the one a failed archive
+     left `active` at Paddle's end. */
+  const archived = (await campaignById(id))?.archivedAt != null
+  const result = archived ? await archiveCampaignDiscounts(id) : await syncCampaignDiscounts(id)
   if (result.ok) {
     console.warn(`coupon campaign synced to Paddle: ${id} (${result.synced.join(', ') || 'nothing'}) by ${owner.email}`)
     return { ok: true }

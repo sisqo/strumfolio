@@ -95,10 +95,16 @@ load-bearing parts:
   `resyncCampaign` is the only path that builds them — the write path only syncs a campaign it
   is saving. Worth doing deliberately after a deploy rather than discovering from a conversion
   rate.
+- **A sync that fails empties `last_synced_at`** (2026-11-21, `markOutOfStep`), and `/coupons`
+  offers «Sync» for that row too: before, only *missing* ids were flagged, so an edit Paddle never
+  received left its entities on the old terms with nothing to see. «Sync» on an archived row
+  archives again. Each id is written the moment its entity is created, so a failure halfway no
+  longer leaves an orphan that the next Sync duplicates.
 - **What an operator can no longer change** (2026-10-17, `updateCampaign`/`createCampaign`): an
   archived campaign is not edited at all (`archived` — renamed, its code was free for a new
   campaign that old cookies and links would resolve to); after the first redemption neither the
-  percent nor the code moves (`percent-locked`, `code-locked`); and a campaign whose dates are
+  percent, nor the months, nor the code moves (`percent-locked`, `months-locked` since 2026-11-21,
+  `code-locked`); and a campaign whose dates are
   not live cannot be made the default (`default-not-live`). `CampaignForm` sends its dates as
   instants converted in the browser (`instantOf`), because the server runs in UTC and read a
   zoneless time as UTC.
