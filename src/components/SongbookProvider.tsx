@@ -79,18 +79,23 @@ const SongbookContext = createContext<SongbookContextValue | null>(null)
 /**
  * Holds the mutable songbook layer.
  *
- * Three sources, applied in this order: the snapshot baked into the static page,
- * then the local cache (which can be newer than the last build), then the
- * server, which is authoritative. Reading the cache in a layout effect keeps it
- * out of render — that would differ from the server markup and trip hydration —
- * while still landing before the browser paints.
+ * Three sources: the snapshot the page was rendered with, the local cache, and the
+ * server, which is authoritative. **The cache is adopted only offline** (2026-11-21). The
+ * pages are rendered per request, so online `initial` is already the server's answer and
+ * the cache — written by home, a songbook and `/add`, whenever those were last open — can
+ * only be older: the editor, which does not refresh on mount, showed a section menu without
+ * a section added since on another device, and choosing a songbook there filed the song in
+ * a section that no longer existed. Offline the page itself came from the service worker's
+ * copy, and there the cache may be the newer of the two. Read in a layout effect so it stays
+ * out of render — that would differ from the server markup and trip hydration — while still
+ * landing before the browser paints.
  */
 export function SongbookProvider({
   initial,
   refreshOnMount = true,
   children,
 }: {
-  /** Snapshot from build time, so the first paint is already right. */
+  /** The snapshot this page was rendered with, so the first paint is already right. */
   initial: SongbookState
   /**
    * False on the reading pages, where the round trip is spent on the song itself.
@@ -111,6 +116,7 @@ export function SongbookProvider({
   const online = useOnline()
 
   useLayoutEffect(() => {
+    if (navigator.onLine) return
     const cached = readSongbookCache()
     if (cached !== null) setState(cached)
   }, [])
