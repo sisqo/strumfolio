@@ -193,7 +193,7 @@ export async function SongReader({ song }: { song: Song }) {
               ? undefined
               : { href: `/songbooks/${home.slug}#song-${song.slug}`, label: home.name }
           }
-          search={<SongReaderSearch library={library} />}
+          search={<SongReaderSearch library={library} current={toIndexRow(song)} />}
         />
 
         {/*

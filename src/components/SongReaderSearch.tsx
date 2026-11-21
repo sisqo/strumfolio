@@ -22,10 +22,19 @@ import type { SongIndexRow } from '@/lib/search-index'
  * every song a reader opens, so nothing here should carry a whole account's words along
  * for a feature most of those loads never use.
  */
+function matches(song: SongIndexRow, terms: string[]): boolean {
+  const haystack = `${song.title} ${song.artist ?? ''} ${song.tags.join(' ')}`.toLowerCase()
+  return terms.every((term) => haystack.includes(term))
+}
+
 export function SongReaderSearch({
   library,
+  current,
 }: {
   library: { song: SongIndexRow; under: string | null }[]
+  /** The song on screen, which `library` leaves out — named only to say so when it is the one
+      thing a query finds, rather than «No songs found» about a song the reader is looking at. */
+  current: SongIndexRow
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -48,18 +57,12 @@ export function SongReaderSearch({
 
   // Every term must appear somewhere, so "certe notti" and "notti certe" both match —
   // same rule as HomeScreen's own search, applied to fewer fields.
+  const terms = useMemo(() => deferred.trim().toLowerCase().split(/\s+/).filter(Boolean), [deferred])
   const results = useMemo(() => {
-    const needle = deferred.trim().toLowerCase()
-    if (needle === '') return []
-
-    const terms = needle.split(/\s+/)
-    const found = library.filter(({ song }) => {
-      const haystack = `${song.title} ${song.artist ?? ''} ${song.tags.join(' ')}`.toLowerCase()
-      return terms.every((term) => haystack.includes(term))
-    })
-
+    if (terms.length === 0) return []
+    const found = library.filter(({ song }) => matches(song, terms))
     return [...found].sort((one, other) => one.song.title.localeCompare(other.song.title, 'it'))
-  }, [library, deferred])
+  }, [library, terms])
 
   // A song alone in its account — nothing else to jump to. After the hooks above, not
   // before: their own order must never depend on how many songs happen to exist.
@@ -100,7 +103,9 @@ export function SongReaderSearch({
 
               {searching &&
                 (results.length === 0 ? (
-                  <p className="mt-4 text-center text-sm text-muted">No songs found.</p>
+                  <p className="mt-4 text-center text-sm text-muted">
+                    {matches(current, terms) ? 'That is the song you are reading.' : 'No songs found.'}
+                  </p>
                 ) : (
                   <ul className="song-search-results row-list card">
                     {results.map(({ song, under }) => (
