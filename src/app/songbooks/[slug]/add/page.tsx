@@ -6,11 +6,9 @@ import { Footer } from '@/components/Footer'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { SongbookProvider } from '@/components/SongbookProvider'
 import { TopBar } from '@/components/TopBar'
-import { accessTo } from '@/lib/auth/session'
-import { songbookAccountOf } from '@/lib/data/access'
 import { listSectionsForAccount, listSongbooksForAccount, listSongsForAccount } from '@/lib/data/db'
 import { repository } from '@/lib/data'
-import { hasDatabase } from '@/lib/db/client'
+import { resolveSongbook } from '@/lib/songbooks/page'
 import { snapshot } from '@/lib/songbooks/snapshot'
 
 interface Props {
@@ -20,17 +18,6 @@ interface Props {
 /** Same reasoning as the songbook page it is one level below: an account-scoped
  *  page, rendered per request rather than baked at build time. */
 export const dynamic = 'force-dynamic'
-
-/** Copied from `/songbooks/[slug]`, whose own comment explains the `null` cases. */
-async function resolveSongbook(slug: string): Promise<{ accountOwnerEmail: string | null } | null> {
-  if (!hasDatabase) return { accountOwnerEmail: null }
-
-  const owner = await songbookAccountOf(slug)
-  if (owner === null) return null
-  if ((await accessTo(owner)) === null) return null
-
-  return { accountOwnerEmail: owner }
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

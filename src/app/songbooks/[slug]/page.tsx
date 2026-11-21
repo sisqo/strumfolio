@@ -9,17 +9,16 @@ import { SongbookSongs } from '@/components/SongbookSongs'
 import { PrefsProvider } from '@/components/PrefsProvider'
 import { TopBar } from '@/components/TopBar'
 import { IconChevronLeft } from '@/components/icons'
-import { accessTo, currentUser } from '@/lib/auth/session'
-import { songbookAccountOf } from '@/lib/data/access'
+import { currentUser } from '@/lib/auth/session'
 import {
   listFavoriteSlugs,
   listSectionsForAccount,
   listSongbooksForAccount,
   listSongsForAccount,
 } from '@/lib/data/db'
+import { resolveSongbook } from '@/lib/songbooks/page'
 import { snapshot } from '@/lib/songbooks/snapshot'
 import { repository } from '@/lib/data'
-import { hasDatabase } from '@/lib/db/client'
 import { toIndexRow } from '@/lib/search-index'
 
 interface Props {
@@ -33,23 +32,6 @@ interface Props {
  * nothing left to check at request time.
  */
 export const dynamic = 'force-dynamic'
-
-/**
- * Which account's shelf this slug is on, and whether the asking reader may see it —
- * `null` for either "no such songbook" or "not this reader's", on purpose, same as
- * `songbooks/access.ts`'s own reasoning. `accountOwnerEmail` is `null` only when there
- * is no database at all, in which case there is one local repertoire and nothing to
- * check — see `lib/data/index.ts`.
- */
-async function resolveSongbook(slug: string): Promise<{ accountOwnerEmail: string | null } | null> {
-  if (!hasDatabase) return { accountOwnerEmail: null }
-
-  const owner = await songbookAccountOf(slug)
-  if (owner === null) return null
-  if ((await accessTo(owner)) === null) return null
-
-  return { accountOwnerEmail: owner }
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
