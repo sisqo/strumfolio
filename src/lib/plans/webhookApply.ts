@@ -1009,7 +1009,7 @@ export async function applyPaddleEvent(event: IncomingPaddleEvent, rawBody: stri
         alerts.push(
           `⚠️ Lifetime dell'account ${before.id} revocato (rimborso o contestazione), e la subscription ` +
             `${subscriptionId} che aveva prima è ancora attiva ma disdetta a fine periodo, quindi l'account ora è su ` +
-            `Free. Se è un recesso e la disdetta l'aveva messa il Lifetime, toglila su Paddle e il piano torna da solo.`,
+            `Free. Se è un recesso e la disdetta l'aveva messa il Lifetime, toglila su Paddle: il piano dovrebbe tornare da solo, controlla su /accounts.`,
         )
       })
     }
